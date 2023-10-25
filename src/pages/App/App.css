@@ -1,0 +1,73 @@
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+body {
+  margin: 0;
+  background-color: white;
+  padding: 2vmin;
+  height: 100vh;
+}
+
+h1 {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+form {
+  display: grid;
+  grid-template-columns: 1fr 3fr;
+  gap: 1.25vmin;
+  color: var(--text-light);
+}
+
+label {
+  font-size: 3vmin;
+  display: flex;
+  align-items: center;
+}
+
+.card {
+  display: inline-block;
+  margin: 1rem;
+  width: 18rem;
+}
+
+.note-actions {
+  margin : 1rem auto;
+}
+
+.note-actions > a {
+  margin-right : 1rem;
+}
+
+.list-group {
+  text-align: left;
+}
+
+
+.note-item .badge {
+  margin-right: 1vmin;
+}
+
+.noteForm form {
+  display: block;
+  max-width: 350px;
+  margin: 2vmin 0;
+}
+
+.noteForm * {
+  margin: 1vmin 0;
+  text-align: left;
+}
+
+.note-item p {
+  font-size: 2.5vmin;
+}
