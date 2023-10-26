@@ -1,0 +1,20 @@
+form.newDestination {
+    width: 75%;
+    min-width: 400px;
+    margin: 0 auto;
+}
+
+form.newDestination button {
+    grid-column: 1 / span 2;
+    width: 25%;
+    min-width: 50px;
+    margin: 2rem auto;
+}
+
+form.newDestination label {
+    font-size: 2vmin;
+}
+
+p {
+    margin: 0;
+}

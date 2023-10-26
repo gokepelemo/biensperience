@@ -1,0 +1,16 @@
+form.newExperience {
+    width: 75%;
+    min-width: 400px;
+    margin: 0 auto;
+}
+
+form.newExperience button {
+    grid-column: 1 / span 2;
+    width: 25%;
+    min-width: 50px;
+    margin: 2rem auto;
+}
+
+form.newExperience label {
+    font-size: 2vmin;
+}

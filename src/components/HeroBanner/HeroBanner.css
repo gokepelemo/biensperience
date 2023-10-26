@@ -1,0 +1,23 @@
+:root {
+    --hero1: no-repeat center/100% url(https://images.unsplash.com/photo-1545150665-c72a8f0cf311)
+}
+
+.heroBanner {
+    background: var(--hero1);
+    height: 40vmin;
+}
+
+.tagline {
+    width: 40%;
+    height: 100%;
+    display: flex;
+    color: white;
+    padding: 0 20px; 
+    font-size: 3vmin;
+    min-width: 250px;
+    max-width: 500px;
+    align-items: center;
+    justify-content: start;
+    -webkit-text-stroke-color: black;
+    -webkit-text-stroke-width: 0.5px;
+}
