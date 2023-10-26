@@ -1,0 +1,27 @@
+.profile-heading {
+    text-align: left;
+}
+
+.badge-nav {
+    width: fit-content;
+    margin: 0 auto;
+    font-size: 1rem;
+}
+
+.badge-nav span {
+    padding: 0.5rem 2rem;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.photoCard {
+}
+
+.profile-detail {
+    margin: 0;
+}
+
+.profile-detail li {
+    margin: 0;
+    padding: 1rem;
+}

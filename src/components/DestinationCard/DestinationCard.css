@@ -1,0 +1,25 @@
+.destination {
+    margin: 1rem 1rem 1rem 0;
+    display: inline-block;
+    width: fit-content;
+}
+
+.destinationCard {
+    border-radius: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-blend-mode: darken;
+    width: 12rem;
+    height: 6rem;
+}
+
+.destinationCard span {
+    color: white;
+    -webkit-text-stroke-color: grey;
+    -webkit-text-stroke-width: 0.01px;
+}
+
+.destination a {
+    text-decoration: none;
+}

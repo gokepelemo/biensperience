@@ -20,7 +20,7 @@ async function createExperience(req, res) {
 
 async function showExperience(req, res) {
   try {
-    const experience = await Experience.findById(req.params.id);
+    const experience = await Experience.findById(req.params.id).populate("destination");
     return res.json(experience);
   } catch (err) {
     res.status(400).json(err);

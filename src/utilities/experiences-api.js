@@ -16,6 +16,10 @@ export async function updateExperience (experienceData) {
     return await sendRequest(`/api/experiences/${experienceData.id}`, "PUT", experienceData)
 }
 
-export async function deleteExperience (id) {
-    return await sendRequest(`/api/experiences/${id}`, "DELETE")
+export async function userRemoveExperience (userId, experienceId) {
+    return await sendRequest(`/api/users/${userId}/experiences/${experienceId}`, "DELETE")
+}
+
+export async function userAddExperience (userId, experienceId) {
+    return await sendRequest(`/api/users/${userId}/experiences/${experienceId}`, "POST")
 }

@@ -57,14 +57,13 @@ export default function NewExperience() {
           onChange={handleChange}
           id="destination"
           className="form-control"
+          autocomplete="off"
         />
         <datalist type="text" id="destination_list">
           {destinations.length &&
             destinations.map((destination, index) => {
               return (
-                <option key={index}>
-                  {destination.name}, {destination.country}
-                </option>
+                <option key={index} value={`${destination.name}, ${destination.country}`} />
               );
             })}
         </datalist>
@@ -76,7 +75,6 @@ export default function NewExperience() {
           onChange={handleChange}
           className="form-control"
         />
-        {/* pick list with experience types */}
         <label>Types</label>
         <input
           type="text"
@@ -85,10 +83,6 @@ export default function NewExperience() {
           onChange={handleChange}
           className="form-control"
         />
-        <label>Plan Items</label>
-        <select name="plan_items" id="plan_items" className="form-control">
-          <option>Replace with plan items</option>
-        </select>
         <label>Photo</label>
         <input type="file" name="photo" id="photo" className="form-control" />
         <button type="submit" className="btn btn-light">
