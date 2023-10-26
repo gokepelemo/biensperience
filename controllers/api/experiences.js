@@ -1,5 +1,14 @@
 const Experience = require("../../models/experience");
 
+async function index(req, res) {
+  try {
+    const experiences = await Experience.find({});
+    return res.json(experiences);
+  } catch (err) {
+    res.status(400).json(err);
+  }
+}
+
 async function createExperience(req, res) {
   try {
     const experience = await Experience.create(req.body);
@@ -11,7 +20,7 @@ async function createExperience(req, res) {
 
 async function showExperience(req, res) {
   try {
-    const experience = await Experience.findById(req.body);
+    const experience = await Experience.findById(req.params.id);
     return res.json(experience);
   } catch (err) {
     res.status(400).json(err);
@@ -53,4 +62,5 @@ module.exports = {
   show: showExperience,
   update: updateExperience,
   delete: deleteExperience,
+  index
 };

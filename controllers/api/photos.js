@@ -11,7 +11,7 @@ async function createPhoto(req, res) {
 
 async function updatePhoto(req, res) {
   try {
-    const photo = await Photo.findByIdAndUpdate(req.body);
+    const photo = await Photo.findByIdAndUpdate(req.params.id, req.body);
     return res.json(photo);
   } catch (err) {
     res.status(400).json(err);
@@ -20,7 +20,7 @@ async function updatePhoto(req, res) {
 
 async function deletePhoto(req, res) {
   try {
-    const photo = await Photo.findByIdAndDelete(req.body);
+    const photo = await Photo.findByIdAndDelete(req.params.id);
     return res.json(photo);
   } catch (err) {
     res.status(400).json(err);

@@ -3,6 +3,7 @@ const router = express.Router()
 const experiencesCtrl = require('../../controllers/api/experiences');
 const ensureLoggedIn = require('../../config/ensureLoggedIn')
 
+router.get('/', ensureLoggedIn, experiencesCtrl.index);
 router.post('/', ensureLoggedIn, experiencesCtrl.create);
 router.delete('/:id', ensureLoggedIn, experiencesCtrl.delete);
 router.put('/:id', ensureLoggedIn, experiencesCtrl.update);

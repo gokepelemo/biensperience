@@ -12,8 +12,8 @@
 body {
   margin: 0;
   background-color: white;
-  padding: 2vmin;
   height: 100vh;
+  font-family: "Inter";
 }
 
 h1 {

@@ -9,9 +9,20 @@ const planItemSchema = new Schema({
 
 const experienceSchema = new Schema(
   {
-    map_location: { type: String },
-    experience_type: { type: String },
-    planItems: [planItemSchema],
+    name: {
+      type: String,
+      required: true,
+    },
+    destination: { 
+      type: Schema.Types.ObjectId, ref: "Destination",
+      // required: true,
+    },
+    map_location: { 
+      type: String,
+      // required: true,
+    },
+    experience_type: [String],
+    plan_items: [planItemSchema],
     photo: { type: Schema.Types.ObjectId, ref: "Photo" },
   },
   {
@@ -20,7 +31,7 @@ const experienceSchema = new Schema(
 );
 
 experienceSchema.virtual("cost_estimate").get(function () {
-  return this.planItems.reduce(function (sum, item) {
+  return this.plan_items.reduce(function (sum, item) {
     sum + item.cost_estimate;
   });
 });

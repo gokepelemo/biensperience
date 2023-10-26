@@ -27,7 +27,7 @@ const userSchema = new Schema(
     experiences: [{
       type: Map,
       of: new Schema({
-        experience: {type: ObjectId, ref: 'Experience'},
+        experience: {type: Schema.Types.ObjectId, ref: 'Experience'},
         plan: [String]
       })
     }]

@@ -3,7 +3,8 @@ const Schema = mongoose.Schema;
 
 const photoSchema = new Schema(
   {
-    key: { type: String },
+    url: { type: String },
+    s3_key: { type: String },
     photo_credit: { type: String },
     photo_credit_url: { type: String },
   },

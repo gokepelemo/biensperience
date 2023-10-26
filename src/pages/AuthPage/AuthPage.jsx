@@ -10,7 +10,7 @@ export default function AuthPage ({ setUser }) {
     }
     return (
     <main className="authPage">
-    <h1>Quick Notes</h1>
+    <h1>Biensperience</h1>
     { signup ? 
     <>
     <SignUpForm setUser={setUser} setSignup={setSignup} />
