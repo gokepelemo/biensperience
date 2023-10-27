@@ -1,11 +1,12 @@
 .experience {
     margin: 1rem 1rem 1rem 0;
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: fit-content;
 }
 .experienceCard {
-    width: 40%;
-    min-width: 28rem;
+    width: 25rem;
     min-height: 7.5rem;
     display: flex;
     align-items: center;
@@ -18,14 +19,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    -webkit-text-stroke-color: grey;
+    color: black;
+    font-weight: bold;
+    font-size: 1.5rem;
+    -webkit-text-stroke-color: white;
     -webkit-text-stroke-width: 0.01px;
 }
 
 .experienceCard button {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     font-weight: bold;
     padding: 0 0.5rem;
     align-self: flex-start;

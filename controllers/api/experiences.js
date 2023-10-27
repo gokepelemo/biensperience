@@ -20,7 +20,9 @@ async function createExperience(req, res) {
 
 async function showExperience(req, res) {
   try {
-    const experience = await Experience.findById(req.params.id).populate("destination");
+    const experience = await Experience.findById(req.params.id).populate(
+      "destination"
+    );
     return res.json(experience);
   } catch (err) {
     res.status(400).json(err);
@@ -31,16 +33,7 @@ async function updateExperience(req, res) {
   const experienceId = req.params.experienceId ? req.params.experienceId : id;
   try {
     let experience = await Experience.findById(experienceId);
-    if (req.params.experienceId && req.method == "POST") {
-      experience.planItems.create(req.body);
-    } else if (req.params.planItemId && req.method == "PUT") {
-      let planItem = experience.planItems.id(req.params.planItemId);
-      Object.assign(planItem, req.body);
-    } else if (req.params.planItemId && req.method == "DELETE") {
-      let planItem = experience.planItems.id(req.params.planItemId).deleteOne();
-    } else {
-      Object.assign(experience, req.body);
-    }
+    experience = Object.assign(experience, req.body);
     await experience.save();
     return res.json(experience);
   } catch (err) {
@@ -50,8 +43,40 @@ async function updateExperience(req, res) {
 
 async function deleteExperience(req, res) {
   try {
-    const experience = await Experience.findByIdAndDelete(req.body);
+    const experience = await Experience.findByIdAndDelete(req.params.id);
     return res.json(experience);
+  } catch (err) {
+    res.status(400).json(err);
+  }
+}
+
+async function createPlanItem(req, res) {
+  try {
+    let experience = await Experience.findById(req.params.experienceId);
+    let plan_item = experience.plan_items.create(req.body);
+    res.json(experience);
+  } catch (err) {
+    res.status(400).json(err);
+  }
+}
+
+async function updatePlanItem(req, res) {
+  try {
+    let experience = await Experience.findById(req.params.experienceId);
+    let plan_item = experience.plan_items.id(req.params.planItemId);
+    plan_item = Object.assign(plan_item, req.body);
+    experience.save();
+    res.json(experience);
+  } catch (err) {
+    res.status(400).json(err);
+  }
+}
+
+async function deletePlanItem(req, res) {
+  try {
+    let experience = await Experience.findById(req.params.experienceId);
+    experience.plan_items.id(req.params.planItemId).deleteOne();
+    res.json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -62,5 +87,8 @@ module.exports = {
   show: showExperience,
   update: updateExperience,
   delete: deleteExperience,
-  index
+  index,
+  createPlanItem,
+  updatePlanItem,
+  deletePlanItem
 };

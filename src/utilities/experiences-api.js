@@ -12,8 +12,8 @@ export async function showExperience (id) {
     return await sendRequest(`/api/experiences/${id}`, "GET")
 }
 
-export async function updateExperience (experienceData) {
-    return await sendRequest(`/api/experiences/${experienceData.id}`, "PUT", experienceData)
+export async function updateExperience (experienceId, experienceData) {
+    return await sendRequest(`/api/experiences/${experienceId}`, "PUT", experienceData)
 }
 
 export async function userRemoveExperience (userId, experienceId) {
@@ -22,4 +22,16 @@ export async function userRemoveExperience (userId, experienceId) {
 
 export async function userAddExperience (userId, experienceId) {
     return await sendRequest(`/api/users/${userId}/experiences/${experienceId}`, "POST")
+}
+
+export async function addPlanItem (experienceId, planItemData) {
+    return await sendRequest(`/api/experiences/${experienceId}/plan-item`, "POST", planItemData)
+}
+
+export async function updatePlanItem (experienceId, planItemData) {
+    return await sendRequest(`/api/experiences/${experienceId}/plan-item/${planItemData.id}`, "PUT", planItemData)
+}
+
+export async function deletePlanItem (experienceId) {
+    return await sendRequest(`/api/experiences/${experienceId}/plan-item/${planItemData.id}`, "DELETE")
 }

@@ -18,7 +18,12 @@ export function getToken() {
 
 export function getUser() {
     const token = getToken();
-    return token ? JSON.parse(atob(token.split('.')[1])).user : null;
+    let user;
+    if (token) {
+        user = JSON.parse(atob(token.split('.')[1])).user;
+        user.experiences = null;
+     }
+    return token ? user : null;
 }
 
 export function logout() {

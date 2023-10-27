@@ -14,7 +14,7 @@ export default function PhotoCard({ photo, altText }) {
           )}
         </>
       ) : (
-        <div className="photoCard"><img src="https://picsum.photos/400" className="rounded img-fluid" alt="Photo Placeholder" /></div>
+        <div className="photoCard"><img src="https://picsum.photos/600" className="rounded img-fluid" alt="Photo Placeholder" /></div>
       )}
     </>
   );

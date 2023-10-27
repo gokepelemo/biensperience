@@ -8,9 +8,8 @@ router.post('/', ensureLoggedIn, experiencesCtrl.create);
 router.delete('/:id', ensureLoggedIn, experiencesCtrl.delete);
 router.put('/:id', ensureLoggedIn, experiencesCtrl.update);
 router.get('/:id', ensureLoggedIn, experiencesCtrl.show);
-// update plan items with its own controller function
-router.post('/:experienceId/plan-item', ensureLoggedIn, experiencesCtrl.update);
-router.delete('/:experienceId/plan-item/:planItemId', ensureLoggedIn, experiencesCtrl.update);
-router.put('/:experienceId/plan-item/:planItemId', ensureLoggedIn, experiencesCtrl.update);
+router.post('/:experienceId/plan-item', ensureLoggedIn, experiencesCtrl.createPlanItem);
+router.delete('/:experienceId/plan-item/:planItemId', ensureLoggedIn, experiencesCtrl.deletePlanItem);
+router.put('/:experienceId/plan-item/:planItemId', ensureLoggedIn, experiencesCtrl.updatePlanItem);
 
 module.exports = router;

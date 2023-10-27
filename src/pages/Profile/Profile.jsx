@@ -5,13 +5,16 @@ import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 
-export default function Profile( { user } ) {
+export default function Profile({ user, setUser, destinations }) {
   const [uiState, setUiState] = useState({
     experiences: true,
     destinations: false,
   });
-  function handleExpNav (e) {
-    setUiState({experiences: !uiState.experiences, destinations: !uiState.destinations})
+  function handleExpNav(e) {
+    setUiState({
+      experiences: !uiState.experiences,
+      destinations: !uiState.destinations,
+    });
   }
   return (
     <>
@@ -24,13 +27,20 @@ export default function Profile( { user } ) {
         </div>
         <div className="col-md-6 p-3">
           <ul className="list-group profile-detail">
-            <li className="list-group-item list-group-item-secondary fw-bold text-center h5">Favorite Destinations</li>
-            <li className="list-group-item list-group-item-secondary h5">Buenos Aires, Rio de Janeiro, New York, 
-London, Hamburg, Mexico City, Tel-Aviv</li>
-            <li className="list-group-item list-group-item-secondary fw-bold text-center h5">Preferred Experience Types</li>
-            <li className="list-group-item list-group-item-secondary h5">High Adrenaline, Culinary, Distillery,
-Winery, Theme Parks, Family Fun,
-Art Museums, Theater</li>
+            <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
+              Favorite Destinations
+            </li>
+            <li className="list-group-item list-group-item-secondary h5">
+              Buenos Aires, Rio de Janeiro, New York, London, Hamburg, Mexico
+              City, Tel-Aviv
+            </li>
+            <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
+              Preferred Experience Types
+            </li>
+            <li className="list-group-item list-group-item-secondary h5">
+              High Adrenaline, Culinary, Distillery, Winery, Theme Parks, Family
+              Fun, Art Museums, Theater
+            </li>
           </ul>
         </div>
       </div>
@@ -51,10 +61,31 @@ Art Museums, Theater</li>
           </span>
         </h4>
       </div>
-      <div className="row my-4">
-      {uiState.destinations && user.experiences.map((experience,index) => <DestinationCard key={index} destination={experience.destination} />)}
-      {uiState.experiences && user.experiences.map((experience,index) => <ExperienceCard key={index} experience={experience.experience} user={user} />)}
+      {user.experiences &&
+      <>
+      <div className="row my-4 justify-content-center">
+        {uiState.destinations &&
+          user.experiences
+            .map((experience) => experience.experience.destination)
+            .map((destination, index) => (
+              <DestinationCard
+                key={index}
+                destination={
+                  destinations.filter((dest) => dest._id === destination)[0]
+                }
+              />
+            ))}
+        {uiState.experiences &&
+          user.experiences.map((experience, index) => (
+            <ExperienceCard
+              key={index}
+              experience={experience.experience}
+              user={user}
+              setUser={setUser}
+            />
+          ))}
       </div>
+      </>}
     </>
   );
 }

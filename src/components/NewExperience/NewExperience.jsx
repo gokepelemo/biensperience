@@ -75,6 +75,7 @@ export default function NewExperience() {
           onChange={handleChange}
           className="form-control"
         />
+        {/* Use checkboxes and send to the database as an array */}
         <label>Types</label>
         <input
           type="text"
