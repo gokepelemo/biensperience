@@ -32,6 +32,6 @@ export async function updatePlanItem (experienceId, planItemData) {
     return await sendRequest(`/api/experiences/${experienceId}/plan-item/${planItemData.id}`, "PUT", planItemData)
 }
 
-export async function deletePlanItem (experienceId) {
-    return await sendRequest(`/api/experiences/${experienceId}/plan-item/${planItemData.id}`, "DELETE")
+export async function deletePlanItem (experienceId, planItemId) {
+    return await sendRequest(`/api/experiences/${experienceId}/plan-item/${planItemId}`, "DELETE")
 }
