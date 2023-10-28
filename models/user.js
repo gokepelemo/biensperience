@@ -24,10 +24,6 @@ const userSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Photo",
     },
-    experiences: [{
-        experience: {type: Schema.Types.ObjectId, ref: "Experience"},
-        plan: [String]
-    }]
   },
   {
     timestamps: true,

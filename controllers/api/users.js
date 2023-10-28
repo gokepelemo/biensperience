@@ -18,7 +18,7 @@ async function create(req, res) {
 
 async function login(req, res) {
   try {
-    const user = await User.findOne({ email: req.body.email }).populate("experiences.experience");
+    const user = await User.findOne({ email: req.body.email });
     const passwordTest = await bcrypt.compare(req.body.password, user.password);
     const token = passwordTest ? createJWT(user) : null;
     res.json(token);
@@ -33,7 +33,7 @@ function checkToken(req, res) {
 
 async function getUser(req, res) {
   try {
-    const user = await User.findById(req.params.id).populate("experiences.experience");
+    const user = await User.findById(req.params.id);
     res.json(user);
   } catch (err) {
     res.status(400).json(err);
@@ -43,7 +43,7 @@ async function getUser(req, res) {
 async function addExperience(req, res) {
   try {
     if (req.user._id !== req.params.userId) res.status(401).json(err);
-    let user = await User.findById(req.params.userId).populate("experiences.experience");
+    let user = await User.findById(req.params.userId);
     let idx = user.experiences.findIndex(
       (experience) => experience.experience.id === req.params.experienceId
     );
@@ -65,7 +65,7 @@ async function addExperience(req, res) {
 
 async function removeExperience(req, res) {
   try {
-    let user = await User.findById(req.params.userId).populate("experiences.experience");
+    let user = await User.findById(req.params.userId);
     let idx = user.experiences.findIndex(
       (experience) => experience.experience.id === req.params.experienceId
     );

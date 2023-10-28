@@ -1,0 +1,23 @@
+form.newPlanItem {
+    width: 50%;
+    min-width: 400px;
+    display: block;
+}
+
+form.newPlanItem button {
+    grid-column: 1 / span 2;
+    width: 25%;
+    min-width: 50px;
+}
+
+form.newPlanItem label {
+    font-size: 1rem;
+}
+
+form.newPlanItem * {
+    margin: 0.5rem 0;
+}
+
+.planItemVisibility {
+    width: fit-content;
+}

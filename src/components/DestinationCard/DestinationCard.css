@@ -5,19 +5,21 @@
 }
 
 .destinationCard {
-    border-radius: 2rem;
+    border-radius: 1.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    background-blend-mode: darken;
     width: 12rem;
-    height: 6rem;
+    height: 8rem;
 }
 
 .destinationCard span {
     color: white;
+    background-color: rgba(0, 0, 0, 0.5);
     -webkit-text-stroke-color: grey;
-    -webkit-text-stroke-width: 0.01px;
+    -webkit-text-stroke-width: 0.25px;
+    padding: 2px;
+    text-align: center;
 }
 
 .destination a {

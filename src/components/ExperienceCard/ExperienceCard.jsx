@@ -6,9 +6,9 @@ import {
   userRemoveExperience,
 } from "../../utilities/experiences-api";
 
-export default function ExperienceCard({ experience, user, setUser }) {
+export default function ExperienceCard({ experience, user, render, setRender }) {
   const rand = Math.floor(Math.random() * 50)
-  const [experienceAdded, setExperienceAdded] = useState(user.experiences.map((exp) => exp.experience._id).filter(exp => exp === experience._id).length > 0);
+  const [experienceAdded, setExperienceAdded] = useState(experience.users.map(expUser => expUser.user).indexOf(user._id) !== -1);
   async function handleExperienceAction (e) {
     let update;
     if (experienceAdded) {
@@ -18,14 +18,14 @@ export default function ExperienceCard({ experience, user, setUser }) {
       update = await userAddExperience(user._id, experience._id);
       setExperienceAdded(true);
     }
-    setUser(update);
+    setRender(rand)
   }
   return (
     <div className="experience">
       {experience ? (
         <div
           className="experienceCard"
-          style={{ backgroundImage: `url(https://picsum.photos/500?rand=${rand})` }}
+          style={{ backgroundImage: `url(https://picsum.photos/400?rand=${rand})` }}
         >
           <Link to={`/experiences/${experience._id}`}>
             <span className="h4 fw-bold">
@@ -39,7 +39,7 @@ export default function ExperienceCard({ experience, user, setUser }) {
       ) : (
         <div
           className="experienceCard"
-          style={{ backgroundImage: `url(https://picsum.photos/500?rand=${rand})` }}
+          style={{ backgroundImage: `url(https://picsum.photos/400?rand=${rand})` }}
         >
           <Link to="/">
             <span className="h4 fw-bold">

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { createExperience } from "../../utilities/experiences-api";
 import { getDestinations } from "../../utilities/destinations-api";
 
-export default function NewExperience() {
+export default function NewExperience({ render, setRender }) {
   const [newExperience, setNewExperience] = useState({});
   const [destinations, setDestinations] = useState({});
   const navigate = useNavigate();
@@ -30,6 +30,7 @@ export default function NewExperience() {
     } catch (err) {
       console.error(err);
     }
+    setRender(!render)
   }
   useEffect(() => {
     async function updateDestinations() {
@@ -57,7 +58,7 @@ export default function NewExperience() {
           onChange={handleChange}
           id="destination"
           className="form-control"
-          autocomplete="off"
+          autoComplete="off"
         />
         <datalist type="text" id="destination_list">
           {destinations.length &&

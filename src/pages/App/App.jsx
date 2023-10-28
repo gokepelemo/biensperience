@@ -22,22 +22,21 @@ import { getDestinations } from "../../utilities/destinations-api";
 
 export default function App() {
   const [user, setUser] = useState(getUser());
-  const [destinations, setDestinations] = useState({});
-  const [experiences, setExperiences] = useState();
-  const [photos, setPhotos] = useState({});
+  const [destinations, setDestinations] = useState([]);
+  const [experiences, setExperiences] = useState([]);
+  const [render, setRender] = useState(0);
+  const [photos, setPhotos] = useState([]);
   useEffect(() => {
     async function updateData() {
       if (user) {
-        let userData = await getUserData(user._id);
         let destinationsData = await getDestinations();
         let experiencesData = await getExperiences();
-        setUser(Object.assign(user, userData));
         setDestinations(destinationsData);
         setExperiences(experiencesData);
       }
     }
     updateData();
-  }, []);
+  }, [user, render]);
   return (
     <main className="App container container-fluid">
       {user ? (
@@ -46,8 +45,14 @@ export default function App() {
           <Routes>
             <Route path="/" element={<AppHome user={user} />} />
             {/* temporary routes for creating experiences and destinations */}
-            <Route path="/experiences/new" element={<NewExperience />} />
-            <Route path="/destinations/new" element={<NewDestination />} />
+            <Route
+              path="/experiences/new"
+              element={<NewExperience render={render} setRender={setRender} />}
+            />
+            <Route
+              path="/destinations/new"
+              element={<NewDestination render={render} setRender={setRender} />}
+            />
             <Route
               path="/profile"
               element={
@@ -56,13 +61,23 @@ export default function App() {
                   setUser={setUser}
                   destinations={destinations}
                   experiences={experiences}
+                  render={render}
+                  setRender={setRender}
                 />
               }
             />
             <Route path="/profile/:profileId" element={<Profile />} />
             <Route
               path="/experiences"
-              element={<Experiences experiences={experiences} />}
+              element={
+                <Experiences
+                  experiences={experiences}
+                  user={user}
+                  setUser={setUser}
+                  render={render}
+                  setRender={setRender}
+                />
+              }
             />
             <Route
               path="/destinations"

@@ -17,11 +17,11 @@ export async function updateExperience (experienceId, experienceData) {
 }
 
 export async function userRemoveExperience (userId, experienceId) {
-    return await sendRequest(`/api/users/${userId}/experiences/${experienceId}`, "DELETE")
+    return await sendRequest(`/api/experiences/${experienceId}/user/${userId}`, "DELETE")
 }
 
 export async function userAddExperience (userId, experienceId) {
-    return await sendRequest(`/api/users/${userId}/experiences/${experienceId}`, "POST")
+    return await sendRequest(`/api/experiences/${experienceId}/user/${userId}`, "POST")
 }
 
 export async function addPlanItem (experienceId, planItemData) {
@@ -29,9 +29,17 @@ export async function addPlanItem (experienceId, planItemData) {
 }
 
 export async function updatePlanItem (experienceId, planItemData) {
-    return await sendRequest(`/api/experiences/${experienceId}/plan-item/${planItemData.id}`, "PUT", planItemData)
+    return await sendRequest(`/api/experiences/${experienceId}/plan-item/${planItemData._id}`, "PUT", planItemData)
 }
 
 export async function deletePlanItem (experienceId, planItemId) {
     return await sendRequest(`/api/experiences/${experienceId}/plan-item/${planItemId}`, "DELETE")
+}
+
+export async function userPlanItemDone (experienceId, planItemId) {
+    return await sendRequest(`/api/experiences/${experienceId}/plan-item/${planItemId}`, "POST")
+}
+
+export async function showUserExperiences(userId) {
+    return await sendRequest(`/api/experiences/user/${userId}`, "GET")
 }

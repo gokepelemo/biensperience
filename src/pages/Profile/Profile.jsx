@@ -1,15 +1,25 @@
 import { useParams } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./Profile.css";
 import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
+import { showUserExperiences } from "../../utilities/experiences-api";
 
-export default function Profile({ user, setUser, destinations }) {
+export default function Profile({ user, setUser, render, setRender, destinations }) {
+  let { profileId } = useParams();
   const [uiState, setUiState] = useState({
     experiences: true,
     destinations: false,
   });
+  const [userExperiences, setUserExperiences] = useState([]);
+  useEffect(() => {
+    async function getExperiences() {
+      let experiences = await showUserExperiences(user._id);
+      setUserExperiences(experiences);
+    }
+    getExperiences();
+  }, []);
   function handleExpNav(e) {
     setUiState({
       experiences: !uiState.experiences,
@@ -61,31 +71,30 @@ export default function Profile({ user, setUser, destinations }) {
           </span>
         </h4>
       </div>
-      {user.experiences &&
-      <>
-      <div className="row my-4 justify-content-center">
-        {uiState.destinations &&
-          user.experiences
-            .map((experience) => experience.experience.destination)
-            .map((destination, index) => (
-              <DestinationCard
-                key={index}
-                destination={
-                  destinations.filter((dest) => dest._id === destination)[0]
-                }
-              />
-            ))}
-        {uiState.experiences &&
-          user.experiences.map((experience, index) => (
-            <ExperienceCard
-              key={index}
-              experience={experience.experience}
-              user={user}
-              setUser={setUser}
-            />
-          ))}
-      </div>
-      </>}
+      {userExperiences && (
+        <>
+          <div className="row my-4 justify-content-center">
+            {uiState.destinations &&
+              Array.from(new Set (userExperiences.map(experience => experience.destination._id))).map((destination, index) => (
+                  <DestinationCard
+                    key={index}
+                    destination={destinations.filter(dest => dest._id == destination)[0]}
+                  />
+                ))}
+            {uiState.experiences &&
+              userExperiences.map((experience, index) => (
+                <ExperienceCard
+                  experience={experience}
+                  user={user}
+                  setUser={setUser}
+                  key={index}
+                  render={render}
+                  setRender={setRender}
+                />
+              ))}
+          </div>
+        </>
+      )}
     </>
   );
 }

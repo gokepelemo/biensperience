@@ -17,7 +17,7 @@
     min-width: 250px;
     max-width: 500px;
     align-items: center;
-    justify-content: start;
+    justify-content: flex-start;
     -webkit-text-stroke-color: black;
     -webkit-text-stroke-width: 0.5px;
 }

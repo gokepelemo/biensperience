@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createDestination } from "../../utilities/destinations-api";
 
-export default function NewDestination() {
+export default function NewDestination({ render, setRender}) {
   const [newDestination, setNewDestination] = useState({});
   const [travelTips, setTravelTips] = useState([]);
   const navigate = useNavigate();
@@ -22,6 +22,7 @@ export default function NewDestination() {
     } catch (err) {
       console.error(err);
     }
+    setRender(!render)
   }
   function addTravelTip(text) {
     setTravelTips([...travelTips, text]);
@@ -43,7 +44,7 @@ export default function NewDestination() {
           onChange={handleChange}
           className="form-control"
         />
-        <label>State</label>
+        <label>State<small>(optional)</small></label>
         <input
           type="text"
           name="state"
