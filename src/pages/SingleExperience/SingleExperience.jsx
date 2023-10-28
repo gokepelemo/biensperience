@@ -10,55 +10,66 @@ import {
 } from "../../utilities/experiences-api";
 import NewPlanItem from "../../components/NewPlanItem/NewPlanItem";
 
-export default function SingleExperience({ user, setUser, experiences }) {
+export default function SingleExperience({
+  user,
+  setUser,
+  experiences,
+  setExperiences,
+}) {
   const { experienceId } = useParams();
-  const [experience, setExperience] = useState({ user: null, plan_items: [] });
+  const [experience, setExperience] = useState(
+    Object.assign(
+      { user: null, plan_items: [], users: [] },
+      experiences.filter((experience) => experience._id === experienceId)[0]
+    )
+  );
   const [formState, setFormState] = useState(1);
   const [formVisible, setFormVisible] = useState(0);
-  const [userHasExperience, setUserHasExperience] = useState(true);
-  const [userPlanItems, setUserPlanItems] = useState([]);
+  const [userHasExperience, setUserHasExperience] = useState(false);
+  const [planItems, setPlanItems] = useState({});
   const [newPlanItem, setNewPlanItem] = useState({});
   function checkItemsDone(planItemId) {
-    let planItem = document.getElementById(`${planItemId}`);
-    if (planItem.innerText === "🚫 Not Done") {
-      planItem.innerText = "✅ Mark as Done";
-    } else {
-      planItem.innerText = "🚫 Not Done";
-    }
+    setPlanItems(
+      Object.assign(planItems, { [planItemId]: !planItems[planItemId] })
+    );
+    setFormState(!formState);
   }
   useEffect(() => {
     async function getExperience() {
       let experienceData = await showExperience(experienceId);
-      setExperience(experienceData);
+      setExperience(Object.assign(experience, experienceData));
       if (experience.users) {
         setUserHasExperience(
-          experience.users.map((expUser) => expUser.user).indexOf(user._id) !==
-            -1
-        );
-        setUserPlanItems(
           experience.users
-            .filter((expUser) => expUser.user === user._id)
-            .map((expUser) => expUser.plan)
+            .map((expUser) => expUser.user)
+            .filter((expUser) => expUser._id === user._id).length > 0
         );
-        userPlanItems.forEach((expUserPlanItem) => checkItemsDone(expUserPlanItem));
+        experience.users
+          .filter((expUser) => expUser.user === user._id)
+          .filter((expUser) => expUser.plan.length > 0)
+          .map((expPlan) => expPlan.plan)
+          .forEach((planItem) =>
+            setPlanItems(Object.assign(planItems, { [planItem]: true }))
+          );
       }
     }
     getExperience();
-  }, [formVisible, experience.user, experienceId]);
+  }, [experience.user, experienceId, formVisible]);
   async function handleExperience() {
-    let update;
+    let updatedExperience;
     if (userHasExperience) {
-      update = await userRemoveExperience(user._id, experience._id);
+      updatedExperience = await userRemoveExperience(user._id, experience._id);
       setUserHasExperience(false);
     } else {
-      update = await userAddExperience(user._id, experience._id);
+      updatedExperience = await userAddExperience(user._id, experience._id);
       setUserHasExperience(true);
     }
-    setExperience(update);
+    console.log(updatedExperience);
+    setExperience(Object.assign(experience, updatedExperience));
   }
   async function handlePlanEdit(e) {
     e.preventDefault();
-    setNewPlanItem(experience.plan_items[e.target.dataset.idx])
+    setNewPlanItem(experience.plan_items[e.target.dataset.idx]);
     setFormVisible(true);
     setFormState(0);
   }
@@ -68,16 +79,23 @@ export default function SingleExperience({ user, setUser, experiences }) {
       experience._id,
       e.target.dataset.id
     );
-    setExperience(updatedExperience);
+    setFormState(!formState);
+    setExperience(Object.assign(experience, updatedExperience));
   }
   async function handlePlanItemDone(e) {
     e.preventDefault();
-    await userPlanItemDone(
-      experience._id,
-      e.target.id
-    );
+    let updatedExperience = await userPlanItemDone(experience._id, e.target.id);
     checkItemsDone(e.target.id);
+    setExperience(Object.assign(experience, updatedExperience));
   }
+  const dollarSigns = (num) => {
+    let signs = "";
+    for (let i = 0; i < num; i++) {
+      if (i > 4) break;
+      signs += "$";
+    }
+    return signs;
+  };
   return (
     <>
       {experience && (
@@ -85,9 +103,19 @@ export default function SingleExperience({ user, setUser, experiences }) {
           <div className="row experience-detail">
             <div className="col-md-6">
               <h1 className="experienceHeading my-4">{experience.name}</h1>
-              <h2 className="h5">
-                Estimated Cost: ${experience.cost_estimate}
-              </h2>
+              {experience.cost_estimate > 0 && (
+                <h2 className="h5">
+                  Estimated Cost:{" "}
+                  <span className="green">
+                    {dollarSigns(Math.ceil(experience.cost_estimate / 1000))}
+                  </span>
+                  <span className="grey">
+                    {dollarSigns(
+                      5 - Math.ceil(experience.cost_estimate / 1000)
+                    )}
+                  </span>
+                </h2>
+              )}
             </div>
             <div className="d-flex col-md-6 justify-content-end">
               <button className="btn btn-light my-4" onClick={handleExperience}>
@@ -100,6 +128,7 @@ export default function SingleExperience({ user, setUser, experiences }) {
               <ul className="list-group experience-detail">
                 <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
                   Destination
+                  {experience.destination && `: ${experience.destination.name}`}
                 </li>
                 <li className="list-group-item list-group-item-secondary">
                   Primary Language:
@@ -171,11 +200,16 @@ export default function SingleExperience({ user, setUser, experiences }) {
                       <span className="p-1">
                         {userHasExperience && (
                           <div className="form-check">
-                            <button className="btn btn-light action-btn"
+                            <button
+                              className="btn btn-light action-btn"
                               type="checkbox"
                               id={planItem._id}
                               onClick={handlePlanItemDone}
-                              >✅ Mark as Done</button>
+                            >
+                              {planItems[planItem._id]
+                                ? `🚫 Not Done`
+                                : `✅ Mark as Done`}
+                            </button>
                           </div>
                         )}
                       </span>

@@ -4,7 +4,7 @@
     width: fit-content;
 }
 .experienceCard {
-    width: 25rem;
+    width: 20rem;
     min-height: 7.5rem;
     display: flex;
     align-items: center;
@@ -16,12 +16,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    background-color: rgba(0, 0, 0, 0.5);
+    color: ghostwhite;
+    background-color: rgba(0, 0, 0, 0.6);
     font-weight: bold;
     font-size: 1.5rem;
-    -webkit-text-stroke-color: grey;
-    -webkit-text-stroke-width: 0.25px;
+    padding: 0.25vmin;
+    font-size: 1.5rem;
 }
 
 .experienceCard button {

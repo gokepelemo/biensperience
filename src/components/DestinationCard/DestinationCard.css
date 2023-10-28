@@ -14,11 +14,11 @@
 }
 
 .destinationCard span {
-    color: white;
-    background-color: rgba(0, 0, 0, 0.5);
-    -webkit-text-stroke-color: grey;
-    -webkit-text-stroke-width: 0.25px;
-    padding: 2px;
+    color: ghostwhite;
+    background-color: rgba(0, 0, 0, 0.6);
+    font-weight: bold;
+    font-size: 1.5rem;
+    padding: 0.25vmin;
     text-align: center;
 }
 

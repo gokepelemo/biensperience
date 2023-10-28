@@ -5,3 +5,11 @@ h1.destinationHeading {
 .h5 {
     margin: 0;
 }
+
+button.add-to-fav-btn {
+    height: fit-content;
+}
+
+h2.experiencesHeading {
+    padding: 0;
+}

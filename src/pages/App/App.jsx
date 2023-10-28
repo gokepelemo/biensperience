@@ -44,7 +44,6 @@ export default function App() {
           <NavBar user={user} setUser={setUser} />
           <Routes>
             <Route path="/" element={<AppHome user={user} />} />
-            {/* temporary routes for creating experiences and destinations */}
             <Route
               path="/experiences/new"
               element={<NewExperience render={render} setRender={setRender} />}
@@ -71,9 +70,9 @@ export default function App() {
               path="/experiences"
               element={
                 <Experiences
-                  experiences={experiences}
                   user={user}
                   setUser={setUser}
+                  experiences={experiences}
                   render={render}
                   setRender={setRender}
                 />
@@ -81,7 +80,12 @@ export default function App() {
             />
             <Route
               path="/destinations"
-              element={<Destinations destinations={destinations} />}
+              element={
+                <Destinations
+                  destinations={destinations}
+                  experiences={experiences}
+                />
+              }
             />
             <Route
               path="/experiences/:experienceId"
@@ -95,7 +99,14 @@ export default function App() {
             />
             <Route
               path="/destinations/:destinationId"
-              element={<SingleDestination />}
+              element={
+                <SingleDestination
+                  destinations={destinations}
+                  experiences={experiences}
+                  user={user}
+                  setUser={setUser}
+                />
+              }
             />
             <Route path="/logout" element={<Navigate to="/" />} />
           </Routes>

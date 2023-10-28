@@ -9,12 +9,20 @@ h1.experienceHeading {
 .experience-detail button {
     height: fit-content;
     margin: 0 0.25rem;
-    font-size: 1rem;
+    font-size: 2rem;
     font-weight: bold;
-    padding: 0 0.25rem;
+    padding: 0.25rem 1rem;
 }
 
 .action-btn {
     padding: 0 0.5rem;
     margin: 0 0.5rem 0 0;
+}
+
+.green {
+    color: green;
+}
+
+.grey {
+    color: grey;
 }

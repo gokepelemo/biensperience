@@ -19,6 +19,7 @@ export default function NewPlanItem({ experience, setExperience, formState, setF
         setExperience(updatedExperience);
       }
       setFormVisible(!formVisible)
+      setNewPlanItem({})
     } catch (err) {
       console.error(err);
     }
@@ -27,6 +28,7 @@ export default function NewPlanItem({ experience, setExperience, formState, setF
     e.preventDefault();
     if(formVisible) setNewPlanItem({})
     setFormVisible(!formVisible)
+    setFormState(1)
   }
   return (
     <>
