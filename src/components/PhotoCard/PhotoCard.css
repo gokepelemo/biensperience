@@ -3,3 +3,7 @@
     align-items: center;
     justify-content: center;
 }
+
+div.photoFrame {
+    min-height: 40vh;
+}

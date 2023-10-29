@@ -1,10 +1,10 @@
 import "./NewExperience.css";
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { createExperience } from "../../utilities/experiences-api";
 import { getDestinations } from "../../utilities/destinations-api";
 
-export default function NewExperience({ render, setRender }) {
+export default function NewExperience({ updateData }) {
   const [newExperience, setNewExperience] = useState({});
   const [destinations, setDestinations] = useState({});
   const navigate = useNavigate();
@@ -30,12 +30,13 @@ export default function NewExperience({ render, setRender }) {
     } catch (err) {
       console.error(err);
     }
-    setRender(!render)
+    updateData();
   }
   useEffect(() => {
     async function updateDestinations() {
       let destinationData = await getDestinations();
       setDestinations(destinationData);
+      document.title = `New Experience - Biensperience`;
     }
     updateDestinations();
   }, []);
@@ -44,14 +45,19 @@ export default function NewExperience({ render, setRender }) {
       <h1>New Experience</h1>
       <form onSubmit={handleSubmit} className="newExperience">
         <label>Name</label>
+        <span>
         <input
           type="text"
           name="name"
           id="name"
           onChange={handleChange}
           className="form-control"
+          placeholder="e.g. Winery Tour at Lakefront Brewery with a Local in Dallas"
         />
+        <small>Required. A descriptive title written in natural language.</small>
+        </span>
         <label>Destination</label>
+        <span>
         <input
           list="destination_list"
           name="destination"
@@ -60,6 +66,8 @@ export default function NewExperience({ render, setRender }) {
           className="form-control"
           autoComplete="off"
         />
+        <small>Required. Select from one of the destination cities or <Link to="/destinations/new">create a new one</Link>.</small>
+        </span>
         <datalist type="text" id="destination_list">
           {destinations.length &&
             destinations.map((destination, index) => {
@@ -69,6 +77,7 @@ export default function NewExperience({ render, setRender }) {
             })}
         </datalist>
         <label>Address</label>
+        <span>
         <input
           type="text"
           name="map_location"
@@ -76,15 +85,17 @@ export default function NewExperience({ render, setRender }) {
           onChange={handleChange}
           className="form-control"
         />
-        {/* Use checkboxes and send to the database as an array */}
+        <small>Optional. A specific address to the location if available.</small>
+        </span>
         <label>Types</label>
-        <input
+        <span><input
           type="text"
           name="experience_type"
           id="experience_type"
           onChange={handleChange}
           className="form-control"
-        />
+          placeholder="e.g. Culinary, Winery, Brewery, High Adrenaline"
+        /><small>In a comma separated list e.g. Culinary, Winery, Brewery, High Adrenaline</small></span>
         <label>Photo</label>
         <input type="file" name="photo" id="photo" className="form-control" />
         <button type="submit" className="btn btn-light">

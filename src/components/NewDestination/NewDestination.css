@@ -4,11 +4,18 @@ form.newDestination {
     margin: 0 auto;
 }
 
-form.newDestination button {
+.form-btns {
     grid-column: 1 / span 2;
-    width: 25%;
     min-width: 50px;
-    margin: 2rem auto;
+    margin: 1rem auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.form-btns button {
+    display: inline-block;
+    margin: 1rem;
 }
 
 form.newDestination label {
@@ -17,4 +24,33 @@ form.newDestination label {
 
 p {
     margin: 0;
+}
+
+div.action-btn {
+    padding: 0 0.5rem;
+    margin: 0 0.5rem 0 0;
+    font-size: 1rem;
+}
+
+.addTravelTips {
+    display: inline-block;
+    width: 7.5rem;
+    font-size: 0.75rem;
+    padding: 0.25rem;
+    margin: 0.5rem 0.25rem;
+}
+
+.travelTips {
+    list-style-type: none;
+    font-size: 0.8rem;
+    padding: 0.25rem;
+}
+
+.addTravelTipPane {
+    margin: 0;
+}
+
+.list-group-item .action-btn {
+    font-size: 0.5rem;
+    margin: 0 0.5rem 0 0;
 }

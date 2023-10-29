@@ -1,25 +1,29 @@
-import "./Destinations.css"
-import DestinationCard from "../../components/DestinationCard/DestinationCard" 
+import "./Destinations.css";
+import { useEffect } from "react";
+import DestinationCard from "../../components/DestinationCard/DestinationCard";
 
 export default function Destinations({ destinations }) {
-    return (
+  useEffect(() => {
+    document.title = `All Destinations - Biensperience`;
+  });
+  return (
+    <>
+      {destinations && (
         <>
-        {destinations && (
-          <>
-            <div className="row">
-              <div className="col-md-6">
-                <h1 className="my-4 h">
-                  Destinations
-                </h1>
-              </div>
+          <div className="row">
+            <div className="col-md-6">
+              <h1 className="my-4 h">Destinations</h1>
             </div>
-            <div className="row my-4">
-              <div className="col-md-12 p-3 d-flex flex-wrap justify-content-center align-items-center">
-                {destinations.map((destination, index) => <DestinationCard destination={destination} key={index} />)}
-              </div>
+          </div>
+          <div className="row my-4">
+            <div className="col-md-12 p-3 d-flex flex-wrap justify-content-center align-items-center">
+              {destinations.map((destination, index) => (
+                <DestinationCard destination={destination} key={index} />
+              ))}
             </div>
-          </>
-        )}
-      </>
-    )
+          </div>
+        </>
+      )}
+    </>
+  );
 }

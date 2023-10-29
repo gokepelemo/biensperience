@@ -8,5 +8,6 @@ router.post('/', ensureLoggedIn, destinationsCtrl.create);
 router.delete('/:id', ensureLoggedIn, destinationsCtrl.delete);
 router.put('/:id', ensureLoggedIn, destinationsCtrl.update);
 router.get('/:id', ensureLoggedIn, destinationsCtrl.show);
+router.post('/:destinationId/user/:userId', ensureLoggedIn, destinationsCtrl.toggleUserFavoriteDestination)
 
 module.exports = router;

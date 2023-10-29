@@ -19,3 +19,7 @@ export async function updateDestination (experienceData) {
 export async function deleteDestination (id) {
     return await sendRequest(`/api/destinations/${id}`, "DELETE")
 }
+
+export async function toggleUserFavoriteDestination (destinationId, userId) {
+    return await sendRequest(`/api/destinations/${destinationId}/user/${userId}`, "POST")
+}

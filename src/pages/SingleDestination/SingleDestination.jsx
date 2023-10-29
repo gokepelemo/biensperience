@@ -1,7 +1,10 @@
 import "./SingleDestination.css";
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { showDestination } from "../../utilities/destinations-api";
+import {
+  showDestination,
+  toggleUserFavoriteDestination,
+} from "../../utilities/destinations-api";
 import { getExperiences } from "../../utilities/experiences-api";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
@@ -11,6 +14,7 @@ export default function SingleDestination({
   destinations,
   user,
   setUser,
+  updateData,
 }) {
   const { destinationId } = useParams();
   const [destination, setDestination] = useState(
@@ -21,6 +25,7 @@ export default function SingleDestination({
       (experience) => experience.destination._id === destinationId
     )
   );
+  const [isUserFavorite, setIsUserFavorite] = useState(false);
   async function getData() {
     let destinationData = await showDestination(destinationId);
     let experienceData = await getExperiences();
@@ -30,11 +35,26 @@ export default function SingleDestination({
         (experience) => experience.destination._id === destinationId
       )
     );
+    updateData();
   }
   useEffect(() => {
-    if (!destination || !destinationExperiences) getData();
+    if (!destination || !destinationExperiences) {
+      getData();
+    } else {
+      document.title = `${destination.name},${" "}
+      ${
+        !destination.state
+          ? destination.country
+          : destination.state === destination.name
+          ? destination.country
+          : destination.state
+      } - Biensperience`;
+    }
+    setIsUserFavorite(destination.users_favorite.indexOf(user._id) !== -1);
   });
   function handleAddToFavorites(e) {
+    toggleUserFavoriteDestination(destination._id, user._id);
+    setIsUserFavorite(!isUserFavorite);
     getData();
   }
   return (
@@ -58,7 +78,7 @@ export default function SingleDestination({
                   className="btn btn-light my-4 add-to-fav-btn"
                   onClick={handleAddToFavorites}
                 >
-                  ❤️ Add to Favorites
+                  {!isUserFavorite ? `+ Add to Favorite Destinations` : `❤️`}
                 </button>
               </div>
             </div>
@@ -92,12 +112,19 @@ export default function SingleDestination({
                     </>
                   )}
                   {destination.travel_tips.length > 0 && (
-                  <>
-                    <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
-                      Travel Tips
-                    </li>
-                    <li className="list-group-item list-group-item-secondary"></li>
-                  </>
+                    <>
+                      <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
+                        Travel Tips
+                      </li>
+                      {destination.travel_tips.map((tip, idx) => (
+                        <li
+                          className="list-group-item list-group-item-secondary"
+                          key={idx}
+                        >
+                          {tip}
+                        </li>
+                      ))}
+                    </>
                   )}
                 </ul>
               </div>

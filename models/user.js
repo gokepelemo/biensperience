@@ -23,7 +23,7 @@ const userSchema = new Schema(
     photo: {
       type: Schema.Types.ObjectId,
       ref: "Photo",
-    },
+    }
   },
   {
     timestamps: true,

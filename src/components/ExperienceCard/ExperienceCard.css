@@ -18,12 +18,13 @@
     padding: 0.25vmin;
     font-size: 1.5rem;
     font-size: 1.5rem;
-    min-width: 18.2rem;
+    min-width: 18.25rem;
     text-align: center;
     color: ghostwhite;
     align-items: center;
     justify-content: center;
     background-color: rgba(0, 0, 0, 0.5);
+    overflow: hidden;
 }
 
 .experienceCard button {

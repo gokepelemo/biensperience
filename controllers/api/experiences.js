@@ -4,8 +4,9 @@ async function index(req, res) {
   try {
     const experiences = await Experience.find({})
       .populate("destination")
-      .populate("users.user");
-    return res.json(experiences);
+      .populate("users.user")
+      .exec();
+    res.json(experiences);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -15,7 +16,7 @@ async function createExperience(req, res) {
   try {
     req.body.user = req.user._id;
     const experience = await Experience.create(req.body);
-    return res.json(experience);
+    res.json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -26,7 +27,7 @@ async function showExperience(req, res) {
     let experience = await Experience.findById(req.params.id)
       .populate("destination")
       .populate("users.user");
-    return res.json(experience);
+    res.json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -38,7 +39,7 @@ async function updateExperience(req, res) {
     let experience = await Experience.findById(experienceId);
     experience = Object.assign(experience, req.body);
     experience.save();
-    return res.json(experience);
+    res.json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -46,8 +47,8 @@ async function updateExperience(req, res) {
 
 async function deleteExperience(req, res) {
   try {
-    const experience = await Experience.findByIdAndDelete(req.params.id);
-    return res.json(experience);
+    let experience = await Experience.findByIdAndDelete(req.params.id);
+    res.json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -63,7 +64,7 @@ async function createPlanItem(req, res) {
       : req.body.cost_estimate;
     experience.plan_items.push(req.body);
     experience.save();
-    return res.json(experience);
+    res.json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -77,7 +78,7 @@ async function updatePlanItem(req, res) {
     let plan_item = experience.plan_items.id(req.params.planItemId);
     plan_item = Object.assign(plan_item, req.body);
     experience.save();
-    return res.json(experience);
+    res.json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -90,7 +91,13 @@ async function deletePlanItem(req, res) {
     ).populate("destination");
     experience.plan_items.id(req.params.planItemId).deleteOne();
     experience.save();
-    return res.json(experience);
+    experience.users.forEach((user, index) => {
+      experience.users[index].user = Object.assign(user.user, {
+        password: null,
+        email: null,
+      });
+    });
+    res.json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -114,6 +121,12 @@ async function addUser(req, res) {
       console.log("User is already added.");
     }
     experience.save();
+    experience.users.forEach((user, index) => {
+      experience.users[index].user = Object.assign(user.user, {
+        password: null,
+        email: null,
+      });
+    });
     res.json(experience);
   } catch (err) {
     res.status(400).json(err);
@@ -134,6 +147,12 @@ async function removeUser(req, res) {
       console.log("User isn't added to this experience anymore.");
     }
     experience.save();
+    experience.users.forEach((user, index) => {
+      experience.users[index].user = Object.assign(user.user, {
+        password: null,
+        email: null,
+      });
+    });
     res.json(experience);
   } catch (err) {
     res.status(400).json(err);
@@ -145,7 +164,6 @@ async function userPlanItemDone(req, res) {
     let experience = await Experience.findById(req.params.experienceId)
       .populate("users.user")
       .populate("destination");
-    console.log();
     let user = experience.users.findIndex(
       (expUser) => expUser.user.id === req.user._id
     );
@@ -157,6 +175,12 @@ async function userPlanItemDone(req, res) {
       experience.users[user].plan.splice(plan_idx, 1);
       experience.save();
     }
+    experience.users.forEach((user, index) => {
+      experience.users[index].user = Object.assign(user.user, {
+        password: null,
+        email: null,
+      });
+    });
     res.json(experience);
   } catch (err) {
     res.status(400).json(err);

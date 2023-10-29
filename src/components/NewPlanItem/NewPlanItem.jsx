@@ -55,6 +55,15 @@ export default function NewPlanItem({ experience, setExperience, formState, setF
           placeholder="Cost (ex. $350)"
           value={newPlanItem.cost_estimate}
         />
+        <input
+          type="text"
+          name="url"
+          id="url"
+          onChange={handleChange}
+          className="form-control"
+          placeholder="URL (ex. https://www.tripadvisor.com/fun-adventure)"
+          value={newPlanItem.url}
+        />
         <label>Upload Photo</label>
         <input type="file" name="photo" id="photo" className="form-control" />
         <button type="submit" className="btn btn-light">

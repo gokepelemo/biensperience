@@ -1,9 +1,10 @@
 const Destination = require("../../models/destination");
+const User = require("../../models/user");
 
 async function index(req, res) {
   try {
     const destinations = await Destination.find({});
-    return res.json(destinations);
+    res.json(destinations);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -12,7 +13,7 @@ async function index(req, res) {
 async function createDestination(req, res) {
   try {
     const destination = await Destination.create(req.body);
-    return res.json(destination);
+    res.json(destination);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -21,7 +22,7 @@ async function createDestination(req, res) {
 async function showDestination(req, res) {
   try {
     const destination = await Destination.findById(req.params.id);
-    return res.json(destination);
+    res.json(destination);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -30,7 +31,7 @@ async function showDestination(req, res) {
 async function updateDestination(req, res) {
   try {
     const destination = await Destination.findByIdAndUpdate(req.params.id, req.body);
-    return res.json(destination);
+    res.json(destination);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -39,7 +40,24 @@ async function updateDestination(req, res) {
 async function deleteDestination(req, res) {
   try {
     const destination = await Destination.findByIdAndDelete(req.params.id);
-    return res.json(destination);
+    res.json(destination);
+  } catch (err) {
+    res.status(400).json(err);
+  }
+}
+
+async function toggleUserFavoriteDestination(req, res) {
+  try {
+    let destination = await Destination.findById(req.params.destinationId);
+    const user = await User.findById(req.params.userId);
+    const idx = destination.users_favorite.indexOf(user._id)
+    if (idx === -1) {
+      destination.users_favorite.push(user._id);
+    } else {
+      destination.users_favorite.splice(idx, 1)
+    }
+    destination.save()
+    res.json(destination);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -50,5 +68,6 @@ module.exports = {
   show: showDestination,
   update: updateDestination,
   delete: deleteDestination,
+  toggleUserFavoriteDestination,
   index
 };

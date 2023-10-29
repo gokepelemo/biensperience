@@ -12,6 +12,10 @@ export async function showExperience(id) {
   return await sendRequest(`/api/experiences/${id}`, "GET");
 }
 
+export async function deleteExperience(id) {
+  return await sendRequest(`/api/experiences/${id}`, "DELETE");
+}
+
 export async function updateExperience(experienceId, experienceData) {
   return await sendRequest(
     `/api/experiences/${experienceId}`,

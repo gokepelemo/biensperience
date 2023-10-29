@@ -3,6 +3,10 @@ h1.h {
     font-weight: bold;
 }
 
+.profileDestinations a {
+    text-decoration: none;
+}
+
 .badge-nav {
     width: fit-content;
     margin: 0 auto;
@@ -17,6 +21,10 @@ h1.h {
 
 .profile-detail {
     margin: 0;
+}
+
+.noFavoriteDestinations a {
+    text-decoration: underline;
 }
 
 .profile-detail li {

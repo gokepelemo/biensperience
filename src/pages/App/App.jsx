@@ -26,17 +26,17 @@ export default function App() {
   const [experiences, setExperiences] = useState([]);
   const [render, setRender] = useState(0);
   const [photos, setPhotos] = useState([]);
-  useEffect(() => {
-    async function updateData() {
-      if (user) {
-        let destinationsData = await getDestinations();
-        let experiencesData = await getExperiences();
-        setDestinations(destinationsData);
-        setExperiences(experiencesData);
-      }
+  async function updateData() {
+    if (user) {
+      let destinationsData = await getDestinations();
+      let experiencesData = await getExperiences();
+      setDestinations(destinationsData);
+      setExperiences(experiencesData);
     }
+  }
+  useEffect(() => {
     updateData();
-  }, [user, render]);
+  }, []);
   return (
     <main className="App container container-fluid">
       {user ? (
@@ -46,11 +46,11 @@ export default function App() {
             <Route path="/" element={<AppHome user={user} />} />
             <Route
               path="/experiences/new"
-              element={<NewExperience render={render} setRender={setRender} />}
+              element={<NewExperience updateData={updateData} />}
             />
             <Route
               path="/destinations/new"
-              element={<NewDestination render={render} setRender={setRender} />}
+              element={<NewDestination updateData={updateData} />}
             />
             <Route
               path="/profile"
@@ -60,8 +60,7 @@ export default function App() {
                   setUser={setUser}
                   destinations={destinations}
                   experiences={experiences}
-                  render={render}
-                  setRender={setRender}
+                  updateData={updateData}
                 />
               }
             />
@@ -75,6 +74,7 @@ export default function App() {
                   experiences={experiences}
                   render={render}
                   setRender={setRender}
+                  updateData={updateData}
                 />
               }
             />
@@ -84,6 +84,7 @@ export default function App() {
                 <Destinations
                   destinations={destinations}
                   experiences={experiences}
+                  updateData={updateData}
                 />
               }
             />
@@ -94,6 +95,7 @@ export default function App() {
                   user={user}
                   setUser={setUser}
                   experiences={experiences}
+                  updateData={updateData}
                 />
               }
             />
@@ -105,6 +107,7 @@ export default function App() {
                   experiences={experiences}
                   user={user}
                   setUser={setUser}
+                  updateData={updateData}
                 />
               }
             />

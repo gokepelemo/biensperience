@@ -1,10 +1,13 @@
+import "./PhotoCard.css"
+
 export default function PhotoCard({ photo, altText }) {
+  const rand = Math.floor(Math.random() * 50)
   return (
-    <>
+    <div className="photoFrame">
       {photo ? (
         <>
           <div className="photoCard d-flex align-items-center justify-content-center">
-            <img src={photo.url} alt={altText} className="rounded img-fluid" />
+            <img src={photo.url} className="rounded img-fluid" />
           </div>
           {photo.photo_credit && (
             <small>
@@ -14,8 +17,8 @@ export default function PhotoCard({ photo, altText }) {
           )}
         </>
       ) : (
-        <div className="photoCard"><img src="https://picsum.photos/600" className="rounded img-fluid" alt="Photo Placeholder" /></div>
+        <div className="photoCard"><img src={`https://picsum.photos/600?rand=${rand}`} className="rounded img-fluid" /></div>
       )}
-    </>
+    </div>
   );
 }
