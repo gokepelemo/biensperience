@@ -6,15 +6,17 @@ export default function Experiences({ experiences, user, setUser, render, setRen
         <>
         {experiences && (
           <>
-            <div className="row experiencesDetail">
+            <div className="row">
               <div className="col-md-6">
-                <h1 className="experiencesHeading my-4">
+                <h1 className="my-4 h">
                   Experiences
                 </h1>
               </div>
             </div>
-            <div className="row my-4 p-3 d-flex justify-content-start">
+            <div className="row my-4">
+            <div className="col-md-12 p-3 d-flex flex-wrap justify-content-center align-items-center">
                 {experiences.map((experience, index) => <ExperienceCard experience={experience} key={index} user={user} setUser={setUser} render={render} setRender={setRender} />)}
+            </div>
             </div>
           </>
         )}

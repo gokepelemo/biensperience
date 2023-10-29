@@ -1,8 +1,9 @@
-h1.destinationHeading {
+h1.h {
     text-align: left;
+    font-weight: bold;
 }
 
-.h5 {
+.h4, .h5 {
     margin: 0;
 }
 
@@ -12,4 +13,9 @@ button.add-to-fav-btn {
 
 h2.experiencesHeading {
     padding: 0;
+}
+
+.popularExperiences a {
+    text-decoration: none;
+    color: black;
 }

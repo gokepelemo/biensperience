@@ -23,9 +23,9 @@ async function createExperience(req, res) {
 
 async function showExperience(req, res) {
   try {
-    let experience = await Experience.findById(req.params.id).populate(
-      "destination"
-    ).populate("users.user");
+    let experience = await Experience.findById(req.params.id)
+      .populate("destination")
+      .populate("users.user");
     return res.json(experience);
   } catch (err) {
     res.status(400).json(err);
@@ -98,9 +98,9 @@ async function deletePlanItem(req, res) {
 
 async function addUser(req, res) {
   try {
-    let experience = await Experience.findById(
-      req.params.experienceId
-    ).populate("destination")
+    let experience = await Experience.findById(req.params.experienceId)
+      .populate("destination")
+      .populate("users.user");
     let idx = experience.users
       .map((user) => user.user)
       .indexOf(req.params.userId);
@@ -122,9 +122,9 @@ async function addUser(req, res) {
 
 async function removeUser(req, res) {
   try {
-    let experience = await Experience.findById(
-      req.params.experienceId
-    ).populate("destination")
+    let experience = await Experience.findById(req.params.experienceId)
+      .populate("destination")
+      .populate("users.user");
     let idx = experience.users
       .map((user) => user.user.id)
       .indexOf(req.params.userId);
@@ -145,6 +145,7 @@ async function userPlanItemDone(req, res) {
     let experience = await Experience.findById(req.params.experienceId)
       .populate("users.user")
       .populate("destination");
+    console.log();
     let user = experience.users.findIndex(
       (expUser) => expUser.user.id === req.user._id
     );
@@ -156,7 +157,7 @@ async function userPlanItemDone(req, res) {
       experience.users[user].plan.splice(plan_idx, 1);
       experience.save();
     }
-    return res.status(200).json(experience);
+    res.json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -168,7 +169,7 @@ async function showUserExperiences(req, res) {
       .populate("users.user")
       .populate("destination")
       .exec();
-    return res.status(200).json(experiences);
+    res.json(experiences);
   } catch (err) {
     res.status(400).json(err);
   }

@@ -6,7 +6,13 @@ import DestinationCard from "./../../components/DestinationCard/DestinationCard"
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import { showUserExperiences } from "../../utilities/experiences-api";
 
-export default function Profile({ user, setUser, render, setRender, destinations }) {
+export default function Profile({
+  user,
+  setUser,
+  render,
+  setRender,
+  destinations,
+}) {
   let { profileId } = useParams();
   const [uiState, setUiState] = useState({
     experiences: true,
@@ -28,8 +34,10 @@ export default function Profile({ user, setUser, render, setRender, destinations
   }
   return (
     <>
-      <div className="row mt-5">
-        <h1 className="profile-heading fw-bold">{user.name}</h1>
+      <div className="row">
+        <div className="col-md-6">
+          <h1 className="my-4 h">{user.name}</h1>
+        </div>
       </div>
       <div className="row mb-4">
         <div className="col-md-6 p-3">
@@ -75,12 +83,20 @@ export default function Profile({ user, setUser, render, setRender, destinations
         <>
           <div className="row my-4 justify-content-center">
             {uiState.destinations &&
-              Array.from(new Set (userExperiences.map(experience => experience.destination._id))).map((destination, index) => (
-                  <DestinationCard
-                    key={index}
-                    destination={destinations.filter(dest => dest._id == destination)[0]}
-                  />
-                ))}
+              Array.from(
+                new Set(
+                  userExperiences.map(
+                    (experience) => experience.destination._id
+                  )
+                )
+              ).map((destination, index) => (
+                <DestinationCard
+                  key={index}
+                  destination={
+                    destinations.filter((dest) => dest._id == destination)[0]
+                  }
+                />
+              ))}
             {uiState.experiences &&
               userExperiences.map((experience, index) => (
                 <ExperienceCard

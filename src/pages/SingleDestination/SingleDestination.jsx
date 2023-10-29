@@ -14,7 +14,7 @@ export default function SingleDestination({
 }) {
   const { destinationId } = useParams();
   const [destination, setDestination] = useState(
-    destinations.filter((destination) => destination._id == destinationId)[0]
+    destinations.filter((destination) => destination._id === destinationId)[0]
   );
   const [destinationExperiences, setDestinationExperiences] = useState(
     experiences.filter(
@@ -33,7 +33,7 @@ export default function SingleDestination({
   }
   useEffect(() => {
     if (!destination || !destinationExperiences) getData();
-  }, []);
+  });
   function handleAddToFavorites(e) {
     getData();
   }
@@ -42,9 +42,9 @@ export default function SingleDestination({
       <>
         {destination && (
           <>
-            <div className="row destination-detail">
+            <div className="row">
               <div className="col-md-6">
-                <h1 className="destinationHeading my-4">
+                <h1 className="my-4 h">
                   {destination.name},{" "}
                   {!destination.state
                     ? destination.country
@@ -66,16 +66,39 @@ export default function SingleDestination({
               <div className="col-md-6 p-3">{destination && <PhotoCard />}</div>
               <div className="col-md-6 p-3">
                 <ul className="list-group destination-detail">
-                  <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
-                    Popular Experiences
-                  </li>
-                  <li className="list-group-item list-group-item-secondary"></li>
+                  {destination.country ? (
+                    <li className="list-group-item list-group-item-secondary fw-bold text-center h4">
+                      {`Country: ${destination.country}`}
+                    </li>
+                  ) : (
+                    ""
+                  )}
+                  {destinationExperiences.length > 0 && (
+                    <>
+                      <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
+                        Popular Experiences
+                      </li>
+                      <li className="list-group-item list-group-item-secondary">
+                        {destinationExperiences
+                          .filter((experience, index) => index < 3)
+                          .map((experience, index) => (
+                            <p className="popularExperiences" key={index}>
+                              <Link to={`/experiences/${experience._id}`}>
+                                {experience.name}
+                              </Link>
+                            </p>
+                          ))}
+                      </li>
+                    </>
+                  )}
+                  {destination.travel_tips.length > 0 && (
                   <>
                     <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
                       Travel Tips
                     </li>
                     <li className="list-group-item list-group-item-secondary"></li>
                   </>
+                  )}
                 </ul>
               </div>
             </div>

@@ -10,7 +10,6 @@ export default function ExperienceCard({ experience, user, render, setRender }) 
   const rand = Math.floor(Math.random() * 50)
   const [currentExperience, setCurrentExperience] = useState(experience)
   const [experienceAdded, setExperienceAdded] = useState(experience.users.map((expUser) => expUser.user).filter((expUser) => expUser._id === user._id).length > 0);
-  console.log(experience.users.map((expUser) => expUser.user).filter((expUser) => expUser._id === user._id).length > 0)
   async function handleExperienceAction (e) {
     let update;
     if (experienceAdded) {

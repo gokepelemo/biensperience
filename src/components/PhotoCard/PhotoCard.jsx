@@ -3,7 +3,7 @@ export default function PhotoCard({ photo, altText }) {
     <>
       {photo ? (
         <>
-          <div className="photoCard">
+          <div className="photoCard d-flex align-items-center justify-content-center">
             <img src={photo.url} alt={altText} className="rounded img-fluid" />
           </div>
           {photo.photo_credit && (

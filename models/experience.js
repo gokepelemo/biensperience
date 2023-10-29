@@ -4,6 +4,7 @@ const Schema = mongoose.Schema;
 const planItemSchema = new Schema({
   text: { type: String },
   photo: { type: Schema.Types.ObjectId, ref: "Photo" },
+  url: { type: String },
   cost_estimate: { type: Number },
 });
 

@@ -1,27 +1,29 @@
 .experience {
-    margin: 0.25rem 0.25rem 0.25rem 0;
-    display: inline-block;
     width: fit-content;
+    display: inline-block;
+    margin: 0.25rem 0.25rem 0.25rem 0;
 }
 .experienceCard {
     width: 20rem;
-    min-height: 7.5rem;
     display: flex;
+    min-height: 7.5rem;
     align-items: center;
     justify-content: center;
 }
 
 .experienceCard span {
-    text-align: center;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    color: ghostwhite;
-    background-color: rgba(0, 0, 0, 0.6);
+    min-height: 3rem;
     font-weight: bold;
-    font-size: 1.5rem;
     padding: 0.25vmin;
     font-size: 1.5rem;
+    font-size: 1.5rem;
+    min-width: 18.2rem;
+    text-align: center;
+    color: ghostwhite;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5);
 }
 
 .experienceCard button {
