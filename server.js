@@ -11,7 +11,7 @@ require('dotenv').config();
 require('./config/database');
 
 const app = express();
-const CLIENTDEVPORT = 5173
+const CLIENTDEVPORT = 3000
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || `http://localhost:${CLIENTDEVPORT}` }))
 
 app.use(logger('dev'));
