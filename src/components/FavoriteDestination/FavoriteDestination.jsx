@@ -1,5 +1,5 @@
 import "./FavoriteDestination.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   showDestination,
   toggleUserFavoriteDestination,
@@ -7,9 +7,12 @@ import {
 
 export default function FavoriteDestination({ destination, user }) {
   const [isUserFavorite, setIsUserFavorite] = useState(false);
+  useEffect(() => {
+    setIsUserFavorite(destination.users_favorite.indexOf(user._id) !== -1)
+  }, [])
   async function handleAddToFavorites(e) {
-    await toggleUserFavoriteDestination(destination._id, user._id);
-    console.log(destination, user)
+    let favoriteDestination = await toggleUserFavoriteDestination(destination._id, user._id);
+    favoriteDestination ? setIsUserFavorite(!isUserFavorite) : setIsUserFavorite(false);
   }
   return (
     <div>

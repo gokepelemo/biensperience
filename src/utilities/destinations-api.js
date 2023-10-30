@@ -1,6 +1,6 @@
 import { sendRequest } from './send-request';
 
-const BASE_URL = process.env.PRODUCTION ? `/api/destinations/` : `https://biensperience.onrender.com/api/destinations/`
+const BASE_URL = !process.env.PRODUCTION ? `/api/destinations/` : `https://biensperience.onrender.com/api/destinations/`
 
 export async function getDestinations () {
     return await sendRequest(`${BASE_URL}`, "GET")
