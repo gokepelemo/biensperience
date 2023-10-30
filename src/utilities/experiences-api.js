@@ -1,4 +1,4 @@
-import sendRequest from "./send-request";
+import { sendRequest } from "./send-request";
 
 export async function getExperiences() {
   return await sendRequest(`/api/experiences/`, "GET");

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { createExperience } from "../../utilities/experiences-api";
 import { getDestinations } from "../../utilities/destinations-api";
+import ImageUpload from "../../components/ImageUpload/ImageUpload";
 
 export default function NewExperience({ updateData }) {
   const [newExperience, setNewExperience] = useState({});
@@ -97,7 +98,7 @@ export default function NewExperience({ updateData }) {
           placeholder="e.g. Culinary, Winery, Brewery, High Adrenaline"
         /><small>In a comma separated list e.g. Culinary, Winery, Brewery, High Adrenaline</small></span>
         <label>Photo</label>
-        <input type="file" name="photo" id="photo" className="form-control" />
+        <ImageUpload data={newExperience} setData={setNewExperience} />
         <button type="submit" className="btn btn-light">
           Add
         </button>

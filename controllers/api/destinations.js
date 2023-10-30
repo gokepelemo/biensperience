@@ -3,7 +3,7 @@ const User = require("../../models/user");
 
 async function index(req, res) {
   try {
-    const destinations = await Destination.find({});
+    const destinations = await Destination.find({}).populate("photo");
     res.json(destinations);
   } catch (err) {
     res.status(400).json(err);
@@ -12,6 +12,7 @@ async function index(req, res) {
 
 async function createDestination(req, res) {
   try {
+    req.body.user = req.user._id;
     const destination = await Destination.create(req.body);
     res.json(destination);
   } catch (err) {
@@ -21,7 +22,7 @@ async function createDestination(req, res) {
 
 async function showDestination(req, res) {
   try {
-    const destination = await Destination.findById(req.params.id);
+    const destination = await Destination.findById(req.params.id).populate("photo");
     res.json(destination);
   } catch (err) {
     res.status(400).json(err);

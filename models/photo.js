@@ -7,6 +7,7 @@ const photoSchema = new Schema(
     s3_key: { type: String },
     photo_credit: { type: String },
     photo_credit_url: { type: String },
+    user: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   {
     timestamps: true,

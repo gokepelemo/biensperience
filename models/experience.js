@@ -17,11 +17,10 @@ const experienceSchema = new Schema(
     destination: {
       type: Schema.Types.ObjectId,
       ref: "Destination",
-      // required: true,
+      required: true,
     },
     map_location: {
       type: String,
-      // required: true,
     },
     experience_type: [String],
     plan_items: [planItemSchema],

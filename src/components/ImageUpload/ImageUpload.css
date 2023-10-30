@@ -1,0 +1,37 @@
+form.imageUpload {
+    display: grid;
+    margin: 1rem auto;
+    min-width: 400px;
+}
+
+form.imageUpload label {
+    font-size: 1.5rem;
+}
+
+.uploadPhoto input {
+    display: inline-block;
+    width: 20rem;
+    font-size: 0.75rem;
+    padding: 0.25rem;
+    margin: 0.5rem 0.25rem 0 0;
+}
+
+button.upload-btn {
+    display: inline-block;
+    width: fit-content !important;
+    margin: 0.5rem 0.25rem !important;
+}
+
+.uploadPhoto {
+    width: fit-content;
+    display: inline-block;
+    margin: 0.5rem 0.25rem 0 0;
+}
+
+.previewImg {
+    height: 150px;
+}
+
+.removeImg {
+    margin: 0 1rem;
+}

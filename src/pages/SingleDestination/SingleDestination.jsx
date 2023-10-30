@@ -1,13 +1,11 @@
 import "./SingleDestination.css";
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import {
-  showDestination,
-  toggleUserFavoriteDestination,
-} from "../../utilities/destinations-api";
+import { showDestination } from "../../utilities/destinations-api";
 import { getExperiences } from "../../utilities/experiences-api";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
+import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
 
 export default function SingleDestination({
   experiences,
@@ -25,7 +23,6 @@ export default function SingleDestination({
       (experience) => experience.destination._id === destinationId
     )
   );
-  const [isUserFavorite, setIsUserFavorite] = useState(false);
   async function getData() {
     let destinationData = await showDestination(destinationId);
     let experienceData = await getExperiences();
@@ -50,13 +47,7 @@ export default function SingleDestination({
           : destination.state
       } - Biensperience`;
     }
-    setIsUserFavorite(destination.users_favorite.indexOf(user._id) !== -1);
-  });
-  function handleAddToFavorites(e) {
-    toggleUserFavoriteDestination(destination._id, user._id);
-    setIsUserFavorite(!isUserFavorite);
-    getData();
-  }
+  }, [destination]);
   return (
     <>
       <>
@@ -74,16 +65,13 @@ export default function SingleDestination({
                 </h1>
               </div>
               <div className="d-flex col-md-6 justify-content-end">
-                <button
-                  className="btn btn-light my-4 add-to-fav-btn"
-                  onClick={handleAddToFavorites}
-                >
-                  {!isUserFavorite ? `+ Add to Favorite Destinations` : `❤️`}
-                </button>
+                <FavoriteDestination destination={destination} user={user} />
               </div>
             </div>
             <div className="row my-4">
-              <div className="col-md-6 p-3">{destination && <PhotoCard />}</div>
+              <div className="col-md-6 p-3">
+                {destination && <PhotoCard photo={destination.photo} />}
+              </div>
               <div className="col-md-6 p-3">
                 <ul className="list-group destination-detail">
                   {destination.country ? (
@@ -140,6 +128,7 @@ export default function SingleDestination({
                     user={user}
                     setUser={setUser}
                     experience={experience}
+                    updateData={updateData}
                   />
                 ))
               ) : (

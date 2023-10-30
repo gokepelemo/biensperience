@@ -1,9 +1,11 @@
 const express = require('express');
-const router = express.Router()
+const router = express.Router();
+const multer  = require('multer')
+const upload = multer({ dest: '../../uploads/images' })
 const photosCtrl = require('../../controllers/api/photos');
 const ensureLoggedIn = require('../../config/ensureLoggedIn')
 
-router.post('/', ensureLoggedIn, photosCtrl.create);
+router.post('/', upload.single('image'), photosCtrl.create);
 router.delete('/:id', ensureLoggedIn, photosCtrl.delete);
 router.put('/:id', ensureLoggedIn, photosCtrl.update);
 

@@ -1,4 +1,4 @@
-import sendRequest from './send-request';
+import { sendRequest } from './send-request';
 
 export async function getDestinations () {
     return await sendRequest(`/api/destinations/`, "GET")

@@ -2,8 +2,9 @@ import "./NewDestination.css";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createDestination } from "../../utilities/destinations-api";
+import ImageUpload from "../ImageUpload/ImageUpload";
 
-export default function NewDestination( { updateData}) {
+export default function NewDestination({ updateData }) {
   const [newDestination, setNewDestination] = useState({});
   const [travelTips, setTravelTips] = useState([]);
   const [newTravelTip, setNewTravelTip] = useState({});
@@ -20,7 +21,7 @@ export default function NewDestination( { updateData}) {
       let destination = await createDestination(
         Object.assign({ ...newDestination }, { travel_tips: travelTips })
       );
-      updateData()
+      updateData();
       navigate(`/experiences/new`);
     } catch (err) {
       console.error(err);
@@ -86,6 +87,8 @@ export default function NewDestination( { updateData}) {
           />
           <small>Required.</small>
         </span>
+        <label>Photo</label>
+        <ImageUpload data={newDestination} setData={setNewDestination} />
         <label>Travel Tips</label>
         <span>
           <span className="addTravelTipPane">
@@ -134,8 +137,6 @@ export default function NewDestination( { updateData}) {
             )}
           </ul>
         </span>
-        <label>Photo</label>
-        <input type="file" name="photo" id="photo" className="form-control" />
         <div className="form-btns">
           <button type="submit" className="btn btn-light">
             Create New Experience
