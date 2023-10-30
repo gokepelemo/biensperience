@@ -52,7 +52,6 @@ export default class SignUpForm extends Component {
               name="email"
               value={this.state.email}
               onChange={this.handleChange}
-              autoComplete="email"
               placeholder="Email (ex. john@doe.com)"
               required
             />
@@ -62,7 +61,6 @@ export default class SignUpForm extends Component {
               name="password"
               value={this.state.password}
               onChange={this.handleChange}
-              autoComplete="new-password"
               placeholder="Password"
               required
             />
@@ -72,7 +70,6 @@ export default class SignUpForm extends Component {
               name="confirm"
               value={this.state.confirm}
               onChange={this.handleChange}
-              autoComplete="new-password"
               placeholder="Confirm Password"
               required
             />

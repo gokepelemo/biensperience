@@ -1,5 +1,5 @@
 import { sendRequest } from './send-request';
-const BASE_URL = process.env.PRODUCTION ? `/api/users/` : 'https://biensperience.onrender.com/api/users/';
+const BASE_URL = !process.env.PRODUCTION ? `/api/users/` : 'https://biensperience.onrender.com/api/users/';
 
 export function signUp(userData) {
     return sendRequest(`${BASE_URL}`, 'POST', userData)
@@ -15,4 +15,8 @@ export function checkToken() {
 
 export async function getUserData(id) {
     return await sendRequest(`${BASE_URL}${id}`, 'GET')
+}
+
+export async function updateUser(id, userData) {
+    return await sendRequest(`${BASE_URL}${id}`, 'PUT', userData)
 }

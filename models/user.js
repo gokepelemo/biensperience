@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const bcrypt = require("bcrypt");
 
-const SALT_ROUNDS = 6;
+const SALT_ROUNDS = process.env.SALT_ROUNDS;
 
 const userSchema = new Schema(
   {

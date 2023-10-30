@@ -8,6 +8,7 @@ import { Route, Routes, Navigate } from "react-router-dom";
 import AuthPage from "../AuthPage/AuthPage";
 import AppHome from "../AppHome/AppHome";
 import NavBar from "../../components/NavBar/NavBar";
+import EditProfile from "../Profile/EditProfile";
 import SingleExperience from "../SingleExperience/SingleExperience";
 import SingleDestination from "../SingleDestination/SingleDestination";
 import Destinations from "../Destinations/Destinations";
@@ -43,7 +44,7 @@ export default function App() {
         <>
           <NavBar user={user} setUser={setUser} />
           <Routes>
-            <Route path="/" element={<AppHome user={user} />} />
+            <Route path="/" element={<AppHome user={user} destinations={destinations} experiences={experiences} />} />
             <Route
               path="/experiences/new"
               element={<NewExperience updateData={updateData} />}
@@ -65,6 +66,7 @@ export default function App() {
               }
             />
             <Route path="/profile/:profileId" element={<Profile />} />
+            <Route path="/profile/edit" element={<EditProfile user={user} setUser={setUser} />} />
             <Route
               path="/experiences"
               element={

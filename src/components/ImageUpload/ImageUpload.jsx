@@ -4,7 +4,7 @@ import { uploadPhoto, deletePhoto } from "../../utilities/photos-api";
 
 export default function ImageUpload({ data, setData }) {
   const [uploadForm, setUploadForm] = useState({});
-  const [photoUploaded, setPhotoUploaded] = useState(0);
+  const [photoUploaded, setPhotoUploaded] = useState(false);
   function handleFileChange(e) {
     setUploadForm({ ...uploadForm, [e.target.name]: e.target.value });
   }
@@ -12,6 +12,7 @@ export default function ImageUpload({ data, setData }) {
     e.preventDefault();
     let formData = new FormData();
     let image = document.getElementById("image").files[0];
+    if (!image) return;
     formData.append("image", image);
     formData.append("photo_credit", uploadForm.photo_credit);
     formData.append("name", data.name);
@@ -20,9 +21,13 @@ export default function ImageUpload({ data, setData }) {
     setData({ ...data, photo: uploadedImage.upload._id });
     setUploadForm({ photo_credit: "" });
   }
-  function removeImage() {
-    deletePhoto(data.photo);
-    setPhotoUploaded(false);
+  async function removeImage() {
+    try {
+      await deletePhoto(data.photo);
+      setPhotoUploaded(false);
+    } catch (err) {
+      console.error(err);
+    }
     setData({ photo: "" });
   }
   return (
@@ -35,7 +40,7 @@ export default function ImageUpload({ data, setData }) {
             onChange={handleFileChange}
             value={uploadForm.photo_credit}
             className="form-control"
-            placeholder="Photo Credit"
+            placeholder="Photo Credit e.g. Unsplash"
           />
           <input
             type="text"
@@ -52,14 +57,20 @@ export default function ImageUpload({ data, setData }) {
             onChange={handleFileChange}
             className="form-control"
           />
-          <button className="btn btn-light btn-sm upload-btn" onClick={handlePhotoAdd}>
+          <button
+            className="btn btn-light btn-sm upload-btn"
+            onClick={handlePhotoAdd}
+          >
             Upload
           </button>
         </>
       ) : (
         <>
           <img className="previewImg" src={photoUploaded.upload.url} />
-          <button className="btn btn-light btn-sm removeImg" onClick={removeImage}>
+          <button
+            className="btn btn-light btn-sm removeImg"
+            onClick={removeImage}
+          >
             ❌
           </button>
         </>

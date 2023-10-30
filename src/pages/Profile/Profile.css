@@ -31,3 +31,15 @@ h1.h {
     margin: 0;
     padding: 1rem;
 }
+
+form.editProfile {
+
+}
+
+.editProfile * {
+    grid-column: 1 / span 2;
+}
+
+.editProfile button {
+    width: fit-content;
+}

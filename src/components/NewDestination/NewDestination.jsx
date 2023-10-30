@@ -48,7 +48,6 @@ export default function NewDestination({ updateData }) {
     <>
       <h1>New Destination</h1>
       <form onSubmit={handleSubmit} className="newDestination">
-        <label>City</label>
         <span>
           <input
             type="text"
@@ -59,9 +58,8 @@ export default function NewDestination({ updateData }) {
             value={newDestination.name}
             placeholder="e.g. London"
           />
-          <small>Required.</small>
+          <small>City (required)</small>
         </span>
-        <label>State</label>
         <span>
           <input
             type="text"
@@ -72,9 +70,8 @@ export default function NewDestination({ updateData }) {
             value={newDestination.state}
             placeholder="e.g. United Kingdom"
           />
-          <small>Optional.</small>
+          <small>State/Province (required)</small>
         </span>
-        <label>Country</label>
         <span>
           <input
             type="text"
@@ -85,12 +82,14 @@ export default function NewDestination({ updateData }) {
             value={newDestination.country}
             placeholder="e.g. England"
           />
-          <small>Required.</small>
+          <small>Country (required)</small>
         </span>
-        <label>Photo</label>
-        <ImageUpload data={newDestination} setData={setNewDestination} />
-        <label>Travel Tips</label>
         <span>
+        <ImageUpload data={newDestination} setData={setNewDestination} />
+        <small>Photo (optional)</small>
+        </span>
+        <span>
+          <h5 className="mt-2">Travel Tips</h5>
           <span className="addTravelTipPane">
             <div
               className="btn btn-light action-btn"

@@ -4,6 +4,10 @@ form.newDestination {
     margin: 0 auto;
 }
 
+form.newDestination span {
+    grid-column: 1 / span 2;
+}
+
 .form-btns {
     grid-column: 1 / span 2;
     min-width: 50px;
@@ -34,7 +38,7 @@ div.action-btn {
 
 .addTravelTips {
     display: inline-block;
-    width: 7.5rem;
+    width: 40%;
     font-size: 0.75rem;
     padding: 0.25rem;
     margin: 0.5rem 0.25rem;

@@ -2,8 +2,16 @@ const User = require("../../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 
+const SALT_ROUNDS = process.env.SALT_ROUNDS;
+
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
+}
+
+async function hashPassword(password) {
+  await bcrypt.hash(password, 6).then(hash => {
+    return hash
+  })
 }
 
 async function create(req, res) {
@@ -18,7 +26,9 @@ async function create(req, res) {
 
 async function login(req, res) {
   try {
-    const user = await User.findOne({ email: req.body.email });
+    const user = await User.findOne({ email: req.body.email }).populate(
+      "photo"
+    );
     const passwordTest = await bcrypt.compare(req.body.password, user.password);
     const token = passwordTest ? createJWT(user) : null;
     res.json(token);
@@ -33,49 +43,19 @@ function checkToken(req, res) {
 
 async function getUser(req, res) {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id).populate("photo");
     res.json(user);
   } catch (err) {
     res.status(400).json(err);
   }
 }
 
-async function addExperience(req, res) {
+async function updateUser(req, res, next) {
+  let user;
   try {
-    if (req.user._id !== req.params.userId) res.status(401).json(err);
-    let user = await User.findById(req.params.userId);
-    let idx = user.experiences.findIndex(
-      (experience) => experience.experience.id === req.params.experienceId
-    );
-    if (idx === -1) {
-      let newExperience = {
-        experience: req.params.experienceId,
-        plan: [],
-      };
-      user.experiences.push(newExperience);
-      await user.save();
-    } else {
-      console.log("Experience is already added.")
-    }
-    return res.status(200).json(user);
-  } catch (err) {
-    res.status(400).json(err);
-  }
-}
-
-async function removeExperience(req, res) {
-  try {
-    let user = await User.findById(req.params.userId);
-    let idx = user.experiences.findIndex(
-      (experience) => experience.experience.id === req.params.experienceId
-    );
-    if(idx !== -1) {
-      user.experiences.splice(idx, 1);
-      await user.save();
-    } else {
-      console.log("Experience isn't added to this user anymore.")
-    }
-    return res.status(200).json(user);
+    delete req.body.password;
+    user = await User.findByIdAndUpdate(req.params.id, req.body);
+    res.json(user);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -85,7 +65,6 @@ module.exports = {
   create,
   login,
   checkToken,
-  addExperience,
-  removeExperience,
   getUser,
+  updateUser,
 };

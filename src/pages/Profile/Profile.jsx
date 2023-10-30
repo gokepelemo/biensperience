@@ -68,7 +68,7 @@ export default function Profile({ user, setUser, destinations, updateData }) {
       </div>
       <div className="row mb-4">
         <div className="col-md-6 p-3">
-          <PhotoCard />
+          <PhotoCard photo={user.photo} />
         </div>
         <div className="col-md-6 p-3">
           <ul className="list-group profile-detail">
