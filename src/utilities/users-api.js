@@ -1,18 +1,18 @@
 import { sendRequest } from './send-request';
-const BASE_URL = '/api/users';
+const BASE_URL = 'https://biensperience.onrender.com/api/users/';
 
 export function signUp(userData) {
-    return sendRequest(BASE_URL, 'POST', userData)
+    return sendRequest(`${BASE_URL}`, 'POST', userData)
 }
 
 export function login(credentials) {
-    return sendRequest(`${BASE_URL}/login`, 'POST', credentials)
+    return sendRequest(`${BASE_URL}login`, 'POST', credentials)
 }
 
 export function checkToken() {
-    return sendRequest(`${BASE_URL}/check-token`);
+    return sendRequest(`${BASE_URL}check-token`);
 }
 
 export async function getUserData(id) {
-    return await sendRequest(`${BASE_URL}/${id}`, 'GET')
+    return await sendRequest(`${BASE_URL}${id}`, 'GET')
 }

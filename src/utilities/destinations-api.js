@@ -1,25 +1,27 @@
 import { sendRequest } from './send-request';
 
+const BASE_URL = process.env.PRODUCTION ? `/api/destinations/` : `https://biensperience-y5m5.onrender.com/api/destinations/`
+
 export async function getDestinations () {
-    return await sendRequest(`/api/destinations/`, "GET")
+    return await sendRequest(`${BASE_URL}`, "GET")
 }
 
 export async function createDestination (destinationData) {
-    return await sendRequest(`/api/destinations/`, "POST", destinationData)
+    return await sendRequest(`${BASE_URL}`, "POST", destinationData)
 }
 
 export async function showDestination (id) {
-    return await sendRequest(`/api/destinations/${id}`, "GET")
+    return await sendRequest(`${BASE_URL}${id}`, "GET")
 }
 
 export async function updateDestination (experienceData) {
-    return await sendRequest(`/api/destinations/${experienceData.id}`, "PUT", experienceData)
+    return await sendRequest(`${BASE_URL}${experienceData.id}`, "PUT", experienceData)
 }
 
 export async function deleteDestination (id) {
-    return await sendRequest(`/api/destinations/${id}`, "DELETE")
+    return await sendRequest(`${BASE_URL}${id}`, "DELETE")
 }
 
 export async function toggleUserFavoriteDestination (destinationId, userId) {
-    return await sendRequest(`/api/destinations/${destinationId}/user/${userId}`, "POST")
+    return await sendRequest(`${BASE_URL}${destinationId}/user/${userId}`, "POST")
 }
