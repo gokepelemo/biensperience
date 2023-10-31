@@ -192,6 +192,7 @@ export default function SingleExperience({
                 setExperience={setExperience}
                 newPlanItem={newPlanItem}
                 setNewPlanItem={setNewPlanItem}
+                updateData={updateData}
               />
             </div>
           )}
