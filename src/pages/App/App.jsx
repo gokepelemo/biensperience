@@ -27,10 +27,16 @@ export default function App() {
   const [experiences, setExperiences] = useState([]);
   async function updateData() {
     if (user) {
-      let destinationsData = await getDestinations();
-      let experiencesData = await getExperiences();
-      setDestinations(destinationsData);
-      setExperiences(experiencesData);
+      let destinationsData = await getDestinations().then(function (
+        destinations
+      ) {
+        setDestinations(destinations);
+      });
+      let experiencesData = await getExperiences().then(function (
+        experiences
+      ) {
+        setExperiences(experiences);
+      });
     }
   }
   useEffect(() => {

@@ -47,7 +47,7 @@ export default function SingleDestination({
           : destination.state
       } - Biensperience`;
     }
-  }, [destination]);
+  }, []);
   return (
     <>
       <>
@@ -65,7 +65,7 @@ export default function SingleDestination({
                 </h1>
               </div>
               <div className="d-flex col-md-6 justify-content-end">
-                <FavoriteDestination destination={destination} user={user} />
+                <FavoriteDestination destination={destination} user={user} getData={getData} />
               </div>
             </div>
             <div className="row my-4">

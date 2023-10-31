@@ -5,14 +5,20 @@ import {
   toggleUserFavoriteDestination,
 } from "../../utilities/destinations-api";
 
-export default function FavoriteDestination({ destination, user }) {
+export default function FavoriteDestination({ destination, user, getData }) {
   const [isUserFavorite, setIsUserFavorite] = useState(false);
   useEffect(() => {
-    setIsUserFavorite(destination.users_favorite.indexOf(user._id) !== -1)
-  }, [])
+    setIsUserFavorite(destination.users_favorite.indexOf(user._id) !== -1);
+  }, []);
   async function handleAddToFavorites(e) {
-    let favoriteDestination = await toggleUserFavoriteDestination(destination._id, user._id);
-    favoriteDestination ? setIsUserFavorite(!isUserFavorite) : setIsUserFavorite(false);
+    let favoriteDestination = await toggleUserFavoriteDestination(
+      destination._id,
+      user._id
+    );
+    favoriteDestination
+      ? setIsUserFavorite(!isUserFavorite)
+      : setIsUserFavorite(false);
+    getData();
   }
   return (
     <div>

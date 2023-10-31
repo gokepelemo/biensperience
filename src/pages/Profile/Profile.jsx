@@ -78,9 +78,8 @@ export default function Profile({ user, destinations, updateData }) {
         <div className="col-md-6 p-3">
           <PhotoCard photo={currentProfile.photo} />
           {!currentProfile.photo && isOwner && (
-            <small>
-              You don't have a profile photo.{" "}
-              <Link to="/profile/edit">Upload one now</Link>.
+            <small className="d-flex justify-content-center align-items-center noPhoto">
+              <span>You don't have a profile photo. </span><Link to="/profile/edit">Upload one now</Link>.
             </small>
           )}
         </div>

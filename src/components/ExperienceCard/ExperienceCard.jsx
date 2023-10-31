@@ -1,6 +1,6 @@
 import "./ExperienceCard.css";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   userAddExperience,
   userRemoveExperience,
@@ -20,6 +20,9 @@ export default function ExperienceCard({ experience, user, updateData }) {
     setExperienceAdded(!experienceAdded)
     updateData()
   }
+  useEffect(() => {
+    setExperienceAdded(experience.users.map((expUser) => expUser.user).filter((expUser) => expUser._id === user._id).length > 0)
+  })
   return (
     <div className="experience">
       {experience ? (
