@@ -22,10 +22,10 @@ An application that enables you to plan your experiences and share experience pl
 <img src="https://biensperience.s3.us-west-2.amazonaws.com/screenshots/mark-plan-items-done.png" alt="Add plan items and mark them done" width="500" />
 
 ### Add experiences to your profile
-<img src="https://biensperience.s3.us-west-2.amazonaws.com/screenshots/add-experiences.gif" alt="Add experiences to your profile" width="500" />
+<img src="./screenshots/add-experiences.gif" alt="Add experiences to your profile" width="500" />
 
 ### Favorite a destination
-<img src="https://biensperience.s3.us-west-2.amazonaws.com/screenshots/favorite-destinations.gif" alt="Favorite a destination" width="500" />
+<img src="./screenshots/favorite-destinations.gif" alt="Favorite a destination" width="500" />
 
 ## Getting Started
 Deployed on [Render.com](https://biensperience.onrender.com/).
