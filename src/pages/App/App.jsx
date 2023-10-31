@@ -25,8 +25,6 @@ export default function App() {
   const [user, setUser] = useState(getUser());
   const [destinations, setDestinations] = useState([]);
   const [experiences, setExperiences] = useState([]);
-  const [render, setRender] = useState(0);
-  const [photos, setPhotos] = useState([]);
   async function updateData() {
     if (user) {
       let destinationsData = await getDestinations();
@@ -95,8 +93,6 @@ export default function App() {
                   user={user}
                   setUser={setUser}
                   experiences={experiences}
-                  render={render}
-                  setRender={setRender}
                   updateData={updateData}
                 />
               }
