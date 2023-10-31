@@ -14,8 +14,8 @@ export default function ImageUpload({ data, setData }) {
     let image = document.getElementById("image").files[0];
     if (!image) return;
     formData.append("image", image);
-    formData.append("photo_credit", uploadForm.photo_credit);
-    formData.append("name", data.name);
+    if(uploadForm.photo_credit) formData.append("photo_credit", uploadForm.photo_credit);
+    if(uploadForm.name) formData.append("name", data.name);
     let uploadedImage = await uploadPhoto(formData);
     setPhotoUploaded(uploadedImage);
     setData({ ...data, photo: uploadedImage.upload._id });

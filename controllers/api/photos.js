@@ -8,10 +8,11 @@ const requireOwnership = customErrors.requireOwnership;
 const s3Upload = require("../../uploads/aws-s3-upload");
 
 async function createPhoto(req, res) {
-  let rand = Math.ceil(Math.random() * 50);
+  let rand = Math.ceil(Math.random() * 500);
   try {
     req.body.user = req.user._id;
-    s3Upload(req.file.path, req.file.originalname, `${rand}-${req.body.name}`)
+    req.body.photo_credit = req.body.photo_credit ? req.body.photo_credit : "biensperience";
+    s3Upload(req.file.path, req.file.originalname, `${rand}-${req.body.name ? req.body.name : "biensperience"}`)
       .then((response) => {
         console.log(response.Location);
         return Photo.create({
