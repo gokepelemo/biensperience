@@ -5,8 +5,10 @@ import { uploadPhoto, deletePhoto } from "../../utilities/photos-api";
 export default function ImageUpload({ data, setData }) {
   const [uploadForm, setUploadForm] = useState({});
   const [photoUploaded, setPhotoUploaded] = useState(false);
+  const [uploading, setUploading] = useState(false);
   function handleFileChange(e) {
     setUploadForm({ ...uploadForm, [e.target.name]: e.target.value });
+    handlePhotoAdd(e);
   }
   async function handlePhotoAdd(e) {
     e.preventDefault();
@@ -17,6 +19,7 @@ export default function ImageUpload({ data, setData }) {
     if (uploadForm.photo_credit)
       formData.append("photo_credit", uploadForm.photo_credit);
     if (uploadForm.name) formData.append("name", data.name);
+    setUploading(!uploading)
     let uploadedImage = await uploadPhoto(formData);
     setPhotoUploaded(uploadedImage);
     setData({ ...data, photo: uploadedImage.upload._id });
@@ -24,6 +27,7 @@ export default function ImageUpload({ data, setData }) {
   }
   async function removeImage(e) {
     e.preventDefault();
+    setUploading(!uploading)
     try {
       await deletePhoto(data.photo);
       setPhotoUploaded(false);
@@ -63,7 +67,7 @@ export default function ImageUpload({ data, setData }) {
             className="btn btn-light btn-sm upload-btn"
             onClick={handlePhotoAdd}
           >
-            Upload
+            {uploading ? `Uploading...` : `Upload`}
           </button>
         </>
       ) : (

@@ -1,7 +1,11 @@
 form.newExperience {
     width: 75%;
-    min-width: 400px;
+    min-width: 350px;
     margin: 0 auto;
+}
+
+form.newExperience span {
+    grid-column: 1 / span 2;
 }
 
 form.newExperience button {

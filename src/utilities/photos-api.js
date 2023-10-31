@@ -7,5 +7,5 @@ export async function uploadPhoto(request) {
 }
 
 export async function deletePhoto(id) {
-    return await sendRequest(`${BASE_URL}/${id}`, "DELETE")
+    return await sendRequest(`${BASE_URL}${id}`, "DELETE")
 }
