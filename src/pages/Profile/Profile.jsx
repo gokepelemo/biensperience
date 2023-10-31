@@ -5,10 +5,14 @@ import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import { showUserExperiences } from "../../utilities/experiences-api";
+import { getUserData } from "../../utilities/users-api";
 
-export default function Profile({ user, setUser, destinations, updateData }) {
+export default function Profile({ user, destinations, updateData }) {
   let { profileId } = useParams();
-  const [currentProfile, setCurrentProfile] = useState(user);
+  const [currentProfile, setCurrentProfile] = useState(
+    profileId ? getUserData(profileId) : user
+  );
+  const [isOwner, setIsOwner] = useState(!profileId || profileId === user._id);
   const [uiState, setUiState] = useState({
     experiences: true,
     destinations: false,
@@ -36,7 +40,8 @@ export default function Profile({ user, setUser, destinations, updateData }) {
     .join(", ");
   const favoriteDestinations = destinations
     .filter(
-      (destination) => destination.users_favorite.indexOf(user._id) !== -1
+      (destination) =>
+        destination.users_favorite.indexOf(currentProfile._id) !== -1
     )
     .map((destination, index, arr) => (
       <span key={index}>
@@ -44,15 +49,18 @@ export default function Profile({ user, setUser, destinations, updateData }) {
         {index + 1 === arr.length ? "" : ", "}
       </span>
     ));
-  async function getExperiences() {
-    let experiences = await showUserExperiences(user._id);
-    setUserExperiences(experiences);
+  async function getProfile() {
+    await getUserData(currentProfile._id).then(function (data) {
+      setCurrentProfile(profileId ? data : user);
+    });
+    await showUserExperiences(currentProfile._id).then(function (data) {
+      setUserExperiences(data);
+    });
   }
   useEffect(() => {
-    updateData();
-    getExperiences();
+    getProfile();
     document.title = `${currentProfile.name} - Biensperience`;
-  }, [uiState.experiences, profileId]);
+  });
   function handleExpNav(e) {
     setUiState({
       experiences: !uiState.experiences,
@@ -63,12 +71,18 @@ export default function Profile({ user, setUser, destinations, updateData }) {
     <>
       <div className="row">
         <div className="col-md-6">
-          <h1 className="my-4 h">{user.name}</h1>
+          <h1 className="my-4 h">{currentProfile.name}</h1>
         </div>
       </div>
       <div className="row mb-4">
         <div className="col-md-6 p-3">
-          <PhotoCard photo={user.photo} />
+          <PhotoCard photo={currentProfile.photo} />
+          {!currentProfile.photo && isOwner && (
+            <small>
+              You don't have a profile photo.{" "}
+              <Link to="/profile/edit">Upload one now</Link>.
+            </small>
+          )}
         </div>
         <div className="col-md-6 p-3">
           <ul className="list-group profile-detail">
@@ -146,7 +160,6 @@ export default function Profile({ user, setUser, destinations, updateData }) {
                 <ExperienceCard
                   experience={experience}
                   user={user}
-                  setUser={setUser}
                   updateData={updateData}
                   key={index}
                 />

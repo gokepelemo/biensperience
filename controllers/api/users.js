@@ -54,7 +54,7 @@ async function updateUser(req, res, next) {
   let user;
   try {
     delete req.body.password;
-    user = await User.findByIdAndUpdate(req.params.id, req.body);
+    user = await User.findByIdAndUpdate(req.params.id, req.body).populate("photo");
     res.json(user);
   } catch (err) {
     res.status(400).json(err);

@@ -9,7 +9,8 @@ export default function Profile({ user, setUser }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   }
   async function handleSubmit(e) {
-    updateUser(user._id, formData);
+    let updatedUser = updateUser(user._id, formData);
+    setUser(updatedUser);
   }
   const disable = formData.password !== formData.confirm;
   return (

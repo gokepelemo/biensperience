@@ -44,7 +44,16 @@ export default function App() {
         <>
           <NavBar user={user} setUser={setUser} />
           <Routes>
-            <Route path="/" element={<AppHome user={user} destinations={destinations} experiences={experiences} />} />
+            <Route
+              path="/"
+              element={
+                <AppHome
+                  user={user}
+                  destinations={destinations}
+                  experiences={experiences}
+                />
+              }
+            />
             <Route
               path="/experiences/new"
               element={<NewExperience updateData={updateData} />}
@@ -58,15 +67,27 @@ export default function App() {
               element={
                 <Profile
                   user={user}
-                  setUser={setUser}
                   destinations={destinations}
                   experiences={experiences}
                   updateData={updateData}
                 />
               }
             />
-            <Route path="/profile/:profileId" element={<Profile />} />
-            <Route path="/profile/edit" element={<EditProfile user={user} setUser={setUser} />} />
+            <Route
+              path="/profile/:profileId"
+              element={
+                <Profile
+                  user={user}
+                  destinations={destinations}
+                  experiences={experiences}
+                  updateData={updateData}
+                />
+              }
+            />
+            <Route
+              path="/profile/edit"
+              element={<EditProfile user={user} setUser={setUser} />}
+            />
             <Route
               path="/experiences"
               element={
