@@ -13,9 +13,8 @@ import NewPlanItem from "../../components/NewPlanItem/NewPlanItem";
 
 export default function SingleExperience({
   user,
-  setUser,
   experiences,
-  setExperiences,
+  updateData
 }) {
   const { experienceId } = useParams();
   const [experience, setExperience] = useState(
@@ -66,6 +65,7 @@ export default function SingleExperience({
   }
   useEffect(() => {
     getExperience();
+    updateData();
     document.title = `${experience.name} - Biensperience`;
   }, [formVisible, formState, planItems, experience]);
   async function handleExperience() {

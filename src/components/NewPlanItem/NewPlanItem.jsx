@@ -64,8 +64,6 @@ export default function NewPlanItem({ experience, setExperience, formState, setF
           placeholder="URL (ex. https://www.tripadvisor.com/fun-adventure)"
           value={newPlanItem.url}
         />
-        <label>Upload Photo</label>
-        <input type="file" name="photo" id="photo" className="form-control" />
         <button type="submit" className="btn btn-light">
           {formState ? "Add" : "Update"}
         </button>

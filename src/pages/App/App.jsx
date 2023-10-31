@@ -116,7 +116,6 @@ export default function App() {
               element={
                 <SingleExperience
                   user={user}
-                  setUser={setUser}
                   experiences={experiences}
                   updateData={updateData}
                 />
