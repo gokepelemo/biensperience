@@ -138,7 +138,7 @@ export default function NewDestination({ updateData }) {
         </span>
         <div className="form-btns">
           <button type="submit" className="btn btn-light">
-            Create New Experience
+            Add Destination ➡️ Create New Experience
           </button>
         </div>
       </form>
