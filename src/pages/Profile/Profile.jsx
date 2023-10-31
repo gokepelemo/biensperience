@@ -60,7 +60,7 @@ export default function Profile({ user, destinations, updateData }) {
   useEffect(() => {
     getProfile();
     document.title = `${currentProfile.name} - Biensperience`;
-  });
+  }, []);
   function handleExpNav(e) {
     setUiState({
       experiences: !uiState.experiences,
