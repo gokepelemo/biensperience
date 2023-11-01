@@ -61,7 +61,8 @@ async function createPlanItem(req, res) {
   try {
     let experience = await Experience.findById(
       req.params.experienceId
-    ).populate("destination");
+    ).populate("destination").populate("user");
+    if (req.user._id !== experience.user._id) res.status(401).end();
     req.body.cost_estimate = !req.body.cost_estimate
       ? 0
       : req.body.cost_estimate;
@@ -77,7 +78,8 @@ async function updatePlanItem(req, res) {
   try {
     let experience = await Experience.findById(
       req.params.experienceId
-    ).populate("destination");
+    ).populate("destination").populate("user");
+    if (req.user._id !== experience.user._id) res.status(401).end();
     let plan_item = experience.plan_items.id(req.params.planItemId);
     plan_item = Object.assign(plan_item, req.body);
     experience.save();
@@ -91,7 +93,8 @@ async function deletePlanItem(req, res) {
   try {
     let experience = await Experience.findById(
       req.params.experienceId
-    ).populate("destination");
+    ).populate("destination").populate("user");
+    if (req.user._id !== experience.user._id) res.status(401).end();
     experience.plan_items.id(req.params.planItemId).deleteOne();
     experience.save();
     experience.users.forEach((user, index) => {
