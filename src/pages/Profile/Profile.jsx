@@ -9,9 +9,8 @@ import { getUserData } from "../../utilities/users-api";
 
 export default function Profile({ user, destinations, updateData }) {
   let { profileId } = useParams();
-  const [currentProfile, setCurrentProfile] = useState(
-    profileId ? getUserData(profileId) : user
-  );
+  let userId = profileId ? profileId : user._id;
+  const [currentProfile, setCurrentProfile] = useState(user);
   const [isOwner, setIsOwner] = useState(!profileId || profileId === user._id);
   const [uiState, setUiState] = useState({
     experiences: true,
@@ -50,10 +49,10 @@ export default function Profile({ user, destinations, updateData }) {
       </span>
     ));
   async function getProfile() {
-    await getUserData(currentProfile._id).then(function (data) {
-      setCurrentProfile(profileId ? data : user);
+    await getUserData(userId).then(function (data) {
+      setCurrentProfile(data);
     });
-    await showUserExperiences(currentProfile._id).then(function (data) {
+    await showUserExperiences(userId).then(function (data) {
       setUserExperiences(data);
     });
   }
@@ -79,7 +78,8 @@ export default function Profile({ user, destinations, updateData }) {
           <PhotoCard photo={currentProfile.photo} />
           {!currentProfile.photo && isOwner && (
             <small className="d-flex justify-content-center align-items-center noPhoto">
-              <span>You don't have a profile photo. </span><Link to="/profile/edit">Upload one now</Link>.
+              <span>You don't have a profile photo. </span>
+              <Link to="/profile/edit">Upload one now</Link>.
             </small>
           )}
         </div>

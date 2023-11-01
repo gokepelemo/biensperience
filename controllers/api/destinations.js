@@ -33,10 +33,12 @@ async function showDestination(req, res) {
 
 async function updateDestination(req, res) {
   try {
-    const destination = await Destination.findByIdAndUpdate(
-      req.params.id,
-      req.body
+    let destination = await Destination.findById(req.params.id).populate(
+      "user"
     );
+    if (req.user._id !== destination.user._id) res.status(401).end();
+    destination = Object.assign(destination, req.body);
+    destination.save();
     res.status(200).json(destination);
   } catch (err) {
     res.status(400).json(err);
@@ -45,7 +47,11 @@ async function updateDestination(req, res) {
 
 async function deleteDestination(req, res) {
   try {
-    const destination = await Destination.findByIdAndDelete(req.params.id);
+    let destination = await Destination.findById(req.params.id).populate(
+      "user"
+    );
+    if (req.user._id !== destination.user._id) res.status(401).end();
+    destination.deleteOne();
     res.status(200).json(destination);
   } catch (err) {
     res.status(400).json(err);

@@ -9,7 +9,6 @@ function createJWT(user) {
 async function create(req, res) {
   try {
     const user = await User.create(req.body);
-    console.log(req.body)
     const token = createJWT(user);
     res.status(201).json(token);
   } catch (err) {

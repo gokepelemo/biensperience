@@ -2,7 +2,7 @@ const Experience = require("../../models/experience");
 
 async function index(req, res) {
   try {
-    const experiences = await Experience.find({})
+    let experiences = await Experience.find({})
       .populate("destination")
       .populate("users.user")
       .exec();
@@ -15,7 +15,7 @@ async function index(req, res) {
 async function createExperience(req, res) {
   try {
     req.body.user = req.user._id;
-    const experience = await Experience.create(req.body);
+    let experience = await Experience.create(req.body);
     res.status(201).json(experience);
   } catch (err) {
     res.status(400).json(err);
@@ -59,9 +59,9 @@ async function deleteExperience(req, res) {
 
 async function createPlanItem(req, res) {
   try {
-    let experience = await Experience.findById(
-      req.params.experienceId
-    ).populate("destination").populate("user");
+    let experience = await Experience.findById(req.params.experienceId)
+      .populate("destination")
+      .populate("user");
     if (req.user._id !== experience.user._id) res.status(401).end();
     req.body.cost_estimate = !req.body.cost_estimate
       ? 0
@@ -76,9 +76,9 @@ async function createPlanItem(req, res) {
 
 async function updatePlanItem(req, res) {
   try {
-    let experience = await Experience.findById(
-      req.params.experienceId
-    ).populate("destination").populate("user");
+    let experience = await Experience.findById(req.params.experienceId)
+      .populate("destination")
+      .populate("user");
     if (req.user._id !== experience.user._id) res.status(401).end();
     let plan_item = experience.plan_items.id(req.params.planItemId);
     plan_item = Object.assign(plan_item, req.body);
@@ -91,9 +91,9 @@ async function updatePlanItem(req, res) {
 
 async function deletePlanItem(req, res) {
   try {
-    let experience = await Experience.findById(
-      req.params.experienceId
-    ).populate("destination").populate("user");
+    let experience = await Experience.findById(req.params.experienceId)
+      .populate("destination")
+      .populate("user");
     if (req.user._id !== experience.user._id) res.status(401).end();
     experience.plan_items.id(req.params.planItemId).deleteOne();
     experience.save();
