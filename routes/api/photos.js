@@ -5,7 +5,7 @@ const upload = multer({ dest: '../../uploads/images' })
 const photosCtrl = require('../../controllers/api/photos');
 const ensureLoggedIn = require('../../config/ensureLoggedIn')
 
-router.post('/', upload.single('image'), photosCtrl.create);
+router.post('/', ensureLoggedIn, upload.single('image'), photosCtrl.create);
 router.delete('/:id', ensureLoggedIn, photosCtrl.delete);
 router.put('/:id', ensureLoggedIn, photosCtrl.update);
 

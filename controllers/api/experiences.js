@@ -6,7 +6,7 @@ async function index(req, res) {
       .populate("destination")
       .populate("users.user")
       .exec();
-    res.json(experiences);
+    res.status(200).json(experiences);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -16,7 +16,7 @@ async function createExperience(req, res) {
   try {
     req.body.user = req.user._id;
     const experience = await Experience.create(req.body);
-    res.json(experience);
+    res.status(201).json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -27,7 +27,7 @@ async function showExperience(req, res) {
     let experience = await Experience.findById(req.params.id)
       .populate("destination")
       .populate("users.user");
-    res.json(experience);
+    res.status(200).json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -36,10 +36,11 @@ async function showExperience(req, res) {
 async function updateExperience(req, res) {
   const experienceId = req.params.experienceId ? req.params.experienceId : id;
   try {
-    let experience = await Experience.findById(experienceId);
+    let experience = await Experience.findById(experienceId).populate("user");
+    if (req.user._id !== experience.user._id) res.status(401).end();
     experience = Object.assign(experience, req.body);
     experience.save();
-    res.json(experience);
+    res.status(200).json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -47,8 +48,10 @@ async function updateExperience(req, res) {
 
 async function deleteExperience(req, res) {
   try {
-    let experience = await Experience.findByIdAndDelete(req.params.id);
-    res.json(experience);
+    let experience = await Experience.findById(req.params.id).populate("user");
+    if (req.user._id !== experience.user._id) res.status(401).end();
+    experience.deleteOne();
+    res.status(410).end();
   } catch (err) {
     res.status(400).json(err);
   }
@@ -64,7 +67,7 @@ async function createPlanItem(req, res) {
       : req.body.cost_estimate;
     experience.plan_items.push(req.body);
     experience.save();
-    res.json(experience);
+    res.status(201).json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -78,7 +81,7 @@ async function updatePlanItem(req, res) {
     let plan_item = experience.plan_items.id(req.params.planItemId);
     plan_item = Object.assign(plan_item, req.body);
     experience.save();
-    res.json(experience);
+    res.status(200).json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -97,7 +100,7 @@ async function deletePlanItem(req, res) {
         email: null,
       });
     });
-    res.json(experience);
+    res.status(410).json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -120,14 +123,14 @@ async function addUser(req, res) {
     } else {
       console.log("User is already added.");
     }
-    experience.save();
     experience.users.forEach((user, index) => {
       experience.users[index].user = Object.assign(user.user, {
         password: null,
         email: null,
       });
     });
-    res.json(experience);
+    experience.save();
+    res.status(201).json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -153,7 +156,7 @@ async function removeUser(req, res) {
         email: null,
       });
     });
-    res.json(experience);
+    res.status(410).json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -171,17 +174,12 @@ async function userPlanItemDone(req, res) {
     if (plan_idx === -1) {
       experience.users[user].plan.push(req.params.planItemId);
       experience.save();
+      res.status(201).json(experience);
     } else {
       experience.users[user].plan.splice(plan_idx, 1);
       experience.save();
+      res.status(410).json(experience);
     }
-    experience.users.forEach((user, index) => {
-      experience.users[index].user = Object.assign(user.user, {
-        password: null,
-        email: null,
-      });
-    });
-    res.json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -193,7 +191,7 @@ async function showUserExperiences(req, res) {
       .populate("users.user")
       .populate("destination")
       .exec();
-    res.json(experiences);
+    res.status(200).json(experiences);
   } catch (err) {
     res.status(400).json(err);
   }

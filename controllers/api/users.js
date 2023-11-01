@@ -11,7 +11,7 @@ async function create(req, res) {
     const user = await User.create(req.body);
     console.log(req.body)
     const token = createJWT(user);
-    res.json(token);
+    res.status(201).json(token);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -24,20 +24,20 @@ async function login(req, res) {
     );
     const passwordTest = await bcrypt.compare(req.body.password, user.password);
     const token = passwordTest ? createJWT(user) : null;
-    res.json(token);
+    res.status(200).json(token);
   } catch (err) {
     res.status(400).json(err);
   }
 }
 
 function checkToken(req, res) {
-  res.json(req.exp);
+  res.status(200).json(req.exp);
 }
 
 async function getUser(req, res) {
   try {
     const user = await User.findById(req.params.id).populate("photo");
-    res.json(user);
+    res.status(200).json(user);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -47,7 +47,7 @@ async function updateUser(req, res, next) {
   let user;
   try {
     user = await User.findByIdAndUpdate(req.params.id, req.body).populate("photo");
-    res.json(user);
+    res.status(200).json(user);
   } catch (err) {
     res.status(400).json(err);
   }
