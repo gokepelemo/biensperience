@@ -51,7 +51,7 @@ async function deleteExperience(req, res) {
     let experience = await Experience.findById(req.params.id).populate("user");
     if (req.user._id !== experience.user._id) res.status(401).end();
     experience.deleteOne();
-    res.status(410).end();
+    res.status(200).end();
   } catch (err) {
     res.status(400).json(err);
   }
@@ -100,7 +100,7 @@ async function deletePlanItem(req, res) {
         email: null,
       });
     });
-    res.status(410).json(experience);
+    res.status(200).json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -156,7 +156,7 @@ async function removeUser(req, res) {
         email: null,
       });
     });
-    res.status(410).json(experience);
+    res.status(200).json(experience);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -178,7 +178,7 @@ async function userPlanItemDone(req, res) {
     } else {
       experience.users[user].plan.splice(plan_idx, 1);
       experience.save();
-      res.status(410).json(experience);
+      res.status(200).json(experience);
     }
   } catch (err) {
     res.status(400).json(err);

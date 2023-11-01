@@ -46,7 +46,7 @@ async function updateDestination(req, res) {
 async function deleteDestination(req, res) {
   try {
     const destination = await Destination.findByIdAndDelete(req.params.id);
-    res.status(410).json(destination);
+    res.status(200).json(destination);
   } catch (err) {
     res.status(400).json(err);
   }
@@ -64,7 +64,7 @@ async function toggleUserFavoriteDestination(req, res) {
     } else {
       destination.users_favorite.splice(idx, 1);
       destination.save();
-      res.status(410).json(destination);
+      res.status(200).json(destination);
     }
   } catch (err) {
     res.status(400).json(err);

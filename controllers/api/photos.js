@@ -47,7 +47,7 @@ async function deletePhoto(req, res) {
     const photo = await Photo.findById(req.params.id).populate("user");
     if (req.user._id !== photo.user._id) res.status(401).end();
     await photo.deleteOne();
-    return res.status(410).end();
+    return res.status(200).end();
   } catch (err) {
     res.status(400).json(err);
   }
