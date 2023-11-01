@@ -92,7 +92,7 @@ export default function NewExperience({ updateData }) {
           onChange={handleChange}
           className="form-control"
           placeholder="e.g. Culinary, Winery, Brewery, High Adrenaline"
-        /><small>Types in a comma separated list e.g. Culinary, Winery, Brewery, High Adrenaline.</small></span>
+        /><small>Types in a comma separated list.</small></span>
         <span>
         <ImageUpload data={newExperience} setData={setNewExperience} />
         <small>Photo (optional)</small>
