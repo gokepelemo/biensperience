@@ -11,11 +11,7 @@ import {
 } from "../../utilities/experiences-api";
 import NewPlanItem from "../../components/NewPlanItem/NewPlanItem";
 
-export default function SingleExperience({
-  user,
-  experiences,
-  updateData
-}) {
+export default function SingleExperience({ user, experiences, updateData }) {
   const { experienceId } = useParams();
   const [experience, setExperience] = useState(
     Object.assign(
@@ -118,7 +114,7 @@ export default function SingleExperience({
         <>
           <div className="row experience-detail">
             <div className="col-md-6">
-              <h1 className="my-4 h">{experience.name}</h1>
+              <h1 className="mt-4 h">{experience.name}</h1>
               {experience.cost_estimate > 0 && (
                 <h2 className="h5">
                   Estimated Cost:{" "}
@@ -131,6 +127,19 @@ export default function SingleExperience({
                     )}
                   </span>
                 </h2>
+              )}
+              {experience.user ? (
+                <h3 className="h6">
+                  Created by{" "}
+                  <Link
+                    to={`/profile/${experience.user._id}`}
+                    title={experience.user.name}
+                  >
+                    {experience.user.name}
+                  </Link>
+                </h3>
+              ) : (
+                ""
               )}
             </div>
             <div className="d-flex col-md-6 justify-content-end">

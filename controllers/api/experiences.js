@@ -5,6 +5,7 @@ async function index(req, res) {
     let experiences = await Experience.find({})
       .populate("destination")
       .populate("users.user")
+      .populate("user")
       .exec();
     res.status(200).json(experiences);
   } catch (err) {
@@ -26,7 +27,8 @@ async function showExperience(req, res) {
   try {
     let experience = await Experience.findById(req.params.id)
       .populate("destination")
-      .populate("users.user");
+      .populate("users.user")
+      .populate("user");
     res.status(200).json(experience);
   } catch (err) {
     res.status(400).json(err);

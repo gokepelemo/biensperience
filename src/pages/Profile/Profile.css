@@ -1,6 +1,7 @@
 h1.h {
     text-align: left;
     font-weight: bold;
+    margin: 2rem 0 0 0;
 }
 
 .profileDestinations a {

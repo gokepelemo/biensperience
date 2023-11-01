@@ -11,7 +11,7 @@ export default function Profile({ user, destinations, updateData }) {
   let { profileId } = useParams();
   let userId = profileId ? profileId : user._id;
   const [currentProfile, setCurrentProfile] = useState(user);
-  const [isOwner, setIsOwner] = useState(!profileId || profileId === user._id);
+  const [isOwner, setIsOwner] = useState(userId !== user._id);
   const [uiState, setUiState] = useState({
     experiences: true,
     destinations: false,
