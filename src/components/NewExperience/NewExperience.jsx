@@ -52,7 +52,7 @@ export default function NewExperience({ updateData }) {
           id="name"
           onChange={handleChange}
           className="form-control"
-          placeholder="e.g. Winery Tour at Lakefront Brewery with a Local in Dallas"
+          placeholder="e.g. Brewery Tour at Lakefront Brewery with a Local in Milwaukee"
         />
         <small>Name (required). A descriptive title in natural language.</small>
         </span>
