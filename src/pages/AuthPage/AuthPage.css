@@ -22,7 +22,6 @@
   
   .form-container button {
     grid-column: 1 / span 2;
-    max-width: 10rem;
     margin: 2vmin auto 0 auto;
   }
   
