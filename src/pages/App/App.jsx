@@ -17,7 +17,6 @@ import NewExperience from "../../components/NewExperience/NewExperience";
 import NewDestination from "../../components/NewDestination/NewDestination";
 import Profile from "../Profile/Profile";
 import { getUser } from "../../utilities/users-service";
-import { getUserData } from "../../utilities/users-api";
 import { getExperiences } from "../../utilities/experiences-api";
 import { getDestinations } from "../../utilities/destinations-api";
 
@@ -27,21 +26,25 @@ export default function App() {
   const [experiences, setExperiences] = useState([]);
   async function updateData() {
     if (user) {
-      let destinationsData = await getDestinations().then(function (
-        destinations
-      ) {
-        setDestinations(destinations);
-      });
-      let experiencesData = await getExperiences().then(function (
-        experiences
-      ) {
-        setExperiences(experiences);
-      });
+      let destinationsData = await getDestinations()
+      setDestinations(destinationsData);
+      let experiencesData = await getExperiences()
+      setExperiences(experiencesData);
     }
   }
   useEffect(() => {
+    async function updateData() {
+      if (user) {
+        await getDestinations().then(function (destinations) {
+          setDestinations(destinations);
+        });
+        await getExperiences().then(function (experiences) {
+          setExperiences(experiences);
+        });
+      }
+    }
     updateData();
-  }, []);
+  }, [user]);
   return (
     <main className="App container container-fluid">
       {user ? (
