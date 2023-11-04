@@ -117,8 +117,8 @@ export default function SingleDestination({
                 </ul>
               </div>
             </div>
-            <div className="row my-2 p-3">
-              <h2 className="experiencesHeading">
+            <div className="row my-2 p-3 d-flex align-items-center justify-content-center">
+              <h2 className="experiencesHeading mb-5">
                 Experiences in {destination.name}
               </h2>
               {destinationExperiences.length > 0 ? (
