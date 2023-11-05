@@ -13,13 +13,13 @@ body {
   margin: 0;
   background-color: white;
   height: 100vh;
-  font-family: "Inter";
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
 }
 
 h1 {
   text-align: center;
   margin: 2rem 0;
-  font-size: 5vmin;
+  font-size: 3vmin;
 }
 
 form {
