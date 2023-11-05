@@ -8,14 +8,13 @@
 }
 
 .tagline {
-    width: 40%;
+    width: 50%;
     height: 100%;
     display: flex;
     color: white;
     padding: 0 20px; 
     font-size: 3vmin;
     min-width: 250px;
-    max-width: 500px;
     align-items: center;
     justify-content: flex-start;
     -webkit-text-stroke-color: black;
