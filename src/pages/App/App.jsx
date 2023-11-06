@@ -58,6 +58,7 @@ export default function App() {
                   user={user}
                   destinations={destinations}
                   experiences={experiences}
+                  updateData={updateData}
                 />
               }
             />
