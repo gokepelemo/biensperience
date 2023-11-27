@@ -8,6 +8,7 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "aws-sdk": "^2.1483.0",
+    "babel-preset-react-app": "^10.0.1",
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
     "bootstrap": "^5.3.2",
