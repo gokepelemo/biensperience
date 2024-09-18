@@ -1,4 +1,6 @@
 # Biensperience
+_This was a General Assembly bootcamp project and is not actively being maintained. Contact me with any questions about it._
+
 An application that enables you to plan your experiences and share experience plans with other users. When you plan a trip, vacation, or adventure with your loved ones, you get to create a plan in that experience and mark items done as you finalize the plan. The same plan becomes available for others to plan similar experiences.
 
 ## Technologies Used
