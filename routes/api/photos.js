@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer  = require('multer')
-const upload = multer({ dest: '../../uploads/images' })
+const upload = multer({ dest: __dirname +'/uploads/images' })
 const photosCtrl = require('../../controllers/api/photos');
 const ensureLoggedIn = require('../../config/ensureLoggedIn')
 
