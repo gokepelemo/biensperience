@@ -19,16 +19,16 @@ services:
     scope: RUN_AND_BUILD_TIME
     value: ${DATABASE_URL}
   - key: SECRET
-    scope: BUILD_TIME
+    scope: RUN_AND_BUILD_TIME
     value: ${SECRET}
   - key: BUCKET_NAME
-    scope: BUILD_TIME
+    scope: RUN_AND_BUILD_TIME
     value: ${BUCKET_NAME}
   - key: SECRET_ACCESS_KEY
-    scope: BUILD_TIME
+    scope: RUN_AND_BUILD_TIME
     value: ${SECRET_ACCESS_KEY}
   - key: ACCESS_KEY_ID
-    scope: BUILD_TIME
+    scope: RUN_AND_BUILD_TIME
     value: ${ACCESS_KEY_ID}
   github:
     branch: main
