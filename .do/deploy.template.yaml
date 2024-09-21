@@ -1,0 +1,9 @@
+spec:
+  name: hammerhead-app
+  services:
+  - build_command: npm run build
+    environment_slug: node-js
+    git:
+      branch: main
+      repo_clone_url: gokepelemo/biensperience
+    name: hammerhead-app
