@@ -6,46 +6,38 @@ features:
 ingress:
   rules:
   - component:
-      name: api
-    match:
-      path:
-        prefix: /api
-  - component:
-      name: website
-    cors:
-      allow_origins:
-      - prefix: https://internal.example-app.com
+      name: biensperience-public
     match:
       path:
         prefix: /
-name: biensperience
-region: nearest available
+name: hammerhead-app
+region: nyc
 services:
-- environment_slug: node-js
+- build_command: npm install && npm run build
+  run_command: node server.js
+  environment_slug: node-js
+  envs:
+  - key: DATABASE_URL
+    scope: RUN_AND_BUILD_TIME
+    value: ${DATABASE_URL}
+  - key: SECRET
+    scope: BUILD_TIME
+    value: ${SECRET}
+  - key: BUCKET_NAME
+    scope: BUILD_TIME
+    value: ${BUCKET_NAME}
+  - key: SECRET_ACCESS_KEY
+    scope: BUILD_TIME
+    value: ${SECRET_ACCESS_KEY}
+  - key: ACCESS_KEY_ID
+    scope: BUILD_TIME
+    value: ${ACCESS_KEY_ID}
   github:
     branch: main
     deploy_on_push: true
     repo: gokepelemo/biensperience
   http_port: 3000
   instance_count: 1
-  instance_size_slug: professional-xs
-  name: api
-  build_command: npm install && npm run build
-  run_command: node server.js
-  source_dir: /
-  envs:
-  - name: BUCKET_NAME
-    value: ${BUCKET_NAME}
-  - name: DATABASE_URL
-    value: ${DATABASE_URL}
-  - name: SECRET
-    value: ${SECRET}
-  - name: SECRET_ACCESS_KEY
-    value: ${SECRET_ACCESS_KEY}
-  - name: ACCESS_KEY_ID
-    value: ${ACCESS_KEY_ID}
-- envs:
-  - name: PRODUCTION
-    value: true
-  - name: NODE_VERSION
-    value: 20.7.0
+  instance_size_slug: apps-s-1vcpu-0.5gb
+  name: biensperience-public
+  source_dir: public
