@@ -30,8 +30,8 @@ An application that enables you to plan your experiences and share experience pl
 <img src="./screenshots/favorite-destinations.gif" alt="Favorite a destination" width="500" />
 
 ## Getting Started
-Deployed on [Render.com](https://biensperience.onrender.com/).
-1. Signup for an account.
+Deployed on the [DigitalOcean App Platform](https://www.digitalocean.com/products/app-platform).
+1. Sign up for an account.
 2. Add a few experiences and favorite a few destinations by hitting the **+** button.
 3. Start looking through plans and marking items done as you work through them.
 4. Enjoy your experiences in real life!
