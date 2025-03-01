@@ -1,0 +1,41 @@
+alerts:
+- rule: DEPLOYMENT_FAILED
+- rule: DOMAIN_FAILED
+ingress:
+  rules:
+  - component:
+      name: biensperience-public
+    match:
+      path:
+        prefix: /
+name: hammerhead-app
+region: nyc
+services:
+- build_command: npm install && npm run build
+  run_command: node server.js
+  environment_slug: node-js
+  envs:
+  - key: DATABASE_URL
+    scope: RUN_AND_BUILD_TIME
+    value: ${DATABASE_URL}
+  - key: SECRET
+    scope: RUN_AND_BUILD_TIME
+    value: ${SECRET}
+  - key: BUCKET_NAME
+    scope: RUN_AND_BUILD_TIME
+    value: ${BUCKET_NAME}
+  - key: SECRET_ACCESS_KEY
+    scope: RUN_AND_BUILD_TIME
+    value: ${SECRET_ACCESS_KEY}
+  - key: ACCESS_KEY_ID
+    scope: RUN_AND_BUILD_TIME
+    value: ${ACCESS_KEY_ID}
+  github:
+    branch: main
+    deploy_on_push: true
+    repo: gokepelemo/biensperience
+  http_port: 3000
+  instance_count: 1
+  instance_size_slug: apps-s-1vcpu-0.5gb
+  name: biensperience-public
+  source_dir: public
