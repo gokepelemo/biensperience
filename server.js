@@ -37,6 +37,9 @@ app.use("/api/users", require("./routes/api/users"));
 app.use("/api/destinations", require("./routes/api/destinations"));
 app.use("/api/experiences", require("./routes/api/experiences"));
 app.use("/api/photos", require("./routes/api/photos"));
+app.use("/health-check", (req, res) => {
+  res.send("OK");
+});
 app.get("/*", (req, res) => {
   res.sendFile(path.join(__dirname, "build", "index.html"));
 });

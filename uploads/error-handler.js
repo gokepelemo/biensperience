@@ -1,6 +1,6 @@
 module.exports = function (err, res) {
   if (err.name.match(/Valid/) || err.name === "MongoError") {
-    const message = "The receieved params failed a Mongoose validation";
+    const message = "The received params failed a Mongoose validation";
     err = { status: 422, message };
   } else if (err.name === "DocumentNotFound") {
     err.status = 404;

@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Biensperience",
+  "name": "An app for adventurers and travelers alike.",
   "icons": [
     {
       "src": "favicon.ico",
