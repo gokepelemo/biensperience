@@ -12,7 +12,6 @@ export default function Profile({ user, setUser }) {
     let updatedUser = updateUser(user._id, formData);
     setUser(updatedUser);
   }
-  const disable = formData.password !== formData.confirm;
   return (
     <>
       <h1 className="h">Update {user.name}</h1>

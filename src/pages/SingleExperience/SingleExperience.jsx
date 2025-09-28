@@ -1,14 +1,11 @@
 import "./SingleExperience.css";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import NewPlanItem from "../../components/NewPlanItem/NewPlanItem";
 import {
   showExperience,
   userAddExperience,
   userRemoveExperience,
-  deletePlanItem,
-  userPlanItemDone,
-  deleteExperience,
 } from "../../utilities/experiences-api";
 
 export default function SingleExperience({ user, experiences, updateData }) {
@@ -21,7 +18,6 @@ export default function SingleExperience({ user, experiences, updateData }) {
   const [newPlanItem, setNewPlanItem] = useState({});
   const [travelTips, setTravelTips] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
-  let navigate = useNavigate();
 
   useEffect(() => {
     async function fetchExperience() {

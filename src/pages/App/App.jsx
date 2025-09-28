@@ -1,5 +1,4 @@
 import "bootstrap/dist/css/bootstrap.min.css";
-import * as bootstrap from "bootstrap";
 import "./App.css";
 import "@fontsource/inter";
 import React from "react";

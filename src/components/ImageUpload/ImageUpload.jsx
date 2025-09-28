@@ -73,6 +73,7 @@ export default function ImageUpload({ data, setData }) {
       ) : (
         <>
           <img className="previewImg" src={photoUploaded.upload.url} />
+            <img className="previewImg" src={photoUploaded.upload.url} alt="Preview" />
           <button
             className="btn btn-light btn-sm removeImg"
             onClick={removeImage}

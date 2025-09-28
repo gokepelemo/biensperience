@@ -34,20 +34,20 @@ export default function SingleDestination({
     );
     updateData();
   }
-  useEffect(() => {
-    if (!destination || !destinationExperiences) {
-      getData();
-    } else {
-      document.title = `${destination.name},${" "}
-      ${
-        !destination.state
-          ? destination.country
-          : destination.state === destination.name
-          ? destination.country
-          : destination.state
-      } - Biensperience`;
-    }
-  }, []);
+    useEffect(() => {
+      if (!destination || !destinationExperiences) {
+        getData();
+      } else {
+        document.title = `${destination.name},${" "}
+        ${
+          !destination.state
+            ? destination.country
+            : destination.state === destination.name
+            ? destination.country
+            : destination.state
+        } - Biensperience`;
+      }
+    }, [destination, destinationExperiences, getData]);
   return (
     <>
       <>

@@ -7,7 +7,7 @@ export default function PhotoCard({ photo, altText }) {
       {photo ? (
         <>
           <div className="photoCard d-flex align-items-center justify-content-center">
-            <img src={photo.url} className="rounded img-fluid" alt={photo.photo_credit} title={photo.photo_credit} />
+              <img src={photo.url} className="rounded img-fluid" alt="Profile" title={photo.photo_credit} />
           </div>
           {photo.photo_credit !== "undefined" && (
             <small>
