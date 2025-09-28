@@ -17,7 +17,7 @@ export default function PhotoCard({ photo, altText }) {
           )}
         </>
       ) : (
-        <div className="photoCard"><img src={`https://picsum.photos/600?rand=${rand}`} className="rounded img-fluid" /></div>
+  <div className="photoCard"><img src={`https://picsum.photos/600?rand=${rand}`} className="rounded img-fluid" alt="Random" /></div>
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import {
   showExperience,
   userAddExperience,
   userRemoveExperience,
+  userPlanItemDone,
 } from "../../utilities/experiences-api";
 
 export default function SingleExperience({ user, experiences, updateData }) {
@@ -61,9 +62,11 @@ export default function SingleExperience({ user, experiences, updateData }) {
       if (userHasExperience) {
         await userRemoveExperience(user._id, experience._id);
         setUserHasExperience(false);
+        setPlanItems({}); // Reset plan items when removed
       } else {
         await userAddExperience(user._id, experience._id);
         setUserHasExperience(true);
+        setPlanItems({}); // Reset plan items when re-added
       }
       // Optionally refresh experience data
       updateData && updateData();
@@ -74,7 +77,21 @@ export default function SingleExperience({ user, experiences, updateData }) {
   function handleDeleteExperience() {}
   function handlePlanEdit() {}
   function handlePlanDelete() {}
-  function handlePlanItemDone() {}
+  async function handlePlanItemDone(e) {
+    const planItemId = e.currentTarget.id;
+    if (!experience || !user) return;
+    try {
+      await userPlanItemDone(experience._id, planItemId);
+      // Optimistically toggle done state
+      setPlanItems(prev => ({
+        ...prev,
+        [planItemId]: !prev[planItemId]
+      }));
+      updateData && updateData();
+    } catch (err) {
+      // Optionally show error
+    }
+  }
   return (
     <>
       {experience ? (

@@ -11,18 +11,17 @@ export default function ExperienceCard({ experience, user, updateData }) {
   const rand = Math.floor(Math.random() * 50)
   const [experienceAdded, setExperienceAdded] = useState(experience.users.map((expUser) => expUser.user).filter((expUser) => expUser._id === user._id).length > 0);
   async function handleExperienceAction (e) {
-    let update;
     if (experienceAdded) {
-      update = await userRemoveExperience(user._id, experience._id);
+      await userRemoveExperience(user._id, experience._id);
     } else {
-      update = await userAddExperience(user._id, experience._id);
+      await userAddExperience(user._id, experience._id);
     }
     setExperienceAdded(!experienceAdded)
     updateData()
   }
   useEffect(() => {
     setExperienceAdded(experience.users.map((expUser) => expUser.user).filter((expUser) => expUser._id === user._id).length > 0)
-  })
+  }, [experience.users, user._id])
   return (
     <div className="experience">
       {experience ? (

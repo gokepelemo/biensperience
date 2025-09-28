@@ -1,5 +1,5 @@
 import "./SingleDestination.css";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { showDestination } from "../../utilities/destinations-api";
 import { getExperiences } from "../../utilities/experiences-api";
@@ -23,17 +23,17 @@ export default function SingleDestination({
       (experience) => experience.destination._id === destinationId
     )
   );
-  async function getData() {
-    let destinationData = await showDestination(destinationId);
-    let experienceData = await getExperiences();
-    setDestination(destinationData);
-    setDestinationExperiences(
-      experienceData.filter(
-        (experience) => experience.destination._id === destinationId
-      )
-    );
-    updateData();
-  }
+    const getData = useCallback(async () => {
+      let destinationData = await showDestination(destinationId);
+      let experienceData = await getExperiences();
+      setDestination(destinationData);
+      setDestinationExperiences(
+        experienceData.filter(
+          (experience) => experience.destination._id === destinationId
+        )
+      );
+      updateData();
+    }, [destinationId, updateData]);
     useEffect(() => {
       if (!destination || !destinationExperiences) {
         getData();

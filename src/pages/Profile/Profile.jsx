@@ -1,6 +1,6 @@
 import { FaUser, FaPassport } from "react-icons/fa";
 import { useParams, Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import "./Profile.css";
 import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
@@ -9,14 +9,16 @@ import { showUserExperiences } from "../../utilities/experiences-api";
 import { getUserData } from "../../utilities/users-api";
 
 export default function Profile({ user, destinations, updateData }) {
+  // ...existing code...
   let { profileId } = useParams();
   let userId = profileId ? profileId : user._id;
-  const [currentProfile, setCurrentProfile] = useState(user);
-  const [uiState, setUiState] = useState({
-    experiences: true,
-    destinations: false,
-  });
-  const [userExperiences, setUserExperiences] = useState([]);
+  const isOwner = !profileId || profileId === user._id;
+        const [currentProfile, setCurrentProfile] = useState(user);
+        const [uiState, setUiState] = useState({
+          experiences: true,
+          destinations: false,
+        });
+        const [userExperiences, setUserExperiences] = useState([]);
         const userExperienceTypes = Array.from(
           new Set(
             userExperiences
@@ -36,14 +38,14 @@ export default function Profile({ user, destinations, updateData }) {
             (destination) =>
               destination.users_favorite.indexOf(currentProfile._id) !== -1
           );
-  async function getProfile() {
-    await getUserData(userId).then(function (data) {
-      setCurrentProfile(data);
-    });
-    await showUserExperiences(userId).then(function (data) {
-      setUserExperiences(data);
-    });
-  }
+        const getProfile = useCallback(async () => {
+          await getUserData(userId).then(function (data) {
+            setCurrentProfile(data);
+          });
+          await showUserExperiences(userId).then(function (data) {
+            setUserExperiences(data);
+          });
+        }, [userId]);
   useEffect(() => {
     getProfile();
     document.title = `${currentProfile.name} - Biensperience`;

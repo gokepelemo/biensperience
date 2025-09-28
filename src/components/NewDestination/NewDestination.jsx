@@ -18,7 +18,7 @@ export default function NewDestination({ updateData }) {
   async function handleSubmit(e) {
     e.preventDefault();
     try {
-      let destination = await createDestination(
+        await createDestination(
         Object.assign({ ...newDestination }, { travel_tips: travelTips })
       );
       updateData();
