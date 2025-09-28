@@ -1,7 +1,50 @@
+/* Modern transition for view changes and element updates */
+.profile-detail, .profile-pill, .list-group-item, .row, .col-md-6, .badge-nav {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-in {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+    animation: fadeInUp 0.5s forwards;
+}
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+/* Pill design for Favorite Destinations and Experience Types */
+.profile-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(90deg, #5f5fff 0%, #7f53ff 100%);
+    color: #fff;
+    font-weight: 600;
+    font-size: 1.1rem;
+    border-radius: 2rem;
+    padding: 0.5rem 1.5rem;
+    margin: 0.25rem 0.5rem 0.25rem 0;
+    box-shadow: 0 2px 8px rgba(95,95,255,0.10);
+    border: none;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.profile-pill.inactive {
+    background: #e9eaf3;
+    color: #b0b3c6;
+    box-shadow: none;
+}
+.profile-pill svg {
+    margin-right: 0.5rem;
+    font-size: 1.2em;
+}
 h1.h {
     text-align: left;
     font-weight: bold;
     margin: 2rem 0 0 0;
+    font-size: clamp(2rem, 5vw, 3.5rem);
 }
 
 .profileDestinations a {
@@ -11,7 +54,7 @@ h1.h {
 .badge-nav {
     width: fit-content;
     margin: 0 auto;
-    font-size: 2.25vmin;
+    font-size: clamp(1rem, 2.25vw, 1.5rem);
 }
 
 .badge-nav span {

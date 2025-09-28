@@ -1,5 +1,5 @@
 .App-logo {
-  height: 40vmin;
+  height: clamp(200px, 40vw, 400px);
   pointer-events: none;
 }
 
@@ -19,18 +19,18 @@ body {
 h1 {
   text-align: center;
   margin: 2rem 0;
-  font-size: 2.5vmin;
+    font-size: clamp(2rem, 6vw, 4rem);
 }
 
 form {
   display: grid;
   grid-template-columns: 1fr 3fr;
-  gap: 1.25vmin;
+  gap: clamp(0.5rem, 1.25vw, 1.5rem);
   color: var(--text-light);
 }
 
 label {
-  font-size: 3vmin;
+  font-size: clamp(1.2rem, 3vw, 2rem);
   display: flex;
   align-items: center;
 }
@@ -55,20 +55,20 @@ label {
 
 
 .note-item .badge {
-  margin-right: 1vmin;
+  margin-right: clamp(0.5rem, 1vw, 1.2rem);
 }
 
 .noteForm form {
   display: block;
   max-width: 350px;
-  margin: 2vmin 0;
+  margin: clamp(1rem, 2vw, 2rem) 0;
 }
 
 .noteForm * {
-  margin: 1vmin 0;
+  margin: clamp(0.5rem, 1vw, 1rem) 0;
   text-align: left;
 }
 
 .note-item p {
-  font-size: 2.5vmin;
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
 }

@@ -1,3 +1,53 @@
+button, .btn {
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+button:hover, .btn:hover {
+    box-shadow: 0 4px 16px rgba(79,91,213,0.18);
+    transform: translateY(-2px);
+}
+.pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5em 1.2em;
+    border-radius: 999px;
+    font-weight: 500;
+    font-size: 1rem;
+    background: linear-gradient(90deg, #4f5bd5 0%, #5f4fd5 100%);
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(79,91,213,0.08);
+    margin: 0.3em;
+    transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+    text-decoration: none;
+}
+.pill.inactive {
+    background: #e4e7ef;
+    color: #a0a4b8;
+    box-shadow: none;
+}
+.pill .icon {
+    margin-right: 0.6em;
+    font-size: 1.1em;
+}
+
+.pill:hover {
+    color: #fff !important;
+    box-shadow: 0 4px 16px rgba(79,91,213,0.18);
+    transform: translateY(-2px);
+}
 button.add-to-fav-btn {
     height: fit-content;
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 0.5rem 1.25rem;
+    border-radius: 2rem;
+    background: #f3f4f6;
+    color: #e0245e;
+    border: none;
+    box-shadow: 0 2px 8px rgba(224,36,94,0.08);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    outline: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
 }

@@ -1,4 +1,5 @@
 import "./ExperienceCard.css";
+import "./ExperienceCard.css";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
@@ -34,7 +35,7 @@ export default function ExperienceCard({ experience, user, updateData }) {
               {experience.name}
             </span>
           </Link>
-          <button className="btn btn-light rounded-0" onClick={handleExperienceAction}>
+          <button className="btn btn-light rounded-0 experience-action-btn" type="button" onClick={handleExperienceAction}>
             {experienceAdded ? "-" : "+"}
           </button>
         </div>

@@ -1,0 +1,66 @@
+/* AppHome.css - Styles for the AppHome page */
+
+.app-home-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1rem;
+  background: #f7f8fa;
+  min-height: 100vh;
+}
+
+.app-home-title {
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: #222;
+  letter-spacing: 0.02em;
+}
+
+.cards-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  padding: 1.5rem;
+  min-width: 280px;
+  max-width: 340px;
+  margin: 0.5rem;
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+}
+
+@media (max-width: 900px) {
+  .cards-wrapper {
+    gap: 1rem;
+  }
+  .card {
+    min-width: 220px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-home-title {
+    font-size: 1.7rem;
+  }
+  .cards-wrapper {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .card {
+    min-width: 100%;
+    padding: 1rem;
+  }
+}

@@ -1,4 +1,5 @@
 import "./FavoriteDestination.css";
+import "./FavoriteDestination.css";
 import { useState, useEffect } from "react";
 import {
   showDestination,

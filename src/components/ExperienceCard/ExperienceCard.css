@@ -1,3 +1,36 @@
+button, .btn {
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+button:hover, .btn:hover {
+    box-shadow: 0 4px 16px rgba(79,91,213,0.18);
+    transform: translateY(-2px);
+}
+.pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5em 1.2em;
+    border-radius: 999px;
+    font-weight: 500;
+    font-size: 1rem;
+    background: linear-gradient(90deg, #4f5bd5 0%, #5f4fd5 100%);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(79,91,213,0.08);
+    margin: 0.3em;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+.pill.inactive {
+    background: #e4e7ef;
+    color: #a0a4b8;
+    box-shadow: none;
+}
+.pill .icon {
+    margin-right: 0.6em;
+    font-size: 1.1em;
+}
+.pill .check {
+    margin-left: 0.6em;
+    font-size: 1.1em;
+}
 .experience {
     width: fit-content;
     display: inline-block;
@@ -15,7 +48,7 @@
     display: flex;
     min-height: 3rem;
     font-weight: bold;
-    padding: 0.25vmin;
+    padding: clamp(2px, 0.25vw, 6px);
     font-size: 1.5rem;
     font-size: 1.5rem;
     min-width: 18.25rem;
@@ -27,12 +60,22 @@
     overflow: hidden;
 }
 
-.experienceCard button {
-    margin: 0;
+.experienceCard .experience-action-btn {
+    margin-left: 0.5rem;
     font-size: 1.5rem;
     font-weight: bold;
-    padding: 0 0.5rem;
-    align-self: flex-start;
+    padding: 0.25rem 0.75rem;
+    align-self: center;
+    border-radius: 999px;
+    background: #fff;
+    color: #333;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: background 0.2s, color 0.2s;
+    cursor: pointer;
+}
+.experienceCard .experience-action-btn:hover {
+    background: #e0e0e0;
+    color: #111;
 }
 
 .experienceCard a {

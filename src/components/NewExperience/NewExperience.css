@@ -16,5 +16,5 @@ form.newExperience button {
 }
 
 form.newExperience label {
-    font-size: 2vmin;
+    font-size: clamp(1rem, 2vw, 1.5rem);
 }

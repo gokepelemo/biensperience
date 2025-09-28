@@ -1,4 +1,21 @@
+button, .btn {
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+button:hover, .btn:hover {
+    box-shadow: 0 4px 16px rgba(79,91,213,0.18);
+    transform: translateY(-2px);
+}
+/* Add spacing and flex layout for experience cards */
+.experiences-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    justify-content: center;
+    align-items: stretch;
+    margin-bottom: 2rem;
+}
 h1.h {
     text-align: left;
     font-weight: bold;
+    font-size: clamp(2rem, 5vw, 3.5rem);
 }
