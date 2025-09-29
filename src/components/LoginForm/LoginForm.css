@@ -1,0 +1,111 @@
+.login-signup {
+	margin-top: 1.2rem;
+}
+.signup-link {
+	font-size: 1rem;
+	text-transform: none;
+	font-weight: 500;
+	vertical-align: baseline;
+}
+/* Center the login form and make it small */
+.login-bg {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #f7f8fa;
+}
+
+.login-form-wrapper {
+	background: #fff;
+	padding: 2.5rem 2rem;
+	border-radius: 1.25rem;
+	box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+	width: 100%;
+	max-width: 370px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.login-form {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 1.1rem;
+}
+
+.login-input {
+	display: block;
+	width: 100%;
+	margin: 0.2rem 0 0.2rem 0;
+	padding: 0.7rem 1rem;
+	font-size: 1rem;
+	border-radius: 0.5rem;
+	border: 1px solid #e0e3ea;
+	background: #f7f8fa;
+}
+
+.login-title {
+	text-align: center;
+	font-size: 1.6rem;
+	font-weight: 700;
+	margin-bottom: 1.2rem;
+}
+
+.login-options {
+	width: 100%;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 0.5rem;
+}
+
+.login-btn {
+	width: fit-content;
+	height: fit-content;
+	min-width: 120px;
+	min-height: 40px;
+	margin: 0 auto;
+	display: block;
+}
+
+.login-signup {
+	width: 100%;
+	text-align: center;
+	margin: 1.2rem 0 0.7rem 0;
+}
+
+.divider {
+	width: 100%;
+	text-align: center;
+	margin: 1.2rem 0 0.7rem 0;
+}
+
+.error-message {
+	color: #d32f2f;
+	text-align: center;
+	margin-top: 0.7rem;
+	min-height: 1.2rem;
+}
+/* Make Sign In button fit its content */
+.login-btn {
+	width: fit-content;
+	height: fit-content;
+	min-width: 120px;
+	min-height: 40px;
+	margin: 0 auto;
+	display: block;
+}
+/* Link-style buttons: pointer cursor, no underline */
+.link-btn, .forgot-password, .signup-link {
+	color: #5F4BFF;
+	font-weight: 500;
+	font-size: 1rem;
+	text-decoration: none;
+	cursor: pointer;
+	background: none;
+	border: none;
+	padding: 0;
+	outline: none;
+}

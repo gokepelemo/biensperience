@@ -3,7 +3,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
 import "@fontsource/inter";
 import React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
 import AuthPage from "../AuthPage/AuthPage";
 import AppHome from "../AppHome/AppHome";
@@ -24,27 +24,21 @@ export default function App() {
   const [user, setUser] = useState(getUser());
   const [destinations, setDestinations] = useState([]);
   const [experiences, setExperiences] = useState([]);
-  async function updateData() {
+
+  const updateData = useCallback(async () => {
     if (user) {
-      let destinationsData = await getDestinations()
+      const [destinationsData, experiencesData] = await Promise.all([
+        getDestinations(),
+        getExperiences()
+      ]);
       setDestinations(destinationsData);
-      let experiencesData = await getExperiences()
       setExperiences(experiencesData);
     }
-  }
-  useEffect(() => {
-    async function updateData() {
-      if (user) {
-        await getDestinations().then(function (destinations) {
-          setDestinations(destinations);
-        });
-        await getExperiences().then(function (experiences) {
-          setExperiences(experiences);
-        });
-      }
-    }
-    updateData();
   }, [user]);
+
+  useEffect(() => {
+    updateData();
+  }, [updateData]);
   return (
     <main className="App container container-fluid">
       {user ? (
@@ -143,7 +137,10 @@ export default function App() {
           </Routes>
         </>
       ) : (
-        <AuthPage setUser={setUser} />
+        <Routes>
+          <Route path="/signup" element={<AuthPage setUser={setUser} />} />
+          <Route path="*" element={<AuthPage setUser={setUser} />} />
+        </Routes>
       )}
     </main>
   );

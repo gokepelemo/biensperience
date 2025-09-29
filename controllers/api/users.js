@@ -36,7 +36,7 @@ function checkToken(req, res) {
 
 async function getUser(req, res) {
   try {
-    const user = await User.findById(req.params.id).populate("photo");
+      const user = await User.findOne({ _id: { $eq: req.params.id } }).populate("photo");
     res.status(200).json(user);
   } catch (err) {
     res.status(400).json(err);
@@ -46,7 +46,7 @@ async function getUser(req, res) {
 async function updateUser(req, res, next) {
   let user;
   try {
-    user = await User.findByIdAndUpdate(req.params.id, req.body).populate("photo");
+      user = await User.findOneAndUpdate({ _id: { $eq: req.params.id } }, req.body).populate("photo");
     res.status(200).json(user);
   } catch (err) {
     res.status(400).json(err);

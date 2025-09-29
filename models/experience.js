@@ -42,6 +42,9 @@ const experienceSchema = new Schema(
   }
 );
 
+experienceSchema.index({ user: 1 });
+experienceSchema.index({ destination: 1 });
+
 experienceSchema.virtual("cost_estimate").get(function () {
   return this.plan_items.reduce(function (sum, item) {
     return sum + item.cost_estimate;

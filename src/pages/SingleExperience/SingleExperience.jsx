@@ -1,6 +1,7 @@
 import "./SingleExperience.css";
-import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { lang } from "../../lang.constants";
+import { useParams, Link } from "react-router-dom";
 import NewPlanItem from "../../components/NewPlanItem/NewPlanItem";
 import {
   showExperience,
@@ -19,37 +20,41 @@ export default function SingleExperience({ user, experiences, updateData }) {
   const [newPlanItem, setNewPlanItem] = useState({});
   const [travelTips, setTravelTips] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
+  const [favHover, setFavHover] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [hoveredPlanItem, setHoveredPlanItem] = useState(null);
+
+  const fetchExperience = useCallback(async () => {
+    try {
+      const experienceData = await showExperience(experienceId);
+      setExperience(experienceData);
+      // Set isOwner if current user is the creator
+      setIsOwner(experienceData.user && experienceData.user._id === user._id);
+      // Set userHasExperience if user is in experience.users
+      setUserHasExperience(
+        experienceData.users && experienceData.users.some(u => u.user._id === user._id)
+      );
+      // Set travelTips if present
+      setTravelTips(experienceData.travel_tips || []);
+      // Set planItems done state for current user
+      if (experienceData.users) {
+        const userObj = experienceData.users.find(u => u.user._id === user._id);
+        if (userObj && userObj.plan) {
+          const doneMap = {};
+          userObj.plan.forEach(item => {
+            doneMap[item] = true;
+          });
+          setPlanItems(doneMap);
+        }
+      }
+    } catch (err) {
+      setExperience(null);
+    }
+  }, [experienceId, user._id]);
 
   useEffect(() => {
-    async function fetchExperience() {
-      try {
-        const experienceData = await showExperience(experienceId);
-        setExperience(experienceData);
-        // Set isOwner if current user is the creator
-        setIsOwner(experienceData.user && experienceData.user._id === user._id);
-        // Set userHasExperience if user is in experience.users
-        setUserHasExperience(
-          experienceData.users && experienceData.users.some(u => u.user._id === user._id)
-        );
-        // Set travelTips if present
-        setTravelTips(experienceData.travel_tips || []);
-        // Set planItems done state for current user
-        if (experienceData.users) {
-          const userObj = experienceData.users.find(u => u.user._id === user._id);
-          if (userObj && userObj.plan) {
-            const doneMap = {};
-            userObj.plan.forEach(item => {
-              doneMap[item._id] = item.done;
-            });
-            setPlanItems(doneMap);
-          }
-        }
-      } catch (err) {
-        setExperience(null);
-      }
-    }
     fetchExperience();
-  }, [experienceId, user._id]);
+  }, [fetchExperience]);
 
   // Dummy dollarSigns function for cost display
   function dollarSigns(n) {
@@ -101,19 +106,24 @@ export default function SingleExperience({ user, experiences, updateData }) {
               <h1 className="mt-4 h fade-in">{experience.name}</h1>
               {experience.cost_estimate > 0 && (
                 <h2 className="h5 fade-in">
-                  Estimated Cost: {" "}
+                  Estimated Cost:{" "}
                   <span className="green fade-in">
                     {dollarSigns(Math.ceil(experience.cost_estimate / 1000))}
                   </span>
                   <span className="grey fade-in">
-                    {dollarSigns(5 - Math.ceil(experience.cost_estimate / 1000))}
+                    {dollarSigns(
+                      5 - Math.ceil(experience.cost_estimate / 1000)
+                    )}
                   </span>
                 </h2>
               )}
               {experience.user ? (
                 <h3 className="h6 fade-in">
-                  Created by {" "}
-                  <Link to={`/profile/${experience.user._id}`} title={experience.user.name}>
+                  {lang.en.CREATED_BY}{" "}
+                  <Link
+                    to={`/profile/${experience.user._id}`}
+                    title={experience.user.name}
+                  >
                     {experience.user.name}
                   </Link>
                 </h3>
@@ -121,11 +131,30 @@ export default function SingleExperience({ user, experiences, updateData }) {
             </div>
             <div className="d-flex col-md-6 justify-content-end fade-in">
               <button
-                className={`btn btn-light favorite-experience-btn my-4${userHasExperience ? " active" : ""} fade-in`}
-                onClick={handleExperience}
-                aria-label={userHasExperience ? "Remove from Favorite Experiences" : "Add to Favorite Experiences"}
+                className={`btn btn-light favorite-experience-btn my-4${
+                  userHasExperience ? " active" : ""
+                } fade-in`}
+                onClick={async () => {
+                  if (loading) return;
+                  setLoading(true);
+                  await handleExperience();
+                  setLoading(false);
+                }}
+                aria-label={
+                  userHasExperience
+                    ? lang.en.UNFAVORITE
+                    : lang.en.ADD_FAVORITE_EXP
+                }
+                onMouseEnter={() => setFavHover(true)}
+                onMouseLeave={() => setFavHover(false)}
+                disabled={loading}
+                aria-busy={loading}
               >
-                {userHasExperience ? "💔 Remove" : "💖 Add"}
+                {userHasExperience
+                  ? favHover
+                    ? lang.en.UNFAVORITE
+                    : lang.en.FAVORITED
+                  : lang.en.ADD_FAVORITE_EXP}
               </button>
               {isOwner && (
                 <button
@@ -148,7 +177,10 @@ export default function SingleExperience({ user, experiences, updateData }) {
                   </li>
                 )}
                 {travelTips.map((tip, index) => (
-                  <li key={index} className="list-group-item list-group-item-secondary fade-in">
+                  <li
+                    key={index}
+                    className="list-group-item list-group-item-secondary fade-in"
+                  >
                     {tip}
                   </li>
                 ))}
@@ -228,12 +260,22 @@ export default function SingleExperience({ user, experiences, updateData }) {
                       {userHasExperience && (
                         <div className="form-check fade-in">
                           <button
-                            className="btn btn-light done-btn fade-in"
+                            className={`btn btn-light done-btn ${
+                              planItems[planItem._id] ? "done" : ""
+                            } fade-in`}
                             type="checkbox"
                             id={planItem._id}
                             onClick={handlePlanItemDone}
+                            onMouseEnter={() =>
+                              setHoveredPlanItem(planItem._id)
+                            }
+                            onMouseLeave={() => setHoveredPlanItem(null)}
                           >
-                            {planItems[planItem._id] ? `✅` : `👍 Done`}
+                            {planItems[planItem._id]
+                              ? hoveredPlanItem === planItem._id
+                                ? "❎ Undo Complete"
+                                : `✅ Done`
+                              : `👍 Mark Complete`}
                           </button>
                         </div>
                       )}

@@ -1,3 +1,24 @@
+.done-btn {
+    width: fit-content;
+    min-width: 120px;
+    max-width: 100%;
+    padding: 0.5rem 1.4rem;
+    white-space: nowrap;
+    display: inline-block;
+    text-transform: none;
+    font-size: 1rem;
+}
+
+.done-btn:hover {
+    box-shadow: 0 4px 16px rgba(79,91,213,0.18);
+    transform: translateY(-2px);
+}
+
+.done-btn.done:hover {
+    background-color: #dc3545;
+    color: white;
+    border-color: #dc3545;
+}
 button, .btn {
     transition: box-shadow 0.2s, transform 0.2s;
 }
@@ -45,7 +66,7 @@ h1.h {
     padding: 0.5rem 1.25rem;
     border-radius: 2rem;
     background: #f3f4f6;
-    color: #e0245e;
+    color: #000000;
     border: none;
     box-shadow: 0 2px 8px rgba(224,36,94,0.08);
     cursor: pointer;
@@ -63,11 +84,10 @@ button.action-btn {
 }
 
 button.done-btn {
-    padding: 0 0.5rem;
+    padding: 0.5rem 1.4rem;
     margin: 0 0.5rem 0 0;
-    width: 4rem;
+    width: 12rem;
     height: 3rem;
-    text-transform: uppercase;
     font-weight: bold;
     font-size: 1rem;
 }
@@ -79,6 +99,26 @@ button.delete-experience-btn {
 .planItemTitle a {
     text-decoration: none;
     color: black;
+}
+
+.planItemTitle {
+    flex: 0 0 75%;
+    min-width: 0;
+}
+
+.plan-item {
+    flex-direction: row;
+}
+
+@media (max-width: 768px) {
+    .plan-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .planItemTitle {
+        flex: 1;
+        text-align: center;
+    }
 }
 
 .planItemTitle a::before {

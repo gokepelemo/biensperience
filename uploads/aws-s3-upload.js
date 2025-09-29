@@ -1,5 +1,4 @@
 // ref: ga-wdi-boston/express-multer-upload-api
-"use strict";
 require("dotenv").config();
 
 const AWS = require("aws-sdk");
@@ -15,10 +14,10 @@ const s3 = new AWS.S3();
 const fs = require("fs");
 const mime = require("mime-types");
 
+const sanitizeFileName = require('./sanitize-filename');
 const s3Upload = function (file, originalName, newName) {
-  newName = slugify(newName, {
-    lower: true,
-  })
+  // Sanitize user-controlled file names
+  newName = sanitizeFileName(slugify(newName, { lower: true }));
   const bucketName = process.env.BUCKET_NAME;
   console.log("file is ", file);
   const contentType = mime.lookup(originalName);

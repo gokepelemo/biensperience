@@ -10,14 +10,16 @@ export default function PhotoCard({ photo, altText }) {
               <img src={photo.url} className="rounded img-fluid" alt="Profile" title={photo.photo_credit} />
           </div>
           {photo.photo_credit !== "undefined" && (
-            <small>
-              Photo Credit:{" "}
-              <a href={photo.photo_credit_url}>{photo.photo_credit}</a>
-            </small>
+            <div className="photo-credit-block">
+              <small>
+                Photo Credit:{" "}
+                <a href={photo.photo_credit_url}>{photo.photo_credit}</a>
+              </small>
+            </div>
           )}
         </>
       ) : (
-  <div className="photoCard"><img src={`https://picsum.photos/600?rand=${rand}`} className="rounded img-fluid" alt="Random" /></div>
+        <div className="photoCard"><img src={`https://picsum.photos/600?rand=${rand}`} className="rounded img-fluid" alt="Random" /></div>
       )}
     </div>
   );

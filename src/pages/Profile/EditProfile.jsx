@@ -14,7 +14,7 @@ export default function Profile({ user, setUser }) {
   }
   return (
     <>
-      <h1 className="h">Update {user.name}</h1>
+      <h1 className="h my-4">Update {user.name}</h1>
       <form className="editProfile" autoComplete="off" onSubmit={handleSubmit}>
         <input
           type="text"

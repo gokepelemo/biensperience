@@ -1,4 +1,5 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const path = require("path");
 const favicon = require("serve-favicon");
 const logger = require("morgan");
@@ -19,6 +20,15 @@ app.use(
 
 app.use(logger("dev"));
 app.use(express.json());
+
+// Apply rate limiting to all requests
+const limiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 1000, // limit each IP to 1000 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
 
 app.use(favicon(path.join(__dirname, "build", "favicon.ico")));
 app.use(express.static(path.join(__dirname, "build")));
