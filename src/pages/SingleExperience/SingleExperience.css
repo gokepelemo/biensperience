@@ -85,7 +85,7 @@ button.action-btn {
 
 button.done-btn {
     padding: 0.5rem 1.4rem;
-    margin: 0 0.5rem 0 0;
+    margin: 1rem auto;
     width: 12rem;
     height: 3rem;
     font-weight: bold;
@@ -135,4 +135,20 @@ button.delete-experience-btn {
 
 .h5 a {
     color: black;
+}
+
+.plan-item-row {
+    transition: opacity 0.3s ease-in-out;
+}
+
+.plan-item-row.collapsed {
+    opacity: 0;
+    pointer-events: none;
+}
+
+@media (max-width: 576px) {
+    .done-btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
 }

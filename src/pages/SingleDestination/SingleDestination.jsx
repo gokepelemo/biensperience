@@ -6,6 +6,7 @@ import { getExperiences } from "../../utilities/experiences-api";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
+import { lang } from "../../lang.constants";
 
 export default function SingleDestination({
   experiences,
@@ -76,7 +77,7 @@ export default function SingleDestination({
                 <ul className="list-group destination-detail">
                   {destination.country ? (
                     <li className="list-group-item list-group-item-secondary fw-bold text-center h4">
-                      {`Country: ${destination.country}`}
+                      {`${lang.en.label.country} ${destination.country}`}
                     </li>
                   ) : (
                     ""
@@ -84,7 +85,7 @@ export default function SingleDestination({
                   {destinationExperiences.length > 0 && (
                     <>
                       <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
-                        Popular Experiences
+                        {lang.en.heading.popularExperiences}
                       </li>
                       <li className="list-group-item list-group-item-secondary">
                         {destinationExperiences
@@ -102,7 +103,7 @@ export default function SingleDestination({
                   {destination.travel_tips.length > 0 && (
                     <>
                       <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
-                        Travel Tips
+                        {lang.en.heading.travelTips}
                       </li>
                       {destination.travel_tips.map((tip, idx) => (
                         <li
@@ -119,7 +120,7 @@ export default function SingleDestination({
             </div>
             <div className="row my-2 p-3 d-flex align-items-center justify-content-center">
               <h2 className="experiencesHeading mb-5">
-                Experiences in {destination.name}
+                {lang.en.heading.experiencesIn} {destination.name}
               </h2>
               {destinationExperiences.length > 0 ? (
                 destinationExperiences.map((experience, index) => (
@@ -133,8 +134,8 @@ export default function SingleDestination({
                 ))
               ) : (
                 <p className="alert alert-info">
-                  There are no experiences in this destination yet.{" "}
-                  <Link to="/experiences/new">Add one now</Link>?
+                  {lang.en.alert.noExperiencesInDestination}
+                  <Link to="/experiences/new">{lang.en.message.addOneNow}</Link>?
                 </p>
               )}
             </div>

@@ -1,4 +1,5 @@
 const Experience = require("../../models/experience");
+const { lang } = require("../../src/lang.constants");
 
 async function index(req, res) {
   try {
@@ -39,7 +40,7 @@ async function updateExperience(req, res) {
   const experienceId = req.params.experienceId || req.params.id;
   try {
     let experience = await Experience.findById(experienceId).populate("user");
-    if (req.user._id !== experience.user._id) res.status(401).end();
+    if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
     experience = Object.assign(experience, req.body);
     await experience.save();
     res.status(200).json(experience);
@@ -51,7 +52,7 @@ async function updateExperience(req, res) {
 async function deleteExperience(req, res) {
   try {
     let experience = await Experience.findById(req.params.id).populate("user");
-    if (req.user._id !== experience.user._id) res.status(401).end();
+    if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
     await experience.deleteOne();
     res.status(200).end();
   } catch (err) {
@@ -64,7 +65,7 @@ async function createPlanItem(req, res) {
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate("user");
-    if (req.user._id !== experience.user._id) res.status(401).end();
+    if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
     req.body.cost_estimate = !req.body.cost_estimate
       ? 0
       : req.body.cost_estimate;
@@ -81,7 +82,7 @@ async function updatePlanItem(req, res) {
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate("user");
-    if (req.user._id !== experience.user._id) res.status(401).end();
+    if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
     let plan_item = experience.plan_items.id(req.params.planItemId);
     Object.assign(plan_item, req.body);
     await experience.save();
@@ -96,7 +97,7 @@ async function deletePlanItem(req, res) {
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate("user");
-    if (req.user._id !== experience.user._id) res.status(401).end();
+    if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
     experience.plan_items.id(req.params.planItemId).deleteOne();
     await experience.save();
     experience.users.forEach((user, index) => {
@@ -123,10 +124,11 @@ async function addUser(req, res) {
       let newUser = {
         user: req.params.userId,
         plan: [],
+        planned_date: req.body.planned_date ? new Date(req.body.planned_date) : null,
       };
       experience.users.push(newUser);
     } else {
-      console.log("User is already added.");
+      console.log(lang.en.logMessages.userAlreadyAdded);
     }
     experience.users.forEach((user, index) => {
       experience.users[index].user = Object.assign(user.user, {
@@ -152,7 +154,7 @@ async function removeUser(req, res) {
     if (idx !== -1) {
       experience.users.splice(idx, 1);
     } else {
-      console.log("User isn't added to this experience anymore.");
+      console.log(lang.en.logMessages.userRemovedFromExperience);
     }
     experience.save();
     experience.users.forEach((user, index) => {

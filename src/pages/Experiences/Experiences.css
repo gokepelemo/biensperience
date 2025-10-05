@@ -1,9 +1,17 @@
 button, .btn {
     transition: box-shadow 0.2s, transform 0.2s;
+    padding: 0.5rem 1rem;
 }
 button:hover, .btn:hover {
     box-shadow: 0 4px 16px rgba(79,91,213,0.18);
     transform: translateY(-2px);
+}
+
+@media (max-width: 576px) {
+    button, .btn {
+        width: fit-content;
+        height: fit-content;
+    }
 }
 /* Add spacing and flex layout for experience cards */
 .experiences-list {
@@ -15,7 +23,13 @@ button:hover, .btn:hover {
     margin-bottom: 2rem;
 }
 h1.h {
-    text-align: left;
+    text-align: center;
     font-weight: bold;
     font-size: clamp(2rem, 5vw, 3.5rem);
+}
+
+@media (min-width: 768px) {
+    h1.h {
+        text-align: left;
+    }
 }

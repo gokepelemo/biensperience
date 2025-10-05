@@ -1,5 +1,6 @@
 import "./NewPlanItem.css";
 import { addPlanItem, updatePlanItem } from "../../utilities/experiences-api";
+import { lang } from "../../lang.constants";
 
 export default function NewPlanItem({
   experience,
@@ -50,43 +51,69 @@ export default function NewPlanItem({
         className="planItemVisibility btn btn-light"
         onClick={handleVisibility}
       >
-        {formVisible ? "Cancel" : "+ Add Plan Item"}
+        {formVisible ? lang.en.button.cancel : lang.en.button.addPlanItem}
       </button>
       {formVisible ? (
         <>
           <h5 className="lead mt-3">
-            {formState ? "Add" : "Update"} Plan Item
+            {formState ? (newPlanItem.parent ? lang.en.button.addChild : lang.en.button.add) : (newPlanItem.parent ? lang.en.button.updateChild : lang.en.button.update)} {lang.en.label.title}
           </h5>
           <form onSubmit={handleSubmit} className="newPlanItem">
+            <label htmlFor="text">{lang.en.label.title}</label>
             <input
               type="text"
               name="text"
               id="text"
               onChange={handleChange}
               className="form-control"
-              placeholder="Title (ex. Book a ticket on Skyscanner)"
+              placeholder={lang.en.placeholder.planItem}
               value={newPlanItem.text}
             />
+            <label htmlFor="cost_estimate">{lang.en.label.costEstimate}</label>
             <input
               type="number"
               name="cost_estimate"
               id="cost_estimate"
               onChange={handleChange}
               className="form-control"
-              placeholder="Cost (ex. $350)"
+              placeholder={lang.en.placeholder.costEstimate}
               value={newPlanItem.cost_estimate}
             />
+            <label htmlFor="planning_days">{lang.en.label.planningDays}</label>
+            <input
+              type="number"
+              name="planning_days"
+              id="planning_days"
+              onChange={handleChange}
+              className="form-control"
+              placeholder={lang.en.placeholder.planningDays}
+              value={newPlanItem.planning_days}
+            />
+            <label htmlFor="parent">{lang.en.label.parentPlanItem}</label>
+            <select
+              name="parent"
+              id="parent"
+              onChange={handleChange}
+              className="form-control"
+              value={newPlanItem.parent || ''}
+            >
+              <option value="">{lang.en.helper.noneTopLevel}</option>
+              {experience.plan_items.filter(item => !item.parent).map(item => (
+                <option key={item._id} value={item._id}>{item.text}</option>
+              ))}
+            </select>
+            <label htmlFor="url">{lang.en.label.url}</label>
             <input
               type="text"
               name="url"
               id="url"
               onChange={handleChange}
               className="form-control"
-              placeholder="URL (ex. https://www.tripadvisor.com/fun-adventure)"
+              placeholder={lang.en.placeholder.url}
               value={newPlanItem.url}
             />
             <button type="submit" className="btn btn-light">
-              {formState ? "Add" : "Update"}
+              {formState ? lang.en.button.add : lang.en.button.update}
             </button>
           </form>
         </>

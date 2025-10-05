@@ -1,6 +1,7 @@
 import "./NewDestination.css";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { lang } from "../../lang.constants";
 import { createDestination } from "../../utilities/destinations-api";
 import ImageUpload from "../ImageUpload/ImageUpload";
 
@@ -8,6 +9,8 @@ export default function NewDestination({ updateData }) {
   const [newDestination, setNewDestination] = useState({});
   const [travelTips, setTravelTips] = useState([]);
   const [newTravelTip, setNewTravelTip] = useState({});
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [tipToDelete, setTipToDelete] = useState(null);
   const navigate = useNavigate();
   useEffect(() => {
     document.title = `New Destination - Biensperience`;
@@ -46,7 +49,7 @@ export default function NewDestination({ updateData }) {
   }
   return (
     <>
-      <h1>New Destination</h1>
+      <h1>{lang.en.heading.newDestination}</h1>
       <form onSubmit={handleSubmit} className="newDestination">
         <span>
           <input
@@ -56,9 +59,9 @@ export default function NewDestination({ updateData }) {
             onChange={handleChange}
             className="form-control"
             value={newDestination.name}
-            placeholder="e.g. London"
+            placeholder={lang.en.placeholder.city}
           />
-          <small>City (required)</small>
+          <small>{lang.en.helper.cityRequired}</small>
         </span>
         <span>
           <input
@@ -68,9 +71,9 @@ export default function NewDestination({ updateData }) {
             onChange={handleChange}
             className="form-control"
             value={newDestination.state}
-            placeholder="e.g. United Kingdom"
+            placeholder={lang.en.placeholder.stateProvince}
           />
-          <small>State/Province (required)</small>
+          <small>{lang.en.helper.stateProvinceRequired}</small>
         </span>
         <span>
           <input
@@ -80,16 +83,16 @@ export default function NewDestination({ updateData }) {
             onChange={handleChange}
             className="form-control"
             value={newDestination.country}
-            placeholder="e.g. England"
+            placeholder={lang.en.placeholder.country}
           />
-          <small>Country (required)</small>
+          <small>{lang.en.helper.countryRequired}</small>
         </span>
         <span>
         <ImageUpload data={newDestination} setData={setNewDestination} />
-        <small>Photo (optional)</small>
+        <small>{lang.en.helper.photoOptional}</small>
         </span>
         <span>
-          <h5 className="mt-2">Travel Tips</h5>
+          <h5 className="mt-2">{lang.en.heading.travelTips}</h5>
           <span className="addTravelTipPane">
             <div
               className="btn btn-light action-btn"
@@ -101,7 +104,7 @@ export default function NewDestination({ updateData }) {
               type="text"
               name="tipkey"
               className="form-control addTravelTips"
-              placeholder="e.g. Language"
+              placeholder={lang.en.placeholder.language}
               onChange={(e) => handleTravelTipChange(e)}
               value={newTravelTip.tipkey}
               autoComplete="off"
@@ -110,7 +113,7 @@ export default function NewDestination({ updateData }) {
               type="text"
               name="tipvalue"
               className="form-control addTravelTips tipDescription"
-              placeholder="e.g. Spanish"
+              placeholder={lang.en.placeholder.spanish}
               onChange={(e) => handleTravelTipChange(e)}
               value={newTravelTip.tipvalue}
               autoComplete="off"
@@ -123,7 +126,10 @@ export default function NewDestination({ updateData }) {
                   <li key={idx} className="travelTips list-group-item">
                     <div
                       className="btn btn-light action-btn"
-                      onClick={() => deleteTravelTip(idx)}
+                      onClick={() => {
+                        setTipToDelete(idx);
+                        setShowDeleteModal(true);
+                      }}
                     >
                       ❌
                     </div>
@@ -132,16 +138,38 @@ export default function NewDestination({ updateData }) {
                 );
               })
             ) : (
-              <p>No travel tips added yet.</p>
+              <p>{lang.en.alert.noTravelTips}</p>
             )}
           </ul>
         </span>
         <div className="form-btns">
           <button type="submit" className="btn btn-light">
-            Add Destination ➡️ Create New Experience
+            {lang.en.button.addDestinationCreateExperience}
           </button>
         </div>
       </form>
+      {showDeleteModal && (
+        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{lang.en.modal.confirmDelete}</h5>
+                <button type="button" className="btn-close" onClick={() => setShowDeleteModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <p>{lang.en.modal.confirmDeleteTravelTip}</p>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>{lang.en.button.cancel}</button>
+                <button type="button" className="btn btn-danger" onClick={() => {
+                  deleteTravelTip(tipToDelete);
+                  setShowDeleteModal(false);
+                }}>{lang.en.button.delete}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

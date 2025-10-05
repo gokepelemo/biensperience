@@ -14,6 +14,7 @@ import SingleDestination from "../SingleDestination/SingleDestination";
 import Destinations from "../Destinations/Destinations";
 import Experiences from "../Experiences/Experiences";
 import NewExperience from "../../components/NewExperience/NewExperience";
+import EditExperience from "../../components/EditExperience/EditExperience";
 import NewDestination from "../../components/NewDestination/NewDestination";
 import Profile from "../Profile/Profile";
 import { getUser } from "../../utilities/users-service";
@@ -40,7 +41,7 @@ export default function App() {
     updateData();
   }, [updateData]);
   return (
-    <main className="App container container-fluid">
+    <main className="App container">
       {user ? (
         <>
           <NavBar user={user} setUser={setUser} />
@@ -117,6 +118,15 @@ export default function App() {
                 <SingleExperience
                   user={user}
                   experiences={experiences}
+                  updateData={updateData}
+                />
+              }
+            />
+            <Route
+              path="/experiences/:experienceId/edit"
+              element={
+                <EditExperience
+                  user={user}
                   updateData={updateData}
                 />
               }

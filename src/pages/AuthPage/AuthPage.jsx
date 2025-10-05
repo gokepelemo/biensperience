@@ -14,8 +14,8 @@ export default function AuthPage ({ setUser, updateData }) {
             setSignup(false);
         }
     }, [location.pathname]);
-    function handleClick(evt) {
-        evt.preventDefault();
+    function handleClick(e) {
+        e.preventDefault();
         if (signup) {
             navigate("/");
         } else {

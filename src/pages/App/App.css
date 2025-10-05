@@ -5,6 +5,18 @@ body {
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
 }
 
+.App {
+  padding: 0 15px;
+}
+
+@media (max-width: 768px) {
+  .App.container {
+    max-width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
 h1 {
   text-align: center;
   margin: 2rem 0;

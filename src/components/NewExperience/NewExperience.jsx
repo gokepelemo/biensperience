@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { createExperience } from "../../utilities/experiences-api";
 import { getDestinations } from "../../utilities/destinations-api";
+import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 
 export default function NewExperience({ updateData }) {
@@ -43,7 +44,7 @@ export default function NewExperience({ updateData }) {
   }, []);
   return (
     <>
-      <h1>Create an Experience</h1>
+      <h1>{lang.en.heading.createExperience}</h1>
       <form onSubmit={handleSubmit} className="newExperience">
         <span>
         <input
@@ -52,9 +53,9 @@ export default function NewExperience({ updateData }) {
           id="name"
           onChange={handleChange}
           className="form-control"
-          placeholder="e.g. Brewery Tour at Lakefront Brewery with a Local in Milwaukee"
+          placeholder={lang.en.placeholder.experienceName}
         />
-        <small>Name (required). A descriptive title in natural language.</small>
+        <small>{lang.en.helper.nameRequired}</small>
         </span>
         <span>
         <input
@@ -65,7 +66,7 @@ export default function NewExperience({ updateData }) {
           className="form-control"
           autoComplete="off"
         />
-        <small>Destination (required). Select from one of the destination cities or <Link to="/destinations/new">create a new one</Link>.</small>
+        <small>{lang.en.helper.destinationRequired}<Link to="/destinations/new">{lang.en.helper.createNewDestination}</Link>.</small>
         </span>
         <datalist type="text" id="destination_list">
           {destinations.length &&
@@ -83,7 +84,7 @@ export default function NewExperience({ updateData }) {
           onChange={handleChange}
           className="form-control"
         />
-        <small>Address (optional). A specific address to the location if available.</small>
+        <small>{lang.en.placeholder.address}</small>
         </span>
         <span><input
           type="text"
@@ -91,14 +92,14 @@ export default function NewExperience({ updateData }) {
           id="experience_type"
           onChange={handleChange}
           className="form-control"
-          placeholder="e.g. Culinary, Winery, Brewery, High Adrenaline"
-        /><small>Experience types (optional) in a comma separated list.</small></span>
+          placeholder={lang.en.placeholder.experienceType}
+        /><small>{lang.en.helper.experienceTypesOptional}</small></span>
         <span>
         <ImageUpload data={newExperience} setData={setNewExperience} />
-        <small>Photo (optional)</small>
+        <small>{lang.en.helper.photoOptional}</small>
         </span>
         <button type="submit" className="btn btn-light">
-          Create
+          {lang.en.button.create}
         </button>
       </form>
     </>

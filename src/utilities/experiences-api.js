@@ -33,10 +33,11 @@ export async function userRemoveExperience(userId, experienceId) {
   );
 }
 
-export async function userAddExperience(userId, experienceId) {
+export async function userAddExperience(userId, experienceId, data = {}) {
   return await sendRequest(
     `${BASE_URL}${experienceId}/user/${userId}`,
-    "POST"
+    "POST",
+    data
   );
 }
 

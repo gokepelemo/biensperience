@@ -1,0 +1,33 @@
+form.newExperience {
+    width: 75%;
+    min-width: 350px;
+    margin: 0 auto;
+}
+
+form.newExperience span {
+    grid-column: 1 / span 2;
+}
+
+form.newExperience button {
+    width: fit-content;
+}
+
+form.newExperience .d-flex {
+    margin-top: 2rem;
+}
+
+form.newExperience label {
+    font-size: clamp(1rem, 2vw, 1.5rem);
+}
+
+.changes-summary {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.change-item {
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+}

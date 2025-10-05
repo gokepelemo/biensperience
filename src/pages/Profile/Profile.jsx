@@ -7,6 +7,7 @@ import DestinationCard from "./../../components/DestinationCard/DestinationCard"
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import { showUserExperiences } from "../../utilities/experiences-api";
 import { getUserData } from "../../utilities/users-api";
+import { lang } from "../../lang.constants";
 
 export default function Profile({ user, destinations, updateData }) {
   // ...existing code...
@@ -68,15 +69,15 @@ export default function Profile({ user, destinations, updateData }) {
           <PhotoCard photo={currentProfile.photo} />
           {!currentProfile.photo && isOwner && (
             <small className="d-flex justify-content-center align-items-center noPhoto fade-in">
-              <span>You don't have a profile photo. </span>
-              <Link to="/profile/edit">Upload one now</Link>.
+              <span>{lang.en.message.noPhotoMessage}</span>
+              <Link to="/profile/edit">{lang.en.message.uploadPhotoNow}</Link>.
             </small>
           )}
         </div>
         <div className="col-md-6 p-3 fade-in">
           <ul className="list-group profile-detail fade-in">
             <li className="list-group-item list-group-item-secondary fw-bold text-center h5 fade-in">
-              Favorite Destinations
+              {lang.en.heading.favoriteDestinations}
             </li>
             <li className="list-group-item list-group-item-secondary h5 profileDestinations fade-in">
                     {favoriteDestinations.length > 0 ? (
@@ -88,16 +89,15 @@ export default function Profile({ user, destinations, updateData }) {
                       ))
                     ) : (
                       <p className="noFavoriteDestinations fade-in">
-                        There are no favorite destinations on this profile yet. Look
-                        through our destinations and{" "}
-                        <Link to="/destinations">add some favorite destinations</Link>
+                        {lang.en.message.noFavoriteDestinations}
+                        <Link to="/destinations">{lang.en.message.addFavoriteDestinations}</Link>
                         .
                       </p>
                     )}
             </li>
             <>
               <li className="list-group-item list-group-item-secondary fw-bold text-center h5 fade-in">
-                Preferred Experience Types
+                {lang.en.heading.preferredExperienceTypes}
               </li>
               <li className="list-group-item list-group-item-secondary h5 fade-in">
                       {userExperienceTypes.length > 0 ? (
@@ -109,8 +109,8 @@ export default function Profile({ user, destinations, updateData }) {
                         ))
                       ) : (
                         <p className="fade-in">
-                          There are no experiences on this profile yet.{" "}
-                          <Link to="/experiences">Add some experiences</Link>.
+                          {lang.en.message.noExperiencesYet}
+                          <Link to="/experiences">{lang.en.message.addExperiences}</Link>.
                         </p>
                       )}
               </li>
@@ -124,14 +124,14 @@ export default function Profile({ user, destinations, updateData }) {
             className={uiState.experiences ? "fw-bold fade-in" : "fade-in"}
             onClick={handleExpNav}
           >
-            Planned Experiences
+            {lang.en.heading.plannedExperiences}
           </span>{" "}
           |{" "}
           <span
             className={uiState.destinations ? "fw-bold fade-in" : "fade-in"}
             onClick={handleExpNav}
           >
-            Experience Destinations
+            {lang.en.heading.experienceDestinations}
           </span>
         </h4>
       </div>
@@ -167,8 +167,7 @@ export default function Profile({ user, destinations, updateData }) {
         </>
       ) : (
         <p className="alert alert-info fade-in">
-          There are no {uiState.experiences ? `experiences` : `destinations`} on
-          this profile yet. Add one now.
+          {lang.en.alert.noExperiencesOrDestinations.replace('{type}', uiState.experiences ? `experiences` : `destinations`)} {lang.en.message.addOneNow}
         </p>
       )}
     </>
