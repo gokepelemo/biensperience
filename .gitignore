@@ -27,3 +27,7 @@ yarn-error.log*
 # AI config
 /.claude
 CLAUDE.md
+
+# Data files
+addData.js
+getData.js
