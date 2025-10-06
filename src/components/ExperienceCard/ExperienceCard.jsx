@@ -1,34 +1,51 @@
 import "./ExperienceCard.css";
-import "./ExperienceCard.css";
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { lang } from "../../lang.constants";
+import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import {
   userAddExperience,
   userRemoveExperience,
   deleteExperience,
 } from "../../utilities/experiences-api";
+import { handleError } from "../../utilities/error-handler";
 
-export default function ExperienceCard({ experience, user, updateData }) {
-  const rand = Math.floor(Math.random() * 50)
-  const [experienceAdded, setExperienceAdded] = useState(experience.users.map((expUser) => expUser.user).filter((expUser) => expUser._id === user._id).length > 0);
+function ExperienceCard({ experience, user, updateData }) {
+  const rand = useMemo(() => Math.floor(Math.random() * 50), []);
+  const [experienceAdded, setExperienceAdded] = useState(
+    experience.users.map((expUser) => expUser.user).filter((expUser) => expUser._id === user._id).length > 0
+  );
   const isOwner = experience.user && experience.user._id === user._id;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  async function handleExperienceAction (e) {
-    if (experienceAdded) {
-      await userRemoveExperience(user._id, experience._id);
-    } else {
-      await userAddExperience(user._id, experience._id);
+
+  const handleExperienceAction = useCallback(async () => {
+    try {
+      if (experienceAdded) {
+        await userRemoveExperience(user._id, experience._id);
+      } else {
+        await userAddExperience(user._id, experience._id);
+      }
+      setExperienceAdded(!experienceAdded);
+      updateData();
+    } catch (err) {
+      handleError(err, { context: experienceAdded ? 'Remove experience' : 'Add experience' });
     }
-    setExperienceAdded(!experienceAdded)
-    updateData()
-  }
-  async function handleDelete() {
-    await deleteExperience(experience._id);
-    updateData();
-  }
+  }, [experienceAdded, user._id, experience._id, updateData]);
+
+  const handleDelete = useCallback(async () => {
+    try {
+      await deleteExperience(experience._id);
+      setShowDeleteModal(false);
+      updateData();
+    } catch (err) {
+      handleError(err, { context: 'Delete experience' });
+    }
+  }, [experience._id, updateData]);
+
   useEffect(() => {
-    setExperienceAdded(experience.users.map((expUser) => expUser.user).filter((expUser) => expUser._id === user._id).length > 0)
+    setExperienceAdded(
+      experience.users.map((expUser) => expUser.user).filter((expUser) => expUser._id === user._id).length > 0
+    );
   }, [experience.users, user._id])
   return (
     <div className="experience">
@@ -73,25 +90,17 @@ export default function ExperienceCard({ experience, user, updateData }) {
           </button>
         </div>
       )}
-      {showDeleteModal && (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">{lang.en.modal.confirmDelete}</h5>
-                <button type="button" className="btn-close" onClick={() => setShowDeleteModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                <p>{lang.en.modal.confirmDeleteMessage.replace('{name}', experience?.name)}</p>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>{lang.en.button.cancel}</button>
-                <button type="button" className="btn btn-danger" onClick={handleDelete}>{lang.en.button.delete}</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        show={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDelete}
+        title={lang.en.modal.confirmDelete}
+        message={lang.en.modal.confirmDeleteMessage.replace('{name}', experience?.name)}
+        confirmText={lang.en.button.delete}
+        confirmVariant="danger"
+      />
     </div>
   );
 }
+
+export default memo(ExperienceCard);

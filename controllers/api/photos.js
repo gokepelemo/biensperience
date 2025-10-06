@@ -17,6 +17,7 @@ async function createPhoto(req, res) {
         console.log(response.Location);
         return Photo.create({
           photo_credit: req.body.photo_credit,
+          photo_credit_url: req.body.photo_credit_url,
           url: response.Location,
           user: req.user._id,
         });
@@ -32,7 +33,7 @@ async function createPhoto(req, res) {
 
 async function updatePhoto(req, res) {
   try {
-    const photo = await Photo.findById(req.params.id).populate("user");
+    let photo = await Photo.findById(req.params.id).populate("user");
     if (req.user._id !== photo.user._id) res.status(401).end();
     photo = Object.assign(photo, req.body);
     photo.save();

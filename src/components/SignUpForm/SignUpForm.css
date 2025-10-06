@@ -1,0 +1,14 @@
+/* Button styles */
+.login-btn {
+	text-transform: none;
+	font-size: 1rem;
+}
+
+.login-signup span {
+	font-size: 1rem;
+}
+
+.signup-link {
+	text-transform: none;
+	font-size: 1rem;
+}

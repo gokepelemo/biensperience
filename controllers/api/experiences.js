@@ -17,6 +17,20 @@ async function index(req, res) {
 async function createExperience(req, res) {
   try {
     req.body.user = req.user._id;
+
+    // Check for duplicate experience name (case-insensitive)
+    const existingExperience = await Experience.findOne({
+      name: { $regex: new RegExp(`^${req.body.name}$`, 'i') },
+      user: req.user._id
+    });
+
+    if (existingExperience) {
+      return res.status(409).json({
+        error: 'Duplicate experience',
+        message: `An experience named "${req.body.name}" already exists. Please choose a different name.`
+      });
+    }
+
     let experience = await Experience.create(req.body);
     res.status(201).json(experience);
   } catch (err) {
@@ -41,6 +55,23 @@ async function updateExperience(req, res) {
   try {
     let experience = await Experience.findById(experienceId).populate("user");
     if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
+
+    // Check for duplicate experience name if name is being updated (case-insensitive)
+    if (req.body.name && req.body.name !== experience.name) {
+      const existingExperience = await Experience.findOne({
+        name: { $regex: new RegExp(`^${req.body.name}$`, 'i') },
+        user: req.user._id,
+        _id: { $ne: experienceId }
+      });
+
+      if (existingExperience) {
+        return res.status(409).json({
+          error: 'Duplicate experience',
+          message: `An experience named "${req.body.name}" already exists. Please choose a different name.`
+        });
+      }
+    }
+
     experience = Object.assign(experience, req.body);
     await experience.save();
     res.status(200).json(experience);
@@ -177,6 +208,16 @@ async function userPlanItemDone(req, res) {
     let user = experience.users.findIndex(
       (expUser) => expUser.user.id === req.user._id
     );
+    // If user is not in the experience, add them first
+    if (user === -1) {
+      let newUser = {
+        user: req.user._id,
+        plan: [],
+        planned_date: null,
+      };
+      experience.users.push(newUser);
+      user = experience.users.length - 1;
+    }
     let plan_idx = experience.users[user].plan.indexOf(req.params.planItemId);
     if (plan_idx === -1) {
       experience.users[user].plan.push(req.params.planItemId);

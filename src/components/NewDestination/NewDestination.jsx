@@ -2,24 +2,48 @@ import "./NewDestination.css";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { lang } from "../../lang.constants";
-import { createDestination } from "../../utilities/destinations-api";
+import { createDestination, getDestinations } from "../../utilities/destinations-api";
 import ImageUpload from "../ImageUpload/ImageUpload";
+import { handleError } from "../../utilities/error-handler";
+import { deduplicateByMultipleFields } from "../../utilities/deduplication";
 
 export default function NewDestination({ updateData }) {
   const [newDestination, setNewDestination] = useState({});
+  const [destinations, setDestinations] = useState([]);
   const [travelTips, setTravelTips] = useState([]);
   const [newTravelTip, setNewTravelTip] = useState({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [tipToDelete, setTipToDelete] = useState(null);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
   useEffect(() => {
-    document.title = `New Destination - Biensperience`;
+    async function fetchDestinations() {
+      const destinationData = await getDestinations();
+      setDestinations(destinationData);
+      document.title = `New Destination - Biensperience`;
+    }
+    fetchDestinations();
   }, []);
   function handleChange(e) {
     setNewDestination({ ...newDestination, [e.target.name]: e.target.value });
   }
   async function handleSubmit(e) {
     e.preventDefault();
+    setError("");
+
+    // Frontend duplicate check (case-insensitive name and country combination)
+    if (newDestination.name && newDestination.country) {
+      const duplicate = destinations.find(dest =>
+        dest.name.toLowerCase().trim() === newDestination.name.toLowerCase().trim() &&
+        dest.country.toLowerCase().trim() === newDestination.country.toLowerCase().trim()
+      );
+
+      if (duplicate) {
+        setError(`A destination named "${newDestination.name}, ${newDestination.country}" already exists. Please choose a different destination.`);
+        return;
+      }
+    }
+
     try {
         await createDestination(
         Object.assign({ ...newDestination }, { travel_tips: travelTips })
@@ -27,7 +51,13 @@ export default function NewDestination({ updateData }) {
       updateData();
       navigate(`/experiences/new`);
     } catch (err) {
-      console.error(err);
+      const errorMsg = handleError(err, { context: 'Create destination' });
+      // Check if it's a duplicate error from backend
+      if (err.message && err.message.includes('already exists')) {
+        setError(err.message);
+      } else {
+        setError(errorMsg);
+      }
     }
   }
   function addTravelTip(text) {
@@ -50,6 +80,11 @@ export default function NewDestination({ updateData }) {
   return (
     <>
       <h1>{lang.en.heading.newDestination}</h1>
+      {error && (
+        <div className="alert alert-danger" role="alert">
+          {error}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="newDestination">
         <span>
           <input
@@ -149,7 +184,7 @@ export default function NewDestination({ updateData }) {
         </div>
       </form>
       {showDeleteModal && (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal fade show d-block" tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">

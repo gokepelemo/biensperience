@@ -1,27 +1,21 @@
 .authPage p {
-    text-align: center;
+  text-align: center;
   font-size: clamp(1rem, 2.5vw, 1.5rem);
-  }
-  
-  .authPage button {
-  font-size: clamp(1rem, 2.5vw, 1.5rem);
-    text-transform: uppercase;
-  }
+}
 
-  .form-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  
-  .form-container input {
+.form-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.form-container input {
   font-size: clamp(1.2rem, 3vw, 2rem);
   width: clamp(200px, 50vw, 600px);
-    grid-column: 1 / span 2;
-  }
-  
-  .form-container button {
-    grid-column: 1 / span 2;
+  grid-column: 1 / span 2;
+}
+
+.form-container button {
+  grid-column: 1 / span 2;
   margin: clamp(1rem, 2vw, 2rem) auto 0 auto;
-  }
-  
+}

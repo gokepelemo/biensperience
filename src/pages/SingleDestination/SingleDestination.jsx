@@ -7,6 +7,7 @@ import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
 import { lang } from "../../lang.constants";
+import PageMeta from "../../components/PageMeta/PageMeta";
 
 export default function SingleDestination({
   experiences,
@@ -38,19 +39,20 @@ export default function SingleDestination({
     useEffect(() => {
       if (!destination || !destinationExperiences) {
         getData();
-      } else {
-        document.title = `${destination.name},${" "}
-        ${
-          !destination.state
-            ? destination.country
-            : destination.state === destination.name
-            ? destination.country
-            : destination.state
-        } - Biensperience`;
       }
     }, [destination, destinationExperiences, getData]);
   return (
     <>
+      {destination && (
+        <PageMeta
+          title={`${destination.name}, ${!destination.state ? destination.country : destination.state === destination.name ? destination.country : destination.state}`}
+          description={`Discover ${destination.name}, ${destination.country}. Explore popular experiences, travel tips, and plan your perfect visit to this amazing destination.${destinationExperiences.length > 0 ? ` Find ${destinationExperiences.length} curated experiences.` : ''}`}
+          keywords={`${destination.name}, ${destination.country}, travel destination, tourism${destination.state ? `, ${destination.state}` : ''}, experiences, travel tips`}
+          ogTitle={`${destination.name}, ${destination.country}`}
+          ogDescription={`${destinationExperiences.length > 0 ? `Explore ${destinationExperiences.length} unique experiences in ${destination.name}. ` : ''}${destination.travel_tips && destination.travel_tips.length > 0 ? destination.travel_tips[0] : `Plan your trip to ${destination.name} today.`}`}
+          ogImage={destination.photo || '/logo.png'}
+        />
+      )}
       <>
         {destination && (
           <>
@@ -71,7 +73,7 @@ export default function SingleDestination({
             </div>
             <div className="row my-4">
               <div className="col-md-6 p-3">
-                {destination && <PhotoCard photo={destination.photo} />}
+                {destination && <PhotoCard photo={destination.photo} title={destination.name} />}
               </div>
               <div className="col-md-6 p-3">
                 <ul className="list-group destination-detail">

@@ -1,6 +1,9 @@
 import "./NewPlanItem.css";
+import { useCallback } from "react";
 import { addPlanItem, updatePlanItem } from "../../utilities/experiences-api";
 import { lang } from "../../lang.constants";
+import { handleError } from "../../utilities/error-handler";
+import { createUrlSlug } from "../../utilities/url-utils";
 
 export default function NewPlanItem({
   experience,
@@ -13,13 +16,15 @@ export default function NewPlanItem({
   setNewPlanItem,
   updateData,
 }) {
-  function handleChange(e) {
+  const handleChange = useCallback((e) => {
     let planItem = { ...newPlanItem };
+    const value = e.target.name === 'url' ? createUrlSlug(e.target.value) : e.target.value;
     setNewPlanItem(
-      Object.assign(planItem, { [e.target.name]: e.target.value })
+      Object.assign(planItem, { [e.target.name]: value })
     );
-  }
-  async function handleSubmit(e) {
+  }, [newPlanItem, setNewPlanItem]);
+
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     try {
       if (formState) {
@@ -36,15 +41,16 @@ export default function NewPlanItem({
       setNewPlanItem({});
       updateData();
     } catch (err) {
-      console.error(err);
+      handleError(err, { context: formState ? 'Add plan item' : 'Update plan item' });
     }
-  }
-  function handleVisibility(e) {
+  }, [formState, experience._id, newPlanItem, setExperience, setFormVisible, formVisible, setNewPlanItem, updateData]);
+
+  const handleVisibility = useCallback((e) => {
     e.preventDefault();
     if (formVisible) setNewPlanItem({});
     setFormVisible(!formVisible);
     setFormState(1);
-  }
+  }, [formVisible, setNewPlanItem, setFormVisible, setFormState]);
   return (
     <>
       <button

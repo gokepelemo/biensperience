@@ -13,6 +13,7 @@ import SingleExperience from "../SingleExperience/SingleExperience";
 import SingleDestination from "../SingleDestination/SingleDestination";
 import Destinations from "../Destinations/Destinations";
 import Experiences from "../Experiences/Experiences";
+import ExperiencesByTag from "../ExperiencesByTag/ExperiencesByTag";
 import NewExperience from "../../components/NewExperience/NewExperience";
 import EditExperience from "../../components/EditExperience/EditExperience";
 import NewDestination from "../../components/NewDestination/NewDestination";
@@ -28,12 +29,17 @@ export default function App() {
 
   const updateData = useCallback(async () => {
     if (user) {
-      const [destinationsData, experiencesData] = await Promise.all([
-        getDestinations(),
-        getExperiences()
-      ]);
-      setDestinations(destinationsData);
-      setExperiences(experiencesData);
+      try {
+        const [destinationsData, experiencesData] = await Promise.all([
+          getDestinations(),
+          getExperiences()
+        ]);
+        setDestinations(destinationsData);
+        setExperiences(experiencesData || []);
+      } catch (error) {
+        console.error('Failed to update data:', error);
+        // Don't clear existing data on error
+      }
     }
   }, [user]);
 
@@ -107,6 +113,17 @@ export default function App() {
               element={
                 <Destinations
                   destinations={destinations}
+                  experiences={experiences}
+                  updateData={updateData}
+                />
+              }
+            />
+            <Route
+              path="/experience-types/:tagName"
+              element={
+                <ExperiencesByTag
+                  user={user}
+                  setUser={setUser}
                   experiences={experiences}
                   updateData={updateData}
                 />

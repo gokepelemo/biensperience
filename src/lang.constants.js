@@ -35,16 +35,21 @@ const en = {
   alert: {
     loginFailed: "Log In Failed - Try Again",
     signupFailed: "Sign Up Failed - Try Again",
-    notEnoughTimeWarning: "Warning: You may not have enough time to plan this experience adequately.",
-    noExperiencesOrDestinations: "There are no {type} on this profile yet. Add one now.",
-    noExperiencesInDestination: "There are no experiences in this destination yet. ",
+    notEnoughTimeWarning:
+      "Warning: You may not have enough time to plan this experience adequately.",
+    noExperiencesOrDestinations:
+      "There are no {type} on this profile yet. Add one now.",
+    noExperiencesInDestination:
+      "There are no experiences in this destination yet. ",
     noTravelTips: "No travel tips added yet.",
   },
 
   modal: {
     confirmDelete: "Confirm Deletion",
-    confirmDeleteMessage: "Are you sure you want to delete the experience '{name}'? This action cannot be undone.",
-    confirmDeletePlanItem: "Are you sure you want to delete this plan item? This action cannot be undone.",
+    confirmDeleteMessage:
+      "Are you sure you want to delete the experience '{name}'? This action cannot be undone.",
+    confirmDeletePlanItem:
+      "Are you sure you want to delete this plan item? This action cannot be undone.",
     confirmDeleteTravelTip: "Are you sure you want to delete this travel tip?",
     confirmExperienceUpdate: "Confirm Experience Update",
     confirmUpdateReview: "Please review the changes before updating:",
@@ -80,6 +85,7 @@ const en = {
     url: "URL",
     country: "Country:",
     whenDoYouWantExperience: "When do you want to have this experience?",
+    experienceTypes: "Experience Types",
   },
 
   placeholder: {
@@ -90,8 +96,10 @@ const en = {
     nameField: "Name",
     emailField: "Email",
     emailExample: "Email (ex. john@doe.com)",
-    experienceName: "e.g. Brewery Tour at Lakefront Brewery with a Local in Milwaukee",
-    address: "Address (optional). A specific address to the location if available.",
+    experienceName:
+      "e.g. Brewery Tour at Lakefront Brewery with a Local in Milwaukee",
+    address:
+      "Address (optional). A specific address to the location if available.",
     experienceType: "e.g. Culinary, Winery, Brewery, High Adrenaline",
     planItem: "ex. Book a ticket on Skyscanner",
     costEstimate: "ex. 350",
@@ -106,15 +114,18 @@ const en = {
 
   helper: {
     nameRequired: "Name (required). A descriptive title in natural language.",
-    destinationRequired: "Destination (required). Select from one of the destination cities or ",
+    destinationRequired:
+      "Destination (required). Select from one of the destination cities or ",
     createNewDestination: "create a new one",
-    experienceTypesOptional: "Experience types (optional) in a comma separated list.",
+    experienceTypesOptional:
+      "Experience types (optional) in a comma separated list.",
     photoOptional: "Photo (optional)",
     cityRequired: "City (required)",
     stateProvinceRequired: "State/Province (required)",
     countryRequired: "Country (required)",
     noneTopLevel: "None (Top Level)",
-    requiresDaysToPlan: "This experience requires {days} days to plan adequately.",
+    requiresDaysToPlan:
+      "This experience requires {days} days to plan adequately.",
   },
 
   message: {
@@ -122,7 +133,8 @@ const en = {
     alreadyHaveAccount: "Already have an account?",
     noPhotoMessage: "You don't have a profile photo. ",
     uploadPhotoNow: "Upload one now",
-    noFavoriteDestinations: "There are no favorite destinations on this profile yet. Look through our destinations and ",
+    noFavoriteDestinations:
+      "There are no favorite destinations on this profile yet. Look through our destinations and ",
     addFavoriteDestinations: "add some favorite destinations",
     noExperiencesYet: "There are no experiences on this profile yet. ",
     addExperiences: "Add some experiences",
@@ -146,6 +158,14 @@ const en = {
     actions: "",
   },
 
+  pageMeta: {
+    defaultTitle: "Biensperience",
+    defaultDescription:
+      "Plan and organize your travel experiences around the world",
+    defaultKeywords: "travel, experiences, destinations, planning, adventure",
+    defaultOgImage: "/logo.png",
+  },
+
   console: {
     userAlreadyAdded: "User is already added.",
     userRemovedFromExperience: "User isn't added to this experience anymore.",
@@ -155,6 +175,27 @@ const en = {
   },
 };
 
-const lang = { en };
+// All available languages
+const languages = { en };
 
-module.exports = { lang };
+// Get current language from environment or default to 'en'
+const getCurrentLanguage = () => {
+  return process.env.REACT_APP_LANG || "en";
+};
+
+// Get language object for current language
+const getLang = () => {
+  const currentLang = getCurrentLanguage();
+  return languages[currentLang] || languages.en;
+};
+
+// Export both the full language object and the getter function
+const lang = {
+  get current() {
+    return getLang();
+  },
+  // Keep backward compatibility
+  en: languages.en,
+};
+
+module.exports = { lang, getCurrentLanguage, getLang };

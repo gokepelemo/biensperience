@@ -1,6 +1,6 @@
 import { FaUser, FaPassport } from "react-icons/fa";
 import { useParams, Link } from "react-router-dom";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import "./Profile.css";
 import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
@@ -8,57 +8,86 @@ import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import { showUserExperiences } from "../../utilities/experiences-api";
 import { getUserData } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
+import { handleError } from "../../utilities/error-handler";
+import PageMeta from "../../components/PageMeta/PageMeta";
+import { deduplicateById } from "../../utilities/deduplication";
+import { createUrlSlug } from "../../utilities/url-utils";
 
 export default function Profile({ user, destinations, updateData }) {
-  // ...existing code...
   let { profileId } = useParams();
   let userId = profileId ? profileId : user._id;
   const isOwner = !profileId || profileId === user._id;
-        const [currentProfile, setCurrentProfile] = useState(user);
-        const [uiState, setUiState] = useState({
-          experiences: true,
-          destinations: false,
-        });
-        const [userExperiences, setUserExperiences] = useState([]);
-        const userExperienceTypes = Array.from(
-          new Set(
-            userExperiences
-              .map((experience) => {
-                return experience.experience_type && experience.experience_type.length > 0
-                  ? experience.experience_type
-                  : "";
-              })
-              .join(",")
-              .replace(",,", ", ")
-              .split(",")
-              .map((type) => type.trim())
-          )
-        ).filter((type) => type.length > 0);
-        const favoriteDestinations = destinations
-          .filter(
-            (destination) =>
-              destination.users_favorite.indexOf(currentProfile._id) !== -1
-          );
-        const getProfile = useCallback(async () => {
-          await getUserData(userId).then(function (data) {
-            setCurrentProfile(data);
-          });
-          await showUserExperiences(userId).then(function (data) {
-            setUserExperiences(data);
-          });
-        }, [userId]);
+  const [currentProfile, setCurrentProfile] = useState(user);
+  const [uiState, setUiState] = useState({
+    experiences: true,
+    destinations: false,
+  });
+  const [userExperiences, setUserExperiences] = useState([]);
+
+  // Deduplicate user experiences by ID
+  const uniqueUserExperiences = useMemo(() => {
+    return deduplicateById(userExperiences);
+  }, [userExperiences]);
+
+  const userExperienceTypes = useMemo(() => {
+    return Array.from(
+      new Set(
+        uniqueUserExperiences
+          .map((experience) => {
+            return experience.experience_type && experience.experience_type.length > 0
+              ? experience.experience_type
+              : "";
+          })
+          .join(",")
+          .replace(",,", ", ")
+          .split(",")
+          .map((type) => type.trim())
+      )
+    ).filter((type) => type.length > 0);
+  }, [uniqueUserExperiences]);
+
+  // Deduplicate favorite destinations by ID
+  const favoriteDestinations = useMemo(() => {
+    const filtered = destinations.filter(
+      (destination) =>
+        destination.users_favorite.indexOf(currentProfile._id) !== -1
+    );
+    return deduplicateById(filtered);
+  }, [destinations, currentProfile._id]);
+
+  const getProfile = useCallback(async () => {
+    try {
+      const [userData, experienceData] = await Promise.all([
+        getUserData(userId),
+        showUserExperiences(userId)
+      ]);
+      setCurrentProfile(userData);
+      setUserExperiences(experienceData);
+    } catch (err) {
+      handleError(err, { context: 'Load profile' });
+    }
+  }, [userId]);
+
   useEffect(() => {
     getProfile();
-    document.title = `${currentProfile.name} - Biensperience`;
-  }, [currentProfile.name, getProfile]);
-  function handleExpNav(e) {
+  }, [getProfile]);
+
+  const handleExpNav = useCallback(() => {
     setUiState({
       experiences: !uiState.experiences,
       destinations: !uiState.destinations,
     });
-  }
+  }, [uiState.experiences, uiState.destinations]);
   return (
     <>
+      <PageMeta
+        title={`${currentProfile.name}'s Profile`}
+        description={`View ${currentProfile.name}'s travel profile on Biensperience. Discover their planned experiences${uniqueUserExperiences.length > 0 ? ` (${uniqueUserExperiences.length} experiences)` : ''} and favorite destinations${favoriteDestinations.length > 0 ? ` (${favoriteDestinations.length} destinations)` : ''}.`}
+        keywords={`${currentProfile.name}, travel profile, experiences, destinations, travel planning${userExperienceTypes.length > 0 ? `, ${userExperienceTypes.join(', ')}` : ''}`}
+        ogTitle={`${currentProfile.name} on Biensperience`}
+        ogDescription={`${currentProfile.name} is planning ${uniqueUserExperiences.length} travel experiences${favoriteDestinations.length > 0 ? ` across ${favoriteDestinations.length} favorite destinations` : ''}.`}
+        ogImage={currentProfile.photo || '/logo.png'}
+      />
       <div className="row fade-in">
         <div className="col-md-6 fade-in">
           <h1 className="my-4 h fade-in">{currentProfile.name}</h1>
@@ -66,7 +95,7 @@ export default function Profile({ user, destinations, updateData }) {
       </div>
       <div className="row mb-4 fade-in">
         <div className="col-md-6 p-3 fade-in">
-          <PhotoCard photo={currentProfile.photo} />
+          <PhotoCard photo={currentProfile.photo} title={currentProfile.name} />
           {!currentProfile.photo && isOwner && (
             <small className="d-flex justify-content-center align-items-center noPhoto fade-in">
               <span>{lang.en.message.noPhotoMessage}</span>
@@ -102,10 +131,10 @@ export default function Profile({ user, destinations, updateData }) {
               <li className="list-group-item list-group-item-secondary h5 fade-in">
                       {userExperienceTypes.length > 0 ? (
                         userExperienceTypes.map((type) => (
-                          <span className="pill" key={type}>
+                          <Link className="pill" key={type} to={`/experience-types/${createUrlSlug(type)}`}>
                             <span className="icon"><FaUser /></span>
                             {type}
-                          </span>
+                          </Link>
                         ))
                       ) : (
                         <p className="fade-in">
@@ -135,32 +164,33 @@ export default function Profile({ user, destinations, updateData }) {
           </span>
         </h4>
       </div>
-      {userExperiences.length > 0 ? (
+      {uniqueUserExperiences.length > 0 ? (
         <>
           <div className="row my-4 justify-content-center fade-in">
             {uiState.destinations &&
               Array.from(
                 new Set(
-                  userExperiences.map(
+                  uniqueUserExperiences.map(
                     (experience) => experience.destination._id
                   )
                 )
-              ).map((destination, index) => (
-                <DestinationCard
-                  key={index}
-                  updataData={updateData}
-                  destination={
-                    destinations.filter((dest) => dest._id === destination)[0]
-                  }
-                />
-              ))}
+              ).map((destinationId, index) => {
+                const destination = destinations.filter((dest) => dest._id === destinationId)[0];
+                return destination ? (
+                  <DestinationCard
+                    key={destination._id || index}
+                    updataData={updateData}
+                    destination={destination}
+                  />
+                ) : null;
+              })}
             {uiState.experiences &&
-              userExperiences.map((experience, index) => (
+              uniqueUserExperiences.map((experience, index) => (
                 <ExperienceCard
                   experience={experience}
                   user={user}
                   updateData={updateData}
-                  key={index}
+                  key={experience._id || index}
                 />
               ))}
           </div>

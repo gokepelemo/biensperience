@@ -4,21 +4,21 @@
     margin-top: 1rem;
     text-align: center;
 }
+
 .photoCard {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
-    aspect-ratio: 1/1;
-    min-height: 260px;
-    max-width: 320px;
+    aspect-ratio: 16/9;
+    min-height: 300px;
     margin: 0 auto;
     background: #f7f8fa;
     position: relative;
 }
 
 div.photoFrame {
-    min-height: 260px;
+    min-height: 300px;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -30,6 +30,18 @@ div.photoFrame {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
     border-radius: 1rem;
     display: block;
+}
+
+@media (max-width: 768px) {
+    .photoCard {
+        aspect-ratio: 4/3;
+        min-height: 250px;
+    }
+
+    div.photoFrame {
+        min-height: 250px;
+    }
 }

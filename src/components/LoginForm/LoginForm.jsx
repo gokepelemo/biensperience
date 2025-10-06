@@ -67,13 +67,13 @@ export default function LoginForm({ setUser, updateData }) {
                         placeholder={lang.en.placeholder.password}
                         required
                     />
-                    <button className="login-btn btn btn-light" type="submit" style={{textTransform: 'none', fontSize: '1rem'}}>
+                    <button className="login-btn btn btn-light" type="submit">
                         {lang.en.button.signInArrow}
                     </button>
                 </form>
                 <p className="error-message">&nbsp;{error ? error : ""}</p>
                 <div className="login-signup center-login">
-                    <span style={{fontSize: '1rem'}}>{lang.en.message.dontHaveAccount}</span> <button type="button" className="signup-link link-btn" onClick={() => navigate('/signup')} style={{textTransform: 'none', fontSize: '1rem'}}>{lang.en.button.signup}</button>
+                    <span>{lang.en.message.dontHaveAccount}</span> <button type="button" className="signup-link link-btn" onClick={() => navigate('/signup')}>{lang.en.button.signup}</button>
                 </div>
             </div>
         </div>

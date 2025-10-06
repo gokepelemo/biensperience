@@ -1,0 +1,31 @@
+/* Import Experiences.css styles for consistency */
+@import '../Experiences/Experiences.css';
+
+/* Additional specific styles for tagged experiences */
+.experiences-by-tag-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+}
+
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 2rem;
+  font-weight: 600;
+  margin-left: 1rem;
+}
+
+.alert-info h5 {
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+}
+
+.alert-info p {
+  margin-bottom: 1rem;
+}

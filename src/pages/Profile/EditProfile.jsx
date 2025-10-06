@@ -3,6 +3,7 @@ import { useState } from "react";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import { updateUser } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
+import PageMeta from "../../components/PageMeta/PageMeta";
 export default function Profile({ user, setUser }) {
   const [formData, setFormData] = useState(user);
   const disableSubmit = formData.password !== formData.confirm;
@@ -15,6 +16,13 @@ export default function Profile({ user, setUser }) {
   }
   return (
     <>
+      <PageMeta
+        title={`Edit Profile - ${user.name}`}
+        description={`Update your Biensperience profile settings, change your name, email, and profile photo. Manage your travel planning account.`}
+        keywords="edit profile, update profile, account settings, profile photo, user settings"
+        ogTitle={`Edit Profile - ${user.name}`}
+        ogDescription="Update your Biensperience profile and account settings"
+      />
       <h1 className="h my-4">{lang.en.heading.updateProfile.replace('{name}', user.name)}</h1>
       <form className="editProfile" autoComplete="off" onSubmit={handleSubmit}>
         <input

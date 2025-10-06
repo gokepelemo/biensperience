@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { signUp } from "../../utilities/users-service";
 import { lang } from "../../lang.constants";
+import "./SignUpForm.css";
 
 function SignUpForm(props) {
   const [state, setState] = React.useState({
@@ -80,13 +81,13 @@ function SignUpForm(props) {
             required
             autoComplete="new-password"
           />
-          <button type="submit" className="login-btn btn btn-light" disabled={disable} style={{textTransform: 'none', fontSize: '1rem'}}>
+          <button type="submit" className="login-btn btn btn-light" disabled={disable}>
             {lang.en.button.signup}
           </button>
         </form>
         <p className="error-message">{state.error ? state.error : ""}</p>
         <div className="login-signup center-login">
-          <span style={{fontSize: '1rem'}}>{lang.en.message.alreadyHaveAccount}</span> <button type="button" className="signup-link link-btn" style={{textTransform: 'none', fontSize: '1rem'}} onClick={handleLoginClick}>{lang.en.button.signIn}</button>
+          <span>{lang.en.message.alreadyHaveAccount}</span> <button type="button" className="signup-link link-btn" onClick={handleLoginClick}>{lang.en.button.signIn}</button>
         </div>
       </div>
     </div>
