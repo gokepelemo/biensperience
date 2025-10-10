@@ -43,7 +43,15 @@ export default function UpdateExperience({ user, updateData }) {
           return;
         }
 
-        setExperience(experienceData);
+        // Normalize destination to ID for easier handling
+        const normalizedExperience = {
+          ...experienceData,
+          destination: typeof experienceData.destination === 'object'
+            ? experienceData.destination._id
+            : experienceData.destination
+        };
+
+        setExperience(normalizedExperience);
         setOriginalExperience(experienceData);
         setDestinations(destinationsData);
 
@@ -242,7 +250,10 @@ export default function UpdateExperience({ user, updateData }) {
                 className="form-select"
                 id="destination"
                 name="destination"
-                value={experience.destination ? `${destinations.find(d => d._id === experience.destination)?.name}, ${destinations.find(d => d._id === experience.destination)?.country}` : ''}
+                value={(() => {
+                  const dest = destinations.find(d => d._id === experience.destination);
+                  return dest ? `${dest.name}, ${dest.country}` : '';
+                })()}
                 onChange={(e) => handleDestinationChange(e.target.value)}
                 required
               >
