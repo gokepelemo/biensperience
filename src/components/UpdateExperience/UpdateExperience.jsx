@@ -114,10 +114,20 @@ export default function UpdateExperience({ user, updateData }) {
     if (destination) {
       const updatedExperience = { ...experience, destination: destination._id };
 
-      // Track changes
+      // Track changes with readable destination names
       const newChanges = { ...changes };
-      if (originalExperience && originalExperience.destination !== destination._id) {
-        newChanges.destination = { from: originalExperience.destination, to: destination._id };
+      const originalDestId = typeof originalExperience?.destination === 'object'
+        ? originalExperience.destination._id
+        : originalExperience?.destination;
+      const originalDestName = typeof originalExperience?.destination === 'object'
+        ? `${originalExperience.destination.name}, ${originalExperience.destination.country}`
+        : destinations.find(d => d._id === originalDestId)?.name || 'Unknown';
+
+      if (originalExperience && originalDestId !== destination._id) {
+        newChanges.destination = {
+          from: originalDestName,
+          to: `${destination.name}, ${destination.country}`
+        };
       } else {
         delete newChanges.destination;
       }
@@ -285,6 +295,29 @@ export default function UpdateExperience({ user, updateData }) {
 
             <div className="row mb-4">
               <div className="col-md-6 mb-3 mb-md-0">
+                <label htmlFor="max_planning_days" className="form-label">
+                  {lang.en.label.planningDays}
+                </label>
+                <div className="input-group">
+                  <input
+                    type="number"
+                    className="form-control"
+                    id="max_planning_days"
+                    name="max_planning_days"
+                    value={experience.max_planning_days || ''}
+                    onChange={handleChange}
+                    placeholder={lang.en.placeholder.planningDays}
+                    min="1"
+                    style={{ padding: '1rem' }}
+                  />
+                  <span className="input-group-text">days</span>
+                </div>
+                <small className="form-text text-muted">
+                  Minimum days needed to plan in advance (optional)
+                </small>
+              </div>
+
+              <div className="col-md-6">
                 <label htmlFor="cost_estimate" className="form-label">
                   {lang.en.label.costEstimate}
                 </label>
@@ -299,32 +332,11 @@ export default function UpdateExperience({ user, updateData }) {
                     onChange={handleChange}
                     placeholder={lang.en.placeholder.costEstimate}
                     min="0"
+                    style={{ padding: '1rem' }}
                   />
                 </div>
                 <small className="form-text text-muted">
                   Estimated cost in dollars (optional)
-                </small>
-              </div>
-
-              <div className="col-md-6">
-                <label htmlFor="max_planning_days" className="form-label">
-                  {lang.en.label.planningDays}
-                </label>
-                <div className="input-group">
-                  <input
-                    type="number"
-                    className="form-control"
-                    id="max_planning_days"
-                    name="max_planning_days"
-                    value={experience.max_planning_days || ''}
-                    onChange={handleChange}
-                    placeholder={lang.en.placeholder.planningDays}
-                    min="1"
-                  />
-                  <span className="input-group-text">days</span>
-                </div>
-                <small className="form-text text-muted">
-                  Minimum days needed to plan in advance (optional)
                 </small>
               </div>
             </div>
@@ -389,7 +401,10 @@ export default function UpdateExperience({ user, updateData }) {
                 <ul className="list-group">
                   {Object.entries(changes).map(([field, change]) => (
                     <li key={field} className="list-group-item">
-                      <strong>{formatFieldName(field)}:</strong> {change.from || 'None'} → {change.to || 'None'}
+                      <strong>{formatFieldName(field)}:</strong>{' '}
+                      {typeof change.from === 'object' ? JSON.stringify(change.from) : (change.from || 'None')}{' '}
+                      →{' '}
+                      {typeof change.to === 'object' ? JSON.stringify(change.to) : (change.to || 'None')}
                     </li>
                   ))}
                 </ul>
