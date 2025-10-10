@@ -38,7 +38,7 @@ export default function UpdateExperience({ user, updateData }) {
 
         // Check if user is the owner
         if (!experienceData.user || experienceData.user._id !== user._id) {
-          setError("You are not authorized to edit this experience.");
+          setError("You are not authorized to update this experience.");
           setLoading(false);
           return;
         }
@@ -60,7 +60,7 @@ export default function UpdateExperience({ user, updateData }) {
 
         setLoading(false);
       } catch (err) {
-        const errorMessage = handleError(err, { context: 'Loading experience for edit' });
+        const errorMessage = handleError(err, { context: 'Loading experience for update' });
         setError(errorMessage || "Failed to load experience. Please try again.");
         setLoading(false);
       }
@@ -173,8 +173,8 @@ export default function UpdateExperience({ user, updateData }) {
         <div className="row justify-content-center">
           <div className="col-md-8">
             <div className="alert alert-danger" role="alert">
-              <h4 className="alert-heading">Unable to Edit Experience</h4>
-              <p>{error || "Experience not found or you don't have permission to edit it."}</p>
+              <h4 className="alert-heading">Unable to Update Experience</h4>
+              <p>{error || "Experience not found or you don't have permission to update it."}</p>
               <hr />
               <p className="mb-0">Please check that you have the correct permissions and try again.</p>
             </div>
@@ -204,7 +204,7 @@ export default function UpdateExperience({ user, updateData }) {
 
       <div className="row my-4 fade-in">
         <div className="col-12">
-          <form onSubmit={handleSubmit} className="edit-experience-form">
+          <form onSubmit={handleSubmit} className="update-experience-form">
             <div className="mb-4">
               <label htmlFor="name" className="form-label">
                 {lang.en.label.title}

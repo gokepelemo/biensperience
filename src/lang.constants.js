@@ -8,7 +8,7 @@ const en = {
     create: "Create",
     delete: "Delete",
     confirmUpdate: "Confirm Update",
-    editDate: "Edit Planned Date",
+    editDate: "Update Planned Date",
     login: "Login",
     logout: "Logout",
     remove: "Remove",
@@ -38,25 +38,25 @@ const en = {
   },
 
   alert: {
-    loginFailed: "Log In Failed - Try Again",
-    signupFailed: "Sign Up Failed - Try Again",
+    loginFailed: "Login unsuccessful. Please check your credentials and try again.",
+    signupFailed: "Account creation unsuccessful. Please check your information and try again.",
     notEnoughTimeWarning:
       "Warning: You may not have enough time to plan this experience adequately.",
     noExperiencesOrDestinations:
-      "There are no {type} on this profile yet. Add one now.",
+      "No {type} found on this profile yet. Start by adding your first one!",
     noExperiencesInDestination:
-      "There are no experiences in this destination yet. ",
-    noTravelTips: "No travel tips added yet.",
+      "No experiences in this destination yet. Be the first to add one!",
+    noTravelTips: "No travel tips shared yet. Add the first one!",
   },
 
   modal: {
-    confirmDelete: "Confirm Deletion",
+    confirmDelete: "Delete Experience",
     confirmDeleteMessage:
-      "Are you sure you want to delete the experience '{name}'? This action cannot be undone.",
+      "Are you sure you want to delete '{name}'? This action cannot be undone.",
     confirmDeletePlanItem:
-      "Are you sure you want to delete this plan item? This action cannot be undone.",
+      "Are you sure you want to delete this plan item? This cannot be undone.",
     confirmDeleteTravelTip: "Are you sure you want to delete this travel tip?",
-    confirmExperienceUpdate: "Confirm Experience Update",
+    confirmExperienceUpdate: "Update Experience",
     confirmUpdateReview: "Please review the changes before updating:",
   },
 
@@ -71,7 +71,7 @@ const en = {
     estimatedCost: "Estimated Cost:",
     planningTime: "Planning Time:",
     planYourExperience: "Plan Your Experience",
-    editPlannedDate: "Edit Planned Date",
+    editPlannedDate: "Update Planned Date",
     travelTips: "Travel Tips",
     favoriteDestinations: "Favorite Destinations",
     preferredExperienceTypes: "Preferred Experience Types",
@@ -139,12 +139,12 @@ const en = {
   message: {
     dontHaveAccount: "Don't have an account?",
     alreadyHaveAccount: "Already have an account?",
-    noPhotoMessage: "You don't have a profile photo. ",
+    noPhotoMessage: "No profile photo yet. ",
     uploadPhotoNow: "Upload one now",
     noFavoriteDestinations:
-      "There are no favorite destinations on this profile yet. Look through our destinations and ",
+      "No favorite destinations yet. Explore our destinations and add your favorites!",
     addFavoriteDestinations: "add some favorite destinations",
-    noExperiencesYet: "There are no experiences on this profile yet. ",
+    noExperiencesYet: "No experiences planned yet. ",
     addExperiences: "Add some experiences",
     addOneNow: "Add one now",
   },

@@ -1,40 +1,40 @@
 /* Experience Form Styles */
 
 /* Override global grid layout for experience forms */
-form.edit-experience-form,
+form.update-experience-form,
 form.new-experience-form {
     display: block !important;
     grid-template-columns: unset !important;
     gap: 0 !important;
 }
 
-form.edit-experience-form .form-control,
-form.edit-experience-form .form-select,
+form.update-experience-form .form-control,
+form.update-experience-form .form-select,
 form.new-experience-form .form-control,
 form.new-experience-form .form-select,
-form.edit-experience-form .input-group,
+form.update-experience-form .input-group,
 form.new-experience-form .input-group {
     border-radius: 2rem;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
-form.edit-experience-form .input-group .form-control,
+form.update-experience-form .input-group .form-control,
 form.new-experience-form .input-group .form-control {
     border: none;
     padding: 0;
 }
 
-form.edit-experience-form .input-group-text,
+form.update-experience-form .input-group-text,
 form.new-experience-form .input-group-text {
     background: transparent;
     border: none;
 }
 
-form.edit-experience-form .form-control:focus,
-form.edit-experience-form .form-select:focus,
+form.update-experience-form .form-control:focus,
+form.update-experience-form .form-select:focus,
 form.new-experience-form .form-control:focus,
 form.new-experience-form .form-select:focus,
-form.edit-experience-form .input-group:focus-within,
+form.update-experience-form .input-group:focus-within,
 form.new-experience-form .input-group:focus-within {
     border-color: #4f5bd5;
     box-shadow: 0 0 0 0.2rem rgba(79, 91, 213, 0.25);
