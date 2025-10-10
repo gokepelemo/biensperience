@@ -2,11 +2,10 @@ import "./AuthPage.css"
 import SignUpForm from "../../components/SignUpForm/SignUpForm"
 import LoginForm from "../../components/LoginForm/LoginForm"
 import { useState, useEffect } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useLocation } from "react-router-dom"
 export default function AuthPage ({ setUser, updateData }) {
     const [signup, setSignup] = useState(false)
     const location = useLocation();
-    const navigate = useNavigate();
     useEffect(() => {
         if (location.pathname === "/signup") {
             setSignup(true);
@@ -14,14 +13,6 @@ export default function AuthPage ({ setUser, updateData }) {
             setSignup(false);
         }
     }, [location.pathname]);
-    function handleClick(e) {
-        e.preventDefault();
-        if (signup) {
-            navigate("/");
-        } else {
-            navigate("/signup");
-        }
-    }
     return (
     <main className="authPage">
     <h1>Biensperience</h1>

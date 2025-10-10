@@ -1,3 +1,10 @@
+/**
+ * Main Express server application for Biensperience.
+ * Handles API routes, middleware configuration, and serves the React frontend.
+ *
+ * @module server
+ */
+
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
@@ -10,18 +17,40 @@ require("dotenv").config();
 
 require("./config/database");
 
+/**
+ * Express application instance
+ * @type {express.Application}
+ */
 const app = express();
+
+/**
+ * Client development server port
+ * @type {number}
+ */
 const CLIENTDEVPORT = 3000;
+
+/**
+ * Configure CORS middleware
+ */
 app.use(
   cors({
     origin: process.env.CLIENT_ORIGIN || `http://localhost:${CLIENTDEVPORT}`,
   })
 );
 
+/**
+ * Morgan logger middleware for development
+ */
 app.use(logger("dev"));
+
+/**
+ * Express JSON parsing middleware
+ */
 app.use(express.json());
 
-// Apply rate limiting to all requests
+/**
+ * Rate limiting configuration - 1000 requests per 10 minutes per IP
+ */
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
   max: 1000, // limit each IP to 1000 requests per windowMs

@@ -2,10 +2,25 @@ import "./DestinationCard.css";
 import { Link } from "react-router-dom";
 import { useMemo, memo, useRef, useEffect } from "react";
 
+/**
+ * Destination card component that displays a destination with background image and title.
+ * Automatically adjusts font size to fit the card dimensions.
+ *
+ * @param {Object} props - Component props
+ * @param {Object} props.destination - Destination object
+ * @param {string} props.destination._id - Unique identifier for the destination
+ * @param {string} props.destination.name - Display name of the destination
+ * @param {string} [props.destination.photo] - Background image URL for the destination
+ * @returns {JSX.Element} Destination card component
+ */
 function DestinationCard({ destination }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const titleRef = useRef(null);
 
+  /**
+   * Dynamically adjusts the font size of the destination title to fit within the card bounds.
+   * Reduces font size incrementally until text no longer overflows.
+   */
   useEffect(() => {
     const adjustFontSize = () => {
       const element = titleRef.current;
@@ -16,7 +31,6 @@ function DestinationCard({ destination }) {
 
       // Get the computed style to find the current font size
       let fontSize = parseFloat(window.getComputedStyle(element).fontSize);
-      const maxFontSize = fontSize;
       const minFontSize = 0.65; // rem
 
       // Check if text is overflowing

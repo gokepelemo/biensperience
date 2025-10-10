@@ -22,11 +22,24 @@ import { getUser } from "../../utilities/users-service";
 import { getExperiences } from "../../utilities/experiences-api";
 import { getDestinations } from "../../utilities/destinations-api";
 
+/**
+ * Main application component that handles routing and global state management.
+ * Manages user authentication, destinations, and experiences data across the app.
+ *
+ * @returns {JSX.Element} The main application component with routing
+ */
 export default function App() {
   const [user, setUser] = useState(getUser());
   const [destinations, setDestinations] = useState([]);
   const [experiences, setExperiences] = useState([]);
 
+  /**
+   * Fetches and updates destinations and experiences data from the API.
+   * Used as a callback to refresh data after mutations.
+   *
+   * @async
+   * @returns {Promise<void>}
+   */
   const updateData = useCallback(async () => {
     if (user) {
       try {

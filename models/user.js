@@ -1,12 +1,38 @@
+/**
+ * User model for Biensperience application.
+ * Defines the schema for user accounts with authentication and profile data.
+ *
+ * @module User
+ */
+
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const bcrypt = require("bcrypt");
 
+/**
+ * Number of salt rounds for password hashing
+ * @type {number}
+ */
 const SALT_ROUNDS = parseInt(6);
 
+/**
+ * Mongoose schema for User model
+ * @type {mongoose.Schema}
+ */
 const userSchema = new Schema(
   {
+    /**
+     * User's full name
+     * @type {string}
+     * @required
+     */
     name: { type: String, required: true },
+
+    /**
+     * User's email address (unique, trimmed, lowercase)
+     * @type {string}
+     * @required
+     */
     email: {
       type: String,
       unique: true,
@@ -14,12 +40,24 @@ const userSchema = new Schema(
       lowercase: true,
       required: true,
     },
+
+    /**
+     * User's hashed password
+     * @type {string}
+     * @required
+     */
     password: {
       type: String,
       trim: true,
       minLength: 3,
       required: true,
     },
+
+    /**
+     * Reference to user's profile photo
+     * @type {mongoose.Schema.Types.ObjectId}
+     * @ref Photo
+     */
     photo: {
       type: Schema.Types.ObjectId,
       ref: "Photo",

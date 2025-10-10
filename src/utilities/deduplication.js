@@ -124,7 +124,7 @@ export function deduplicateFuzzy(array, nameKey = 'name', threshold = 90) {
     let isDuplicate = false;
 
     // Check against all previously added items
-    for (const [existingNormalized, existingItem] of normalized.entries()) {
+    for (const existingNormalized of normalized.keys()) {
       const similarity = calculateSimilarity(normalizedName, existingNormalized);
       if (similarity >= threshold) {
         // This is a fuzzy duplicate, skip it

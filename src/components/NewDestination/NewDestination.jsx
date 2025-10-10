@@ -5,7 +5,6 @@ import { lang } from "../../lang.constants";
 import { createDestination, getDestinations } from "../../utilities/destinations-api";
 import ImageUpload from "../ImageUpload/ImageUpload";
 import { handleError } from "../../utilities/error-handler";
-import { deduplicateByMultipleFields } from "../../utilities/deduplication";
 
 export default function NewDestination({ updateData }) {
   const [newDestination, setNewDestination] = useState({});

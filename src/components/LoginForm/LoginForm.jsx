@@ -4,29 +4,40 @@ import * as usersService from "../../utilities/users-service";
 import { lang } from "../../lang.constants";
 import "./LoginForm.css";
 
+/**
+ * Login form component for user authentication.
+ * Handles email/password login with error display and navigation.
+ *
+ * @param {Object} props - Component props
+ * @param {Function} props.setUser - Function to set the authenticated user
+ * @param {Function} props.updateData - Function to refresh application data after login
+ * @returns {JSX.Element} Login form component
+ */
 export default function LoginForm({ setUser, updateData }) {
     const [credentials, setCredentials] = useState({
         email: "",
         password: ""
     });
     const [error, setError] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState(true);
     const navigate = useNavigate();
 
+    /**
+     * Handles input field changes and clears any existing errors.
+     *
+     * @param {Event} e - Input change event
+     */
     function handleChange(e) {
         setCredentials({ ...credentials, [e.target.name]: e.target.value });
         setError("");
     }
 
-    function handleRememberMe(e) {
-        setRememberMe(e.target.checked);
-    }
-
-    function toggleShowPassword() {
-        setShowPassword((prev) => !prev);
-    }
-
+    /**
+     * Handles form submission for user login.
+     * Authenticates user and navigates to home page on success.
+     *
+     * @async
+     * @param {Event} e - Form submit event
+     */
     async function handleSubmit(e) {
         e.preventDefault();
         try {
@@ -59,7 +70,7 @@ export default function LoginForm({ setUser, updateData }) {
                     <input
                         className="form-control login-input"
                         autoComplete="current-password"
-                        type={showPassword ? "text" : "password"}
+                        type="password"
                         name="password"
                         id="password"
                         value={credentials.password}
