@@ -104,7 +104,16 @@ async function updateUser(req, res, next) {
       }
     }
 
-    user = await User.findOneAndUpdate({ _id: userId }, updateData, { new: true }).populate("photo");
+    // Validate update data to ensure it's safe
+    const validatedUpdateData = {};
+    if (updateData.name && typeof updateData.name === 'string' && updateData.name.length <= 100) {
+      validatedUpdateData.name = updateData.name.trim();
+    }
+    if (updateData.email && typeof updateData.email === 'string' && updateData.email.length <= 254) {
+      validatedUpdateData.email = updateData.email.trim();
+    }
+
+    user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true }).populate("photo");
     res.status(200).json(user);
   } catch (err) {
     console.error('Error updating user:', err);
