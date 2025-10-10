@@ -67,7 +67,7 @@ async function createSampleData() {
     // Create sample photos
     console.log('📸 Creating sample photos...');
     const photos = [
-      { url: 'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=800', s3_key: 'sample-paris.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id },
+      { url: 'https://images.unsplash.com/photo-1431274172761-fca41d930114?w=800', s3_key: 'sample-paris.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id },
       { url: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800', s3_key: 'sample-tokyo.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[1]._id },
       { url: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800', s3_key: 'sample-nyc.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[2]._id },
       { url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800', s3_key: 'sample-sydney.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[3]._id },
@@ -75,16 +75,16 @@ async function createSampleData() {
       { url: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=800', s3_key: 'sample-rome.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[5]._id },
       { url: 'https://images.unsplash.com/photo-1531572753322-ad063cecc140?w=800', s3_key: 'sample-london.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[6]._id },
       { url: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800', s3_key: 'sample-amsterdam.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[7]._id },
-      { url: 'https://images.unsplash.com/photo-1513415277634-6fda6b25210c?w=800', s3_key: 'sample-barcelona.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[8]._id },
-      { url: 'https://images.unsplash.com/photo-1516484681091-8e1b81b3a3aa?w=800', s3_key: 'sample-prague.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[9]._id },
+      { url: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800', s3_key: 'sample-barcelona.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[8]._id },
+      { url: 'https://images.unsplash.com/photo-1519677100203-a0e668c92439?w=800', s3_key: 'sample-prague.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[9]._id },
       { url: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800', s3_key: 'sample-rio.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id },
       { url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800', s3_key: 'sample-mexico-city.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[1]._id },
       { url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800', s3_key: 'sample-bangkok.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[2]._id },
       { url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=800', s3_key: 'sample-istanbul.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[3]._id },
-      { url: 'https://images.unsplash.com/photo-1542330952-bcd4e52c4f5a?w=800', s3_key: 'sample-dublin.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[4]._id },
+      { url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800', s3_key: 'sample-dublin.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[4]._id },
       { url: 'https://images.unsplash.com/photo-1555992336-fb0d29498b13?w=800', s3_key: 'sample-vancouver.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[5]._id },
       { url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800', s3_key: 'sample-munich.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[6]._id },
-      { url: 'https://images.unsplash.com/photo-1544550581-5f7ceaf78256?w=800', s3_key: 'sample-copenhagen.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[7]._id },
+      { url: 'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800', s3_key: 'sample-copenhagen.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[7]._id },
       { url: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800', s3_key: 'sample-zurich.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[8]._id },
       { url: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=800', s3_key: 'sample-stockholm.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[9]._id },
       { url: 'https://images.unsplash.com/photo-1540979388789-6cee28a1cdc9?w=800', s3_key: 'sample-wellington.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id },
@@ -92,10 +92,10 @@ async function createSampleData() {
       { url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800', s3_key: 'sample-hanoi.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[2]._id },
       { url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800', s3_key: 'sample-singapore.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[3]._id },
       { url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=800', s3_key: 'sample-dubai.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[4]._id },
-      { url: 'https://images.unsplash.com/photo-1542330952-bcd4e52c4f5a?w=800', s3_key: 'sample-edinburgh.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[5]._id },
+      { url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800', s3_key: 'sample-edinburgh.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[5]._id },
       { url: 'https://images.unsplash.com/photo-1555992336-fb0d29498b13?w=800', s3_key: 'sample-quebec.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[6]._id },
       { url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800', s3_key: 'sample-vienna.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[7]._id },
-      { url: 'https://images.unsplash.com/photo-1544550581-5f7ceaf78256?w=800', s3_key: 'sample-oslo.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[8]._id },
+      { url: 'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800', s3_key: 'sample-oslo.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[8]._id },
       { url: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800', s3_key: 'sample-berlin.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[9]._id },
       { url: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=800', s3_key: 'sample-helsinki.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id }
     ];
