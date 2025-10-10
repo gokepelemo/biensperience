@@ -332,7 +332,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
               {isOwner && (
                 <>
                   <button
-                    className="btn btn-primary btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
+                    className="btn btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
                     onClick={() => navigate(`/experiences/${experienceId}/edit`)}
                     aria-label={lang.en.button.editExperience}
                     title={lang.en.button.editExperience}
