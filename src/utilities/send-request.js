@@ -21,9 +21,23 @@ export async function sendRequest(url, method = "GET", payload = null) {
         options.headers = options.headers || {};
         options.headers.Authorization = `Bearer ${token}`;
     }
-    const res = await fetch(url, options);
-    if (res.ok) return res.json();
-    throw new Error('Bad Request');
+
+    try {
+        const res = await fetch(url, options);
+        if (res.ok) return res.json();
+
+        // Log detailed error information for debugging
+        const errorText = await res.text().catch(() => 'Unable to read error response');
+        console.error(`HTTP ${res.status} ${res.statusText}:`, errorText);
+        throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+    } catch (error) {
+        // Handle network errors, CORS issues, etc.
+        console.error('Network request failed:', error);
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            throw new Error('Network error. Please check your connection and try again.');
+        }
+        throw error;
+    }
 }
 
 /**
@@ -46,7 +60,21 @@ export async function uploadFile(url, method = "POST", payload = null) {
         options.headers = options.headers || {};
         options.headers.Authorization = `Bearer ${token}`;
     }
-    const res = await fetch(url, options);
-    if (res.ok) return res.json();
-    throw new Error('Bad Request');
+
+    try {
+        const res = await fetch(url, options);
+        if (res.ok) return res.json();
+
+        // Log detailed error information for debugging
+        const errorText = await res.text().catch(() => 'Unable to read error response');
+        console.error(`Upload failed with HTTP ${res.status} ${res.statusText}:`, errorText);
+        throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
+    } catch (error) {
+        // Handle network errors, CORS issues, etc.
+        console.error('File upload failed:', error);
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            throw new Error('Network error during upload. Please check your connection and try again.');
+        }
+        throw error;
+    }
 }
