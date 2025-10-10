@@ -179,7 +179,7 @@ export default function Profile({ user, destinations, updateData }) {
                 return destination ? (
                   <DestinationCard
                     key={destination._id || index}
-                    updataData={updateData}
+                    updateData={updateData}
                     destination={destination}
                   />
                 ) : null;

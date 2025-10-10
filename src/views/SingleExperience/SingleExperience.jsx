@@ -15,6 +15,7 @@ import {
 } from "../../utilities/experiences-api";
 import { formatDateShort, formatDateForInput, getMinimumPlanningDate, isValidPlannedDate } from "../../utilities/date-utils";
 import { handleError } from "../../utilities/error-handler";
+import debug from "../../utilities/debug";
 
 export default function SingleExperience({ user, experiences, updateData }) {
   const { experienceId } = useParams();
@@ -65,8 +66,8 @@ export default function SingleExperience({ user, experiences, updateData }) {
   const fetchExperience = useCallback(async () => {
     try {
       const experienceData = await showExperience(experienceId);
-      console.log('Experience data:', experienceData);
-      console.log('Experience user:', experienceData.user);
+      debug.log('Experience data:', experienceData);
+      debug.log('Experience user:', experienceData.user);
       setExperience(experienceData);
       // Set isOwner if current user is the creator
       setIsOwner(experienceData.user && experienceData.user._id.toString() === user._id);
@@ -92,7 +93,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
       const parentIds = experienceData.plan_items.filter(item => !item.parent).map(item => item._id);
       setExpandedParents(new Set(parentIds));
     } catch (err) {
-      console.error('Error fetching experience:', err);
+      debug.error('Error fetching experience:', err);
       setExperience(null);
     }
   }, [experienceId, user._id]);

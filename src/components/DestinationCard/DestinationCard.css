@@ -13,8 +13,9 @@
 }
 
 .destination-card-title {
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: rgba(0, 0, 0, 0.8); /* Fallback for browsers without backdrop-filter */
     backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px); /* Safari support */
     border-radius: 0.5rem;
     padding: 0.5rem;
     overflow: hidden;
@@ -28,5 +29,6 @@
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
+    line-clamp: 3; /* Standard property */
     text-overflow: ellipsis;
 }

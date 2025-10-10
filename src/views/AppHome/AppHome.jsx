@@ -17,7 +17,7 @@ export default function AppHome({ experiences, destinations, user, updateData })
       <div className="row d-flex justify-content-center align-items-center fade-in">
         <h2 className="my-4 fade-in">Popular Destinations</h2>
         {destinations
-          .filter((destination, index) => index <= 7)
+          .filter((destination, index) => index <= 9)
           .map((destination, index) => (
             <DestinationCard key={index} destination={destination} updateData={updateData} className="fade-in" />
           ))}

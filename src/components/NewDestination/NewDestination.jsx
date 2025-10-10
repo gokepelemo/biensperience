@@ -175,15 +175,17 @@ export default function NewDestination({ updateData }) {
                   onChange={(e) => handleTravelTipChange(e)}
                   value={newTravelTip.tipkey || ''}
                   autoComplete="off"
+                  style={{ padding: '1rem' }}
                 />
                 <input
                   type="text"
                   name="tipvalue"
-                  className="form-control"
+                  className="form-control rounded-end"
                   placeholder={lang.en.placeholder.spanish}
                   onChange={(e) => handleTravelTipChange(e)}
                   value={newTravelTip.tipvalue || ''}
                   autoComplete="off"
+                  style={{ padding: '1rem' }}
                 />
                 <button
                   type="button"

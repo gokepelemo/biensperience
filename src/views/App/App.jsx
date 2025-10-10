@@ -8,7 +8,7 @@ import { Route, Routes, Navigate } from "react-router-dom";
 import AuthPage from "../AuthPage/AuthPage";
 import AppHome from "../AppHome/AppHome";
 import NavBar from "../../components/NavBar/NavBar";
-import EditProfile from "../Profile/EditProfile";
+import UpdateProfile from "../Profile/UpdateProfile";
 import SingleExperience from "../SingleExperience/SingleExperience";
 import SingleDestination from "../SingleDestination/SingleDestination";
 import Destinations from "../Destinations/Destinations";
@@ -113,7 +113,7 @@ export default function App() {
             />
             <Route
               path="/profile/edit"
-              element={<EditProfile user={user} setUser={setUser} />}
+              element={<UpdateProfile user={user} setUser={setUser} updateData={updateData} />}
             />
             <Route
               path="/experiences"

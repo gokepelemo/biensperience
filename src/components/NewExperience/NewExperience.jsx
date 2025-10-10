@@ -51,6 +51,7 @@ export default function NewExperience({ updateData }) {
         })
       );
       let experience = await createExperience(newExperience);
+      updateData();
       navigate(`/experiences/${experience._id}`);
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Create experience' });
@@ -61,7 +62,6 @@ export default function NewExperience({ updateData }) {
         setError(errorMsg);
       }
     }
-    updateData();
   }
   useEffect(() => {
     async function updateDestinations() {
@@ -181,46 +181,50 @@ export default function NewExperience({ updateData }) {
               </small>
             </div>
 
-            <div className="mb-4">
-              <label htmlFor="cost_estimate" className="form-label">
-                {lang.en.label.costEstimate}
-              </label>
-              <div className="input-group">
-                <span className="input-group-text">$</span>
-                <input
-                  type="number"
-                  className="form-control"
-                  id="cost_estimate"
-                  name="cost_estimate"
-                  onChange={handleChange}
-                  placeholder={lang.en.placeholder.costEstimate}
-                  min="0"
-                />
+            <div className="row mb-4">
+              <div className="col-md-6 mb-3 mb-md-0">
+                <label htmlFor="max_planning_days" className="form-label">
+                  {lang.en.label.planningDays}
+                </label>
+                <div className="input-group">
+                  <input
+                    type="number"
+                    className="form-control"
+                    id="max_planning_days"
+                    name="max_planning_days"
+                    onChange={handleChange}
+                    placeholder={lang.en.placeholder.planningDays}
+                    min="1"
+                    style={{ padding: '1rem' }}
+                  />
+                  <span className="input-group-text">days</span>
+                </div>
+                <small className="form-text text-muted">
+                  Minimum days needed to plan in advance (optional)
+                </small>
               </div>
-              <small className="form-text text-muted">
-                Estimated cost in dollars (optional)
-              </small>
-            </div>
 
-            <div className="mb-4">
-              <label htmlFor="max_planning_days" className="form-label">
-                {lang.en.label.planningDays}
-              </label>
-              <div className="input-group">
-                <input
-                  type="number"
-                  className="form-control"
-                  id="max_planning_days"
-                  name="max_planning_days"
-                  onChange={handleChange}
-                  placeholder={lang.en.placeholder.planningDays}
-                  min="1"
-                />
-                <span className="input-group-text">days</span>
+              <div className="col-md-6">
+                <label htmlFor="cost_estimate" className="form-label">
+                  {lang.en.label.costEstimate}
+                </label>
+                <div className="input-group">
+                  <span className="input-group-text">$</span>
+                  <input
+                    type="number"
+                    className="form-control"
+                    id="cost_estimate"
+                    name="cost_estimate"
+                    onChange={handleChange}
+                    placeholder={lang.en.placeholder.costEstimate}
+                    min="0"
+                    style={{ padding: '1rem' }}
+                  />
+                </div>
+                <small className="form-text text-muted">
+                  Estimated cost in dollars (optional)
+                </small>
               </div>
-              <small className="form-text text-muted">
-                Minimum days needed to plan in advance (optional)
-              </small>
             </div>
 
             <div className="d-flex justify-content-end mt-4">
