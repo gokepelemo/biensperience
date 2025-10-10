@@ -7,7 +7,8 @@ async function index(req, res) {
     const destinations = await Destination.find({}).populate("photo");
     res.status(200).json(destinations);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error fetching destinations:', err);
+    res.status(400).json({ error: 'Failed to fetch destinations' });
   }
 }
 
@@ -53,7 +54,8 @@ async function createDestination(req, res) {
     const destination = await Destination.create(req.body);
     res.json(destination);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error creating destination:', err);
+    res.status(400).json({ error: 'Failed to create destination' });
   }
 }
 
@@ -64,7 +66,8 @@ async function showDestination(req, res) {
     );
     res.status(200).json(destination);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error fetching destination:', err);
+    res.status(400).json({ error: 'Failed to fetch destination' });
   }
 }
 
@@ -120,7 +123,8 @@ async function updateDestination(req, res) {
     destination.save();
     res.status(200).json(destination);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error updating destination:', err);
+    res.status(400).json({ error: 'Failed to update destination' });
   }
 }
 
@@ -152,7 +156,8 @@ async function toggleUserFavoriteDestination(req, res) {
       res.status(200).json(destination);
     }
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error toggling favorite destination:', err);
+    res.status(400).json({ error: 'Failed to toggle favorite destination' });
   }
 }
 

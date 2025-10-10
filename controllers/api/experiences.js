@@ -11,7 +11,8 @@ async function index(req, res) {
       .exec();
     res.status(200).json(experiences);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error fetching experiences:', err);
+    res.status(400).json({ error: 'Failed to fetch experiences' });
   }
 }
 
@@ -53,7 +54,8 @@ async function createExperience(req, res) {
     let experience = await Experience.create(req.body);
     res.status(201).json(experience);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error creating experience:', err);
+    res.status(400).json({ error: 'Failed to create experience' });
   }
 }
 

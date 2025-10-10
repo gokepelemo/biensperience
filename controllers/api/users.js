@@ -12,7 +12,8 @@ async function create(req, res) {
     const token = createJWT(user);
     res.status(201).json(token);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error creating user:', err);
+    res.status(400).json({ error: 'Failed to create user' });
   }
 }
 
@@ -26,7 +27,8 @@ async function login(req, res) {
     res.status(200).json(token);
   } catch (err) {
     console.log(err);
-    res.status(400).json(err);
+    console.error('Error logging in user:', err);
+    res.status(400).json({ error: 'Failed to login' });
   }
 }
 
@@ -39,7 +41,8 @@ async function getUser(req, res) {
       const user = await User.findOne({ _id: { $eq: req.params.id } }).populate("photo");
     res.status(200).json(user);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error fetching user:', err);
+    res.status(400).json({ error: 'Failed to fetch user' });
   }
 }
 
