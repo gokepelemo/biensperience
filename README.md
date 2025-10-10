@@ -37,6 +37,26 @@ Deployed on the [DigitalOcean App Platform](https://www.digitalocean.com/product
 4. Enjoy your experiences in real life!
 4. Create your own experiences and add plan items to them so others can enjoy.
 
+## Development Setup
+### Prerequisites
+- Node.js
+- MongoDB database
+- Environment variables: `DATABASE_URL` and `SECRET`
+
+### Adding Sample Data
+To populate the database with sample users, destinations, experiences, and photos, run:
+```bash
+node sampleData.js
+```
+
+This will create:
+- 10 diverse users with different profiles
+- 30+ destinations across major cities worldwide
+- 30+ detailed experiences with planning items
+- 30+ sample photos
+
+The script will provide CLI feedback and exit with an error if required environment variables are missing.
+
 ## Other Features
 1. Add links to plan items so that other users can shop for items, tickets, or see more detailed descriptions on other apps.
 2. Upload a photo to your destination or experience.

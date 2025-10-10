@@ -33,7 +33,6 @@ CLAUDE.md
 # Data files
 addData.js
 getData.js
-sampleData.js
 crud-helper.js
 
 style-guide.md
