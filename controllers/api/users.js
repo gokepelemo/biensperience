@@ -1,6 +1,7 @@
 const User = require("../../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const mongoose = require("mongoose");
 
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
@@ -19,6 +20,12 @@ async function create(req, res) {
 
 async function login(req, res) {
   try {
+    // Validate email format to prevent injection
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!req.body.email || !emailRegex.test(req.body.email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
     const user = await User.findOne({ email: req.body.email }).populate(
       "photo"
     );
@@ -38,7 +45,12 @@ function checkToken(req, res) {
 
 async function getUser(req, res) {
   try {
-      const user = await User.findOne({ _id: { $eq: req.params.id } }).populate("photo");
+    // Validate ObjectId format to prevent injection
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
+    const user = await User.findOne({ _id: { $eq: req.params.id } }).populate("photo");
     res.status(200).json(user);
   } catch (err) {
     console.error('Error fetching user:', err);
@@ -49,6 +61,11 @@ async function getUser(req, res) {
 async function updateUser(req, res, next) {
   let user;
   try {
+    // Validate ObjectId format to prevent injection
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
       user = await User.findOneAndUpdate({ _id: { $eq: req.params.id } }, req.body).populate("photo");
     res.status(200).json(user);
   } catch (err) {
