@@ -309,7 +309,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
               </button>
               {userHasExperience && (
                 <button
-                  className="btn btn-primary btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
+                  className="btn btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
                   onClick={() => {
                     if (showDatePicker) {
                       setShowDatePicker(false);
