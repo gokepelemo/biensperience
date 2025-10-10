@@ -22,14 +22,17 @@ async function login(req, res) {
   try {
     // Validate email format to prevent injection - use safer validation
     const email = req.body.email;
-    if (!email || typeof email !== 'string' || email.length > 254) {
+    if (!email || typeof email !== 'string' || email.length > 254 || email.length < 3) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    // Simple email validation without vulnerable regex
-    const atIndex = email.indexOf('@');
-    const dotIndex = email.lastIndexOf('.');
-    if (atIndex < 1 || dotIndex < atIndex + 2 || dotIndex >= email.length - 1) {
+    // Basic email validation - check for @ and . with reasonable positioning
+    const hasAt = email.includes('@');
+    const hasDot = email.includes('.');
+    const atPosition = email.indexOf('@');
+    const lastDotPosition = email.lastIndexOf('.');
+
+    if (!hasAt || !hasDot || atPosition < 1 || lastDotPosition < atPosition + 2 || lastDotPosition >= email.length - 1) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
@@ -86,12 +89,15 @@ async function updateUser(req, res, next) {
     // Validate email format if being updated
     if (updateData.email) {
       const email = updateData.email;
-      if (typeof email !== 'string' || email.length > 254) {
+      if (typeof email !== 'string' || email.length > 254 || email.length < 3) {
         return res.status(400).json({ error: 'Invalid email format' });
       }
-      const atIndex = email.indexOf('@');
-      const dotIndex = email.lastIndexOf('.');
-      if (atIndex < 1 || dotIndex < atIndex + 2 || dotIndex >= email.length - 1) {
+      const hasAt = email.includes('@');
+      const hasDot = email.includes('.');
+      const atPosition = email.indexOf('@');
+      const lastDotPosition = email.lastIndexOf('.');
+
+      if (!hasAt || !hasDot || atPosition < 1 || lastDotPosition < atPosition + 2 || lastDotPosition >= email.length - 1) {
         return res.status(400).json({ error: 'Invalid email format' });
       }
     }
