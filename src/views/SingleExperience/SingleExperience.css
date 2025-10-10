@@ -115,7 +115,7 @@
 }
 
 .experience-detail .list-group-item.fw-bold a:hover {
-    opacity: 0.9;
+    color: white;
 }
 
 .experience-detail .list-group-item:hover:not(.fw-bold) {
@@ -190,10 +190,6 @@
 
 .experience-actions {
     transition: transform 0.2s ease;
-}
-
-.experience-detail:hover .experience-actions {
-    transform: translateY(-2px);
 }
 
 .plan-item-actions {
