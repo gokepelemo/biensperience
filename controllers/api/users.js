@@ -20,13 +20,20 @@ async function create(req, res) {
 
 async function login(req, res) {
   try {
-    // Validate email format to prevent injection
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!req.body.email || !emailRegex.test(req.body.email)) {
+    // Validate email format to prevent injection - use safer validation
+    const email = req.body.email;
+    if (!email || typeof email !== 'string' || email.length > 254) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const user = await User.findOne({ email: req.body.email }).populate(
+    // Simple email validation without vulnerable regex
+    const atIndex = email.indexOf('@');
+    const dotIndex = email.lastIndexOf('.');
+    if (atIndex < 1 || dotIndex < atIndex + 2 || dotIndex >= email.length - 1) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    const user = await User.findOne({ email: email }).populate(
       "photo"
     );
     const passwordTest = await bcrypt.compare(req.body.password, user.password);
@@ -66,7 +73,30 @@ async function updateUser(req, res, next) {
       return res.status(400).json({ error: 'Invalid user ID format' });
     }
 
-      user = await User.findOneAndUpdate({ _id: { $eq: req.params.id } }, req.body).populate("photo");
+    // Whitelist allowed fields to prevent mass assignment vulnerabilities
+    const allowedFields = ['name', 'email'];
+    const updateData = {};
+
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+
+    // Validate email format if being updated
+    if (updateData.email) {
+      const email = updateData.email;
+      if (typeof email !== 'string' || email.length > 254) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+      const atIndex = email.indexOf('@');
+      const dotIndex = email.lastIndexOf('.');
+      if (atIndex < 1 || dotIndex < atIndex + 2 || dotIndex >= email.length - 1) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+    }
+
+    user = await User.findOneAndUpdate({ _id: { $eq: req.params.id } }, updateData, { new: true }).populate("photo");
     res.status(200).json(user);
   } catch (err) {
     console.error('Error updating user:', err);
