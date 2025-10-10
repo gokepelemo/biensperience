@@ -17,15 +17,18 @@ export default function FavoriteDestination({ destination, user, getData }) {
   async function handleAddToFavorites(e) {
     if (loading) return;
     setLoading(true);
+    const previousState = isUserFavorite;
     try {
       // Optimistically update local state for instant feedback
       setIsUserFavorite(!isUserFavorite);
       await toggleUserFavoriteDestination(destination._id, user._id);
       // Then refresh data from server to ensure consistency
-      await getData();
+      if (getData) {
+        await getData();
+      }
     } catch (error) {
       // Revert optimistic update on error
-      setIsUserFavorite(!isUserFavorite);
+      setIsUserFavorite(previousState);
       console.error('Failed to toggle favorite:', error);
     } finally {
       setLoading(false);
@@ -45,7 +48,7 @@ export default function FavoriteDestination({ destination, user, getData }) {
           ? loading ? "Adding..." : lang.en.button.addFavoriteDest
           : favHover
             ? loading ? "Removing..." : lang.en.button.removeFavoriteDest
-            : loading ? "Updating..." : lang.en.button.favorited}
+            : loading ? "Removing..." : lang.en.button.favorited}
       </button>
     </div>
   );

@@ -106,6 +106,13 @@
     border-color: transparent !important;
 }
 
+/* Global Button Hover Effect - Raised Effect for All Buttons */
+.btn:hover,
+.btn:focus {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
 /* Links - Purple Theme */
 a:not(.btn):not(.nav-link):not(.dropdown-item) {
     color: var(--color-primary);

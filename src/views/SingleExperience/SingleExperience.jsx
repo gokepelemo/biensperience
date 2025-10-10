@@ -112,39 +112,56 @@ export default function SingleExperience({ user, experiences, updateData }) {
       return;
     }
     // Remove experience
+    const previousState = userHasExperience;
     try {
-      await userRemoveExperience(user._id, experience._id);
+      // Optimistically update UI
       setUserHasExperience(false);
       setPlanItems({});
       setUserPlannedDate(null);
+
+      await userRemoveExperience(user._id, experience._id);
+
+      // Refresh experience data
+      await fetchExperience();
     } catch (err) {
+      // Revert on error
+      setUserHasExperience(previousState);
       handleError(err, { context: 'Remove experience' });
     }
-  }, [experience, user, userHasExperience]);
+  }, [experience, user, userHasExperience, fetchExperience]);
 
   const handleAddExperience = useCallback(async (data = null) => {
     const addData = data !== null ? data : (plannedDate ? { planned_date: plannedDate } : {});
+    const previousState = userHasExperience;
     try {
-      await userAddExperience(user._id, experience._id, addData);
+      // Optimistically update UI
       setUserHasExperience(true);
-      setPlanItems({});
       setShowDatePicker(false);
       setPlannedDate('');
       setUserPlannedDate(addData.planned_date || null);
+
+      await userAddExperience(user._id, experience._id, addData);
+
+      // Refresh experience data to get latest state
+      await fetchExperience();
     } catch (err) {
+      // Revert on error
+      setUserHasExperience(previousState);
+      setShowDatePicker(true);
       handleError(err, { context: 'Add experience' });
     }
-  }, [user._id, experience?._id, plannedDate]);
+  }, [user._id, experience?._id, plannedDate, userHasExperience, fetchExperience]);
 
   const handleDeleteExperience = useCallback(async () => {
     if (!experience || !isOwner) return;
     try {
       await deleteExperience(experience._id);
+      updateData && updateData();
       navigate('/experiences');
     } catch (err) {
       handleError(err, { context: 'Delete experience' });
     }
-  }, [experience, isOwner, navigate]);
+  }, [experience, isOwner, navigate, updateData]);
 
   const handlePlanEdit = useCallback((e) => {
     const planItemIdx = parseInt(e.currentTarget.getAttribute('data-idx'));
@@ -377,6 +394,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                         className="form-control"
                         value={plannedDate}
                         onChange={(e) => setPlannedDate(e.target.value)}
+                        onClick={(e) => e.target.showPicker && e.target.showPicker()}
                         min={getMinimumPlanningDate(
                           experience.max_planning_days
                         )}

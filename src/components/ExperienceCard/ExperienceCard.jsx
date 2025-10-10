@@ -19,19 +19,24 @@ function ExperienceCard({ experience, user, updateData }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleExperienceAction = useCallback(async () => {
+    const previousState = experienceAdded;
     try {
+      // Optimistically update UI for instant feedback
+      setExperienceAdded(!experienceAdded);
+
       if (experienceAdded) {
         await userRemoveExperience(user._id, experience._id);
       } else {
         await userAddExperience(user._id, experience._id);
       }
-      // Immediately update local state for instant feedback
-      setExperienceAdded(!experienceAdded);
-      // Then refresh data from server to ensure consistency
-      await updateData();
+
+      // Refresh data from server to ensure consistency
+      if (updateData) {
+        await updateData();
+      }
     } catch (err) {
       // Revert optimistic update on error
-      setExperienceAdded(!experienceAdded);
+      setExperienceAdded(previousState);
       handleError(err, { context: experienceAdded ? 'Remove experience' : 'Add experience' });
     }
   }, [experienceAdded, user._id, experience._id, updateData]);

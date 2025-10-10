@@ -90,6 +90,7 @@
     background: rgba(0, 0, 0, 0.3);
     border-color: white;
     transform: translateY(-2px);
+    color: white !important;
 }
 
 /* Travel Tips Section */
@@ -189,6 +190,16 @@
 }
 
 /* Experience Actions Container */
+.experience-actions {
+    flex-wrap: wrap;
+}
+
+.experience-actions .btn {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: all 0.3s ease;
+}
+
 .experience-actions .btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 16px rgba(79, 91, 213, 0.18);
@@ -199,7 +210,14 @@
     align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
-    transition: transform 0.2s ease;
+    transition: all 0.2s ease;
+    opacity: 1;
+    visibility: visible;
+}
+
+.plan-item-actions .btn {
+    opacity: 1;
+    visibility: visible;
 }
 
 .plan-item-card:hover .plan-item-actions {
@@ -233,7 +251,7 @@
 /* Turn green when hovering on add state */
 .btn-plan-add:hover {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-    transform: translateY(-2px);
+    transform: translateY(-2px) !important;
     box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
     color: white;
 }
@@ -252,7 +270,7 @@
 /* Turn red when hovering on remove state */
 .btn-plan-remove:hover {
     background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-    transform: translateY(-2px);
+    transform: translateY(-2px) !important;
     box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
     color: white;
 }
