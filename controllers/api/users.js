@@ -55,12 +55,13 @@ function checkToken(req, res) {
 
 async function getUser(req, res) {
   try {
-    // Validate ObjectId format to prevent injection
+    // Validate ObjectId format and convert to prevent injection
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ error: 'Invalid user ID format' });
     }
+    const userId = new mongoose.Types.ObjectId(req.params.id);
 
-    const user = await User.findOne({ _id: { $eq: req.params.id } }).populate("photo");
+    const user = await User.findOne({ _id: userId }).populate("photo");
     res.status(200).json(user);
   } catch (err) {
     console.error('Error fetching user:', err);
@@ -71,10 +72,11 @@ async function getUser(req, res) {
 async function updateUser(req, res, next) {
   let user;
   try {
-    // Validate ObjectId format to prevent injection
+    // Validate ObjectId format and convert to prevent injection
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ error: 'Invalid user ID format' });
     }
+    const userId = new mongoose.Types.ObjectId(req.params.id);
 
     // Whitelist allowed fields to prevent mass assignment vulnerabilities
     const allowedFields = ['name', 'email'];
@@ -102,7 +104,7 @@ async function updateUser(req, res, next) {
       }
     }
 
-    user = await User.findOneAndUpdate({ _id: { $eq: req.params.id } }, updateData, { new: true }).populate("photo");
+    user = await User.findOneAndUpdate({ _id: userId }, updateData, { new: true }).populate("photo");
     res.status(200).json(user);
   } catch (err) {
     console.error('Error updating user:', err);
