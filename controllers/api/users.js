@@ -52,7 +52,8 @@ async function updateUser(req, res, next) {
       user = await User.findOneAndUpdate({ _id: { $eq: req.params.id } }, req.body).populate("photo");
     res.status(200).json(user);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error updating user:', err);
+    res.status(400).json({ error: 'Failed to update user' });
   }
 }
 

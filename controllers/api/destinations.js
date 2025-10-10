@@ -2,6 +2,11 @@ const Destination = require("../../models/destination");
 const User = require("../../models/user");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 
+// Helper function to escape regex special characters
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 async function index(req, res) {
   try {
     const destinations = await Destination.find({}).populate("photo");
@@ -21,8 +26,8 @@ async function createDestination(req, res) {
 
     // Check for exact duplicate (case-insensitive)
     const exactDuplicate = await Destination.findOne({
-      name: { $regex: new RegExp(`^${req.body.name}$`, 'i') },
-      country: { $regex: new RegExp(`^${req.body.country}$`, 'i') }
+      name: { $regex: new RegExp(`^${escapeRegex(req.body.name)}$`, 'i') },
+      country: { $regex: new RegExp(`^${escapeRegex(req.body.country)}$`, 'i') }
     });
 
     if (exactDuplicate) {
@@ -86,8 +91,8 @@ async function updateDestination(req, res) {
 
       // Check for exact duplicate
       const exactDuplicate = await Destination.findOne({
-        name: { $regex: new RegExp(`^${checkName}$`, 'i') },
-        country: { $regex: new RegExp(`^${checkCountry}$`, 'i') },
+        name: { $regex: new RegExp(`^${escapeRegex(checkName)}$`, 'i') },
+        country: { $regex: new RegExp(`^${escapeRegex(checkCountry)}$`, 'i') },
         _id: { $ne: req.params.id }
       });
 
@@ -137,7 +142,8 @@ async function deleteDestination(req, res) {
     destination.deleteOne();
     res.status(200).json(destination);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error deleting destination:', err);
+    res.status(400).json({ error: 'Failed to delete destination' });
   }
 }
 

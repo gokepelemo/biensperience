@@ -1,4 +1,10 @@
-const Experience = require("../../models/experience");
+const mongoose = require('mongoose');
+const Experience = require('../../models/experience');
+
+// Helper function to escape regex special characters
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 const { lang } = require("../../src/lang.constants");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 
@@ -25,7 +31,7 @@ async function createExperience(req, res) {
 
     // Check for exact duplicate (case-insensitive)
     const exactDuplicate = await Experience.findOne({
-      name: { $regex: new RegExp(`^${req.body.name}$`, 'i') },
+      name: { $regex: new RegExp(`^${escapeRegex(req.body.name)}$`, 'i') },
       user: req.user._id
     });
 
@@ -67,7 +73,8 @@ async function showExperience(req, res) {
       .populate("user");
     res.status(200).json(experience);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error fetching experience:', err);
+    res.status(400).json({ error: 'Failed to fetch experience' });
   }
 }
 
@@ -81,7 +88,7 @@ async function updateExperience(req, res) {
     if (req.body.name && req.body.name !== experience.name) {
       // Check for exact duplicate
       const exactDuplicate = await Experience.findOne({
-        name: { $regex: new RegExp(`^${req.body.name}$`, 'i') },
+        name: { $regex: new RegExp(`^${escapeRegex(req.body.name)}$`, 'i') },
         user: req.user._id,
         _id: { $ne: experienceId }
       });
@@ -118,7 +125,8 @@ async function updateExperience(req, res) {
     await experience.save();
     res.status(200).json(experience);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error updating experience:', err);
+    res.status(400).json({ error: 'Failed to update experience' });
   }
 }
 
@@ -131,7 +139,8 @@ async function deleteExperience(req, res) {
     await experience.deleteOne();
     res.status(200).json({ message: 'Experience deleted successfully' });
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error deleting experience:', err);
+    res.status(400).json({ error: 'Failed to delete experience' });
   }
 }
 
@@ -148,7 +157,8 @@ async function createPlanItem(req, res) {
     await experience.save();
     res.status(201).json(experience);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error creating plan item:', err);
+    res.status(400).json({ error: 'Failed to create plan item' });
   }
 }
 
@@ -163,7 +173,8 @@ async function updatePlanItem(req, res) {
     await experience.save();
     res.status(200).json(experience);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error updating plan item:', err);
+    res.status(400).json({ error: 'Failed to update plan item' });
   }
 }
 
@@ -183,7 +194,8 @@ async function deletePlanItem(req, res) {
     });
     res.status(200).json(experience);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error deleting plan item:', err);
+    res.status(400).json({ error: 'Failed to delete plan item' });
   }
 }
 
@@ -214,7 +226,8 @@ async function addUser(req, res) {
     experience.save();
     res.status(201).json(experience);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error adding user to experience:', err);
+    res.status(400).json({ error: 'Failed to add user to experience' });
   }
 }
 
@@ -240,7 +253,8 @@ async function removeUser(req, res) {
     });
     res.status(200).json(experience);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error removing user from experience:', err);
+    res.status(400).json({ error: 'Failed to remove user from experience' });
   }
 }
 
@@ -273,7 +287,8 @@ async function userPlanItemDone(req, res) {
       res.status(200).json(experience);
     }
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error marking plan item done:', err);
+    res.status(400).json({ error: 'Failed to mark plan item done' });
   }
 }
 
@@ -285,7 +300,8 @@ async function showUserExperiences(req, res) {
       .exec();
     res.status(200).json(experiences);
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error fetching user experiences:', err);
+    res.status(400).json({ error: 'Failed to fetch user experiences' });
   }
 }
 
@@ -337,7 +353,8 @@ async function getTagName(req, res) {
     // If no match found, return the slug as fallback
     res.status(404).json({ error: 'Tag not found', tagName: tagSlug });
   } catch (err) {
-    res.status(400).json(err);
+    console.error('Error finding tag by slug:', err);
+    res.status(400).json({ error: 'Failed to find tag' });
   }
 }
 
