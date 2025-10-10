@@ -1,0 +1,173 @@
+/* Global Accessibility Styles */
+
+/* Skip Navigation Link */
+.skip-link {
+    position: fixed;
+    top: 0;
+    right: 10px; /* Position at top right */
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white !important;
+    padding: 0.75rem 1.5rem;
+    text-decoration: none !important;
+    border-radius: 0 0 0.5rem 0.5rem; /* Rounded bottom corners */
+    font-weight: 600;
+    z-index: 10000;
+    transition: all 0.8s ease-in-out;
+    white-space: nowrap;
+    /* Show 15% of button - hide 85% */
+    transform: translateY(-85%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.skip-link:hover,
+.skip-link:focus {
+    /* Fully visible on hover/focus */
+    transform: translateY(0);
+    outline: 3px solid white;
+    outline-offset: 2px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.skip-link:focus-visible {
+    outline: 3px solid white;
+    outline-offset: 2px;
+}
+
+/* Focus Styles - Purple Theme */
+*:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+}
+
+/* Remove default focus for mouse users */
+*:focus:not(:focus-visible) {
+    outline: none;
+    box-shadow: none;
+}
+
+/* Ensure links are clearly identifiable */
+a {
+    text-decoration-skip-ink: auto;
+}
+
+/* Screen Reader Only Content */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.sr-only-focusable:active,
+.sr-only-focusable:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    * {
+        border-width: 2px;
+    }
+
+    button,
+    a {
+        text-decoration: underline;
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Button Accessibility */
+button:disabled,
+button[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Interactive Element Minimum Size (WCAG 2.5.5) */
+button,
+a,
+input[type="checkbox"],
+input[type="radio"],
+select {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* Form Field Accessibility */
+input:invalid,
+select:invalid,
+textarea:invalid {
+    border-color: #dc3545;
+}
+
+input:invalid:focus,
+select:invalid:focus,
+textarea:invalid:focus {
+    outline-color: #dc3545;
+    box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.2);
+}
+
+/* Status Messages */
+[role="alert"],
+[role="status"] {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+}
+
+[role="alert"] {
+    background: rgba(220, 53, 69, 0.1);
+    border-left: 4px solid #dc3545;
+    color: #721c24;
+}
+
+/* Loading States */
+[aria-busy="true"] {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Visually Hidden but Screen Reader Accessible */
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}

@@ -74,3 +74,7 @@ export async function userPlanItemDone(experienceId, planItemId) {
 export async function showUserExperiences(userId) {
   return await sendRequest(`${BASE_URL}user/${userId}`, "GET");
 }
+
+export async function getTagName(tagSlug) {
+  return await sendRequest(`${BASE_URL}tag/${tagSlug}`, "GET");
+}

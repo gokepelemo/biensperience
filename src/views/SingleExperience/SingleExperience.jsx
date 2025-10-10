@@ -275,10 +275,10 @@ export default function SingleExperience({ user, experiences, updateData }) {
                 </h3>
               ) : null}
             </div>
-            <div className="d-flex col-md-6 justify-content-center justify-content-md-end flex-column align-items-center flex-sm-row">
+            <div className="d-flex col-md-6 justify-content-center justify-content-md-end flex-column align-items-center flex-sm-row experience-actions">
               <button
-                className={`btn btn-light favorite-experience-btn my-2 my-sm-4${
-                  userHasExperience ? " active" : ""
+                className={`btn btn-icon my-2 my-sm-4 ${
+                  userHasExperience ? "btn-plan-remove" : "btn-plan-add"
                 } fade-in`}
                 onClick={async () => {
                   if (loading) return;
@@ -291,6 +291,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                     ? lang.en.button.removeFavoriteExp
                     : lang.en.button.addFavoriteExp
                 }
+                aria-pressed={userHasExperience}
                 onMouseEnter={() => setFavHover(true)}
                 onMouseLeave={() => setFavHover(false)}
                 disabled={loading}
@@ -308,7 +309,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
               </button>
               {userHasExperience && (
                 <button
-                  className="btn btn-light my-2 my-sm-4 ms-0 ms-sm-2 edit-date-btn fade-in"
+                  className="btn btn-primary btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
                   onClick={() => {
                     if (showDatePicker) {
                       setShowDatePicker(false);
@@ -322,37 +323,52 @@ export default function SingleExperience({ user, experiences, updateData }) {
                       setShowDatePicker(true);
                     }
                   }}
+                  aria-label={lang.en.button.editDate}
                   title={lang.en.button.editDate}
                 >
                   📅
                 </button>
               )}
               {isOwner && (
-                <button
-                  className="btn btn-light my-2 my-sm-4 ms-0 ms-sm-2 delete-experience-btn p-2 fade-in"
-                  onClick={() => setShowDeleteModal(true)}
-                >
-                  ❌
-                </button>
+                <>
+                  <button
+                    className="btn btn-primary btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
+                    onClick={() => navigate(`/experiences/${experienceId}/edit`)}
+                    aria-label={lang.en.button.editExperience}
+                    title={lang.en.button.editExperience}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    className="btn btn-light btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
+                    onClick={() => setShowDeleteModal(true)}
+                    aria-label={lang.en.button.delete}
+                    title={lang.en.button.delete}
+                  >
+                    ❌
+                  </button>
+                </>
               )}
             </div>
             {showDatePicker && (
               <div className="row mt-3 date-picker-modal">
                 <div className="col-12">
                   <div className="alert alert-info">
-                    <h5>
+                    <h3 className="mb-3">
                       {isEditingDate
                         ? lang.en.heading.editPlannedDate
                         : lang.en.heading.planYourExperience}
-                    </h5>
-                    <p>
-                      {lang.en.helper.requiresDaysToPlan.replace(
-                        "{days}",
-                        experience.max_planning_days
-                      )}
-                    </p>
+                    </h3>
+                    {experience.max_planning_days > 0 && (
+                      <p className="mb-3">
+                        {lang.en.helper.requiresDaysToPlan.replace(
+                          "{days}",
+                          experience.max_planning_days
+                        )}
+                      </p>
+                    )}
                     <div className="mb-3">
-                      <label htmlFor="plannedDate" className="form-label">
+                      <label htmlFor="plannedDate" className="form-label h5">
                         {lang.en.label.whenDoYouWantExperience}
                       </label>
                       <input
@@ -379,6 +395,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                       className="btn btn-primary me-2"
                       onClick={() => handleAddExperience()}
                       disabled={!plannedDate}
+                      aria-label={isEditingDate ? lang.en.button.updateDate : lang.en.button.setDateAndAdd}
                     >
                       {isEditingDate
                         ? lang.en.button.updateDate
@@ -386,8 +403,9 @@ export default function SingleExperience({ user, experiences, updateData }) {
                     </button>
                     {!isEditingDate && (
                       <button
-                        className="btn btn-outline-secondary me-2"
+                        className="btn btn-secondary me-2"
                         onClick={() => handleAddExperience({})}
+                        aria-label={lang.en.button.skip}
                       >
                         {lang.en.button.skip}
                       </button>
@@ -398,6 +416,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                         setShowDatePicker(false);
                         setPlannedDate("");
                       }}
+                      aria-label={lang.en.button.cancel}
                     >
                       {lang.en.button.cancel}
                     </button>
@@ -457,8 +476,8 @@ export default function SingleExperience({ user, experiences, updateData }) {
           )}
           <div className="row my-2 p-3 fade-in">
             {experience.plan_items && experience.plan_items.length > 0 && (
-              <div className="plan-items-container fade-in">
-                <h3 className="mb-3">Plan Items</h3>
+              <div className="plan-items-container fade-in p-3 p-md-4">
+                <h3 className="mb-3 text-center fw-bold text-dark">Plan Items</h3>
                 {(() => {
                   // Helper to flatten and mark children
                   const flattenPlanItems = (items) => {
@@ -493,11 +512,11 @@ export default function SingleExperience({ user, experiences, updateData }) {
                   return itemsToRender.map((planItem) => (
                     <div
                       key={planItem._id}
-                      className={`plan-item-card ${
+                      className={`plan-item-card mb-3 overflow-hidden ${
                         planItem.isVisible ? "" : "collapsed"
                       }`}
                     >
-                      <div className="plan-item-header">
+                      <div className="plan-item-header p-3 p-md-4">
                         <div className="plan-item-tree">
                           {!planItem.isChild ? (
                             (() => {
@@ -528,7 +547,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                             <span className="child-arrow">↳</span>
                           )}
                         </div>
-                        <div className="plan-item-title">
+                        <div className="plan-item-title flex-grow-1 fw-semibold fs-5">
                           {planItem.url ? (
                             <Link
                               to={planItem.url}
@@ -546,34 +565,37 @@ export default function SingleExperience({ user, experiences, updateData }) {
                             <div className="d-flex gap-1">
                               {!planItem.parent && (
                                 <button
-                                  className="btn btn-outline-primary btn-sm action-btn"
+                                  className="btn btn-outline-primary btn-sm"
                                   onClick={() => {
                                     setNewPlanItem({ parent: planItem._id });
                                     setFormState(1);
                                     setFormVisible(true);
                                   }}
+                                  aria-label={`${lang.en.button.addChild} to ${planItem.text}`}
                                   title={lang.en.button.addChild}
                                 >
                                   ✚
                                 </button>
                               )}
                               <button
-                                className="btn btn-outline-secondary btn-sm action-btn"
+                                className="btn btn-outline-secondary btn-sm"
                                 onClick={handlePlanEdit}
                                 data-id={planItem._id}
                                 data-idx={experience.plan_items.findIndex(
                                   (item) => item._id === planItem._id
                                 )}
+                                aria-label={`Edit ${planItem.text}`}
                                 title="Edit"
                               >
                                 ✏️
                               </button>
                               <button
-                                className="btn btn-outline-danger btn-sm action-btn"
+                                className="btn btn-outline-danger btn-sm"
                                 onClick={() => {
                                   setPlanItemToDelete(planItem._id);
                                   setShowPlanDeleteModal(true);
                                 }}
+                                aria-label={`Delete ${planItem.text}`}
                                 title="Delete"
                               >
                                 ✖️
@@ -582,7 +604,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           )}
                           {(userHasExperience || isOwner) && (
                             <button
-                              className={`btn btn-sm done-btn ${
+                              className={`btn btn-sm ${
                                 planItems[planItem._id]
                                   ? "btn-success"
                                   : "btn-outline-success"
@@ -594,6 +616,12 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                 setHoveredPlanItem(planItem._id)
                               }
                               onMouseLeave={() => setHoveredPlanItem(null)}
+                              aria-label={
+                                planItems[planItem._id]
+                                  ? `${lang.en.button.undoComplete} ${planItem.text}`
+                                  : `${lang.en.button.markComplete} ${planItem.text}`
+                              }
+                              aria-pressed={!!planItems[planItem._id]}
                               title={
                                 planItems[planItem._id]
                                   ? lang.en.button.undoComplete
@@ -609,18 +637,18 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           )}
                         </div>
                       </div>
-                      <div className="plan-item-details">
+                      <div className="plan-item-details p-2 p-md-3">
                         {(Number(planItem.cost_estimate) > 0 ||
                           Number(planItem.planning_days) > 0) && (
                           <div className="plan-item-meta">
                             {Number(planItem.cost_estimate) > 0 && (
-                              <span className="meta-item">
-                                <strong>Cost:</strong> ${planItem.cost_estimate}
+                              <span className="d-flex align-items-center gap-2">
+                                <strong className="text-dark">Cost:</strong> ${planItem.cost_estimate}
                               </span>
                             )}
                             {Number(planItem.planning_days) > 0 && (
-                              <span className="meta-item">
-                                <strong>Planning Time:</strong>{" "}
+                              <span className="d-flex align-items-center gap-2">
+                                <strong className="text-dark">Planning Time:</strong>{" "}
                                 {planItem.planning_days} days
                               </span>
                             )}

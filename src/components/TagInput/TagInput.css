@@ -1,23 +1,23 @@
 .tag-input-container {
   width: 100%;
+  position: relative;
 }
 
 .tags-wrapper {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  padding: 0.75rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #dee2e6;
+  border-radius: 2rem;
   background: white;
-  /* min-height: 48px; */
   cursor: text;
-  transition: all 0.3s ease;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
 .tags-wrapper:focus-within {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #4f5bd5;
+  box-shadow: 0 0 0 0.2rem rgba(79, 91, 213, 0.25);
 }
 
 .tag {
@@ -81,9 +81,55 @@
   color: #999;
 }
 
+/* Autocomplete Suggestions */
+.tag-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 2px solid #dee2e6;
+  border-radius: 1rem;
+  margin-top: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  animation: suggestionsSlideIn 0.2s ease-out;
+}
+
+@keyframes suggestionsSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tag-suggestion-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.tag-suggestion-item:hover,
+.tag-suggestion-item.selected {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  transform: translateX(4px);
+}
+
 @media (max-width: 576px) {
   .tags-wrapper {
-    padding: 0.5rem;
+    padding: 0.5rem 0.75rem;
   }
 
   .tag {
@@ -93,6 +139,16 @@
 
   .tag-input {
     min-width: 120px;
+    font-size: 0.9rem;
+  }
+
+  .tag-suggestions {
+    border-radius: 0.75rem;
+    padding: 0.25rem;
+  }
+
+  .tag-suggestion-item {
+    padding: 0.5rem 0.75rem;
     font-size: 0.9rem;
   }
 }

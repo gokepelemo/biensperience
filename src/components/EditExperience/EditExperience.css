@@ -1,136 +1,41 @@
-form.newExperience {
-    width: 75%;
-    min-width: 350px;
-    margin: 0 auto;
+/* Experience Form Styles */
+
+/* Override global grid layout for experience forms */
+form.edit-experience-form,
+form.new-experience-form {
+    display: block !important;
+    grid-template-columns: unset !important;
+    gap: 0 !important;
 }
 
-form.newExperience span {
-    grid-column: 1 / span 2;
+form.edit-experience-form .form-control,
+form.edit-experience-form .form-select,
+form.new-experience-form .form-control,
+form.new-experience-form .form-select,
+form.edit-experience-form .input-group,
+form.new-experience-form .input-group {
+    border-radius: 2rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
-form.newExperience button {
-    width: fit-content;
-}
-
-form.newExperience .d-flex {
-    margin-top: 2rem;
-}
-
-form.newExperience label {
-    font-size: clamp(1rem, 2vw, 1.5rem);
-}
-
-.changes-summary {
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.change-item {
-    border: 1px solid #dee2e6;
-    border-radius: 0.25rem;
-    padding: 0.5rem;
-    background-color: #f8f9fa;
-}
-
-/* Modal Styles - Consistent with SingleExperience */
-.modal.fade.show {
-    animation: modalFadeIn 0.3s ease-out;
-}
-
-.modal-dialog-centered {
-    animation: modalSlideUp 0.3s ease-out;
-}
-
-.modal-content {
-    border-radius: 1rem;
+form.edit-experience-form .input-group .form-control,
+form.new-experience-form .input-group .form-control {
     border: none;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
+    padding: 0;
 }
 
-.modal-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-bottom: none;
-    padding: 1.5rem 2rem;
-}
-
-.modal-header .modal-title {
-    font-weight: 700;
-    font-size: 1.5rem;
-}
-
-.modal-header .btn-close {
-    filter: brightness(0) invert(1);
-    opacity: 0.8;
-}
-
-.modal-header .btn-close:hover {
-    opacity: 1;
-}
-
-.modal-body {
-    padding: 2rem;
-    font-size: 1.1rem;
-    line-height: 1.6;
-}
-
-.modal-footer {
-    border-top: 1px solid rgba(0, 0, 0, 0.1);
-    padding: 1.5rem 2rem;
-    background: #f8f9fa;
-}
-
-.modal-footer .btn {
-    border-radius: 0.75rem;
-    padding: 0.75rem 1.5rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
-
-.modal-footer .btn-secondary {
-    background: #6c757d;
+form.edit-experience-form .input-group-text,
+form.new-experience-form .input-group-text {
+    background: transparent;
     border: none;
 }
 
-.modal-footer .btn-secondary:hover {
-    background: #5a6268;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
-}
-
-.modal-footer .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-}
-
-.modal-footer .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-/* Modal backdrop */
-.modal.d-block {
-    background-color: rgba(0, 0, 0, 0.5);
-}
-
-/* Keyframe Animations */
-@keyframes modalFadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-@keyframes modalSlideUp {
-    from {
-        opacity: 0;
-        transform: translateY(50px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+form.edit-experience-form .form-control:focus,
+form.edit-experience-form .form-select:focus,
+form.new-experience-form .form-control:focus,
+form.new-experience-form .form-select:focus,
+form.edit-experience-form .input-group:focus-within,
+form.new-experience-form .input-group:focus-within {
+    border-color: #4f5bd5;
+    box-shadow: 0 0 0 0.2rem rgba(79, 91, 213, 0.25);
 }

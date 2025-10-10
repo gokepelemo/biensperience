@@ -79,110 +79,164 @@ export default function NewDestination({ updateData }) {
   }
   return (
     <>
-      <h1>{lang.en.heading.newDestination}</h1>
+      <div className="row fade-in">
+        <div className="col-md-6 fade-in">
+          <h1 className="my-4 h fade-in">{lang.en.heading.createDestination}</h1>
+        </div>
+      </div>
+
       {error && (
-        <div className="alert alert-danger" role="alert">
+        <div className="alert alert-danger mb-4" role="alert">
           {error}
         </div>
       )}
-      <form onSubmit={handleSubmit} className="newDestination">
-        <span>
-          <input
-            type="text"
-            name="name"
-            id="name"
-            onChange={handleChange}
-            className="form-control"
-            value={newDestination.name}
-            placeholder={lang.en.placeholder.city}
-          />
-          <small>{lang.en.helper.cityRequired}</small>
-        </span>
-        <span>
-          <input
-            type="text"
-            name="state"
-            id="state"
-            onChange={handleChange}
-            className="form-control"
-            value={newDestination.state}
-            placeholder={lang.en.placeholder.stateProvince}
-          />
-          <small>{lang.en.helper.stateProvinceRequired}</small>
-        </span>
-        <span>
-          <input
-            type="text"
-            name="country"
-            id="country"
-            onChange={handleChange}
-            className="form-control"
-            value={newDestination.country}
-            placeholder={lang.en.placeholder.country}
-          />
-          <small>{lang.en.helper.countryRequired}</small>
-        </span>
-        <span>
-        <ImageUpload data={newDestination} setData={setNewDestination} />
-        <small>{lang.en.helper.photoOptional}</small>
-        </span>
-        <span>
-          <h5 className="mt-2">{lang.en.heading.travelTips}</h5>
-          <span className="addTravelTipPane">
-            <div
-              className="btn btn-light action-btn"
-              onClick={handleAddTravelTip}
-            >
-              +
+
+      <div className="row my-4 fade-in">
+        <div className="col-12">
+          <form onSubmit={handleSubmit} className="new-experience-form">
+            <div className="mb-4">
+              <label htmlFor="name" className="form-label">
+                City Name
+              </label>
+              <input
+                type="text"
+                name="name"
+                id="name"
+                onChange={handleChange}
+                className="form-control"
+                value={newDestination.name || ''}
+                placeholder={lang.en.placeholder.city}
+                required
+              />
+              <small className="form-text text-muted">
+                {lang.en.helper.cityRequired}
+              </small>
             </div>
-            <input
-              type="text"
-              name="tipkey"
-              className="form-control addTravelTips"
-              placeholder={lang.en.placeholder.language}
-              onChange={(e) => handleTravelTipChange(e)}
-              value={newTravelTip.tipkey}
-              autoComplete="off"
-            />
-            <input
-              type="text"
-              name="tipvalue"
-              className="form-control addTravelTips tipDescription"
-              placeholder={lang.en.placeholder.spanish}
-              onChange={(e) => handleTravelTipChange(e)}
-              value={newTravelTip.tipvalue}
-              autoComplete="off"
-            />
-          </span>
-          <ul className="list-group">
-            {travelTips.length ? (
-              travelTips.map((travelTip, idx) => {
-                return (
-                  <li key={idx} className="travelTips list-group-item">
-                    <div
-                      className="btn btn-light action-btn"
-                      onClick={() => {
-                        setTipToDelete(idx);
-                        setShowDeleteModal(true);
-                      }}
-                    >
-                      ❌
-                    </div>
-                    {travelTip}
-                  </li>
-                );
-              })
-            ) : (
-              <p>{lang.en.alert.noTravelTips}</p>
-            )}
-          </ul>
-        </span>
-        <div className="form-btns">
-          <button type="submit" className="btn btn-light">
-            {lang.en.button.addDestinationCreateExperience}
-          </button>
+
+            <div className="row mb-4">
+              <div className="col-md-6 mb-3 mb-md-0">
+                <label htmlFor="state" className="form-label">
+                  State / Province
+                </label>
+                <input
+                  type="text"
+                  name="state"
+                  id="state"
+                  onChange={handleChange}
+                  className="form-control"
+                  value={newDestination.state || ''}
+                  placeholder={lang.en.placeholder.stateProvince}
+                />
+                <small className="form-text text-muted">
+                  {lang.en.helper.stateProvinceRequired}
+                </small>
+              </div>
+
+              <div className="col-md-6">
+                <label htmlFor="country" className="form-label">
+                  Country
+                </label>
+                <input
+                  type="text"
+                  name="country"
+                  id="country"
+                  onChange={handleChange}
+                  className="form-control"
+                  value={newDestination.country || ''}
+                  placeholder={lang.en.placeholder.country}
+                  required
+                />
+                <small className="form-text text-muted">
+                  {lang.en.helper.countryRequired}
+                </small>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="form-label">
+                Photo
+              </label>
+              <ImageUpload data={newDestination} setData={setNewDestination} />
+              <small className="form-text text-muted">
+                {lang.en.helper.photoOptional}
+              </small>
+            </div>
+
+            <div className="mb-4">
+              <label className="form-label">
+                {lang.en.heading.travelTips}
+              </label>
+
+              <div className="input-group mb-3">
+                <input
+                  type="text"
+                  name="tipkey"
+                  className="form-control"
+                  placeholder={lang.en.placeholder.language}
+                  onChange={(e) => handleTravelTipChange(e)}
+                  value={newTravelTip.tipkey || ''}
+                  autoComplete="off"
+                />
+                <input
+                  type="text"
+                  name="tipvalue"
+                  className="form-control"
+                  placeholder={lang.en.placeholder.spanish}
+                  onChange={(e) => handleTravelTipChange(e)}
+                  value={newTravelTip.tipvalue || ''}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={handleAddTravelTip}
+                >
+                  Add Tip
+                </button>
+              </div>
+
+              <small className="form-text text-muted d-block mb-2">
+                Add helpful travel tips for this destination (optional)
+              </small>
+
+              {travelTips.length > 0 && (
+                <ul className="list-group">
+                  {travelTips.map((travelTip, idx) => (
+                    <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
+                      <span>{travelTip}</span>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => {
+                          setTipToDelete(idx);
+                          setShowDeleteModal(true);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {travelTips.length === 0 && (
+                <div className="alert alert-info">
+                  {lang.en.alert.noTravelTips}
+                </div>
+              )}
+            </div>
+
+            <div className="d-flex justify-content-end mt-4">
+              <button
+                type="submit"
+                className="btn btn-primary btn-lg"
+                aria-label="Create destination and continue to experience"
+              >
+                Create Destination
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
       {showDeleteModal && (
         <div className="modal fade show d-block" tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered">

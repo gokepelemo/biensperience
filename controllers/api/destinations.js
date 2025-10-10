@@ -1,5 +1,6 @@
 const Destination = require("../../models/destination");
 const User = require("../../models/user");
+const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 
 async function index(req, res) {
   try {
@@ -14,16 +15,38 @@ async function createDestination(req, res) {
   try {
     req.body.user = req.user._id;
 
-    // Check for duplicate destination (case-insensitive name and country combination)
-    const existingDestination = await Destination.findOne({
+    // Get all destinations to check for fuzzy duplicates
+    const allDestinations = await Destination.find({});
+
+    // Check for exact duplicate (case-insensitive)
+    const exactDuplicate = await Destination.findOne({
       name: { $regex: new RegExp(`^${req.body.name}$`, 'i') },
       country: { $regex: new RegExp(`^${req.body.country}$`, 'i') }
     });
 
-    if (existingDestination) {
+    if (exactDuplicate) {
       return res.status(409).json({
         error: 'Duplicate destination',
         message: `A destination named "${req.body.name}, ${req.body.country}" already exists. Please choose a different destination.`
+      });
+    }
+
+    // Check for fuzzy duplicate on name with same country
+    const sameCountryDestinations = allDestinations.filter(dest =>
+      dest.country.toLowerCase().trim() === req.body.country.toLowerCase().trim()
+    );
+
+    const fuzzyDuplicate = findDuplicateFuzzy(
+      sameCountryDestinations,
+      req.body.name,
+      'name',
+      85
+    );
+
+    if (fuzzyDuplicate) {
+      return res.status(409).json({
+        error: 'Similar destination exists',
+        message: `A similar destination "${fuzzyDuplicate.name}, ${fuzzyDuplicate.country}" already exists. Did you mean to use that instead?`
       });
     }
 
@@ -52,22 +75,43 @@ async function updateDestination(req, res) {
     );
     if (req.user._id !== destination.user._id) res.status(401).end();
 
-    // Check for duplicate destination if name or country is being updated (case-insensitive)
+    // Check for duplicate destination if name or country is being updated
     if ((req.body.name && req.body.name !== destination.name) ||
         (req.body.country && req.body.country !== destination.country)) {
       const checkName = req.body.name || destination.name;
       const checkCountry = req.body.country || destination.country;
 
-      const existingDestination = await Destination.findOne({
+      // Check for exact duplicate
+      const exactDuplicate = await Destination.findOne({
         name: { $regex: new RegExp(`^${checkName}$`, 'i') },
         country: { $regex: new RegExp(`^${checkCountry}$`, 'i') },
         _id: { $ne: req.params.id }
       });
 
-      if (existingDestination) {
+      if (exactDuplicate) {
         return res.status(409).json({
           error: 'Duplicate destination',
           message: `A destination named "${checkName}, ${checkCountry}" already exists. Please choose a different destination.`
+        });
+      }
+
+      // Check for fuzzy duplicate
+      const allDestinations = await Destination.find({ _id: { $ne: req.params.id } });
+      const sameCountryDestinations = allDestinations.filter(dest =>
+        dest.country.toLowerCase().trim() === checkCountry.toLowerCase().trim()
+      );
+
+      const fuzzyDuplicate = findDuplicateFuzzy(
+        sameCountryDestinations,
+        checkName,
+        'name',
+        85
+      );
+
+      if (fuzzyDuplicate) {
+        return res.status(409).json({
+          error: 'Similar destination exists',
+          message: `A similar destination "${fuzzyDuplicate.name}, ${fuzzyDuplicate.country}" already exists. Did you mean to use that instead?`
         });
       }
     }

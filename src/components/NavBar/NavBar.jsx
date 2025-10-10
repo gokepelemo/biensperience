@@ -7,10 +7,19 @@ export default function NavBar({ user, setUser }) {
     setUser(null);
   }
   return (
-    <nav className="navbar navbar-expand-lg bg-dark border-bottom border-body" data-bs-theme="dark">
+    <nav
+      className="navbar navbar-expand-lg bg-dark border-bottom border-body"
+      data-bs-theme="dark"
+      role="navigation"
+      aria-label="Main navigation"
+    >
       <div className="container-fluid">
-        <NavLink className="navbar-brand" to="/">
-          Biensperience <button className="btn btn-light btn-sm logo">+</button>
+        <NavLink
+          className="navbar-brand"
+          to="/"
+          aria-label="Biensperience home"
+        >
+          Biensperience <button className="btn btn-light btn-sm logo" aria-hidden="true">✚</button>
         </NavLink>
         <button
           className="navbar-toggler"
@@ -19,62 +28,85 @@ export default function NavBar({ user, setUser }) {
           data-bs-target="#navbarText"
           aria-controls="navbarText"
           aria-expanded="false"
-          aria-label="Toggle navigation"
+          aria-label="Toggle navigation menu"
         >
           <span className="navbar-toggler-icon"></span>
         </button>
         <div className="collapse navbar-collapse" id="navbarText">
-          <ul className="navbar-nav me-auto mb-2 mb-lg-0 d-flex">
-            <li className="nav-item">
-              <NavLink to="/destinations" className="nav-link">
+          <ul className="navbar-nav me-auto mb-2 mb-lg-0 d-flex" role="menubar">
+            <li className="nav-item" role="none">
+              <NavLink
+                to="/destinations"
+                className="nav-link"
+                role="menuitem"
+                aria-label="Browse destinations"
+              >
                 Destinations
               </NavLink>
             </li>
-            <li className="nav-item">
-              <NavLink to="/experiences" className="nav-link">
+            <li className="nav-item" role="none">
+              <NavLink
+                to="/experiences"
+                className="nav-link"
+                role="menuitem"
+                aria-label="Browse experiences"
+              >
                 Experiences
               </NavLink>
             </li>
-            <li className="nav-item dropdown">
+            <li className="nav-item dropdown" role="none">
               <NavLink
                 className="nav-link dropdown-toggle"
                 href="#"
-                role="button"
+                role="menuitem"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
+                aria-haspopup="true"
+                aria-label={`User menu for ${user.name}`}
               >
                 {user.name}
               </NavLink>
-              <ul className="dropdown-menu">
-                <li>
-                  <NavLink to="/profile"
+              <ul className="dropdown-menu" role="menu" aria-label="User account options">
+                <li role="none">
+                  <NavLink
+                    to="/profile"
                     className="dropdown-item"
+                    role="menuitem"
+                    aria-label="View your profile"
                   >
                     Profile
                   </NavLink>
                 </li>
-                <li>
-                  <NavLink to="/destinations/new"
+                <li role="none">
+                  <NavLink
+                    to="/destinations/new"
                     className="dropdown-item"
+                    role="menuitem"
+                    aria-label="Create a new destination"
                   >
                     New Destination
                   </NavLink>
                 </li>
-                <li>
-                  <NavLink to="/experiences/new"
+                <li role="none">
+                  <NavLink
+                    to="/experiences/new"
                     className="dropdown-item"
+                    role="menuitem"
+                    aria-label="Create a new experience"
                   >
                     New Experience
                   </NavLink>
                 </li>
-                <li>
-                  <hr className="dropdown-divider" />
+                <li role="none">
+                  <hr className="dropdown-divider" aria-hidden="true" />
                 </li>
-                <li>
+                <li role="none">
                   <NavLink
                     to="/logout"
                     onClick={handleLogOut}
                     className="dropdown-item"
+                    role="menuitem"
+                    aria-label="Log out of your account"
                   >
                     Logout
                   </NavLink>

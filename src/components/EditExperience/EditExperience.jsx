@@ -20,6 +20,14 @@ export default function EditExperience({ user, updateData }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Convert snake_case to Title Case
+  function formatFieldName(fieldName) {
+    return fieldName
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -41,14 +49,20 @@ export default function EditExperience({ user, updateData }) {
 
         // Set tags from experience_type
         if (experienceData.experience_type) {
-          const experienceTags = experienceData.experience_type.split(',').map(tag => tag.trim());
+          let experienceTags = [];
+          if (Array.isArray(experienceData.experience_type)) {
+            experienceTags = experienceData.experience_type;
+          } else if (typeof experienceData.experience_type === 'string') {
+            experienceTags = experienceData.experience_type.split(',').map(tag => tag.trim());
+          }
           setTags(experienceTags);
         }
 
         setLoading(false);
       } catch (err) {
-        handleError(err, { context: 'Loading experience for edit' });
-        navigate('/experiences');
+        const errorMessage = handleError(err, { context: 'Loading experience for edit' });
+        setError(errorMessage || "Failed to load experience. Please try again.");
+        setLoading(false);
       }
     }
 
@@ -75,13 +89,18 @@ export default function EditExperience({ user, updateData }) {
 
   function handleTagsChange(newTags) {
     setTags(newTags);
-    const experienceType = newTags.join(", ");
-    const updatedExperience = { ...experience, experience_type: experienceType };
+    // Store as array, not comma-separated string
+    const updatedExperience = { ...experience, experience_type: newTags };
 
-    // Track changes
+    // Track changes (compare arrays properly)
     const newChanges = { ...changes };
-    if (originalExperience && originalExperience.experience_type !== experienceType) {
-      newChanges.experience_type = { from: originalExperience.experience_type, to: experienceType };
+    const originalTags = Array.isArray(originalExperience?.experience_type)
+      ? originalExperience.experience_type
+      : [];
+    const tagsChanged = JSON.stringify(originalTags.sort()) !== JSON.stringify([...newTags].sort());
+
+    if (originalExperience && tagsChanged) {
+      newChanges.experience_type = { from: originalTags.join(', '), to: newTags.join(', ') };
     } else {
       delete newChanges.experience_type;
     }
@@ -151,13 +170,25 @@ export default function EditExperience({ user, updateData }) {
   if (error || !experience) {
     return (
       <div className="container mt-5">
-        <div className="alert alert-danger">
-          {error || "Experience not found or you don't have permission to edit it."}
-        </div>
-        <div className="text-center mt-3">
-          <Link to={`/experiences/${experienceId}`} className="btn btn-primary">
-            Back to Experience
-          </Link>
+        <div className="row justify-content-center">
+          <div className="col-md-8">
+            <div className="alert alert-danger" role="alert">
+              <h4 className="alert-heading">Unable to Edit Experience</h4>
+              <p>{error || "Experience not found or you don't have permission to edit it."}</p>
+              <hr />
+              <p className="mb-0">Please check that you have the correct permissions and try again.</p>
+            </div>
+            <div className="text-center mt-3">
+              {experienceId && !error.includes('not authorized') && (
+                <Link to={`/experiences/${experienceId}`} className="btn btn-primary me-2">
+                  Back to Experience
+                </Link>
+              )}
+              <Link to="/experiences" className="btn btn-secondary">
+                View All Experiences
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -165,155 +196,178 @@ export default function EditExperience({ user, updateData }) {
 
   return (
     <>
-      <div className="container mt-5">
-        <div className="row justify-content-center">
-          <div className="col-md-8">
-            <div className="card shadow">
-              <div className="card-header bg-primary text-white">
-                <h2 className="mb-0">{lang.en.heading.editExperience}</h2>
+      <div className="row fade-in">
+        <div className="col-md-6 fade-in">
+          <h1 className="my-4 h fade-in">{lang.en.heading.editExperience}</h1>
+        </div>
+      </div>
+
+      <div className="row my-4 fade-in">
+        <div className="col-12">
+          <form onSubmit={handleSubmit} className="edit-experience-form">
+            <div className="mb-4">
+              <label htmlFor="name" className="form-label">
+                {lang.en.label.title}
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                id="name"
+                name="name"
+                value={experience.name || ''}
+                onChange={handleChange}
+                required
+                placeholder={lang.en.placeholder.experienceName}
+              />
+              <small className="form-text text-muted">
+                {lang.en.helper.nameRequired}
+              </small>
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="destination" className="form-label">
+                {lang.en.label.destinationLabel}
+              </label>
+              <select
+                className="form-select"
+                id="destination"
+                name="destination"
+                value={experience.destination ? `${destinations.find(d => d._id === experience.destination)?.name}, ${destinations.find(d => d._id === experience.destination)?.country}` : ''}
+                onChange={(e) => handleDestinationChange(e.target.value)}
+                required
+              >
+                <option value="">{lang.en.placeholder.destination}</option>
+                {destinations.map(destination => (
+                  <option key={destination._id} value={`${destination.name}, ${destination.country}`}>
+                    {destination.name}, {destination.country}
+                  </option>
+                ))}
+              </select>
+              <small className="form-text text-muted">
+                {lang.en.helper.destinationRequired}
+                <Link to="/destinations/new" className="ms-1">
+                  {lang.en.helper.createNewDestination}
+                </Link>
+              </small>
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="experience_type" className="form-label">
+                {lang.en.label.experienceTypes}
+              </label>
+              <TagInput
+                tags={tags}
+                onChange={handleTagsChange}
+                placeholder={lang.en.placeholder.experienceType}
+              />
+              <small className="form-text text-muted">
+                {lang.en.helper.experienceTypesOptional}
+              </small>
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="map_location" className="form-label">
+                {lang.en.label.address}
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                id="map_location"
+                name="map_location"
+                value={experience.map_location || ''}
+                onChange={handleChange}
+                placeholder={lang.en.placeholder.address}
+              />
+              <small className="form-text text-muted">
+                {lang.en.helper.addressOptional}
+              </small>
+            </div>
+
+            <div className="row mb-4">
+              <div className="col-md-6 mb-3 mb-md-0">
+                <label htmlFor="cost_estimate" className="form-label">
+                  {lang.en.label.costEstimate}
+                </label>
+                <div className="input-group">
+                  <span className="input-group-text">$</span>
+                  <input
+                    type="number"
+                    className="form-control"
+                    id="cost_estimate"
+                    name="cost_estimate"
+                    value={experience.cost_estimate || ''}
+                    onChange={handleChange}
+                    placeholder={lang.en.placeholder.costEstimate}
+                    min="0"
+                  />
+                </div>
+                <small className="form-text text-muted">
+                  Estimated cost in dollars (optional)
+                </small>
               </div>
-              <div className="card-body">
-                <form onSubmit={handleSubmit}>
-                  <div className="mb-3">
-                    <label htmlFor="name" className="form-label">
-                      {lang.en.label.title}
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      id="name"
-                      name="name"
-                      value={experience.name || ''}
-                      onChange={handleChange}
-                      required
-                    />
-                    <div className="form-text">
-                      {lang.en.helper.nameRequired}
-                    </div>
-                  </div>
 
-                  <div className="mb-3">
-                    <label htmlFor="destination" className="form-label">
-                      {lang.en.label.destinationLabel}
-                    </label>
-                    <select
-                      className="form-select"
-                      id="destination"
-                      name="destination"
-                      value={experience.destination ? `${destinations.find(d => d._id === experience.destination)?.name}, ${destinations.find(d => d._id === experience.destination)?.country}` : ''}
-                      onChange={(e) => handleDestinationChange(e.target.value)}
-                      required
-                    >
-                      <option value="">{lang.en.placeholder.destination}</option>
-                      {destinations.map(destination => (
-                        <option key={destination._id} value={`${destination.name}, ${destination.country}`}>
-                          {destination.name}, {destination.country}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="form-text">
-                      {lang.en.helper.destinationRequired}
-                      <Link to="/destinations/new" className="ms-1">
-                        {lang.en.helper.createNewDestination}
-                      </Link>
-                    </div>
-                  </div>
-
-                  <div className="mb-3">
-                    <label htmlFor="experience_type" className="form-label">
-                      {lang.en.label.experienceTypes}
-                    </label>
-                    <TagInput
-                      tags={tags}
-                      onChange={handleTagsChange}
-                      placeholder={lang.en.placeholder.experienceType}
-                    />
-                    <div className="form-text">
-                      {lang.en.helper.experienceTypesOptional}
-                    </div>
-                  </div>
-
-                  <div className="mb-3">
-                    <label htmlFor="map_location" className="form-label">
-                      Address
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      id="map_location"
-                      name="map_location"
-                      value={experience.map_location || ''}
-                      onChange={handleChange}
-                      placeholder={lang.en.placeholder.address}
-                    />
-                    <div className="form-text">
-                      {lang.en.helper.photoOptional}
-                    </div>
-                  </div>
-
-                  <div className="row">
-                    <div className="col-md-6 mb-3">
-                      <label htmlFor="cost_estimate" className="form-label">
-                        {lang.en.label.costEstimate}
-                      </label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        id="cost_estimate"
-                        name="cost_estimate"
-                        value={experience.cost_estimate || ''}
-                        onChange={handleChange}
-                        placeholder={lang.en.placeholder.costEstimate}
-                        min="0"
-                      />
-                    </div>
-                    <div className="col-md-6 mb-3">
-                      <label htmlFor="max_planning_days" className="form-label">
-                        {lang.en.label.planningDays}
-                      </label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        id="max_planning_days"
-                        name="max_planning_days"
-                        value={experience.max_planning_days || ''}
-                        onChange={handleChange}
-                        placeholder={lang.en.placeholder.planningDays}
-                        min="1"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mb-3">
-                    <ImageUpload
-                      data={experience}
-                      setData={setExperience}
-                    />
-                  </div>
-
-                  {error && (
-                    <div className="alert alert-danger">
-                      {error}
-                    </div>
-                  )}
-
-                  <div className="d-flex justify-content-between">
-                    <Link to={`/experiences/${experienceId}`} className="btn btn-secondary">
-                      {lang.en.button.cancel}
-                    </Link>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={handleConfirmUpdate}
-                      disabled={Object.keys(changes).length === 0}
-                    >
-                      {lang.en.button.confirmUpdate}
-                    </button>
-                  </div>
-                </form>
+              <div className="col-md-6">
+                <label htmlFor="max_planning_days" className="form-label">
+                  {lang.en.label.planningDays}
+                </label>
+                <div className="input-group">
+                  <input
+                    type="number"
+                    className="form-control"
+                    id="max_planning_days"
+                    name="max_planning_days"
+                    value={experience.max_planning_days || ''}
+                    onChange={handleChange}
+                    placeholder={lang.en.placeholder.planningDays}
+                    min="1"
+                  />
+                  <span className="input-group-text">days</span>
+                </div>
+                <small className="form-text text-muted">
+                  Minimum days needed to plan in advance (optional)
+                </small>
               </div>
             </div>
-          </div>
+
+            <div className="mb-4">
+              <label className="form-label">
+                Photo
+              </label>
+              <ImageUpload
+                data={experience}
+                setData={setExperience}
+              />
+              <small className="form-text text-muted">
+                {lang.en.helper.photoOptional}
+              </small>
+            </div>
+
+            {error && (
+              <div className="alert alert-danger mb-4">
+                {error}
+              </div>
+            )}
+
+            <div className="d-flex justify-content-between mt-4">
+              <Link
+                to={`/experiences/${experienceId}`}
+                className="btn btn-secondary btn-lg"
+                aria-label={lang.en.button.cancel}
+              >
+                {lang.en.button.cancel}
+              </Link>
+              <button
+                type="button"
+                className="btn btn-primary btn-lg"
+                onClick={handleConfirmUpdate}
+                disabled={Object.keys(changes).length === 0}
+                aria-label={lang.en.button.confirmUpdate}
+                aria-disabled={Object.keys(changes).length === 0}
+              >
+                {lang.en.button.confirmUpdate}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
 
@@ -327,6 +381,7 @@ export default function EditExperience({ user, updateData }) {
                   type="button"
                   className="btn-close"
                   onClick={() => setShowConfirmModal(false)}
+                  aria-label="Close"
                 ></button>
               </div>
               <div className="modal-body">
@@ -334,7 +389,7 @@ export default function EditExperience({ user, updateData }) {
                 <ul className="list-group">
                   {Object.entries(changes).map(([field, change]) => (
                     <li key={field} className="list-group-item">
-                      <strong>{field}:</strong> {change.from || 'None'} → {change.to || 'None'}
+                      <strong>{formatFieldName(field)}:</strong> {change.from || 'None'} → {change.to || 'None'}
                     </li>
                   ))}
                 </ul>
@@ -344,6 +399,7 @@ export default function EditExperience({ user, updateData }) {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setShowConfirmModal(false)}
+                  aria-label={lang.en.button.cancel}
                 >
                   {lang.en.button.cancel}
                 </button>
@@ -351,6 +407,7 @@ export default function EditExperience({ user, updateData }) {
                   type="button"
                   className="btn btn-primary"
                   onClick={confirmUpdate}
+                  aria-label={lang.en.button.updateExperience}
                 >
                   {lang.en.button.updateExperience}
                 </button>

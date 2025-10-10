@@ -1,0 +1,279 @@
+/* Plan Item Link Icon */
+.plan-item-title a::before {
+    content: "🔗 ";
+}
+
+/* Cost Estimate Colors */
+.green {
+    color: #28a745; /* Bootstrap success green */
+}
+
+.grey {
+    color: #6c757d; /* Bootstrap secondary grey */
+}
+
+/* Collapse Animation */
+.plan-item-card.collapsed {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.95);
+    transition: all 0.3s ease;
+}
+
+/* Date Picker Modal */
+.date-picker-modal .alert-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 1rem;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+}
+
+.date-picker-modal .alert-info h3,
+.date-picker-modal .alert-info h5,
+.date-picker-modal .alert-info p,
+.date-picker-modal .form-label {
+    color: white;
+}
+
+.date-picker-modal .form-control {
+    border-radius: 0.75rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.95);
+    transition: all 0.3s ease;
+}
+
+.date-picker-modal .form-control:focus {
+    border-color: white;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+.date-picker-modal .alert-warning {
+    background: rgba(255, 193, 7, 0.2);
+    border: 2px solid rgba(255, 193, 7, 0.6);
+    border-radius: 0.75rem;
+    color: white;
+}
+
+.date-picker-modal .btn {
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.date-picker-modal .btn-primary {
+    background: white;
+    color: #667eea;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.date-picker-modal .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    background: #f8f9fa;
+}
+
+.date-picker-modal .btn-outline-secondary {
+    border: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.date-picker-modal .btn-outline-secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: white;
+    transform: translateY(-2px);
+}
+
+.date-picker-modal .btn-secondary {
+    background: rgba(0, 0, 0, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.date-picker-modal .btn-secondary:hover {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: white;
+    transform: translateY(-2px);
+}
+
+/* Travel Tips Section */
+.experience-detail .list-group {
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.experience-detail .list-group-item {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.experience-detail .list-group-item.fw-bold {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.2);
+}
+
+.experience-detail .list-group-item.fw-bold a {
+    color: white;
+    text-decoration: none;
+    transition: opacity 0.3s ease;
+}
+
+.experience-detail .list-group-item.fw-bold a:hover {
+    opacity: 0.9;
+}
+
+.experience-detail .list-group-item:hover:not(.fw-bold) {
+    background: #e9ecef;
+    transform: translateX(4px);
+}
+
+/* Plan Items Container */
+.plan-items-container {
+    background: #f8f9fa;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.plan-item-card {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.plan-item-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.plan-item-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.plan-item-tree {
+    flex-shrink: 0;
+    width: 30px;
+    text-align: center;
+}
+
+/* Tree Controls */
+.expand-toggle {
+    font-size: 18px;
+    line-height: 1;
+    text-decoration: none !important;
+    color: #666 !important;
+    background: none !important;
+    border: none !important;
+    transition: color 0.3s ease;
+}
+
+.expand-toggle:hover {
+    color: #667eea !important;
+}
+
+.expand-toggle:focus {
+    box-shadow: none;
+}
+
+.child-arrow {
+    font-size: 20px;
+    color: #666;
+}
+
+.plan-item-title a {
+    color: #333;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.plan-item-title a:hover {
+    color: #667eea;
+}
+
+.experience-actions {
+    transition: transform 0.2s ease;
+}
+
+.experience-detail:hover .experience-actions {
+    transform: translateY(-2px);
+}
+
+.plan-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+
+.plan-item-card:hover .plan-item-actions {
+    transform: translateY(-2px);
+}
+
+.plan-item-details {
+    border-top: 1px solid #e9ecef;
+    background: #f8f9fa;
+}
+
+.plan-item-meta {
+    display: flex;
+    gap: 2rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* Custom Button Classes - Extend Bootstrap without overriding */
+.btn-plan-add {
+    /* Clone btn-icon properties - purple gradient base */
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    font-weight: 600;
+    font-size: 1.25rem;
+    padding: 0.5rem 0.75rem;
+    transition: all 0.3s ease;
+}
+
+/* Turn green when hovering on add state */
+.btn-plan-add:hover {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    color: white;
+}
+
+.btn-plan-remove {
+    /* Clone btn-icon properties - purple gradient base */
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    font-weight: 600;
+    font-size: 1.25rem;
+    padding: 0.5rem 0.75rem;
+    transition: all 0.3s ease;
+}
+
+/* Turn red when hovering on remove state */
+.btn-plan-remove:hover {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    color: white;
+}
+
+/* Undo Complete Button */
+.btn-success:hover {
+    background: linear-gradient(90deg, #dc3545 0%, #c82333 100%) !important;
+    color: white !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .plan-item-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .plan-item-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}

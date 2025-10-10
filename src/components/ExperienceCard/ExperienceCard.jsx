@@ -25,9 +25,13 @@ function ExperienceCard({ experience, user, updateData }) {
       } else {
         await userAddExperience(user._id, experience._id);
       }
+      // Immediately update local state for instant feedback
       setExperienceAdded(!experienceAdded);
-      updateData();
+      // Then refresh data from server to ensure consistency
+      await updateData();
     } catch (err) {
+      // Revert optimistic update on error
+      setExperienceAdded(!experienceAdded);
       handleError(err, { context: experienceAdded ? 'Remove experience' : 'Add experience' });
     }
   }, [experienceAdded, user._id, experience._id, updateData]);
@@ -48,27 +52,43 @@ function ExperienceCard({ experience, user, updateData }) {
     );
   }, [experience.users, user._id])
   return (
-    <div className="experience">
+    <div className="d-inline-block m-2" style={{ width: 'fit-content', verticalAlign: 'top' }}>
       {experience ? (
         <div
-          className="experienceCard"
+          className="experienceCard d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden"
           style={{ backgroundImage: `url(https://picsum.photos/400?rand=${rand})` }}
         >
-          <Link to={`/experiences/${experience._id}`}>
-            <span className="h4 fw-bold">
+          <Link to={`/experiences/${experience._id}`} className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100 text-decoration-none">
+            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center text-white text-center p-3 w-100">
               {experience.name}
             </span>
           </Link>
-          <div className="d-flex">
-            <button className="btn btn-light rounded-0 experience-action-btn" type="button" onClick={handleExperienceAction}>
-              {experienceAdded ? "-" : "+"}
+          <div className="experience-card-actions d-flex gap-2 flex-shrink-0">
+            <button
+              className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'}`}
+              type="button"
+              onClick={handleExperienceAction}
+              aria-label={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
+              title={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
+            >
+              {experienceAdded ? "-" : "✚"}
             </button>
             {isOwner && (
               <>
-                <Link to={`/experiences/${experience._id}/edit`} className="btn btn-light rounded-0 experience-action-btn ms-1">
+                <Link
+                  to={`/experiences/${experience._id}/edit`}
+                  className="btn btn-light btn-icon ms-2"
+                  aria-label={lang.en.button.editExperience}
+                  title={lang.en.button.editExperience}
+                >
                   ✏️
                 </Link>
-                <button className="btn btn-light rounded-0 experience-action-btn ms-1" onClick={() => setShowDeleteModal(true)}>
+                <button
+                  className="btn btn-light btn-icon ms-2"
+                  onClick={() => setShowDeleteModal(true)}
+                  aria-label={lang.en.button.delete}
+                  title={lang.en.button.delete}
+                >
                   ❌
                 </button>
               </>
@@ -77,17 +97,24 @@ function ExperienceCard({ experience, user, updateData }) {
         </div>
       ) : (
         <div
-          className="experienceCard"
+          className="experienceCard d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden"
           style={{ backgroundImage: `url(https://picsum.photos/400?rand=${rand})` }}
         >
-          <Link to="/">
-            <span className="h4 fw-bold">
+          <Link to="/" className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100 text-decoration-none">
+            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center text-white text-center p-3 w-100">
               Dinner Party with locals at the Rhodopo Mountains in Bulgaria
             </span>
           </Link>
-          <button className="btn btn-light rounded-0" onClick={handleExperienceAction}>
-            {experienceAdded ? "-" : "+"}
-          </button>
+          <div className="experience-card-actions d-flex gap-2 flex-shrink-0">
+            <button
+              className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'}`}
+              onClick={handleExperienceAction}
+              aria-label={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
+              title={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
+            >
+              {experienceAdded ? "-" : "✚"}
+            </button>
+          </div>
         </div>
       )}
       <ConfirmModal

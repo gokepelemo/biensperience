@@ -9,6 +9,7 @@ const en = {
     delete: "Delete",
     confirmUpdate: "Confirm Update",
     editDate: "Edit Planned Date",
+    editExperience: "Edit Experience",
     login: "Login",
     logout: "Logout",
     remove: "Remove",
@@ -25,11 +26,16 @@ const en = {
     addFavoriteExp: "+ Plan this Experience",
     addFavoriteDest: "+ Add to Favorite Destinations",
     removeFavoriteExp: "- Remove from Planned Experiences",
-    removeFavoriteDest: "- Unfavorite",
+    removeFavoriteDest: "- Remove from Favorites",
+    addToPlan: "Add to Planned Experiences",
+    removeFromPlan: "Remove from Planned Experiences",
     markComplete: "👍 Mark Complete",
     done: "✅ Done",
     undoComplete: "❎ Undo Complete",
     expPlanAdded: "✅ Planned",
+    favorited: "❤️ Favorited",
+    upload: "Upload",
+    uploading: "Uploading...",
   },
 
   alert: {
@@ -62,6 +68,7 @@ const en = {
     createExperience: "Create an Experience",
     editExperience: "Edit Experience",
     newDestination: "New Destination",
+    createDestination: "Create a Destination",
     estimatedCost: "Estimated Cost:",
     planningTime: "Planning Time:",
     planYourExperience: "Plan Your Experience",
@@ -110,6 +117,8 @@ const en = {
     country: "e.g. England",
     language: "e.g. Language",
     spanish: "e.g. Spanish",
+    photoCredit: "Photo Credit e.g. Unsplash",
+    photoCreditUrl: "Photo Credit URL e.g. http://unsplash.com",
   },
 
   helper: {
@@ -158,7 +167,15 @@ const en = {
     actions: "",
   },
 
-  pageMeta: {
+  image: {
+    alt: {
+      preview: "Preview",
+      photo: "Photo",
+    },
+    photoCredit: "Photo Credit:",
+  },
+
+  viewMeta: {
     defaultTitle: "Biensperience",
     defaultDescription:
       "Plan and organize your travel experiences around the world",

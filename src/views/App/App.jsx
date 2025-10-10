@@ -47,11 +47,16 @@ export default function App() {
     updateData();
   }, [updateData]);
   return (
-    <main className="App container">
-      {user ? (
-        <>
-          <NavBar user={user} setUser={setUser} />
-          <Routes>
+    <>
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+      <div className="App">
+        {user ? (
+          <>
+            <NavBar user={user} setUser={setUser} />
+            <main id="main-content" className="container" role="main" aria-label="Main content">
+              <Routes>
             <Route
               path="/"
               element={
@@ -162,13 +167,17 @@ export default function App() {
             />
             <Route path="/logout" element={<Navigate to="/" />} />
           </Routes>
-        </>
-      ) : (
-        <Routes>
-          <Route path="/signup" element={<AuthPage setUser={setUser} />} />
-          <Route path="*" element={<AuthPage setUser={setUser} />} />
-        </Routes>
-      )}
-    </main>
+        </main>
+          </>
+        ) : (
+          <main id="main-content" className="container" role="main" aria-label="Authentication">
+            <Routes>
+              <Route path="/signup" element={<AuthPage setUser={setUser} />} />
+              <Route path="*" element={<AuthPage setUser={setUser} />} />
+            </Routes>
+          </main>
+        )}
+      </div>
+    </>
   );
 }

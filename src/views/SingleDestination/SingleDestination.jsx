@@ -56,7 +56,7 @@ export default function SingleDestination({
       <>
         {destination && (
           <>
-            <div className="row">
+            <div className="row align-items-center">
               <div className="col-md-6">
                 <h1 className="my-4 h">
                   {destination.name},{" "}
@@ -67,8 +67,8 @@ export default function SingleDestination({
                     : destination.state}
                 </h1>
               </div>
-              <div className="d-flex col-md-6 justify-content-end">
-                <FavoriteDestination destination={destination} user={user} getData={getData} />
+              <div className="d-flex col-md-6 justify-content-end align-items-center">
+                {user && <FavoriteDestination destination={destination} user={user} getData={getData} />}
               </div>
             </div>
             <div className="row my-4">
@@ -76,48 +76,63 @@ export default function SingleDestination({
                 {destination && <PhotoCard photo={destination.photo} title={destination.name} />}
               </div>
               <div className="col-md-6 p-3">
-                <ul className="list-group destination-detail">
-                  {destination.country ? (
-                    <li className="list-group-item list-group-item-secondary fw-bold text-center h4">
-                      {`${lang.en.label.country} ${destination.country}`}
-                    </li>
-                  ) : (
-                    ""
+                <div className="destination-detail-card">
+                  {destination.country && (
+                    <div className="destination-detail-header">
+                      <h4 className="destination-detail-country">
+                        {`${lang.en.label.country} ${destination.country}`}
+                      </h4>
+                    </div>
                   )}
                   {destinationExperiences.length > 0 && (
-                    <>
-                      <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
+                    <div className="destination-detail-section">
+                      <h5 className="destination-detail-section-title">
                         {lang.en.heading.popularExperiences}
-                      </li>
-                      <li className="list-group-item list-group-item-secondary">
+                      </h5>
+                      <div className="destination-detail-content">
                         {destinationExperiences
                           .filter((experience, index) => index < 3)
                           .map((experience, index) => (
-                            <p className="popularExperiences" key={index}>
-                              <Link to={`/experiences/${experience._id}`}>
-                                {experience.name}
-                              </Link>
-                            </p>
+                            <Link
+                              to={`/experiences/${experience._id}`}
+                              className="destination-detail-link"
+                              key={index}
+                            >
+                              {experience.name}
+                            </Link>
                           ))}
-                      </li>
-                    </>
+                      </div>
+                    </div>
                   )}
                   {destination.travel_tips.length > 0 && (
-                    <>
-                      <li className="list-group-item list-group-item-secondary fw-bold text-center h5">
+                    <div className="destination-detail-section">
+                      <h5 className="destination-detail-section-title">
                         {lang.en.heading.travelTips}
-                      </li>
-                      {destination.travel_tips.map((tip, idx) => (
-                        <li
-                          className="list-group-item list-group-item-secondary"
-                          key={idx}
-                        >
-                          {tip}
-                        </li>
-                      ))}
-                    </>
+                      </h5>
+                      <div className="destination-detail-content">
+                        {destination.travel_tips.map((tip, idx) => {
+                          const colonIndex = tip.indexOf(':');
+                          const hasColon = colonIndex > -1;
+                          const tipKey = hasColon ? tip.substring(0, colonIndex) : '';
+                          const tipValue = hasColon ? tip.substring(colonIndex + 1).trim() : tip;
+
+                          return (
+                            <div className="destination-detail-tip" key={idx}>
+                              {hasColon ? (
+                                <>
+                                  <strong className="tip-key">{tipKey}:</strong>
+                                  <span className="tip-value"> {tipValue}</span>
+                                </>
+                              ) : (
+                                <span className="tip-value">{tip}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   )}
-                </ul>
+                </div>
               </div>
             </div>
             <div className="row my-2 p-3 d-flex align-items-center justify-content-center">

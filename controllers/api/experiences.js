@@ -1,5 +1,6 @@
 const Experience = require("../../models/experience");
 const { lang } = require("../../src/lang.constants");
+const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 
 async function index(req, res) {
   try {
@@ -18,16 +19,34 @@ async function createExperience(req, res) {
   try {
     req.body.user = req.user._id;
 
-    // Check for duplicate experience name (case-insensitive)
-    const existingExperience = await Experience.findOne({
+    // Get all user experiences for fuzzy checking
+    const userExperiences = await Experience.find({ user: req.user._id });
+
+    // Check for exact duplicate (case-insensitive)
+    const exactDuplicate = await Experience.findOne({
       name: { $regex: new RegExp(`^${req.body.name}$`, 'i') },
       user: req.user._id
     });
 
-    if (existingExperience) {
+    if (exactDuplicate) {
       return res.status(409).json({
         error: 'Duplicate experience',
         message: `An experience named "${req.body.name}" already exists. Please choose a different name.`
+      });
+    }
+
+    // Check for fuzzy duplicate
+    const fuzzyDuplicate = findDuplicateFuzzy(
+      userExperiences,
+      req.body.name,
+      'name',
+      85
+    );
+
+    if (fuzzyDuplicate) {
+      return res.status(409).json({
+        error: 'Similar experience exists',
+        message: `A similar experience "${fuzzyDuplicate.name}" already exists. Did you mean to use that instead?`
       });
     }
 
@@ -56,18 +75,39 @@ async function updateExperience(req, res) {
     let experience = await Experience.findById(experienceId).populate("user");
     if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
 
-    // Check for duplicate experience name if name is being updated (case-insensitive)
+    // Check for duplicate experience name if name is being updated
     if (req.body.name && req.body.name !== experience.name) {
-      const existingExperience = await Experience.findOne({
+      // Check for exact duplicate
+      const exactDuplicate = await Experience.findOne({
         name: { $regex: new RegExp(`^${req.body.name}$`, 'i') },
         user: req.user._id,
         _id: { $ne: experienceId }
       });
 
-      if (existingExperience) {
+      if (exactDuplicate) {
         return res.status(409).json({
           error: 'Duplicate experience',
           message: `An experience named "${req.body.name}" already exists. Please choose a different name.`
+        });
+      }
+
+      // Check for fuzzy duplicate
+      const userExperiences = await Experience.find({
+        user: req.user._id,
+        _id: { $ne: experienceId }
+      });
+
+      const fuzzyDuplicate = findDuplicateFuzzy(
+        userExperiences,
+        req.body.name,
+        'name',
+        85
+      );
+
+      if (fuzzyDuplicate) {
+        return res.status(409).json({
+          error: 'Similar experience exists',
+          message: `A similar experience "${fuzzyDuplicate.name}" already exists. Did you mean to use that instead?`
         });
       }
     }
@@ -83,9 +123,11 @@ async function updateExperience(req, res) {
 async function deleteExperience(req, res) {
   try {
     let experience = await Experience.findById(req.params.id).populate("user");
-    if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
+    if (req.user._id.toString() !== experience.user._id.toString()) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     await experience.deleteOne();
-    res.status(200).end();
+    res.status(200).json({ message: 'Experience deleted successfully' });
   } catch (err) {
     res.status(400).json(err);
   }
@@ -245,6 +287,58 @@ async function showUserExperiences(req, res) {
   }
 }
 
+async function getTagName(req, res) {
+  try {
+    const { tagSlug } = req.params;
+
+    // Helper function to create URL slug (same logic as frontend)
+    const createUrlSlug = (str) => {
+      return str
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    };
+
+    // Find the first experience that has a tag matching the slug
+    const experience = await Experience.findOne({
+      experience_type: { $exists: true, $ne: [] }
+    }).exec();
+
+    if (!experience) {
+      return res.status(404).json({ error: 'No tags found' });
+    }
+
+    // Get all experiences to find all matching tags
+    const allExperiences = await Experience.find({
+      experience_type: { $exists: true, $ne: [] }
+    }).exec();
+
+    // Find the matching tag name
+    for (const exp of allExperiences) {
+      if (exp.experience_type && Array.isArray(exp.experience_type)) {
+        // Flatten array - some old data has ["Tag1, Tag2"] instead of ["Tag1", "Tag2"]
+        const tags = exp.experience_type.flatMap(item =>
+          typeof item === 'string' && item.includes(',')
+            ? item.split(',').map(tag => tag.trim())
+            : item
+        );
+
+        const matchingTag = tags.find(
+          tag => createUrlSlug(tag) === tagSlug
+        );
+        if (matchingTag) {
+          return res.status(200).json({ tagName: matchingTag });
+        }
+      }
+    }
+
+    // If no match found, return the slug as fallback
+    res.status(404).json({ error: 'Tag not found', tagName: tagSlug });
+  } catch (err) {
+    res.status(400).json(err);
+  }
+}
+
 module.exports = {
   create: createExperience,
   show: showExperience,
@@ -258,4 +352,5 @@ module.exports = {
   removeUser,
   userPlanItemDone,
   showUserExperiences,
+  getTagName,
 };

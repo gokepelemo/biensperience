@@ -1,5 +1,4 @@
 import "./FavoriteDestination.css";
-import "./FavoriteDestination.css";
 import { useState, useEffect } from "react";
 import { lang } from "../../lang.constants";
 import {
@@ -11,20 +10,31 @@ export default function FavoriteDestination({ destination, user, getData }) {
   const [favHover, setFavHover] = useState(false);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
-    setIsUserFavorite(destination.users_favorite.indexOf(user._id) !== -1);
-  }, [destination.users_favorite, user._id]);
+    if (destination && user) {
+      setIsUserFavorite(destination.users_favorite?.indexOf(user._id) !== -1);
+    }
+  }, [destination, user]);
   async function handleAddToFavorites(e) {
     if (loading) return;
     setLoading(true);
-    await toggleUserFavoriteDestination(destination._id, user._id);
-    await getData();
-    setLoading(false);
-    // State will update via useEffect when parent passes new destination prop
+    try {
+      // Optimistically update local state for instant feedback
+      setIsUserFavorite(!isUserFavorite);
+      await toggleUserFavoriteDestination(destination._id, user._id);
+      // Then refresh data from server to ensure consistency
+      await getData();
+    } catch (error) {
+      // Revert optimistic update on error
+      setIsUserFavorite(!isUserFavorite);
+      console.error('Failed to toggle favorite:', error);
+    } finally {
+      setLoading(false);
+    }
   }
   return (
     <div>
       <button
-        className="btn btn-light my-4 add-to-fav-btn"
+        className={`btn btn-icon my-4 ${isUserFavorite ? 'btn-favorite-remove' : 'btn-favorite-add'}`}
         onClick={handleAddToFavorites}
         onMouseEnter={() => setFavHover(true)}
         onMouseLeave={() => setFavHover(false)}
@@ -32,10 +42,10 @@ export default function FavoriteDestination({ destination, user, getData }) {
         aria-busy={loading}
       >
         {!isUserFavorite
-          ? lang.en.ADD_FAVORITE_DEST
+          ? loading ? "Adding..." : lang.en.button.addFavoriteDest
           : favHover
-            ? lang.en.UNFAVORITE
-            : lang.en.FAVORITED}
+            ? loading ? "Removing..." : lang.en.button.removeFavoriteDest
+            : loading ? "Updating..." : lang.en.button.favorited}
       </button>
     </div>
   );

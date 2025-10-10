@@ -14,12 +14,12 @@ import { lang } from '../../lang.constants';
  * @param {string} canonical - Canonical URL for the page
  */
 export default function PageMeta({
-  title = lang.en.pageMeta.defaultTitle,
-  description = lang.en.pageMeta.defaultDescription,
-  keywords = lang.en.pageMeta.defaultKeywords,
+  title = lang.en.viewMeta.defaultTitle,
+  description = lang.en.viewMeta.defaultDescription,
+  keywords = lang.en.viewMeta.defaultKeywords,
   ogTitle,
   ogDescription,
-  ogImage = lang.en.pageMeta.defaultOgImage,
+  ogImage = lang.en.viewMeta.defaultOgImage,
   canonical
 }) {
   const location = useLocation();

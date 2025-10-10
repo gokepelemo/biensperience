@@ -3,6 +3,8 @@
  * @module deduplication
  */
 
+import { normalizeString, calculateSimilarity } from './fuzzy-match';
+
 /**
  * Remove duplicates from an array based on a unique ID field
  * @param {Array} array - The array to deduplicate
@@ -94,4 +96,48 @@ export function isDuplicateName(array, name, nameKey = 'name') {
     const itemName = item[nameKey];
     return itemName && itemName.toLowerCase().trim() === normalizedName;
   });
+}
+
+/**
+ * Remove fuzzy duplicates from an array based on name similarity
+ * @param {Array} array - The array to deduplicate
+ * @param {string} nameKey - The key to use for the name field (default: 'name')
+ * @param {number} threshold - Similarity threshold percentage (default: 90)
+ * @returns {Array} - Deduplicated array with fuzzy duplicates removed
+ */
+export function deduplicateFuzzy(array, nameKey = 'name', threshold = 90) {
+  if (!Array.isArray(array) || array.length === 0) {
+    return array;
+  }
+
+  const result = [];
+  const normalized = new Map();
+
+  for (const item of array) {
+    const name = item[nameKey];
+    if (!name) {
+      result.push(item);
+      continue;
+    }
+
+    const normalizedName = normalizeString(name);
+    let isDuplicate = false;
+
+    // Check against all previously added items
+    for (const [existingNormalized, existingItem] of normalized.entries()) {
+      const similarity = calculateSimilarity(normalizedName, existingNormalized);
+      if (similarity >= threshold) {
+        // This is a fuzzy duplicate, skip it
+        isDuplicate = true;
+        break;
+      }
+    }
+
+    if (!isDuplicate) {
+      result.push(item);
+      normalized.set(normalizedName, item);
+    }
+  }
+
+  return result;
 }

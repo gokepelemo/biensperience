@@ -98,66 +98,66 @@ export default function Profile({ user, destinations, updateData }) {
           <PhotoCard photo={currentProfile.photo} title={currentProfile.name} />
           {!currentProfile.photo && isOwner && (
             <small className="d-flex justify-content-center align-items-center noPhoto fade-in">
-              <span>{lang.en.message.noPhotoMessage}</span>
-              <Link to="/profile/edit">{lang.en.message.uploadPhotoNow}</Link>.
+              <span>{lang.en.message.noPhotoMessage} <Link to="/profile/edit">{lang.en.message.uploadPhotoNow}</Link>.</span>
             </small>
           )}
         </div>
         <div className="col-md-6 p-3 fade-in">
-          <ul className="list-group profile-detail fade-in">
-            <li className="list-group-item list-group-item-secondary fw-bold text-center h5 fade-in">
-              {lang.en.heading.favoriteDestinations}
-            </li>
-            <li className="list-group-item list-group-item-secondary h5 profileDestinations fade-in">
-                    {favoriteDestinations.length > 0 ? (
-                      favoriteDestinations.map((destination) => (
-                        <Link className="pill" key={destination._id} to={`/destinations/${destination._id}`}>
-                          <span className="icon"><FaPassport /></span>
-                          {destination.name}
-                        </Link>
-                      ))
-                    ) : (
-                      <p className="noFavoriteDestinations fade-in">
-                        {lang.en.message.noFavoriteDestinations}
-                        <Link to="/destinations">{lang.en.message.addFavoriteDestinations}</Link>
-                        .
-                      </p>
-                    )}
-            </li>
-            <>
-              <li className="list-group-item list-group-item-secondary fw-bold text-center h5 fade-in">
+          <div className="profile-detail-card fade-in">
+            <div className="profile-detail-section">
+              <h5 className="profile-detail-section-title">
+                {lang.en.heading.favoriteDestinations}
+              </h5>
+              <div className="profile-detail-content profileDestinations">
+                {favoriteDestinations.length > 0 ? (
+                  favoriteDestinations.map((destination) => (
+                    <Link className="pill" key={destination._id} to={`/destinations/${destination._id}`}>
+                      <span className="icon"><FaPassport /></span>
+                      {destination.name}
+                    </Link>
+                  ))
+                ) : (
+                  <p className="noFavoriteDestinations fade-in">
+                    {lang.en.message.noFavoriteDestinations}
+                    <Link to="/destinations">{lang.en.message.addFavoriteDestinations}</Link>
+                    .
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="profile-detail-section">
+              <h5 className="profile-detail-section-title">
                 {lang.en.heading.preferredExperienceTypes}
-              </li>
-              <li className="list-group-item list-group-item-secondary h5 fade-in">
-                      {userExperienceTypes.length > 0 ? (
-                        userExperienceTypes.map((type) => (
-                          <Link className="pill" key={type} to={`/experience-types/${createUrlSlug(type)}`}>
-                            <span className="icon"><FaUser /></span>
-                            {type}
-                          </Link>
-                        ))
-                      ) : (
-                        <p className="fade-in">
-                          {lang.en.message.noExperiencesYet}
-                          <Link to="/experiences">{lang.en.message.addExperiences}</Link>.
-                        </p>
-                      )}
-              </li>
-            </>
-          </ul>
+              </h5>
+              <div className="profile-detail-content">
+                {userExperienceTypes.length > 0 ? (
+                  userExperienceTypes.map((type) => (
+                    <Link className="pill" key={type} to={`/experience-types/${createUrlSlug(type)}`}>
+                      <span className="icon"><FaUser /></span>
+                      {type}
+                    </Link>
+                  ))
+                ) : (
+                  <p className="fade-in">
+                    {lang.en.message.noExperiencesYet}
+                    <Link to="/experiences">{lang.en.message.addExperiences}</Link>.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div className="row my-4 fade-in">
         <h4 className="badge rounded-pill text-bg-light badge-nav my-4 fade-in">
           <span
-            className={uiState.experiences ? "fw-bold fade-in" : "fade-in"}
+            className={uiState.experiences ? "fw-bold fade-in active-tab" : "fade-in"}
             onClick={handleExpNav}
           >
             {lang.en.heading.plannedExperiences}
-          </span>{" "}
-          |{" "}
+          </span>
           <span
-            className={uiState.destinations ? "fw-bold fade-in" : "fade-in"}
+            className={uiState.destinations ? "fw-bold fade-in active-tab" : "fade-in"}
             onClick={handleExpNav}
           >
             {lang.en.heading.experienceDestinations}

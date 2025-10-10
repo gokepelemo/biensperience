@@ -1,0 +1,159 @@
+/* Animations */
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+/* Pills */
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+    border-radius: 2rem;
+    padding: 0.75rem 1.5rem;
+    text-decoration: none;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    color: #fff;
+}
+
+.pill .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-pill {
+    background: linear-gradient(90deg, #5f5fff 0%, #7f53ff 100%);
+    border-radius: 2rem;
+    box-shadow: 0 2px 8px rgba(95,95,255,0.10);
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.profile-pill.inactive {
+    background: #e9eaf3;
+    color: #b0b3c6;
+    box-shadow: none;
+}
+
+/* Profile Detail Card */
+.profile-detail-card {
+    background: #f8f9fa;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    animation: fadeInUp 0.5s forwards;
+}
+
+.profile-detail-section {
+    padding: 2rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.profile-detail-section:first-child {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.2);
+}
+
+.profile-detail-section:first-child .profile-detail-section-title {
+    color: white;
+}
+
+.profile-detail-section:first-child p,
+.profile-detail-section:first-child a {
+    color: white;
+}
+
+.profile-detail-section:first-child .pill {
+    background: rgba(255, 255, 255, 0.95);
+    color: #667eea !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.profile-detail-section:first-child .pill:hover {
+    background: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    color: #667eea !important;
+}
+
+.profile-detail-section:first-child .pill .icon,
+.profile-detail-section:first-child .pill svg {
+    color: #667eea !important;
+}
+
+.profile-detail-section:last-child {
+    border-bottom: none;
+}
+
+.profile-detail-section-title {
+    font-weight: 700;
+    font-size: 1.25rem;
+    margin: 0 0 1.25rem 0;
+    color: #333;
+    text-align: center;
+}
+
+.profile-detail-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+}
+
+.noFavoriteDestinations a {
+    text-decoration: underline;
+}
+
+.profileDestinations a {
+    text-decoration: none;
+}
+
+.badge-nav {
+    width: fit-content;
+    margin: 0 auto;
+    font-size: clamp(1rem, 2.25vw, 1.5rem);
+    background: white !important;
+    color: #333 !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 0 !important;
+    overflow: hidden;
+    display: flex;
+}
+
+.badge-nav span {
+    padding: 0.5rem 2rem;
+    font-weight: 400;
+    cursor: pointer;
+    color: #333 !important;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.badge-nav span:first-child {
+    border-radius: 2rem 0 0 2rem;
+}
+
+.badge-nav span:last-child {
+    border-radius: 0 2rem 2rem 0;
+}
+
+.badge-nav span.active-tab {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white !important;
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+    border: 2px solid rgba(102, 126, 234, 0.5);
+}

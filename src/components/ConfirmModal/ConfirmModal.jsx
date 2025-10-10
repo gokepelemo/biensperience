@@ -1,5 +1,6 @@
 import "./ConfirmModal.css";
 import { lang } from "../../lang.constants";
+import { createPortal } from "react-dom";
 
 /**
  * Reusable confirmation modal component
@@ -25,7 +26,7 @@ export default function ConfirmModal({
 }) {
   if (!show) return null;
 
-  return (
+  const modalContent = (
     <div className="modal show d-block modal-backdrop" tabIndex="-1">
       <div className="modal-dialog modal-dialog-centered">
         <div className="modal-content">
@@ -61,4 +62,7 @@ export default function ConfirmModal({
       </div>
     </div>
   );
+
+  // Render modal at document body level to ensure viewport positioning
+  return createPortal(modalContent, document.body);
 }

@@ -1,10 +1,92 @@
 button.logo {
     margin: 0 0.25rem;
-    font-size: 1rem;
-    font-weight: bold;
-    padding: 0 0.25rem;
+    font-size: 2rem; /* Match experience card buttons */
+    font-weight: 400; /* Lighter weight for better centering */
+    padding: 0;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+button.logo:hover {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    transform: scale(1.1);
 }
 
 nav {
     font-weight: bold;
+}
+
+/* Nav link styling with theme colors and padding */
+.navbar .nav-link {
+    padding: 0.75rem 1rem;
+    margin: 0 0.125rem;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.navbar .nav-link:hover,
+.navbar .nav-link:focus {
+    color: #667eea !important;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 0.5rem;
+}
+
+.navbar .nav-link:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+/* Dropdown items */
+.dropdown-menu {
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dropdown-item {
+    padding: 0.75rem 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white !important;
+}
+
+.dropdown-item.active,
+.dropdown-item:active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+}
+
+.dropdown-item:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: -2px;
+}
+
+/* Navbar brand */
+.navbar-brand {
+    padding: 0.5rem 1rem;
+    transition: all 0.3s ease;
+    color: white !important;
+}
+
+.navbar-brand:hover,
+.navbar-brand:focus {
+    color: white !important;
+}
+
+.navbar-brand:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+    border-radius: 0.5rem;
 }

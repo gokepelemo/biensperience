@@ -1,0 +1,107 @@
+/* Favorite Button */
+.add-to-fav-btn {
+    background: linear-gradient(90deg, #4f5bd5 0%, #5f4fd5 100%);
+    border-radius: 999px;
+    box-shadow: 0 2px 8px rgba(79,91,213,0.08);
+    transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+}
+
+.add-to-fav-btn:hover {
+    background: linear-gradient(90deg, #5f4fd5 0%, #4f5bd5 100%);
+    box-shadow: 0 4px 16px rgba(79,91,213,0.18);
+    transform: translateY(-2px);
+}
+
+/* Destination Detail Card */
+.destination-detail-card {
+    background: #f8f9fa;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.destination-detail-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem 2rem;
+    border-bottom: none;
+}
+
+.destination-detail-country {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.5rem;
+    text-align: center;
+}
+
+.destination-detail-section {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.destination-detail-section:last-child {
+    border-bottom: none;
+}
+
+.destination-detail-section-title {
+    font-weight: 700;
+    font-size: 1.25rem;
+    margin: 0 0 1rem 0;
+    color: #333;
+    text-align: center;
+}
+
+.destination-detail-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.destination-detail-link {
+    text-decoration: none;
+    color: #4f5bd5;
+    font-size: 1rem;
+    line-height: 1.6;
+    transition: all 0.2s ease;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+}
+
+.destination-detail-link:hover {
+    background: rgba(79, 91, 213, 0.1);
+    color: #764ba2;
+    transform: translateX(4px);
+}
+
+.destination-detail-tip {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #333;
+    padding: 0.75rem 1rem;
+    background: white;
+    border-radius: 0.5rem;
+    border-left: 4px solid #667eea;
+}
+
+.destination-detail-tip .tip-key {
+    color: #667eea;
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.destination-detail-tip .tip-value {
+    color: #333;
+    font-weight: 400;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

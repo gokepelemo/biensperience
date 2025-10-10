@@ -1,13 +1,35 @@
 .modal-backdrop {
   background-color: rgba(0, 0, 0, 0.5);
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 1050 !important;
 }
 
 .modal.show {
-  display: block;
-  opacity: 1;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 1 !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 1051 !important;
+}
+
+.modal-dialog-centered {
+  margin: 0 auto;
+  position: relative;
+  z-index: 1052;
 }
 
 .modal-content {
   opacity: 1;
   transform: none;
+  position: relative;
+  z-index: 1053;
 }

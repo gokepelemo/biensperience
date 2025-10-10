@@ -27,7 +27,12 @@ yarn-error.log*
 # AI config
 /.claude
 CLAUDE.md
+.github/
 
 # Data files
 addData.js
 getData.js
+sampleData.js
+crud-helper.js
+
+style-guide.md
