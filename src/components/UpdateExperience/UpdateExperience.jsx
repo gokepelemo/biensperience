@@ -1,4 +1,4 @@
-import "./EditExperience.css";
+import "./UpdateExperience.css";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { updateExperience, showExperience } from "../../utilities/experiences-api";
@@ -8,7 +8,7 @@ import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import TagInput from "../../components/TagInput/TagInput";
 import { handleError } from "../../utilities/error-handler";
 
-export default function EditExperience({ user, updateData }) {
+export default function UpdateExperience({ user, updateData }) {
   const { experienceId } = useParams();
   const [experience, setExperience] = useState(null);
   const [destinations, setDestinations] = useState([]);
@@ -198,7 +198,7 @@ export default function EditExperience({ user, updateData }) {
     <>
       <div className="row fade-in">
         <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">{lang.en.heading.editExperience}</h1>
+          <h1 className="my-4 h fade-in">{lang.en.heading.updateExperience}</h1>
         </div>
       </div>
 

@@ -333,9 +333,9 @@ export default function SingleExperience({ user, experiences, updateData }) {
                 <>
                   <button
                     className="btn btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
-                    onClick={() => navigate(`/experiences/${experienceId}/edit`)}
-                    aria-label={lang.en.button.editExperience}
-                    title={lang.en.button.editExperience}
+                    onClick={() => navigate(`/experiences/${experienceId}/update`)}
+                    aria-label={lang.en.button.updateExperience}
+                    title={lang.en.button.updateExperience}
                   >
                     ✏️
                   </button>

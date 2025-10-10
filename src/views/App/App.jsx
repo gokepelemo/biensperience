@@ -15,7 +15,7 @@ import Destinations from "../Destinations/Destinations";
 import Experiences from "../Experiences/Experiences";
 import ExperiencesByTag from "../ExperiencesByTag/ExperiencesByTag";
 import NewExperience from "../../components/NewExperience/NewExperience";
-import EditExperience from "../../components/EditExperience/EditExperience";
+import UpdateExperience from "../../components/UpdateExperience/UpdateExperience";
 import NewDestination from "../../components/NewDestination/NewDestination";
 import Profile from "../Profile/Profile";
 import { getUser } from "../../utilities/users-service";
@@ -158,9 +158,9 @@ export default function App() {
               }
             />
             <Route
-              path="/experiences/:experienceId/edit"
+              path="/experiences/:experienceId/update"
               element={
-                <EditExperience
+                <UpdateExperience
                   user={user}
                   updateData={updateData}
                 />

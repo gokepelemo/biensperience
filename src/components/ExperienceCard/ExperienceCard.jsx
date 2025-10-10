@@ -76,10 +76,10 @@ function ExperienceCard({ experience, user, updateData }) {
             {isOwner && (
               <>
                 <Link
-                  to={`/experiences/${experience._id}/edit`}
+                  to={`/experiences/${experience._id}/update`}
                   className="btn btn-light btn-icon ms-2"
-                  aria-label={lang.en.button.editExperience}
-                  title={lang.en.button.editExperience}
+                  aria-label={lang.en.button.updateExperience}
+                  title={lang.en.button.updateExperience}
                 >
                   ✏️
                 </Link>
