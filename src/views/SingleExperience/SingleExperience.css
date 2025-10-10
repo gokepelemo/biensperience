@@ -188,8 +188,10 @@
     color: #667eea;
 }
 
-.experience-actions {
-    transition: transform 0.2s ease;
+/* Experience Actions Container */
+.experience-actions .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(79, 91, 213, 0.18);
 }
 
 .plan-item-actions {
