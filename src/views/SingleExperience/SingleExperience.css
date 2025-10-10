@@ -151,8 +151,13 @@
 
 .plan-item-tree {
     flex-shrink: 0;
-    width: 30px;
+    width: 40px;
     text-align: center;
+    margin-right: 0.5rem;
+}
+
+.plan-item-title {
+    margin-right: 1rem;
 }
 
 /* Tree Controls */
@@ -176,7 +181,13 @@
 
 .child-arrow {
     font-size: 20px;
-    color: #666;
+    color: #667eea;
+    margin-right: 0.25rem;
+}
+
+.no-child-arrow {
+    font-size: 18px;
+    color: #999;
 }
 
 .plan-item-title a {
