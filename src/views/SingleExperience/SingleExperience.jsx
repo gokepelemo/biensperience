@@ -300,7 +300,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
               <button
                 className={`btn btn-icon my-2 my-sm-4 ${
                   userHasExperience ? "btn-plan-remove" : "btn-plan-add"
-                } fade-in`}
+                } ${loading ? 'loading' : ''} fade-in`}
                 onClick={async () => {
                   if (loading) return;
                   setLoading(true);

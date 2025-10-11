@@ -1,6 +1,6 @@
 import "./ExperienceCard.css";
 import { Link } from "react-router-dom";
-import { useState, useEffect, useCallback, useMemo, memo } from "react";
+import { useState, useCallback, useMemo, memo } from "react";
 import { lang } from "../../lang.constants";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import {
@@ -12,34 +12,47 @@ import { handleError } from "../../utilities/error-handler";
 
 function ExperienceCard({ experience, user, updateData }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
-  const [experienceAdded, setExperienceAdded] = useState(
-    experience.users.map((expUser) => expUser.user).filter((expUser) => expUser._id === user._id).length > 0
-  );
-  const isOwner = experience.user && experience.user._id === user._id;
+  const [isLoading, setIsLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Compute experience added status directly from props - single source of truth
+  // Track users array length to ensure useMemo recomputes when array changes
+  const usersCount = experience?.users?.length || 0;
+
+  const experienceAdded = useMemo(() => {
+    if (!experience?.users || !user?._id) return false;
+    return experience.users.some((expUser) => {
+      const userId = expUser.user?._id || expUser.user;
+      return userId === user._id;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [experience?.users, user?._id, usersCount]);
+
+  const isOwner = experience?.user && experience.user._id === user?._id;
 
   const handleExperienceAction = useCallback(async () => {
-    const previousState = experienceAdded;
-    try {
-      // Optimistically update UI for instant feedback
-      setExperienceAdded(!experienceAdded);
+    if (isLoading) return;
+    setIsLoading(true);
 
+    try {
       if (experienceAdded) {
         await userRemoveExperience(user._id, experience._id);
       } else {
         await userAddExperience(user._id, experience._id);
       }
 
-      // Refresh data from server to ensure consistency
+      // Refresh data from server - this will update the parent's state
+      // which will flow down as new props, updating experienceAdded
       if (updateData) {
         await updateData();
       }
     } catch (err) {
-      // Revert optimistic update on error
-      setExperienceAdded(previousState);
       handleError(err, { context: experienceAdded ? 'Remove experience' : 'Add experience' });
+    } finally {
+      setIsLoading(false);
     }
-  }, [experienceAdded, user._id, experience._id, updateData]);
+  }, [isLoading, experienceAdded, user._id, experience._id, updateData]);
 
   const handleDelete = useCallback(async () => {
     try {
@@ -50,12 +63,6 @@ function ExperienceCard({ experience, user, updateData }) {
       handleError(err, { context: 'Delete experience' });
     }
   }, [experience._id, updateData]);
-
-  useEffect(() => {
-    setExperienceAdded(
-      experience.users.map((expUser) => expUser.user).filter((expUser) => expUser._id === user._id).length > 0
-    );
-  }, [experience.users, user._id])
   return (
     <div className="d-inline-block m-2" style={{ width: 'fit-content', verticalAlign: 'top' }}>
       {experience ? (
@@ -70,13 +77,16 @@ function ExperienceCard({ experience, user, updateData }) {
           </Link>
           <div className="experience-card-actions d-flex gap-2 flex-shrink-0">
             <button
-              className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'}`}
+              className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'} ${isLoading ? 'loading' : ''}`}
               type="button"
               onClick={handleExperienceAction}
+              disabled={isLoading}
               aria-label={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
               title={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
             >
-              {experienceAdded ? "-" : "✚"}
+              {experienceAdded ? (isHovered ? "-" : "✅") : "✚"}
             </button>
             {isOwner && (
               <>
@@ -112,8 +122,9 @@ function ExperienceCard({ experience, user, updateData }) {
           </Link>
           <div className="experience-card-actions d-flex gap-2 flex-shrink-0">
             <button
-              className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'}`}
+              className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'} ${isLoading ? 'loading' : ''}`}
               onClick={handleExperienceAction}
+              disabled={isLoading}
               aria-label={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
               title={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
             >

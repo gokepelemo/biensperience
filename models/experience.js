@@ -1,6 +1,12 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
+const photoObjectSchema = new Schema({
+  url: { type: String, required: true },
+  photo_credit: { type: String, default: 'Unknown' },
+  photo_credit_url: { type: String }
+}, { _id: false });
+
 const planItemSchema = new Schema({
   text: { type: String },
   photo: { type: Schema.Types.ObjectId, ref: "Photo" },
@@ -26,7 +32,12 @@ const experienceSchema = new Schema(
     },
     experience_type: [String],
     plan_items: [planItemSchema],
-    photo: { type: Schema.Types.ObjectId, ref: "Photo" },
+    photo: { type: Schema.Types.ObjectId, ref: "Photo" }, // Keep for backward compatibility during migration
+    photos: {
+      type: [photoObjectSchema],
+      default: []
+    },
+    default_photo_index: { type: Number, default: 0 },
     user: {
       type: Schema.Types.ObjectId,
       ref: "User",

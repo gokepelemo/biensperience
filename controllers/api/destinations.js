@@ -125,7 +125,7 @@ async function updateDestination(req, res) {
     }
 
     destination = Object.assign(destination, req.body);
-    destination.save();
+    await destination.save();
     res.status(200).json(destination);
   } catch (err) {
     console.error('Error updating destination:', err);
@@ -154,11 +154,11 @@ async function toggleUserFavoriteDestination(req, res) {
     const idx = destination.users_favorite.indexOf(user._id);
     if (idx === -1) {
       destination.users_favorite.push(user._id);
-      destination.save();
+      await destination.save();
       res.status(201).json(destination);
     } else {
       destination.users_favorite.splice(idx, 1);
-      destination.save();
+      await destination.save();
       res.status(200).json(destination);
     }
   } catch (err) {

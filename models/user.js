@@ -15,6 +15,12 @@ const bcrypt = require("bcrypt");
  */
 const SALT_ROUNDS = parseInt(6);
 
+const photoObjectSchema = new Schema({
+  url: { type: String, required: true },
+  photo_credit: { type: String, default: 'Unknown' },
+  photo_credit_url: { type: String }
+}, { _id: false });
+
 /**
  * Mongoose schema for User model
  * @type {mongoose.Schema}
@@ -54,14 +60,29 @@ const userSchema = new Schema(
     },
 
     /**
-     * Reference to user's profile photo
+     * Reference to user's profile photo (kept for backward compatibility)
      * @type {mongoose.Schema.Types.ObjectId}
      * @ref Photo
      */
     photo: {
       type: Schema.Types.ObjectId,
       ref: "Photo",
-    }
+    },
+
+    /**
+     * Array of photo objects for user profile
+     * @type {Array}
+     */
+    photos: {
+      type: [photoObjectSchema],
+      default: []
+    },
+
+    /**
+     * Index of the default photo in photos array
+     * @type {number}
+     */
+    default_photo_index: { type: Number, default: 0 }
   },
   {
     timestamps: true,

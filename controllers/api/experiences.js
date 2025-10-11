@@ -204,26 +204,39 @@ async function addUser(req, res) {
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate("users.user");
-    let idx = experience.users
-      .map((user) => user.user)
-      .indexOf(req.params.userId);
-    if (idx === -1) {
+
+    // Check if user already exists using consistent ID comparison
+    const userExists = experience.users.some(
+      (u) => u.user._id.toString() === req.params.userId
+    );
+
+    if (!userExists) {
       let newUser = {
         user: req.params.userId,
         plan: [],
         planned_date: req.body.planned_date ? new Date(req.body.planned_date) : null,
       };
       experience.users.push(newUser);
+
+      // Save and wait for completion before responding
+      await experience.save();
+
+      // Re-fetch to get populated data
+      experience = await Experience.findById(req.params.experienceId)
+        .populate("destination")
+        .populate("users.user");
     } else {
       console.log(lang.en.logMessages.userAlreadyAdded);
     }
+
+    // Sanitize user data
     experience.users.forEach((user, index) => {
       experience.users[index].user = Object.assign(user.user, {
         password: null,
         email: null,
       });
     });
-    experience.save();
+
     res.status(201).json(experience);
   } catch (err) {
     console.error('Error adding user to experience:', err);
@@ -236,21 +249,34 @@ async function removeUser(req, res) {
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate("users.user");
-    let idx = experience.users
-      .map((user) => user.user.id)
-      .indexOf(req.params.userId);
+
+    // Find user index using consistent ID comparison
+    const idx = experience.users.findIndex(
+      (u) => u.user._id.toString() === req.params.userId
+    );
+
     if (idx !== -1) {
       experience.users.splice(idx, 1);
+
+      // Save and wait for completion before responding
+      await experience.save();
+
+      // Re-fetch to get populated data
+      experience = await Experience.findById(req.params.experienceId)
+        .populate("destination")
+        .populate("users.user");
     } else {
       console.log(lang.en.logMessages.userRemovedFromExperience);
     }
-    experience.save();
+
+    // Sanitize user data
     experience.users.forEach((user, index) => {
       experience.users[index].user = Object.assign(user.user, {
         password: null,
         email: null,
       });
     });
+
     res.status(200).json(experience);
   } catch (err) {
     console.error('Error removing user from experience:', err);

@@ -7,6 +7,7 @@ const photosCtrl = require('../../controllers/api/photos');
 const ensureLoggedIn = require('../../config/ensureLoggedIn')
 
 router.post('/', ensureLoggedIn, upload.single('image'), photosCtrl.create);
+router.post('/url', ensureLoggedIn, photosCtrl.createFromUrl);
 router.delete('/:id', ensureLoggedIn, photosCtrl.delete);
 router.put('/:id', ensureLoggedIn, photosCtrl.update);
 

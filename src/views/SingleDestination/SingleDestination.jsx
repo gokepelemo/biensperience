@@ -2,7 +2,6 @@ import "./SingleDestination.css";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { showDestination } from "../../utilities/destinations-api";
-import { getExperiences } from "../../utilities/experiences-api";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
@@ -17,30 +16,41 @@ export default function SingleDestination({
   updateData,
 }) {
   const { destinationId } = useParams();
-  const [destination, setDestination] = useState(
-    destinations.filter((destination) => destination._id === destinationId)[0]
-  );
-  const [destinationExperiences, setDestinationExperiences] = useState(
-    experiences.filter(
-      (experience) => experience.destination._id === destinationId
-    )
-  );
-    const getData = useCallback(async () => {
-      let destinationData = await showDestination(destinationId);
-      let experienceData = await getExperiences();
+  const [destination, setDestination] = useState(null);
+  const [destinationExperiences, setDestinationExperiences] = useState([]);
+
+  const getData = useCallback(async () => {
+    try {
+      // Fetch destination data and update global state in parallel
+      const [destinationData] = await Promise.all([
+        showDestination(destinationId),
+        updateData()
+      ]);
       setDestination(destinationData);
-      setDestinationExperiences(
-        experienceData.filter(
-          (experience) => experience.destination._id === destinationId
-        )
-      );
-      updateData();
-    }, [destinationId, updateData]);
-    useEffect(() => {
-      if (!destination || !destinationExperiences) {
-        getData();
-      }
-    }, [destination, destinationExperiences, getData]);
+    } catch (error) {
+      console.error('Error fetching destination:', error);
+    }
+  }, [destinationId, updateData]);
+
+  // Update local state when global destinations or experiences change
+  useEffect(() => {
+    const foundDestination = destinations.find((dest) => dest._id === destinationId);
+    if (foundDestination) {
+      setDestination(foundDestination);
+    }
+  }, [destinations, destinationId]);
+
+  useEffect(() => {
+    const filteredExperiences = experiences.filter(
+      (experience) => experience.destination._id === destinationId
+    );
+    setDestinationExperiences(filteredExperiences);
+  }, [experiences, destinationId]);
+
+  // Initial data fetch when destinationId changes
+  useEffect(() => {
+    getData();
+  }, [getData]);
   return (
     <>
       {destination && (
@@ -67,7 +77,7 @@ export default function SingleDestination({
                     : destination.state}
                 </h1>
               </div>
-              <div className="d-flex col-md-6 justify-content-end align-items-center">
+              <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center">
                 {user && <FavoriteDestination destination={destination} user={user} getData={getData} />}
               </div>
             </div>
@@ -151,8 +161,7 @@ export default function SingleDestination({
                 ))
               ) : (
                 <p className="alert alert-info">
-                  {lang.en.alert.noExperiencesInDestination}
-                  <Link to="/experiences/new">{lang.en.message.addOneNow}</Link>?
+                  {lang.en.alert.noExperiencesInDestination} <Link to="/experiences/new">{lang.en.message.addOneNow}</Link>?
                 </p>
               )}
             </div>

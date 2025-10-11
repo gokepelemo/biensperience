@@ -39,6 +39,10 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:api": "NODE_ENV=test jest --testPathPattern=tests/api",
+    "test:api:debug": "DEBUG=true NODE_ENV=test jest --testPathPattern=tests/api --verbose",
+    "test:api:watch": "NODE_ENV=test jest --testPathPattern=tests/api --watch",
+    "test:api:coverage": "NODE_ENV=test jest --testPathPattern=tests/api --coverage",
     "eject": "react-scripts eject",
     "build:digitalocean": "npm install && npm run build",
     "pm2:start": "pm2 start ecosystem.config.js --env production",
@@ -66,6 +70,11 @@
   },
   "proxy": "http://localhost:3001",
   "devDependencies": {
-    "@babel/plugin-proposal-private-property-in-object": "^7.21.11"
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@types/jest": "^30.0.0",
+    "@types/supertest": "^6.0.3",
+    "jest": "^27.5.1",
+    "mongodb-memory-server": "^10.2.3",
+    "supertest": "^7.1.4"
   }
 }

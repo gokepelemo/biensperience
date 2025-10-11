@@ -76,8 +76,33 @@ async function deletePhoto(req, res) {
   }
 }
 
+async function createPhotoFromUrl(req, res) {
+  try {
+    req.body.user = req.user._id;
+
+    const { url, photo_credit, photo_credit_url } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ error: 'Photo URL is required' });
+    }
+
+    const photo = await Photo.create({
+      photo_credit: photo_credit || 'Unknown',
+      photo_credit_url: photo_credit_url || url,
+      url: url,
+      user: req.user._id,
+    });
+
+    res.status(201).json({ upload: photo.toObject() });
+  } catch (err) {
+    console.error("Photo URL creation error:", err);
+    res.status(400).json({ error: 'Failed to create photo from URL' });
+  }
+}
+
 module.exports = {
   create: createPhoto,
+  createFromUrl: createPhotoFromUrl,
   delete: deletePhoto,
   update: updatePhoto,
 };

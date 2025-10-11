@@ -17,7 +17,8 @@ export default function Profile({ user, destinations, updateData }) {
   let { profileId } = useParams();
   let userId = profileId ? profileId : user._id;
   const isOwner = !profileId || profileId === user._id;
-  const [currentProfile, setCurrentProfile] = useState(user);
+  const [currentProfile, setCurrentProfile] = useState(isOwner ? user : null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(!isOwner);
   const [uiState, setUiState] = useState({
     experiences: true,
     destinations: false,
@@ -48,14 +49,18 @@ export default function Profile({ user, destinations, updateData }) {
 
   // Deduplicate favorite destinations by ID
   const favoriteDestinations = useMemo(() => {
+    if (!currentProfile) return [];
     const filtered = destinations.filter(
       (destination) =>
         destination.users_favorite.indexOf(currentProfile._id) !== -1
     );
     return deduplicateById(filtered);
-  }, [destinations, currentProfile._id]);
+  }, [destinations, currentProfile]);
 
   const getProfile = useCallback(async () => {
+    if (!isOwner) {
+      setIsLoadingProfile(true);
+    }
     try {
       const [userData, experienceData] = await Promise.all([
         getUserData(userId),
@@ -65,8 +70,10 @@ export default function Profile({ user, destinations, updateData }) {
       setUserExperiences(experienceData);
     } catch (err) {
       handleError(err, { context: 'Load profile' });
+    } finally {
+      setIsLoadingProfile(false);
     }
-  }, [userId]);
+  }, [userId, isOwner]);
 
   useEffect(() => {
     getProfile();
@@ -80,26 +87,40 @@ export default function Profile({ user, destinations, updateData }) {
   }, [uiState.experiences, uiState.destinations]);
   return (
     <>
-      <PageMeta
-        title={`${currentProfile.name}'s Profile`}
-        description={`View ${currentProfile.name}'s travel profile on Biensperience. Discover their planned experiences${uniqueUserExperiences.length > 0 ? ` (${uniqueUserExperiences.length} experiences)` : ''} and favorite destinations${favoriteDestinations.length > 0 ? ` (${favoriteDestinations.length} destinations)` : ''}.`}
-        keywords={`${currentProfile.name}, travel profile, experiences, destinations, travel planning${userExperienceTypes.length > 0 ? `, ${userExperienceTypes.join(', ')}` : ''}`}
-        ogTitle={`${currentProfile.name} on Biensperience`}
-        ogDescription={`${currentProfile.name} is planning ${uniqueUserExperiences.length} travel experiences${favoriteDestinations.length > 0 ? ` across ${favoriteDestinations.length} favorite destinations` : ''}.`}
-        ogImage={currentProfile.photo || '/logo.png'}
-      />
+      {currentProfile && (
+        <PageMeta
+          title={`${currentProfile.name}'s Profile`}
+          description={`View ${currentProfile.name}'s travel profile on Biensperience. Discover their planned experiences${uniqueUserExperiences.length > 0 ? ` (${uniqueUserExperiences.length} experiences)` : ''} and favorite destinations${favoriteDestinations.length > 0 ? ` (${favoriteDestinations.length} destinations)` : ''}.`}
+          keywords={`${currentProfile.name}, travel profile, experiences, destinations, travel planning${userExperienceTypes.length > 0 ? `, ${userExperienceTypes.join(', ')}` : ''}`}
+          ogTitle={`${currentProfile.name} on Biensperience`}
+          ogDescription={`${currentProfile.name} is planning ${uniqueUserExperiences.length} travel experiences${favoriteDestinations.length > 0 ? ` across ${favoriteDestinations.length} favorite destinations` : ''}.`}
+          ogImage={currentProfile.photo || '/logo.png'}
+        />
+      )}
       <div className="row fade-in">
         <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">{currentProfile.name}</h1>
+          <h1 className="my-4 h fade-in">
+            {isLoadingProfile ? (
+              <span className="loading-skeleton loading-skeleton-text"></span>
+            ) : (
+              currentProfile?.name
+            )}
+          </h1>
         </div>
       </div>
       <div className="row mb-4 fade-in">
         <div className="col-md-6 p-3 fade-in">
-          <PhotoCard photo={currentProfile.photo} title={currentProfile.name} />
-          {!currentProfile.photo && isOwner && (
-            <small className="d-flex justify-content-center align-items-center noPhoto fade-in">
-              <span>{lang.en.message.noPhotoMessage} <Link to="/profile/edit">{lang.en.message.uploadPhotoNow}</Link>.</span>
-            </small>
+          {isLoadingProfile ? (
+            <div className="photoCard loading-skeleton loading-skeleton-photo"></div>
+          ) : (
+            <>
+              <PhotoCard photo={currentProfile?.photo} title={currentProfile?.name} />
+              {!currentProfile?.photo && isOwner && (
+                <small className="d-flex justify-content-center align-items-center noPhoto fade-in">
+                  <span>{lang.en.message.noPhotoMessage} <Link to="/profile/edit">{lang.en.message.uploadPhotoNow}</Link>.</span>
+                </small>
+              )}
+            </>
           )}
         </div>
         <div className="col-md-6 p-3 fade-in">

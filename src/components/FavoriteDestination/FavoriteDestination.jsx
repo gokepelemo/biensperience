@@ -1,43 +1,41 @@
 import "./FavoriteDestination.css";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { lang } from "../../lang.constants";
 import {
   toggleUserFavoriteDestination,
 } from "../../utilities/destinations-api";
 
 export default function FavoriteDestination({ destination, user, getData }) {
-  const [isUserFavorite, setIsUserFavorite] = useState(false);
   const [favHover, setFavHover] = useState(false);
   const [loading, setLoading] = useState(false);
-  useEffect(() => {
-    if (destination && user) {
-      setIsUserFavorite(destination.users_favorite?.indexOf(user._id) !== -1);
-    }
-  }, [destination, user]);
-  async function handleAddToFavorites(e) {
+
+  // Compute favorite status directly from props - single source of truth
+  const isUserFavorite = destination?.users_favorite?.includes(user?._id) || false;
+
+  async function handleAddToFavorites() {
     if (loading) return;
     setLoading(true);
-    const previousState = isUserFavorite;
+
     try {
-      // Optimistically update local state for instant feedback
-      setIsUserFavorite(!isUserFavorite);
+      // Make the API call - backend saves to database
       await toggleUserFavoriteDestination(destination._id, user._id);
-      // Then refresh data from server to ensure consistency
+
+      // Refresh data from server - this will update the parent's state
+      // which will flow down as a new prop, updating isUserFavorite
       if (getData) {
         await getData();
       }
     } catch (error) {
-      // Revert optimistic update on error
-      setIsUserFavorite(previousState);
       console.error('Failed to toggle favorite:', error);
+      alert('Failed to update favorite. Please try again.');
     } finally {
       setLoading(false);
     }
   }
   return (
-    <div>
+    <div className="favorite-destination-wrapper">
       <button
-        className={`btn btn-icon my-4 ${isUserFavorite ? 'btn-favorite-remove' : 'btn-favorite-add'}`}
+        className={`btn btn-icon my-4 ${isUserFavorite ? 'btn-favorite-remove' : 'btn-favorite-add'} ${loading ? 'loading' : ''}`}
         onClick={handleAddToFavorites}
         onMouseEnter={() => setFavHover(true)}
         onMouseLeave={() => setFavHover(false)}
@@ -45,10 +43,10 @@ export default function FavoriteDestination({ destination, user, getData }) {
         aria-busy={loading}
       >
         {!isUserFavorite
-          ? loading ? "Adding..." : lang.en.button.addFavoriteDest
+          ? lang.en.button.addFavoriteDest
           : favHover
-            ? loading ? "Removing..." : lang.en.button.removeFavoriteDest
-            : loading ? "Removing..." : lang.en.button.favorited}
+            ? lang.en.button.removeFavoriteDest
+            : lang.en.button.favorited}
       </button>
     </div>
   );
