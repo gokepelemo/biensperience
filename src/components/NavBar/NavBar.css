@@ -151,3 +151,18 @@ nav {
     outline-offset: 2px;
     border-radius: 0.5rem;
 }
+
+/* Custom collapse transitions for mobile menu */
+.navbar-collapse.collapsing {
+    height: 0;
+    overflow: hidden;
+    transition: height 0.35s ease;
+}
+
+.navbar-collapse.collapse:not(.show) {
+    display: none;
+}
+
+.navbar-collapse.collapse.show {
+    display: block;
+}

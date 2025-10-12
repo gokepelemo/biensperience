@@ -3,13 +3,14 @@
    =========================================== */
 
 /* Base transition for interactive elements (more selective than *) */
-a,
-button:not(.dropdown-toggle),
+/* Exclude Bootstrap collapse elements from our custom transitions */
+a:not(.navbar-collapse *),
+button:not(.dropdown-toggle):not(.navbar-toggler),
 input,
 textarea,
 select,
 .card,
-.btn,
+.btn:not(.navbar-toggler),
 .form-control,
 .nav-link:not(.dropdown-toggle) {
   transition: all 0.2s ease-in-out;
@@ -315,13 +316,8 @@ img.loaded {
    COLLAPSE ANIMATIONS
    =========================================== */
 
-.collapse {
-  transition: height 0.35s ease;
-}
-
-.collapsing {
-  transition: height 0.35s ease;
-}
+/* Let Bootstrap handle collapse animations natively */
+/* Removed custom .collapse and .collapsing styles to prevent conflicts */
 
 /* ===========================================
    BADGE ANIMATIONS

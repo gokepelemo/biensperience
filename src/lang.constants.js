@@ -133,7 +133,7 @@ const en = {
     nameRequired: "Give your experience an exciting name that captures what makes it special! ✨",
     destinationRequired:
       "Pick where this adventure takes place, or ",
-    createNewDestination: "add a new destination to our map! 🗺️",
+    createNewDestination: "Add a new destination to our map 🗺️",
     experienceTypesOptional:
       "Tag your experience to help others discover it (food, adventure, culture, etc.)",
     addressOptional: "Add a specific address if you have one - totally optional! 📍",

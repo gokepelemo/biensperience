@@ -1,24 +1,93 @@
 import { NavLink } from "react-router-dom";
 import "./NavBar.css"
 import * as usersService from "../../utilities/users-service.js";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export default function NavBar({ user, setUser }) {
+  const collapseRef = useRef(null);
+  const toggleRef = useRef(null);
+  
   function handleLogOut() {
     usersService.logout();
     setUser(null);
   }
   
-  // Initialize Bootstrap dropdowns
   useEffect(() => {
-    // Dynamically import Bootstrap's Dropdown component
+    const collapseEl = collapseRef.current;
+    const toggleBtn = toggleRef.current;
+    
+    if (!collapseEl || !toggleBtn) return;
+    
+    // Custom toggle handler for mobile collapse
+    const handleToggle = (e) => {
+      e.preventDefault();
+      
+      const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+      
+      if (isExpanded) {
+        // Close the menu
+        collapseEl.style.height = collapseEl.scrollHeight + 'px';
+        collapseEl.classList.remove('show');
+        collapseEl.classList.add('collapsing');
+        
+        // Force reflow to trigger transition
+        void collapseEl.offsetHeight;
+        
+        collapseEl.style.height = '0';
+        toggleBtn.setAttribute('aria-expanded', 'false');
+        toggleBtn.classList.add('collapsed');
+        
+        setTimeout(() => {
+          collapseEl.classList.remove('collapsing');
+          collapseEl.style.height = '';
+        }, 350);
+      } else {
+        // Open the menu
+        collapseEl.classList.add('collapsing');
+        collapseEl.style.height = '0';
+        
+        // Force reflow to trigger transition
+        void collapseEl.offsetHeight;
+        
+        const height = collapseEl.scrollHeight;
+        collapseEl.style.height = height + 'px';
+        toggleBtn.setAttribute('aria-expanded', 'true');
+        toggleBtn.classList.remove('collapsed');
+        
+        setTimeout(() => {
+          collapseEl.classList.remove('collapsing');
+          collapseEl.classList.add('show');
+          collapseEl.style.height = '';
+        }, 350);
+      }
+    };
+    
+    toggleBtn.addEventListener('click', handleToggle);
+    
+    // Initialize Bootstrap Dropdown for the user menu
+    // Import dynamically to avoid bundle bloat
+    let dropdownInstance = null;
+    
     import('bootstrap/js/dist/dropdown').then((module) => {
       const Dropdown = module.default;
-      const dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
-      dropdownElementList.map(function (dropdownToggleEl) {
-        return new Dropdown(dropdownToggleEl);
-      });
+      const dropdownToggle = document.querySelector('.navbar .dropdown-toggle');
+      
+      if (dropdownToggle) {
+        // Initialize dropdown
+        dropdownInstance = new Dropdown(dropdownToggle);
+        console.log('Dropdown initialized successfully');
+      }
+    }).catch(err => {
+      console.error('Failed to initialize dropdown:', err);
     });
+    
+    return () => {
+      toggleBtn.removeEventListener('click', handleToggle);
+      // Cleanup dropdown instance
+      if (dropdownInstance && typeof dropdownInstance.dispose === 'function') {
+        dropdownInstance.dispose();
+      }
+    };
   }, []);
   
   return (
@@ -37,17 +106,16 @@ export default function NavBar({ user, setUser }) {
           Biensperience <button className="btn btn-light btn-sm logo" aria-hidden="true">✚</button>
         </NavLink>
         <button
-          className="navbar-toggler"
+          ref={toggleRef}
+          className="navbar-toggler collapsed"
           type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarText"
           aria-controls="navbarText"
           aria-expanded="false"
           aria-label="Toggle navigation menu"
         >
           <span className="navbar-toggler-icon"></span>
         </button>
-        <div className="collapse navbar-collapse" id="navbarText">
+        <div ref={collapseRef} className="collapse navbar-collapse" id="navbarText">
           <ul className="navbar-nav me-auto mb-2 mb-lg-0 d-flex" role="menubar">
             <li className="nav-item" role="none">
               <NavLink

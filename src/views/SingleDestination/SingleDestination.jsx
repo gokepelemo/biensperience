@@ -183,7 +183,7 @@ export default function SingleDestination({
                   {destination.country && (
                     <div className="destination-detail-header">
                       <h4 className="destination-detail-country">
-                        {`${lang.en.label.country} ${destination.country}`}
+                        {`${lang.en.label.country}: ${destination.country}`}
                       </h4>
                     </div>
                   )}
