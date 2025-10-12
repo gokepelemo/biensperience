@@ -1,4 +1,4 @@
-import * as usersAPI from "./users-api"
+import * as usersAPI from "./users-api.js"
 
 /**
  * Signs up a new user and stores their authentication token.
@@ -31,12 +31,29 @@ export function getToken() {
     try {
         const token = localStorage.getItem('token');
         if (!token) return null;
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.exp < Date.now() / 1000) {
-            localStorage.removeItem('token')
+        
+        // Validate token format (should be 3 parts separated by dots)
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+            console.warn('Invalid token format - removing corrupted token');
+            localStorage.removeItem('token');
             return null;
         }
-        return token;
+        
+        // Try to decode the payload
+        try {
+            const payload = JSON.parse(atob(parts[1]));
+            if (payload.exp < Date.now() / 1000) {
+                localStorage.removeItem('token');
+                return null;
+            }
+            return token;
+        } catch (decodeError) {
+            // Token is corrupted or invalid
+            console.warn('Failed to decode token - removing corrupted token:', decodeError.message);
+            localStorage.removeItem('token');
+            return null;
+        }
     } catch (error) {
         // Handle Safari private browsing mode or other localStorage issues
         console.warn('localStorage access failed:', error);

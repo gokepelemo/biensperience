@@ -5,6 +5,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import NewPlanItem from "../../components/NewPlanItem/NewPlanItem";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import PageMeta from "../../components/PageMeta/PageMeta";
+import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import {
   showExperience,
   userAddExperience,
@@ -13,7 +14,12 @@ import {
   deleteExperience,
   deletePlanItem,
 } from "../../utilities/experiences-api";
-import { formatDateShort, formatDateForInput, getMinimumPlanningDate, isValidPlannedDate } from "../../utilities/date-utils";
+import {
+  formatDateShort,
+  formatDateForInput,
+  getMinimumPlanningDate,
+  isValidPlannedDate,
+} from "../../utilities/date-utils";
 import { handleError } from "../../utilities/error-handler";
 import debug from "../../utilities/debug";
 
@@ -32,7 +38,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
   const [loading, setLoading] = useState(false);
   const [hoveredPlanItem, setHoveredPlanItem] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [plannedDate, setPlannedDate] = useState('');
+  const [plannedDate, setPlannedDate] = useState("");
   const [userPlannedDate, setUserPlannedDate] = useState(null);
   const [expandedParents, setExpandedParents] = useState(new Set());
   const [animatingCollapse, setAnimatingCollapse] = useState(null);
@@ -42,13 +48,13 @@ export default function SingleExperience({ user, experiences, updateData }) {
   const [planItemToDelete, setPlanItemToDelete] = useState(null);
 
   const toggleExpanded = useCallback((parentId) => {
-    setExpandedParents(prev => {
+    setExpandedParents((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(parentId)) {
         // collapsing
         setAnimatingCollapse(parentId);
         setTimeout(() => {
-          setExpandedParents(prev => {
+          setExpandedParents((prev) => {
             const newSet = new Set(prev);
             newSet.delete(parentId);
             return newSet;
@@ -66,23 +72,28 @@ export default function SingleExperience({ user, experiences, updateData }) {
   const fetchExperience = useCallback(async () => {
     try {
       const experienceData = await showExperience(experienceId);
-      debug.log('Experience data:', experienceData);
-      debug.log('Experience user:', experienceData.user);
+      debug.log("Experience data:", experienceData);
+      debug.log("Experience user:", experienceData.user);
       setExperience(experienceData);
       // Set isOwner if current user is the creator
-      setIsOwner(experienceData.user && experienceData.user._id.toString() === user._id);
+      setIsOwner(
+        experienceData.user && experienceData.user._id.toString() === user._id
+      );
       // Set userHasExperience if user is in experience.users
       setUserHasExperience(
-        experienceData.users && experienceData.users.some(u => u.user._id === user._id)
+        experienceData.users &&
+          experienceData.users.some((u) => u.user._id === user._id)
       );
       // Set travelTips if present
       setTravelTips(experienceData.travel_tips || []);
       // Set planItems done state for current user
       if (experienceData.users) {
-        const userObj = experienceData.users.find(u => u.user._id === user._id);
+        const userObj = experienceData.users.find(
+          (u) => u.user._id === user._id
+        );
         if (userObj && userObj.plan) {
           const doneMap = {};
-          userObj.plan.forEach(item => {
+          userObj.plan.forEach((item) => {
             doneMap[item] = true;
           });
           setPlanItems(doneMap);
@@ -90,10 +101,12 @@ export default function SingleExperience({ user, experiences, updateData }) {
         setUserPlannedDate(userObj ? userObj.planned_date : null);
       }
       // Set expanded parents (all parents expanded by default)
-      const parentIds = experienceData.plan_items.filter(item => !item.parent).map(item => item._id);
+      const parentIds = experienceData.plan_items
+        .filter((item) => !item.parent)
+        .map((item) => item._id);
       setExpandedParents(new Set(parentIds));
     } catch (err) {
-      debug.error('Error fetching experience:', err);
+      debug.error("Error fetching experience:", err);
       setExperience(null);
     }
   }, [experienceId, user._id]);
@@ -130,99 +143,119 @@ export default function SingleExperience({ user, experiences, updateData }) {
     } catch (err) {
       // Revert on error
       setUserHasExperience(previousState);
-      handleError(err, { context: 'Remove experience' });
+      handleError(err, { context: "Remove experience" });
     }
   }, [experience, user, userHasExperience, fetchExperience]);
 
-  const handleAddExperience = useCallback(async (data = null) => {
-    const addData = data !== null ? data : (plannedDate ? { planned_date: plannedDate } : {});
-    const previousState = userHasExperience;
-    try {
-      // Optimistically update UI
-      setUserHasExperience(true);
-      setShowDatePicker(false);
-      setPlannedDate('');
-      setUserPlannedDate(addData.planned_date || null);
+  const handleAddExperience = useCallback(
+    async (data = null) => {
+      const addData =
+        data !== null ? data : plannedDate ? { planned_date: plannedDate } : {};
+      const previousState = userHasExperience;
+      try {
+        // Optimistically update UI
+        setUserHasExperience(true);
+        setShowDatePicker(false);
+        setIsEditingDate(false);
+        setPlannedDate("");
+        setUserPlannedDate(addData.planned_date || null);
 
-      await userAddExperience(user._id, experience._id, addData);
+        await userAddExperience(user._id, experience._id, addData);
 
-      // Refresh experience data to get latest state
-      await fetchExperience();
-    } catch (err) {
-      // Revert on error
-      setUserHasExperience(previousState);
-      setShowDatePicker(true);
-      handleError(err, { context: 'Add experience' });
-    }
-  }, [user._id, experience?._id, plannedDate, userHasExperience, fetchExperience]);
+        // Refresh experience data to get latest state
+        await fetchExperience();
+      } catch (err) {
+        // Revert on error
+        setUserHasExperience(previousState);
+        setShowDatePicker(true);
+        handleError(err, { context: "Add experience" });
+      }
+    },
+    [user._id, experience?._id, plannedDate, userHasExperience, fetchExperience]
+  );
 
   const handleDeleteExperience = useCallback(async () => {
     if (!experience || !isOwner) return;
     try {
       await deleteExperience(experience._id);
       updateData && updateData();
-      navigate('/experiences');
+      navigate("/experiences");
     } catch (err) {
-      handleError(err, { context: 'Delete experience' });
+      handleError(err, { context: "Delete experience" });
     }
   }, [experience, isOwner, navigate, updateData]);
 
-  const handlePlanEdit = useCallback((e) => {
-    const planItemIdx = parseInt(e.currentTarget.getAttribute('data-idx'));
-    const planItem = experience.plan_items[planItemIdx];
-    if (planItem) {
-      setNewPlanItem({
-        _id: planItem._id,
-        text: planItem.text,
-        url: planItem.url || '',
-        cost_estimate: planItem.cost_estimate || 0,
-        planning_days: planItem.planning_days || 0,
-        parent: planItem.parent || '',
-      });
-      setFormState(0);
-      setFormVisible(true);
-    }
-  }, [experience]);
-
-  const handlePlanDelete = useCallback(async (planItemId) => {
-    if (!experience || !planItemId) return;
-    try {
-      await deletePlanItem(experience._id, planItemId);
-      setExperience(prev => ({
-        ...prev,
-        plan_items: prev.plan_items.filter(item => item._id !== planItemId)
-      }));
-      updateData && updateData();
-      setShowPlanDeleteModal(false);
-    } catch (err) {
-      handleError(err, { context: 'Delete plan item' });
-    }
-  }, [experience, updateData]);
-
-  const handlePlanItemDone = useCallback(async (e) => {
-    const planItemId = e.currentTarget.id;
-    if (!experience || !user) return;
-    try {
-      const updatedExperience = await userPlanItemDone(experience._id, planItemId);
-      setExperience(updatedExperience);
-      // Update userHasExperience if the user was just added to the experience
-      setUserHasExperience(
-        updatedExperience.users && updatedExperience.users.some(u => u.user._id === user._id)
-      );
-      // Update plan items state
-      const userObj = updatedExperience.users.find(u => u.user._id === user._id);
-      if (userObj && userObj.plan) {
-        const doneMap = {};
-        userObj.plan.forEach(item => {
-          doneMap[item] = true;
+  const handlePlanEdit = useCallback(
+    (e) => {
+      const planItemIdx = parseInt(e.currentTarget.getAttribute("data-idx"));
+      const planItem = experience.plan_items[planItemIdx];
+      if (planItem) {
+        setNewPlanItem({
+          _id: planItem._id,
+          text: planItem.text,
+          url: planItem.url || "",
+          cost_estimate: planItem.cost_estimate || 0,
+          planning_days: planItem.planning_days || 0,
+          parent: planItem.parent || "",
         });
-        setPlanItems(doneMap);
+        setFormState(0);
+        setFormVisible(true);
       }
-      updateData && updateData();
-    } catch (err) {
-      handleError(err, { context: 'Update plan item status' });
-    }
-  }, [experience, user, updateData]);
+    },
+    [experience]
+  );
+
+  const handlePlanDelete = useCallback(
+    async (planItemId) => {
+      if (!experience || !planItemId) return;
+      try {
+        await deletePlanItem(experience._id, planItemId);
+        setExperience((prev) => ({
+          ...prev,
+          plan_items: prev.plan_items.filter((item) => item._id !== planItemId),
+        }));
+        updateData && updateData();
+        setShowPlanDeleteModal(false);
+      } catch (err) {
+        handleError(err, { context: "Delete plan item" });
+      }
+    },
+    [experience, updateData]
+  );
+
+  const handlePlanItemDone = useCallback(
+    async (e) => {
+      const planItemId = e.currentTarget.id;
+      if (!experience || !user) return;
+      try {
+        const updatedExperience = await userPlanItemDone(
+          experience._id,
+          planItemId
+        );
+        setExperience(updatedExperience);
+        // Update userHasExperience if the user was just added to the experience
+        setUserHasExperience(
+          updatedExperience.users &&
+            updatedExperience.users.some((u) => u.user._id === user._id)
+        );
+        // Update plan items state
+        const userObj = updatedExperience.users.find(
+          (u) => u.user._id === user._id
+        );
+        if (userObj && userObj.plan) {
+          const doneMap = {};
+          userObj.plan.forEach((item) => {
+            doneMap[item] = true;
+          });
+          setPlanItems(doneMap);
+        }
+        updateData && updateData();
+      } catch (err) {
+        handleError(err, { context: "Update plan item status" });
+      }
+    },
+    [experience, user, updateData]
+  );
   return (
     <>
       {experience && (
@@ -300,7 +333,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
               <button
                 className={`btn btn-icon my-2 my-sm-4 ${
                   userHasExperience ? "btn-plan-remove" : "btn-plan-add"
-                } ${loading ? 'loading' : ''} fade-in`}
+                } ${loading ? "loading" : ""} fade-in`}
                 onClick={async () => {
                   if (loading) return;
                   setLoading(true);
@@ -354,7 +387,9 @@ export default function SingleExperience({ user, experiences, updateData }) {
                 <>
                   <button
                     className="btn btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
-                    onClick={() => navigate(`/experiences/${experienceId}/update`)}
+                    onClick={() =>
+                      navigate(`/experiences/${experienceId}/update`)
+                    }
                     aria-label={lang.en.button.updateExperience}
                     title={lang.en.button.updateExperience}
                   >
@@ -398,7 +433,9 @@ export default function SingleExperience({ user, experiences, updateData }) {
                         className="form-control"
                         value={plannedDate}
                         onChange={(e) => setPlannedDate(e.target.value)}
-                        onClick={(e) => e.target.showPicker && e.target.showPicker()}
+                        onClick={(e) =>
+                          e.target.showPicker && e.target.showPicker()
+                        }
                         min={getMinimumPlanningDate(
                           experience.max_planning_days
                         )}
@@ -417,7 +454,11 @@ export default function SingleExperience({ user, experiences, updateData }) {
                       className="btn btn-primary me-2"
                       onClick={() => handleAddExperience()}
                       disabled={!plannedDate}
-                      aria-label={isEditingDate ? lang.en.button.updateDate : lang.en.button.setDateAndAdd}
+                      aria-label={
+                        isEditingDate
+                          ? lang.en.button.updateDate
+                          : lang.en.button.setDateAndAdd
+                      }
                     >
                       {isEditingDate
                         ? lang.en.button.updateDate
@@ -436,6 +477,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                       className="btn btn-secondary"
                       onClick={() => {
                         setShowDatePicker(false);
+                        setIsEditingDate(false);
                         setPlannedDate("");
                       }}
                       aria-label={lang.en.button.cancel}
@@ -449,7 +491,23 @@ export default function SingleExperience({ user, experiences, updateData }) {
           </div>
           <div className="row my-4 fade-in">
             <div className="col-md-6 p-3 fade-in">
-              <ul className="list-group experience-detail fade-in">
+              {/* Display experience photo (or placeholder if none available) */}
+              <div className="mb-4">
+                <PhotoCard
+                  photos={experience.photos}
+                  photo={experience.photo}
+                  defaultPhotoIndex={experience.default_photo_index}
+                  title={experience.name}
+                  altText={`${experience.name}${
+                    experience.destination
+                      ? ` in ${experience.destination.name}`
+                      : ""
+                  }`}
+                />
+              </div>
+            </div>
+            <div className="col-md-6 p-3 fade-in">
+              <ul className="list-group experience-detail fade-in mb-4">
                 {experience.destination && (
                   <li className="list-group-item list-group-item-secondary fw-bold text-center h5 fade-in">
                     <Link to={`/destinations/${experience.destination._id}`}>
@@ -467,8 +525,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                   </li>
                 ))}
               </ul>
-            </div>
-            <div className="col-md-6 p-3 fade-in">
+
               {experience.destination && (
                 <iframe
                   width="100%"
@@ -499,7 +556,9 @@ export default function SingleExperience({ user, experiences, updateData }) {
           <div className="row my-2 p-3 fade-in">
             {experience.plan_items && experience.plan_items.length > 0 && (
               <div className="plan-items-container fade-in p-3 p-md-4">
-                <h3 className="mb-3 text-center fw-bold text-dark">Plan Items</h3>
+                <h3 className="mb-3 text-center fw-bold text-dark">
+                  Plan Items
+                </h3>
                 {(() => {
                   // Helper to flatten and mark children
                   const flattenPlanItems = (items) => {
@@ -665,12 +724,15 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           <div className="plan-item-meta">
                             {Number(planItem.cost_estimate) > 0 && (
                               <span className="d-flex align-items-center gap-2">
-                                <strong className="text-dark">Cost:</strong> ${planItem.cost_estimate}
+                                <strong className="text-dark">Cost:</strong> $
+                                {planItem.cost_estimate}
                               </span>
                             )}
                             {Number(planItem.planning_days) > 0 && (
                               <span className="d-flex align-items-center gap-2">
-                                <strong className="text-dark">Planning Time:</strong>{" "}
+                                <strong className="text-dark">
+                                  Planning Time:
+                                </strong>{" "}
                                 {planItem.planning_days} days
                               </span>
                             )}

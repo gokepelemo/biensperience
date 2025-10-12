@@ -164,12 +164,35 @@ async function createPlanItem(req, res) {
 
 async function updatePlanItem(req, res) {
   try {
+    // Validate ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(req.params.experienceId)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(req.params.planItemId)) {
+      return res.status(400).json({ error: 'Invalid plan item ID format' });
+    }
+
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate("user");
-    if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
+    
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+    
+    if (req.user._id.toString() !== experience.user._id.toString()) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     let plan_item = experience.plan_items.id(req.params.planItemId);
-    Object.assign(plan_item, req.body);
+    
+    if (!plan_item) {
+      return res.status(404).json({ error: 'Plan item not found' });
+    }
+    
+    // Update only provided fields (exclude _id as it's immutable)
+    const { _id, ...updateData } = req.body;
+    Object.assign(plan_item, updateData);
     await experience.save();
     res.status(200).json(experience);
   } catch (err) {
@@ -331,6 +354,26 @@ async function showUserExperiences(req, res) {
   }
 }
 
+async function showUserCreatedExperiences(req, res) {
+  try {
+    // Validate ObjectId format to prevent injection
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+    const userId = new mongoose.Types.ObjectId(req.params.userId);
+
+    let experiences = await Experience.find({ user: userId })
+      .populate("users.user")
+      .populate("destination")
+      .populate("user")
+      .exec();
+    res.status(200).json(experiences);
+  } catch (err) {
+    console.error('Error fetching user created experiences:', err);
+    res.status(400).json({ error: 'Failed to fetch user created experiences' });
+  }
+}
+
 async function getTagName(req, res) {
   try {
     const { tagSlug } = req.params;
@@ -384,6 +427,103 @@ async function getTagName(req, res) {
   }
 }
 
+async function addPhoto(req, res) {
+  try {
+    const experience = await Experience.findById(req.params.id).populate("user");
+
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    if (req.user._id.toString() !== experience.user._id.toString()) {
+      return res.status(401).json({ error: 'Not authorized to modify this experience' });
+    }
+
+    const { url, photo_credit, photo_credit_url } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ error: 'Photo URL is required' });
+    }
+
+    // Add photo to photos array
+    experience.photos.push({
+      url,
+      photo_credit: photo_credit || 'Unknown',
+      photo_credit_url: photo_credit_url || url
+    });
+
+    await experience.save();
+
+    res.status(201).json(experience);
+  } catch (err) {
+    console.error('Error adding photo to experience:', err);
+    res.status(400).json({ error: 'Failed to add photo' });
+  }
+}
+
+async function removePhoto(req, res) {
+  try {
+    const experience = await Experience.findById(req.params.id).populate("user");
+
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    if (req.user._id.toString() !== experience.user._id.toString()) {
+      return res.status(401).json({ error: 'Not authorized to modify this experience' });
+    }
+
+    const photoIndex = parseInt(req.params.photoIndex);
+
+    if (photoIndex < 0 || photoIndex >= experience.photos.length) {
+      return res.status(400).json({ error: 'Invalid photo index' });
+    }
+
+    // Remove photo from array
+    experience.photos.splice(photoIndex, 1);
+
+    // Adjust default_photo_index if necessary
+    if (experience.default_photo_index >= experience.photos.length) {
+      experience.default_photo_index = Math.max(0, experience.photos.length - 1);
+    }
+
+    await experience.save();
+
+    res.status(200).json(experience);
+  } catch (err) {
+    console.error('Error removing photo from experience:', err);
+    res.status(400).json({ error: 'Failed to remove photo' });
+  }
+}
+
+async function setDefaultPhoto(req, res) {
+  try {
+    const experience = await Experience.findById(req.params.id).populate("user");
+
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    if (req.user._id.toString() !== experience.user._id.toString()) {
+      return res.status(401).json({ error: 'Not authorized to modify this experience' });
+    }
+
+    const photoIndex = parseInt(req.body.photoIndex);
+
+    if (photoIndex < 0 || photoIndex >= experience.photos.length) {
+      return res.status(400).json({ error: 'Invalid photo index' });
+    }
+
+    experience.default_photo_index = photoIndex;
+    await experience.save();
+
+    res.status(200).json(experience);
+  } catch (err) {
+    console.error('Error setting default photo:', err);
+    res.status(400).json({ error: 'Failed to set default photo' });
+  }
+}
+
 module.exports = {
   create: createExperience,
   show: showExperience,
@@ -397,5 +537,9 @@ module.exports = {
   removeUser,
   userPlanItemDone,
   showUserExperiences,
+  showUserCreatedExperiences,
   getTagName,
+  addPhoto,
+  removePhoto,
+  setDefaultPhoto,
 };

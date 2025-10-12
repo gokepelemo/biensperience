@@ -3,7 +3,7 @@
  * @module deduplication
  */
 
-import { normalizeString, calculateSimilarity } from './fuzzy-match';
+import { normalizeString, calculateSimilarity } from './fuzzy-match.js';
 
 /**
  * Remove duplicates from an array based on a unique ID field

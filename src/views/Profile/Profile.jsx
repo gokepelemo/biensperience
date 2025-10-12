@@ -5,7 +5,7 @@ import "./Profile.css";
 import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
-import { showUserExperiences } from "../../utilities/experiences-api";
+import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
 import { getUserData } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
 import { handleError } from "../../utilities/error-handler";
@@ -19,16 +19,24 @@ export default function Profile({ user, destinations, updateData }) {
   const isOwner = !profileId || profileId === user._id;
   const [currentProfile, setCurrentProfile] = useState(isOwner ? user : null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(!isOwner);
+  const [profileError, setProfileError] = useState(null);
   const [uiState, setUiState] = useState({
     experiences: true,
+    created: false,
     destinations: false,
   });
   const [userExperiences, setUserExperiences] = useState([]);
+  const [createdExperiences, setCreatedExperiences] = useState([]);
 
   // Deduplicate user experiences by ID
   const uniqueUserExperiences = useMemo(() => {
     return deduplicateById(userExperiences);
   }, [userExperiences]);
+
+  // Deduplicate created experiences by ID
+  const uniqueCreatedExperiences = useMemo(() => {
+    return deduplicateById(createdExperiences);
+  }, [createdExperiences]);
 
   const userExperienceTypes = useMemo(() => {
     return Array.from(
@@ -61,15 +69,24 @@ export default function Profile({ user, destinations, updateData }) {
     if (!isOwner) {
       setIsLoadingProfile(true);
     }
+    setProfileError(null);
     try {
-      const [userData, experienceData] = await Promise.all([
+      const [userData, experienceData, createdData] = await Promise.all([
         getUserData(userId),
-        showUserExperiences(userId)
+        showUserExperiences(userId),
+        showUserCreatedExperiences(userId)
       ]);
       setCurrentProfile(userData);
       setUserExperiences(experienceData);
+      setCreatedExperiences(createdData);
     } catch (err) {
-      handleError(err, { context: 'Load profile' });
+      // Check if it's a 404 error
+      if (err.message && err.message.includes('404')) {
+        setProfileError('User not found');
+      } else {
+        handleError(err, { context: 'Load profile' });
+        setProfileError('Failed to load profile');
+      }
     } finally {
       setIsLoadingProfile(false);
     }
@@ -79,12 +96,54 @@ export default function Profile({ user, destinations, updateData }) {
     getProfile();
   }, [getProfile]);
 
-  const handleExpNav = useCallback(() => {
+  const handleExpNav = useCallback((view) => {
     setUiState({
-      experiences: !uiState.experiences,
-      destinations: !uiState.destinations,
+      experiences: view === 'experiences',
+      created: view === 'created',
+      destinations: view === 'destinations',
     });
-  }, [uiState.experiences, uiState.destinations]);
+  }, []);
+  
+  // Show error state if profile not found
+  if (profileError === 'User not found') {
+    return (
+      <div className="container my-5">
+        <div className="row justify-content-center">
+          <div className="col-md-8">
+            <div className="alert alert-danger" role="alert">
+              <h4 className="alert-heading">User Not Found</h4>
+              <p>The user profile you're looking for doesn't exist or has been removed.</p>
+              <hr />
+              <p className="mb-0">
+                <Link to="/" className="alert-link">Return to Home</Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show general error state
+  if (profileError) {
+    return (
+      <div className="container my-5">
+        <div className="row justify-content-center">
+          <div className="col-md-8">
+            <div className="alert alert-warning" role="alert">
+              <h4 className="alert-heading">Unable to Load Profile</h4>
+              <p>{profileError}</p>
+              <hr />
+              <p className="mb-0">
+                <button onClick={getProfile} className="btn btn-primary">Try Again</button>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <>
       {currentProfile && (
@@ -99,13 +158,25 @@ export default function Profile({ user, destinations, updateData }) {
       )}
       <div className="row fade-in">
         <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">
-            {isLoadingProfile ? (
-              <span className="loading-skeleton loading-skeleton-text"></span>
-            ) : (
-              currentProfile?.name
+          <div className="d-flex align-items-center gap-3 my-4">
+            <h1 className="h fade-in mb-0">
+              {isLoadingProfile ? (
+                <span className="loading-skeleton loading-skeleton-text"></span>
+              ) : (
+                currentProfile?.name
+              )}
+            </h1>
+            {isOwner && !isLoadingProfile && (
+              <Link
+                to="/profile/update"
+                className="btn btn-primary"
+                aria-label="Update Profile"
+                title="Update Profile"
+              >
+                ✏️ Update Profile
+              </Link>
             )}
-          </h1>
+          </div>
         </div>
       </div>
       <div className="row mb-4 fade-in">
@@ -117,7 +188,7 @@ export default function Profile({ user, destinations, updateData }) {
               <PhotoCard photo={currentProfile?.photo} title={currentProfile?.name} />
               {!currentProfile?.photo && isOwner && (
                 <small className="d-flex justify-content-center align-items-center noPhoto fade-in">
-                  <span>{lang.en.message.noPhotoMessage} <Link to="/profile/edit">{lang.en.message.uploadPhotoNow}</Link>.</span>
+                  <span>{lang.en.message.noPhotoMessage} <Link to="/profile/update">{lang.en.message.uploadPhotoNow}</Link>.</span>
                 </small>
               )}
             </>
@@ -139,9 +210,17 @@ export default function Profile({ user, destinations, updateData }) {
                   ))
                 ) : (
                   <p className="noFavoriteDestinations fade-in">
-                    {lang.en.message.noFavoriteDestinations}
-                    <Link to="/destinations">{lang.en.message.addFavoriteDestinations}</Link>
-                    .
+                    {isOwner ? (
+                      <>
+                        {lang.en.message.noFavoriteDestinations}{' '}
+                        <Link to="/destinations" className="fw-bold">
+                          {lang.en.message.addFavoriteDestinations}
+                        </Link>
+                        .
+                      </>
+                    ) : (
+                      `${currentProfile.name} hasn't added any favorite destinations yet.`
+                    )}
                   </p>
                 )}
               </div>
@@ -160,8 +239,17 @@ export default function Profile({ user, destinations, updateData }) {
                   ))
                 ) : (
                   <p className="fade-in">
-                    {lang.en.message.noExperiencesYet}
-                    <Link to="/experiences">{lang.en.message.addExperiences}</Link>.
+                    {isOwner ? (
+                      <>
+                        {lang.en.message.noExperiencesYet}
+                        <Link to="/experiences" className="fw-bold">
+                          {lang.en.message.addExperiences}
+                        </Link>
+                        .
+                      </>
+                    ) : (
+                      `${currentProfile.name} hasn't planned any experiences yet.`
+                    )}
                   </p>
                 )}
               </div>
@@ -173,19 +261,25 @@ export default function Profile({ user, destinations, updateData }) {
         <h4 className="badge rounded-pill text-bg-light badge-nav my-4 fade-in">
           <span
             className={uiState.experiences ? "fw-bold fade-in active-tab" : "fade-in"}
-            onClick={handleExpNav}
+            onClick={() => handleExpNav('experiences')}
           >
             {lang.en.heading.plannedExperiences}
           </span>
           <span
+            className={uiState.created ? "fw-bold fade-in active-tab" : "fade-in"}
+            onClick={() => handleExpNav('created')}
+          >
+            {lang.en.heading.createdExperiences || 'Created Experiences'}
+          </span>
+          <span
             className={uiState.destinations ? "fw-bold fade-in active-tab" : "fade-in"}
-            onClick={handleExpNav}
+            onClick={() => handleExpNav('destinations')}
           >
             {lang.en.heading.experienceDestinations}
           </span>
         </h4>
       </div>
-      {uniqueUserExperiences.length > 0 ? (
+      {(uniqueUserExperiences.length > 0 || uniqueCreatedExperiences.length > 0) ? (
         <>
           <div className="row my-4 justify-content-center fade-in">
             {uiState.destinations &&
@@ -214,11 +308,24 @@ export default function Profile({ user, destinations, updateData }) {
                   key={experience._id || index}
                 />
               ))}
+            {uiState.created &&
+              uniqueCreatedExperiences.map((experience, index) => (
+                <ExperienceCard
+                  experience={experience}
+                  user={user}
+                  updateData={updateData}
+                  key={experience._id || index}
+                />
+              ))}
           </div>
         </>
       ) : (
         <p className="alert alert-info fade-in">
-          {lang.en.alert.noExperiencesOrDestinations.replace('{type}', uiState.experiences ? `experiences` : `destinations`)} {lang.en.message.addOneNow}
+          {lang.en.alert.noExperiencesOrDestinations.replace('{type}', 
+            uiState.experiences ? 'experiences' : 
+            uiState.created ? 'created experiences' : 
+            'destinations'
+          )} {lang.en.message.addOneNow}
         </p>
       )}
     </>

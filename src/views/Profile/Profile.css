@@ -114,8 +114,26 @@
     justify-content: center;
 }
 
+.noFavoriteDestinations {
+    text-align: center;
+    margin: 1rem 0;
+}
+
 .noFavoriteDestinations a {
-    text-decoration: underline;
+    display: inline-block;
+    margin-top: 0.5rem;
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+}
+
+.noFavoriteDestinations a:hover {
+    background: rgba(102, 126, 234, 0.1);
+    color: #764ba2;
+    transform: translateY(-1px);
 }
 
 .profileDestinations a {

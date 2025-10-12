@@ -1,11 +1,26 @@
 import { NavLink } from "react-router-dom";
 import "./NavBar.css"
 import * as usersService from "../../utilities/users-service.js";
+import { useEffect } from "react";
+
 export default function NavBar({ user, setUser }) {
   function handleLogOut() {
     usersService.logout();
     setUser(null);
   }
+  
+  // Initialize Bootstrap dropdowns
+  useEffect(() => {
+    // Dynamically import Bootstrap's Dropdown component
+    import('bootstrap/js/dist/dropdown').then((module) => {
+      const Dropdown = module.default;
+      const dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
+      dropdownElementList.map(function (dropdownToggleEl) {
+        return new Dropdown(dropdownToggleEl);
+      });
+    });
+  }, []);
+  
   return (
     <nav
       className="navbar navbar-expand-lg bg-dark border-bottom border-body"
@@ -55,17 +70,16 @@ export default function NavBar({ user, setUser }) {
               </NavLink>
             </li>
             <li className="nav-item dropdown" role="none">
-              <NavLink
+              <button
                 className="nav-link dropdown-toggle"
-                href="#"
-                role="menuitem"
+                type="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
                 aria-haspopup="true"
                 aria-label={`User menu for ${user.name}`}
               >
                 {user.name}
-              </NavLink>
+              </button>
               <ul className="dropdown-menu" role="menu" aria-label="User account options">
                 <li role="none">
                   <NavLink

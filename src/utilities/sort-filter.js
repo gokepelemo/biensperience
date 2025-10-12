@@ -39,6 +39,11 @@ export function filterExperiences(experiences, filterBy, userId) {
         !exp.users || !exp.users.some(u => u.user === userId || u.user._id === userId)
       );
 
+    case "created":
+      return experiences.filter(exp =>
+        exp.user === userId || (exp.user && exp.user._id === userId)
+      );
+
     case "all":
     default:
       return experiences;

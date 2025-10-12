@@ -4,14 +4,29 @@
    Reusable animations across components
 */
 
-/* Fade-in animation */
+/* Fade-in animation with explicit final state */
 .fade-in {
-    opacity: 0;
-    transform: translateY(20px) scale(0.98);
-    animation: fadeInUp 0.5s forwards;
+    /* Default to visible in case animation fails */
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    /* Then apply animation */
+    animation: fadeInUp 0.3s ease-out backwards;
+}
+
+/* Fallback for browsers that don't support animations */
+@media (prefers-reduced-motion: reduce) {
+    .fade-in {
+        opacity: 1 !important;
+        transform: none !important;
+        animation: none !important;
+    }
 }
 
 @keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+    }
     to {
         opacity: 1;
         transform: translateY(0) scale(1);

@@ -1,9 +1,13 @@
-import { uploadFile, sendRequest } from "./send-request";
+import { uploadFile, sendRequest } from "./send-request.js";
 
 const BASE_URL = `/api/photos/`
 
 export async function uploadPhoto(request) {
     return await uploadFile(`${BASE_URL}`, "POST", request)
+}
+
+export async function uploadPhotoBatch(request) {
+    return await uploadFile(`${BASE_URL}batch`, "POST", request)
 }
 
 export async function uploadPhotoUrl(data) {

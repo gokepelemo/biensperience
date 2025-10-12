@@ -1,4 +1,4 @@
-import { sendRequest } from "./send-request";
+import { sendRequest } from "./send-request.js";
 const BASE_URL = `/api/users/`;
 
 export function signUp(userData) {

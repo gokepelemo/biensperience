@@ -17,6 +17,7 @@ import ExperiencesByTag from "../ExperiencesByTag/ExperiencesByTag";
 import NewExperience from "../../components/NewExperience/NewExperience";
 import UpdateExperience from "../../components/UpdateExperience/UpdateExperience";
 import NewDestination from "../../components/NewDestination/NewDestination";
+import UpdateDestination from "../../components/UpdateDestination/UpdateDestination";
 import Profile from "../Profile/Profile";
 import { getUser } from "../../utilities/users-service";
 import { getExperiences } from "../../utilities/experiences-api";
@@ -112,7 +113,7 @@ export default function App() {
               }
             />
             <Route
-              path="/profile/edit"
+              path="/profile/update"
               element={<UpdateProfile user={user} setUser={setUser} updateData={updateData} />}
             />
             <Route
@@ -174,6 +175,15 @@ export default function App() {
                   experiences={experiences}
                   user={user}
                   setUser={setUser}
+                  updateData={updateData}
+                />
+              }
+            />
+            <Route
+              path="/destinations/:destinationId/update"
+              element={
+                <UpdateDestination
+                  user={user}
                   updateData={updateData}
                 />
               }

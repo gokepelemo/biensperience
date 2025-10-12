@@ -1,5 +1,5 @@
 # screenshots
-/screenshots
+/screenshots/
 /uploads/images/
 
 # dependencies
@@ -36,3 +36,5 @@ getData.js
 crud-helper.js
 
 style-guide.md
+*storybook.log
+storybook-static

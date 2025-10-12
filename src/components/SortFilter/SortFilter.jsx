@@ -64,6 +64,9 @@ export default function SortFilter({
               <option value="unplanned">
                 {filterType === "experiences" ? "Not Planned Yet" : "Not Favorited Yet"}
               </option>
+              {filterType === "experiences" && (
+                <option value="created">My Experiences (Created by Me)</option>
+              )}
             </select>
           </div>
         )}

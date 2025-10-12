@@ -68,7 +68,8 @@ form.imageUpload label {
     background: white;
 }
 
-button.upload-btn {
+button.upload-btn,
+button.upload-toggle-btn {
     min-height: 3.5rem;
     padding: 0.875rem 1.5rem;
     font-size: 1rem;
@@ -88,4 +89,111 @@ button.upload-btn {
 
 .removeImg {
     margin: 0 1rem;
+}
+
+/* Uploaded Photos List */
+.uploaded-photos-list {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 2px solid #dee2e6;
+}
+
+.uploaded-photos-list h5 {
+    color: #333;
+    font-weight: 600;
+}
+
+.photos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.photo-item {
+    border: 2px solid #dee2e6;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    background: white;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    position: relative;
+}
+
+.photo-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.photo-item-disabled {
+    border-color: #dc3545;
+    background: #f8d7da;
+}
+
+.photo-item-disabled .photo-item-preview {
+    filter: grayscale(100%);
+}
+
+.photo-item-disabled::before {
+    content: '✗';
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: #dc3545;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: bold;
+    z-index: 1;
+}
+
+.photo-item-preview {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 0.5rem;
+}
+
+.photo-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.photo-item-credit {
+    color: #666;
+    font-size: 0.875rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.photo-item-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.photo-item-actions .btn {
+    width: 100%;
+    font-size: 0.875rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .photos-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+
+    .photo-item-preview {
+        height: 120px;
+    }
 }

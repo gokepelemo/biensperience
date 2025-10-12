@@ -1,4 +1,4 @@
-import { getToken } from "./users-service"
+import { getToken } from "./users-service.js"
 
 /**
  * Sends an HTTP request with optional authentication and JSON payload.

@@ -4,11 +4,11 @@
   "private": true,
   "dependencies": {
     "@adobe/css-tools": "^4.3.2",
+    "@aws-sdk/client-s3": "^3.705.0",
     "@fontsource/inter": "^5.0.15",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
-    "aws-sdk": "^2.1483.0",
     "babel-preset-react-app": "^10.0.1",
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
@@ -48,12 +48,15 @@
     "pm2:start": "pm2 start ecosystem.config.js --env production",
     "pm2:stop": "pm2 stop ecosystem.config.js",
     "pm2:restart": "pm2 restart ecosystem.config.js",
-    "pm2:delete": "pm2 delete ecosystem.config.js"
+    "pm2:delete": "pm2 delete ecosystem.config.js",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "eslintConfig": {
     "extends": [
       "react-app",
-      "react-app/jest"
+      "react-app/jest",
+      "plugin:storybook/recommended"
     ]
   },
   "browserslist": {
@@ -71,10 +74,19 @@
   "proxy": "http://localhost:3001",
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@storybook/addon-docs": "^9.1.10",
+    "@storybook/addon-onboarding": "^9.1.10",
+    "@storybook/preset-create-react-app": "^9.1.10",
+    "@storybook/react-webpack5": "^9.1.10",
     "@types/jest": "^30.0.0",
     "@types/supertest": "^6.0.3",
+    "eslint-plugin-storybook": "^9.1.10",
     "jest": "^27.5.1",
     "mongodb-memory-server": "^10.2.3",
-    "supertest": "^7.1.4"
+    "prop-types": "^15.8.1",
+    "puppeteer": "^24.24.0",
+    "storybook": "^9.1.10",
+    "supertest": "^7.1.4",
+    "webpack": "^5.102.1"
   }
 }

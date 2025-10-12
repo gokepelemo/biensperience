@@ -167,6 +167,103 @@ async function toggleUserFavoriteDestination(req, res) {
   }
 }
 
+async function addPhoto(req, res) {
+  try {
+    const destination = await Destination.findById(req.params.id).populate("user");
+
+    if (!destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+
+    if (req.user._id.toString() !== destination.user._id.toString()) {
+      return res.status(401).json({ error: 'Not authorized to modify this destination' });
+    }
+
+    const { url, photo_credit, photo_credit_url } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ error: 'Photo URL is required' });
+    }
+
+    // Add photo to photos array
+    destination.photos.push({
+      url,
+      photo_credit: photo_credit || 'Unknown',
+      photo_credit_url: photo_credit_url || url
+    });
+
+    await destination.save();
+
+    res.status(201).json(destination);
+  } catch (err) {
+    console.error('Error adding photo to destination:', err);
+    res.status(400).json({ error: 'Failed to add photo' });
+  }
+}
+
+async function removePhoto(req, res) {
+  try {
+    const destination = await Destination.findById(req.params.id).populate("user");
+
+    if (!destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+
+    if (req.user._id.toString() !== destination.user._id.toString()) {
+      return res.status(401).json({ error: 'Not authorized to modify this destination' });
+    }
+
+    const photoIndex = parseInt(req.params.photoIndex);
+
+    if (photoIndex < 0 || photoIndex >= destination.photos.length) {
+      return res.status(400).json({ error: 'Invalid photo index' });
+    }
+
+    // Remove photo from array
+    destination.photos.splice(photoIndex, 1);
+
+    // Adjust default_photo_index if necessary
+    if (destination.default_photo_index >= destination.photos.length) {
+      destination.default_photo_index = Math.max(0, destination.photos.length - 1);
+    }
+
+    await destination.save();
+
+    res.status(200).json(destination);
+  } catch (err) {
+    console.error('Error removing photo from destination:', err);
+    res.status(400).json({ error: 'Failed to remove photo' });
+  }
+}
+
+async function setDefaultPhoto(req, res) {
+  try {
+    const destination = await Destination.findById(req.params.id).populate("user");
+
+    if (!destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+
+    if (req.user._id.toString() !== destination.user._id.toString()) {
+      return res.status(401).json({ error: 'Not authorized to modify this destination' });
+    }
+
+    const photoIndex = parseInt(req.body.photoIndex);
+
+    if (photoIndex < 0 || photoIndex >= destination.photos.length) {
+      return res.status(400).json({ error: 'Invalid photo index' });
+    }
+
+    destination.default_photo_index = photoIndex;
+    await destination.save();
+
+    res.status(200).json(destination);
+  } catch (err) {
+    console.error('Error setting default photo:', err);
+    res.status(400).json({ error: 'Failed to set default photo' });
+  }
+}
+
 module.exports = {
   create: createDestination,
   show: showDestination,
@@ -174,4 +271,7 @@ module.exports = {
   delete: deleteDestination,
   toggleUserFavoriteDestination,
   index,
+  addPhoto,
+  removePhoto,
+  setDefaultPhoto,
 };

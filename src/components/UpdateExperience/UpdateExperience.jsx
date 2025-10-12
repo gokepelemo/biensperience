@@ -79,6 +79,50 @@ export default function UpdateExperience({ user, updateData }) {
     }
   }, [experienceId, user, navigate]);
 
+  // Track photo changes
+  useEffect(() => {
+    if (!experience || !originalExperience) return;
+
+    const newChanges = { ...changes };
+    
+    // Check if photos array changed
+    const originalPhotos = originalExperience.photos || [];
+    const currentPhotos = experience.photos || [];
+    
+    const photosChanged = JSON.stringify(originalPhotos) !== JSON.stringify(currentPhotos);
+    
+    if (photosChanged) {
+      const fromText = originalPhotos.length === 0 ? 'No photos' : `${originalPhotos.length} photo${originalPhotos.length > 1 ? 's' : ''}`;
+      const toText = currentPhotos.length === 0 ? 'No photos' : `${currentPhotos.length} photo${currentPhotos.length > 1 ? 's' : ''}`;
+      
+      newChanges.photos = {
+        from: fromText,
+        to: toText
+      };
+    } else {
+      delete newChanges.photos;
+    }
+    
+    // Check if default photo index changed
+    const originalIndex = originalExperience.default_photo_index || 0;
+    const currentIndex = experience.default_photo_index || 0;
+    
+    if (originalIndex !== currentIndex && currentPhotos.length > 0) {
+      newChanges.default_photo_index = {
+        from: `Photo #${originalIndex + 1}`,
+        to: `Photo #${currentIndex + 1}`
+      };
+    } else {
+      delete newChanges.default_photo_index;
+    }
+    
+    // Only update if changes actually differ
+    if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
+      setChanges(newChanges);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [experience, originalExperience]);
+
   function handleChange(e) {
     const { name, value } = e.target;
     const updatedExperience = { ...experience, [name]: value };
@@ -354,14 +398,14 @@ export default function UpdateExperience({ user, updateData }) {
 
             <div className="mb-4">
               <label className="form-label">
-                Photo
+                Photos
               </label>
               <ImageUpload
                 data={experience}
                 setData={setExperience}
               />
               <small className="form-text text-muted">
-                {lang.en.helper.photoOptional}
+                Upload multiple photos for this experience (optional)
               </small>
             </div>
 

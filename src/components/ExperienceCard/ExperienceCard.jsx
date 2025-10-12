@@ -31,6 +31,27 @@ function ExperienceCard({ experience, user, updateData }) {
 
   const isOwner = experience?.user && experience.user._id === user?._id;
 
+  // Get the default photo for background
+  const getBackgroundImage = useMemo(() => {
+    if (!experience) {
+      return `url(https://picsum.photos/400?rand=${rand})`;
+    }
+    
+    // If photos array exists and has items, use the default one
+    if (experience.photos && experience.photos.length > 0) {
+      const index = experience.default_photo_index || 0;
+      return `url(${experience.photos[index].url})`;
+    }
+    
+    // Backward compatibility: if single photo exists
+    if (experience.photo && experience.photo.url) {
+      return `url(${experience.photo.url})`;
+    }
+    
+    // Fallback to placeholder
+    return `url(https://picsum.photos/400?rand=${rand})`;
+  }, [experience, rand]);
+
   const handleExperienceAction = useCallback(async () => {
     if (isLoading) return;
     setIsLoading(true);
@@ -68,7 +89,7 @@ function ExperienceCard({ experience, user, updateData }) {
       {experience ? (
         <div
           className="experienceCard d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden"
-          style={{ backgroundImage: `url(https://picsum.photos/400?rand=${rand})` }}
+          style={{ backgroundImage: getBackgroundImage }}
         >
           <Link to={`/experiences/${experience._id}`} className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100 text-decoration-none">
             <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center text-white text-center p-3 w-100">
@@ -113,7 +134,7 @@ function ExperienceCard({ experience, user, updateData }) {
       ) : (
         <div
           className="experienceCard d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden"
-          style={{ backgroundImage: `url(https://picsum.photos/400?rand=${rand})` }}
+          style={{ backgroundImage: getBackgroundImage }}
         >
           <Link to="/" className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100 text-decoration-none">
             <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center text-white text-center p-3 w-100">

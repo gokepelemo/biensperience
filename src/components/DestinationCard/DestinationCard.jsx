@@ -17,6 +17,27 @@ function DestinationCard({ destination }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const titleRef = useRef(null);
 
+  // Get background image URL from destination photos or fallback to placeholder
+  const getBackgroundImage = useMemo(() => {
+    if (!destination) {
+      return `url(https://picsum.photos/400?rand=${rand})`;
+    }
+    
+    // If photos array exists and has items, use the default one
+    if (destination.photos && destination.photos.length > 0) {
+      const index = destination.default_photo_index || 0;
+      return `url(${destination.photos[index].url})`;
+    }
+    
+    // Backward compatibility: if single photo exists
+    if (destination.photo && destination.photo.url) {
+      return `url(${destination.photo.url})`;
+    }
+    
+    // Fallback to placeholder
+    return `url(https://picsum.photos/400?rand=${rand})`;
+  }, [destination, rand]);
+
   /**
    * Dynamically adjusts the font size of the destination title to fit within the card bounds.
    * Reduces font size incrementally until text no longer overflows.
@@ -53,7 +74,7 @@ function DestinationCard({ destination }) {
       {destination ? (
         <div
           className="destinationCard d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden"
-          style={{ backgroundImage: `url(https://picsum.photos/400?rand=${rand})` }}
+          style={{ backgroundImage: getBackgroundImage }}
         >
           <Link to={`/destinations/${destination._id}`} className="destination-card-link d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none">
             <span ref={titleRef} className="h3 fw-bold destination-card-title d-flex align-items-center justify-content-center text-white text-center p-3 w-100">
@@ -64,7 +85,7 @@ function DestinationCard({ destination }) {
       ) : (
         <div
           className="destinationCard d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden"
-          style={{ backgroundImage: `url(https://picsum.photos/400?rand=${rand})` }}
+          style={{ backgroundImage: getBackgroundImage }}
         >
           <Link to="/" className="destination-card-link d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none">
             <span ref={titleRef} className="h3 fw-bold destination-card-title d-flex align-items-center justify-content-center text-white text-center p-3 w-100">

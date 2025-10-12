@@ -12,6 +12,8 @@ body {
 /* App responsive padding - can be replaced with Bootstrap px-3 */
 .App {
   padding: 0 15px;
+  padding-bottom: 4rem;
+  min-height: 100vh;
 }
 
 @media (max-width: 768px) {
@@ -19,6 +21,7 @@ body {
     max-width: 100%;
     padding-left: 0;
     padding-right: 0;
+    padding-bottom: 3rem;
   }
 }
 

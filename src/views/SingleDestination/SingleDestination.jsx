@@ -1,8 +1,9 @@
 import "./SingleDestination.css";
 import { useState, useEffect, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { showDestination } from "../../utilities/destinations-api";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
+import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
 import { lang } from "../../lang.constants";
@@ -16,8 +17,11 @@ export default function SingleDestination({
   updateData,
 }) {
   const { destinationId } = useParams();
+  const navigate = useNavigate();
   const [destination, setDestination] = useState(null);
   const [destinationExperiences, setDestinationExperiences] = useState([]);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   const getData = useCallback(async () => {
     try {
@@ -51,6 +55,31 @@ export default function SingleDestination({
   useEffect(() => {
     getData();
   }, [getData]);
+
+  const handlePhotoClick = (photo) => {
+    setSelectedPhoto(photo);
+    setShowPhotoModal(true);
+  };
+
+  const closePhotoModal = () => {
+    setShowPhotoModal(false);
+    setSelectedPhoto(null);
+  };
+
+  // Get the default photo to display
+  const getDefaultPhoto = () => {
+    if (!destination) return null;
+    
+    // If photos array exists and has items
+    if (destination.photos && destination.photos.length > 0) {
+      const defaultIndex = destination.default_photo_index || 0;
+      return destination.photos[defaultIndex] || destination.photos[0];
+    }
+    
+    // Fallback to legacy photo field
+    return destination.photo;
+  };
+
   return (
     <>
       {destination && (
@@ -77,13 +106,77 @@ export default function SingleDestination({
                     : destination.state}
                 </h1>
               </div>
-              <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center">
+              <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center gap-3">
                 {user && <FavoriteDestination destination={destination} user={user} getData={getData} />}
+                {user && user._id === destination.user && (
+                  <button
+                    className="btn btn-icon"
+                    onClick={() => navigate(`/destinations/${destination._id}/update`)}
+                    aria-label="Edit Destination"
+                    title="Edit Destination"
+                  >
+                    ✏️
+                  </button>
+                )}
               </div>
             </div>
             <div className="row my-4">
               <div className="col-md-6 p-3">
-                {destination && <PhotoCard photo={destination.photo} title={destination.name} />}
+                {/* Display default photo with click to enlarge (or placeholder if none available) */}
+                <div 
+                  onClick={() => getDefaultPhoto() && handlePhotoClick(getDefaultPhoto())}
+                  style={{ cursor: getDefaultPhoto() ? 'pointer' : 'default' }}
+                  role={getDefaultPhoto() ? "button" : undefined}
+                  tabIndex={getDefaultPhoto() ? 0 : undefined}
+                  onKeyPress={(e) => {
+                    if (getDefaultPhoto() && (e.key === 'Enter' || e.key === ' ')) {
+                      handlePhotoClick(getDefaultPhoto());
+                    }
+                  }}
+                  aria-label={getDefaultPhoto() ? "Click to view full size photo" : undefined}
+                >
+                  <PhotoCard photo={getDefaultPhoto()} title={destination.name} />
+                </div>
+                
+                {/* Display additional photos in a grid */}
+                {destination.photos && destination.photos.length > 1 && (
+                  <div className="mt-3">
+                    <h5 className="mb-3">More Photos</h5>
+                    <div className="row g-2">
+                      {destination.photos.map((photo, index) => {
+                        // Skip the default photo since it's already shown above
+                        if (index === (destination.default_photo_index || 0)) return null;
+                        
+                        return (
+                          <div key={index} className="col-4">
+                            <div
+                              className="photo-thumbnail"
+                              onClick={() => handlePhotoClick(photo)}
+                              style={{
+                                backgroundImage: `url(${photo.url})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                paddingTop: '100%',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                position: 'relative',
+                                overflow: 'hidden'
+                              }}
+                              role="button"
+                              tabIndex={0}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  handlePhotoClick(photo);
+                                }
+                              }}
+                              aria-label={`View photo ${index + 1}`}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="col-md-6 p-3">
                 <div className="destination-detail-card">
@@ -168,6 +261,11 @@ export default function SingleDestination({
           </>
         )}
       </>
+      
+      {/* Photo Modal */}
+      {showPhotoModal && selectedPhoto && (
+        <PhotoModal photo={selectedPhoto} onClose={closePhotoModal} />
+      )}
     </>
   );
 }

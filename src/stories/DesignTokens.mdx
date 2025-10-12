@@ -1,0 +1,294 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Design System/Design Tokens" />
+
+# Design Tokens
+
+Design tokens are the visual design atoms of the design system — specifically, they are named entities that store visual design attributes. We use them in place of hard-coded values to maintain a consistent and scalable design system.
+
+## Colors
+
+### Primary Colors
+
+The primary color palette establishes the brand identity and is used for key interactive elements.
+
+<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem'}}>
+  <div>
+    <div style={{
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      height: '100px',
+      borderRadius: '8px',
+      marginBottom: '0.5rem',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+    }}></div>
+    <strong>Primary Gradient</strong>
+    <br />
+    <code>linear-gradient(135deg, #667eea 0%, #764ba2 100%)</code>
+  </div>
+  
+  <div>
+    <div style={{
+      background: '#667eea',
+      height: '100px',
+      borderRadius: '8px',
+      marginBottom: '0.5rem',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+    }}></div>
+    <strong>Primary Blue</strong>
+    <br />
+    <code>#667eea</code>
+  </div>
+  
+  <div>
+    <div style={{
+      background: '#764ba2',
+      height: '100px',
+      borderRadius: '8px',
+      marginBottom: '0.5rem',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+    }}></div>
+    <strong>Primary Purple</strong>
+    <br />
+    <code>#764ba2</code>
+  </div>
+</div>
+
+### Semantic Colors
+
+Bootstrap's semantic colors communicate meaning and state.
+
+<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem'}}>
+  <div>
+    <div style={{background: '#28a745', height: '80px', borderRadius: '8px', marginBottom: '0.5rem'}}></div>
+    <strong>Success</strong> • <code>#28a745</code>
+  </div>
+  <div>
+    <div style={{background: '#ffc107', height: '80px', borderRadius: '8px', marginBottom: '0.5rem'}}></div>
+    <strong>Warning</strong> • <code>#ffc107</code>
+  </div>
+  <div>
+    <div style={{background: '#dc3545', height: '80px', borderRadius: '8px', marginBottom: '0.5rem'}}></div>
+    <strong>Danger</strong> • <code>#dc3545</code>
+  </div>
+  <div>
+    <div style={{background: '#17a2b8', height: '80px', borderRadius: '8px', marginBottom: '0.5rem'}}></div>
+    <strong>Info</strong> • <code>#17a2b8</code>
+  </div>
+</div>
+
+### Neutral Colors
+
+Neutral colors are used for backgrounds, borders, and text.
+
+<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem'}}>
+  <div>
+    <div style={{background: '#f7f8fa', height: '80px', borderRadius: '8px', marginBottom: '0.5rem', border: '1px solid #ddd'}}></div>
+    <strong>Background Light</strong> • <code>#f7f8fa</code>
+  </div>
+  <div>
+    <div style={{background: '#f8f9fa', height: '80px', borderRadius: '8px', marginBottom: '0.5rem', border: '1px solid #ddd'}}></div>
+    <strong>Background</strong> • <code>#f8f9fa</code>
+  </div>
+  <div>
+    <div style={{background: '#333', height: '80px', borderRadius: '8px', marginBottom: '0.5rem', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>Aa</div>
+    <strong>Text Primary</strong> • <code>#333</code>
+  </div>
+  <div>
+    <div style={{background: '#6c757d', height: '80px', borderRadius: '8px', marginBottom: '0.5rem', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>Aa</div>
+    <strong>Text Muted</strong> • <code>#6c757d</code>
+  </div>
+</div>
+
+## Typography
+
+### Font Family
+
+```css
+font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 
+             'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 
+             'Helvetica Neue', sans-serif;
+```
+
+### Type Scale
+
+<div style={{marginBottom: '2rem'}}>
+  <div style={{fontSize: '2.5rem', fontWeight: 700, marginBottom: '1rem'}}>
+    Heading 1 - 2.5rem (40px)
+  </div>
+  <div style={{fontSize: '2rem', fontWeight: 700, marginBottom: '1rem'}}>
+    Heading 2 - 2rem (32px)
+  </div>
+  <div style={{fontSize: '1.75rem', fontWeight: 600, marginBottom: '1rem'}}>
+    Heading 3 - 1.75rem (28px)
+  </div>
+  <div style={{fontSize: '1.5rem', fontWeight: 600, marginBottom: '1rem'}}>
+    Heading 4 - 1.5rem (24px)
+  </div>
+  <div style={{fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem'}}>
+    Heading 5 - 1.25rem (20px)
+  </div>
+  <div style={{fontSize: '1rem', marginBottom: '1rem'}}>
+    Body - 1rem (16px) - The quick brown fox jumps over the lazy dog
+  </div>
+  <div style={{fontSize: '0.875rem', color: '#6c757d'}}>
+    Small - 0.875rem (14px) - Helper text and captions
+  </div>
+</div>
+
+### Font Weights
+
+<div style={{marginBottom: '2rem'}}>
+  <div style={{fontWeight: 400, fontSize: '1.25rem', marginBottom: '0.5rem'}}>
+    Regular (400) - Default text weight
+  </div>
+  <div style={{fontWeight: 500, fontSize: '1.25rem', marginBottom: '0.5rem'}}>
+    Medium (500) - Slight emphasis
+  </div>
+  <div style={{fontWeight: 600, fontSize: '1.25rem', marginBottom: '0.5rem'}}>
+    Semi-Bold (600) - Strong emphasis
+  </div>
+  <div style={{fontWeight: 700, fontSize: '1.25rem', marginBottom: '0.5rem'}}>
+    Bold (700) - Headings and CTAs
+  </div>
+</div>
+
+## Spacing
+
+Bootstrap's spacing utilities use a consistent scale:
+
+| Token | Value | Example Use |
+|-------|-------|-------------|
+| `0` | 0 | No spacing |
+| `1` | 0.25rem (4px) | Tight spacing |
+| `2` | 0.5rem (8px) | Small gaps |
+| `3` | 1rem (16px) | Default spacing |
+| `4` | 1.5rem (24px) | Section spacing |
+| `5` | 3rem (48px) | Large sections |
+
+### Common Spacing Patterns
+
+- **Form sections**: `mb-4` (1.5rem bottom margin)
+- **Button groups**: `gap-2` (0.5rem gap)
+- **Card padding**: `p-3` or `p-4`
+- **Page margins**: `my-4` (1.5rem vertical)
+
+## Border Radius
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `rounded` | 0.25rem | Small elements |
+| `rounded-lg` | 0.5rem | Cards, modals |
+| `rounded-xl` | 1rem | Large cards, images |
+| `rounded-pill` | 50rem | Pills, badges |
+| `rounded-circle` | 50% | Avatars, buttons |
+
+## Shadows
+
+<div style={{marginBottom: '2rem'}}>
+  <div style={{padding: '2rem', background: 'white', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: '1rem'}}>
+    <strong>Small Shadow</strong>
+    <br />
+    <code>box-shadow: 0 2px 8px rgba(0,0,0,0.1)</code>
+  </div>
+  
+  <div style={{padding: '2rem', background: 'white', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', marginBottom: '1rem'}}>
+    <strong>Medium Shadow</strong>
+    <br />
+    <code>box-shadow: 0 4px 20px rgba(0,0,0,0.08)</code>
+  </div>
+  
+  <div style={{padding: '2rem', background: 'white', borderRadius: '8px', boxShadow: '0 10px 40px rgba(0,0,0,0.15)'}}>
+    <strong>Large Shadow</strong>
+    <br />
+    <code>box-shadow: 0 10px 40px rgba(0,0,0,0.15)</code>
+  </div>
+</div>
+
+## Animations
+
+### Timing Functions
+
+- **Ease**: `cubic-bezier(0.25, 0.1, 0.25, 1)` - Default smooth
+- **Ease In**: `cubic-bezier(0.42, 0, 1, 1)` - Starts slow
+- **Ease Out**: `cubic-bezier(0, 0, 0.58, 1)` - Ends slow
+- **Linear**: `cubic-bezier(0, 0, 1, 1)` - Constant speed
+
+### Duration
+
+- **Fast**: 0.2s - Micro-interactions
+- **Medium**: 0.3s - Standard transitions
+- **Slow**: 0.5s - Complex animations
+
+### Common Animations
+
+```css
+/* Fade In */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Fade In Up */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shimmer (Loading) */
+@keyframes shimmer {
+  0% { background-position: -468px 0; }
+  100% { background-position: 468px 0; }
+}
+```
+
+## Usage Guidelines
+
+### Consistency
+
+- Always use design tokens instead of hard-coded values
+- Reference tokens through CSS variables or utility classes
+- Maintain consistent spacing between similar elements
+
+### Accessibility
+
+- Ensure color contrast ratios meet WCAG 2.1 AA standards (4.5:1 for text)
+- Use semantic colors meaningfully
+- Don't rely on color alone to convey information
+
+### Performance
+
+- Prefer CSS custom properties for dynamic values
+- Use transform and opacity for animations (GPU accelerated)
+- Keep animation durations between 200-500ms
+
+## Implementation
+
+### CSS Variables
+
+```css
+:root {
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --primary-blue: #667eea;
+  --primary-purple: #764ba2;
+  --text-primary: #333;
+  --text-muted: #6c757d;
+  --bg-light: #f7f8fa;
+  --border-radius: 1rem;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
+}
+```
+
+### Bootstrap Utilities
+
+```jsx
+<div className="mb-4 p-3 rounded-lg shadow-sm bg-light">
+  <h5 className="text-primary fw-bold">Title</h5>
+  <p className="text-muted mb-0">Description</p>
+</div>
+```

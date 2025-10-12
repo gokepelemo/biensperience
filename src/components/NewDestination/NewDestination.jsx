@@ -5,6 +5,7 @@ import { lang } from "../../lang.constants";
 import { createDestination, getDestinations } from "../../utilities/destinations-api";
 import ImageUpload from "../ImageUpload/ImageUpload";
 import { handleError } from "../../utilities/error-handler";
+import { Tooltip } from "bootstrap";
 
 export default function NewDestination({ updateData }) {
   const [newDestination, setNewDestination] = useState({});
@@ -15,6 +16,17 @@ export default function NewDestination({ updateData }) {
   const [tipToDelete, setTipToDelete] = useState(null);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  
+  // Initialize Bootstrap tooltips
+  useEffect(() => {
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new Tooltip(tooltipTriggerEl));
+    
+    return () => {
+      tooltipList.forEach(tooltip => tooltip.dispose());
+    };
+  }, []);
+  
   useEffect(() => {
     async function fetchDestinations() {
       const destinationData = await getDestinations();
@@ -93,9 +105,18 @@ export default function NewDestination({ updateData }) {
       <div className="row my-4 fade-in">
         <div className="col-12">
           <form onSubmit={handleSubmit} className="new-experience-form">
-            <div className="mb-4">
+                        <div className="mb-4">
               <label htmlFor="name" className="form-label">
-                City Name
+                City / Town
+                <span 
+                  className="ms-2 text-info" 
+                  data-bs-toggle="tooltip" 
+                  data-bs-placement="top" 
+                  title={lang.en.helper.cityRequired}
+                  style={{ cursor: 'help' }}
+                >
+                  ℹ️
+                </span>
               </label>
               <input
                 type="text"
@@ -107,15 +128,21 @@ export default function NewDestination({ updateData }) {
                 placeholder={lang.en.placeholder.city}
                 required
               />
-              <small className="form-text text-muted">
-                {lang.en.helper.cityRequired}
-              </small>
             </div>
 
             <div className="row mb-4">
               <div className="col-md-6 mb-3 mb-md-0">
                 <label htmlFor="state" className="form-label">
                   State / Province
+                  <span 
+                    className="ms-2 text-info" 
+                    data-bs-toggle="tooltip" 
+                    data-bs-placement="top" 
+                    title={lang.en.helper.stateProvinceRequired}
+                    style={{ cursor: 'help' }}
+                  >
+                    ℹ️
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -126,14 +153,20 @@ export default function NewDestination({ updateData }) {
                   value={newDestination.state || ''}
                   placeholder={lang.en.placeholder.stateProvince}
                 />
-                <small className="form-text text-muted">
-                  {lang.en.helper.stateProvinceRequired}
-                </small>
               </div>
 
               <div className="col-md-6">
                 <label htmlFor="country" className="form-label">
                   Country
+                  <span 
+                    className="ms-2 text-info" 
+                    data-bs-toggle="tooltip" 
+                    data-bs-placement="top" 
+                    title={lang.en.helper.countryRequired}
+                    style={{ cursor: 'help' }}
+                  >
+                    ℹ️
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -145,25 +178,37 @@ export default function NewDestination({ updateData }) {
                   placeholder={lang.en.placeholder.country}
                   required
                 />
-                <small className="form-text text-muted">
-                  {lang.en.helper.countryRequired}
-                </small>
               </div>
             </div>
 
             <div className="mb-4">
               <label className="form-label">
-                Photo
+                Photos
+                <span 
+                  className="ms-2 text-info" 
+                  data-bs-toggle="tooltip" 
+                  data-bs-placement="top" 
+                  title={lang.en.helper.destinationPhoto}
+                  style={{ cursor: 'help' }}
+                >
+                  ℹ️
+                </span>
               </label>
               <ImageUpload data={newDestination} setData={setNewDestination} />
-              <small className="form-text text-muted">
-                {lang.en.helper.photoOptional}
-              </small>
             </div>
 
             <div className="mb-4">
               <label className="form-label">
                 {lang.en.heading.travelTips}
+                <span 
+                  className="ms-2 text-info" 
+                  data-bs-toggle="tooltip" 
+                  data-bs-placement="top" 
+                  title="Share insider tips that'll help travelers make the most of this destination! 💡"
+                  style={{ cursor: 'help' }}
+                >
+                  ℹ️
+                </span>
               </label>
 
               <div className="input-group mb-3">
@@ -195,10 +240,6 @@ export default function NewDestination({ updateData }) {
                   Add Tip
                 </button>
               </div>
-
-              <small className="form-text text-muted d-block mb-2">
-                Add helpful travel tips for this destination (optional)
-              </small>
 
               {travelTips.length > 0 && (
                 <ul className="list-group">

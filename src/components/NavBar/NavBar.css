@@ -49,11 +49,72 @@ nav {
 .dropdown-menu {
     border-radius: 0.5rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: fadeInDown 0.2s ease-out;
+    padding: 0; /* Remove default padding */
+    overflow: hidden; /* Ensure rounded corners are maintained */
+}
+
+/* Dropdown toggle button styling */
+.navbar .dropdown-toggle {
+    padding: 0.75rem 1rem;
+    margin: 0 0.125rem;
+    color: rgba(255, 255, 255, 0.75) !important;
+    text-decoration: none !important;
+    border: none;
+    background: transparent;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.3s ease;
+}
+
+/* Ensure dropdown arrow is properly positioned */
+.navbar .dropdown-toggle::after {
+    display: inline-block;
+    margin-left: 0;
+    vertical-align: middle;
+    content: "";
+    border-top: 0.3em solid;
+    border-right: 0.3em solid transparent;
+    border-bottom: 0;
+    border-left: 0.3em solid transparent;
+}
+
+.navbar .dropdown-toggle:hover,
+.navbar .dropdown-toggle:focus,
+.navbar .dropdown-toggle[aria-expanded="true"] {
+    color: #667eea !important;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 0.5rem;
+}
+
+.navbar .dropdown-toggle:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
 }
 
 .dropdown-item {
     padding: 0.75rem 1.25rem;
     transition: all 0.3s ease;
+}
+
+/* First item should have rounded top corners */
+.dropdown-item:first-child {
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+}
+
+/* Last item should have rounded bottom corners */
+.dropdown-item:last-child {
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+}
+
+/* Dropdown divider styling */
+.dropdown-menu .dropdown-divider {
+    margin: 0;
+    opacity: 0.2;
 }
 
 .dropdown-item:hover,

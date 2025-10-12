@@ -1,4 +1,4 @@
-import { sendRequest } from "./send-request";
+import { sendRequest } from "./send-request.js";
 
 const BASE_URL = `/api/experiences/`
 
@@ -73,6 +73,10 @@ export async function userPlanItemDone(experienceId, planItemId) {
 
 export async function showUserExperiences(userId) {
   return await sendRequest(`${BASE_URL}user/${userId}`, "GET");
+}
+
+export async function showUserCreatedExperiences(userId) {
+  return await sendRequest(`${BASE_URL}user/${userId}/created`, "GET");
 }
 
 export async function getTagName(tagSlug) {

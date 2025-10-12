@@ -1,4 +1,4 @@
-import { sendRequest } from './send-request';
+import { sendRequest } from './send-request.js';
 
 const BASE_URL = `/api/destinations/`
 
@@ -40,12 +40,12 @@ export async function showDestination (id) {
  * Updates an existing destination.
  *
  * @async
- * @param {Object} experienceData - Destination data to update (note: parameter name seems incorrect)
- * @param {string} experienceData.id - Destination ID
+ * @param {string} id - Destination ID
+ * @param {Object} destinationData - Destination data to update
  * @returns {Promise<Object>} Updated destination object
  */
-export async function updateDestination (experienceData) {
-    return await sendRequest(`${BASE_URL}${experienceData.id}`, "PUT", experienceData)
+export async function updateDestination (id, destinationData) {
+    return await sendRequest(`${BASE_URL}${id}`, "PUT", destinationData)
 }
 
 /**

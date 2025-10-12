@@ -1,0 +1,151 @@
+# Biensperience Design System
+
+Welcome to the Biensperience Design System documentation! This living style guide showcases the components, patterns, and guidelines used throughout the Biensperience travel planning platform.
+
+## Overview
+
+Biensperience is a visual travel experience platform that enables users to plan experiences and share their plans with others. Our design system emphasizes:
+
+- **Visual Storytelling**: Image-rich experiences and destinations
+- **Clarity & Guidance**: Clear labels, helper text, and user feedback
+- **Consistency**: Unified patterns across all views
+- **Accessibility**: WCAG 2.1 compliant components
+- **Responsive Design**: Mobile-first approach
+
+## Technology Stack
+
+- **Frontend Framework**: React 18
+- **Styling**: Bootstrap 5 + Custom CSS
+- **Icons**: React Icons
+- **Forms**: Controlled components with validation
+- **Routing**: React Router v6
+- **Backend**: Node.js + Express + MongoDB
+
+## Design Principles
+
+### 1. User-Centric Design
+Every component is designed with the user's needs in mind, providing clear feedback and guidance throughout their journey.
+
+### 2. Visual Hierarchy
+Strong visual hierarchy helps users navigate and understand content quickly through:
+- Consistent typography scale
+- Strategic use of color
+- Proper spacing and grouping
+
+### 3. Progressive Disclosure
+Show users what they need, when they need it. Complex functionality is broken down into manageable steps.
+
+### 4. Responsive & Accessible
+All components work across devices and are accessible to users with disabilities.
+
+## Color Palette
+
+### Primary Colors
+- **Primary Gradient**: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`
+- **Primary Blue**: `#667eea`
+- **Primary Purple**: `#764ba2`
+
+### Semantic Colors
+- **Success**: `#28a745`
+- **Warning**: `#ffc107`
+- **Danger**: `#dc3545`
+- **Info**: `#17a2b8`
+
+### Neutral Colors
+- **Background Light**: `#f7f8fa`
+- **Background**: `#f8f9fa`
+- **Border**: `rgba(0, 0, 0, 0.1)`
+- **Text Primary**: `#333`
+- **Text Muted**: `#6c757d`
+
+## Typography
+
+### Font Family
+- **Primary**: Inter, -apple-system, system-ui, sans-serif
+
+### Type Scale
+- **H1**: 2.5rem (40px) - Page titles
+- **H2**: 2rem (32px) - Section headings
+- **H3**: 1.75rem (28px) - Subsection headings
+- **H4**: 1.5rem (24px) - Card titles
+- **H5**: 1.25rem (20px) - Small headings
+- **Body**: 1rem (16px) - Default text
+- **Small**: 0.875rem (14px) - Helper text
+
+### Font Weights
+- **Regular**: 400
+- **Medium**: 500
+- **Semi-Bold**: 600
+- **Bold**: 700
+
+## Spacing System
+
+Uses Bootstrap's spacing scale (0.25rem increments):
+- **xs**: 0.25rem (4px)
+- **sm**: 0.5rem (8px)
+- **md**: 1rem (16px)
+- **lg**: 1.5rem (24px)
+- **xl**: 3rem (48px)
+
+Consistent spacing classes:
+- `mb-4`: 1.5rem bottom margin (standard between form sections)
+- `mt-4`: 1.5rem top margin
+- `gap-2`: 0.5rem gap in flexbox
+- `p-2`: 0.5rem padding
+
+## Component Categories
+
+### Layout Components
+- **NavBar**: Global navigation
+- **PageMeta**: SEO and meta tags
+- **HeroBanner**: Page headers
+
+### Form Components
+- **ImageUpload**: Multi-photo upload with toggle
+- **TagInput**: Dynamic tag management
+- **NewExperience**: Experience creation form
+- **NewDestination**: Destination creation form
+- **UpdateExperience**: Experience editing form
+- **UpdateDestination**: Destination editing form
+- **UpdateProfile**: Profile editing form
+
+### Display Components
+- **ExperienceCard**: Experience preview card
+- **DestinationCard**: Destination preview card
+- **PhotoCard**: Image display with thumbnails
+- **PhotoModal**: Full-screen image viewer
+- **FavoriteDestination**: Favorite destination badge
+
+### Interactive Components
+- **ConfirmModal**: Confirmation dialogs
+- **SortFilter**: Data filtering and sorting
+- **LoginForm**: Authentication
+- **SignUpForm**: User registration
+
+## Getting Started
+
+Explore the components in the sidebar to see:
+- **Component demos** with interactive controls
+- **Code examples** showing implementation
+- **Props documentation** for customization
+- **Accessibility notes** for inclusive design
+- **Best practices** for usage
+
+## Contributing
+
+When adding new components to this design system:
+
+1. **Create a story file**: `ComponentName.stories.js`
+2. **Document props**: Use JSDoc comments
+3. **Add examples**: Show common use cases
+4. **Include accessibility**: ARIA labels and semantic HTML
+5. **Test responsive**: Verify mobile, tablet, desktop
+6. **Follow patterns**: Match existing component structure
+
+## Resources
+
+- [Component Library](/story/components-button--primary)
+- [Style Guide](../style-guide.md)
+- [GitHub Repository](https://github.com/gokepelemo/biensperience)
+- [Bootstrap 5 Docs](https://getbootstrap.com/docs/5.0/)
+- [React Icons](https://react-icons.github.io/react-icons/)

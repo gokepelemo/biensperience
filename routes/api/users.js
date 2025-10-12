@@ -9,4 +9,9 @@ router.put('/:id', ensureLoggedIn, usersCtrl.updateUser);
 router.post('/login', usersCtrl.login);
 router.get('/check-token', ensureLoggedIn, usersCtrl.checkToken);
 
+// Photo management routes
+router.post('/:id/photos', ensureLoggedIn, usersCtrl.addPhoto);
+router.delete('/:id/photos/:photoIndex', ensureLoggedIn, usersCtrl.removePhoto);
+router.put('/:id/photos/default', ensureLoggedIn, usersCtrl.setDefaultPhoto);
+
 module.exports = router;
