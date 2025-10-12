@@ -511,8 +511,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                 {experience.destination && (
                   <li className="list-group-item list-group-item-secondary fw-bold text-center h5 fade-in">
                     <Link to={`/destinations/${experience.destination._id}`}>
-                      {lang.en.label.destinationLabel}
-                      {experience.destination.name}
+                      {lang.en.label.destinationLabel}: {experience.destination.name}
                     </Link>
                   </li>
                 )}
