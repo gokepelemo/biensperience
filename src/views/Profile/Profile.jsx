@@ -218,8 +218,10 @@ export default function Profile({ user, destinations, updateData }) {
                         </Link>
                         .
                       </>
+                    ) : isLoadingProfile ? (
+                      <span className="loading-skeleton loading-skeleton-text"></span>
                     ) : (
-                      `${currentProfile.name} hasn't added any favorite destinations yet.`
+                      `${currentProfile?.name || 'This user'} hasn't added any favorite destinations yet.`
                     )}
                   </p>
                 )}
@@ -247,8 +249,10 @@ export default function Profile({ user, destinations, updateData }) {
                         </Link>
                         .
                       </>
+                    ) : isLoadingProfile ? (
+                      <span className="loading-skeleton loading-skeleton-text"></span>
                     ) : (
-                      `${currentProfile.name} hasn't planned any experiences yet.`
+                      `${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`
                     )}
                   </p>
                 )}

@@ -146,10 +146,23 @@ async function deleteExperience(req, res) {
 
 async function createPlanItem(req, res) {
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.experienceId)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
+    }
+
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate("user");
-    if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
+    
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+    
+    if (req.user._id.toString() !== experience.user._id.toString()) {
+      return res.status(401).json({ error: 'Not authorized to modify this experience' });
+    }
+    
     req.body.cost_estimate = !req.body.cost_estimate
       ? 0
       : req.body.cost_estimate;
@@ -203,18 +216,42 @@ async function updatePlanItem(req, res) {
 
 async function deletePlanItem(req, res) {
   try {
+    // Validate ObjectId formats
+    if (!mongoose.Types.ObjectId.isValid(req.params.experienceId)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(req.params.planItemId)) {
+      return res.status(400).json({ error: 'Invalid plan item ID format' });
+    }
+
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate("user");
-    if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
-    experience.plan_items.id(req.params.planItemId).deleteOne();
+    
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+    
+    if (req.user._id.toString() !== experience.user._id.toString()) {
+      return res.status(401).json({ error: 'Not authorized to modify this experience' });
+    }
+    
+    const planItem = experience.plan_items.id(req.params.planItemId);
+    if (!planItem) {
+      return res.status(404).json({ error: 'Plan item not found' });
+    }
+    
+    planItem.deleteOne();
     await experience.save();
+    
+    // Sanitize user data
     experience.users.forEach((user, index) => {
       experience.users[index].user = Object.assign(user.user, {
         password: null,
         email: null,
       });
     });
+    
     res.status(200).json(experience);
   } catch (err) {
     console.error('Error deleting plan item:', err);
@@ -309,9 +346,22 @@ async function removeUser(req, res) {
 
 async function userPlanItemDone(req, res) {
   try {
+    // Validate ObjectId formats
+    if (!mongoose.Types.ObjectId.isValid(req.params.experienceId)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(req.params.planItemId)) {
+      return res.status(400).json({ error: 'Invalid plan item ID format' });
+    }
+
     let experience = await Experience.findById(req.params.experienceId)
       .populate("users.user")
       .populate("destination");
+    
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+    
     let user = experience.users.findIndex(
       (expUser) => expUser.user.id === req.user._id
     );

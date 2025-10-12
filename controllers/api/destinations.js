@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Destination = require("../../models/destination");
 const User = require("../../models/user");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
@@ -78,10 +79,22 @@ async function showDestination(req, res) {
 
 async function updateDestination(req, res) {
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid destination ID format' });
+    }
+
     let destination = await Destination.findById(req.params.id).populate(
       "user"
     );
-    if (req.user._id !== destination.user._id) res.status(401).end();
+    
+    if (!destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+    
+    if (req.user._id.toString() !== destination.user._id.toString()) {
+      return res.status(401).json({ error: 'Not authorized to update this destination' });
+    }
 
     // Check for duplicate destination if name or country is being updated
     if ((req.body.name && req.body.name !== destination.name) ||
@@ -135,12 +148,25 @@ async function updateDestination(req, res) {
 
 async function deleteDestination(req, res) {
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid destination ID format' });
+    }
+
     let destination = await Destination.findById(req.params.id).populate(
       "user"
     );
-    if (req.user._id !== destination.user._id) res.status(401).end();
-    destination.deleteOne();
-    res.status(200).json(destination);
+    
+    if (!destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+    
+    if (req.user._id.toString() !== destination.user._id.toString()) {
+      return res.status(401).json({ error: 'Not authorized to delete this destination' });
+    }
+    
+    await destination.deleteOne();
+    res.status(200).json({ message: 'Destination deleted successfully', destination });
   } catch (err) {
     console.error('Error deleting destination:', err);
     res.status(400).json({ error: 'Failed to delete destination' });
@@ -149,9 +175,27 @@ async function deleteDestination(req, res) {
 
 async function toggleUserFavoriteDestination(req, res) {
   try {
+    // Validate ObjectId formats
+    if (!mongoose.Types.ObjectId.isValid(req.params.destinationId)) {
+      return res.status(400).json({ error: 'Invalid destination ID format' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
     let destination = await Destination.findById(req.params.destinationId);
+    
+    if (!destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+    
     const user = await User.findById(req.params.userId);
-    const idx = destination.users_favorite.indexOf(user._id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const idx = destination.users_favorite.findIndex(id => id.toString() === user._id.toString());
     if (idx === -1) {
       destination.users_favorite.push(user._id);
       await destination.save();

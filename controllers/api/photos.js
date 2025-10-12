@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Photo = require("../../models/photo");
 const { s3Upload, s3Delete } = require("../../uploads/aws-s3-upload");
 const fs = require("fs");
@@ -45,11 +46,16 @@ async function createPhoto(req, res) {
 
 async function updatePhoto(req, res) {
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid photo ID format' });
+    }
+
     let photo = await Photo.findById(req.params.id).populate("user");
     if (!photo) {
       return res.status(404).json({ error: 'Photo not found' });
     }
-    if (req.user._id !== photo.user._id.toString()) {
+    if (req.user._id.toString() !== photo.user._id.toString()) {
       return res.status(401).json({ error: 'Not authorized to update this photo' });
     }
     photo = Object.assign(photo, req.body);
@@ -63,11 +69,16 @@ async function updatePhoto(req, res) {
 
 async function deletePhoto(req, res) {
   try {
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid photo ID format' });
+    }
+
     const photo = await Photo.findById(req.params.id).populate("user");
     if (!photo) {
       return res.status(404).json({ error: 'Photo not found' });
     }
-    if (req.user._id !== photo.user._id.toString()) {
+    if (req.user._id.toString() !== photo.user._id.toString()) {
       return res.status(401).json({ error: 'Not authorized to delete this photo' });
     }
 

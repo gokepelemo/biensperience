@@ -9,11 +9,40 @@ function createJWT(user) {
 
 async function create(req, res) {
   try {
+    // Validate required fields
+    if (!req.body.email || !req.body.password || !req.body.name) {
+      return res.status(400).json({ error: 'Email, password, and name are required' });
+    }
+
+    // Validate password strength
+    if (typeof req.body.password !== 'string' || req.body.password.length < 3) {
+      return res.status(400).json({ error: 'Password must be at least 3 characters long' });
+    }
+
+    // Validate email format
+    const email = req.body.email;
+    if (typeof email !== 'string' || email.length > 254 || email.length < 3) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    const hasAt = email.includes('@');
+    const hasDot = email.includes('.');
+    const atPosition = email.indexOf('@');
+    const lastDotPosition = email.lastIndexOf('.');
+
+    if (!hasAt || !hasDot || atPosition < 1 || lastDotPosition < atPosition + 2 || lastDotPosition >= email.length - 1) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
     const user = await User.create(req.body);
     const token = createJWT(user);
     res.status(201).json(token);
   } catch (err) {
     console.error('Error creating user:', err);
+    // Check for duplicate email error
+    if (err.code === 11000) {
+      return res.status(409).json({ error: 'Email already exists' });
+    }
     res.status(400).json({ error: 'Failed to create user' });
   }
 }
@@ -36,14 +65,22 @@ async function login(req, res) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const user = await User.findOne({ email: email }).populate(
-      "photo"
-    );
+    const user = await User.findOne({ email: email }).populate("photo");
+    
+    // Check if user exists before attempting password comparison
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
     const passwordTest = await bcrypt.compare(req.body.password, user.password);
-    const token = passwordTest ? createJWT(user) : null;
+    
+    if (!passwordTest) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const token = createJWT(user);
     res.status(200).json(token);
   } catch (err) {
-    console.log(err);
     console.error('Error logging in user:', err);
     res.status(400).json({ error: 'Failed to login' });
   }
