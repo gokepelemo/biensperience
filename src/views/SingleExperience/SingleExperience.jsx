@@ -33,6 +33,31 @@ import {
 import { handleError } from "../../utilities/error-handler";
 import debug from "../../utilities/debug";
 
+// Cookie utility functions for sync alert dismissal
+const SYNC_ALERT_COOKIE = 'planSyncAlertDismissed';
+const SYNC_ALERT_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+function getSyncAlertCookie(planId) {
+  const cookies = document.cookie.split(';');
+  const cookieName = `${SYNC_ALERT_COOKIE}_${planId}=`;
+  for (let cookie of cookies) {
+    cookie = cookie.trim();
+    if (cookie.startsWith(cookieName)) {
+      const timestamp = parseInt(cookie.substring(cookieName.length));
+      // Check if cookie is still valid (not expired)
+      if (Date.now() - timestamp < SYNC_ALERT_DURATION) {
+        return timestamp;
+      }
+    }
+  }
+  return null;
+}
+
+function setSyncAlertCookie(planId) {
+  const expires = new Date(Date.now() + SYNC_ALERT_DURATION).toUTCString();
+  document.cookie = `${SYNC_ALERT_COOKIE}_${planId}=${Date.now()}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
 export default function SingleExperience({ user, experiences, updateData }) {
   const { experienceId } = useParams();
   const navigate = useNavigate();
@@ -61,6 +86,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
   const [collaborativePlans, setCollaborativePlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [showSyncButton, setShowSyncButton] = useState(false);
+  const [showSyncAlert, setShowSyncAlert] = useState(true); // Separate state for alert visibility
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncChanges, setSyncChanges] = useState(null);
   const [selectedSyncItems, setSelectedSyncItems] = useState({ added: [], removed: [], modified: [] });
@@ -257,6 +283,14 @@ export default function SingleExperience({ user, experiences, updateData }) {
       if (currentPlan) {
         const hasDiverged = checkPlanDivergence(currentPlan, experience);
         setShowSyncButton(hasDiverged);
+        
+        // Check if alert was recently dismissed via cookie
+        if (hasDiverged) {
+          const dismissedTime = getSyncAlertCookie(selectedPlanId);
+          setShowSyncAlert(!dismissedTime); // Show alert only if not recently dismissed
+        } else {
+          setShowSyncAlert(false); // No divergence, no alert
+        }
       }
     }
   }, [selectedPlanId, collaborativePlans, experience, checkPlanDivergence]);
@@ -449,9 +483,14 @@ export default function SingleExperience({ user, experiences, updateData }) {
       await fetchUserPlan();
 
       setShowSyncButton(false);
+      setShowSyncAlert(false);
       setShowSyncModal(false);
       setSyncChanges(null);
       setSelectedSyncItems({ added: [], removed: [], modified: [] });
+      
+      // Set cookie to hide alert for 24 hours after successful sync
+      setSyncAlertCookie(selectedPlanId);
+      
       debug.log("Plan synced successfully");
     } catch (err) {
       handleError(err, { context: "Sync plan" });
@@ -459,6 +498,14 @@ export default function SingleExperience({ user, experiences, updateData }) {
       setLoading(false);
     }
   }, [selectedPlanId, experience, collaborativePlans, fetchCollaborativePlans, fetchUserPlan, selectedSyncItems, syncChanges]);
+
+  const dismissSyncAlert = useCallback(() => {
+    if (selectedPlanId) {
+      setSyncAlertCookie(selectedPlanId);
+      setShowSyncAlert(false);
+      debug.log("Sync alert dismissed for 24 hours");
+    }
+  }, [selectedPlanId]);
 
   const handleAddPlanInstanceItem = useCallback((parentId = null) => {
     setEditingPlanItem(parentId ? { parent: parentId } : {});
@@ -692,36 +739,36 @@ export default function SingleExperience({ user, experiences, updateData }) {
     // Remove experience plan
     const previousState = userHasExperience;
     const previousPlan = userPlan;
+    const previousPlannedDate = displayedPlannedDate;
     try {
-      // Optimistically update UI
+      // Optimistically update UI immediately for better UX
       setUserHasExperience(false);
       setUserPlannedDate(null);
+      setDisplayedPlannedDate(null);
       setUserPlan(null);
       setShowRemoveModal(false);
+      setCollaborativePlans([]);
+      setSelectedPlanId(null);
+      setActiveTab("experience"); // Switch back to experience tab
 
-      // Delete the user's plan (using Plan API)
+      // Delete the user's plan (using Plan API) - do this in background
       if (userPlan) {
         await deletePlan(userPlan._id);
         debug.log("Plan deleted successfully");
-        
-        // Clear plan-related state
-        setUserPlan(null);
-        setCollaborativePlans([]);
-        setSelectedPlanId(null);
-        setActiveTab("experience"); // Switch back to experience tab
       }
 
-      // Refresh experience data and plans
-      await fetchExperience();
-      await fetchCollaborativePlans();
+      // Refresh data in background (user already sees updated UI)
+      fetchExperience().catch(err => debug.error("Error refreshing experience:", err));
+      fetchCollaborativePlans().catch(err => debug.error("Error refreshing collaborative plans:", err));
     } catch (err) {
       // Revert on error
       setUserHasExperience(previousState);
       setUserPlan(previousPlan);
+      setDisplayedPlannedDate(previousPlannedDate);
       setShowRemoveModal(false);
       handleError(err, { context: "Remove plan" });
     }
-  }, [experience, user, userHasExperience, userPlan, fetchExperience, fetchCollaborativePlans]);
+  }, [experience, user, userHasExperience, userPlan, displayedPlannedDate, fetchExperience, fetchCollaborativePlans]);
 
   const handleAddExperience = useCallback(
     async (data = null) => {
@@ -818,13 +865,24 @@ export default function SingleExperience({ user, experiences, updateData }) {
         
         // Refresh experience to get updated state
         await fetchExperience();
-      } else {
-        // Owners shouldn't be updating planned dates on the Experience tab
-        debug.warn("Owner attempted to update planned date on Experience tab");
-        setShowDatePicker(false);
-        setIsEditingDate(false);
-        setPlannedDate("");
-        return;
+      } else if (isOwner) {
+        // Owners can now create plans for their own experiences
+        // Check if owner already has a plan
+        if (userPlan) {
+          // Update existing plan's date
+          const dateToSend = plannedDate ? new Date(plannedDate).toISOString() : null;
+          await updatePlan(userPlan._id, { planned_date: dateToSend });
+          await fetchUserPlan();
+          await fetchCollaborativePlans();
+          setDisplayedPlannedDate(dateToSend);
+          debug.log("Owner's existing plan date updated successfully");
+        } else {
+          // Create new plan by adding experience
+          await handleAddExperience();
+        }
+        
+        // Refresh experience to get updated state
+        await fetchExperience();
       }
 
       setShowDatePicker(false);
@@ -1163,7 +1221,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                   }}
                 >
                   <i className="bi bi-person-plus me-2"></i>
-                  Add Collaborator to Experience
+                  Add Collaborators
                 </button>
               </div>
             </div>
@@ -1404,24 +1462,50 @@ export default function SingleExperience({ user, experiences, updateData }) {
                       );
                     })()}
                     
-                    {/* Sync Button */}
+                    {/* Sync Button - Always visible when plan diverged */}
                     {showSyncButton && (
-                      <div className="alert alert-warning mb-3 d-flex justify-content-between align-items-center">
-                        <div>
-                          <strong>Plan out of sync!</strong>
-                          <p className="mb-0 small">
-                            The experience plan has changed since you created this plan. 
-                            Click sync to update your plan with the latest items.
-                          </p>
-                        </div>
-                        <button
-                          className="btn btn-primary ms-3"
-                          onClick={handleSyncPlan}
-                          disabled={loading}
-                        >
-                          {loading ? "Syncing..." : "Sync Plan"}
-                        </button>
-                      </div>
+                      <>
+                        {/* Sync Alert - Can be dismissed but button remains */}
+                        {showSyncAlert && (
+                          <div className="alert alert-warning mb-3 d-flex justify-content-between align-items-center position-relative">
+                            <button
+                              type="button"
+                              className="btn-close position-absolute top-0 end-0 mt-2 me-2"
+                              aria-label="Dismiss alert"
+                              onClick={dismissSyncAlert}
+                              style={{ fontSize: '0.7rem' }}
+                            />
+                            <div className="pe-4">
+                              <strong>Plan out of sync!</strong>
+                              <p className="mb-0 small">
+                                The experience plan has changed since you created this plan. 
+                                Click sync to update your plan with the latest items.
+                              </p>
+                            </div>
+                            <button
+                              className="btn btn-primary ms-3 flex-shrink-0"
+                              onClick={handleSyncPlan}
+                              disabled={loading}
+                            >
+                              {loading ? "Syncing..." : "Sync Plan"}
+                            </button>
+                          </div>
+                        )}
+                        
+                        {/* Sync Button - Always accessible even when alert dismissed */}
+                        {!showSyncAlert && (
+                          <div className="mb-3 text-end">
+                            <button
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={handleSyncPlan}
+                              disabled={loading}
+                              title="Sync your plan with the latest experience changes"
+                            >
+                              {loading ? "Syncing..." : "🔄 Sync Plan"}
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {/* Collaborators Display */}
