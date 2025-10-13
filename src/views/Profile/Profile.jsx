@@ -329,7 +329,8 @@ export default function Profile({ user, destinations, updateData }) {
             uiState.experiences ? 'experiences' : 
             uiState.created ? 'created experiences' : 
             'destinations'
-          )} {lang.en.message.addOneNow}
+          ).replace(' Start by adding your first one!', isOwner ? ' Start by adding your first one!' : '')} 
+          {isOwner && ` ${lang.en.message.addOneNow}`}
         </p>
       )}
     </>

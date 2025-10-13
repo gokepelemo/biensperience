@@ -4,11 +4,17 @@ import { uploadPhoto, uploadPhotoBatch, deletePhoto } from "../../utilities/phot
 import { handleError } from "../../utilities/error-handler";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { lang } from "../../lang.constants";
+import AlertModal from "../AlertModal/AlertModal";
+import ConfirmModal from "../ConfirmModal/ConfirmModal";
 
 export default function ImageUpload({ data, setData }) {
   const [uploadForm, setUploadForm] = useState({});
   const [uploading, setUploading] = useState(false);
   const [useUrl, setUseUrl] = useState(false);
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [photoToDeleteIndex, setPhotoToDeleteIndex] = useState(null);
 
   // Initialize photos array from data - only once on mount
   const [photos, setPhotos] = useState(() => data.photos || []);
@@ -109,7 +115,8 @@ export default function ImageUpload({ data, setData }) {
       if (useUrl) {
         // URL upload - create photo object directly
         if (!uploadForm.photo_url) {
-          alert('Please enter a photo URL');
+          setAlertMessage('Please enter a photo URL');
+          setShowAlertModal(true);
           setUploading(false);
           return;
         }
@@ -428,7 +435,10 @@ export default function ImageUpload({ data, setData }) {
                     )}
                     <button
                       className="btn btn-sm btn-outline-danger"
-                      onClick={() => removePhotoAtIndex(index)}
+                      onClick={() => {
+                        setPhotoToDeleteIndex(index);
+                        setShowDeleteConfirm(true);
+                      }}
                       aria-label={`Remove photo ${index + 1} permanently`}
                       title="Permanently delete this photo"
                     >
@@ -441,6 +451,33 @@ export default function ImageUpload({ data, setData }) {
           </div>
         </div>
       )}
+      
+      <AlertModal
+        show={showAlertModal}
+        onClose={() => setShowAlertModal(false)}
+        title="Photo URL Required"
+        message={alertMessage}
+        variant="warning"
+      />
+      
+      <ConfirmModal
+        show={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setPhotoToDeleteIndex(null);
+        }}
+        onConfirm={async () => {
+          if (photoToDeleteIndex !== null) {
+            await removePhotoAtIndex(photoToDeleteIndex);
+            setShowDeleteConfirm(false);
+            setPhotoToDeleteIndex(null);
+          }
+        }}
+        title="Delete Photo"
+        message="Are you sure you want to permanently delete this photo? This action cannot be undone."
+        confirmText="Delete Photo"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

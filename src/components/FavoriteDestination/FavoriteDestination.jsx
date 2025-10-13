@@ -4,10 +4,12 @@ import { lang } from "../../lang.constants";
 import {
   toggleUserFavoriteDestination,
 } from "../../utilities/destinations-api";
+import AlertModal from "../AlertModal/AlertModal";
 
 export default function FavoriteDestination({ destination, user, getData }) {
   const [favHover, setFavHover] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showAlertModal, setShowAlertModal] = useState(false);
 
   // Compute favorite status directly from props - single source of truth
   const isUserFavorite = destination?.users_favorite?.includes(user?._id) || false;
@@ -27,27 +29,37 @@ export default function FavoriteDestination({ destination, user, getData }) {
       }
     } catch (error) {
       console.error('Failed to toggle favorite:', error);
-      alert('Failed to update favorite. Please try again.');
+      setShowAlertModal(true);
     } finally {
       setLoading(false);
     }
   }
   return (
-    <div className="favorite-destination-wrapper">
-      <button
-        className={`btn btn-icon my-4 ${isUserFavorite ? 'btn-favorite-remove' : 'btn-favorite-add'} ${loading ? 'loading' : ''}`}
-        onClick={handleAddToFavorites}
-        onMouseEnter={() => setFavHover(true)}
-        onMouseLeave={() => setFavHover(false)}
-        disabled={loading}
-        aria-busy={loading}
-      >
-        {!isUserFavorite
-          ? lang.en.button.addFavoriteDest
-          : favHover
-            ? lang.en.button.removeFavoriteDest
-            : lang.en.button.favorited}
-      </button>
-    </div>
+    <>
+      <div className="favorite-destination-wrapper">
+        <button
+          className={`btn btn-icon my-4 ${isUserFavorite ? 'btn-favorite-remove' : 'btn-favorite-add'} ${loading ? 'loading' : ''}`}
+          onClick={handleAddToFavorites}
+          onMouseEnter={() => setFavHover(true)}
+          onMouseLeave={() => setFavHover(false)}
+          disabled={loading}
+          aria-busy={loading}
+        >
+          {!isUserFavorite
+            ? lang.en.button.addFavoriteDest
+            : favHover
+              ? lang.en.button.removeFavoriteDest
+              : lang.en.button.favorited}
+        </button>
+      </div>
+      
+      <AlertModal
+        show={showAlertModal}
+        onClose={() => setShowAlertModal(false)}
+        title="Update Failed"
+        message="Failed to update favorite. Please try again."
+        variant="danger"
+      />
+    </>
   );
 }

@@ -20,3 +20,7 @@ export async function getUserData(id) {
 export async function updateUser(id, userData) {
   return await sendRequest(`${BASE_URL}${id}`, "PUT", userData);
 }
+
+export async function searchUsers(query) {
+  return await sendRequest(`${BASE_URL}search?q=${encodeURIComponent(query)}`, "GET");
+}

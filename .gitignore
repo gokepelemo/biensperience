@@ -1,6 +1,7 @@
 # screenshots
 /screenshots/
 /uploads/images/
+/documentation/
 
 # dependencies
 /node_modules

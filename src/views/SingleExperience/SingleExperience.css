@@ -1,3 +1,47 @@
+/* Plan Item Modal Form - Override global grid layout */
+.plan-item-modal-form {
+    display: block !important;
+    grid-template-columns: unset !important;
+}
+
+.plan-item-modal-form .form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.plan-item-modal-form .form-control {
+    width: 100%;
+}
+
+/* Plan Item Modal - Larger Size */
+.plan-item-modal-dialog {
+    max-width: 80vw !important; /* Mobile/Tablet: 80% of viewport */
+}
+
+/* Desktop: 50% of viewport */
+@media (min-width: 992px) {
+    .plan-item-modal-dialog {
+        max-width: 50vw !important;
+    }
+}
+
+/* Collaborator Modal Form - Override global grid layout */
+.collaborator-modal-form {
+    display: block !important;
+    grid-template-columns: unset !important;
+}
+
+.collaborator-modal-form .form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.collaborator-modal-form .form-control {
+    width: 100%;
+}
+
 /* Plan Item Link Icon */
 .plan-item-title a::before {
     content: "🔗 ";
@@ -318,6 +362,50 @@
     color: white !important;
 }
 
+/* Plan Tabs Navigation */
+.plan-tabs-nav {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 0;
+    margin-bottom: 1.5rem;
+}
+
+.plan-tab-button {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    bottom: -2px;
+}
+
+.plan-tab-button:hover {
+    color: #495057;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.plan-tab-button.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.plan-tab-button:focus {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+/* My Plan View */
+.my-plan-view {
+    padding: 2rem 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .plan-item-header {
@@ -328,5 +416,110 @@
     .plan-item-meta {
         flex-direction: column;
         gap: 0.5rem;
+    }
+
+    .plan-tabs-nav {
+        flex-direction: column;
+        gap: 0;
+        border-bottom: none;
+    }
+
+    .plan-tab-button {
+        border-bottom: none;
+        border-left: 3px solid transparent;
+        text-align: left;
+        padding-left: 1rem;
+        bottom: 0;
+    }
+
+    .plan-tab-button.active {
+        border-left-color: #667eea;
+        border-bottom-color: transparent;
+    }
+
+    .plan-tab-dropdown-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* Plan Dropdown */
+.plan-tab-dropdown-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+}
+
+.plan-dropdown {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    background: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.plan-dropdown:hover {
+    border-color: #667eea;
+}
+
+.plan-dropdown:focus {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+    border-color: #667eea;
+}
+
+/* Plan Items List Styling */
+.plan-items-list {
+    margin-top: 1rem;
+}
+
+.my-plan-view .plan-item-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.my-plan-view .plan-item-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.my-plan-view .plan-item-header {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.my-plan-view .form-check-input {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.75rem;
+    cursor: pointer;
+}
+
+.my-plan-view .form-check-input:checked {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.my-plan-view .plan-item-details {
+    background: #f8f9fa;
+}
+
+.my-plan-view .alert {
+    border-radius: 0.5rem;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }

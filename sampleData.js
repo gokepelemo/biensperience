@@ -67,37 +67,37 @@ async function createSampleData() {
     // Create sample photos
     console.log('📸 Creating sample photos...');
     const photos = [
-      { url: 'https://images.unsplash.com/photo-1431274172761-fca41d930114?w=800', s3_key: 'sample-paris.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id },
-      { url: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800', s3_key: 'sample-tokyo.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[1]._id },
-      { url: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800', s3_key: 'sample-nyc.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[2]._id },
-      { url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800', s3_key: 'sample-sydney.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[3]._id },
-      { url: 'https://images.unsplash.com/photo-1580060839134-75a5edca2e99?w=800', s3_key: 'sample-capetown.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[4]._id },
-      { url: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=800', s3_key: 'sample-rome.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[5]._id },
-      { url: 'https://images.unsplash.com/photo-1531572753322-ad063cecc140?w=800', s3_key: 'sample-london.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[6]._id },
-      { url: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800', s3_key: 'sample-amsterdam.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[7]._id },
-      { url: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800', s3_key: 'sample-barcelona.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[8]._id },
-      { url: 'https://images.unsplash.com/photo-1519677100203-a0e668c92439?w=800', s3_key: 'sample-prague.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[9]._id },
-      { url: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800', s3_key: 'sample-rio.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id },
-      { url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800', s3_key: 'sample-mexico-city.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[1]._id },
-      { url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800', s3_key: 'sample-bangkok.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[2]._id },
-      { url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=800', s3_key: 'sample-istanbul.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[3]._id },
-      { url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800', s3_key: 'sample-dublin.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[4]._id },
-      { url: 'https://images.unsplash.com/photo-1555992336-fb0d29498b13?w=800', s3_key: 'sample-vancouver.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[5]._id },
-      { url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800', s3_key: 'sample-munich.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[6]._id },
-      { url: 'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800', s3_key: 'sample-copenhagen.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[7]._id },
-      { url: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800', s3_key: 'sample-zurich.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[8]._id },
-      { url: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=800', s3_key: 'sample-stockholm.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[9]._id },
-      { url: 'https://images.unsplash.com/photo-1540979388789-6cee28a1cdc9?w=800', s3_key: 'sample-wellington.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id },
-      { url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800', s3_key: 'sample-marrakech.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[1]._id },
-      { url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800', s3_key: 'sample-hanoi.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[2]._id },
-      { url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800', s3_key: 'sample-singapore.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[3]._id },
-      { url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=800', s3_key: 'sample-dubai.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[4]._id },
-      { url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800', s3_key: 'sample-edinburgh.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[5]._id },
-      { url: 'https://images.unsplash.com/photo-1555992336-fb0d29498b13?w=800', s3_key: 'sample-quebec.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[6]._id },
-      { url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800', s3_key: 'sample-vienna.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[7]._id },
-      { url: 'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800', s3_key: 'sample-oslo.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[8]._id },
-      { url: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800', s3_key: 'sample-berlin.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[9]._id },
-      { url: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=800', s3_key: 'sample-helsinki.jpg', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id }
+      { url: 'https://images.unsplash.com/photo-1431274172761-fca41d930114?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id, permissions: [{ _id: createdUsers[0]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[1]._id, permissions: [{ _id: createdUsers[1]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[2]._id, permissions: [{ _id: createdUsers[2]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[3]._id, permissions: [{ _id: createdUsers[3]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1580060839134-75a5edca2e99?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[4]._id, permissions: [{ _id: createdUsers[4]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[5]._id, permissions: [{ _id: createdUsers[5]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1531572753322-ad063cecc140?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[6]._id, permissions: [{ _id: createdUsers[6]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[7]._id, permissions: [{ _id: createdUsers[7]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[8]._id, permissions: [{ _id: createdUsers[8]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1519677100203-a0e668c92439?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[9]._id, permissions: [{ _id: createdUsers[9]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id, permissions: [{ _id: createdUsers[0]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[1]._id, permissions: [{ _id: createdUsers[1]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[2]._id, permissions: [{ _id: createdUsers[2]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[3]._id, permissions: [{ _id: createdUsers[3]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[4]._id, permissions: [{ _id: createdUsers[4]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1555992336-fb0d29498b13?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[5]._id, permissions: [{ _id: createdUsers[5]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[6]._id, permissions: [{ _id: createdUsers[6]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[7]._id, permissions: [{ _id: createdUsers[7]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[8]._id, permissions: [{ _id: createdUsers[8]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[9]._id, permissions: [{ _id: createdUsers[9]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1540979388789-6cee28a1cdc9?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id, permissions: [{ _id: createdUsers[0]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[1]._id, permissions: [{ _id: createdUsers[1]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[2]._id, permissions: [{ _id: createdUsers[2]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[3]._id, permissions: [{ _id: createdUsers[3]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[4]._id, permissions: [{ _id: createdUsers[4]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[5]._id, permissions: [{ _id: createdUsers[5]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1555992336-fb0d29498b13?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[6]._id, permissions: [{ _id: createdUsers[6]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[7]._id, permissions: [{ _id: createdUsers[7]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[8]._id, permissions: [{ _id: createdUsers[8]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[9]._id, permissions: [{ _id: createdUsers[9]._id, entity: 'user', type: 'owner' }] },
+      { url: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=800', photo_credit: 'Unsplash', photo_credit_url: 'https://unsplash.com', user: createdUsers[0]._id, permissions: [{ _id: createdUsers[0]._id, entity: 'user', type: 'owner' }] }
     ];
 
     const createdPhotos = [];
@@ -105,7 +105,7 @@ async function createSampleData() {
       const photo = new Photo(photoData);
       await photo.save();
       createdPhotos.push(photo);
-      console.log(`✅ Created photo: ${photo.s3_key}`);
+      console.log(`✅ Created photo: ${photo._id}`);
     }
 
     // Create destinations
@@ -117,6 +117,11 @@ async function createSampleData() {
         state: 'Île-de-France',
         map_location: '48.8566,2.3522',
         user: createdUsers[0]._id,
+        permissions: [{
+          _id: createdUsers[0]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[0]._id,
         travel_tips: [
           'Visit the Eiffel Tower at sunset for the best views',
@@ -130,6 +135,11 @@ async function createSampleData() {
         country: 'Japan',
         map_location: '35.6762,139.6503',
         user: createdUsers[1]._id,
+        permissions: [{
+          _id: createdUsers[1]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[1]._id,
         travel_tips: [
           'Experience Shibuya Crossing during peak hours',
@@ -144,6 +154,11 @@ async function createSampleData() {
         state: 'New York',
         map_location: '40.7128,-74.0060',
         user: createdUsers[2]._id,
+        permissions: [{
+          _id: createdUsers[2]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[2]._id,
         travel_tips: [
           'Walk across the Brooklyn Bridge at sunrise',
@@ -158,6 +173,11 @@ async function createSampleData() {
         state: 'New South Wales',
         map_location: '-33.8688,151.2093',
         user: createdUsers[3]._id,
+        permissions: [{
+          _id: createdUsers[3]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[3]._id,
         travel_tips: [
           'Climb to the top of the Sydney Harbour Bridge',
@@ -172,6 +192,11 @@ async function createSampleData() {
         state: 'Western Cape',
         map_location: '-33.9249,18.4241',
         user: createdUsers[4]._id,
+        permissions: [{
+          _id: createdUsers[4]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[4]._id,
         travel_tips: [
           'Drive along Chapman\'s Peak Drive for stunning coastal views',
@@ -185,6 +210,11 @@ async function createSampleData() {
         country: 'Italy',
         map_location: '41.9028,12.4964',
         user: createdUsers[5]._id,
+        permissions: [{
+          _id: createdUsers[5]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[5]._id,
         travel_tips: [
           'Visit the Colosseum and Roman Forum',
@@ -198,6 +228,11 @@ async function createSampleData() {
         country: 'United Kingdom',
         map_location: '51.5074,-0.1278',
         user: createdUsers[6]._id,
+        permissions: [{
+          _id: createdUsers[6]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[6]._id,
         travel_tips: [
           'Visit Buckingham Palace and watch the changing of the guard',
@@ -211,6 +246,11 @@ async function createSampleData() {
         country: 'Netherlands',
         map_location: '52.3676,4.9041',
         user: createdUsers[7]._id,
+        permissions: [{
+          _id: createdUsers[7]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[7]._id,
         travel_tips: [
           'Rent a bike and explore the canals',
@@ -224,6 +264,11 @@ async function createSampleData() {
         country: 'Spain',
         map_location: '41.3851,2.1734',
         user: createdUsers[8]._id,
+        permissions: [{
+          _id: createdUsers[8]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[8]._id,
         travel_tips: [
           'Visit Sagrada Familia and Park Güell',
@@ -237,6 +282,11 @@ async function createSampleData() {
         country: 'Czech Republic',
         map_location: '50.0755,14.4378',
         user: createdUsers[9]._id,
+        permissions: [{
+          _id: createdUsers[9]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[9]._id,
         travel_tips: [
           'Visit Prague Castle',
@@ -251,6 +301,11 @@ async function createSampleData() {
         state: 'Rio de Janeiro',
         map_location: '-22.9068,-43.1729',
         user: createdUsers[0]._id,
+        permissions: [{
+          _id: createdUsers[0]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[10]._id,
         travel_tips: [
           'Visit Christ the Redeemer',
@@ -264,6 +319,11 @@ async function createSampleData() {
         country: 'Mexico',
         map_location: '19.4326,-99.1332',
         user: createdUsers[1]._id,
+        permissions: [{
+          _id: createdUsers[1]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[11]._id,
         travel_tips: [
           'Explore the historic center and Zócalo',
@@ -277,6 +337,11 @@ async function createSampleData() {
         country: 'Thailand',
         map_location: '13.7563,100.5018',
         user: createdUsers[2]._id,
+        permissions: [{
+          _id: createdUsers[2]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[12]._id,
         travel_tips: [
           'Visit the Grand Palace and Wat Arun',
@@ -290,6 +355,11 @@ async function createSampleData() {
         country: 'Turkey',
         map_location: '41.0082,28.9784',
         user: createdUsers[3]._id,
+        permissions: [{
+          _id: createdUsers[3]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[13]._id,
         travel_tips: [
           'Visit Hagia Sophia and Blue Mosque',
@@ -303,6 +373,11 @@ async function createSampleData() {
         country: 'Ireland',
         map_location: '53.3498,-6.2603',
         user: createdUsers[4]._id,
+        permissions: [{
+          _id: createdUsers[4]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[14]._id,
         travel_tips: [
           'Visit Dublin Castle and Trinity College',
@@ -317,6 +392,11 @@ async function createSampleData() {
         state: 'British Columbia',
         map_location: '49.2827,-123.1207',
         user: createdUsers[5]._id,
+        permissions: [{
+          _id: createdUsers[5]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[15]._id,
         travel_tips: [
           'Hike in Stanley Park',
@@ -331,6 +411,11 @@ async function createSampleData() {
         state: 'Bavaria',
         map_location: '48.1351,11.5820',
         user: createdUsers[6]._id,
+        permissions: [{
+          _id: createdUsers[6]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[16]._id,
         travel_tips: [
           'Visit Neuschwanstein Castle',
@@ -344,6 +429,11 @@ async function createSampleData() {
         country: 'Denmark',
         map_location: '55.6761,12.5683',
         user: createdUsers[7]._id,
+        permissions: [{
+          _id: createdUsers[7]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[17]._id,
         travel_tips: [
           'Visit Tivoli Gardens',
@@ -357,6 +447,11 @@ async function createSampleData() {
         country: 'Switzerland',
         map_location: '47.3769,8.5417',
         user: createdUsers[8]._id,
+        permissions: [{
+          _id: createdUsers[8]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[18]._id,
         travel_tips: [
           'Walk along Lake Zurich',
@@ -370,6 +465,11 @@ async function createSampleData() {
         country: 'Sweden',
         map_location: '59.3293,18.0686',
         user: createdUsers[9]._id,
+        permissions: [{
+          _id: createdUsers[9]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[19]._id,
         travel_tips: [
           'Visit the Royal Palace',
@@ -383,6 +483,11 @@ async function createSampleData() {
         country: 'New Zealand',
         map_location: '-41.2865,174.7762',
         user: createdUsers[0]._id,
+        permissions: [{
+          _id: createdUsers[0]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[20]._id,
         travel_tips: [
           'Visit Te Papa Museum',
@@ -396,6 +501,11 @@ async function createSampleData() {
         country: 'Morocco',
         map_location: '31.6295,-7.9811',
         user: createdUsers[1]._id,
+        permissions: [{
+          _id: createdUsers[1]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[21]._id,
         travel_tips: [
           'Explore Jemaa el-Fnaa square',
@@ -409,6 +519,11 @@ async function createSampleData() {
         country: 'Vietnam',
         map_location: '21.0278,105.8342',
         user: createdUsers[2]._id,
+        permissions: [{
+          _id: createdUsers[2]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[22]._id,
         travel_tips: [
           'Visit Ho Chi Minh Mausoleum',
@@ -422,6 +537,11 @@ async function createSampleData() {
         country: 'Singapore',
         map_location: '1.3521,103.8198',
         user: createdUsers[3]._id,
+        permissions: [{
+          _id: createdUsers[3]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[23]._id,
         travel_tips: [
           'Visit Gardens by the Bay',
@@ -435,6 +555,11 @@ async function createSampleData() {
         country: 'UAE',
         map_location: '25.2048,55.2708',
         user: createdUsers[4]._id,
+        permissions: [{
+          _id: createdUsers[4]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[24]._id,
         travel_tips: [
           'Visit Burj Khalifa',
@@ -448,6 +573,11 @@ async function createSampleData() {
         country: 'United Kingdom',
         map_location: '55.9533,-3.1883',
         user: createdUsers[5]._id,
+        permissions: [{
+          _id: createdUsers[5]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[25]._id,
         travel_tips: [
           'Visit Edinburgh Castle',
@@ -462,6 +592,11 @@ async function createSampleData() {
         state: 'Quebec',
         map_location: '46.8139,-71.2080',
         user: createdUsers[6]._id,
+        permissions: [{
+          _id: createdUsers[6]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[26]._id,
         travel_tips: [
           'Explore Old Quebec',
@@ -475,6 +610,11 @@ async function createSampleData() {
         country: 'Austria',
         map_location: '48.2082,16.3738',
         user: createdUsers[7]._id,
+        permissions: [{
+          _id: createdUsers[7]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[27]._id,
         travel_tips: [
           'Visit Schönbrunn Palace',
@@ -488,6 +628,11 @@ async function createSampleData() {
         country: 'Norway',
         map_location: '59.9139,10.7522',
         user: createdUsers[8]._id,
+        permissions: [{
+          _id: createdUsers[8]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[28]._id,
         travel_tips: [
           'Visit the Viking Ship Museum',
@@ -501,6 +646,11 @@ async function createSampleData() {
         country: 'Germany',
         map_location: '52.5200,13.4050',
         user: createdUsers[9]._id,
+        permissions: [{
+          _id: createdUsers[9]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[29]._id,
         travel_tips: [
           'Visit the Berlin Wall Memorial',
@@ -514,6 +664,11 @@ async function createSampleData() {
         country: 'Finland',
         map_location: '60.1699,24.9384',
         user: createdUsers[0]._id,
+        permissions: [{
+          _id: createdUsers[0]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[30]._id,
         travel_tips: [
           'Visit Suomenlinna fortress',
@@ -540,6 +695,11 @@ async function createSampleData() {
         destination: createdDestinations[0]._id,
         experience_type: ['Romantic', 'Cultural', 'Food & Wine'],
         user: createdUsers[0]._id,
+        permissions: [{
+          _id: createdUsers[0]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[0]._id,
         plan_items: [
           {
@@ -578,6 +738,11 @@ async function createSampleData() {
         destination: createdDestinations[1]._id,
         experience_type: ['Cultural', 'Adventure', 'Food & Wine'],
         user: createdUsers[1]._id,
+        permissions: [{
+          _id: createdUsers[1]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[1]._id,
         plan_items: [
           {
@@ -615,6 +780,11 @@ async function createSampleData() {
         destination: createdDestinations[2]._id,
         experience_type: ['Adventure', 'Cultural', 'Urban'],
         user: createdUsers[2]._id,
+        permissions: [{
+          _id: createdUsers[2]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[2]._id,
         plan_items: [
           {
@@ -651,6 +821,11 @@ async function createSampleData() {
         destination: createdDestinations[3]._id,
         experience_type: ['Adventure', 'Nature', 'Water Sports'],
         user: createdUsers[3]._id,
+        permissions: [{
+          _id: createdUsers[3]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[3]._id,
         plan_items: [
           {
@@ -687,6 +862,11 @@ async function createSampleData() {
         destination: createdDestinations[4]._id,
         experience_type: ['Adventure', 'Nature', 'Wildlife'],
         user: createdUsers[4]._id,
+        permissions: [{
+          _id: createdUsers[4]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[4]._id,
         plan_items: [
           {
@@ -722,6 +902,11 @@ async function createSampleData() {
         destination: createdDestinations[5]._id,
         experience_type: ['Cultural', 'Historical', 'Food & Wine'],
         user: createdUsers[5]._id,
+        permissions: [{
+          _id: createdUsers[5]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[5]._id,
         plan_items: [
           {
@@ -759,6 +944,11 @@ async function createSampleData() {
         destination: createdDestinations[6]._id,
         experience_type: ['Cultural', 'Historical', 'Urban'],
         user: createdUsers[6]._id,
+        permissions: [{
+          _id: createdUsers[6]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[6]._id,
         plan_items: [
           {
@@ -795,6 +985,11 @@ async function createSampleData() {
         destination: createdDestinations[7]._id,
         experience_type: ['Cultural', 'Adventure', 'Urban'],
         user: createdUsers[7]._id,
+        permissions: [{
+          _id: createdUsers[7]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[7]._id,
         plan_items: [
           {
@@ -831,6 +1026,11 @@ async function createSampleData() {
         destination: createdDestinations[8]._id,
         experience_type: ['Cultural', 'Adventure', 'Architecture'],
         user: createdUsers[8]._id,
+        permissions: [{
+          _id: createdUsers[8]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[8]._id,
         plan_items: [
           {
@@ -868,6 +1068,11 @@ async function createSampleData() {
         destination: createdDestinations[9]._id,
         experience_type: ['Cultural', 'Historical', 'Adventure'],
         user: createdUsers[9]._id,
+        permissions: [{
+          _id: createdUsers[9]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[9]._id,
         plan_items: [
           {
@@ -904,6 +1109,11 @@ async function createSampleData() {
         destination: createdDestinations[10]._id,
         experience_type: ['Cultural', 'Adventure', 'Entertainment'],
         user: createdUsers[0]._id,
+        permissions: [{
+          _id: createdUsers[0]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[10]._id,
         plan_items: [
           {
@@ -939,6 +1149,11 @@ async function createSampleData() {
         destination: createdDestinations[11]._id,
         experience_type: ['Cultural', 'Historical', 'Food & Wine'],
         user: createdUsers[1]._id,
+        permissions: [{
+          _id: createdUsers[1]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[11]._id,
         plan_items: [
           {
@@ -974,6 +1189,11 @@ async function createSampleData() {
         destination: createdDestinations[12]._id,
         experience_type: ['Food & Wine', 'Cultural', 'Adventure'],
         user: createdUsers[2]._id,
+        permissions: [{
+          _id: createdUsers[2]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[12]._id,
         plan_items: [
           {
@@ -1009,6 +1229,11 @@ async function createSampleData() {
         destination: createdDestinations[13]._id,
         experience_type: ['Cultural', 'Adventure', 'Historical'],
         user: createdUsers[3]._id,
+        permissions: [{
+          _id: createdUsers[3]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[13]._id,
         plan_items: [
           {
@@ -1044,6 +1269,11 @@ async function createSampleData() {
         destination: createdDestinations[14]._id,
         experience_type: ['Cultural', 'Historical', 'Food & Wine'],
         user: createdUsers[4]._id,
+        permissions: [{
+          _id: createdUsers[4]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[14]._id,
         plan_items: [
           {
@@ -1080,6 +1310,11 @@ async function createSampleData() {
         destination: createdDestinations[15]._id,
         experience_type: ['Nature', 'Adventure', 'Wildlife'],
         user: createdUsers[5]._id,
+        permissions: [{
+          _id: createdUsers[5]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[15]._id,
         plan_items: [
           {
@@ -1114,6 +1349,11 @@ async function createSampleData() {
         destination: createdDestinations[16]._id,
         experience_type: ['Food & Wine', 'Cultural', 'Adventure'],
         user: createdUsers[6]._id,
+        permissions: [{
+          _id: createdUsers[6]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[16]._id,
         plan_items: [
           {
@@ -1149,6 +1389,11 @@ async function createSampleData() {
         destination: createdDestinations[17]._id,
         experience_type: ['Cultural', 'Food & Wine', 'Urban'],
         user: createdUsers[7]._id,
+        permissions: [{
+          _id: createdUsers[7]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[17]._id,
         plan_items: [
           {
@@ -1185,6 +1430,11 @@ async function createSampleData() {
         destination: createdDestinations[18]._id,
         experience_type: ['Nature', 'Adventure', 'Cultural'],
         user: createdUsers[8]._id,
+        permissions: [{
+          _id: createdUsers[8]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[18]._id,
         plan_items: [
           {
@@ -1219,6 +1469,11 @@ async function createSampleData() {
         destination: createdDestinations[19]._id,
         experience_type: ['Nature', 'Adventure', 'Cultural'],
         user: createdUsers[9]._id,
+        permissions: [{
+          _id: createdUsers[9]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         photo: createdPhotos[19]._id,
         plan_items: [
           {
@@ -1254,6 +1509,11 @@ async function createSampleData() {
         destination: createdDestinations[0]._id,
         experience_type: ['Food & Wine', 'Cultural'],
         user: createdUsers[0]._id,
+        permissions: [{
+          _id: createdUsers[0]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         plan_items: [
           {
             text: 'Book wine tasting in Bordeaux region',
@@ -1277,6 +1537,11 @@ async function createSampleData() {
         destination: createdDestinations[1]._id,
         experience_type: ['Cultural', 'Urban', 'Entertainment'],
         user: createdUsers[1]._id,
+        permissions: [{
+          _id: createdUsers[1]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         plan_items: [
           {
             text: 'Book tickets for Robot Restaurant show',
@@ -1301,6 +1566,11 @@ async function createSampleData() {
         destination: createdDestinations[8]._id,
         experience_type: ['Adventure', 'Cultural', 'Urban'],
         user: createdUsers[2]._id,
+        permissions: [{
+          _id: createdUsers[2]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         plan_items: [
           {
             text: 'Book Barceloneta Beach club day pass',
@@ -1325,6 +1595,11 @@ async function createSampleData() {
         destination: createdDestinations[5]._id,
         experience_type: ['Historical', 'Cultural', 'Adventure'],
         user: createdUsers[3]._id,
+        permissions: [{
+          _id: createdUsers[3]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         plan_items: [
           {
             text: 'Book Gladiator School experience',
@@ -1348,6 +1623,11 @@ async function createSampleData() {
         destination: createdDestinations[6]._id,
         experience_type: ['Entertainment', 'Cultural', 'Urban'],
         user: createdUsers[4]._id,
+        permissions: [{
+          _id: createdUsers[4]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         plan_items: [
           {
             text: 'Book West End musical tickets',
@@ -1372,6 +1652,11 @@ async function createSampleData() {
         destination: createdDestinations[7]._id,
         experience_type: ['Cultural', 'Urban', 'Adventure'],
         user: createdUsers[5]._id,
+        permissions: [{
+          _id: createdUsers[5]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         plan_items: [
           {
             text: 'Book Red Light District guided tour',
@@ -1395,6 +1680,11 @@ async function createSampleData() {
         destination: createdDestinations[3]._id,
         experience_type: ['Nature', 'Wildlife', 'Adventure'],
         user: createdUsers[6]._id,
+        permissions: [{
+          _id: createdUsers[6]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         plan_items: [
           {
             text: 'Book Taronga Zoo tickets',
@@ -1419,6 +1709,11 @@ async function createSampleData() {
         destination: createdDestinations[4]._id,
         experience_type: ['Food & Wine', 'Nature', 'Cultural'],
         user: createdUsers[7]._id,
+        permissions: [{
+          _id: createdUsers[7]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         plan_items: [
           {
             text: 'Book Stellenbosch wine tour',
@@ -1442,6 +1737,11 @@ async function createSampleData() {
         destination: createdDestinations[1]._id,
         experience_type: ['Food & Wine', 'Cultural', 'Adventure'],
         user: createdUsers[8]._id,
+        permissions: [{
+          _id: createdUsers[8]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         plan_items: [
           {
             text: 'Book sushi making workshop',
@@ -1465,6 +1765,11 @@ async function createSampleData() {
         destination: createdDestinations[2]._id,
         experience_type: ['Entertainment', 'Cultural', 'Urban'],
         user: createdUsers[9]._id,
+        permissions: [{
+          _id: createdUsers[9]._id,
+          entity: 'user',
+          type: 'owner'
+        }],
         plan_items: [
           {
             text: 'Book Hamilton musical tickets',

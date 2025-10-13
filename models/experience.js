@@ -7,6 +7,27 @@ const photoObjectSchema = new Schema({
   photo_credit_url: { type: String }
 }, { _id: false });
 
+const permissionSchema = new Schema({
+  _id: { type: Schema.Types.ObjectId, required: true },
+  entity: { 
+    type: String, 
+    required: true,
+    enum: ['user', 'destination', 'experience']
+  },
+  type: { 
+    type: String,
+    enum: ['owner', 'collaborator', 'contributor'],
+    // Only required for user entities
+    validate: {
+      validator: function(v) {
+        // If entity is 'user', type must be present
+        return this.entity !== 'user' || (v && v.length > 0);
+      },
+      message: 'Permission type is required for user entities'
+    }
+  }
+}, { _id: false });
+
 const planItemSchema = new Schema({
   text: { type: String },
   photo: { type: Schema.Types.ObjectId, ref: "Photo" },
@@ -42,13 +63,25 @@ const experienceSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
     },
-    users: [
-      {
-        user: { type: Schema.Types.ObjectId, ref: "User" },
-        plan: [String],
-        planned_date: { type: Date },
-      },
-    ],
+    permissions: {
+      type: [permissionSchema],
+      default: [],
+      validate: {
+        validator: function(permissions) {
+          // Check for duplicate permissions
+          const seen = new Set();
+          for (const perm of permissions) {
+            const key = `${perm.entity}:${perm._id}`;
+            if (seen.has(key)) {
+              return false;
+            }
+            seen.add(key);
+          }
+          return true;
+        },
+        message: 'Duplicate permissions are not allowed'
+      }
+    },
   },
   {
     timestamps: true,
@@ -71,6 +104,7 @@ experienceSchema.virtual("cost_estimate").get(function () {
     });
     return total;
   };
+  if (!this.plan_items || this.plan_items.length === 0) return 0;
   return this.plan_items.reduce((sum, item) => {
     if (!item.parent) { // only root items
       return sum + calculateTotalCost(item._id);
@@ -91,8 +125,16 @@ experienceSchema.virtual("max_planning_days").get(function () {
     });
     return maxDays;
   };
-  if (this.plan_items.length === 0) return 0;
+  if (!this.plan_items || this.plan_items.length === 0) return 0;
   return Math.max(...this.plan_items.filter(item => !item.parent).map(item => calculateMaxDays(item._id)));
+});
+
+experienceSchema.virtual("completion_percentage").get(function () {
+  // DEPRECATED: This virtual is no longer supported after migrating to Plan model
+  // Completion tracking is now handled per-plan, not at the experience level
+  // Each user's plan has its own completion tracking via Plan model
+  // Return 0 for backward compatibility
+  return 0;
 });
 
 module.exports = mongoose.model("Experience", experienceSchema);

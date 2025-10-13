@@ -18,6 +18,14 @@ export async function deleteExperience(id) {
   return await sendRequest(`${BASE_URL}${id}`, "DELETE");
 }
 
+export async function transferOwnership(experienceId, newOwnerId) {
+  return await sendRequest(
+    `${BASE_URL}${experienceId}/transfer-ownership`,
+    "PUT",
+    { newOwnerId }
+  );
+}
+
 export async function updateExperience(experienceId, experienceData) {
   return await sendRequest(
     `${BASE_URL}${experienceId}`,
@@ -81,4 +89,25 @@ export async function showUserCreatedExperiences(userId) {
 
 export async function getTagName(tagSlug) {
   return await sendRequest(`${BASE_URL}tag/${tagSlug}`, "GET");
+}
+
+/**
+ * Add a collaborator permission to an experience
+ */
+export async function addExperienceCollaborator(experienceId, userId) {
+  return await sendRequest(`${BASE_URL}${experienceId}/permissions`, "POST", {
+    _id: userId,
+    entity: 'user',
+    type: 'collaborator'
+  });
+}
+
+/**
+ * Remove a collaborator permission from an experience
+ */
+export async function removeExperienceCollaborator(experienceId, userId) {
+  return await sendRequest(
+    `${BASE_URL}${experienceId}/permissions/${userId}/user`,
+    "DELETE"
+  );
 }

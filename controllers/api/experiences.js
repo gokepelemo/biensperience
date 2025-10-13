@@ -1,18 +1,21 @@
 const mongoose = require('mongoose');
 const Experience = require('../../models/experience');
+const Destination = require('../../models/destination');
+const User = require('../../models/user');
+const Plan = require('../../models/plan');
+const permissions = require('../../utilities/permissions');
+const { getEnforcer } = require('../../utilities/permission-enforcer');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-const { lang } = require("../../src/lang.constants");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 
 async function index(req, res) {
   try {
     let experiences = await Experience.find({})
       .populate("destination")
-      .populate("users.user")
       .populate("user")
       .exec();
     res.status(200).json(experiences);
@@ -25,6 +28,15 @@ async function index(req, res) {
 async function createExperience(req, res) {
   try {
     req.body.user = req.user._id;
+
+    // Initialize permissions array with owner
+    req.body.permissions = [
+      {
+        _id: req.user._id,
+        entity: permissions.ENTITY_TYPES.USER,
+        type: permissions.ROLES.OWNER
+      }
+    ];
 
     // Get all user experiences for fuzzy checking
     const userExperiences = await Experience.find({ user: req.user._id });
@@ -69,7 +81,6 @@ async function showExperience(req, res) {
   try {
     let experience = await Experience.findById(req.params.id)
       .populate("destination")
-      .populate("users.user")
       .populate("user");
     res.status(200).json(experience);
   } catch (err) {
@@ -82,7 +93,24 @@ async function updateExperience(req, res) {
   const experienceId = req.params.experienceId || req.params.id;
   try {
     let experience = await Experience.findById(experienceId).populate("user");
-    if (req.user._id.toString() !== experience.user._id.toString()) res.status(401).end();
+    
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+    
+    // Check if user has permission to edit using PermissionEnforcer
+    const enforcer = getEnforcer({ Destination, Experience });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: experience
+    });
+    
+    if (!permCheck.allowed) {
+      return res.status(403).json({ 
+        error: 'Not authorized to update this experience',
+        message: permCheck.reason || 'You must be the owner or a collaborator to edit this experience.'
+      });
+    }
 
     // Check for duplicate experience name if name is being updated
     if (req.body.name && req.body.name !== experience.name) {
@@ -132,10 +160,63 @@ async function updateExperience(req, res) {
 
 async function deleteExperience(req, res) {
   try {
-    let experience = await Experience.findById(req.params.id).populate("user");
-    if (req.user._id.toString() !== experience.user._id.toString()) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
     }
+
+    let experience = await Experience.findById(req.params.id).populate("user");
+    
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+    
+    // Check if user has permission to delete using PermissionEnforcer
+    const enforcer = getEnforcer({ Destination, Experience });
+    const permCheck = await enforcer.canDelete({
+      userId: req.user._id,
+      resource: experience
+    });
+    
+    if (!permCheck.allowed) {
+      return res.status(403).json({ 
+        error: 'Unauthorized',
+        message: permCheck.reason || 'Only the experience owner can delete it.'
+      });
+    }
+    
+    // Check if any other users have plans for this experience
+    const existingPlans = await Plan.find({ experience: req.params.id })
+      .populate('user', '_id name email photo photos default_photo_index');
+    
+    if (existingPlans.length > 0) {
+      // Check if any plan belongs to someone other than the owner
+      const otherUserPlans = existingPlans.filter(
+        plan => plan.user._id.toString() !== req.user._id.toString()
+      );
+      
+      if (otherUserPlans.length > 0) {
+        // Get unique users with their plan details
+        const usersWithPlans = otherUserPlans.map(plan => ({
+          userId: plan.user._id,
+          name: plan.user.name,
+          email: plan.user.email,
+          photo: plan.user.photo,
+          photos: plan.user.photos,
+          default_photo_index: plan.user.default_photo_index,
+          planId: plan._id,
+          plannedDate: plan.planned_date
+        }));
+        
+        return res.status(409).json({ 
+          error: 'Cannot delete experience',
+          message: 'This experience cannot be deleted because other users have created plans for it. You can transfer ownership to one of these users instead.',
+          planCount: otherUserPlans.length,
+          usersWithPlans: usersWithPlans
+        });
+      }
+    }
+    
     await experience.deleteOne();
     res.status(200).json({ message: 'Experience deleted successfully' });
   } catch (err) {
@@ -159,8 +240,18 @@ async function createPlanItem(req, res) {
       return res.status(404).json({ error: 'Experience not found' });
     }
     
-    if (req.user._id.toString() !== experience.user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to modify this experience' });
+    // Check if user has permission to edit using PermissionEnforcer
+    const enforcer = getEnforcer({ Destination, Experience });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: experience
+    });
+    
+    if (!permCheck.allowed) {
+      return res.status(403).json({ 
+        error: 'Not authorized to modify this experience',
+        message: permCheck.reason || 'You must be the owner or a collaborator to add plan items.'
+      });
     }
     
     req.body.cost_estimate = !req.body.cost_estimate
@@ -193,8 +284,18 @@ async function updatePlanItem(req, res) {
       return res.status(404).json({ error: 'Experience not found' });
     }
     
-    if (req.user._id.toString() !== experience.user._id.toString()) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    // Check if user has permission to edit using PermissionEnforcer
+    const enforcer = getEnforcer({ Destination, Experience });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: experience
+    });
+    
+    if (!permCheck.allowed) {
+      return res.status(403).json({ 
+        error: 'Not authorized to modify plan items',
+        message: permCheck.reason || 'You must be the owner or a collaborator to update plan items.'
+      });
     }
     
     let plan_item = experience.plan_items.id(req.params.planItemId);
@@ -232,8 +333,18 @@ async function deletePlanItem(req, res) {
       return res.status(404).json({ error: 'Experience not found' });
     }
     
-    if (req.user._id.toString() !== experience.user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to modify this experience' });
+    // Check if user has permission to edit using PermissionEnforcer
+    const enforcer = getEnforcer({ Destination, Experience });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: experience
+    });
+    
+    if (!permCheck.allowed) {
+      return res.status(403).json({ 
+        error: 'Not authorized to modify plan items',
+        message: permCheck.reason || 'You must be the owner or a collaborator to delete plan items.'
+      });
     }
     
     const planItem = experience.plan_items.id(req.params.planItemId);
@@ -244,14 +355,6 @@ async function deletePlanItem(req, res) {
     planItem.deleteOne();
     await experience.save();
     
-    // Sanitize user data
-    experience.users.forEach((user, index) => {
-      experience.users[index].user = Object.assign(user.user, {
-        password: null,
-        email: null,
-      });
-    });
-    
     res.status(200).json(experience);
   } catch (err) {
     console.error('Error deleting plan item:', err);
@@ -259,144 +362,75 @@ async function deletePlanItem(req, res) {
   }
 }
 
+/**
+ * @deprecated Use Plan model instead
+ * Legacy endpoint - redirects to Plan creation
+ * Kept for backward compatibility during migration
+ */
 async function addUser(req, res) {
-  try {
-    let experience = await Experience.findById(req.params.experienceId)
-      .populate("destination")
-      .populate("users.user");
-
-    // Check if user already exists using consistent ID comparison
-    const userExists = experience.users.some(
-      (u) => u.user._id.toString() === req.params.userId
-    );
-
-    if (!userExists) {
-      let newUser = {
-        user: req.params.userId,
-        plan: [],
-        planned_date: req.body.planned_date ? new Date(req.body.planned_date) : null,
-      };
-      experience.users.push(newUser);
-
-      // Save and wait for completion before responding
-      await experience.save();
-
-      // Re-fetch to get populated data
-      experience = await Experience.findById(req.params.experienceId)
-        .populate("destination")
-        .populate("users.user");
-    } else {
-      console.log(lang.en.logMessages.userAlreadyAdded);
-    }
-
-    // Sanitize user data
-    experience.users.forEach((user, index) => {
-      experience.users[index].user = Object.assign(user.user, {
-        password: null,
-        email: null,
-      });
-    });
-
-    res.status(201).json(experience);
-  } catch (err) {
-    console.error('Error adding user to experience:', err);
-    res.status(400).json({ error: 'Failed to add user to experience' });
-  }
+  console.warn('addUser endpoint is deprecated. Use POST /api/plans/experience/:experienceId instead');
+  res.status(410).json({ 
+    error: 'This endpoint is deprecated',
+    message: 'Please use POST /api/plans/experience/:experienceId to create a plan',
+    alternativeEndpoint: `/api/plans/experience/${req.params.experienceId}`
+  });
 }
 
+/**
+ * @deprecated Use Plan model instead
+ * Legacy endpoint - redirects to Plan deletion
+ * Kept for backward compatibility during migration
+ */
 async function removeUser(req, res) {
-  try {
-    let experience = await Experience.findById(req.params.experienceId)
-      .populate("destination")
-      .populate("users.user");
-
-    // Find user index using consistent ID comparison
-    const idx = experience.users.findIndex(
-      (u) => u.user._id.toString() === req.params.userId
-    );
-
-    if (idx !== -1) {
-      experience.users.splice(idx, 1);
-
-      // Save and wait for completion before responding
-      await experience.save();
-
-      // Re-fetch to get populated data
-      experience = await Experience.findById(req.params.experienceId)
-        .populate("destination")
-        .populate("users.user");
-    } else {
-      console.log(lang.en.logMessages.userRemovedFromExperience);
-    }
-
-    // Sanitize user data
-    experience.users.forEach((user, index) => {
-      experience.users[index].user = Object.assign(user.user, {
-        password: null,
-        email: null,
-      });
-    });
-
-    res.status(200).json(experience);
-  } catch (err) {
-    console.error('Error removing user from experience:', err);
-    res.status(400).json({ error: 'Failed to remove user from experience' });
-  }
+  console.warn('removeUser endpoint is deprecated. Use DELETE /api/plans/:id instead');
+  res.status(410).json({ 
+    error: 'This endpoint is deprecated',
+    message: 'Please use DELETE /api/plans/:id to remove a plan',
+    note: 'You must first get the plan ID using GET /api/plans'
+  });
 }
 
+/**
+ * @deprecated Use Plan model instead
+ * Legacy endpoint - redirects to Plan item updates
+ * Kept for backward compatibility during migration
+ */
 async function userPlanItemDone(req, res) {
-  try {
-    // Validate ObjectId formats
-    if (!mongoose.Types.ObjectId.isValid(req.params.experienceId)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
-    }
-    if (!mongoose.Types.ObjectId.isValid(req.params.planItemId)) {
-      return res.status(400).json({ error: 'Invalid plan item ID format' });
-    }
-
-    let experience = await Experience.findById(req.params.experienceId)
-      .populate("users.user")
-      .populate("destination");
-    
-    if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
-    }
-    
-    let user = experience.users.findIndex(
-      (expUser) => expUser.user.id === req.user._id
-    );
-    // If user is not in the experience, add them first
-    if (user === -1) {
-      let newUser = {
-        user: req.user._id,
-        plan: [],
-        planned_date: null,
-      };
-      experience.users.push(newUser);
-      user = experience.users.length - 1;
-    }
-    let plan_idx = experience.users[user].plan.indexOf(req.params.planItemId);
-    if (plan_idx === -1) {
-      experience.users[user].plan.push(req.params.planItemId);
-      await experience.save();
-      res.status(201).json(experience);
-    } else {
-      experience.users[user].plan.splice(plan_idx, 1);
-      await experience.save();
-      res.status(200).json(experience);
-    }
-  } catch (err) {
-    console.error('Error marking plan item done:', err);
-    res.status(400).json({ error: 'Failed to mark plan item done' });
-  }
+  console.warn('userPlanItemDone endpoint is deprecated. Use PATCH /api/plans/:id/items/:itemId instead');
+  res.status(410).json({ 
+    error: 'This endpoint is deprecated',
+    message: 'Please use PATCH /api/plans/:id/items/:itemId to update plan item completion',
+    note: 'You must first get the plan ID using GET /api/plans'
+  });
 }
 
+/**
+ * Get experiences where user has created a plan (contributor permission)
+ * Replaces the old users array approach
+ */
 async function showUserExperiences(req, res) {
   try {
-    let experiences = await Experience.find({ "users.user": req.params.userId })
-      .populate("users.user")
-      .populate("destination")
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
+    // Get all plans for this user
+    const plans = await Plan.find({ user: req.params.userId })
+      .populate({
+        path: 'experience',
+        populate: {
+          path: 'destination',
+          select: 'name country'
+        }
+      })
       .exec();
+
+    // Extract unique experiences from plans
+    const experiences = plans
+      .filter(plan => plan.experience) // Filter out null experiences
+      .map(plan => plan.experience);
+
     res.status(200).json(experiences);
   } catch (err) {
     console.error('Error fetching user experiences:', err);
@@ -413,7 +447,6 @@ async function showUserCreatedExperiences(req, res) {
     const userId = new mongoose.Types.ObjectId(req.params.userId);
 
     let experiences = await Experience.find({ user: userId })
-      .populate("users.user")
       .populate("destination")
       .populate("user")
       .exec();
@@ -574,11 +607,393 @@ async function setDefaultPhoto(req, res) {
   }
 }
 
+// ============================================
+// PERMISSION MANAGEMENT FUNCTIONS
+// ============================================
+
+/**
+ * Add a permission (collaborator/contributor or inherited entity) to an experience
+ * POST /api/experiences/:id/permissions
+ */
+async function addExperiencePermission(req, res) {
+  try {
+    // Validate experience ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
+    }
+
+    const experience = await Experience.findById(req.params.id).populate('user');
+
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    // Only owner can modify permissions
+    if (!permissions.isOwner(req.user._id, experience)) {
+      return res.status(401).json({ error: 'Only the experience owner can manage permissions' });
+    }
+
+    const { _id, entity, type } = req.body;
+
+    // Validate required fields
+    if (!_id || !entity) {
+      return res.status(400).json({ error: 'Permission must have _id and entity fields' });
+    }
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(_id)) {
+      return res.status(400).json({ error: 'Invalid permission _id format' });
+    }
+
+    // Validate entity exists
+    if (entity === permissions.ENTITY_TYPES.USER) {
+      const user = await User.findById(_id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Prevent owner from being added as permission
+      if (_id === experience.user._id.toString()) {
+        return res.status(400).json({ error: 'Owner already has full permissions' });
+      }
+
+      if (!type) {
+        return res.status(400).json({ error: 'User permissions must have a type field' });
+      }
+    } else if (entity === permissions.ENTITY_TYPES.DESTINATION) {
+      const destination = await Destination.findById(_id);
+      if (!destination) {
+        return res.status(404).json({ error: 'Target destination not found' });
+      }
+
+      // Check for circular dependency
+      const models = { Destination, Experience };
+      const wouldBeCircular = await permissions.wouldCreateCircularDependency(
+        experience, 
+        _id, 
+        entity, 
+        models
+      );
+
+      if (wouldBeCircular) {
+        return res.status(400).json({ 
+          error: 'Cannot add permission: would create circular dependency' 
+        });
+      }
+    } else if (entity === permissions.ENTITY_TYPES.EXPERIENCE) {
+      const targetExp = await Experience.findById(_id);
+      if (!targetExp) {
+        return res.status(404).json({ error: 'Target experience not found' });
+      }
+
+      // Check for circular dependency
+      const models = { Destination, Experience };
+      const wouldBeCircular = await permissions.wouldCreateCircularDependency(
+        experience, 
+        _id, 
+        entity, 
+        models
+      );
+
+      if (wouldBeCircular) {
+        return res.status(400).json({ 
+          error: 'Cannot add permission: would create circular dependency' 
+        });
+      }
+    }
+
+    // Add permission
+    const permission = { _id, entity };
+    if (type) {
+      permission.type = type;
+    }
+
+    const result = permissions.addPermission(experience, permission);
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    await experience.save();
+
+    res.status(201).json({
+      message: 'Permission added successfully',
+      experience
+    });
+
+  } catch (err) {
+    console.error('Error adding experience permission:', err);
+    res.status(400).json({ error: 'Failed to add permission' });
+  }
+}
+
+/**
+ * Remove a permission from an experience
+ * DELETE /api/experiences/:id/permissions/:entityId/:entityType
+ */
+async function removeExperiencePermission(req, res) {
+  try {
+    // Validate experience ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
+    }
+
+    // Validate entity ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.entityId)) {
+      return res.status(400).json({ error: 'Invalid entity ID format' });
+    }
+
+    const experience = await Experience.findById(req.params.id).populate('user');
+
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    // Only owner can modify permissions
+    if (!permissions.isOwner(req.user._id, experience)) {
+      return res.status(401).json({ error: 'Only the experience owner can manage permissions' });
+    }
+
+    const { entityId, entityType } = req.params;
+
+    // Validate entity type
+    if (!Object.values(permissions.ENTITY_TYPES).includes(entityType)) {
+      return res.status(400).json({ 
+        error: `Invalid entity type. Must be one of: ${Object.values(permissions.ENTITY_TYPES).join(', ')}` 
+      });
+    }
+
+    const result = permissions.removePermission(experience, entityId, entityType);
+
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+
+    await experience.save();
+
+    res.status(200).json({
+      message: 'Permission removed successfully',
+      removed: result.removed,
+      experience
+    });
+
+  } catch (err) {
+    console.error('Error removing experience permission:', err);
+    res.status(400).json({ error: 'Failed to remove permission' });
+  }
+}
+
+/**
+ * Update a user permission type (collaborator <-> contributor)
+ * PATCH /api/experiences/:id/permissions/:userId
+ */
+async function updateExperiencePermission(req, res) {
+  try {
+    // Validate experience ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
+    }
+
+    // Validate user ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
+    const experience = await Experience.findById(req.params.id).populate('user');
+
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    // Only owner can modify permissions
+    if (!permissions.isOwner(req.user._id, experience)) {
+      return res.status(401).json({ error: 'Only the experience owner can manage permissions' });
+    }
+
+    const { type } = req.body;
+
+    if (!type) {
+      return res.status(400).json({ error: 'Permission type is required' });
+    }
+
+    const result = permissions.updatePermissionType(experience, req.params.userId, type);
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    await experience.save();
+
+    res.status(200).json({
+      message: 'Permission updated successfully',
+      experience
+    });
+
+  } catch (err) {
+    console.error('Error updating experience permission:', err);
+    res.status(400).json({ error: 'Failed to update permission' });
+  }
+}
+
+/**
+ * Get all permissions for an experience (with inheritance resolved)
+ * GET /api/experiences/:id/permissions
+ */
+async function getExperiencePermissions(req, res) {
+  try {
+    // Validate experience ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
+    }
+
+    const experience = await Experience.findById(req.params.id).populate('user');
+
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    const models = { Destination, Experience };
+    const allPermissions = await permissions.getAllPermissions(experience, models);
+
+    res.status(200).json({
+      owner: {
+        userId: experience.user._id,
+        name: experience.user.name,
+        role: permissions.ROLES.OWNER
+      },
+      permissions: allPermissions,
+      directPermissions: experience.permissions || []
+    });
+
+  } catch (err) {
+    console.error('Error getting experience permissions:', err);
+    res.status(400).json({ error: 'Failed to get permissions' });
+  }
+}
+
+async function transferOwnership(req, res) {
+  try {
+    const { experienceId } = req.params;
+    const { newOwnerId } = req.body;
+
+    // Validate ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(experienceId)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(newOwnerId)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
+    // Find experience and verify current ownership
+    const experience = await Experience.findById(experienceId);
+    
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    // Verify current user is the owner
+    if (!permissions.isOwner(experience, req.user._id)) {
+      return res.status(403).json({ 
+        error: 'Unauthorized',
+        message: 'Only the experience owner can transfer ownership.'
+      });
+    }
+
+    // Verify new owner exists and has a plan for this experience
+    const newOwner = await User.findById(newOwnerId);
+    if (!newOwner) {
+      return res.status(404).json({ error: 'New owner not found' });
+    }
+
+    // Verify the new owner has a plan for this experience
+    const newOwnerPlan = await Plan.findOne({
+      experience: experienceId,
+      user: newOwnerId
+    });
+
+    if (!newOwnerPlan) {
+      return res.status(400).json({ 
+        error: 'Invalid transfer',
+        message: 'The new owner must have a plan for this experience before ownership can be transferred.'
+      });
+    }
+
+    // Update ownership
+    // 1. Update legacy user field
+    experience.user = newOwnerId;
+
+    // 2. Update permissions array
+    // Remove old owner's owner permission
+    experience.permissions = experience.permissions.filter(
+      p => !(p.entity === 'user' && p._id.toString() === req.user._id.toString() && p.type === 'owner')
+    );
+
+    // Check if new owner already has a permission entry
+    const newOwnerPermIndex = experience.permissions.findIndex(
+      p => p.entity === 'user' && p._id.toString() === newOwnerId
+    );
+
+    if (newOwnerPermIndex !== -1) {
+      // Update existing permission to owner
+      experience.permissions[newOwnerPermIndex].type = 'owner';
+    } else {
+      // Add new owner permission
+      experience.permissions.push({
+        _id: newOwnerId,
+        entity: 'user',
+        type: 'owner',
+        granted_by: req.user._id,
+        granted_at: new Date()
+      });
+    }
+
+    // 3. Add previous owner as contributor (so they can still view their original creation)
+    const prevOwnerExists = experience.permissions.some(
+      p => p.entity === 'user' && p._id.toString() === req.user._id.toString()
+    );
+
+    if (!prevOwnerExists) {
+      experience.permissions.push({
+        _id: req.user._id,
+        entity: 'user',
+        type: 'contributor',
+        granted_by: newOwnerId,
+        granted_at: new Date()
+      });
+    }
+
+    await experience.save();
+
+    // Return updated experience with new owner details
+    const updatedExperience = await Experience.findById(experienceId)
+      .populate('user', '_id name email')
+      .populate('destination');
+
+    res.json({
+      message: 'Ownership transferred successfully',
+      experience: updatedExperience,
+      previousOwner: {
+        id: req.user._id,
+        name: req.user.name
+      },
+      newOwner: {
+        id: newOwner._id,
+        name: newOwner.name
+      }
+    });
+
+  } catch (err) {
+    console.error('Error transferring ownership:', err);
+    res.status(400).json({ error: 'Failed to transfer ownership' });
+  }
+}
+
 module.exports = {
   create: createExperience,
   show: showExperience,
   update: updateExperience,
   delete: deleteExperience,
+  transferOwnership,
   index,
   createPlanItem,
   updatePlanItem,
@@ -592,4 +1007,8 @@ module.exports = {
   addPhoto,
   removePhoto,
   setDefaultPhoto,
+  addExperiencePermission,
+  removeExperiencePermission,
+  updateExperiencePermission,
+  getExperiencePermissions,
 };

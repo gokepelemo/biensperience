@@ -326,6 +326,31 @@ async function setDefaultPhoto(req, res) {
   }
 }
 
+async function searchUsers(req, res) {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.length < 2) {
+      return res.status(400).json({ error: 'Search query must be at least 2 characters' });
+    }
+
+    // Search by name or email (case-insensitive)
+    const users = await User.find({
+      $or: [
+        { name: { $regex: q, $options: 'i' } },
+        { email: { $regex: q, $options: 'i' } }
+      ]
+    })
+    .select('_id name email') // Only return necessary fields
+    .limit(10); // Limit results to 10
+
+    res.json(users);
+  } catch (err) {
+    console.error('Error searching users:', err);
+    res.status(500).json({ error: 'Failed to search users' });
+  }
+}
+
 module.exports = {
   create,
   login,
@@ -335,4 +360,5 @@ module.exports = {
   addPhoto,
   removePhoto,
   setDefaultPhoto,
+  searchUsers,
 };

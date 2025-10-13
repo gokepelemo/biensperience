@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 const Destination = require("../../models/destination");
 const User = require("../../models/user");
+const Experience = require("../../models/experience");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
+const permissions = require("../../utilities/permissions");
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -20,32 +22,50 @@ async function index(req, res) {
 
 async function createDestination(req, res) {
   try {
-    req.body.user = req.user._id;
+    // Whitelist allowed fields to prevent mass assignment
+    const allowedFields = ['name', 'country', 'description', 'photo', 'travel_tips', 'tags'];
+    const destinationData = {};
+    
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        destinationData[field] = req.body[field];
+      }
+    });
+
+    // Add required fields
+    destinationData.user = req.user._id;
+    destinationData.permissions = [
+      {
+        _id: req.user._id,
+        entity: permissions.ENTITY_TYPES.USER,
+        type: permissions.ROLES.OWNER
+      }
+    ];
 
     // Get all destinations to check for fuzzy duplicates
     const allDestinations = await Destination.find({});
 
     // Check for exact duplicate (case-insensitive)
     const exactDuplicate = await Destination.findOne({
-      name: { $regex: new RegExp(`^${escapeRegex(req.body.name)}$`, 'i') },
-      country: { $regex: new RegExp(`^${escapeRegex(req.body.country)}$`, 'i') }
+      name: { $regex: new RegExp(`^${escapeRegex(destinationData.name)}$`, 'i') },
+      country: { $regex: new RegExp(`^${escapeRegex(destinationData.country)}$`, 'i') }
     });
 
     if (exactDuplicate) {
       return res.status(409).json({
         error: 'Duplicate destination',
-        message: `A destination named "${req.body.name}, ${req.body.country}" already exists. Please choose a different destination.`
+        message: `A destination with this name and country already exists. Please choose a different destination.`
       });
     }
 
     // Check for fuzzy duplicate on name with same country
     const sameCountryDestinations = allDestinations.filter(dest =>
-      dest.country.toLowerCase().trim() === req.body.country.toLowerCase().trim()
+      dest.country.toLowerCase().trim() === destinationData.country.toLowerCase().trim()
     );
 
     const fuzzyDuplicate = findDuplicateFuzzy(
       sameCountryDestinations,
-      req.body.name,
+      destinationData.name,
       'name',
       85
     );
@@ -53,11 +73,11 @@ async function createDestination(req, res) {
     if (fuzzyDuplicate) {
       return res.status(409).json({
         error: 'Similar destination exists',
-        message: `A similar destination "${fuzzyDuplicate.name}, ${fuzzyDuplicate.country}" already exists. Did you mean to use that instead?`
+        message: `A similar destination already exists. Did you mean to use that instead?`
       });
     }
 
-    const destination = await Destination.create(req.body);
+    const destination = await Destination.create(destinationData);
     res.json(destination);
   } catch (err) {
     console.error('Error creating destination:', err);
@@ -92,8 +112,12 @@ async function updateDestination(req, res) {
       return res.status(404).json({ error: 'Destination not found' });
     }
     
-    if (req.user._id.toString() !== destination.user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to update this destination' });
+    // Check if user has permission to edit (owner or collaborator)
+    const models = { Destination, Experience };
+    const hasEditPermission = await permissions.canEdit(req.user._id, destination, models);
+    
+    if (!hasEditPermission) {
+      return res.status(401).json({ error: 'Not authorized to update this destination. You must be the owner or a collaborator.' });
     }
 
     // Check for duplicate destination if name or country is being updated
@@ -196,12 +220,49 @@ async function toggleUserFavoriteDestination(req, res) {
     }
     
     const idx = destination.users_favorite.findIndex(id => id.toString() === user._id.toString());
+    const isOwner = permissions.isOwner(user._id, destination);
+    
+    // Check if user is already a collaborator (direct permission check, no inheritance needed)
+    const isCollaborator = destination.permissions?.some(
+      p => p.entity === 'user' && 
+           p._id.toString() === user._id.toString() && 
+           p.type === 'collaborator'
+    );
+    
     if (idx === -1) {
+      // Adding to favorites
       destination.users_favorite.push(user._id);
+      
+      // Add as contributor if not already owner or collaborator
+      if (!isOwner && !isCollaborator) {
+        const existingContributor = destination.permissions.find(
+          p => p.entity === 'user' && p._id.toString() === user._id.toString() && p.type === 'contributor'
+        );
+        
+        if (!existingContributor) {
+          destination.permissions.push({
+            _id: user._id,
+            entity: 'user',
+            type: 'contributor',
+            granted_by: user._id,
+            granted_at: new Date()
+          });
+        }
+      }
+      
       await destination.save();
       res.status(201).json(destination);
     } else {
+      // Removing from favorites
       destination.users_favorite.splice(idx, 1);
+      
+      // Remove contributor permission if not owner or collaborator
+      if (!isOwner && !isCollaborator) {
+        destination.permissions = destination.permissions.filter(
+          p => !(p.entity === 'user' && p._id.toString() === user._id.toString() && p.type === 'contributor')
+        );
+      }
+      
       await destination.save();
       res.status(200).json(destination);
     }
@@ -308,6 +369,270 @@ async function setDefaultPhoto(req, res) {
   }
 }
 
+// ============================================
+// PERMISSION MANAGEMENT FUNCTIONS
+// ============================================
+
+/**
+ * Add a permission (collaborator/contributor or inherited entity) to a destination
+ * POST /api/destinations/:id/permissions
+ */
+async function addDestinationPermission(req, res) {
+  try {
+    // Validate destination ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid destination ID format' });
+    }
+
+    const destination = await Destination.findById(req.params.id).populate('user');
+
+    if (!destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+
+    // Only owner can modify permissions
+    if (!permissions.isOwner(req.user._id, destination)) {
+      return res.status(401).json({ error: 'Only the destination owner can manage permissions' });
+    }
+
+    const { _id, entity, type } = req.body;
+
+    // Validate required fields
+    if (!_id || !entity) {
+      return res.status(400).json({ error: 'Permission must have _id and entity fields' });
+    }
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(_id)) {
+      return res.status(400).json({ error: 'Invalid permission _id format' });
+    }
+
+    // Validate entity exists
+    if (entity === permissions.ENTITY_TYPES.USER) {
+      const user = await User.findById(_id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Prevent owner from being added as permission (already has owner role)
+      if (_id === destination.user._id.toString()) {
+        return res.status(400).json({ error: 'Owner already has full permissions' });
+      }
+
+      if (!type) {
+        return res.status(400).json({ error: 'User permissions must have a type field' });
+      }
+    } else if (entity === permissions.ENTITY_TYPES.DESTINATION) {
+      const targetDest = await Destination.findById(_id);
+      if (!targetDest) {
+        return res.status(404).json({ error: 'Target destination not found' });
+      }
+
+      // Check for circular dependency
+      const models = { Destination, Experience };
+      const wouldBeCircular = await permissions.wouldCreateCircularDependency(
+        destination, 
+        _id, 
+        entity, 
+        models
+      );
+
+      if (wouldBeCircular) {
+        return res.status(400).json({ 
+          error: 'Cannot add permission: would create circular dependency' 
+        });
+      }
+    } else if (entity === permissions.ENTITY_TYPES.EXPERIENCE) {
+      const experience = await Experience.findById(_id);
+      if (!experience) {
+        return res.status(404).json({ error: 'Target experience not found' });
+      }
+
+      // Check for circular dependency
+      const models = { Destination, Experience };
+      const wouldBeCircular = await permissions.wouldCreateCircularDependency(
+        destination, 
+        _id, 
+        entity, 
+        models
+      );
+
+      if (wouldBeCircular) {
+        return res.status(400).json({ 
+          error: 'Cannot add permission: would create circular dependency' 
+        });
+      }
+    }
+
+    // Add permission
+    const permission = { _id, entity };
+    if (type) {
+      permission.type = type;
+    }
+
+    const result = permissions.addPermission(destination, permission);
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    await destination.save();
+
+    res.status(201).json({
+      message: 'Permission added successfully',
+      destination
+    });
+
+  } catch (err) {
+    console.error('Error adding destination permission:', err);
+    res.status(400).json({ error: 'Failed to add permission' });
+  }
+}
+
+/**
+ * Remove a permission from a destination
+ * DELETE /api/destinations/:id/permissions/:entityId/:entityType
+ */
+async function removeDestinationPermission(req, res) {
+  try {
+    // Validate destination ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid destination ID format' });
+    }
+
+    // Validate entity ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.entityId)) {
+      return res.status(400).json({ error: 'Invalid entity ID format' });
+    }
+
+    const destination = await Destination.findById(req.params.id).populate('user');
+
+    if (!destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+
+    // Only owner can modify permissions
+    if (!permissions.isOwner(req.user._id, destination)) {
+      return res.status(401).json({ error: 'Only the destination owner can manage permissions' });
+    }
+
+    const { entityId, entityType } = req.params;
+
+    // Validate entity type
+    if (!Object.values(permissions.ENTITY_TYPES).includes(entityType)) {
+      return res.status(400).json({ 
+        error: `Invalid entity type. Must be one of: ${Object.values(permissions.ENTITY_TYPES).join(', ')}` 
+      });
+    }
+
+    const result = permissions.removePermission(destination, entityId, entityType);
+
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+
+    await destination.save();
+
+    res.status(200).json({
+      message: 'Permission removed successfully',
+      removed: result.removed,
+      destination
+    });
+
+  } catch (err) {
+    console.error('Error removing destination permission:', err);
+    res.status(400).json({ error: 'Failed to remove permission' });
+  }
+}
+
+/**
+ * Update a user permission type (collaborator <-> contributor)
+ * PATCH /api/destinations/:id/permissions/:userId
+ */
+async function updateDestinationPermission(req, res) {
+  try {
+    // Validate destination ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid destination ID format' });
+    }
+
+    // Validate user ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
+    const destination = await Destination.findById(req.params.id).populate('user');
+
+    if (!destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+
+    // Only owner can modify permissions
+    if (!permissions.isOwner(req.user._id, destination)) {
+      return res.status(401).json({ error: 'Only the destination owner can manage permissions' });
+    }
+
+    const { type } = req.body;
+
+    if (!type) {
+      return res.status(400).json({ error: 'Permission type is required' });
+    }
+
+    const result = permissions.updatePermissionType(destination, req.params.userId, type);
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    await destination.save();
+
+    res.status(200).json({
+      message: 'Permission updated successfully',
+      destination
+    });
+
+  } catch (err) {
+    console.error('Error updating destination permission:', err);
+    res.status(400).json({ error: 'Failed to update permission' });
+  }
+}
+
+/**
+ * Get all permissions for a destination (with inheritance resolved)
+ * GET /api/destinations/:id/permissions
+ */
+async function getDestinationPermissions(req, res) {
+  try {
+    // Validate destination ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid destination ID format' });
+    }
+
+    const destination = await Destination.findById(req.params.id).populate('user');
+
+    if (!destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+
+    const models = { Destination, Experience };
+    const allPermissions = await permissions.getAllPermissions(destination, models);
+
+    res.status(200).json({
+      owner: {
+        userId: destination.user._id,
+        name: destination.user.name,
+        role: permissions.ROLES.OWNER
+      },
+      permissions: allPermissions,
+      directPermissions: destination.permissions || []
+    });
+
+  } catch (err) {
+    console.error('Error getting destination permissions:', err);
+    res.status(400).json({ error: 'Failed to get permissions' });
+  }
+}
+
 module.exports = {
   create: createDestination,
   show: showDestination,
@@ -318,4 +643,8 @@ module.exports = {
   addPhoto,
   removePhoto,
   setDefaultPhoto,
+  addDestinationPermission,
+  removeDestinationPermission,
+  updateDestinationPermission,
+  getDestinationPermissions,
 };

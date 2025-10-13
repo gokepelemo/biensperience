@@ -12,4 +12,10 @@ router.post('/url', ensureLoggedIn, photosCtrl.createFromUrl);
 router.delete('/:id', ensureLoggedIn, photosCtrl.delete);
 router.put('/:id', ensureLoggedIn, photosCtrl.update);
 
+// Permission management routes
+router.post('/:id/permissions/collaborator', ensureLoggedIn, photosCtrl.addCollaborator);
+router.delete('/:id/permissions/collaborator/:userId', ensureLoggedIn, photosCtrl.removeCollaborator);
+router.post('/:id/permissions/contributor', ensureLoggedIn, photosCtrl.addContributor);
+router.delete('/:id/permissions/contributor/:userId', ensureLoggedIn, photosCtrl.removeContributor);
+
 module.exports = router;

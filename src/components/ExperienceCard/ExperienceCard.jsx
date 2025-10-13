@@ -1,35 +1,82 @@
 import "./ExperienceCard.css";
 import { Link } from "react-router-dom";
-import { useState, useCallback, useMemo, memo } from "react";
+import { useState, useCallback, useMemo, memo, useEffect } from "react";
 import { lang } from "../../lang.constants";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
-import {
-  userAddExperience,
-  userRemoveExperience,
-  deleteExperience,
-} from "../../utilities/experiences-api";
+import { deleteExperience } from "../../utilities/experiences-api";
+import { createPlan, deletePlan, getUserPlans } from "../../utilities/plans-api";
 import { handleError } from "../../utilities/error-handler";
 
-function ExperienceCard({ experience, user, updateData }) {
+function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-
-  // Compute experience added status directly from props - single source of truth
-  // Track users array length to ensure useMemo recomputes when array changes
-  const usersCount = experience?.users?.length || 0;
-
-  const experienceAdded = useMemo(() => {
-    if (!experience?.users || !user?._id) return false;
-    return experience.users.some((expUser) => {
-      const userId = expUser.user?._id || expUser.user;
-      return userId === user._id;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [experience?.users, user?._id, usersCount]);
+  
+  // Initialize local plan state based on userPlans if available
+  const [localPlanState, setLocalPlanState] = useState(() => {
+    if (userPlans.length > 0) {
+      return userPlans.some(plan => 
+        plan.experience?._id === experience._id || 
+        plan.experience === experience._id
+      );
+    }
+    return null; // null means we don't know yet, need to check with API
+  });
 
   const isOwner = experience?.user && experience.user._id === user?._id;
+
+  // Check if user has a plan for this experience
+  // Use local state if available, otherwise check userPlans prop
+  const experienceAdded = useMemo(() => {
+    if (!experience?._id || !user?._id) return false;
+    
+    // If we have local state, use it
+    if (localPlanState !== null) {
+      return localPlanState;
+    }
+    
+    // Otherwise check userPlans prop (fallback)
+    return userPlans.some(plan => plan.experience?._id === experience._id || plan.experience === experience._id);
+  }, [experience?._id, user?._id, userPlans, localPlanState]);
+
+  // Fetch plan status when component mounts if userPlans is empty
+  useEffect(() => {
+    // Only fetch if:
+    // 1. We have a user and experience
+    // 2. userPlans is empty (not passed from parent)
+    // 3. localPlanState is null (not yet determined)
+    if (!user?._id || !experience?._id || userPlans.length > 0 || localPlanState !== null) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const checkPlanStatus = async () => {
+      try {
+        const plans = await getUserPlans();
+        if (isMounted) {
+          const hasPlan = plans.some(plan => 
+            plan.experience?._id === experience._id || 
+            plan.experience === experience._id
+          );
+          setLocalPlanState(hasPlan);
+        }
+      } catch (err) {
+        // Silently fail - button will default to "add" state
+        console.warn('Failed to check plan status:', err);
+        if (isMounted) {
+          setLocalPlanState(false);
+        }
+      }
+    };
+
+    checkPlanStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?._id, experience?._id, userPlans.length, localPlanState]);
 
   // Get the default photo for background
   const getBackgroundImage = useMemo(() => {
@@ -58,9 +105,33 @@ function ExperienceCard({ experience, user, updateData }) {
 
     try {
       if (experienceAdded) {
-        await userRemoveExperience(user._id, experience._id);
+        // Need to find the user's plan for this experience
+        // userPlans prop may be empty, so fetch fresh
+        let userPlan = userPlans.find(plan => 
+          plan.experience?._id === experience._id || 
+          plan.experience === experience._id
+        );
+        
+        // If not found in prop, fetch from API
+        if (!userPlan) {
+          const plans = await getUserPlans();
+          userPlan = plans.find(plan => 
+            plan.experience?._id === experience._id || 
+            plan.experience === experience._id
+          );
+        }
+        
+        if (userPlan) {
+          await deletePlan(userPlan._id);
+          setLocalPlanState(false); // Update local state immediately
+        } else {
+          throw new Error('Plan not found');
+        }
       } else {
-        await userAddExperience(user._id, experience._id);
+        // Create a new plan for this experience with no planned date
+        // User can set the date later on the experience page
+        await createPlan(experience._id, null);
+        setLocalPlanState(true); // Update local state immediately
       }
 
       // Refresh data from server - this will update the parent's state
@@ -69,11 +140,13 @@ function ExperienceCard({ experience, user, updateData }) {
         await updateData();
       }
     } catch (err) {
-      handleError(err, { context: experienceAdded ? 'Remove experience' : 'Add experience' });
+      handleError(err, { context: experienceAdded ? 'Remove plan' : 'Create plan' });
+      // Revert local state on error
+      setLocalPlanState(null);
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, experienceAdded, user._id, experience._id, updateData]);
+  }, [isLoading, experienceAdded, experience._id, updateData, userPlans]);
 
   const handleDelete = useCallback(async () => {
     try {

@@ -41,12 +41,14 @@ const en = {
     backToDestinations: "← Back to Destinations",
     viewProfile: "View Profile",
     editProfile: "Edit Profile",
-    home: "Home"
+    home: "Home",
   },
 
   alert: {
-    loginFailed: "Login unsuccessful. Please check your credentials and try again.",
-    signupFailed: "Account creation unsuccessful. Please check your information and try again.",
+    loginFailed:
+      "Login unsuccessful. Please check your credentials and try again.",
+    signupFailed:
+      "Account creation unsuccessful. Please check your information and try again.",
     notEnoughTimeWarning:
       "Warning: You may not have enough time to plan this experience adequately.",
     noExperiencesOrDestinations:
@@ -83,7 +85,7 @@ const en = {
     favoriteDestinations: "Favorite Destinations",
     preferredExperienceTypes: "Preferred Experience Types",
     plannedExperiences: "Planned",
-    experienceDestinations: "Destinations",
+    experienceDestinations: "✈️ Destinations",
     createdExperiences: "Created",
     popularExperiences: "Popular Experiences",
     experiencesIn: "Experiences in",
@@ -130,23 +132,27 @@ const en = {
   },
 
   helper: {
-    nameRequired: "Give your experience an exciting name that captures what makes it special! ✨",
-    destinationRequired:
-      "Pick where this adventure takes place, or ",
+    nameRequired:
+      "Give your experience an exciting name that captures what makes it special! ✨",
+    destinationRequired: "Pick where this adventure takes place, or ",
     createNewDestination: "Add a new destination to our map 🗺️",
     experienceTypesOptional:
       "Tag your experience to help others discover it (food, adventure, culture, etc.)",
-    addressOptional: "Add a specific address if you have one - totally optional! 📍",
+    addressOptional:
+      "Add a specific address if you have one - totally optional! 📍",
     photoOptional: "Show off this experience with some awesome photos! 📸",
-    photosOptional: "Bring your experience to life with photos (optional but recommended!)",
+    photosOptional:
+      "Bring your experience to life with photos (optional but recommended!)",
     cityRequired: "Which city is calling your name?",
     stateProvinceRequired: "The state or province where adventure awaits",
     countryRequired: "Which country will host this experience?",
     noneTopLevel: "None (Top Level)",
     requiresDaysToPlan:
       "Heads up! This experience needs at least {days} days of planning time.",
-    planningDaysOptional: "How many days should travelers plan ahead? (Optional)",
-    costEstimateOptional: "Give future travelers a ballpark budget (completely optional)",
+    planningDaysOptional:
+      "How many days should travelers plan ahead? (Optional)",
+    costEstimateOptional:
+      "Give future travelers a ballpark budget (completely optional)",
     profileName: "This is how you'll appear to other travelers",
     profileEmail: "We'll use this for account stuff - we promise not to spam!",
     currentPassword: "We need your current password to make changes",

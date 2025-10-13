@@ -11,7 +11,6 @@ body {
 
 /* App responsive padding - can be replaced with Bootstrap px-3 */
 .App {
-  padding: 0 15px;
   padding-bottom: 4rem;
   min-height: 100vh;
 }

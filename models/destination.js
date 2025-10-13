@@ -7,6 +7,27 @@ const photoObjectSchema = new Schema({
   photo_credit_url: { type: String }
 }, { _id: false });
 
+const permissionSchema = new Schema({
+  _id: { type: Schema.Types.ObjectId, required: true },
+  entity: { 
+    type: String, 
+    required: true,
+    enum: ['user', 'destination', 'experience']
+  },
+  type: { 
+    type: String,
+    enum: ['owner', 'collaborator', 'contributor'],
+    // Only required for user entities
+    validate: {
+      validator: function(v) {
+        // If entity is 'user', type must be present
+        return this.entity !== 'user' || (v && v.length > 0);
+      },
+      message: 'Permission type is required for user entities'
+    }
+  }
+}, { _id: false });
+
 const destinationSchema = new Schema(
   {
     name: {
@@ -33,6 +54,25 @@ const destinationSchema = new Schema(
     },
     default_photo_index: { type: Number, default: 0 },
     travel_tips: [String],
+    permissions: {
+      type: [permissionSchema],
+      default: [],
+      validate: {
+        validator: function(permissions) {
+          // Check for duplicate permissions
+          const seen = new Set();
+          for (const perm of permissions) {
+            const key = `${perm.entity}:${perm._id}`;
+            if (seen.has(key)) {
+              return false;
+            }
+            seen.add(key);
+          }
+          return true;
+        },
+        message: 'Duplicate permissions are not allowed'
+      }
+    },
   },
   {
     timestamps: true,

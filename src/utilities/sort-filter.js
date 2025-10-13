@@ -27,16 +27,18 @@ export function sortItems(items, sortBy) {
 }
 
 // Filtering utilities
-export function filterExperiences(experiences, filterBy, userId) {
+export function filterExperiences(experiences, filterBy, userId, userPlans = []) {
   switch (filterBy) {
     case "planned":
+      // Check if user has a plan for this experience
       return experiences.filter(exp =>
-        exp.users && exp.users.some(u => u.user === userId || u.user._id === userId)
+        userPlans.some(plan => plan.experience?._id === exp._id || plan.experience === exp._id)
       );
 
     case "unplanned":
+      // Check if user does NOT have a plan for this experience
       return experiences.filter(exp =>
-        !exp.users || !exp.users.some(u => u.user === userId || u.user._id === userId)
+        !userPlans.some(plan => plan.experience?._id === exp._id || plan.experience === exp._id)
       );
 
     case "created":

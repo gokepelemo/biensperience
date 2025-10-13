@@ -1,0 +1,9 @@
+/* Alert Modal Styles */
+.modal.show {
+  display: block;
+}
+
+.alert-modal .modal-body .alert {
+  border: none;
+  font-size: 1rem;
+}
