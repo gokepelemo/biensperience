@@ -1218,18 +1218,18 @@ export default function SingleExperience({ user, experiences, updateData }) {
                   onClick={() => {
                     setCollaboratorContext('experience');
                     setShowCollaboratorModal(true);
-                  }}
-                >
-                  <i className="bi bi-person-plus me-2"></i>
-                  Add Collaborators
-                </button>
-              </div>
-            </div>
-          )}
-          <div className="row my-2 p-3 fade-in">
-            {experience.plan_items && experience.plan_items.length > 0 && (
-              <div className="plan-items-container fade-in p-3 p-md-4">
-                {/* Plan Navigation Tabs */}
+                    }}
+                  >
+                    <i className="fa fa-user-plus me-2"></i>
+                    Add Collaborators
+                  </button>
+                  </div>
+                </div>
+                )}
+                <div className="row my-2 p-3 fade-in">
+                {experience.plan_items && experience.plan_items.length > 0 && (
+                  <div className="plan-items-container fade-in p-3 p-md-4">
+                  {/* Plan Navigation Tabs */}
                 {debug.log("Rendering tabs. collaborativePlans:", collaborativePlans, "length:", collaborativePlans.length) || null}
                 <div className="plan-tabs-nav mb-4">
                   <button
@@ -1867,7 +1867,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
       {/* Add Collaborator Modal */}
       {showCollaboratorModal && (
         <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-lg modal-dialog-centered">
+          <div className="modal-dialog responsive-modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
@@ -2036,7 +2036,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
       {/* Sync Plan Modal */}
       {showSyncModal && syncChanges && (
         <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+          <div className="modal-dialog responsive-modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">Sync Plan with Experience</h5>
@@ -2323,7 +2323,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
       {/* Plan Instance Item Modal */}
       {showPlanItemModal && (
         <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog plan-item-modal-dialog modal-dialog-centered">
+          <div className="modal-dialog responsive-modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">

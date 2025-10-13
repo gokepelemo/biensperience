@@ -1,3 +1,15 @@
+/* Responsive Modal Sizing - Shared across all modals */
+.responsive-modal-dialog {
+    max-width: 80vw !important; /* Mobile/Tablet: 80% of viewport */
+}
+
+/* Desktop: 50% of viewport */
+@media (min-width: 992px) {
+    .responsive-modal-dialog {
+        max-width: 50vw !important;
+    }
+}
+
 /* Plan Item Modal Form - Override global grid layout */
 .plan-item-modal-form {
     display: block !important;
@@ -14,7 +26,7 @@
     width: 100%;
 }
 
-/* Plan Item Modal - Larger Size */
+/* Plan Item Modal - Uses responsive sizing */
 .plan-item-modal-dialog {
     max-width: 80vw !important; /* Mobile/Tablet: 80% of viewport */
 }
