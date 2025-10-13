@@ -40,7 +40,6 @@ export default function SingleExperience({ user, experiences, updateData }) {
   const [userHasExperience, setUserHasExperience] = useState(false);
   const [travelTips, setTravelTips] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
-  const [isExperienceCollaborator, setIsExperienceCollaborator] = useState(false);
   const [favHover, setFavHover] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hoveredPlanItem, setHoveredPlanItem] = useState(null);
@@ -109,14 +108,6 @@ export default function SingleExperience({ user, experiences, updateData }) {
       setIsOwner(
         experienceData.user && experienceData.user._id.toString() === user._id
       );
-      
-      // Check if user is a collaborator on the experience via permissions
-      const isCollaborator = experienceData.permissions?.some(
-        p => p.entity === 'user' && 
-             p.type === 'collaborator' && 
-             p._id.toString() === user._id
-      ) || false;
-      setIsExperienceCollaborator(isCollaborator);
       
       // userHasExperience will be set in fetchUserPlan based on Plan model
       // No longer using experience.users array
@@ -1159,14 +1150,13 @@ export default function SingleExperience({ user, experiences, updateData }) {
               <div className="d-flex gap-3 flex-wrap">
                 <button
                   className="btn btn-primary"
-                  style={{ width: 'fit-content', padding: '0.75rem 1.5rem' }}
                   onClick={() => handleAddExperiencePlanItem()}
                 >
+                  <i className="bi bi-plus-circle me-2"></i>
                   {lang.en.button.addPlanItem}
                 </button>
                 <button
-                  className="btn btn-outline-primary"
-                  style={{ width: 'fit-content', padding: '0.75rem 1.5rem' }}
+                  className="btn btn-primary"
                   onClick={() => {
                     setCollaboratorContext('experience');
                     setShowCollaboratorModal(true);
@@ -1228,38 +1218,6 @@ export default function SingleExperience({ user, experiences, updateData }) {
                 {/* Experience Plan Items Tab Content */}
                 {activeTab === "experience" && (
                   <>
-                    <h3 className="mb-3 text-center fw-bold text-dark">
-                      Plan Items
-                    </h3>
-                    
-                    {/* Experience Metrics - Only visible to owners and collaborators */}
-                    {(isOwner || isExperienceCollaborator) && (
-                      <div className="plan-metadata mb-4 p-3 bg-light rounded">
-                        <div className="row">
-                          <div className="col-md-3 mb-2">
-                            <small className="text-muted d-block">Planned Date</small>
-                            <strong>
-                              {userPlannedDate 
-                                ? formatDateShort(userPlannedDate)
-                                : "Not set"}
-                            </strong>
-                          </div>
-                          <div className="col-md-3 mb-2">
-                            <small className="text-muted d-block">Est. Total Cost</small>
-                            <strong>${(experience.cost_estimate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                          </div>
-                          <div className="col-md-3 mb-2">
-                            <small className="text-muted d-block">Completion</small>
-                            <strong>{experience.completion_percentage || 0}%</strong>
-                          </div>
-                          <div className="col-md-3 mb-2">
-                            <small className="text-muted d-block">Planning Time</small>
-                            <strong>{experience.max_planning_days || 0} {(experience.max_planning_days || 0) === 1 ? 'day' : 'days'}</strong>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
                 {(() => {
                   // Helper to flatten and mark children
                   const flattenPlanItems = (items) => {
