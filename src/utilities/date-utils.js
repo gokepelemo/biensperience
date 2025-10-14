@@ -85,7 +85,7 @@ export function formatDateShort(date) {
 }
 
 /**
- * Formats a date to metric card format (e.g., "Monday, January 15 2024")
+ * Formats a date to metric card format (e.g., "Mon, Jan 15 2025")
  * @param {string|Date} date - The date to format
  * @returns {string} Metric card formatted date string
  */
@@ -95,8 +95,8 @@ export function formatDateMetricCard(date) {
   try {
     const dateObj = date instanceof Date ? date : new Date(date);
     const options = {
-      weekday: 'long',
-      month: 'long',
+      weekday: 'short',
+      month: 'short',
       day: 'numeric'
     };
     

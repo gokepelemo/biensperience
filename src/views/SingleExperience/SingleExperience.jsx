@@ -109,6 +109,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
   const [removedCollaborators, setRemovedCollaborators] = useState([]); // Collaborators marked for removal
   const [collaboratorAddSuccess, setCollaboratorAddSuccess] = useState(false);
   const [addedCollaborators, setAddedCollaborators] = useState([]); // Track multiple additions
+  const [actuallyRemovedCollaborators, setActuallyRemovedCollaborators] = useState([]); // Track actually removed for success message
   const [showPlanItemModal, setShowPlanItemModal] = useState(false);
   const [planItemFormState, setPlanItemFormState] = useState(1); // 1 = add, 0 = edit
   const [editingPlanItem, setEditingPlanItem] = useState({});
@@ -788,8 +789,9 @@ export default function SingleExperience({ user, experiences, updateData }) {
           await fetchCollaborativePlans();
         }
 
-        // Track the added collaborators for success message
+        // Track the added and removed collaborators for success message
         setAddedCollaborators(collaboratorsToAdd);
+        setActuallyRemovedCollaborators(removedCollaborators);
 
         // Show success message
         setCollaboratorAddSuccess(true);
@@ -869,12 +871,26 @@ export default function SingleExperience({ user, experiences, updateData }) {
     try {
       const { searchUsers } = await import("../../utilities/users-api");
       const results = await searchUsers(query);
-      setSearchResults(results);
+      
+      // Filter out users that are already selected or are the current user (owner)
+      const filteredResults = results.filter((result) => {
+        // Don't show current user
+        if (result._id === user._id) return false;
+        
+        // Don't show users that are already selected
+        const alreadySelected = selectedCollaborators.some(
+          (collab) => collab._id === result._id
+        );
+        
+        return !alreadySelected;
+      });
+      
+      setSearchResults(filteredResults);
     } catch (err) {
       debug.error("Error searching users:", err);
       setSearchResults([]);
     }
-  }, []);
+  }, [selectedCollaborators, user]);
 
   // Memoized dollarSigns function for cost display
   const dollarSigns = useCallback((n) => {
@@ -2196,7 +2212,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
         show={showPlanDeleteModal}
         onClose={() => setShowPlanDeleteModal(false)}
         onConfirm={() => handlePlanDelete(planItemToDelete)}
-        title={lang.en.modal.confirmDelete}
+        title={lang.en.modal.confirmDeletePlanItemTitle}
         message={lang.en.modal.confirmDeletePlanItem}
         confirmText={lang.en.button.delete}
         confirmVariant="danger"
@@ -2208,7 +2224,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
           setPlanInstanceItemToDelete(null);
         }}
         onConfirm={handlePlanInstanceItemDelete}
-        title={lang.en.modal.confirmDelete}
+        title={lang.en.modal.confirmDeletePlanItemTitle}
         message={
           planInstanceItemToDelete
             ? `Delete "${planInstanceItemToDelete.text}"?`
@@ -2227,6 +2243,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
           setSearchResults([]);
           setCollaboratorAddSuccess(false);
           setAddedCollaborators([]);
+          setActuallyRemovedCollaborators([]);
           setSelectedCollaborators([]);
           setExistingCollaborators([]);
           setRemovedCollaborators([]);
@@ -2247,6 +2264,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                 onClick={() => {
                   setCollaboratorAddSuccess(false);
                   setAddedCollaborators([]);
+                  setActuallyRemovedCollaborators([]);
                   openCollaboratorModal(collaboratorContext);
                 }}
               >
@@ -2261,6 +2279,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                   setSearchResults([]);
                   setCollaboratorAddSuccess(false);
                   setAddedCollaborators([]);
+                  setActuallyRemovedCollaborators([]);
                   setSelectedCollaborators([]);
                   setExistingCollaborators([]);
                   setRemovedCollaborators([]);
@@ -2281,6 +2300,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                   setSearchResults([]);
                   setCollaboratorAddSuccess(false);
                   setAddedCollaborators([]);
+                  setActuallyRemovedCollaborators([]);
                   setSelectedCollaborators([]);
                   setExistingCollaborators([]);
                   setRemovedCollaborators([]);
@@ -2307,29 +2327,43 @@ export default function SingleExperience({ user, experiences, updateData }) {
             <div className="mb-3">
               <BsCheckCircleFill className="text-success" size={64} />
             </div>
-            <h4>
-              {lang.en.modal.collaboratorAddedSuccess.replace(
-                "{plural}",
-                addedCollaborators.length > 1 ? "s" : ""
-              )}
-            </h4>
-            <p className="text-muted">
-              {addedCollaborators.length === 1
-                ? (() => {
-                    const parts =
-                      lang.en.modal.collaboratorAddedMessage.split("{name}");
-                    return (
-                      <>
-                        {parts[0]}
-                        <strong>{addedCollaborators[0].name}</strong>
-                        {parts[1]?.replace("{context}", collaboratorContext)}
-                      </>
-                    );
-                  })()
-                : lang.en.modal.multipleCollaboratorsAddedMessage
-                    .replace("{count}", addedCollaborators.length)
-                    .replace("{context}", collaboratorContext)}
-            </p>
+            <h4>Changes Saved Successfully!</h4>
+
+            {/* Show added collaborators */}
+            {addedCollaborators.length > 0 && (
+              <div className="mb-3">
+                <p className="text-muted mb-2">
+                  <strong>Added {addedCollaborators.length} collaborator{addedCollaborators.length > 1 ? 's' : ''}:</strong>
+                </p>
+                <ul className="list-unstyled">
+                  {addedCollaborators.map((collab) => (
+                    <li key={collab._id} className="text-success">
+                      ✓ {collab.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Show removed collaborators */}
+            {actuallyRemovedCollaborators.length > 0 && (
+              <div className="mb-3">
+                <p className="text-muted mb-2">
+                  <strong>Removed {actuallyRemovedCollaborators.length} collaborator{actuallyRemovedCollaborators.length > 1 ? 's' : ''}:</strong>
+                </p>
+                <ul className="list-unstyled">
+                  {actuallyRemovedCollaborators.map((collab) => (
+                    <li key={collab._id} className="text-danger">
+                      ✗ {collab.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {addedCollaborators.length === 0 && actuallyRemovedCollaborators.length === 0 && (
+              <p className="text-muted">No changes were made.</p>
+            )}
           </div>
         ) : (
           // Form view
