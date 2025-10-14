@@ -101,13 +101,23 @@ async function deletePhoto(req, res) {
     }
 
     // Delete from S3 if the photo URL is an S3 URL
-    if (photo.url && photo.url.includes('amazonaws.com')) {
+    // Use proper URL parsing to check hostname (prevents URL injection attacks)
+    if (photo.url) {
       try {
-        await s3Delete(photo.url);
-        // Photo deleted from S3 successfully
-      } catch (s3Error) {
-        console.error('Failed to delete from S3:', s3Error);
-        // Continue with database deletion even if S3 deletion fails
+        const urlObj = new URL(photo.url);
+        // Check if hostname ends with amazonaws.com (handles subdomains like s3.amazonaws.com)
+        if (urlObj.hostname.endsWith('.amazonaws.com') || urlObj.hostname === 'amazonaws.com') {
+          try {
+            await s3Delete(photo.url);
+            // Photo deleted from S3 successfully
+          } catch (s3Error) {
+            console.error('Failed to delete from S3:', s3Error);
+            // Continue with database deletion even if S3 deletion fails
+          }
+        }
+      } catch (urlError) {
+        // Invalid URL format - skip S3 deletion, continue with database deletion
+        console.error('Invalid URL format:', urlError);
       }
     }
 

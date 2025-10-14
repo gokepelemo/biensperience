@@ -7,6 +7,18 @@ import { lang } from "../../lang.constants";
 import AlertModal from "../AlertModal/AlertModal";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 
+/**
+ * Escapes HTML special characters to prevent XSS attacks
+ * @param {string} text - The text to escape
+ * @returns {string} - The escaped text
+ */
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 export default function ImageUpload({ data, setData }) {
   const [uploadForm, setUploadForm] = useState({});
   const [uploading, setUploading] = useState(false);
@@ -392,6 +404,8 @@ export default function ImageUpload({ data, setData }) {
             {photos.map((photo, index) => {
               const isDisabled = disabledPhotos.has(index);
               const isDefault = index === defaultPhotoIndex && !isDisabled;
+              // Sanitize photo credit to prevent XSS in attributes and text content
+              const sanitizedCredit = photo.photo_credit ? escapeHtml(photo.photo_credit) : '';
               
               return (
                 <div 
@@ -401,13 +415,13 @@ export default function ImageUpload({ data, setData }) {
                 >
                   <img
                     src={photo.url}
-                    alt={photo.photo_credit || `Photo ${index + 1}`}
+                    alt={sanitizedCredit || `Photo ${index + 1}`}
                     className="photo-item-preview"
                     loading="lazy"
                     style={{ filter: isDisabled ? 'grayscale(100%)' : 'none' }}
                   />
                   <div className="photo-item-info">
-                    <small className="photo-item-credit">{photo.photo_credit}</small>
+                    <small className="photo-item-credit">{sanitizedCredit}</small>
                     {isDefault && (
                       <span className="badge bg-primary">Default</span>
                     )}

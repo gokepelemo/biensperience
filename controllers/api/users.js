@@ -330,15 +330,19 @@ async function searchUsers(req, res) {
   try {
     const { q } = req.query;
     
-    if (!q || q.length < 2) {
+    if (!q || typeof q !== 'string' || q.length < 2) {
       return res.status(400).json({ error: 'Search query must be at least 2 characters' });
     }
+
+    // Escape special regex characters to prevent regex injection
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const sanitizedQuery = escapeRegex(q);
 
     // Search by name or email (case-insensitive)
     const users = await User.find({
       $or: [
-        { name: { $regex: q, $options: 'i' } },
-        { email: { $regex: q, $options: 'i' } }
+        { name: { $regex: sanitizedQuery, $options: 'i' } },
+        { email: { $regex: sanitizedQuery, $options: 'i' } }
       ]
     })
     .select('_id name email') // Only return necessary fields

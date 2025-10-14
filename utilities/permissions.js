@@ -173,6 +173,12 @@ async function resolvePermissionsWithInheritance(resource, models, visited = new
       } else if (permission.entity === ENTITY_TYPES.DESTINATION) {
         // Inherit from destination
         try {
+          // Validate ObjectId format before querying database
+          if (!mongoose.Types.ObjectId.isValid(permission._id)) {
+            console.error('Invalid destination ObjectId format in permissions');
+            continue;
+          }
+          
           const destination = await models.Destination.findById(permission._id);
           if (destination) {
             const inheritedPerms = await resolvePermissionsWithInheritance(
@@ -191,11 +197,18 @@ async function resolvePermissionsWithInheritance(resource, models, visited = new
             }
           }
         } catch (err) {
-          console.error(`Error resolving destination permissions for ${permission._id}:`, err);
+          // Use static string to prevent format string injection
+          console.error('Error resolving destination permissions:', err.message);
         }
       } else if (permission.entity === ENTITY_TYPES.EXPERIENCE) {
         // Inherit from experience
         try {
+          // Validate ObjectId format before querying database
+          if (!mongoose.Types.ObjectId.isValid(permission._id)) {
+            console.error('Invalid experience ObjectId format in permissions');
+            continue;
+          }
+          
           const experience = await models.Experience.findById(permission._id);
           if (experience) {
             const inheritedPerms = await resolvePermissionsWithInheritance(
@@ -214,7 +227,8 @@ async function resolvePermissionsWithInheritance(resource, models, visited = new
             }
           }
         } catch (err) {
-          console.error(`Error resolving experience permissions for ${permission._id}:`, err);
+          // Use static string to prevent format string injection
+          console.error('Error resolving experience permissions:', err.message);
         }
       }
     }
