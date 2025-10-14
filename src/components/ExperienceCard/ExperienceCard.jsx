@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, memo, useEffect } from "react";
 import { lang } from "../../lang.constants";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import { deleteExperience } from "../../utilities/experiences-api";
-import { createPlan, deletePlan, getUserPlans } from "../../utilities/plans-api";
+import { createPlan, deletePlan, checkUserPlanForExperience } from "../../utilities/plans-api";
 import { handleError } from "../../utilities/error-handler";
 
 function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
@@ -41,6 +41,7 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
   }, [experience?._id, user?._id, userPlans, localPlanState]);
 
   // Fetch plan status when component mounts if userPlans is empty
+  // OPTIMIZATION: Use lightweight checkUserPlanForExperience instead of getUserPlans
   useEffect(() => {
     // Only fetch if:
     // 1. We have a user and experience
@@ -54,13 +55,10 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
 
     const checkPlanStatus = async () => {
       try {
-        const plans = await getUserPlans();
+        // OPTIMIZATION: Use lightweight endpoint - only returns plan ID, not full data
+        const result = await checkUserPlanForExperience(experience._id);
         if (isMounted) {
-          const hasPlan = plans.some(plan => 
-            plan.experience?._id === experience._id || 
-            plan.experience === experience._id
-          );
-          setLocalPlanState(hasPlan);
+          setLocalPlanState(result.hasPlan);
         }
       } catch (err) {
         // Silently fail - button will default to "add" state
@@ -101,48 +99,63 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
 
   const handleExperienceAction = useCallback(async () => {
     if (isLoading) return;
+    
+    const isRemoving = experienceAdded;
+    
+    // OPTIMISTIC UI UPDATE: Update state immediately for instant feedback
+    setLocalPlanState(!isRemoving);
     setIsLoading(true);
 
     try {
-      if (experienceAdded) {
-        // Need to find the user's plan for this experience
-        // userPlans prop may be empty, so fetch fresh
+      if (isRemoving) {
+        // OPTIMIZATION 1: Use stored plan ID if available in local state
+        // This avoids the expensive getUserPlans() call
         let userPlan = userPlans.find(plan => 
           plan.experience?._id === experience._id || 
           plan.experience === experience._id
         );
         
-        // If not found in prop, fetch from API
+        // OPTIMIZATION 2: Lightweight plan lookup - only fetch plan ID
         if (!userPlan) {
-          const plans = await getUserPlans();
-          userPlan = plans.find(plan => 
-            plan.experience?._id === experience._id || 
-            plan.experience === experience._id
-          );
+          // Use the new lightweight endpoint instead of getUserPlans()
+          const result = await checkUserPlanForExperience(experience._id);
+          if (result.hasPlan) {
+            userPlan = { _id: result.planId };
+          }
         }
         
         if (userPlan) {
-          await deletePlan(userPlan._id);
-          setLocalPlanState(false); // Update local state immediately
+          // OPTIMIZATION 3: Fire-and-forget deletion
+          // Don't await - let it complete in background
+          deletePlan(userPlan._id).catch(err => {
+            console.error('Failed to delete plan:', err);
+            // Revert UI on failure
+            setLocalPlanState(true);
+            handleError(err, { context: 'Remove plan' });
+          });
         } else {
           throw new Error('Plan not found');
         }
       } else {
-        // Create a new plan for this experience with no planned date
-        // User can set the date later on the experience page
+        // CREATE PLAN: Keep await since we need the result
         await createPlan(experience._id, null);
-        setLocalPlanState(true); // Update local state immediately
       }
 
-      // Refresh data from server - this will update the parent's state
-      // which will flow down as new props, updating experienceAdded
-      if (updateData) {
-        await updateData();
+      // OPTIMIZATION 4: Skip expensive updateData() call
+      // The optimistic update already changed the UI
+      // Parent views can refetch on their own schedule (e.g., on route change)
+      // If updateData is critical, call it but don't await
+      if (updateData && !isRemoving) {
+        // Only refresh on create (when we might need new plan data)
+        // Don't refresh on delete (we already updated UI optimistically)
+        updateData().catch(err => {
+          console.warn('Failed to refresh data after plan creation:', err);
+        });
       }
     } catch (err) {
-      handleError(err, { context: experienceAdded ? 'Remove plan' : 'Create plan' });
-      // Revert local state on error
-      setLocalPlanState(null);
+      handleError(err, { context: isRemoving ? 'Remove plan' : 'Create plan' });
+      // REVERT on error: Restore previous state
+      setLocalPlanState(isRemoving);
     } finally {
       setIsLoading(false);
     }

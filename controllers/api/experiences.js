@@ -81,7 +81,62 @@ async function showExperience(req, res) {
   try {
     let experience = await Experience.findById(req.params.id)
       .populate("destination")
-      .populate("user");
+      .populate({
+        path: "user",
+        select: "name email photo photos default_photo_index",
+        populate: {
+          path: "photo",
+          model: "Photo"
+        }
+      })
+      .populate({
+        path: "permissions._id",
+        select: "name photo photos default_photo_index"
+      });
+    
+    // Manually populate the photo field for each user in permissions
+    if (experience && experience.permissions) {
+      const Photo = mongoose.model('Photo');
+      
+      await Promise.all(
+        experience.permissions.map(async (perm) => {
+          if (perm._id) {
+            console.log('Processing permission for user:', perm._id.name);
+            console.log('  User photo field:', perm._id.photo);
+            console.log('  User photos array:', perm._id.photos);
+            console.log('  Default photo index:', perm._id.default_photo_index);
+            
+            // Handle legacy photo field (ObjectId reference)
+            if (perm._id.photo) {
+              const isObjectId = perm._id.photo.constructor.name === 'ObjectId' || 
+                                (typeof perm._id.photo === 'string') ||
+                                !perm._id.photo.url;
+              
+              if (isObjectId) {
+                console.log('  Photo is ObjectId, populating...');
+                const populatedPhoto = await Photo.findById(perm._id.photo).select('url caption');
+                console.log('  Populated photo:', populatedPhoto);
+                perm._id.photo = populatedPhoto;
+              }
+            }
+            
+            // Handle photos array - populate each photo if needed
+            if (perm._id.photos && perm._id.photos.length > 0) {
+              console.log('  Processing photos array...');
+              for (let i = 0; i < perm._id.photos.length; i++) {
+                const photoItem = perm._id.photos[i];
+                if (photoItem && !photoItem.url && (typeof photoItem === 'string' || photoItem.constructor.name === 'ObjectId')) {
+                  console.log('  Populating photo at index', i);
+                  const populatedPhoto = await Photo.findById(photoItem).select('url caption');
+                  perm._id.photos[i] = populatedPhoto;
+                }
+              }
+            }
+          }
+        })
+      );
+    }
+    
     res.status(200).json(experience);
   } catch (err) {
     console.error('Error fetching experience:', err);

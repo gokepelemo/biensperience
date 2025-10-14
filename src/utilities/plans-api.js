@@ -33,6 +33,14 @@ export function getExperiencePlans(experienceId) {
 }
 
 /**
+ * Check if user has a plan for a specific experience (lightweight)
+ * Returns only plan ID - much faster than getUserPlans()
+ */
+export function checkUserPlanForExperience(experienceId) {
+  return sendRequest(`${BASE_URL}/experience/${experienceId}/check`);
+}
+
+/**
  * Update a plan
  */
 export function updatePlan(planId, updates) {

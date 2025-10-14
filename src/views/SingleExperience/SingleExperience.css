@@ -200,6 +200,98 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
+/* Plan Header Row - Collaborators left, Buttons right */
+.plan-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+/* Plan Action Buttons - Responsive alignment */
+.plan-action-buttons {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end; /* Right-aligned on desktop */
+    flex-shrink: 0;
+}
+
+.plan-action-buttons .btn {
+    white-space: nowrap;
+}
+
+/* Mobile/Tablet: Stack layout */
+@media (max-width: 991px) {
+    .plan-header-row {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    
+    .collaborators-display {
+        width: 100%;
+    }
+    
+    .plan-action-buttons {
+        justify-content: center;
+        width: 100%;
+    }
+}
+
+/* Plan Metrics Cards - Similar to screenshot design */
+.plan-metrics-container {
+    margin-top: 1.5rem;
+}
+
+.metric-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.metric-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.metric-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.metric-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: capitalize;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.2;
+}
+
+/* Responsive metric cards */
+@media (max-width: 768px) {
+    .metric-card {
+        padding: 1rem 1.25rem;
+    }
+    
+    .metric-value {
+        font-size: 1.75rem;
+    }
+}
+
 .plan-item-card {
     background: white;
     border-radius: 0.75rem;
@@ -431,27 +523,40 @@
     }
 
     .plan-tabs-nav {
-        flex-direction: column;
-        gap: 0;
-        border-bottom: none;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        border-bottom: 2px solid #e0e0e0;
+        padding-bottom: 0;
     }
 
     .plan-tab-button {
-        border-bottom: none;
-        border-left: 3px solid transparent;
-        text-align: left;
-        padding-left: 1rem;
-        bottom: 0;
+        flex: 1;
+        min-width: fit-content;
+        border-bottom: 3px solid transparent;
+        border-left: none;
+        text-align: center;
+        padding: 0.75rem 1rem;
+        bottom: -2px;
+        white-space: nowrap;
     }
 
     .plan-tab-button.active {
-        border-left-color: #667eea;
-        border-bottom-color: transparent;
+        border-left-color: transparent;
+        border-bottom-color: #667eea;
     }
 
     .plan-tab-dropdown-container {
-        flex-direction: column;
-        align-items: flex-start;
+        flex: 1;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .plan-dropdown {
+        flex: 1;
+        min-width: 0;
     }
 }
 
@@ -486,6 +591,31 @@
 /* Plan Items List Styling */
 .plan-items-list {
     margin-top: 1rem;
+}
+
+/* Plan Metadata - Centered on viewport */
+.plan-metadata {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.plan-metadata .row {
+    justify-content: center;
+    text-align: center;
+}
+
+.plan-metadata .col-md-3 {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .plan-metadata .col-md-3 {
+        margin-bottom: 1rem;
+    }
 }
 
 .my-plan-view .plan-item-card {

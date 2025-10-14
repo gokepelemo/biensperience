@@ -12,6 +12,7 @@ router.get("/", plansCtrl.getUserPlans); // Get all plans for current user
 router.get("/:id", plansCtrl.getPlanById); // Get specific plan
 router.post("/experience/:experienceId", modificationLimiter, plansCtrl.createPlan); // Create plan for experience
 router.get("/experience/:experienceId/all", plansCtrl.getExperiencePlans); // Get all plans for experience
+router.get("/experience/:experienceId/check", plansCtrl.checkUserPlanForExperience); // Lightweight: Check if user has plan for experience
 router.put("/:id", modificationLimiter, plansCtrl.updatePlan); // Update plan
 router.delete("/:id", modificationLimiter, plansCtrl.deletePlan); // Delete plan
 

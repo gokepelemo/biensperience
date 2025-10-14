@@ -83,3 +83,28 @@ export function formatDateShort(date) {
     day: 'numeric'
   });
 }
+
+/**
+ * Formats a date to metric card format (e.g., "Monday, January 15 2024")
+ * @param {string|Date} date - The date to format
+ * @returns {string} Metric card formatted date string
+ */
+export function formatDateMetricCard(date) {
+  if (!date) return '';
+
+  try {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    const options = {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric'
+    };
+    
+    const formattedDate = dateObj.toLocaleDateString('en-US', options);
+    const year = dateObj.getFullYear().toString();
+    
+    return `${formattedDate} ${year}`;
+  } catch (error) {
+    return '';
+  }
+}

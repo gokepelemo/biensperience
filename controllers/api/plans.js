@@ -81,7 +81,14 @@ const createPlan = asyncHandler(async (req, res) => {
 
   const populatedPlan = await Plan.findById(plan._id)
     .populate('experience', 'name destination')
-    .populate('user', 'name email');
+    .populate({
+      path: 'user',
+      select: 'name email photo photos default_photo_index',
+      populate: {
+        path: 'photo',
+        select: 'url caption'
+      }
+    });
 
   res.status(201).json(populatedPlan);
 });
@@ -116,7 +123,14 @@ const getPlanById = asyncHandler(async (req, res) => {
 
   const plan = await Plan.findById(id)
     .populate('experience', 'name destination plan_items')
-    .populate('user', 'name email')
+    .populate({
+      path: 'user',
+      select: 'name email photo photos default_photo_index',
+      populate: {
+        path: 'photo',
+        select: 'url caption'
+      }
+    })
     .populate({
       path: 'experience',
       populate: {
@@ -168,7 +182,14 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
       } // Plans where user is collaborator/owner
     ]
   })
-  .populate('user', 'name email')
+  .populate({
+    path: 'user',
+    select: 'name email photo photos default_photo_index',
+    populate: {
+      path: 'photo',
+      select: 'url caption'
+    }
+  })
   .populate({
     path: 'experience',
     select: 'name destination',
@@ -185,12 +206,21 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
     if (planObj.permissions && planObj.permissions.length > 0) {
       const userPermissions = planObj.permissions.filter(p => p.entity === 'user');
       const userIds = userPermissions.map(p => p._id);
-      const users = await User.find({ _id: { $in: userIds } }).select('name email');
+      const users = await User.find({ _id: { $in: userIds } })
+        .select('name email photo photos default_photo_index')
+        .populate('photo', 'url caption');
       
       // Create a map for quick lookup
       const userMap = {};
       users.forEach(u => {
-        userMap[u._id.toString()] = { name: u.name, email: u.email, _id: u._id };
+        userMap[u._id.toString()] = { 
+          name: u.name, 
+          email: u.email, 
+          _id: u._id,
+          photo: u.photo,
+          photos: u.photos,
+          default_photo_index: u.default_photo_index
+        };
       });
       
       // Enhance permissions with user data
@@ -208,6 +238,54 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
   }));
 
   res.json(plansWithCollaborators);
+});
+
+/**
+ * Check if user has a plan for a specific experience (lightweight)
+ * Returns only plan ID and creation date - no populates
+ * OPTIMIZATION: This avoids the expensive getUserPlans() call with nested populates
+ */
+const checkUserPlanForExperience = asyncHandler(async (req, res) => {
+  const { experienceId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(experienceId)) {
+    return res.status(400).json({ error: "Invalid experience ID" });
+  }
+
+  // Find all plans where user is owner OR collaborator
+  // Lean query with minimal fields - very fast
+  const plans = await Plan.find({
+    experience: experienceId,
+    $or: [
+      { user: req.user._id }, // User is owner
+      { 'permissions._id': req.user._id, 'permissions.type': { $in: ['owner', 'collaborator'] } } // User has owner/collaborator permissions
+    ]
+  })
+  .select('_id createdAt user')
+  .lean();
+
+  if (!plans || plans.length === 0) {
+    return res.json({ 
+      hasPlan: false, 
+      plans: [] 
+    });
+  }
+
+  // Transform plans to include isOwn flag
+  const transformedPlans = plans.map(plan => ({
+    _id: plan._id,
+    createdAt: plan.createdAt,
+    isOwn: plan.user.toString() === req.user._id.toString(),
+    owner: plan.user
+  }));
+
+  res.json({ 
+    hasPlan: true, 
+    plans: transformedPlans,
+    // Legacy compatibility - return first plan's data
+    planId: transformedPlans[0]._id,
+    createdAt: transformedPlans[0].createdAt
+  });
 });
 
 /**
@@ -271,7 +349,14 @@ const updatePlan = asyncHandler(async (req, res) => {
 
   const updatedPlan = await Plan.findById(plan._id)
     .populate('experience', 'name destination')
-    .populate('user', 'name email');
+    .populate({
+      path: 'user',
+      select: 'name email photo photos default_photo_index',
+      populate: {
+        path: 'photo',
+        select: 'url caption'
+      }
+    });
 
   res.json(updatedPlan);
 });
@@ -287,7 +372,7 @@ const deletePlan = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: "Invalid plan ID" });
   }
 
-  const plan = await Plan.findById(id);
+  const plan = await Plan.findById(id).select('user permissions experience');
 
   if (!plan) {
     return res.status(404).json({ error: "Plan not found" });
@@ -298,21 +383,51 @@ const deletePlan = asyncHandler(async (req, res) => {
     return res.status(403).json({ error: "Only the plan owner can delete it" });
   }
 
-  // Get experience to update permissions
-  const experience = await Experience.findById(plan.experience);
+  // OPTIMIZATION 1: Parallel database operations instead of sequential
+  // Delete plan and update experience permissions simultaneously
+  const deletePromise = Plan.findByIdAndDelete(id);
+  
+  // OPTIMIZATION 2: Only fetch and update experience if user is NOT owner/collaborator
+  // Most users are just contributors, so we can skip the experience query often
+  let updateExperiencePromise = Promise.resolve();
+  
+  // Check if we need to remove contributor permission
+  // We'll do this check without fetching the full experience first
+  if (plan.experience) {
+    updateExperiencePromise = (async () => {
+      // Use a lean query with only the fields we need (much faster)
+      const experience = await Experience.findById(plan.experience)
+        .select('permissions user')
+        .lean();
 
-  if (experience) {
-    // Remove contributor permission only if user is not owner or collaborator
-    // This prevents removing contributor status if they have higher permissions
-    if (!permissions.isOwner(req.user._id, experience) && !permissions.hasDirectPermission(experience, req.user._id, 'collaborator')) {
-      experience.permissions = experience.permissions.filter(
-        p => !(p.entity === 'user' && p._id.toString() === req.user._id.toString() && p.type === 'contributor')
-      );
-      await experience.save();
-    }
+      if (experience) {
+        // Check if user is NOT owner or collaborator
+        const isOwnerOrCollaborator = 
+          permissions.isOwner(req.user._id, experience) || 
+          permissions.hasDirectPermission(experience, req.user._id, 'collaborator');
+        
+        if (!isOwnerOrCollaborator) {
+          // OPTIMIZATION 3: Use updateOne instead of find + save
+          // This is a single atomic operation
+          await Experience.updateOne(
+            { _id: plan.experience },
+            { 
+              $pull: { 
+                permissions: { 
+                  entity: 'user',
+                  _id: req.user._id,
+                  type: 'contributor'
+                }
+              }
+            }
+          );
+        }
+      }
+    })();
   }
 
-  await Plan.findByIdAndDelete(id);
+  // OPTIMIZATION 4: Wait for both operations in parallel
+  await Promise.all([deletePromise, updateExperiencePromise]);
 
   res.json({ message: "Plan deleted successfully" });
 });
@@ -360,7 +475,14 @@ const addCollaborator = asyncHandler(async (req, res) => {
 
   const updatedPlan = await Plan.findById(plan._id)
     .populate('experience', 'name')
-    .populate('user', 'name email');
+    .populate({
+      path: 'user',
+      select: 'name email photo photos default_photo_index',
+      populate: {
+        path: 'photo',
+        select: 'url caption'
+      }
+    });
 
   res.json(updatedPlan);
 });
@@ -570,6 +692,7 @@ module.exports = {
   getUserPlans,
   getPlanById,
   getExperiencePlans,
+  checkUserPlanForExperience,
   updatePlan,
   deletePlan,
   addCollaborator,

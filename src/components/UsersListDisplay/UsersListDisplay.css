@@ -1,0 +1,65 @@
+/* Users List Display Component */
+.users-list-display {
+    flex: 1;
+    min-width: 250px;
+}
+
+.users-list-display h6 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #495057;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+/* Single user display (no stack) */
+.users-list-single .user-avatar {
+    margin-left: 0 !important;
+}
+
+/* Avatar Stack - Overlapping avatars */
+.users-avatar-stack {
+    display: flex;
+    align-items: center;
+    margin-right: 0.5rem;
+}
+
+.users-avatar-stack .stacked-avatar {
+    margin-left: -12px; /* Overlap effect */
+}
+
+.users-avatar-stack .stacked-avatar:first-child {
+    margin-left: 0; /* First avatar doesn't overlap */
+}
+
+/* +N Badge styling */
+.avatar-more {
+    background: #e9ecef;
+    border-color: white;
+}
+
+.avatar-more .avatar-initials {
+    color: #667eea;
+    font-weight: 700;
+}
+
+/* Mobile/Tablet: Center collaborators on viewport */
+@media (max-width: 991px) {
+    .users-list-display {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        width: 100%;
+    }
+
+    .users-avatar-stack {
+        justify-content: center;
+    }
+
+    .users-list-single {
+        display: flex;
+        justify-content: center;
+    }
+}

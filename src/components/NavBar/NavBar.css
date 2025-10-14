@@ -123,6 +123,20 @@ nav {
     color: white !important;
 }
 
+/* First item hover should maintain top corners, remove bottom corners */
+.dropdown-item:first-child:hover,
+.dropdown-item:first-child:focus {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* Last item hover should maintain bottom corners, remove top corners */
+.dropdown-item:last-child:hover,
+.dropdown-item:last-child:focus {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
 .dropdown-item.active,
 .dropdown-item:active {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;

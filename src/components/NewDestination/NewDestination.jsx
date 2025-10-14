@@ -6,6 +6,7 @@ import { createDestination, getDestinations } from "../../utilities/destinations
 import ImageUpload from "../ImageUpload/ImageUpload";
 import { handleError } from "../../utilities/error-handler";
 import { Tooltip } from "bootstrap";
+import ConfirmModal from "../ConfirmModal/ConfirmModal";
 
 export default function NewDestination({ updateData }) {
   const [newDestination, setNewDestination] = useState({});
@@ -279,28 +280,20 @@ export default function NewDestination({ updateData }) {
           </form>
         </div>
       </div>
-      {showDeleteModal && (
-        <div className="modal fade show d-block" tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">{lang.en.modal.confirmDelete}</h5>
-                <button type="button" className="btn-close" onClick={() => setShowDeleteModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                <p>{lang.en.modal.confirmDeleteTravelTip}</p>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>{lang.en.button.cancel}</button>
-                <button type="button" className="btn btn-danger" onClick={() => {
-                  deleteTravelTip(tipToDelete);
-                  setShowDeleteModal(false);
-                }}>{lang.en.button.delete}</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      
+      <ConfirmModal
+        show={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={() => {
+          deleteTravelTip(tipToDelete);
+          setShowDeleteModal(false);
+        }}
+        title={lang.en.modal.confirmDelete}
+        message={lang.en.modal.confirmDeleteTravelTip}
+        confirmText={lang.en.button.delete}
+        confirmVariant="danger"
+        cancelText={lang.en.button.cancel}
+      />
     </>
   );
 }

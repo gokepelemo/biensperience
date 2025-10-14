@@ -1,4 +1,5 @@
 import "./AlertModal.css";
+import Modal from "../Modal/Modal";
 
 /**
  * AlertModal - A reusable modal for displaying alert messages
@@ -18,8 +19,6 @@ export default function AlertModal({
   variant = "info",
   buttonText = "OK"
 }) {
-  if (!show) return null;
-
   const variantClass = {
     info: "alert-info",
     success: "alert-success",
@@ -35,45 +34,19 @@ export default function AlertModal({
   }[variant] || "ℹ️";
 
   return (
-    <div 
-      className="modal show d-block" 
-      tabIndex="-1" 
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-      onClick={onClose}
+    <Modal
+      show={show}
+      onClose={onClose}
+      title={title}
+      icon={iconClass}
+      submitText={buttonText}
+      showCancelButton={false}
+      submitVariant="primary"
+      centered={true}
     >
-      <div 
-        className="modal-dialog modal-dialog-centered"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title">
-              <span className="me-2">{iconClass}</span>
-              {title}
-            </h5>
-            <button 
-              type="button" 
-              className="btn-close" 
-              onClick={onClose}
-              aria-label="Close"
-            ></button>
-          </div>
-          <div className="modal-body">
-            <div className={`alert ${variantClass} mb-0`}>
-              {message}
-            </div>
-          </div>
-          <div className="modal-footer">
-            <button 
-              type="button" 
-              className="btn btn-primary" 
-              onClick={onClose}
-            >
-              {buttonText}
-            </button>
-          </div>
-        </div>
+      <div className={`alert ${variantClass} mb-0`}>
+        {message}
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -5,6 +5,7 @@ import { updateDestination, showDestination } from "../../utilities/destinations
 import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import { handleError } from "../../utilities/error-handler";
+import Modal from "../Modal/Modal";
 
 export default function UpdateDestination({ user, updateData }) {
   const { destinationId } = useParams();
@@ -358,54 +359,27 @@ export default function UpdateDestination({ user, updateData }) {
         </div>
       </div>
 
-      {showConfirmModal && (
-        <div className="modal fade show d-block" tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">{lang.en.modal.confirmDestinationUpdate || 'Confirm Destination Update'}</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowConfirmModal(false)}
-                  aria-label="Close"
-                ></button>
-              </div>
-              <div className="modal-body">
-                <p>{lang.en.modal.confirmUpdateReview || 'Please review your changes before updating:'}</p>
-                <ul className="list-group">
-                  {Object.entries(changes).map(([field, change]) => (
-                    <li key={field} className="list-group-item">
-                      <strong>{formatFieldName(field)}:</strong>{' '}
-                      {typeof change.from === 'object' ? JSON.stringify(change.from) : (change.from || 'None')}{' '}
-                      →{' '}
-                      {typeof change.to === 'object' ? JSON.stringify(change.to) : (change.to || 'None')}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowConfirmModal(false)}
-                  aria-label={lang.en.button.cancel}
-                >
-                  {lang.en.button.cancel}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={confirmUpdate}
-                  aria-label={lang.en.button.updateDestination || 'Update Destination'}
-                >
-                  {lang.en.button.updateDestination || 'Update Destination'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        show={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onSubmit={confirmUpdate}
+        title={lang.en.modal.confirmDestinationUpdate || 'Confirm Destination Update'}
+        submitText={lang.en.button.updateDestination || 'Update Destination'}
+        submitVariant="primary"
+        cancelText={lang.en.button.cancel}
+      >
+        <p>{lang.en.modal.confirmUpdateReview || 'Please review your changes before updating:'}</p>
+        <ul className="list-group">
+          {Object.entries(changes).map(([field, change]) => (
+            <li key={field} className="list-group-item">
+              <strong>{formatFieldName(field)}:</strong>{' '}
+              {typeof change.from === 'object' ? JSON.stringify(change.from) : (change.from || 'None')}{' '}
+              →{' '}
+              {typeof change.to === 'object' ? JSON.stringify(change.to) : (change.to || 'None')}
+            </li>
+          ))}
+        </ul>
+      </Modal>
     </>
   );
 }

@@ -3,7 +3,10 @@ const en = {
   button: {
     add: "Add",
     addChild: "Add Child",
-    addPlanItem: "+ Add Plan Item",
+    addPlanItem: "Add Plan Item",
+    addCollaborator: "Add Collaborator",
+    addCollaborators: "Add Collaborators",
+    adding: "Adding...",
     cancel: "Cancel",
     create: "Create",
     delete: "Delete",
@@ -67,6 +70,11 @@ const en = {
     confirmDeleteTravelTip: "Are you sure you want to delete this travel tip?",
     confirmExperienceUpdate: "Update Experience",
     confirmUpdateReview: "Please review the changes before updating:",
+    addCollaboratorToExperience: "Add Collaborator to Experience",
+    addCollaboratorToPlan: "Add Collaborator to Plan",
+    collaboratorAddedSuccess: "Collaborator{plural} Added Successfully!",
+    collaboratorAddedMessage: "{name} has been added as a collaborator to your {context} and can now view and edit it.",
+    multipleCollaboratorsAddedMessage: "{count} collaborators have been added to your {context} and can now view and edit it.",
   },
 
   heading: {
@@ -90,6 +98,9 @@ const en = {
     popularExperiences: "Popular Experiences",
     experiencesIn: "Experiences in",
     updateProfile: "Update {name}",
+    thePlan: "The Plan",
+    myPlan: "My Plan",
+    collaborators: "Collaborators",
   },
 
   label: {
@@ -103,6 +114,15 @@ const en = {
     country: "Country",
     whenDoYouWantExperience: "When do you want to have this experience?",
     experienceTypes: "Experience Types",
+    plannedDate: "Planned Date",
+    totalCost: "Total Cost",
+    completion: "Completion",
+    planningTime: "Planning Time",
+    notSet: "Not set",
+    setOneNow: "Set One Now",
+    day: "day",
+    days: "days",
+    collaborators: "Collaborators:",
   },
 
   placeholder: {
@@ -174,6 +194,10 @@ const en = {
     noExperiencesYet: "No experiences planned yet. ",
     addExperiences: "Add some experiences",
     addOneNow: "Add one now",
+    peopleCreatingPlan: "{count} people are creating this plan",
+    personCreatingPlan: "{count} person is creating this plan",
+    peoplePlanningExperience: "{count} people are planning this experience",
+    personPlanningExperience: "{count} person is planning this experience",
   },
 
   nav: {
