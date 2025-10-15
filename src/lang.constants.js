@@ -45,6 +45,9 @@ const en = {
     viewProfile: "View Profile",
     editProfile: "Edit Profile",
     home: "Home",
+    syncNow: "🔄 Sync Now",
+    syncing: "Syncing...",
+    edit: "Edit",
   },
 
   alert: {
@@ -59,6 +62,22 @@ const en = {
     noExperiencesInDestination:
       "No experiences in this destination yet. Be the first to add one!",
     noTravelTips: "No travel tips shared yet. Add the first one!",
+    planOutOfSync: "Plan Out of Sync",
+    planOutOfSyncMessage:
+      "The experience plan has changed since you created this plan. Click \"Sync Now\" to update your plan with the latest items.",
+    noChangesDetected: "No changes detected.",
+    planAlreadyInSync: "Your plan is already in sync with the experience.",
+    syncPreserveNote:
+      "Your completion status and actual costs will be preserved for existing items.",
+    selectChangesToApply: "Select the changes you want to apply to your plan:",
+    planNotFound: "Plan not found.",
+    noPlanItems: "No plan items yet.",
+    changesSavedSuccessfully: "Changes Saved Successfully!",
+    addedCollaborators: "Added {count} collaborator{plural}:",
+    removedCollaborators: "Removed {count} collaborator{plural}:",
+    noChangesMade: "No changes were made.",
+    searchCollaboratorsHelp:
+      "Search for users by name or email to add as collaborators. They will be able to view and edit this {context}.",
   },
 
   modal: {
@@ -76,6 +95,8 @@ const en = {
     collaboratorAddedSuccess: "Collaborator{plural} Added Successfully!",
     collaboratorAddedMessage: "{name} has been added as a collaborator to your {context} and can now view and edit it.",
     multipleCollaboratorsAddedMessage: "{count} collaborators have been added to your {context} and can now view and edit it.",
+    syncPlanTitle: "Sync Plan with Experience",
+    removeExperienceTitle: "Remove Experience from Your Plans",
   },
 
   heading: {
@@ -124,6 +145,14 @@ const en = {
     day: "day",
     days: "days",
     collaborators: "Collaborators:",
+    itemDescription: "Item Description",
+    urlOptional: "URL (optional)",
+    cost: "Cost",
+    planningTimeLabel: "Planning Time",
+    selectAll: "Select All",
+    addedItems: "✚ Added Items ({count})",
+    removedItems: "✖ Removed Items ({count})",
+    modifiedItems: "✎ Modified Items ({count})",
   },
 
   placeholder: {
@@ -150,6 +179,8 @@ const en = {
     spanish: "e.g. Spanish",
     photoCredit: "Photo Credit e.g. Unsplash",
     photoCreditUrl: "Photo Credit URL e.g. http://unsplash.com",
+    itemDescription: "Enter item description",
+    urlPlaceholder: "https://example.com",
   },
 
   helper: {
@@ -182,6 +213,7 @@ const en = {
     profilePhoto: "Let other travelers put a face to your adventures!",
     destinationPhoto: "Upload photos that capture this destination's vibe",
     experiencePhoto: "Share photos that inspire others to try this experience",
+    map: "map",
   },
 
   message: {
@@ -240,6 +272,13 @@ const en = {
     fileUploadInfo: "file is ",
     expressAppRunning: "Express app running on ",
     databaseConnected: "Connected to ",
+  },
+
+  tooltip: {
+    syncPlan: "Sync your plan with the latest experience changes",
+    setPlannedDate: "Click to set a planned date",
+    edit: "Edit",
+    delete: "Delete",
   },
 };
 

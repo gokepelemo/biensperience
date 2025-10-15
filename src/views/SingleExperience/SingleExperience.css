@@ -275,10 +275,12 @@
 }
 
 .metric-value {
-    font-size: 2rem;
+    font-size: 2rem; /* Default size, will be dynamically adjusted by JavaScript */
     font-weight: 700;
     color: #1e293b;
     line-height: 1.2;
+    white-space: nowrap; /* Prevent wrapping */
+    padding-right: 1rem; /* Prevent text from touching right edge */
 }
 
 /* Responsive metric cards */
@@ -363,13 +365,30 @@
 
 /* Experience Actions Container */
 .experience-actions {
-    flex-wrap: wrap;
+    flex-wrap: nowrap !important; /* Prevent wrapping at all screen sizes */
+}
+
+/* Mobile and Tablet: Center buttons on the same line */
+@media (max-width: 991px) {
+    .experience-actions {
+        justify-content: center !important;
+        flex-direction: row !important;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .experience-actions .btn {
+        margin: 0.5rem 0.25rem !important;
+        white-space: nowrap; /* Prevent button text from wrapping */
+        min-width: auto; /* Allow buttons to shrink if needed */
+    }
 }
 
 .experience-actions .btn {
     opacity: 1 !important;
     visibility: visible !important;
     transition: all 0.3s ease;
+    white-space: nowrap; /* Prevent button text from wrapping */
 }
 
 .experience-actions .btn:hover {
@@ -420,11 +439,34 @@
     padding: 0.75rem 1.25rem;
     transition: all 0.3s ease;
     /* Fixed width to accommodate longest text with comfortable padding */
-    min-width: 320px;
+    min-width: 200px;
+    max-width: 320px;
     width: 320px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* Responsive sizing for mobile/tablet */
+@media (max-width: 767px) {
+    .btn-plan-add,
+    .btn-plan-remove {
+        width: auto;
+        min-width: 180px;
+        max-width: 280px;
+        font-size: 1rem;
+        padding: 0.65rem 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .btn-plan-add,
+    .btn-plan-remove {
+        min-width: 160px;
+        max-width: 240px;
+        font-size: 0.95rem;
+        padding: 0.6rem 0.9rem;
+    }
 }
 
 /* Turn green when hovering on add state */
@@ -503,11 +545,6 @@
 .plan-tab-button:focus {
     outline: 2px solid #667eea;
     outline-offset: 2px;
-}
-
-/* My Plan View */
-.my-plan-view {
-    padding: 2rem 0;
 }
 
 /* Responsive */
@@ -634,6 +671,7 @@
     border-bottom: 1px solid #f0f0f0;
 }
 
+/* Regular checkboxes in plan items */
 .my-plan-view .form-check-input {
     width: 1.25rem;
     height: 1.25rem;
@@ -644,6 +682,21 @@
 .my-plan-view .form-check-input:checked {
     background-color: #28a745;
     border-color: #28a745;
+}
+
+/* Select All checkboxes in sync modal - smaller and more refined */
+.sync-modal-select-all .form-check-input {
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-top: 0.15rem;
+    cursor: pointer;
+}
+
+.sync-modal-select-all .form-check-label {
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-left: 0.35rem;
 }
 
 .my-plan-view .plan-item-details {

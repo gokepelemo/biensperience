@@ -6,6 +6,7 @@ import { getDestinations } from "../../utilities/destinations-api";
 import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import TagInput from "../../components/TagInput/TagInput";
+import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
 import Modal from "../Modal/Modal";
 
@@ -235,12 +236,14 @@ export default function UpdateExperience({ user, updateData }) {
       <div className="container mt-5">
         <div className="row justify-content-center">
           <div className="col-md-8">
-            <div className="alert alert-danger" role="alert">
-              <h4 className="alert-heading">Unable to Update Experience</h4>
+            <Alert
+              type="danger"
+              title="Unable to Update Experience"
+            >
               <p>{error || "Experience not found or you don't have permission to update it."}</p>
               <hr />
               <p className="mb-0">Please check that you have the correct permissions and try again.</p>
-            </div>
+            </Alert>
             <div className="text-center mt-3">
               {experienceId && !error.includes('not authorized') && (
                 <Link to={`/experiences/${experienceId}`} className="btn btn-primary me-2">
@@ -411,9 +414,11 @@ export default function UpdateExperience({ user, updateData }) {
             </div>
 
             {error && (
-              <div className="alert alert-danger mb-4">
-                {error}
-              </div>
+              <Alert
+                type="danger"
+                message={error}
+                className="mb-4"
+              />
             )}
 
             <div className="d-flex justify-content-between mt-4">

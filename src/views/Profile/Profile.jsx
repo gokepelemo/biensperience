@@ -5,6 +5,7 @@ import "./Profile.css";
 import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
+import Alert from "../../components/Alert/Alert";
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
 import { getUserData } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
@@ -110,14 +111,16 @@ export default function Profile({ user, destinations, updateData }) {
       <div className="container my-5">
         <div className="row justify-content-center">
           <div className="col-md-8">
-            <div className="alert alert-danger" role="alert">
-              <h4 className="alert-heading">User Not Found</h4>
+            <Alert
+              type="danger"
+              title="User Not Found"
+            >
               <p>The user profile you're looking for doesn't exist or has been removed.</p>
               <hr />
               <p className="mb-0">
                 <Link to="/" className="alert-link">Return to Home</Link>
               </p>
-            </div>
+            </Alert>
           </div>
         </div>
       </div>
@@ -130,14 +133,16 @@ export default function Profile({ user, destinations, updateData }) {
       <div className="container my-5">
         <div className="row justify-content-center">
           <div className="col-md-8">
-            <div className="alert alert-warning" role="alert">
-              <h4 className="alert-heading">Unable to Load Profile</h4>
+            <Alert
+              type="warning"
+              title="Unable to Load Profile"
+            >
               <p>{profileError}</p>
               <hr />
               <p className="mb-0">
                 <button onClick={getProfile} className="btn btn-primary">Try Again</button>
               </p>
-            </div>
+            </Alert>
           </div>
         </div>
       </div>
@@ -324,14 +329,18 @@ export default function Profile({ user, destinations, updateData }) {
           </div>
         </>
       ) : (
-        <p className="alert alert-info fade-in">
-          {lang.en.alert.noExperiencesOrDestinations.replace('{type}', 
-            uiState.experiences ? 'experiences' : 
-            uiState.created ? 'created experiences' : 
-            'destinations'
-          ).replace(' Start by adding your first one!', isOwner ? ' Start by adding your first one!' : '')} 
-          {isOwner && ` ${lang.en.message.addOneNow}`}
-        </p>
+        <Alert 
+          type="info"
+          className="fade-in"
+          message={
+            lang.en.alert.noExperiencesOrDestinations.replace('{type}', 
+              uiState.experiences ? 'experiences' : 
+              uiState.created ? 'created experiences' : 
+              'destinations'
+            ).replace(' Start by adding your first one!', isOwner ? ' Start by adding your first one!' : '') +
+            (isOwner ? ` ${lang.en.message.addOneNow}` : '')
+          }
+        />
       )}
     </>
   );

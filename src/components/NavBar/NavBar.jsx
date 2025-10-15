@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import "./NavBar.css"
 import * as usersService from "../../utilities/users-service.js";
+import debug from "../../utilities/debug";
 import { useEffect, useRef } from "react";
 
 export default function NavBar({ user, setUser }) {
@@ -75,7 +76,7 @@ export default function NavBar({ user, setUser }) {
       if (dropdownToggle) {
         // Initialize dropdown
         dropdownInstance = new Dropdown(dropdownToggle);
-        console.log('Dropdown initialized successfully');
+        debug.log('Dropdown initialized successfully');
       }
     }).catch(err => {
       console.error('Failed to initialize dropdown:', err);

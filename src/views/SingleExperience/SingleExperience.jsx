@@ -1,5 +1,5 @@
 import "./SingleExperience.css";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { FaUserPlus, FaTimes } from "react-icons/fa";
@@ -9,6 +9,7 @@ import Modal from "../../components/Modal/Modal";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
+import Alert from "../../components/Alert/Alert";
 import {
   showExperience,
   deleteExperience,
@@ -35,31 +36,35 @@ import {
   isValidPlannedDate,
 } from "../../utilities/date-utils";
 import { handleError } from "../../utilities/error-handler";
+import { getCookieValue, setCookieValue } from "../../utilities/cookie-utils";
 import debug from "../../utilities/debug";
 
-// Cookie utility functions for sync alert dismissal
+// Constants for sync alert cookie management
 const SYNC_ALERT_COOKIE = "planSyncAlertDismissed";
 const SYNC_ALERT_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days (1 week) in milliseconds
 
+/**
+ * Checks if sync alert was dismissed for a specific plan and if it's still valid
+ * @param {string} planId - The plan ID to check
+ * @returns {number|null} Timestamp if dismissed and still valid, null otherwise
+ */
 function getSyncAlertCookie(planId) {
-  const cookies = document.cookie.split(";");
-  const cookieName = `${SYNC_ALERT_COOKIE}_${planId}=`;
-  for (let cookie of cookies) {
-    cookie = cookie.trim();
-    if (cookie.startsWith(cookieName)) {
-      const timestamp = parseInt(cookie.substring(cookieName.length));
-      // Check if cookie is still valid (not expired)
-      if (Date.now() - timestamp < SYNC_ALERT_DURATION) {
-        return timestamp;
-      }
-    }
-  }
-  return null;
+  return getCookieValue(SYNC_ALERT_COOKIE, planId, SYNC_ALERT_DURATION);
 }
 
+/**
+ * Updates the cookie with dismissal data for a specific plan (upsert)
+ * Automatically cleans up expired entries
+ * @param {string} planId - The plan ID to mark as dismissed
+ */
 function setSyncAlertCookie(planId) {
-  const expires = new Date(Date.now() + SYNC_ALERT_DURATION).toUTCString();
-  document.cookie = `${SYNC_ALERT_COOKIE}_${planId}=${Date.now()}; expires=${expires}; path=/; SameSite=Lax`;
+  setCookieValue(
+    SYNC_ALERT_COOKIE,
+    planId,
+    Date.now(),
+    SYNC_ALERT_DURATION,
+    SYNC_ALERT_DURATION
+  );
 }
 
 export default function SingleExperience({ user, experiences, updateData }) {
@@ -113,6 +118,9 @@ export default function SingleExperience({ user, experiences, updateData }) {
   const [showPlanItemModal, setShowPlanItemModal] = useState(false);
   const [planItemFormState, setPlanItemFormState] = useState(1); // 1 = add, 0 = edit
   const [editingPlanItem, setEditingPlanItem] = useState({});
+  
+  // Ref for dynamic font sizing on planned date metric
+  const plannedDateRef = useRef(null);
 
   const toggleExpanded = useCallback((parentId) => {
     setExpandedParents((prev) => {
@@ -334,6 +342,38 @@ export default function SingleExperience({ user, experiences, updateData }) {
       setDisplayedPlannedDate(userPlannedDate);
     }
   }, [activeTab, selectedPlanId, collaborativePlans, userPlannedDate]);
+
+  /**
+   * Dynamically adjusts the font size of the planned date metric value to fit within container.
+   * Similar to DestinationCard implementation - reduces font size incrementally if text overflows.
+   */
+  useEffect(() => {
+    const adjustPlannedDateFontSize = () => {
+      const element = plannedDateRef.current;
+      if (!element) return;
+
+      // Reset to default size first
+      element.style.fontSize = '';
+
+      // Get the computed style to find the current font size
+      let fontSize = parseFloat(window.getComputedStyle(element).fontSize);
+      const minFontSize = 1; // rem (16px at base 16px) - more aggressive minimum
+
+      // Check if text is overflowing horizontally
+      // Reduce more aggressively (2px instead of 1px per iteration)
+      while (element.scrollWidth > element.clientWidth && fontSize > minFontSize * 16) {
+        fontSize -= 2; // More aggressive reduction
+        element.style.fontSize = `${fontSize}px`;
+      }
+    };
+
+    // Adjust on mount and when displayed date changes
+    adjustPlannedDateFontSize();
+
+    // Adjust on window resize
+    window.addEventListener('resize', adjustPlannedDateFontSize);
+    return () => window.removeEventListener('resize', adjustPlannedDateFontSize);
+  }, [displayedPlannedDate]);
 
   // Periodically refresh collaborative plans to pick up new collaborator additions
   useEffect(() => {
@@ -1211,7 +1251,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                 </h3>
               ) : null}
             </div>
-            <div className="d-flex col-md-6 justify-content-center justify-content-md-end flex-column align-items-center flex-sm-row experience-actions">
+            <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center flex-row experience-actions">
               <button
                 className={`btn btn-icon my-2 my-sm-4 ${
                   userHasExperience ? "btn-plan-remove" : "btn-plan-add"
@@ -1291,7 +1331,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
             {showDatePicker && (
               <div className="row mt-3 date-picker-modal">
                 <div className="col-12">
-                  <div className="alert alert-info">
+                  <Alert type="info" className="mb-0">
                     <h3 className="mb-3">
                       {isEditingDate
                         ? lang.en.heading.editPlannedDate
@@ -1327,9 +1367,11 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           plannedDate,
                           experience.max_planning_days
                         ) && (
-                          <div className="alert alert-warning mt-2">
-                            {lang.en.alert.notEnoughTimeWarning}
-                          </div>
+                          <Alert
+                            type="warning"
+                            className="mt-2"
+                            message={lang.en.alert.notEnoughTimeWarning}
+                          />
                         )}
                     </div>
                     <button
@@ -1366,7 +1408,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                     >
                       {lang.en.button.cancel}
                     </button>
-                  </div>
+                  </Alert>
                 </div>
               </div>
             )}
@@ -1411,7 +1453,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
               {experience.destination && (
                 <iframe
                   width="100%"
-                  title="map"
+                  title={lang.en.helper.map}
                   height="450"
                   style={{ border: "0" }}
                   loading="lazy"
@@ -1482,7 +1524,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
 
                 {/* Experience Plan Items Tab Content */}
                 {activeTab === "experience" && (
-                  <>
+                  <div className="experience-plan-view mt-4">
                     {/* Collaborators and Action Buttons Row */}
                     <div className="plan-header-row mb-4">
                       {/* Collaborators Display - Left Side */}
@@ -1628,8 +1670,8 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                     onClick={() =>
                                       handleEditExperiencePlanItem(planItem)
                                     }
-                                    aria-label={`Edit ${planItem.text}`}
-                                    title="Edit"
+                                    aria-label={`${lang.en.button.edit} ${planItem.text}`}
+                                    title={lang.en.tooltip.edit}
                                   >
                                     ✏️
                                   </button>
@@ -1639,8 +1681,8 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                       setPlanItemToDelete(planItem._id);
                                       setShowPlanDeleteModal(true);
                                     }}
-                                    aria-label={`Delete ${planItem.text}`}
-                                    title="Delete"
+                                    aria-label={`${lang.en.button.delete} ${planItem.text}`}
+                                    title={lang.en.tooltip.delete}
                                   >
                                     ✖️
                                   </button>
@@ -1675,34 +1717,22 @@ export default function SingleExperience({ user, experiences, updateData }) {
                         </div>
                       ));
                     })()}
-                  </>
+                  </div>
                 )}
 
                 {/* My Plan Tab Content */}
                 {activeTab === "myplan" && selectedPlanId && (
-                  <div className="my-plan-view">
+                  <div className="my-plan-view mt-4">
                     {/* Alert Area - For all plan-related alerts */}
                     {showSyncButton && showSyncAlert && (
-                      <div
-                        className="alert alert-warning mb-4 position-relative"
-                        style={{ paddingRight: "3rem" }}
-                      >
-                        <button
-                          type="button"
-                          className="btn-close position-absolute"
-                          aria-label="Dismiss alert"
-                          onClick={dismissSyncAlert}
-                          style={{ top: "1rem", right: "1rem", zIndex: 10 }}
-                        />
-                        <div>
-                          <strong>Plan out of sync</strong>
-                          <p className="mb-0 small">
-                            The experience plan has changed since you created
-                            this plan. Click "Sync Now" to update your plan with
-                            the latest items.
-                          </p>
-                        </div>
-                      </div>
+                      <Alert
+                        type="warning"
+                        dismissible={true}
+                        onDismiss={dismissSyncAlert}
+                        title={lang.en.alert.planOutOfSync}
+                        message={lang.en.alert.planOutOfSyncMessage}
+                        className="mb-4"
+                      />
                     )}
 
                     {/* Collaborators and Action Buttons Row */}
@@ -1764,9 +1794,9 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                 className="btn btn-primary"
                                 onClick={handleSyncPlan}
                                 disabled={loading}
-                                title="Sync your plan with the latest experience changes"
+                                title={lang.en.tooltip.syncPlan}
                               >
-                                {loading ? "Syncing..." : "🔄 Sync Now"}
+                                {loading ? lang.en.button.syncing : lang.en.button.syncNow}
                               </button>
                             )}
                           </div>
@@ -1780,7 +1810,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                       if (!currentPlan) {
                         return (
                           <p className="text-center text-muted">
-                            Plan not found.
+                            {lang.en.alert.planNotFound}
                           </p>
                         );
                       }
@@ -1797,7 +1827,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                     {lang.en.label.plannedDate}
                                   </span>
                                 </div>
-                                <div className="metric-value">
+                                <div className="metric-value" ref={plannedDateRef}>
                                   {currentPlan.planned_date ? (
                                     formatDateMetricCard(currentPlan.planned_date)
                                   ) : (
@@ -1832,7 +1862,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                         color: "#667eea",
                                         textDecoration: "underline",
                                       }}
-                                      title="Click to set a planned date"
+                                      title={lang.en.tooltip.setPlannedDate}
                                     >
                                       {lang.en.label.setOneNow}
                                     </span>
@@ -1933,7 +1963,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           <>
                             {planMetadata}
                             <p className="text-center text-muted">
-                              No plan items yet.
+                              {lang.en.alert.noPlanItems}
                             </p>
                           </>
                         );
@@ -2054,8 +2084,8 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                                   planItem
                                                 )
                                               }
-                                              aria-label={`Edit ${planItem.text}`}
-                                              title="Edit"
+                                              aria-label={`${lang.en.button.edit} ${planItem.text}`}
+                                              title={lang.en.tooltip.edit}
                                             >
                                               ✏️
                                             </button>
@@ -2069,8 +2099,8 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                                   true
                                                 );
                                               }}
-                                              aria-label={`Delete ${planItem.text}`}
-                                              title="Delete"
+                                              aria-label={`${lang.en.button.delete} ${planItem.text}`}
+                                              title={lang.en.tooltip.delete}
                                             >
                                               🗑️
                                             </button>
@@ -2203,7 +2233,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
         show={showRemoveModal}
         onClose={() => setShowRemoveModal(false)}
         onConfirm={confirmRemoveExperience}
-        title="Remove Experience from Your Plans"
+        title={lang.en.modal.removeExperienceTitle}
         message="Are you sure you want to remove this experience? Your plan and all progress tracked will be permanently deleted."
         confirmText="Remove Experience"
         confirmVariant="danger"
@@ -2327,13 +2357,17 @@ export default function SingleExperience({ user, experiences, updateData }) {
             <div className="mb-3">
               <BsCheckCircleFill className="text-success" size={64} />
             </div>
-            <h4>Changes Saved Successfully!</h4>
+            <h4>{lang.en.alert.changesSavedSuccessfully}</h4>
 
             {/* Show added collaborators */}
             {addedCollaborators.length > 0 && (
               <div className="mb-3">
                 <p className="text-muted mb-2">
-                  <strong>Added {addedCollaborators.length} collaborator{addedCollaborators.length > 1 ? 's' : ''}:</strong>
+                  <strong>
+                    {lang.en.alert.addedCollaborators
+                      .replace("{count}", addedCollaborators.length)
+                      .replace("{plural}", addedCollaborators.length > 1 ? "s" : "")}
+                  </strong>
                 </p>
                 <ul className="list-unstyled">
                   {addedCollaborators.map((collab) => (
@@ -2349,7 +2383,11 @@ export default function SingleExperience({ user, experiences, updateData }) {
             {actuallyRemovedCollaborators.length > 0 && (
               <div className="mb-3">
                 <p className="text-muted mb-2">
-                  <strong>Removed {actuallyRemovedCollaborators.length} collaborator{actuallyRemovedCollaborators.length > 1 ? 's' : ''}:</strong>
+                  <strong>
+                    {lang.en.alert.removedCollaborators
+                      .replace("{count}", actuallyRemovedCollaborators.length)
+                      .replace("{plural}", actuallyRemovedCollaborators.length > 1 ? "s" : "")}
+                  </strong>
                 </p>
                 <ul className="list-unstyled">
                   {actuallyRemovedCollaborators.map((collab) => (
@@ -2362,7 +2400,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
             )}
 
             {addedCollaborators.length === 0 && actuallyRemovedCollaborators.length === 0 && (
-              <p className="text-muted">No changes were made.</p>
+              <p className="text-muted">{lang.en.alert.noChangesMade}</p>
             )}
           </div>
         ) : (
@@ -2373,8 +2411,10 @@ export default function SingleExperience({ user, experiences, updateData }) {
             onSubmit={handleAddCollaborator}
           >
             <p className="text-muted mb-3">
-              Search for users by name or email to add as collaborators. They
-              will be able to view and edit this {collaboratorContext}.
+              {lang.en.alert.searchCollaboratorsHelp.replace(
+                "{context}",
+                collaboratorContext
+              )}
             </p>
 
             {/* Selected Collaborators Display */}
@@ -2458,7 +2498,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
             setShowSyncModal(false);
             setSyncChanges(null);
           }}
-          title="Sync Plan with Experience"
+          title={lang.en.modal.syncPlanTitle}
           dialogClassName="responsive-modal-dialog"
           scrollable={true}
           submitText="Confirm Sync"
@@ -2473,7 +2513,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
         >
           <>
             <p className="text-muted mb-3">
-              Select the changes you want to apply to your plan:
+              {lang.en.alert.selectChangesToApply}
             </p>
 
                 {/* Added Items */}
@@ -2482,10 +2522,10 @@ export default function SingleExperience({ user, experiences, updateData }) {
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <h6 className="text-success mb-0">
                         <strong>
-                          ✚ Added Items ({syncChanges.added.length})
+                          {lang.en.label.addedItems.replace("{count}", syncChanges.added.length)}
                         </strong>
                       </h6>
-                      <div className="form-check">
+                      <div className="form-check sync-modal-select-all">
                         <input
                           className="form-check-input"
                           type="checkbox"
@@ -2512,7 +2552,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           className="form-check-label"
                           htmlFor="selectAllAdded"
                         >
-                          Select All
+                          {lang.en.label.selectAll}
                         </label>
                       </div>
                     </div>
@@ -2588,10 +2628,10 @@ export default function SingleExperience({ user, experiences, updateData }) {
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <h6 className="text-danger mb-0">
                         <strong>
-                          ✖ Removed Items ({syncChanges.removed.length})
+                          {lang.en.label.removedItems.replace("{count}", syncChanges.removed.length)}
                         </strong>
                       </h6>
-                      <div className="form-check">
+                      <div className="form-check sync-modal-select-all">
                         <input
                           className="form-check-input"
                           type="checkbox"
@@ -2620,7 +2660,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           className="form-check-label"
                           htmlFor="selectAllRemoved"
                         >
-                          Select All
+                          {lang.en.label.selectAll}
                         </label>
                       </div>
                     </div>
@@ -2677,10 +2717,10 @@ export default function SingleExperience({ user, experiences, updateData }) {
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <h6 className="text-warning mb-0">
                         <strong>
-                          ✎ Modified Items ({syncChanges.modified.length})
+                          {lang.en.label.modifiedItems.replace("{count}", syncChanges.modified.length)}
                         </strong>
                       </h6>
-                      <div className="form-check">
+                      <div className="form-check sync-modal-select-all">
                         <input
                           className="form-check-input"
                           type="checkbox"
@@ -2709,7 +2749,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           className="form-check-label"
                           htmlFor="selectAllModified"
                         >
-                          Select All
+                          {lang.en.label.selectAll}
                         </label>
                       </div>
                     </div>
@@ -2795,16 +2835,19 @@ export default function SingleExperience({ user, experiences, updateData }) {
                 {syncChanges.added.length === 0 &&
                   syncChanges.removed.length === 0 &&
                   syncChanges.modified.length === 0 && (
-                    <div className="alert alert-info">
-                      <strong>No changes detected.</strong> Your plan is already
-                      in sync with the experience.
-                    </div>
+                    <Alert
+                      type="info"
+                      title={lang.en.alert.noChangesDetected}
+                      message={lang.en.alert.planAlreadyInSync}
+                    />
                   )}
 
-                <div className="alert alert-warning mt-3">
-              <strong>Note:</strong> Your completion status and actual costs
-              will be preserved for existing items.
-            </div>
+                <Alert
+                  type="warning"
+                  className="mt-3"
+                  title="Note:"
+                  message={lang.en.alert.syncPreserveNote}
+                />
           </>
         </Modal>
       )}
@@ -2840,10 +2883,11 @@ export default function SingleExperience({ user, experiences, updateData }) {
         loading={loading}
         disableSubmit={!editingPlanItem.text}
       >
-        <div className="mb-3">
-          <label htmlFor="planItemText" className="form-label">
-            Item Description <span className="text-danger">*</span>
-          </label>
+        <form className="plan-item-modal-form">
+          <div className="mb-3">
+            <label htmlFor="planItemText" className="form-label">
+              {lang.en.label.itemDescription} <span className="text-danger">*</span>
+            </label>
                     <input
                       type="text"
                       className="form-control"
@@ -2855,14 +2899,14 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           text: e.target.value,
                         })
                       }
-                      placeholder="Enter item description"
+                      placeholder={lang.en.placeholder.itemDescription}
                       required
                     />
                   </div>
 
                   <div className="mb-3">
                     <label htmlFor="planItemUrl" className="form-label">
-                      URL (optional)
+                      {lang.en.label.urlOptional}
                     </label>
                     <input
                       type="url"
@@ -2875,49 +2919,90 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           url: e.target.value,
                         })
                       }
-                      placeholder="https://example.com"
+                      placeholder={lang.en.placeholder.urlPlaceholder}
                     />
                   </div>
 
                   <div className="mb-3">
                     <label htmlFor="planItemCost" className="form-label">
-                      Cost ($)
+                      {lang.en.label.cost}
                     </label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      id="planItemCost"
-                      value={editingPlanItem.cost || 0}
-                      onChange={(e) =>
-                        setEditingPlanItem({
-                          ...editingPlanItem,
-                          cost: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      min="0"
-                      step="0.01"
-                    />
+                    <div className="input-group">
+                      <span className="input-group-text">$</span>
+                      <input
+                        type="number"
+                        className="form-control"
+                        id="planItemCost"
+                        value={editingPlanItem.cost || ""}
+                        onChange={(e) =>
+                          setEditingPlanItem({
+                            ...editingPlanItem,
+                            cost: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        onFocus={(e) => {
+                          if (e.target.value === "0" || e.target.value === 0) {
+                            setEditingPlanItem({
+                              ...editingPlanItem,
+                              cost: "",
+                            });
+                          }
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === "") {
+                            setEditingPlanItem({
+                              ...editingPlanItem,
+                              cost: 0,
+                            });
+                          }
+                        }}
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                      />
+                    </div>
                   </div>
 
                   <div className="mb-3">
                     <label htmlFor="planItemDays" className="form-label">
-                      Planning Days
+                      {lang.en.label.planningTimeLabel}
                     </label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      id="planItemDays"
-                      value={editingPlanItem.planning_days || 0}
-                      onChange={(e) =>
-                        setEditingPlanItem({
-                          ...editingPlanItem,
-                          planning_days: parseInt(e.target.value) || 0,
-                        })
-                      }
-                  min="0"
-                />
-              </div>
-            </Modal>
+                    <div className="input-group">
+                      <input
+                        type="number"
+                        className="form-control"
+                        id="planItemDays"
+                        value={editingPlanItem.planning_days || ""}
+                        onChange={(e) =>
+                          setEditingPlanItem({
+                            ...editingPlanItem,
+                            planning_days: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        onFocus={(e) => {
+                          if (e.target.value === "0" || e.target.value === 0) {
+                            setEditingPlanItem({
+                              ...editingPlanItem,
+                              planning_days: "",
+                            });
+                          }
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === "") {
+                            setEditingPlanItem({
+                              ...editingPlanItem,
+                              planning_days: 0,
+                            });
+                          }
+                        }}
+                        min="0"
+                        placeholder="0"
+                      />
+                      <span className="input-group-text">days</span>
+                    </div>
+                  </div>
+            </form>
+          </Modal>
     </>
   );
 }

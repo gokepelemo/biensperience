@@ -5,6 +5,57 @@ const Destination = require('./models/destination');
 const Experience = require('./models/experience');
 const Photo = require('./models/photo');
 
+/**
+ * Calculate Levenshtein distance for fuzzy matching
+ */
+function levenshteinDistance(str1, str2) {
+  const s1 = str1.toLowerCase().trim();
+  const s2 = str2.toLowerCase().trim();
+  
+  const matrix = Array(s2.length + 1).fill(null).map(() =>
+    Array(s1.length + 1).fill(null)
+  );
+
+  for (let i = 0; i <= s1.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= s2.length; j++) matrix[j][0] = j;
+
+  for (let j = 1; j <= s2.length; j++) {
+    for (let i = 1; i <= s1.length; i++) {
+      const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i] + 1,
+        matrix[j - 1][i - 1] + cost
+      );
+    }
+  }
+
+  return matrix[s2.length][s1.length];
+}
+
+/**
+ * Calculate similarity percentage between two strings
+ */
+function calculateSimilarity(str1, str2) {
+  const distance = levenshteinDistance(str1, str2);
+  const maxLength = Math.max(str1.length, str2.length);
+  return maxLength === 0 ? 100 : ((maxLength - distance) / maxLength) * 100;
+}
+
+/**
+ * Check if an item already exists with fuzzy matching
+ */
+async function findSimilarItem(Model, name, similarityThreshold = 85) {
+  const allItems = await Model.find({}, 'name');
+  for (const item of allItems) {
+    const similarity = calculateSimilarity(name, item.name);
+    if (similarity >= similarityThreshold) {
+      return item;
+    }
+  }
+  return null;
+}
+
 async function createSampleData() {
   try {
     // Check for required environment variables
@@ -681,10 +732,18 @@ async function createSampleData() {
 
     const createdDestinations = [];
     for (const destData of destinations) {
-      const dest = new Destination(destData);
-      await dest.save();
-      createdDestinations.push(dest);
-      console.log(`✅ Created destination: ${dest.name}`);
+      // Check if similar destination already exists (fuzzy matching)
+      const existingDest = await findSimilarItem(Destination, destData.name, 85);
+      
+      if (existingDest) {
+        console.log(`ℹ️  Found similar destination: ${existingDest.name} (skipping ${destData.name})`);
+        createdDestinations.push(existingDest);
+      } else {
+        const dest = new Destination(destData);
+        await dest.save();
+        createdDestinations.push(dest);
+        console.log(`✅ Created destination: ${dest.name}`);
+      }
     }
 
     // Create experiences
@@ -1790,20 +1849,30 @@ async function createSampleData() {
       }
     ];
 
+    const createdExperiences = [];
     for (const expData of experiences) {
-      const exp = new Experience(expData);
-      await exp.save();
-      console.log(`✅ Created experience: ${exp.name}`);
+      // Check if similar experience already exists (fuzzy matching)
+      const existingExp = await findSimilarItem(Experience, expData.name, 85);
+      
+      if (existingExp) {
+        console.log(`ℹ️  Found similar experience: ${existingExp.name} (skipping ${expData.name})`);
+        createdExperiences.push(existingExp);
+      } else {
+        const exp = new Experience(expData);
+        await exp.save();
+        createdExperiences.push(exp);
+        console.log(`✅ Created experience: ${exp.name}`);
+      }
     }
 
-    console.log('\nSample data creation completed successfully!');
-    console.log('User created: john@doe.com / test');
-    console.log(`Created ${createdDestinations.length} destinations`);
-    console.log(`Created ${experiences.length} experiences`);
-    console.log(`Created ${createdPhotos.length} photos`);
+    console.log('\n✨ Sample data creation completed successfully!');
+    console.log('👤 Test user: john@doe.com / test');
+    console.log(`📍 Created ${createdDestinations.length} destinations`);
+    console.log(`🎯 Created ${createdExperiences.length} experiences`);
+    console.log(`📸 Created ${createdPhotos.length} photos`);
 
   } catch (error) {
-    console.error('Error creating sample data:', error);
+    console.error('❌ Error creating sample data:', error);
   } finally {
     await mongoose.connection.close();
     console.log('Database connection closed');

@@ -2,6 +2,7 @@ import "./Profile.css";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
+import Alert from "../../components/Alert/Alert";
 import { updateUser, getUserData } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
 import PageMeta from "../../components/PageMeta/PageMeta";
@@ -226,13 +227,18 @@ export default function UpdateProfile({ user, setUser, updateData }) {
       </div>
 
       {error && (
-        <div className="alert alert-danger mb-4" role="alert">
-          {error}
-        </div>
+        <Alert
+          type="danger"
+          message={error}
+          className="mb-4"
+        />
       )}
 
       {Object.keys(changes).length > 0 && (
-        <div className="alert alert-info mb-4" role="alert">
+        <Alert
+          type="info"
+          className="mb-4"
+        >
           <strong>Changes detected:</strong>
           <ul className="mb-0 mt-2">
             {Object.keys(changes).map((field, idx) => (
@@ -241,7 +247,7 @@ export default function UpdateProfile({ user, setUser, updateData }) {
               </li>
             ))}
           </ul>
-        </div>
+        </Alert>
       )}
 
       {loading ? (
@@ -308,9 +314,10 @@ export default function UpdateProfile({ user, setUser, updateData }) {
             <div className="mb-4">
               <h5 className="mb-3">Change Password (Optional)</h5>
               {passwordError && (
-                <div className="alert alert-danger" role="alert">
-                  {passwordError}
-                </div>
+                <Alert
+                  type="danger"
+                  message={passwordError}
+                />
               )}
               
               <div className="mb-3">

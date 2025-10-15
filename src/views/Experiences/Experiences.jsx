@@ -2,6 +2,7 @@ import "./Experiences.css";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import SortFilter from "../../components/SortFilter/SortFilter";
 import PageMeta from "../../components/PageMeta/PageMeta";
+import Alert from "../../components/Alert/Alert";
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { sortItems, filterExperiences } from "../../utilities/sort-filter";
 import { useMemo, useState } from "react";
@@ -64,9 +65,11 @@ export default function Experiences({
                   />
                 ))
               ) : (
-                <div className="alert alert-info text-center">
-                  No experiences found matching your criteria.
-                </div>
+                <Alert 
+                  type="info" 
+                  message="No experiences found matching your criteria." 
+                  className="text-center w-100"
+                />
               )}
             </div>
           </div>

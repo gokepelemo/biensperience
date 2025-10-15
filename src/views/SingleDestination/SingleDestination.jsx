@@ -6,6 +6,7 @@ import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
+import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
 import PageMeta from "../../components/PageMeta/PageMeta";
 
@@ -253,9 +254,9 @@ export default function SingleDestination({
                   />
                 ))
               ) : (
-                <p className="alert alert-info">
+                <Alert type="info">
                   {lang.en.alert.noExperiencesInDestination} <Link to="/experiences/new">{lang.en.message.addOneNow}</Link>?
-                </p>
+                </Alert>
               )}
             </div>
           </>

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { lang } from "../../lang.constants";
 import { createDestination, getDestinations } from "../../utilities/destinations-api";
 import ImageUpload from "../ImageUpload/ImageUpload";
+import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
 import { Tooltip } from "bootstrap";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
@@ -98,9 +99,11 @@ export default function NewDestination({ updateData }) {
       </div>
 
       {error && (
-        <div className="alert alert-danger mb-4" role="alert">
-          {error}
-        </div>
+        <Alert
+          type="danger"
+          message={error}
+          className="mb-4"
+        />
       )}
 
       <div className="row my-4 fade-in">
@@ -262,9 +265,10 @@ export default function NewDestination({ updateData }) {
                 </ul>
               )}
               {travelTips.length === 0 && (
-                <div className="alert alert-info">
-                  {lang.en.alert.noTravelTips}
-                </div>
+                <Alert
+                  type="info"
+                  message={lang.en.alert.noTravelTips}
+                />
               )}
             </div>
 

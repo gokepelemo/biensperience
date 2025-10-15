@@ -2,6 +2,7 @@ import "./Destinations.css";
 import DestinationCard from "../../components/DestinationCard/DestinationCard";
 import SortFilter from "../../components/SortFilter/SortFilter";
 import PageMeta from "../../components/PageMeta/PageMeta";
+import Alert from "../../components/Alert/Alert";
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { sortItems, filterDestinations } from "../../utilities/sort-filter";
 import { useMemo, useState } from "react";
@@ -54,9 +55,11 @@ export default function Destinations({ destinations, updateData }) {
                   <DestinationCard destination={destination} key={destination._id || index} className="fade-in" />
                 ))
               ) : (
-                <div className="alert alert-info text-center w-100">
-                  No destinations found matching your criteria.
-                </div>
+                <Alert
+                  type="info"
+                  message="No destinations found matching your criteria."
+                  className="text-center w-100"
+                />
               )}
             </div>
           </div>

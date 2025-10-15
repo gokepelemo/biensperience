@@ -2,6 +2,7 @@ import "./ExperiencesByTag.css";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
+import Alert from "../../components/Alert/Alert";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import { createUrlSlug } from "../../utilities/url-utils";
 import * as experiencesAPI from "../../utilities/experiences-api";
@@ -100,13 +101,13 @@ export default function ExperiencesByTag({
       ) : (
         <div className="row my-4 fade-in">
           <div className="col-12">
-            <div className="alert alert-info">
+            <Alert type="info">
               <h5>No experiences found with tag "{displayTagName}"</h5>
               <p>Try browsing all experiences or search for a different tag.</p>
               <Link to="/experiences" className="btn btn-primary mt-2">
                 Browse All Experiences
               </Link>
-            </div>
+            </Alert>
           </div>
         </div>
       )}

@@ -1,0 +1,195 @@
+/* Alert Component Styles */
+
+.alert {
+  position: relative;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+}
+
+/* Alert Content Layout */
+.alert-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.alert-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.alert-text {
+  flex: 1;
+  min-width: 0; /* Allow text to shrink */
+}
+
+.alert-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.alert-message {
+  margin: 0;
+}
+
+/* Alert Sizes */
+.alert-sm {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.alert-sm .alert-icon {
+  font-size: 1rem;
+}
+
+.alert-lg {
+  padding: 1.5rem 2rem;
+  font-size: 1.125rem;
+}
+
+.alert-lg .alert-icon {
+  font-size: 1.5rem;
+}
+
+/* Dismissible Alerts */
+.alert-dismissible {
+  padding-right: 3rem;
+}
+
+.alert-dismissible .btn-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  padding: 0.5rem;
+  z-index: 2;
+}
+
+/* Bordered Variant */
+.alert-bordered {
+  border-width: 2px;
+  border-style: solid;
+}
+
+/* Alert Types - Bootstrap-compatible */
+.alert-primary {
+  background-color: #cfe2ff;
+  border-color: #b6d4fe;
+  color: #084298;
+}
+
+.alert-bordered.alert-primary {
+  border-color: #084298;
+}
+
+.alert-secondary {
+  background-color: #e2e3e5;
+  border-color: #d3d6d8;
+  color: #41464b;
+}
+
+.alert-bordered.alert-secondary {
+  border-color: #41464b;
+}
+
+.alert-success {
+  background-color: #d1e7dd;
+  border-color: #badbcc;
+  color: #0f5132;
+}
+
+.alert-bordered.alert-success {
+  border-color: #0f5132;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  border-color: #f5c2c7;
+  color: #842029;
+}
+
+.alert-bordered.alert-danger {
+  border-color: #842029;
+}
+
+.alert-warning {
+  background-color: #fff3cd;
+  border-color: #ffecb5;
+  color: #664d03;
+}
+
+.alert-bordered.alert-warning {
+  border-color: #664d03;
+}
+
+.alert-info {
+  background-color: #cff4fc;
+  border-color: #b6effb;
+  color: #055160;
+}
+
+.alert-bordered.alert-info {
+  border-color: #055160;
+}
+
+.alert-light {
+  background-color: #fefefe;
+  border-color: #fdfdfe;
+  color: #636464;
+}
+
+.alert-bordered.alert-light {
+  border-color: #636464;
+}
+
+.alert-dark {
+  background-color: #d3d3d4;
+  border-color: #bcbebf;
+  color: #141619;
+}
+
+.alert-bordered.alert-dark {
+  border-color: #141619;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .alert {
+    padding: 0.875rem 1rem;
+  }
+
+  .alert-dismissible {
+    padding-right: 2.5rem;
+  }
+
+  .alert-dismissible .btn-close {
+    top: 0.5rem;
+    right: 0.5rem;
+  }
+
+  .alert-content {
+    gap: 0.5rem;
+  }
+
+  .alert-icon {
+    font-size: 1.1rem;
+  }
+}
+
+/* Animation for dismissible alerts */
+@keyframes alertFadeOut {
+  from {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  to {
+    opacity: 0;
+    transform: scaleY(0.9);
+  }
+}
+
+.alert.dismissing {
+  animation: alertFadeOut 0.3s ease-out forwards;
+}

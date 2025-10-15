@@ -4,19 +4,19 @@ import { uploadPhoto, uploadPhotoBatch, deletePhoto } from "../../utilities/phot
 import { handleError } from "../../utilities/error-handler";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { lang } from "../../lang.constants";
+import Alert from "../Alert/Alert";
 import AlertModal from "../AlertModal/AlertModal";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 
 /**
- * Escapes HTML special characters to prevent XSS attacks
- * @param {string} text - The text to escape
- * @returns {string} - The escaped text
+ * Sanitizes text for safe display in JSX
+ * React automatically escapes JSX text content, but we ensure the value is a string
+ * @param {string} text - The text to sanitize
+ * @returns {string} - The sanitized text (empty string if null/undefined)
  */
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+function sanitizeText(text) {
+  // Return empty string for null/undefined, or convert to string and trim
+  return text ? String(text).trim() : '';
 }
 
 export default function ImageUpload({ data, setData }) {
@@ -392,20 +392,20 @@ export default function ImageUpload({ data, setData }) {
           </h5>
           
           {disabledPhotos.size > 0 && (
-            <div className="alert alert-info mb-3">
+            <Alert type="info" className="mb-3">
               <small>
                 <strong>💡 Tip:</strong> Disabled photos (shown in gray with red border) will be removed when you save. 
                 Click <strong>Enable</strong> to keep them.
               </small>
-            </div>
+            </Alert>
           )}
           
           <div className="photos-grid">
             {photos.map((photo, index) => {
               const isDisabled = disabledPhotos.has(index);
               const isDefault = index === defaultPhotoIndex && !isDisabled;
-              // Sanitize photo credit to prevent XSS in attributes and text content
-              const sanitizedCredit = photo.photo_credit ? escapeHtml(photo.photo_credit) : '';
+              // Sanitize photo credit to prevent XSS - React will escape JSX text content
+              const sanitizedCredit = sanitizeText(photo.photo_credit);
               
               return (
                 <div 

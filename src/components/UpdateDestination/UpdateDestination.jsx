@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { updateDestination, showDestination } from "../../utilities/destinations-api";
 import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
+import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
 import Modal from "../Modal/Modal";
 
@@ -192,9 +193,10 @@ export default function UpdateDestination({ user, updateData }) {
   if (error && !destination) {
     return (
       <div className="container my-5">
-        <div className="alert alert-danger" role="alert">
-          {error}
-        </div>
+        <Alert
+          type="danger"
+          message={error}
+        />
       </div>
     );
   }
@@ -208,13 +210,18 @@ export default function UpdateDestination({ user, updateData }) {
       </div>
 
       {error && (
-        <div className="alert alert-danger mb-4" role="alert">
-          {error}
-        </div>
+        <Alert
+          type="danger"
+          message={error}
+          className="mb-4"
+        />
       )}
 
       {Object.keys(changes).length > 0 && (
-        <div className="alert alert-info mb-4" role="alert">
+        <Alert
+          type="info"
+          className="mb-4"
+        >
           <strong>Changes detected:</strong>
           <ul className="mb-0 mt-2">
             {Object.keys(changes).map((field, idx) => (
@@ -223,7 +230,7 @@ export default function UpdateDestination({ user, updateData }) {
               </li>
             ))}
           </ul>
-        </div>
+        </Alert>
       )}
 
       <div className="row my-4 fade-in">

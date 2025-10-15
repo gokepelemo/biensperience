@@ -6,6 +6,7 @@ import { getDestinations } from "../../utilities/destinations-api";
 import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import TagInput from "../../components/TagInput/TagInput";
+import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
 import { isDuplicateName } from "../../utilities/deduplication";
 import { Tooltip } from "bootstrap";
@@ -95,9 +96,11 @@ export default function NewExperience({ updateData }) {
       </div>
 
       {error && (
-        <div className="alert alert-danger mb-4" role="alert">
-          {error}
-        </div>
+        <Alert
+          type="danger"
+          message={error}
+          className="mb-4"
+        />
       )}
 
       <div className="row my-4 fade-in">

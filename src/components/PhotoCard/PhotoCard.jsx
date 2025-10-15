@@ -26,6 +26,7 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(defaultIndex);
   const [showModal, setShowModal] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
+  const [imageStyle, setImageStyle] = useState({});
 
   // Ensure selected index is valid
   const currentIndex = selectedPhotoIndex < photoArray.length ? selectedPhotoIndex : defaultIndex;
@@ -45,6 +46,7 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
   // Reset loading state when photo changes
   useEffect(() => {
     setImageLoading(true);
+    setImageStyle({});
     
     // Fallback timeout to prevent infinite loading
     const timeout = setTimeout(() => {
@@ -53,6 +55,33 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
     
     return () => clearTimeout(timeout);
   }, [displayPhoto.url]);
+
+  /**
+   * Handle image load and resize if needed
+   * If image height is less than container height, resize to fill
+   */
+  const handleImageLoad = (e) => {
+    const img = e.target;
+    const containerHeight = img.parentElement.offsetHeight;
+    const imageHeight = img.naturalHeight;
+    
+    // If image is smaller than container, scale it up to fill the height
+    if (imageHeight < containerHeight) {
+      setImageStyle({
+        height: '100%',
+        width: 'auto',
+        maxWidth: '100%',
+        objectFit: 'cover'
+      });
+    } else {
+      setImageStyle({
+        height: '100%',
+        objectFit: 'contain'
+      });
+    }
+    
+    setImageLoading(false);
+  };
 
   return (
     <figure className="photoFrame" role="img" aria-label={imageAlt}>
@@ -82,9 +111,13 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
           loading="lazy"
           decoding="async"
           role={hasRealPhotos ? undefined : "presentation"}
-          onLoad={() => setImageLoading(false)}
+          onLoad={handleImageLoad}
           onError={() => setImageLoading(false)}
-          style={{ opacity: imageLoading ? 0 : 1, transition: 'opacity 0.3s ease-in' }}
+          style={{ 
+            ...imageStyle,
+            opacity: imageLoading ? 0 : 1, 
+            transition: 'opacity 0.3s ease-in' 
+          }}
         />
       </div>
 
