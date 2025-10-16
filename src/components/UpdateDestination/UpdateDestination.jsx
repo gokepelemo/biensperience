@@ -7,6 +7,8 @@ import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
 import Modal from "../Modal/Modal";
+import FormField from "../FormField/FormField";
+import { Form } from "react-bootstrap";
 
 export default function UpdateDestination({ user, updateData }) {
   const { destinationId } = useParams();
@@ -235,50 +237,36 @@ export default function UpdateDestination({ user, updateData }) {
 
       <div className="row my-4 fade-in">
         <div className="col-12">
-          <form onSubmit={handleSubmit} className="new-experience-form">
-            <div className="mb-4">
-              <label htmlFor="name" className="form-label">
-                City Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                id="name"
-                onChange={handleChange}
-                className="form-control"
-                value={destination?.name || ''}
-                placeholder={lang.en.placeholder.city}
-                required
-              />
-            </div>
+          <Form onSubmit={handleSubmit} className="new-experience-form">
+            <FormField
+              name="name"
+              label="City Name"
+              type="text"
+              value={destination?.name || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.city}
+              required
+            />
 
             <div className="row mb-4">
               <div className="col-md-6 mb-3 mb-md-0">
-                <label htmlFor="state" className="form-label">
-                  State / Province
-                </label>
-                <input
-                  type="text"
+                <FormField
                   name="state"
-                  id="state"
-                  onChange={handleChange}
-                  className="form-control"
+                  label="State / Province"
+                  type="text"
                   value={destination?.state || ''}
+                  onChange={handleChange}
                   placeholder={lang.en.placeholder.stateProvince}
                 />
               </div>
 
               <div className="col-md-6">
-                <label htmlFor="country" className="form-label">
-                  Country
-                </label>
-                <input
-                  type="text"
+                <FormField
                   name="country"
-                  id="country"
-                  onChange={handleChange}
-                  className="form-control"
+                  label="Country"
+                  type="text"
                   value={destination?.country || ''}
+                  onChange={handleChange}
                   placeholder={lang.en.placeholder.country}
                   required
                 />
@@ -286,9 +274,9 @@ export default function UpdateDestination({ user, updateData }) {
             </div>
 
             <div className="mb-4">
-              <label className="form-label">
+              <Form.Label>
                 Photos
-              </label>
+              </Form.Label>
               <ImageUpload data={destination} setData={setDestination} />
               <small className="form-text text-muted">
                 Upload photo(s) to this destination (optional)
@@ -362,7 +350,7 @@ export default function UpdateDestination({ user, updateData }) {
             >
               {lang.en.button.confirmUpdate || 'Confirm Update'}
             </button>
-          </form>
+          </Form>
         </div>
       </div>
 

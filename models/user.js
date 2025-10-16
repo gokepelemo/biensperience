@@ -50,14 +50,86 @@ const userSchema = new Schema(
     /**
      * User's hashed password
      * @type {string}
-     * @required
+     * @required - Only for local auth, optional for OAuth
      */
     password: {
       type: String,
       trim: true,
       minLength: 3,
-      required: true,
+      required: function() {
+        // Password required only if not using OAuth
+        return !this.facebookId && !this.googleId && !this.twitterId;
+      },
     },
+
+    /**
+     * Authentication provider
+     * @type {string}
+     * @enum ['local', 'facebook', 'google', 'twitter']
+     */
+    provider: {
+      type: String,
+      enum: ['local', 'facebook', 'google', 'twitter'],
+      default: 'local'
+    },
+
+    /**
+     * Facebook OAuth ID
+     * @type {string}
+     */
+    facebookId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
+    /**
+     * Google OAuth ID
+     * @type {string}
+     */
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
+    /**
+     * Twitter OAuth ID
+     * @type {string}
+     */
+    twitterId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
+    /**
+     * OAuth profile photo URL
+     * @type {string}
+     */
+    oauthProfilePhoto: {
+      type: String,
+    },
+
+    /**
+     * Linked social accounts
+     * @type {Array}
+     */
+    linkedAccounts: [{
+      provider: {
+        type: String,
+        enum: ['facebook', 'google', 'twitter'],
+        required: true
+      },
+      providerId: {
+        type: String,
+        required: true
+      },
+      linkedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
 
     /**
      * Reference to user's profile photo (kept for backward compatibility)

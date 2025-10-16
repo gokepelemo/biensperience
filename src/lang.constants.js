@@ -280,6 +280,12 @@ const en = {
     edit: "Edit",
     delete: "Delete",
   },
+
+  cookieConsent: {
+    message: "We use essential cookies to make our site work. With your consent, we may also use non-essential cookies to improve user experience and analyze website traffic. By clicking \"Accept,\" you agree to our website's cookie use as described in our Cookie Policy.",
+    accept: "Accept",
+    decline: "Decline",
+  },
 };
 
 // All available languages

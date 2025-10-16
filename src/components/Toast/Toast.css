@@ -1,0 +1,181 @@
+/**
+ * Bootstrap Toast Custom Styles
+ * Enhances Bootstrap toast component with custom animations and positioning
+ */
+
+/* Custom toast wrapper for positioning */
+.biensperience-toast {
+  min-width: 300px;
+  max-width: 500px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Slide animation variant */
+.biensperience-toast.toast-slide {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Toast icon wrapper styling */
+.toast-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  font-size: 1.2rem;
+}
+
+/* Toast actions styling */
+.toast-actions {
+  margin-top: 0.75rem;
+}
+
+.toast-actions .btn {
+  font-size: 0.875rem;
+  padding: 0.375rem 0.75rem;
+}
+
+/* Responsive design */
+@media (max-width: 640px) {
+  .biensperience-toast {
+    min-width: auto;
+    max-width: calc(100vw - 20px);
+    left: 10px !important;
+    right: 10px !important;
+  }
+}
+
+/* Dark mode close button fix for light backgrounds */
+.btn-close-white {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Ensure proper text color on light backgrounds */
+.text-dark .btn-close-white {
+  filter: none;
+}
+
+/* Custom background for cookie consent */
+.bg-primary.biensperience-toast {
+  background-color: #8b5cf6 !important;
+}
+
+/* Toast action buttons */
+.toast-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  margin-left: 0;
+  flex-wrap: wrap;
+}
+
+.toast-action-button {
+  flex: 1;
+  min-width: 80px;
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.toast-action-button:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.toast-action-button:active {
+  transform: scale(0.98);
+}
+
+.toast-action-primary {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.toast-action-primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.toast-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  animation: toast-progress linear;
+  transform-origin: left;
+}
+
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Toast type-specific styles */
+.toast-success {
+  border-left: 4px solid #10b981;
+}
+
+.toast-error {
+  border-left: 4px solid #ef4444;
+}
+
+.toast-warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.toast-info {
+  border-left: 4px solid #3b82f6;
+}
+
+.toast-cookie-consent {
+  border-left: 4px solid #8b5cf6;
+  min-width: 400px;
+}
+
+.toast-cookie-consent .toast-message {
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .toast {
+    right: 10px;
+    left: 10px;
+    min-width: auto;
+    max-width: none;
+  }
+
+  .toast-cookie-consent {
+    min-width: auto;
+  }
+
+  .toast-content {
+    padding: 12px;
+  }
+
+  .toast-message {
+    font-size: 13px;
+  }
+}

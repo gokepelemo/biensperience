@@ -2,6 +2,7 @@ import "./UsersListDisplay.css";
 import UserAvatar from "../UserAvatar/UserAvatar";
 import { lang } from "../../lang.constants";
 import PropTypes from "prop-types";
+import debug from "../../utilities/debug";
 
 /**
  * UsersListDisplay - Reusable component for displaying a list of users with avatars
@@ -29,6 +30,15 @@ const UsersListDisplay = ({
   size = 'md',
   className = ""
 }) => {
+  // Debug logging
+  debug.log('UsersListDisplay - owner:', owner);
+  debug.log('UsersListDisplay - users:', users);
+
+  // Don't render if there's no owner and no users (0 people total)
+  if (!owner && (!users || users.length === 0)) {
+    return null;
+  }
+
   // If only owner, show single avatar without overlap
   if (users.length === 0 && owner) {
     return (

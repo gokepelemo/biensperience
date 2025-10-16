@@ -5,6 +5,7 @@ import "@fontsource/inter";
 import React from "react";
 import { useState, useEffect, useCallback } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
+import { ToastProvider } from "../../contexts/ToastContext";
 import AuthPage from "../AuthPage/AuthPage";
 import AppHome from "../AppHome/AppHome";
 import NavBar from "../../components/NavBar/NavBar";
@@ -22,6 +23,9 @@ import Profile from "../Profile/Profile";
 import { getUser } from "../../utilities/users-service";
 import { getExperiences } from "../../utilities/experiences-api";
 import { getDestinations } from "../../utilities/destinations-api";
+import { handleOAuthCallback } from "../../utilities/oauth-service";
+import { useToast } from "../../contexts/ToastContext";
+import CookieConsent from "../../components/CookieConsent/CookieConsent";
 
 /**
  * Main application component that handles routing and global state management.
@@ -33,6 +37,7 @@ export default function App() {
   const [user, setUser] = useState(getUser());
   const [destinations, setDestinations] = useState([]);
   const [experiences, setExperiences] = useState([]);
+  const { success, error: showError } = useToast();
 
   /**
    * Fetches and updates destinations and experiences data from the API.
@@ -57,15 +62,36 @@ export default function App() {
     }
   }, [user]);
 
+  // Handle OAuth callback on mount
+  useEffect(() => {
+    const processOAuth = async () => {
+      try {
+        const result = await handleOAuthCallback();
+        if (result) {
+          const { user: oauthUser, provider } = result;
+          setUser(oauthUser);
+          success(`Successfully signed in with ${provider}!`);
+          // Data will be fetched by the updateData effect
+        }
+      } catch (err) {
+        showError(err.message || 'Authentication failed');
+      }
+    };
+
+    processOAuth();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     updateData();
   }, [updateData]);
+
   return (
-    <>
+    <ToastProvider>
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
       <div className="App">
+        <CookieConsent />
         {user ? (
           <>
             <NavBar user={user} setUser={setUser} />
@@ -201,6 +227,6 @@ export default function App() {
           </main>
         )}
       </div>
-    </>
+    </ToastProvider>
   );
 }

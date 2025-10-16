@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as usersService from "../../utilities/users-service";
 import { lang } from "../../lang.constants";
+import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
 import "./LoginForm.css";
 
 /**
@@ -83,6 +84,9 @@ export default function LoginForm({ setUser, updateData }) {
                     </button>
                 </form>
                 <p className="error-message">&nbsp;{error ? error : ""}</p>
+                
+                <SocialLoginButtons />
+                
                 <div className="login-signup center-login">
                     <span>{lang.en.message.dontHaveAccount}</span> <button type="button" className="signup-link link-btn" onClick={() => navigate('/signup')}>{lang.en.button.signup}</button>
                 </div>

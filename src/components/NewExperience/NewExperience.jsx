@@ -9,7 +9,9 @@ import TagInput from "../../components/TagInput/TagInput";
 import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
 import { isDuplicateName } from "../../utilities/deduplication";
-import { Tooltip } from "bootstrap";
+import FormField from "../FormField/FormField";
+import { FormTooltip } from "../Tooltip/Tooltip";
+import { Form } from "react-bootstrap";
 
 export default function NewExperience({ updateData }) {
   const [newExperience, setNewExperience] = useState({});
@@ -18,16 +20,6 @@ export default function NewExperience({ updateData }) {
   const [tags, setTags] = useState([]);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-
-  // Initialize Bootstrap tooltips
-  useEffect(() => {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new Tooltip(tooltipTriggerEl));
-    
-    return () => {
-      tooltipList.forEach(tooltip => tooltip.dispose());
-    };
-  }, []);
 
   function handleChange(e) {
     let experience = { ...newExperience };
@@ -105,53 +97,33 @@ export default function NewExperience({ updateData }) {
 
       <div className="row my-4 fade-in">
         <div className="col-12">
-          <form onSubmit={handleSubmit} className="new-experience-form">
-            <div className="mb-4">
-              <label htmlFor="name" className="form-label">
-                {lang.en.label.title}
-                <span 
-                  className="ms-2 text-info" 
-                  data-bs-toggle="tooltip" 
-                  data-bs-placement="top" 
-                  title={lang.en.helper.nameRequired}
-                  style={{ cursor: 'help' }}
-                >
-                  ℹ️
-                </span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                id="name"
-                onChange={handleChange}
-                className="form-control"
-                placeholder={lang.en.placeholder.experienceName}
-                required
-              />
-            </div>
+          <Form onSubmit={handleSubmit} className="new-experience-form">
+            <FormField
+              name="name"
+              label={lang.en.label.title}
+              type="text"
+              value={newExperience.name || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.experienceName}
+              required
+              tooltip={lang.en.helper.nameRequired}
+              tooltipPlacement="top"
+            />
 
             <div className="mb-4">
-              <label htmlFor="destination" className="form-label">
-                {lang.en.label.destinationLabel}
-                <span 
-                  className="ms-2 text-info" 
-                  data-bs-toggle="tooltip" 
-                  data-bs-placement="top" 
-                  title={`${lang.en.helper.destinationRequired}${lang.en.helper.createNewDestination}`}
-                  style={{ cursor: 'help' }}
-                >
-                  ℹ️
-                </span>
-              </label>
-              <input
-                list="destination_list"
+              <FormField
                 name="destination"
+                label={lang.en.label.destinationLabel}
+                type="text"
+                value={newExperience.destination || ''}
                 onChange={handleChange}
-                id="destination"
-                className="form-control"
-                autoComplete="off"
                 placeholder={lang.en.placeholder.destination}
                 required
+                tooltip={`${lang.en.helper.destinationRequired}${lang.en.helper.createNewDestination}`}
+                tooltipPlacement="top"
+                autoComplete="off"
+                list="destination_list"
+                className="mb-2"
               />
               <datalist type="text" id="destination_list">
                 {destinations.length &&
@@ -168,42 +140,25 @@ export default function NewExperience({ updateData }) {
               </div>
             </div>
 
-            <div className="mb-4">
-              <label htmlFor="map_location" className="form-label">
-                {lang.en.label.address}
-                <span 
-                  className="ms-2 text-info" 
-                  data-bs-toggle="tooltip" 
-                  data-bs-placement="top" 
-                  title={lang.en.helper.addressOptional}
-                  style={{ cursor: 'help' }}
-                >
-                  ℹ️
-                </span>
-              </label>
-              <input
-                type="text"
-                name="map_location"
-                id="map_location"
-                onChange={handleChange}
-                className="form-control"
-                placeholder={lang.en.placeholder.address}
-              />
-            </div>
+            <FormField
+              name="map_location"
+              label={lang.en.label.address}
+              type="text"
+              value={newExperience.map_location || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.address}
+              tooltip={lang.en.helper.addressOptional}
+              tooltipPlacement="top"
+            />
 
             <div className="mb-4">
-              <label htmlFor="experience_type" className="form-label">
+              <Form.Label htmlFor="experience_type">
                 {lang.en.label.experienceTypes}
-                <span 
-                  className="ms-2 text-info" 
-                  data-bs-toggle="tooltip" 
-                  data-bs-placement="top" 
-                  title={lang.en.helper.experienceTypesOptional}
-                  style={{ cursor: 'help' }}
-                >
-                  ℹ️
-                </span>
-              </label>
+                <FormTooltip 
+                  content={lang.en.helper.experienceTypesOptional}
+                  placement="top"
+                />
+              </Form.Label>
               <TagInput
                 tags={tags}
                 onChange={handleTagsChange}
@@ -212,76 +167,45 @@ export default function NewExperience({ updateData }) {
             </div>
 
             <div className="mb-4">
-              <label className="form-label">
+              <Form.Label>
                 Photos
-                <span 
-                  className="ms-2 text-info" 
-                  data-bs-toggle="tooltip" 
-                  data-bs-placement="top" 
-                  title={lang.en.helper.photosOptional}
-                  style={{ cursor: 'help' }}
-                >
-                  ℹ️
-                </span>
-              </label>
+                <FormTooltip 
+                  content={lang.en.helper.photosOptional}
+                  placement="top"
+                />
+              </Form.Label>
               <ImageUpload data={newExperience} setData={setNewExperience} />
             </div>
 
             <div className="row mb-4">
               <div className="col-md-6 mb-3 mb-md-0">
-                <label htmlFor="max_planning_days" className="form-label">
-                  {lang.en.label.planningDays}
-                  <span 
-                    className="ms-2 text-info" 
-                    data-bs-toggle="tooltip" 
-                    data-bs-placement="top" 
-                    title={lang.en.helper.planningDaysOptional}
-                    style={{ cursor: 'help' }}
-                  >
-                    ℹ️
-                  </span>
-                </label>
-                <div className="input-group">
-                  <input
-                    type="number"
-                    className="form-control"
-                    id="max_planning_days"
-                    name="max_planning_days"
-                    onChange={handleChange}
-                    placeholder={lang.en.placeholder.planningDays}
-                    min="1"
-                    style={{ padding: '1rem' }}
-                  />
-                  <span className="input-group-text">days</span>
-                </div>
+                <FormField
+                  name="max_planning_days"
+                  label={lang.en.label.planningDays}
+                  type="number"
+                  value={newExperience.max_planning_days || ''}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.planningDays}
+                  min="1"
+                  tooltip={lang.en.helper.planningDaysOptional}
+                  tooltipPlacement="top"
+                  append={<span className="input-group-text">days</span>}
+                />
               </div>
 
               <div className="col-md-6">
-                <label htmlFor="cost_estimate" className="form-label">
-                  {lang.en.label.costEstimate}
-                  <span 
-                    className="ms-2 text-info" 
-                    data-bs-toggle="tooltip" 
-                    data-bs-placement="top" 
-                    title={lang.en.helper.costEstimateOptional}
-                    style={{ cursor: 'help' }}
-                  >
-                    ℹ️
-                  </span>
-                </label>
-                <div className="input-group">
-                  <span className="input-group-text">$</span>
-                  <input
-                    type="number"
-                    className="form-control"
-                    id="cost_estimate"
-                    name="cost_estimate"
-                    onChange={handleChange}
-                    placeholder={lang.en.placeholder.costEstimate}
-                    min="0"
-                    style={{ padding: '1rem' }}
-                  />
-                </div>
+                <FormField
+                  name="cost_estimate"
+                  label={lang.en.label.costEstimate}
+                  type="number"
+                  value={newExperience.cost_estimate || ''}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.costEstimate}
+                  min="0"
+                  tooltip={lang.en.helper.costEstimateOptional}
+                  tooltipPlacement="top"
+                  prepend={<span className="input-group-text">$</span>}
+                />
               </div>
             </div>
 
@@ -294,7 +218,7 @@ export default function NewExperience({ updateData }) {
                 {lang.en.button.createExperience}
               </button>
             </div>
-          </form>
+          </Form>
         </div>
       </div>
     </>

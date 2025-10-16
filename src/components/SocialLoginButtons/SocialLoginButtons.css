@@ -1,0 +1,136 @@
+/**
+ * Social Login Buttons Styles
+ * Brand-specific colors and styling for OAuth providers
+ */
+
+.social-login-container {
+  width: 100%;
+  margin: 0;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e0e3ea;
+}
+
+.divider-text {
+  padding: 0 1rem;
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.social-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.social-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.social-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.social-icon {
+  font-size: 1.25rem;
+}
+
+/* Facebook Brand Colors */
+.facebook-btn {
+  background-color: #1877F2;
+  color: white;
+}
+
+.facebook-btn:hover {
+  background-color: #166FE5;
+}
+
+/* Google Brand Colors */
+.google-btn {
+  background-color: white;
+  color: #3c4043;
+  border: 1px solid #dadce0;
+}
+
+.google-btn:hover {
+  background-color: #f8f9fa;
+  border-color: #c1c4c8;
+}
+
+.google-btn .social-icon {
+  background: linear-gradient(90deg, #4285F4, #34A853, #FBBC05, #EA4335);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Twitter Brand Colors */
+.twitter-btn {
+  background-color: #1DA1F2;
+  color: white;
+}
+
+.twitter-btn:hover {
+  background-color: #1A91DA;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .social-btn {
+    padding: 0.65rem 1rem;
+    font-size: 0.9375rem;
+  }
+
+  .social-icon {
+    font-size: 1.125rem;
+  }
+}
+
+/* Focus states for accessibility */
+.social-btn:focus {
+  outline: 2px solid #5F4BFF;
+  outline-offset: 2px;
+}
+
+/* Disabled state */
+.social-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.social-btn:disabled:hover {
+  transform: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}

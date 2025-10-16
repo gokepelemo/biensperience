@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { showDestination } from "../../utilities/destinations-api";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
-import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
 import Alert from "../../components/Alert/Alert";
@@ -21,8 +20,6 @@ export default function SingleDestination({
   const navigate = useNavigate();
   const [destination, setDestination] = useState(null);
   const [destinationExperiences, setDestinationExperiences] = useState([]);
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
-  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   const getData = useCallback(async () => {
     try {
@@ -56,16 +53,6 @@ export default function SingleDestination({
   useEffect(() => {
     getData();
   }, [getData]);
-
-  const handlePhotoClick = (photo) => {
-    setSelectedPhoto(photo);
-    setShowPhotoModal(true);
-  };
-
-  const closePhotoModal = () => {
-    setShowPhotoModal(false);
-    setSelectedPhoto(null);
-  };
 
   // Get the default photo to display
   const getDefaultPhoto = () => {
@@ -124,20 +111,8 @@ export default function SingleDestination({
             <div className="row my-4">
               <div className="col-md-6 p-3">
                 {/* Display default photo with click to enlarge (or placeholder if none available) */}
-                <div 
-                  onClick={() => getDefaultPhoto() && handlePhotoClick(getDefaultPhoto())}
-                  style={{ cursor: getDefaultPhoto() ? 'pointer' : 'default' }}
-                  role={getDefaultPhoto() ? "button" : undefined}
-                  tabIndex={getDefaultPhoto() ? 0 : undefined}
-                  onKeyPress={(e) => {
-                    if (getDefaultPhoto() && (e.key === 'Enter' || e.key === ' ')) {
-                      handlePhotoClick(getDefaultPhoto());
-                    }
-                  }}
-                  aria-label={getDefaultPhoto() ? "Click to view full size photo" : undefined}
-                >
-                  <PhotoCard photo={getDefaultPhoto()} title={destination.name} />
-                </div>
+                {/* PhotoCard handles its own modal, no wrapper click needed */}
+                <PhotoCard photo={getDefaultPhoto()} title={destination.name} />
                 
                 {/* Display additional photos in a grid */}
                 {destination.photos && destination.photos.length > 1 && (
@@ -150,27 +125,9 @@ export default function SingleDestination({
                         
                         return (
                           <div key={index} className="col-4">
-                            <div
-                              className="photo-thumbnail"
-                              onClick={() => handlePhotoClick(photo)}
-                              style={{
-                                backgroundImage: `url(${photo.url})`,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center',
-                                paddingTop: '100%',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                position: 'relative',
-                                overflow: 'hidden'
-                              }}
-                              role="button"
-                              tabIndex={0}
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  handlePhotoClick(photo);
-                                }
-                              }}
-                              aria-label={`View photo ${index + 1}`}
+                            <PhotoCard 
+                              photo={photo} 
+                              title={`${destination.name} - Photo ${index + 1}`}
                             />
                           </div>
                         );
@@ -262,11 +219,6 @@ export default function SingleDestination({
           </>
         )}
       </>
-      
-      {/* Photo Modal */}
-      {showPhotoModal && selectedPhoto && (
-        <PhotoModal photo={selectedPhoto} onClose={closePhotoModal} />
-      )}
     </>
   );
 }

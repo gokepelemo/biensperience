@@ -9,6 +9,8 @@ import TagInput from "../../components/TagInput/TagInput";
 import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
 import Modal from "../Modal/Modal";
+import FormField from "../FormField/FormField";
+import { Form } from "react-bootstrap";
 
 export default function UpdateExperience({ user, updateData }) {
   const { experienceId } = useParams();
@@ -270,32 +272,24 @@ export default function UpdateExperience({ user, updateData }) {
 
       <div className="row my-4 fade-in">
         <div className="col-12">
-          <form onSubmit={handleSubmit} className="update-experience-form">
-            <div className="mb-4">
-              <label htmlFor="name" className="form-label">
-                {lang.en.label.title}
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                id="name"
-                name="name"
-                value={experience.name || ''}
-                onChange={handleChange}
-                required
-                placeholder={lang.en.placeholder.experienceName}
-              />
-              <small className="form-text text-muted">
-                {lang.en.helper.nameRequired}
-              </small>
-            </div>
+          <Form onSubmit={handleSubmit} className="update-experience-form">
+            <FormField
+              name="name"
+              label={lang.en.label.title}
+              type="text"
+              value={experience.name || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.experienceName}
+              required
+              tooltip={lang.en.helper.nameRequired}
+              tooltipPlacement="top"
+            />
 
             <div className="mb-4">
-              <label htmlFor="destination" className="form-label">
+              <Form.Label htmlFor="destination">
                 {lang.en.label.destinationLabel}
-              </label>
-              <select
-                className="form-select"
+              </Form.Label>
+              <Form.Select
                 id="destination"
                 name="destination"
                 value={(() => {
@@ -311,7 +305,7 @@ export default function UpdateExperience({ user, updateData }) {
                     {destination.name}, {destination.country}
                   </option>
                 ))}
-              </select>
+              </Form.Select>
               <small className="form-text text-muted">
                 {lang.en.helper.destinationRequired}
                 <Link to="/destinations/new" className="ms-1">
@@ -321,9 +315,9 @@ export default function UpdateExperience({ user, updateData }) {
             </div>
 
             <div className="mb-4">
-              <label htmlFor="experience_type" className="form-label">
+              <Form.Label htmlFor="experience_type">
                 {lang.en.label.experienceTypes}
-              </label>
+              </Form.Label>
               <TagInput
                 tags={tags}
                 onChange={handleTagsChange}
@@ -334,76 +328,51 @@ export default function UpdateExperience({ user, updateData }) {
               </small>
             </div>
 
-            <div className="mb-4">
-              <label htmlFor="map_location" className="form-label">
-                {lang.en.label.address}
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                id="map_location"
-                name="map_location"
-                value={experience.map_location || ''}
-                onChange={handleChange}
-                placeholder={lang.en.placeholder.address}
-              />
-              <small className="form-text text-muted">
-                {lang.en.helper.addressOptional}
-              </small>
-            </div>
+            <FormField
+              name="map_location"
+              label={lang.en.label.address}
+              type="text"
+              value={experience.map_location || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.address}
+              tooltip={lang.en.helper.addressOptional}
+              tooltipPlacement="top"
+            />
 
             <div className="row mb-4">
               <div className="col-md-6 mb-3 mb-md-0">
-                <label htmlFor="max_planning_days" className="form-label">
-                  {lang.en.label.planningDays}
-                </label>
-                <div className="input-group">
-                  <input
-                    type="number"
-                    className="form-control"
-                    id="max_planning_days"
-                    name="max_planning_days"
-                    value={experience.max_planning_days || ''}
-                    onChange={handleChange}
-                    placeholder={lang.en.placeholder.planningDays}
-                    min="1"
-                    style={{ padding: '1rem' }}
-                  />
-                  <span className="input-group-text">days</span>
-                </div>
-                <small className="form-text text-muted">
-                  Minimum days needed to plan in advance (optional)
-                </small>
+                <FormField
+                  name="max_planning_days"
+                  label={lang.en.label.planningDays}
+                  type="number"
+                  value={experience.max_planning_days || ''}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.planningDays}
+                  min="1"
+                  append={<span className="input-group-text">days</span>}
+                  helpText="Minimum days needed to plan in advance (optional)"
+                />
               </div>
 
               <div className="col-md-6">
-                <label htmlFor="cost_estimate" className="form-label">
-                  {lang.en.label.costEstimate}
-                </label>
-                <div className="input-group">
-                  <span className="input-group-text">$</span>
-                  <input
-                    type="number"
-                    className="form-control"
-                    id="cost_estimate"
-                    name="cost_estimate"
-                    value={experience.cost_estimate || ''}
-                    onChange={handleChange}
-                    placeholder={lang.en.placeholder.costEstimate}
-                    min="0"
-                    style={{ padding: '1rem' }}
-                  />
-                </div>
-                <small className="form-text text-muted">
-                  Estimated cost in dollars (optional)
-                </small>
+                <FormField
+                  name="cost_estimate"
+                  label={lang.en.label.costEstimate}
+                  type="number"
+                  value={experience.cost_estimate || ''}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.costEstimate}
+                  min="0"
+                  prepend={<span className="input-group-text">$</span>}
+                  helpText="Estimated cost in dollars (optional)"
+                />
               </div>
             </div>
 
             <div className="mb-4">
-              <label className="form-label">
+              <Form.Label>
                 Photos
-              </label>
+              </Form.Label>
               <ImageUpload
                 data={experience}
                 setData={setExperience}
@@ -440,7 +409,7 @@ export default function UpdateExperience({ user, updateData }) {
                 {lang.en.button.confirmUpdate}
               </button>
             </div>
-          </form>
+          </Form>
         </div>
       </div>
 

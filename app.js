@@ -12,6 +12,9 @@ const favicon = require("serve-favicon");
 const logger = require("morgan");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const session = require("express-session");
+const cookieParser = require("cookie-parser");
+const { doubleCsrf } = require("csrf-csrf");
 
 require("dotenv").config();
 
@@ -40,9 +43,59 @@ app.use(
     origin: process.env.CLIENT_ORIGIN || `http://localhost:${CLIENTDEVPORT}`,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
   })
 );
+
+/**
+ * Cookie parser middleware (required for CSRF)
+ */
+app.use(cookieParser());
+
+/**
+ * Session configuration
+ * Uses secure cookies in production and memory store for development
+ */
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || process.env.SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      httpOnly: true, // Prevents client-side JS from accessing the cookie
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    },
+    name: 'biensperience.sid', // Custom session cookie name
+  })
+);
+
+/**
+ * CSRF protection configuration
+ * Generates and validates CSRF tokens for state-changing requests
+ */
+const {
+  generateToken, // Used to create a CSRF token pair
+  doubleCsrfProtection, // Middleware to validate CSRF tokens
+} = doubleCsrf({
+  getSecret: () => process.env.CSRF_SECRET || process.env.SECRET,
+  cookieName: '__Host-biensperience.x-csrf-token',
+  cookieOptions: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    path: '/',
+  },
+  size: 64,
+  ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
+  getTokenFromRequest: (req) => req.headers['x-csrf-token'], // Get token from header
+});
+
+/**
+ * Expose CSRF token generation function for routes
+ */
+app.set('csrfTokenGenerator', generateToken);
 
 /**
  * Morgan logger middleware for development
@@ -85,7 +138,12 @@ try {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Passport configuration for OAuth
+const { passport } = require('./config/passport');
+app.use(passport.initialize());
+
 app.use(require("./config/checkToken"));
+app.use("/api/auth", require("./routes/api/auth"));
 app.use("/api/users", require("./routes/api/users"));
 app.use("/api/destinations", require("./routes/api/destinations"));
 app.use("/api/experiences", require("./routes/api/experiences"));

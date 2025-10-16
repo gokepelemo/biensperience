@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { signUp } from "../../utilities/users-service";
 import { lang } from "../../lang.constants";
+import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
 import "./SignUpForm.css";
 
 function SignUpForm(props) {
@@ -86,6 +87,9 @@ function SignUpForm(props) {
           </button>
         </form>
         <p className="error-message">{state.error ? state.error : ""}</p>
+        
+        <SocialLoginButtons buttonText="Sign up with" />
+        
         <div className="login-signup center-login">
           <span>{lang.en.message.alreadyHaveAccount}</span> <button type="button" className="signup-link link-btn" onClick={handleLoginClick}>{lang.en.button.signIn}</button>
         </div>

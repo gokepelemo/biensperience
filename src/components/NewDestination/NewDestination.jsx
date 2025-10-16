@@ -6,8 +6,9 @@ import { createDestination, getDestinations } from "../../utilities/destinations
 import ImageUpload from "../ImageUpload/ImageUpload";
 import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
-import { Tooltip } from "bootstrap";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
+import FormField from "../FormField/FormField";
+import { Form } from "react-bootstrap";
 
 export default function NewDestination({ updateData }) {
   const [newDestination, setNewDestination] = useState({});
@@ -18,16 +19,6 @@ export default function NewDestination({ updateData }) {
   const [tipToDelete, setTipToDelete] = useState(null);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  
-  // Initialize Bootstrap tooltips
-  useEffect(() => {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new Tooltip(tooltipTriggerEl));
-    
-    return () => {
-      tooltipList.forEach(tooltip => tooltip.dispose());
-    };
-  }, []);
   
   useEffect(() => {
     async function fetchDestinations() {
@@ -108,79 +99,46 @@ export default function NewDestination({ updateData }) {
 
       <div className="row my-4 fade-in">
         <div className="col-12">
-          <form onSubmit={handleSubmit} className="new-experience-form">
-                        <div className="mb-4">
-              <label htmlFor="name" className="form-label">
-                City / Town
-                <span 
-                  className="ms-2 text-info" 
-                  data-bs-toggle="tooltip" 
-                  data-bs-placement="top" 
-                  title={lang.en.helper.cityRequired}
-                  style={{ cursor: 'help' }}
-                >
-                  ℹ️
-                </span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                id="name"
-                onChange={handleChange}
-                className="form-control"
-                value={newDestination.name || ''}
-                placeholder={lang.en.placeholder.city}
-                required
-              />
-            </div>
+          <Form onSubmit={handleSubmit} className="new-experience-form">
+            <FormField
+              name="name"
+              label="City / Town"
+              type="text"
+              value={newDestination.name || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.city}
+              required
+              tooltip={lang.en.helper.cityRequired}
+              tooltipPlacement="top"
+            />
 
             <div className="row mb-4">
               <div className="col-md-6 mb-3 mb-md-0">
-                <label htmlFor="state" className="form-label">
-                  State / Province
-                  <span 
-                    className="ms-2 text-info" 
-                    data-bs-toggle="tooltip" 
-                    data-bs-placement="top" 
-                    title={lang.en.helper.stateProvinceRequired}
-                    style={{ cursor: 'help' }}
-                  >
-                    ℹ️
-                  </span>
-                </label>
-                <input
-                  type="text"
+                <FormField
                   name="state"
-                  id="state"
-                  onChange={handleChange}
-                  className="form-control"
+                  label="State / Province"
+                  type="text"
                   value={newDestination.state || ''}
+                  onChange={handleChange}
                   placeholder={lang.en.placeholder.stateProvince}
+                  tooltip={lang.en.helper.stateProvinceRequired}
+                  tooltipPlacement="top"
+                  className="mb-0"
                 />
               </div>
 
               <div className="col-md-6">
-                <label htmlFor="country" className="form-label">
-                  Country
-                  <span 
-                    className="ms-2 text-info" 
-                    data-bs-toggle="tooltip" 
-                    data-bs-placement="top" 
-                    title={lang.en.helper.countryRequired}
-                    style={{ cursor: 'help' }}
-                  >
-                    ℹ️
-                  </span>
-                </label>
-                <input
-                  type="text"
+                <FormField
                   name="country"
-                  id="country"
-                  onChange={handleChange}
-                  className="form-control"
+                  label="Country"
+                  type="text"
                   value={newDestination.country || ''}
+                  onChange={handleChange}
                   placeholder={lang.en.placeholder.country}
                   required
+                  tooltip={lang.en.helper.countryRequired}
+                  tooltipPlacement="top"
+                  className="mb-0"
                 />
               </div>
             </div>
@@ -190,10 +148,8 @@ export default function NewDestination({ updateData }) {
                 Photos
                 <span 
                   className="ms-2 text-info" 
-                  data-bs-toggle="tooltip" 
-                  data-bs-placement="top" 
-                  title={lang.en.helper.destinationPhoto}
                   style={{ cursor: 'help' }}
+                  title={lang.en.helper.destinationPhoto}
                 >
                   ℹ️
                 </span>
@@ -281,7 +237,7 @@ export default function NewDestination({ updateData }) {
                 Create Destination
               </button>
             </div>
-          </form>
+          </Form>
         </div>
       </div>
       

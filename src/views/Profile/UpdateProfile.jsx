@@ -7,7 +7,9 @@ import { updateUser, getUserData } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import { handleError } from "../../utilities/error-handler";
-import { Tooltip } from "bootstrap";
+import FormField from "../../components/FormField/FormField";
+import { FormTooltip } from "../../components/Tooltip/Tooltip";
+import { Form } from "react-bootstrap";
 
 export default function UpdateProfile({ user, setUser, updateData }) {
   const [formData, setFormData] = useState(user);
@@ -40,16 +42,6 @@ export default function UpdateProfile({ user, setUser, updateData }) {
     
     fetchUserData();
   }, [user._id]);
-
-  // Initialize Bootstrap tooltips
-  useEffect(() => {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new Tooltip(tooltipTriggerEl));
-    
-    return () => {
-      tooltipList.forEach(tooltip => tooltip.dispose());
-    };
-  }, [loading]);
 
   // Convert snake_case to Title Case
   function formatFieldName(fieldName) {
@@ -260,56 +252,30 @@ export default function UpdateProfile({ user, setUser, updateData }) {
       ) : (
         <div className="row my-4 fade-in">
           <div className="col-12">
-            <form className="updateProfile" autoComplete="off" onSubmit={handleSubmit} style={{ display: 'block' }}>
-            <div className="mb-4">
-              <label htmlFor="name" className="form-label">
-                Name
-                <span 
-                  className="ms-2 text-info" 
-                  data-bs-toggle="tooltip" 
-                  data-bs-placement="top" 
-                  title={lang.en.helper.profileName}
-                  style={{ cursor: 'help' }}
-                >
-                  ℹ️
-                </span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                id="name"
-                className="form-control"
-                placeholder={lang.en.placeholder.nameField}
-                onChange={handleChange}
-                value={formData.name}
-                required
-              />
-            </div>
+            <Form className="updateProfile" autoComplete="off" onSubmit={handleSubmit} style={{ display: 'block' }}>
+            <FormField
+              name="name"
+              label="Name"
+              type="text"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.nameField}
+              required
+              tooltip={lang.en.helper.profileName}
+              tooltipPlacement="top"
+            />
 
-            <div className="mb-4">
-              <label htmlFor="email" className="form-label">
-                Email Address
-                <span 
-                  className="ms-2 text-info" 
-                  data-bs-toggle="tooltip" 
-                  data-bs-placement="top" 
-                  title={lang.en.helper.profileEmail}
-                  style={{ cursor: 'help' }}
-                >
-                  ℹ️
-                </span>
-              </label>
-              <input
-                type="email"
-                name="email"
-                id="email"
-                className="form-control"
-                placeholder={lang.en.placeholder.emailField}
-                onChange={handleChange}
-                value={formData.email}
-                required
-              />
-            </div>
+            <FormField
+              name="email"
+              label="Email Address"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.emailField}
+              required
+              tooltip={lang.en.helper.profileEmail}
+              tooltipPlacement="top"
+            />
 
             <div className="mb-4">
               <h5 className="mb-3">Change Password (Optional)</h5>
@@ -320,96 +286,55 @@ export default function UpdateProfile({ user, setUser, updateData }) {
                 />
               )}
               
-              <div className="mb-3">
-                <label htmlFor="oldPassword" className="form-label">
-                  Current Password
-                  <span 
-                    className="ms-2 text-info" 
-                    data-bs-toggle="tooltip" 
-                    data-bs-placement="top" 
-                    title={lang.en.helper.currentPassword}
-                    style={{ cursor: 'help' }}
-                  >
-                    ℹ️
-                  </span>
-                </label>
-                <input
-                  type="password"
-                  name="oldPassword"
-                  id="oldPassword"
-                  className="form-control"
-                  placeholder="Enter your current password"
-                  onChange={handlePasswordChange}
-                  value={passwordData.oldPassword}
-                  autoComplete="current-password"
-                />
-              </div>
+              <FormField
+                name="oldPassword"
+                label="Current Password"
+                type="password"
+                value={passwordData.oldPassword}
+                onChange={handlePasswordChange}
+                placeholder="Enter your current password"
+                autoComplete="current-password"
+                tooltip={lang.en.helper.currentPassword}
+                tooltipPlacement="top"
+                className="mb-3"
+              />
 
-              <div className="mb-3">
-                <label htmlFor="newPassword" className="form-label">
-                  New Password
-                  <span 
-                    className="ms-2 text-info" 
-                    data-bs-toggle="tooltip" 
-                    data-bs-placement="top" 
-                    title={lang.en.helper.newPassword}
-                    style={{ cursor: 'help' }}
-                  >
-                    ℹ️
-                  </span>
-                </label>
-                <input
-                  type="password"
-                  name="newPassword"
-                  id="newPassword"
-                  className="form-control"
-                  placeholder="Enter your new password"
-                  onChange={handlePasswordChange}
-                  value={passwordData.newPassword}
-                  autoComplete="new-password"
-                  minLength={3}
-                />
-              </div>
+              <FormField
+                name="newPassword"
+                label="New Password"
+                type="password"
+                value={passwordData.newPassword}
+                onChange={handlePasswordChange}
+                placeholder="Enter your new password"
+                autoComplete="new-password"
+                minLength={3}
+                tooltip={lang.en.helper.newPassword}
+                tooltipPlacement="top"
+                className="mb-3"
+              />
 
-              <div className="mb-3">
-                <label htmlFor="confirmPassword" className="form-label">
-                  Confirm New Password
-                  <span 
-                    className="ms-2 text-info" 
-                    data-bs-toggle="tooltip" 
-                    data-bs-placement="top" 
-                    title={lang.en.helper.confirmPassword}
-                    style={{ cursor: 'help' }}
-                  >
-                    ℹ️
-                  </span>
-                </label>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  id="confirmPassword"
-                  className="form-control"
-                  placeholder="Confirm your new password"
-                  onChange={handlePasswordChange}
-                  value={passwordData.confirmPassword}
-                  autoComplete="new-password"
-                />
-              </div>
+              <FormField
+                name="confirmPassword"
+                label="Confirm New Password"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                placeholder="Confirm your new password"
+                autoComplete="new-password"
+                tooltip={lang.en.helper.confirmPassword}
+                tooltipPlacement="top"
+                className="mb-3"
+              />
             </div>
 
             <div className="mb-4">
-              <label className="form-label">
+              <Form.Label>
                 Profile Photo
-                <span 
-                  className="ms-2 text-info" 
-                  data-bs-toggle="tooltip" 
-                  data-bs-placement="top" 
-                  title={lang.en.helper.profilePhoto}
-                  style={{ cursor: 'help' }}
-                >
-                  ℹ️
-                </span>
-              </label>
+                <FormTooltip 
+                  content={lang.en.helper.profilePhoto}
+                  placement="top"
+                />
+              </Form.Label>
               <ImageUpload data={formData} setData={setFormData} />
             </div>
 
@@ -432,9 +357,9 @@ export default function UpdateProfile({ user, setUser, updateData }) {
                 {lang.en.button.confirmUpdate || 'Confirm Update'}
               </button>
             </div>
-          </form>
+          </Form>
+          </div>
         </div>
-      </div>
       )}
 
       {showConfirmModal && (

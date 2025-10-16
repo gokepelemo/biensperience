@@ -36,12 +36,15 @@ import {
   isValidPlannedDate,
 } from "../../utilities/date-utils";
 import { handleError } from "../../utilities/error-handler";
-import { getCookieValue, setCookieValue } from "../../utilities/cookie-utils";
+import { createExpirableStorage } from "../../utilities/cookie-utils";
+import { formatCurrency } from "../../utilities/currency-utils";
 import debug from "../../utilities/debug";
 
 // Constants for sync alert cookie management
-const SYNC_ALERT_COOKIE = "planSyncAlertDismissed";
 const SYNC_ALERT_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days (1 week) in milliseconds
+
+// Create expirable storage for sync alert dismissals
+const syncAlertStorage = createExpirableStorage('planSyncAlertDismissed', SYNC_ALERT_DURATION);
 
 /**
  * Checks if sync alert was dismissed for a specific plan and if it's still valid
@@ -49,7 +52,7 @@ const SYNC_ALERT_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days (1 week) in milli
  * @returns {number|null} Timestamp if dismissed and still valid, null otherwise
  */
 function getSyncAlertCookie(planId) {
-  return getCookieValue(SYNC_ALERT_COOKIE, planId, SYNC_ALERT_DURATION);
+  return syncAlertStorage.get(planId);
 }
 
 /**
@@ -58,13 +61,7 @@ function getSyncAlertCookie(planId) {
  * @param {string} planId - The plan ID to mark as dismissed
  */
 function setSyncAlertCookie(planId) {
-  setCookieValue(
-    SYNC_ALERT_COOKIE,
-    planId,
-    Date.now(),
-    SYNC_ALERT_DURATION,
-    SYNC_ALERT_DURATION
-  );
+  syncAlertStorage.set(planId);
 }
 
 export default function SingleExperience({ user, experiences, updateData }) {
@@ -367,12 +364,17 @@ export default function SingleExperience({ user, experiences, updateData }) {
       }
     };
 
-    // Adjust on mount and when displayed date changes
-    adjustPlannedDateFontSize();
+    // Use setTimeout to ensure DOM is fully rendered before adjusting
+    const timeoutId = setTimeout(() => {
+      adjustPlannedDateFontSize();
+    }, 0);
 
     // Adjust on window resize
     window.addEventListener('resize', adjustPlannedDateFontSize);
-    return () => window.removeEventListener('resize', adjustPlannedDateFontSize);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', adjustPlannedDateFontSize);
+    };
   }, [displayedPlannedDate]);
 
   // Periodically refresh collaborative plans to pick up new collaborator additions
@@ -1697,7 +1699,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                 {Number(planItem.cost_estimate) > 0 && (
                                   <span className="d-flex align-items-center gap-2">
                                     <strong className="text-dark">Cost:</strong>{" "}
-                                    ${planItem.cost_estimate}
+                                    {formatCurrency(planItem.cost_estimate)}
                                   </span>
                                 )}
                                 {Number(planItem.planning_days) > 0 && (
@@ -1762,7 +1764,8 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                   (p) =>
                                     p.entity === "user" &&
                                     p.type === "collaborator" &&
-                                    p.user
+                                    p.user &&
+                                    p.user.name // Ensure user has a name
                                 )
                                 .map((p) => p.user) || []
                             }
@@ -1880,14 +1883,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                   </span>
                                 </div>
                                 <div className="metric-value">
-                                  $
-                                  {(currentPlan.total_cost || 0).toLocaleString(
-                                    "en-US",
-                                    {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    }
-                                  )}
+                                  {formatCurrency(currentPlan.total_cost || 0)}
                                 </div>
                               </div>
                             </div>
@@ -2177,7 +2173,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                         <strong className="text-dark">
                                           Cost:
                                         </strong>{" "}
-                                        ${planItem.cost}
+                                        {formatCurrency(planItem.cost)}
                                       </span>
                                     )}
                                     {Number(planItem.planning_days) > 0 && (
@@ -2601,11 +2597,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                             <div className="text-end ms-2">
                               {item.cost > 0 && (
                                 <div className="badge bg-secondary">
-                                  $
-                                  {item.cost.toLocaleString("en-US", {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })}
+                                  {formatCurrency(item.cost)}
                                 </div>
                               )}
                               {item.planning_days > 0 && (

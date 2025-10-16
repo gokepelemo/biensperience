@@ -1,12 +1,14 @@
 /* Responsive Modal Sizing - Shared across all modals */
 .responsive-modal-dialog {
     max-width: 80vw !important; /* Mobile/Tablet: 80% of viewport */
+    width: 80vw;
 }
 
 /* Desktop: 50% of viewport */
 @media (min-width: 992px) {
     .responsive-modal-dialog {
         max-width: 50vw !important;
+        width: 50vw;
     }
 }
 
@@ -24,6 +26,15 @@
 
 .plan-item-modal-form .form-control {
     width: 100%;
+}
+
+/* Ensure input-group maintains flex layout */
+.plan-item-modal-form .input-group {
+    display: flex !important;
+}
+
+.plan-item-modal-form .input-group .form-control {
+    flex: 1;
 }
 
 /* Plan Item Modal - Uses responsive sizing */
@@ -275,7 +286,7 @@
 }
 
 .metric-value {
-    font-size: 2rem; /* Default size, will be dynamically adjusted by JavaScript */
+    font-size: 1.8rem; /* Default size, will be dynamically adjusted by JavaScript */
     font-weight: 700;
     color: #1e293b;
     line-height: 1.2;

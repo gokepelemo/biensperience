@@ -285,6 +285,7 @@ When generating sample data (`sampleData.js`):
 - **Security First**: Regular security audits and vulnerability fixes
 - **Data Enrichment**: Automated scripts for populating missing experience data
 - **Sample Data**: Robust sample data generation with permissions framework support
+- **Git Commits**: Always use `/tmp/COMMIT_MESSAGE.txt` file for commit messages to avoid terminal escaping issues, preserve formatting, and handle long/complex messages. Workflow: Create file → Review → `git commit -F /tmp/COMMIT_MESSAGE.txt` → Clean up
 - **Git History**: Detailed commit messages documenting security fixes and feature additions
 - **Permissions-Aware**: Always use dual ownership model when creating/modifying resources
 - **Backward Compatibility**: Maintain both legacy and new permission structures

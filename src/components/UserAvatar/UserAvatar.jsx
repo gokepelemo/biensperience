@@ -1,6 +1,7 @@
 import "./UserAvatar.css";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
+import debug from "../../utilities/debug";
 
 /**
  * UserAvatar - Reusable component for displaying a single user's avatar
@@ -23,10 +24,14 @@ const UserAvatar = ({
 }) => {
   if (!user) return null;
 
+  debug.log('UserAvatar - user:', user);
+  debug.log('UserAvatar - user.name:', user.name);
+  debug.log('UserAvatar - user.photo:', user.photo);
+
   // Helper function to get photo URL from various formats
   const getPhotoUrl = (user) => {
-    // If photo is a string, use it directly (URL)
-    if (typeof user.photo === 'string') {
+    // If photo is a string, use it directly (URL) - but only if not empty and not "null"
+    if (typeof user.photo === 'string' && user.photo.trim() && user.photo !== 'null') {
       return user.photo;
     }
     
@@ -48,6 +53,7 @@ const UserAvatar = ({
   };
 
   const photoUrl = getPhotoUrl(user);
+  debug.log('UserAvatar - photoUrl:', photoUrl);
 
   const avatarContent = (
     <>
