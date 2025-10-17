@@ -49,9 +49,11 @@ nav {
 .dropdown-menu {
     border-radius: 0.5rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    animation: fadeInDown 0.2s ease-out;
     padding: 0; /* Remove default padding */
     overflow: hidden; /* Ensure rounded corners are maintained */
+    /* Custom animation handled via JavaScript for better control */
+    transform-origin: top;
+    will-change: opacity, transform;
 }
 
 /* Dropdown toggle button styling */

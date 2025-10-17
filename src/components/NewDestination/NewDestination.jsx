@@ -8,6 +8,7 @@ import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import FormField from "../FormField/FormField";
+import { FormTooltip } from "../Tooltip/Tooltip";
 import { Form } from "react-bootstrap";
 
 export default function NewDestination({ updateData }) {
@@ -144,32 +145,21 @@ export default function NewDestination({ updateData }) {
             </div>
 
             <div className="mb-4">
-              <label className="form-label">
+              <Form.Label>
                 Photos
-                <span 
-                  className="ms-2 text-info" 
-                  style={{ cursor: 'help' }}
-                  title={lang.en.helper.destinationPhoto}
-                >
-                  ℹ️
-                </span>
-              </label>
+                <FormTooltip content={lang.en.helper.destinationPhoto} placement="top" />
+              </Form.Label>
               <ImageUpload data={newDestination} setData={setNewDestination} />
             </div>
 
             <div className="mb-4">
-              <label className="form-label">
+              <Form.Label>
                 {lang.en.heading.travelTips}
-                <span 
-                  className="ms-2 text-info" 
-                  data-bs-toggle="tooltip" 
-                  data-bs-placement="top" 
-                  title="Share insider tips that'll help travelers make the most of this destination! 💡"
-                  style={{ cursor: 'help' }}
-                >
-                  ℹ️
-                </span>
-              </label>
+                <FormTooltip 
+                  content="Share insider tips that'll help travelers make the most of this destination! 💡" 
+                  placement="top" 
+                />
+              </Form.Label>
 
               <div className="input-group mb-3">
                 <input

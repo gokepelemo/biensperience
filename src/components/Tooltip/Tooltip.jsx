@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { OverlayTrigger, Tooltip as BootstrapTooltip } from 'react-bootstrap';
 import PropTypes from 'prop-types';
 
@@ -30,7 +30,6 @@ export default function Tooltip({
   show,
   onToggle,
 }) {
-  const ref = useRef(null);
 
   // If no content, just return children without tooltip
   if (!content) {
@@ -43,6 +42,24 @@ export default function Tooltip({
     </BootstrapTooltip>
   );
 
+  // Popper.js configuration to prevent flash at (0,0) position
+  const popperConfig = {
+    modifiers: [
+      {
+        name: 'preventOverflow',
+        options: {
+          boundary: 'viewport',
+        },
+      },
+      {
+        name: 'offset',
+        options: {
+          offset: [0, 8], // Add space between trigger and tooltip
+        },
+      },
+    ],
+  };
+
   return (
     <OverlayTrigger
       placement={placement}
@@ -51,6 +68,7 @@ export default function Tooltip({
       trigger={trigger}
       show={show}
       onToggle={onToggle}
+      popperConfig={popperConfig}
     >
       {children}
     </OverlayTrigger>

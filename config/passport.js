@@ -6,7 +6,7 @@
 const passport = require('passport');
 const FacebookStrategy = require('passport-facebook').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const TwitterStrategy = require('passport-twitter').Strategy;
+const TwitterStrategy = require('passport-twitter-oauth2').Strategy;
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 
@@ -223,18 +223,28 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 }
 
 /**
- * Twitter Strategy
+ * Twitter Strategy (OAuth 2.0)
  */
-if (process.env.TWITTER_CONSUMER_KEY && process.env.TWITTER_CONSUMER_SECRET) {
+if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
+  console.log('[Passport] Initializing Twitter OAuth 2.0 strategy');
+  console.log('[Passport] Twitter Client ID:', process.env.TWITTER_CLIENT_ID ? 'Set' : 'Missing');
+  console.log('[Passport] Twitter Callback URL:', process.env.TWITTER_CALLBACK_URL);
+  
   passport.use(new TwitterStrategy({
-    consumerKey: process.env.TWITTER_CONSUMER_KEY,
-    consumerSecret: process.env.TWITTER_CONSUMER_SECRET,
+    clientType: 'confidential',
+    clientID: process.env.TWITTER_CLIENT_ID,
+    clientSecret: process.env.TWITTER_CLIENT_SECRET,
     callbackURL: process.env.TWITTER_CALLBACK_URL || 'http://localhost:3001/api/auth/twitter/callback',
-    includeEmail: true,
+    scope: ['tweet.read', 'users.read', 'offline.access'],
     passReqToCallback: true,
   },
-  async (req, token, tokenSecret, profile, done) => {
+  async (req, accessToken, refreshToken, profile, done) => {
     try {
+      console.log('[Twitter Strategy] Authentication callback invoked');
+      console.log('[Twitter Strategy] Profile ID:', profile.id);
+      console.log('[Twitter Strategy] Profile username:', profile.username);
+      
+      // OAuth 2.0 profile structure is different
       const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
       
       // If user is already logged in (account linking)
@@ -298,11 +308,12 @@ if (process.env.TWITTER_CONSUMER_KEY && process.env.TWITTER_CONSUMER_SECRET) {
       
       // Create new user
       const newUser = new User({
-        name: profile.displayName || profile.username,
+        name: profile.displayName || profile.data?.name || profile.username,
         email: email || `twitter_${profile.id}@biensperience.com`,
         twitterId: profile.id,
         provider: 'twitter',
-        oauthProfilePhoto: profile.photos && profile.photos[0] ? profile.photos[0].value.replace('_normal', '') : null,
+        oauthProfilePhoto: profile.photos && profile.photos[0] ? profile.photos[0].value.replace('_normal', '') : 
+                          (profile.data?.profile_image_url ? profile.data.profile_image_url.replace('_normal', '') : null),
         linkedAccounts: [{
           provider: 'twitter',
           providerId: profile.id,
@@ -311,12 +322,17 @@ if (process.env.TWITTER_CONSUMER_KEY && process.env.TWITTER_CONSUMER_SECRET) {
       });
       
       await newUser.save();
+      console.log('[Twitter Strategy] New user created:', newUser.email);
       return done(null, newUser);
       
     } catch (err) {
+      console.error('[Twitter Strategy] Error:', err.message);
+      console.error('[Twitter Strategy] Stack:', err.stack);
       return done(err, null);
     }
   }));
+} else {
+  console.warn('[Passport] Twitter OAuth 2.0 not configured - missing TWITTER_CLIENT_ID or TWITTER_CLIENT_SECRET');
 }
 
 /**

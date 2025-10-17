@@ -134,8 +134,23 @@ router.get('/google/callback',
 router.get('/twitter', (req, res, next) => {
   // Generate CSRF token and store in session
   const generateToken = req.app.get('csrfTokenGenerator');
+  
+  if (!generateToken || typeof generateToken !== 'function') {
+    console.error('CSRF token generator not found or not a function:', typeof generateToken);
+    return res.status(500).json({ 
+      error: 'Server configuration error',
+      message: 'CSRF token generator is not available' 
+    });
+  }
+  
   const csrfToken = generateToken(req, res);
   req.session.oauthState = csrfToken;
+  
+  // Debug logging
+  console.log('[Twitter OAuth] Initiating authentication');
+  console.log('[Twitter OAuth] Consumer Key:', process.env.TWITTER_CONSUMER_KEY ? 'Set (length: ' + process.env.TWITTER_CONSUMER_KEY.length + ')' : 'Missing');
+  console.log('[Twitter OAuth] Consumer Secret:', process.env.TWITTER_CONSUMER_SECRET ? 'Set (length: ' + process.env.TWITTER_CONSUMER_SECRET.length + ')' : 'Missing');
+  console.log('[Twitter OAuth] Callback URL:', process.env.TWITTER_CALLBACK_URL);
   
   passport.authenticate('twitter')(req, res, next);
 });
@@ -145,6 +160,12 @@ router.get('/twitter/callback',
   (req, res, next) => {
     // Note: Twitter OAuth 1.0a doesn't support state parameter
     // We rely on OAuth 1.0a's built-in CSRF protection via oauth_token
+    console.log('[Twitter OAuth] Callback received');
+    console.log('[Twitter OAuth] Query params:', req.query);
+    if (req.query.denied) {
+      console.log('[Twitter OAuth] User denied authorization');
+      return res.redirect('/login?error=twitter_auth_denied');
+    }
     next();
   },
   passport.authenticate('twitter', { 
@@ -153,6 +174,9 @@ router.get('/twitter/callback',
   }),
   (req, res) => {
     try {
+      console.log('[Twitter OAuth] Authentication successful');
+      console.log('[Twitter OAuth] User:', req.user ? req.user.email || req.user.name : 'No user');
+      
       // Create JWT token
       const token = createToken(req.user);
       
@@ -162,7 +186,7 @@ router.get('/twitter/callback',
       // Redirect to frontend with token
       res.redirect(`/?token=${token}&oauth=twitter`);
     } catch (err) {
-      console.error('Twitter OAuth callback error:', err);
+      console.error('[Twitter OAuth] Callback error:', err);
       res.redirect('/login?error=twitter_token_failed');
     }
   }

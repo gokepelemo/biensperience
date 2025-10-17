@@ -1,12 +1,13 @@
 import { NavLink } from "react-router-dom";
 import "./NavBar.css"
 import * as usersService from "../../utilities/users-service.js";
-import debug from "../../utilities/debug";
 import { useEffect, useRef } from "react";
 
 export default function NavBar({ user, setUser }) {
   const collapseRef = useRef(null);
   const toggleRef = useRef(null);
+  const dropdownButtonRef = useRef(null);
+  const dropdownMenuRef = useRef(null);
   
   function handleLogOut() {
     usersService.logout();
@@ -16,6 +17,8 @@ export default function NavBar({ user, setUser }) {
   useEffect(() => {
     const collapseEl = collapseRef.current;
     const toggleBtn = toggleRef.current;
+    const dropdownButton = dropdownButtonRef.current;
+    const dropdownMenu = dropdownMenuRef.current;
     
     if (!collapseEl || !toggleBtn) return;
     
@@ -65,29 +68,78 @@ export default function NavBar({ user, setUser }) {
     
     toggleBtn.addEventListener('click', handleToggle);
     
-    // Initialize Bootstrap Dropdown for the user menu
-    // Import dynamically to avoid bundle bloat
-    let dropdownInstance = null;
-    
-    import('bootstrap/js/dist/dropdown').then((module) => {
-      const Dropdown = module.default;
-      const dropdownToggle = document.querySelector('.navbar .dropdown-toggle');
+    // Custom dropdown toggle handler with smooth animations
+    const handleDropdownToggle = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       
-      if (dropdownToggle) {
-        // Initialize dropdown
-        dropdownInstance = new Dropdown(dropdownToggle);
-        debug.log('Dropdown initialized successfully');
+      if (!dropdownMenu || !dropdownButton) return;
+      
+      const isCurrentlyOpen = dropdownButton.getAttribute('aria-expanded') === 'true';
+      
+      if (isCurrentlyOpen) {
+        // Close dropdown with ease-out animation
+        dropdownMenu.style.transition = 'opacity 0.2s ease-out, transform 0.2s ease-out';
+        dropdownMenu.style.opacity = '0';
+        dropdownMenu.style.transform = 'translateY(-10px)';
+        
+        setTimeout(() => {
+          dropdownMenu.style.display = 'none';
+          dropdownButton.setAttribute('aria-expanded', 'false');
+        }, 200);
+      } else {
+        // Open dropdown with ease-in animation
+        dropdownMenu.style.display = 'block';
+        dropdownMenu.style.opacity = '0';
+        dropdownMenu.style.transform = 'translateY(-10px)';
+        dropdownMenu.style.transition = 'opacity 0.3s ease-in, transform 0.3s ease-in';
+        
+        // Force reflow
+        void dropdownMenu.offsetHeight;
+        
+        requestAnimationFrame(() => {
+          dropdownMenu.style.opacity = '1';
+          dropdownMenu.style.transform = 'translateY(0)';
+          dropdownButton.setAttribute('aria-expanded', 'true');
+        });
       }
-    }).catch(err => {
-      console.error('Failed to initialize dropdown:', err);
-    });
+    };
+    
+    // Close dropdown when clicking outside
+    const handleClickOutside = (e) => {
+      if (!dropdownMenu || !dropdownButton) return;
+      
+      if (!dropdownMenu.contains(e.target) && !dropdownButton.contains(e.target)) {
+        const isCurrentlyOpen = dropdownButton.getAttribute('aria-expanded') === 'true';
+        
+        if (isCurrentlyOpen) {
+          dropdownMenu.style.transition = 'opacity 0.2s ease-out, transform 0.2s ease-out';
+          dropdownMenu.style.opacity = '0';
+          dropdownMenu.style.transform = 'translateY(-10px)';
+          
+          setTimeout(() => {
+            dropdownMenu.style.display = 'none';
+            dropdownButton.setAttribute('aria-expanded', 'false');
+          }, 200);
+        }
+      }
+    };
+    
+    // Attach dropdown event listeners
+    if (dropdownButton) {
+      dropdownButton.addEventListener('click', handleDropdownToggle);
+    }
+    
+    document.addEventListener('click', handleClickOutside);
     
     return () => {
       toggleBtn.removeEventListener('click', handleToggle);
-      // Cleanup dropdown instance
-      if (dropdownInstance && typeof dropdownInstance.dispose === 'function') {
-        dropdownInstance.dispose();
+      
+      if (dropdownButton) {
+        dropdownButton.removeEventListener('click', handleDropdownToggle);
       }
+      
+      document.removeEventListener('click', handleClickOutside);
     };
   }, []);
   
@@ -140,16 +192,22 @@ export default function NavBar({ user, setUser }) {
             </li>
             <li className="nav-item dropdown" role="none">
               <button
+                ref={dropdownButtonRef}
                 className="nav-link dropdown-toggle"
                 type="button"
-                data-bs-toggle="dropdown"
                 aria-expanded="false"
                 aria-haspopup="true"
                 aria-label={`User menu for ${user.name}`}
               >
                 {user.name}
               </button>
-              <ul className="dropdown-menu" role="menu" aria-label="User account options">
+              <ul 
+                ref={dropdownMenuRef}
+                className="dropdown-menu" 
+                role="menu" 
+                aria-label="User account options"
+                style={{ display: 'none' }}
+              >
                 <li role="none">
                   <NavLink
                     to="/profile"

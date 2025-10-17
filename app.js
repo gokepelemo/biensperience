@@ -74,28 +74,36 @@ app.use(
 /**
  * CSRF protection configuration
  * Generates and validates CSRF tokens for state-changing requests
+ * Note: __Host- prefix requires secure: true, so only use in production
  */
+const isProduction = process.env.NODE_ENV === 'production';
 const {
-  generateToken, // Used to create a CSRF token pair
+  generateCsrfToken, // Used to create a CSRF token pair (correct name from csrf-csrf v4)
   doubleCsrfProtection, // Middleware to validate CSRF tokens
 } = doubleCsrf({
   getSecret: () => process.env.CSRF_SECRET || process.env.SECRET,
-  cookieName: '__Host-biensperience.x-csrf-token',
+  getSessionIdentifier: (req) => req.session?.id || 'anonymous', // Required in v4
+  cookieName: isProduction ? '__Host-biensperience.x-csrf-token' : 'biensperience.x-csrf-token',
   cookieOptions: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    sameSite: isProduction ? 'strict' : 'lax',
     path: '/',
   },
   size: 64,
   ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
-  getTokenFromRequest: (req) => req.headers['x-csrf-token'], // Get token from header
+  getCsrfTokenFromRequest: (req) => req.headers['x-csrf-token'], // Get token from header (note: renamed in v4)
 });
 
 /**
  * Expose CSRF token generation function for routes
  */
-app.set('csrfTokenGenerator', generateToken);
+if (typeof generateCsrfToken === 'function') {
+  app.set('csrfTokenGenerator', generateCsrfToken);
+  console.log('CSRF token generator registered successfully');
+} else {
+  console.error('ERROR: generateCsrfToken is not a function:', typeof generateCsrfToken);
+}
 
 /**
  * Morgan logger middleware for development
