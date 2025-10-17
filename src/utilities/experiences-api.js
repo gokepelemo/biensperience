@@ -1,4 +1,5 @@
 import { sendRequest } from "./send-request.js";
+import { normalizeUrl } from "./url-utils.js";
 
 const BASE_URL = `/api/experiences/`
 
@@ -50,18 +51,30 @@ export async function userAddExperience(userId, experienceId, data = {}) {
 }
 
 export async function addPlanItem(experienceId, planItemData) {
+  // Normalize URL if present
+  const normalizedData = {
+    ...planItemData,
+    url: planItemData.url ? normalizeUrl(planItemData.url) : planItemData.url
+  };
+  
   return await sendRequest(
     `${BASE_URL}${experienceId}/plan-item`,
     "POST",
-    planItemData
+    normalizedData
   );
 }
 
 export async function updatePlanItem(experienceId, planItemData) {
+  // Normalize URL if present
+  const normalizedData = {
+    ...planItemData,
+    url: planItemData.url ? normalizeUrl(planItemData.url) : planItemData.url
+  };
+  
   return await sendRequest(
     `${BASE_URL}${experienceId}/plan-item/${planItemData._id}`,
     "PUT",
-    planItemData
+    normalizedData
   );
 }
 

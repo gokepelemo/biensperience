@@ -1,4 +1,5 @@
 import { sendRequest } from "./send-request";
+import { normalizeUrl } from "./url-utils.js";
 
 const BASE_URL = "/api/plans";
 
@@ -58,14 +59,26 @@ export function deletePlan(planId) {
  * Update a specific plan item
  */
 export function updatePlanItem(planId, itemId, updates) {
-  return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "PATCH", updates);
+  // Normalize URL if present in updates
+  const normalizedUpdates = {
+    ...updates,
+    url: updates.url ? normalizeUrl(updates.url) : updates.url
+  };
+  
+  return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "PATCH", normalizedUpdates);
 }
 
 /**
  * Add a new plan item to a plan
  */
 export function addPlanItem(planId, planItem) {
-  return sendRequest(`${BASE_URL}/${planId}/items`, "POST", planItem);
+  // Normalize URL if present
+  const normalizedItem = {
+    ...planItem,
+    url: planItem.url ? normalizeUrl(planItem.url) : planItem.url
+  };
+  
+  return sendRequest(`${BASE_URL}/${planId}/items`, "POST", normalizedItem);
 }
 
 /**
