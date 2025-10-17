@@ -1,11 +1,12 @@
 import React from 'react';
-import { FaFacebook, FaGoogle, FaTwitter } from 'react-icons/fa';
+import { FaFacebook, FaGoogle } from 'react-icons/fa';
+import { FaXTwitter } from 'react-icons/fa6';
 import './SocialLoginButtons.css';
 import PropTypes from 'prop-types';
 
 /**
  * Social Login Buttons Component
- * Displays OAuth login buttons for Facebook, Google, and Twitter
+ * Displays OAuth login buttons for Facebook, Google, and X (formerly Twitter)
  * 
  * @param {Object} props
  * @param {boolean} [props.isLinking=false] - If true, buttons link accounts instead of logging in
@@ -59,10 +60,10 @@ export default function SocialLoginButtons({
           type="button"
           className="social-btn twitter-btn"
           onClick={() => handleSocialLogin('twitter')}
-          aria-label={`${buttonText} Twitter`}
+          aria-label={`${buttonText} X`}
         >
-          <FaTwitter className="social-icon" />
-          <span>{buttonText} Twitter</span>
+          <FaXTwitter className="social-icon" />
+          <span>{buttonText} X</span>
         </button>
       </div>
     </div>

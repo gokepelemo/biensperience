@@ -24,12 +24,12 @@ export async function handleOAuthCallback() {
       facebook_token_failed: 'Failed to create login session with Facebook.',
       google_auth_failed: 'Google authentication failed. Please try again.',
       google_token_failed: 'Failed to create login session with Google.',
-      twitter_auth_failed: 'Twitter authentication failed. Please try again.',
-      twitter_token_failed: 'Failed to create login session with Twitter.',
+      twitter_auth_failed: 'X (Twitter) authentication failed. Please try again.',
+      twitter_token_failed: 'Failed to create login session with X (Twitter).',
       oauth_csrf_failed: 'Security validation failed. Please try signing in again.',
       facebook_link_failed: 'Failed to link Facebook account. Please try again.',
       google_link_failed: 'Failed to link Google account. Please try again.',
-      twitter_link_failed: 'Failed to link Twitter account. Please try again.',
+      twitter_link_failed: 'Failed to link X (Twitter) account. Please try again.',
     };
 
     throw new Error(errorMessages[error] || 'Authentication failed. Please try again.');

@@ -95,14 +95,14 @@
   background-clip: text;
 }
 
-/* Twitter Brand Colors */
+/* X (formerly Twitter) Brand Colors */
 .twitter-btn {
-  background-color: #1DA1F2;
+  background-color: #000000;
   color: white;
 }
 
 .twitter-btn:hover {
-  background-color: #1A91DA;
+  background-color: #1a1a1a;
 }
 
 /* Responsive Design */
