@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
 
 module.exports = function(req, res, next) {
-    let token = req.get("Authorization") || req.query.token;
+    // Check for token in Authorization header, query params, or secure cookie
+    let token = req.get("Authorization") || req.query.token || req.cookies.auth_token;
     if (token) {
         token = token.replace("Bearer ", "");
         jwt.verify(token, process.env.SECRET, function(err, decoded) {

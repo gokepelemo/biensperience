@@ -10,7 +10,9 @@
 
 const mongoose = require('mongoose');
 const { USER_ROLES } = require('./user-roles');
-const backendLogger = require('./backend-logger');/**
+const backendLogger = require('./backend-logger');
+
+/**
  * Permission roles
  * @enum {string}
  */
@@ -640,6 +642,8 @@ module.exports = {
   ROLES,
   ENTITY_TYPES,
   MAX_INHERITANCE_DEPTH,
+  isSuperAdmin,
+  isRegularUser,
   validatePermission,
   validatePermissions,
   resolvePermissionsWithInheritance,

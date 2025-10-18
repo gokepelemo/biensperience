@@ -24,6 +24,7 @@ function apiLogger(req, res, next) {
     const duration = Date.now() - startTime;
 
     // Log API event asynchronously (fire-and-forget)
+    // NOTE: Request body intentionally NOT logged to prevent password/token exposure
     logger.apiEvent(
       req.method,
       req.originalUrl,
@@ -33,8 +34,7 @@ function apiLogger(req, res, next) {
         userId: req.user?._id,
         userAgent: req.get('User-Agent'),
         ip: req.ip,
-        query: req.query,
-        body: req.method !== 'GET' ? req.body : undefined
+        query: req.query
       }
     );
 

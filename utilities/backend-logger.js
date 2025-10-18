@@ -9,11 +9,23 @@
 const fs = require('fs');
 const path = require('path');
 
-// Import the frontend logger configuration
-const {
-  LOG_LEVELS,
-  LOG_LEVEL_NAMES
-} = require('../src/utilities/logger');
+// Log levels
+const LOG_LEVELS = {
+  ERROR: 0,
+  WARN: 1,
+  INFO: 2,
+  DEBUG: 3,
+  TRACE: 4
+};
+
+// Log level names for display
+const LOG_LEVEL_NAMES = {
+  [LOG_LEVELS.ERROR]: 'ERROR',
+  [LOG_LEVELS.WARN]: 'WARN',
+  [LOG_LEVELS.INFO]: 'INFO',
+  [LOG_LEVELS.DEBUG]: 'DEBUG',
+  [LOG_LEVELS.TRACE]: 'TRACE'
+};
 
 // Backend-specific configuration
 const backendConfig = {

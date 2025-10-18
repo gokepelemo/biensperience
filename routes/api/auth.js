@@ -66,9 +66,20 @@ router.get('/facebook/callback',
     try {
       // Create JWT token
       const token = createToken(req.user);
-      
-      // Redirect to frontend with token
-      res.redirect(`/?token=${token}&oauth=facebook`);
+
+      // Set secure HTTP-only cookie
+      res.cookie('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      });
+
+      // Clear session state
+      delete req.session.oauthState;
+
+      // Redirect to frontend without token in URL
+      res.redirect(`/?oauth=facebook`);
     } catch (err) {
       backendLogger.error('Facebook OAuth callback error', { error: err.message, userId: req.user?._id });
       res.redirect('/login?error=facebook_token_failed');
@@ -117,9 +128,17 @@ router.get('/google/callback',
     try {
       // Create JWT token
       const token = createToken(req.user);
-      
-      // Redirect to frontend with token
-      res.redirect(`/?token=${token}&oauth=google`);
+
+      // Set secure HTTP-only cookie
+      res.cookie('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      });
+
+      // Redirect to frontend without token in URL
+      res.redirect(`/?oauth=google`);
     } catch (err) {
       backendLogger.error('Google OAuth callback error', { error: err.message, userId: req.user?._id });
       res.redirect('/login?error=google_token_failed');
@@ -147,26 +166,34 @@ router.get('/twitter', (req, res, next) => {
   const csrfToken = generateToken(req, res);
   req.session.oauthState = csrfToken;
   
-  // Debug logging
-  console.log('[Twitter OAuth] Initiating authentication');
-  console.log('[Twitter OAuth] Consumer Key:', process.env.TWITTER_CONSUMER_KEY ? 'Set (length: ' + process.env.TWITTER_CONSUMER_KEY.length + ')' : 'Missing');
-  console.log('[Twitter OAuth] Consumer Secret:', process.env.TWITTER_CONSUMER_SECRET ? 'Set (length: ' + process.env.TWITTER_CONSUMER_SECRET.length + ')' : 'Missing');
-  console.log('[Twitter OAuth] Callback URL:', process.env.TWITTER_CALLBACK_URL);
-  
-  passport.authenticate('twitter')(req, res, next);
+  // Pass state parameter for CSRF protection (OAuth 2.0 supports state)
+  passport.authenticate('twitter', {
+    scope: ['tweet.read', 'users.read', 'offline.access'],
+    state: csrfToken
+  })(req, res, next);
 });
 
 // Twitter OAuth callback
 router.get('/twitter/callback',
   (req, res, next) => {
-    // Note: Twitter OAuth 1.0a doesn't support state parameter
-    // We rely on OAuth 1.0a's built-in CSRF protection via oauth_token
-    console.log('[Twitter OAuth] Callback received');
-    console.log('[Twitter OAuth] Query params:', req.query);
+    // Validate CSRF state parameter (Twitter OAuth 2.0 supports state)
+    const state = req.query.state;
+    const sessionState = req.session.oauthState;
+
+    if (!state || !sessionState || state !== sessionState) {
+      backendLogger.error('Twitter OAuth state mismatch - potential CSRF attack', {
+        hasState: !!state,
+        hasSessionState: !!sessionState,
+        provider: 'twitter'
+      });
+      return res.redirect('/login?error=oauth_csrf_failed');
+    }
+
     if (req.query.denied) {
-      console.log('[Twitter OAuth] User denied authorization');
+      backendLogger.info('Twitter OAuth denied by user');
       return res.redirect('/login?error=twitter_auth_denied');
     }
+
     next();
   },
   passport.authenticate('twitter', { 
@@ -175,19 +202,24 @@ router.get('/twitter/callback',
   }),
   (req, res) => {
     try {
-      console.log('[Twitter OAuth] Authentication successful');
-      console.log('[Twitter OAuth] User:', req.user ? req.user.email || req.user.name : 'No user');
-      
       // Create JWT token
       const token = createToken(req.user);
-      
+
+      // Set secure HTTP-only cookie
+      res.cookie('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      });
+
       // Clear session state
       delete req.session.oauthState;
-      
-      // Redirect to frontend with token
-      res.redirect(`/?token=${token}&oauth=twitter`);
+
+      // Redirect to frontend without token in URL
+      res.redirect(`/?oauth=twitter`);
     } catch (err) {
-      backendLogger.error('[Twitter OAuth] Callback error', { error: err.message, userId: req.user?._id });
+      backendLogger.error('Twitter OAuth callback error', { error: err.message, userId: req.user?._id });
       res.redirect('/login?error=twitter_token_failed');
     }
   }

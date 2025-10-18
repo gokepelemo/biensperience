@@ -948,8 +948,8 @@ async function transferOwnership(req, res) {
     }
 
     // Verify current user is the owner
-    if (!permissions.isOwner(experience, req.user._id)) {
-      return res.status(403).json({ 
+    if (!permissions.isOwner(req.user._id, experience)) {
+      return res.status(403).json({
         error: 'Unauthorized',
         message: 'Only the experience owner can transfer ownership.'
       });
@@ -1036,8 +1036,6 @@ async function transferOwnership(req, res) {
         id: newOwner._id,
         name: newOwner.name
       }
-    });
-
     });
 
   } catch (err) {
