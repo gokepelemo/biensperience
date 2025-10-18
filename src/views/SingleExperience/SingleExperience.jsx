@@ -10,6 +10,7 @@ import PageMeta from "../../components/PageMeta/PageMeta";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import Alert from "../../components/Alert/Alert";
+import { isSuperAdmin } from "../../utilities/permissions";
 import {
   showExperience,
   deleteExperience,
@@ -155,9 +156,9 @@ export default function SingleExperience({ user, experiences, updateData }) {
         );
       }
       setExperience(experienceData);
-      // Set isOwner if current user is the creator
+      // Set isOwner if current user is the creator or super admin
       setIsOwner(
-        experienceData.user && experienceData.user._id.toString() === user._id
+        (experienceData.user && experienceData.user._id.toString() === user._id) || isSuperAdmin(user)
       );
 
       // userHasExperience will be set in fetchUserPlan based on Plan model
@@ -177,7 +178,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
       debug.error("Error fetching experience:", err);
       setExperience(null);
     }
-  }, [experienceId, user._id]);
+  }, [experienceId, user._id, user.role]);
 
   const fetchUserPlan = useCallback(async () => {
     try {

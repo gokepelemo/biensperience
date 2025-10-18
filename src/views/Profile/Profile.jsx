@@ -7,12 +7,14 @@ import DestinationCard from "./../../components/DestinationCard/DestinationCard"
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import Alert from "../../components/Alert/Alert";
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
-import { getUserData } from "../../utilities/users-api";
+import { getUserData, updateUserRole } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
 import { handleError } from "../../utilities/error-handler";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import { deduplicateById } from "../../utilities/deduplication";
 import { createUrlSlug } from "../../utilities/url-utils";
+import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
+import { isSuperAdmin } from "../../utilities/permissions";
 
 export default function Profile({ user, destinations, updateData }) {
   let { profileId } = useParams();
@@ -28,6 +30,7 @@ export default function Profile({ user, destinations, updateData }) {
   });
   const [userExperiences, setUserExperiences] = useState([]);
   const [createdExperiences, setCreatedExperiences] = useState([]);
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
 
   // Deduplicate user experiences by ID
   const uniqueUserExperiences = useMemo(() => {
@@ -92,6 +95,25 @@ export default function Profile({ user, destinations, updateData }) {
       setIsLoadingProfile(false);
     }
   }, [userId, isOwner]);
+
+  const handleRoleUpdate = async (newRole) => {
+    if (!isSuperAdmin(user)) {
+      handleError({ message: 'Only super admins can update user roles' });
+      return;
+    }
+
+    setIsUpdatingRole(true);
+    try {
+      await updateUserRole(profileId, { role: newRole });
+      // Refresh profile data
+      await getProfile();
+      alert('User role updated successfully');
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsUpdatingRole(false);
+    }
+  };
 
   useEffect(() => {
     getProfile();
@@ -171,6 +193,10 @@ export default function Profile({ user, destinations, updateData }) {
                 currentProfile?.name
               )}
             </h1>
+          </div>
+        </div>
+        <div className="col-md-6 fade-in">
+          <div className="d-flex align-items-center justify-content-end gap-3 my-4">
             {isOwner && !isLoadingProfile && (
               <Link
                 to="/profile/update"
@@ -341,6 +367,49 @@ export default function Profile({ user, destinations, updateData }) {
             (isOwner ? ` ${lang.en.message.addOneNow}` : '')
           }
         />
+      )}
+
+      {/* Super Admin Permissions Section */}
+      {isSuperAdmin(user) && !isOwner && currentProfile && (
+        <div className="row my-4 fade-in">
+          <div className="col-12">
+            <div className="card">
+              <div className="card-header">
+                <h5 className="mb-0">Super Admin Permissions</h5>
+              </div>
+              <div className="card-body">
+                <div className="row align-items-center">
+                  <div className="col-md-6">
+                    <p className="mb-2">
+                      <strong>Current Role:</strong> {USER_ROLE_DISPLAY_NAMES[currentProfile.role] || 'Unknown'}
+                    </p>
+                    <p className="text-muted small mb-0">
+                      Change this user's role. Super admins have full access to all resources and user management.
+                    </p>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="d-flex gap-2">
+                      <button
+                        className={`btn ${currentProfile.role === USER_ROLES.SUPER_ADMIN ? 'btn-success' : 'btn-outline-success'}`}
+                        onClick={() => handleRoleUpdate(USER_ROLES.SUPER_ADMIN)}
+                        disabled={isUpdatingRole || currentProfile.role === USER_ROLES.SUPER_ADMIN}
+                      >
+                        {isUpdatingRole ? 'Updating...' : 'Make Super Admin'}
+                      </button>
+                      <button
+                        className={`btn ${currentProfile.role === USER_ROLES.REGULAR_USER ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                        onClick={() => handleRoleUpdate(USER_ROLES.REGULAR_USER)}
+                        disabled={isUpdatingRole || currentProfile.role === USER_ROLES.REGULAR_USER}
+                      >
+                        {isUpdatingRole ? 'Updating...' : 'Make Regular User'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

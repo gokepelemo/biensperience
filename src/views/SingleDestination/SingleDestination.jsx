@@ -8,6 +8,7 @@ import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDe
 import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
 import PageMeta from "../../components/PageMeta/PageMeta";
+import { isSuperAdmin } from "../../utilities/permissions";
 
 export default function SingleDestination({
   experiences,
@@ -96,7 +97,7 @@ export default function SingleDestination({
               </div>
               <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center gap-3">
                 {user && <FavoriteDestination destination={destination} user={user} getData={getData} />}
-                {user && user._id === destination.user && (
+                {user && (user._id === destination.user || isSuperAdmin(user)) && (
                   <button
                     className="btn btn-icon"
                     onClick={() => navigate(`/destinations/${destination._id}/update`)}

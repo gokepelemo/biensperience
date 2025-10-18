@@ -20,6 +20,7 @@ import UpdateExperience from "../../components/UpdateExperience/UpdateExperience
 import NewDestination from "../../components/NewDestination/NewDestination";
 import UpdateDestination from "../../components/UpdateDestination/UpdateDestination";
 import Profile from "../Profile/Profile";
+import AllUsers from "../AllUsers/AllUsers";
 import { getUser } from "../../utilities/users-service";
 import { getExperiences } from "../../utilities/experiences-api";
 import { getDestinations } from "../../utilities/destinations-api";
@@ -141,6 +142,10 @@ export default function App() {
             <Route
               path="/profile/update"
               element={<UpdateProfile user={user} setUser={setUser} updateData={updateData} />}
+            />
+            <Route
+              path="/admin/users"
+              element={<AllUsers updateData={updateData} />}
             />
             <Route
               path="/experiences"

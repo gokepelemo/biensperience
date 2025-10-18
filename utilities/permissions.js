@@ -1,16 +1,16 @@
 /**
  * Permissions and Content Privacy Framework
- * 
+ *
  * Manages role-based access control for experiences and destinations with inheritance.
  * Supports collaborators (can edit and modify plan items) and contributors (can add posts).
  * Implements permission inheritance with circular dependency prevention (max 3 levels).
- * 
+ *
  * @module permissions
  */
 
 const mongoose = require('mongoose');
-
-/**
+const { USER_ROLES } = require('./user-roles');
+const backendLogger = require('./backend-logger');/**
  * Permission roles
  * @enum {string}
  */
@@ -35,6 +35,24 @@ const ENTITY_TYPES = {
  * @const {number}
  */
 const MAX_INHERITANCE_DEPTH = 3;
+
+/**
+ * Check if user has super admin role
+ * @param {Object} user - User object
+ * @returns {boolean} - True if user is super admin
+ */
+function isSuperAdmin(user) {
+  return user && (user.role === USER_ROLES.SUPER_ADMIN || user.isSuperAdmin === true);
+}
+
+/**
+ * Check if user has regular user role
+ * @param {Object} user - User object
+ * @returns {boolean} - True if user is regular user
+ */
+function isRegularUser(user) {
+  return user && user.role === USER_ROLES.REGULAR_USER;
+}
 
 /**
  * Validate permission object structure
@@ -175,7 +193,7 @@ async function resolvePermissionsWithInheritance(resource, models, visited = new
         try {
           // Validate ObjectId format before querying database
           if (!mongoose.Types.ObjectId.isValid(permission._id)) {
-            console.error('Invalid destination ObjectId format in permissions');
+            backendLogger.error('Invalid destination ObjectId format in permissions', { permissionId: permission._id });
             continue;
           }
           
@@ -198,14 +216,14 @@ async function resolvePermissionsWithInheritance(resource, models, visited = new
           }
         } catch (err) {
           // Use static string to prevent format string injection
-          console.error('Error resolving destination permissions:', err.message);
+          backendLogger.error('Error resolving destination permissions', { error: err.message, permission });
         }
       } else if (permission.entity === ENTITY_TYPES.EXPERIENCE) {
         // Inherit from experience
         try {
           // Validate ObjectId format before querying database
           if (!mongoose.Types.ObjectId.isValid(permission._id)) {
-            console.error('Invalid experience ObjectId format in permissions');
+            backendLogger.error('Invalid experience ObjectId format in permissions', { permissionId: permission._id });
             continue;
           }
           
@@ -228,7 +246,7 @@ async function resolvePermissionsWithInheritance(resource, models, visited = new
           }
         } catch (err) {
           // Use static string to prevent format string injection
-          console.error('Error resolving experience permissions:', err.message);
+          backendLogger.error('Error resolving experience permissions', { error: err.message, permission });
         }
       }
     }
@@ -260,9 +278,21 @@ function getRolePriority(role) {
  * @returns {Promise<boolean>} - True if user has required role or higher
  */
 async function hasRole(userId, resource, requiredRole, models) {
+  // Check if user is super admin - they have owner-level permissions on everything
+  if (models && models.User) {
+    try {
+      const user = await models.User.findById(userId);
+      if (user && user.isSuperAdmin) {
+        return true; // Super admins have all permissions
+      }
+    } catch (error) {
+      backendLogger.error('Error checking super admin status in hasRole', { error: error.message, userId });
+    }
+  }
+
   const permissions = await resolvePermissionsWithInheritance(resource, models);
   const userRole = permissions.get(userId.toString());
-  
+
   if (!userRole) {
     return false;
   }
@@ -278,7 +308,22 @@ async function hasRole(userId, resource, requiredRole, models) {
  * @returns {Promise<boolean>} - True if user can edit
  */
 async function canEdit(userId, resource, models) {
-  return await hasRole(userId, resource, ROLES.COLLABORATOR, models);
+  // Check if user is super admin - they have full access
+  if (typeof userId === 'object' && isSuperAdmin(userId)) {
+    return true;
+  }
+
+  // If models are provided, check for super admin in database
+  if (models && models.User) {
+    try {
+      const user = await models.User.findById(userId);
+      if (user && isSuperAdmin(user)) {
+        return true;
+      }
+    } catch (error) {
+      backendLogger.error('Error checking super admin status in canEdit', { error: error.message, userId });
+    }
+  }  return await hasRole(userId, resource, ROLES.COLLABORATOR, models);
 }
 
 /**
@@ -287,12 +332,17 @@ async function canEdit(userId, resource, models) {
  * 1. Legacy `user` attribute (creator)
  * 2. Owner role in permissions array
  * 
- * @param {string} userId - User ID to check
+ * @param {string|Object} userId - User ID or User object to check
  * @param {Object} resource - Resource (experience/destination)
- * @returns {boolean} - True if user is owner
+ * @returns {boolean} - True if user is owner or super admin
  */
 function isOwner(userId, resource) {
-  const userIdStr = userId.toString();
+  // Check if user is super admin - they have full access
+  if (typeof userId === 'object' && isSuperAdmin(userId)) {
+    return true;
+  }
+  
+  const userIdStr = (typeof userId === 'object' ? userId._id : userId).toString();
   
   // Check legacy user attribute (backwards compatibility)
   if (resource.user) {
@@ -319,6 +369,46 @@ function isOwner(userId, resource) {
 }
 
 /**
+ * Check if user is a collaborator on a resource
+ * Collaborators can edit content but cannot manage permissions or delete
+ * 
+ * @param {string|Object} userId - User ID or User object to check
+ * @param {Object} resource - Resource (experience/destination)
+ * @param {Object} models - Object containing Destination and Experience models for inheritance
+ * @returns {Promise<boolean>} - True if user is collaborator or super admin
+ */
+async function isCollaborator(userId, resource, models) {
+  // Check if user is super admin - they have full access including collaborator permissions
+  if (typeof userId === 'object' && userId.isSuperAdmin) {
+    return true;
+  }
+  
+  const userIdStr = (typeof userId === 'object' ? userId._id : userId).toString();
+  
+  // Check direct permissions for collaborator role
+  if (resource.permissions && Array.isArray(resource.permissions)) {
+    const collaboratorPermission = resource.permissions.find(p => 
+      p.entity === ENTITY_TYPES.USER && 
+      p.type === ROLES.COLLABORATOR &&
+      p._id.toString() === userIdStr
+    );
+    
+    if (collaboratorPermission) {
+      return true;
+    }
+  }
+  
+  // Check inherited permissions
+  if (models) {
+    const permissions = await resolvePermissionsWithInheritance(resource, models);
+    const userRole = permissions.get(userIdStr);
+    return userRole === ROLES.COLLABORATOR;
+  }
+  
+  return false;
+}
+
+/**
  * Get all users with permissions for a resource
  * @param {Object} resource - Resource (experience/destination)
  * @param {Object} models - Object containing Destination and Experience models
@@ -334,7 +424,7 @@ async function getAllPermissions(resource, models) {
 }
 
 /**
- * Add a permission to a resource
+ * Add a permission to a resource (atomic operation)
  * @param {Object} resource - Resource to add permission to
  * @param {Object} permission - Permission object to add
  * @returns {Object} - { success: boolean, error: string|null }
@@ -346,27 +436,39 @@ function addPermission(resource, permission) {
     return { success: false, error: validation.error };
   }
 
+  // Check for duplicate using atomic operation
+  const existingIndex = resource.permissions?.findIndex(p => 
+    p._id.toString() === permission._id.toString() && 
+    p.entity === permission.entity
+  );
+
+  if (existingIndex !== -1) {
+    return { success: false, error: 'Permission already exists' };
+  }
+
   // Initialize permissions array if it doesn't exist
   if (!resource.permissions) {
     resource.permissions = [];
   }
 
-  // Check for duplicate
-  const exists = resource.permissions.some(p => 
-    p._id.toString() === permission._id.toString() && 
-    p.entity === permission.entity
-  );
-
-  if (exists) {
-    return { success: false, error: 'Permission already exists' };
-  }
-
   resource.permissions.push(permission);
+  
+  // Audit logging for permission addition
+  backendLogger.info('Permission added', {
+    audit: true,
+    action: 'permission_added',
+    userId: permission._id,
+    permissionType: permission.type || 'entity',
+    entity: permission.entity,
+    resourceType: resource.constructor.modelName,
+    resourceId: resource._id
+  });
+  
   return { success: true, error: null };
 }
 
 /**
- * Remove a permission from a resource
+ * Remove a permission from a resource (atomic operation)
  * @param {Object} resource - Resource to remove permission from
  * @param {string} entityId - ID of the entity to remove
  * @param {string} entityType - Type of entity (user/destination/experience)
@@ -387,6 +489,18 @@ function removePermission(resource, entityId, entityType) {
   }
 
   const removed = resource.permissions.splice(index, 1)[0];
+  
+  // Audit logging for permission removal
+  backendLogger.info('Permission removed', {
+    audit: true,
+    action: 'permission_removed',
+    userId: removed._id,
+    permissionType: removed.type || 'entity',
+    entity: removed.entity,
+    resourceType: resource.constructor.modelName,
+    resourceId: resource._id
+  });
+  
   return { success: true, error: null, removed };
 }
 
@@ -418,7 +532,20 @@ function updatePermissionType(resource, userId, newType) {
     return { success: false, error: 'Permission not found' };
   }
 
+  const oldType = permission.type;
   permission.type = newType;
+  
+  // Audit logging for permission type update
+  backendLogger.info('Permission updated', {
+    audit: true,
+    action: 'permission_updated',
+    userId,
+    oldType,
+    newType,
+    resourceType: resource.constructor.modelName,
+    resourceId: resource._id
+  });
+  
   return { success: true, error: null };
 }
 
@@ -474,7 +601,11 @@ async function wouldCreateCircularDependency(resource, targetId, targetEntity, m
               queue.push({ resource: nextResource, depth: depth + 1 });
             }
           } catch (err) {
-            console.error(`Error checking circular dependency for ${permission.entity} ${permission._id}:`, err);
+            backendLogger.error('Error checking circular dependency', { 
+              error: err.message, 
+              permissionEntity: permission.entity, 
+              permissionId: permission._id 
+            });
           }
         }
       }
@@ -516,6 +647,7 @@ module.exports = {
   hasRole,
   canEdit,
   isOwner,
+  isCollaborator,
   getAllPermissions,
   addPermission,
   removePermission,

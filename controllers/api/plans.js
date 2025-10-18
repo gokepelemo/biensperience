@@ -61,7 +61,10 @@ const createPlan = asyncHandler(async (req, res) => {
   });
 
   // Add user as contributor to experience if not already owner/collaborator
-  if (!permissions.isOwner(req.user._id, experience) && !permissions.hasDirectPermission(experience, req.user._id, 'collaborator')) {
+  const isOwner = permissions.isOwner(req.user, experience);
+  const isCollaborator = await permissions.isCollaborator(req.user._id, experience, { Experience, Destination });
+  
+  if (!isOwner && !isCollaborator) {
     // Check if already a contributor
     const isContributor = experience.permissions.some(
       p => p.entity === 'user' && p._id.toString() === req.user._id.toString() && p.type === 'contributor'
@@ -144,7 +147,7 @@ const getPlanById = asyncHandler(async (req, res) => {
   }
 
   // Check if user has permission to view (owner, collaborator, or contributor)
-  const canView = permissions.isOwner(req.user._id, plan) || 
+  const canView = permissions.isOwner(req.user, plan) || 
                   permissions.hasDirectPermission(plan, req.user._id, 'collaborator') ||
                   permissions.hasDirectPermission(plan, req.user._id, 'contributor');
   
@@ -306,7 +309,7 @@ const updatePlan = asyncHandler(async (req, res) => {
   }
 
   // Check permissions - must be owner or collaborator
-  const canEdit = permissions.isOwner(req.user._id, plan) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
+  const canEdit = permissions.isOwner(req.user, plan) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
   if (!canEdit) {
     return res.status(403).json({ error: "Insufficient permissions to edit this plan" });
   }
@@ -379,7 +382,7 @@ const deletePlan = asyncHandler(async (req, res) => {
   }
 
   // Only owner can delete
-  if (!permissions.isOwner(req.user._id, plan)) {
+  if (!permissions.isOwner(req.user, plan)) {
     return res.status(403).json({ error: "Only the plan owner can delete it" });
   }
 
@@ -403,7 +406,7 @@ const deletePlan = asyncHandler(async (req, res) => {
       if (experience) {
         // Check if user is NOT owner or collaborator
         const isOwnerOrCollaborator = 
-          permissions.isOwner(req.user._id, experience) || 
+          permissions.isOwner(req.user, experience) || 
           permissions.hasDirectPermission(experience, req.user._id, 'collaborator');
         
         if (!isOwnerOrCollaborator) {
@@ -450,7 +453,7 @@ const addCollaborator = asyncHandler(async (req, res) => {
   }
 
   // Only owner can add collaborators
-  if (!permissions.isOwner(req.user._id, plan)) {
+  if (!permissions.isOwner(req.user, plan)) {
     return res.status(403).json({ error: "Only the plan owner can add collaborators" });
   }
 
@@ -504,7 +507,7 @@ const removeCollaborator = asyncHandler(async (req, res) => {
   }
 
   // Only owner can remove collaborators
-  if (!permissions.isOwner(req.user._id, plan)) {
+  if (!permissions.isOwner(req.user, plan)) {
     return res.status(403).json({ error: "Only the plan owner can remove collaborators" });
   }
 
@@ -535,7 +538,7 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   }
 
   // Check permissions - must be owner or collaborator
-  const canEdit = permissions.isOwner(req.user._id, plan) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
+  const canEdit = permissions.isOwner(req.user, plan) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
   if (!canEdit) {
     return res.status(403).json({ error: "Insufficient permissions to edit this plan" });
   }
@@ -574,7 +577,7 @@ const getCollaborators = asyncHandler(async (req, res) => {
   }
 
   // Check if user has permission to view (owner, collaborator, or contributor)
-  const canView = permissions.isOwner(req.user._id, plan) || 
+  const canView = permissions.isOwner(req.user, plan) || 
                   permissions.hasDirectPermission(plan, req.user._id, 'collaborator') ||
                   permissions.hasDirectPermission(plan, req.user._id, 'contributor');
   
@@ -618,7 +621,7 @@ const addPlanItem = asyncHandler(async (req, res) => {
   }
 
   // Check permissions - must be owner or collaborator
-  const canEdit = permissions.isOwner(req.user._id, plan) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
+  const canEdit = permissions.isOwner(req.user, plan) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
   if (!canEdit) {
     return res.status(403).json({ error: "Insufficient permissions to edit this plan" });
   }
@@ -660,7 +663,7 @@ const deletePlanItem = asyncHandler(async (req, res) => {
   }
 
   // Check permissions - must be owner or collaborator
-  const canEdit = permissions.isOwner(req.user._id, plan) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
+  const canEdit = permissions.isOwner(req.user, plan) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
   if (!canEdit) {
     return res.status(403).json({ error: "Insufficient permissions to edit this plan" });
   }

@@ -4,8 +4,10 @@ import { useState, useCallback, useMemo, memo, useEffect } from "react";
 import { lang } from "../../lang.constants";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import { deleteExperience } from "../../utilities/experiences-api";
-import { createPlan, deletePlan, checkUserPlanForExperience } from "../../utilities/plans-api";
+import { getUserPlans, checkUserPlanForExperience, createPlan, deletePlan } from "../../utilities/plans-api";
 import { handleError } from "../../utilities/error-handler";
+import { isSuperAdmin } from "../../utilities/permissions";
+import { logger } from "../../utilities/logger";
 
 function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
@@ -13,7 +15,7 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   
-  // Initialize local plan state based on userPlans if available
+  // Initialize local plan state based on userPlans if available, or sessionStorage
   const [localPlanState, setLocalPlanState] = useState(() => {
     if (userPlans.length > 0) {
       return userPlans.some(plan => 
@@ -21,10 +23,29 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
         plan.experience === experience._id
       );
     }
-    return null; // null means we don't know yet, need to check with API
+    try {
+      const cached = sessionStorage.getItem(`plan_${experience._id}`);
+      return cached ? JSON.parse(cached) : null;
+    } catch (err) {
+      return null;
+    }
   });
 
-  const isOwner = experience?.user && experience.user._id === user?._id;
+  // Custom setter that also updates sessionStorage
+  const setLocalPlanStateWithCache = useCallback((value) => {
+    setLocalPlanState(value);
+    try {
+      if (value !== null) {
+        sessionStorage.setItem(`plan_${experience._id}`, JSON.stringify(value));
+      } else {
+        sessionStorage.removeItem(`plan_${experience._id}`);
+      }
+    } catch (err) {
+      // Silently fail if sessionStorage is not available
+    }
+  }, [experience._id]);
+
+  const isOwner = (experience?.user && experience.user._id === user?._id) || isSuperAdmin(user);
 
   // Check if user has a plan for this experience
   // Use local state if available, otherwise check userPlans prop
@@ -39,6 +60,17 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
     // Otherwise check userPlans prop (fallback)
     return userPlans.some(plan => plan.experience?._id === experience._id || plan.experience === experience._id);
   }, [experience?._id, user?._id, userPlans, localPlanState]);
+
+  // Sync localPlanState with userPlans when it changes
+  useEffect(() => {
+    if (userPlans.length > 0) {
+      const hasPlan = userPlans.some(plan => 
+        plan.experience?._id === experience._id || 
+        plan.experience === experience._id
+      );
+      setLocalPlanStateWithCache(hasPlan);
+    }
+  }, [userPlans, experience._id, setLocalPlanStateWithCache]);
 
   // Fetch plan status when component mounts if userPlans is empty
   // OPTIMIZATION: Use lightweight checkUserPlanForExperience instead of getUserPlans
@@ -58,13 +90,16 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
         // OPTIMIZATION: Use lightweight endpoint - only returns plan ID, not full data
         const result = await checkUserPlanForExperience(experience._id);
         if (isMounted) {
-          setLocalPlanState(result.hasPlan);
+          setLocalPlanStateWithCache(result.hasPlan);
         }
       } catch (err) {
         // Silently fail - button will default to "add" state
-        console.warn('Failed to check plan status:', err);
+        logger.warn('Failed to check plan status', {
+          experienceId: experience._id,
+          error: err.message
+        }, err);
         if (isMounted) {
-          setLocalPlanState(false);
+          setLocalPlanStateWithCache(false);
         }
       }
     };
@@ -74,7 +109,7 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
     return () => {
       isMounted = false;
     };
-  }, [user?._id, experience?._id, userPlans.length, localPlanState]);
+  }, [user?._id, experience?._id, userPlans.length, localPlanState, setLocalPlanStateWithCache]);
 
   // Get the default photo for background
   const getBackgroundImage = useMemo(() => {
@@ -103,7 +138,7 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
     const isRemoving = experienceAdded;
     
     // OPTIMISTIC UI UPDATE: Update state immediately for instant feedback
-    setLocalPlanState(!isRemoving);
+    setLocalPlanStateWithCache(!isRemoving);
     setIsLoading(true);
 
     try {
@@ -155,11 +190,11 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
     } catch (err) {
       handleError(err, { context: isRemoving ? 'Remove plan' : 'Create plan' });
       // REVERT on error: Restore previous state
-      setLocalPlanState(isRemoving);
+      setLocalPlanStateWithCache(isRemoving);
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, experienceAdded, experience._id, updateData, userPlans]);
+  }, [isLoading, experienceAdded, experience._id, updateData, userPlans, setLocalPlanStateWithCache]);
 
   const handleDelete = useCallback(async () => {
     try {

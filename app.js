@@ -13,6 +13,7 @@ const logger = require("morgan");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const session = require("express-session");
+const backendLogger = require("./utilities/backend-logger");
 const cookieParser = require("cookie-parser");
 const { doubleCsrf } = require("csrf-csrf");
 
@@ -100,9 +101,9 @@ const {
  */
 if (typeof generateCsrfToken === 'function') {
   app.set('csrfTokenGenerator', generateCsrfToken);
-  console.log('CSRF token generator registered successfully');
+  backendLogger.info('CSRF token generator registered successfully');
 } else {
-  console.error('ERROR: generateCsrfToken is not a function:', typeof generateCsrfToken);
+  backendLogger.error('ERROR: generateCsrfToken is not a function', { type: typeof generateCsrfToken });
 }
 
 /**
@@ -145,6 +146,10 @@ try {
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// API logging middleware (async, non-blocking)
+const apiLogger = require('./utilities/api-logger-middleware');
+app.use('/api', apiLogger);
 
 // Passport configuration for OAuth
 const { passport } = require('./config/passport');

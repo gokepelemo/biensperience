@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Photo = require("../../models/photo");
 const { s3Upload, s3Delete } = require("../../uploads/aws-s3-upload");
 const { isOwner } = require("../../utilities/permissions");
+const backendLogger = require("../../utilities/backend-logger");
 const fs = require("fs");
 const path = require("path");
 
@@ -49,11 +50,11 @@ async function createPhoto(req, res) {
         res.status(201).json({ upload: upload.toObject() });
       })
       .catch((error) => {
-        console.error("Photo upload error:", error);
+        backendLogger.error("Photo upload error", { error: error.message, userId: req.user._id });
         res.status(500).json({ error: 'Failed to upload photo' });
       });
   } catch (err) {
-    console.error("Photo creation error:", err);
+    backendLogger.error("Photo creation error", { error: err.message, userId: req.user._id });
     res.status(400).json({ error: 'Failed to create photo' });
   }
 }
@@ -78,7 +79,7 @@ async function updatePhoto(req, res) {
     await photo.save();
     return res.status(200).json(photo);
   } catch (err) {
-    console.error('Update photo error:', err);
+    backendLogger.error('Update photo error', { error: err.message, userId: req.user._id, photoId: req.params.id });
     res.status(400).json({ error: 'Failed to update photo' });
   }
 }
@@ -111,13 +112,13 @@ async function deletePhoto(req, res) {
             await s3Delete(photo.url);
             // Photo deleted from S3 successfully
           } catch (s3Error) {
-            console.error('Failed to delete from S3:', s3Error);
+            backendLogger.error('Failed to delete from S3', { error: s3Error.message, userId: req.user._id, photoId: req.params.id, photoUrl: photo.url });
             // Continue with database deletion even if S3 deletion fails
           }
         }
       } catch (urlError) {
         // Invalid URL format - skip S3 deletion, continue with database deletion
-        console.error('Invalid URL format:', urlError);
+        backendLogger.error('Invalid URL format', { error: urlError.message, userId: req.user._id, photoId: req.params.id, photoUrl: photo.url });
       }
     }
 
@@ -135,7 +136,7 @@ async function deletePhoto(req, res) {
           // Local file deleted successfully
         }
       } catch (fsError) {
-        console.error('Failed to delete local file:', fsError);
+        backendLogger.error('Failed to delete local file', { error: fsError.message, userId: req.user._id, photoId: req.params.id, filename: photo.s3_key || path.basename(new URL(photo.url).pathname) });
         // Continue with database deletion even if file deletion fails
       }
     }
@@ -146,7 +147,7 @@ async function deletePhoto(req, res) {
     
     return res.status(200).json({ message: 'Photo deleted successfully' });
   } catch (err) {
-    console.error('Delete photo error:', err);
+    backendLogger.error('Delete photo error', { error: err.message, userId: req.user._id, photoId: req.params.id });
     res.status(400).json({ error: 'Failed to delete photo' });
   }
 }
@@ -174,7 +175,7 @@ async function createPhotoFromUrl(req, res) {
 
     res.status(201).json({ upload: photo.toObject() });
   } catch (err) {
-    console.error("Photo URL creation error:", err);
+    backendLogger.error("Photo URL creation error", { error: err.message, userId: req.user._id, url: req.body.url });
     res.status(400).json({ error: 'Failed to create photo from URL' });
   }
 }
@@ -216,7 +217,7 @@ async function createPhotoBatch(req, res) {
     
     res.status(201).json({ uploads: photoObjects });
   } catch (err) {
-    console.error("Batch photo upload error:", err);
+    backendLogger.error("Batch photo upload error", { error: err.message, userId: req.user._id, fileCount: req.files?.length });
     res.status(500).json({ error: 'Failed to upload photos' });
   }
 }
@@ -268,7 +269,7 @@ async function addCollaborator(req, res) {
     await photo.save();
     res.json({ message: 'Collaborator added successfully', photo });
   } catch (err) {
-    console.error('Add collaborator error:', err);
+    backendLogger.error('Add collaborator error', { error: err.message, userId: req.user._id, photoId: req.params.id, collaboratorId: req.params.userId });
     res.status(500).json({ error: 'Failed to add collaborator' });
   }
 }
@@ -312,7 +313,7 @@ async function removeCollaborator(req, res) {
 
     res.json({ message: 'Collaborator removed successfully', photo });
   } catch (err) {
-    console.error('Remove collaborator error:', err);
+    backendLogger.error('Remove collaborator error', { error: err.message, userId: req.user._id, photoId: req.params.id, collaboratorId: req.params.userId });
     res.status(500).json({ error: 'Failed to remove collaborator' });
   }
 }
@@ -364,7 +365,7 @@ async function addContributor(req, res) {
     await photo.save();
     res.json({ message: 'Contributor added successfully', photo });
   } catch (err) {
-    console.error('Add contributor error:', err);
+    backendLogger.error('Add contributor error', { error: err.message, userId: req.user._id, photoId: req.params.id, contributorId: req.params.userId });
     res.status(500).json({ error: 'Failed to add contributor' });
   }
 }
@@ -408,7 +409,7 @@ async function removeContributor(req, res) {
 
     res.json({ message: 'Contributor removed successfully', photo });
   } catch (err) {
-    console.error('Remove contributor error:', err);
+    backendLogger.error('Remove contributor error', { error: err.message, userId: req.user._id, photoId: req.params.id, contributorId: req.params.userId });
     res.status(500).json({ error: 'Failed to remove contributor' });
   }
 }

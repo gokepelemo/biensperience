@@ -1,4 +1,5 @@
 import { getToken } from "./users-service.js"
+import { logger } from "./logger.js"
 
 /**
  * Sends an HTTP request with optional authentication and JSON payload.
@@ -28,11 +29,21 @@ export async function sendRequest(url, method = "GET", payload = null) {
 
         // Log detailed error information for debugging
         const errorText = await res.text().catch(() => 'Unable to read error response');
-        console.error(`HTTP ${res.status} ${res.statusText}:`, errorText);
+        logger.error(`HTTP ${res.status} ${res.statusText}`, {
+            url,
+            method,
+            status: res.status,
+            statusText: res.statusText,
+            errorText
+        });
         throw new Error(`Request failed: ${res.status} ${res.statusText}`);
     } catch (error) {
         // Handle network errors, CORS issues, etc.
-        console.error('Network request failed:', error);
+        logger.error('Network request failed', {
+            url,
+            method,
+            error: error.message
+        }, error);
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
             throw new Error('Network error. Please check your connection and try again.');
         }
@@ -67,11 +78,21 @@ export async function uploadFile(url, method = "POST", payload = null) {
 
         // Log detailed error information for debugging
         const errorText = await res.text().catch(() => 'Unable to read error response');
-        console.error(`Upload failed with HTTP ${res.status} ${res.statusText}:`, errorText);
+        logger.error(`File upload failed with HTTP ${res.status} ${res.statusText}`, {
+            url,
+            method,
+            status: res.status,
+            statusText: res.statusText,
+            errorText
+        });
         throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
     } catch (error) {
         // Handle network errors, CORS issues, etc.
-        console.error('File upload failed:', error);
+        logger.error('File upload failed', {
+            url,
+            method,
+            error: error.message
+        }, error);
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
             throw new Error('Network error during upload. Please check your connection and try again.');
         }

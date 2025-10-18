@@ -2,6 +2,9 @@ const User = require("../../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
+const { USER_ROLES } = require("../../utilities/user-roles");
+const { isSuperAdmin } = require("../../utilities/permissions");
+const backendLogger = require("../../utilities/backend-logger");
 
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
@@ -38,7 +41,7 @@ async function create(req, res) {
     const token = createJWT(user);
     res.status(201).json(token);
   } catch (err) {
-    console.error('Error creating user:', err);
+    backendLogger.error('Error creating user', { error: err.message, email: req.body.email, name: req.body.name });
     // Check for duplicate email error
     if (err.code === 11000) {
       return res.status(409).json({ error: 'Email already exists' });
@@ -81,7 +84,7 @@ async function login(req, res) {
     const token = createJWT(user);
     res.status(200).json(token);
   } catch (err) {
-    console.error('Error logging in user:', err);
+    backendLogger.error('Error logging in user', { error: err.message, email: req.body.email });
     res.status(400).json({ error: 'Failed to login' });
   }
 }
@@ -107,7 +110,7 @@ async function getUser(req, res) {
     
     res.status(200).json(user);
   } catch (err) {
-    console.error('Error fetching user:', err);
+    backendLogger.error('Error fetching user', { error: err.message, userId: req.params.id });
     res.status(400).json({ error: 'Failed to fetch user' });
   }
 }
@@ -212,7 +215,7 @@ async function updateUser(req, res, next) {
     user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true }).populate("photo");
     res.status(200).json(user);
   } catch (err) {
-    console.error('Error updating user:', err);
+    backendLogger.error('Error updating user', { error: err.message, userId: req.params.id });
     res.status(400).json({ error: 'Failed to update user' });
   }
 }
@@ -250,7 +253,7 @@ async function addPhoto(req, res) {
 
     res.status(201).json(user);
   } catch (err) {
-    console.error('Error adding photo to user:', err);
+    backendLogger.error('Error adding photo to user', { error: err.message, userId: req.params.id, url: req.body.url });
     res.status(400).json({ error: 'Failed to add photo' });
   }
 }
@@ -289,7 +292,7 @@ async function removePhoto(req, res) {
 
     res.status(200).json(user);
   } catch (err) {
-    console.error('Error removing photo from user:', err);
+    backendLogger.error('Error removing photo from user', { error: err.message, userId: req.params.id, photoIndex: req.params.photoIndex });
     res.status(400).json({ error: 'Failed to remove photo' });
   }
 }
@@ -321,7 +324,7 @@ async function setDefaultPhoto(req, res) {
 
     res.status(200).json(user);
   } catch (err) {
-    console.error('Error setting default photo:', err);
+    backendLogger.error('Error setting default photo', { error: err.message, userId: req.params.id, photoIndex: req.body.photoIndex });
     res.status(400).json({ error: 'Failed to set default photo' });
   }
 }
@@ -350,8 +353,64 @@ async function searchUsers(req, res) {
 
     res.json(users);
   } catch (err) {
-    console.error('Error searching users:', err);
+    backendLogger.error('Error searching users', { error: err.message, query: req.query.q });
     res.status(500).json({ error: 'Failed to search users' });
+  }
+}
+
+async function getAllUsers(req, res) {
+  try {
+    // Only super admins can get all users
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({ error: 'Only super admins can view all users' });
+    }
+
+    const users = await User.find({})
+      .select('name email role isSuperAdmin createdAt')
+      .sort({ createdAt: -1 });
+
+    res.json(users);
+  } catch (err) {
+    backendLogger.error('Error getting all users', { error: err.message, userId: req.user._id });
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+}
+
+async function updateUserRole(req, res) {
+  try {
+    // Only super admins can update user roles
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({ error: 'Only super admins can update user roles' });
+    }
+
+    const { id } = req.params;
+    const { role } = req.body;
+
+    // Validate role
+    if (!Object.values(USER_ROLES).includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    // Prevent super admin from removing their own super admin status
+    if (req.user._id.toString() === id && role !== USER_ROLES.SUPER_ADMIN) {
+      return res.status(400).json({ error: 'Cannot remove super admin status from yourself' });
+    }
+
+    // Find and update user
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update role and isSuperAdmin flag
+    user.role = role;
+    user.isSuperAdmin = role === USER_ROLES.SUPER_ADMIN;
+    await user.save();
+
+    res.json({ message: 'User role updated successfully', user: { _id: user._id, name: user.name, email: user.email, role: user.role, isSuperAdmin: user.isSuperAdmin } });
+  } catch (err) {
+    backendLogger.error('Error updating user role', { error: err.message, userId: req.user._id, targetUserId: req.params.id, newRole: req.body.role });
+    res.status(500).json({ error: 'Failed to update user role' });
   }
 }
 
@@ -365,4 +424,6 @@ module.exports = {
   removePhoto,
   setDefaultPhoto,
   searchUsers,
+  updateUserRole,
+  getAllUsers,
 };

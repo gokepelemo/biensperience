@@ -8,10 +8,13 @@
  * @module permission-enforcer
  */
 
+const backendLogger = require('./backend-logger');
 const {
   ROLES,
   ENTITY_TYPES,
   isOwner,
+  isCollaborator,
+  isSuperAdmin,
   resolvePermissionsWithInheritance
 } = require('./permissions');
 
@@ -102,7 +105,7 @@ class PermissionEnforcer {
         role: permissionInfo.role
       };
     } catch (error) {
-      console.error('Permission check error:', error);
+      backendLogger.error('Permission check error', { error: error.message, userId: userId, resourceId: resource._id, action });
       return {
         allowed: false,
         reason: 'Error checking permissions',
@@ -278,7 +281,7 @@ class PermissionEnforcer {
 
         next();
       } catch (error) {
-        console.error('Permission middleware error:', error);
+        backendLogger.error('Permission middleware error', { error: error.message, userId: req.user?._id, resourceType, resourceId });
         res.status(500).json({ error: 'Error checking permissions' });
       }
     };
@@ -292,6 +295,18 @@ class PermissionEnforcer {
    */
   async _getUserPermissions(userId, resource, context = {}) {
     const userIdStr = userId.toString();
+
+    // Check if user is super admin - they have full access to everything
+    if (this.models.User) {
+      try {
+        const user = await this.models.User.findById(userIdStr);
+        if (user && isSuperAdmin(user)) {
+          return { role: ROLES.OWNER, inherited: false, superAdmin: true };
+        }
+      } catch (error) {
+        backendLogger.error('Error checking super admin status', { error: error.message, userId: userIdStr });
+      }
+    }
 
     // Check if user is owner (highest priority)
     if (isOwner(userIdStr, resource)) {
@@ -323,7 +338,7 @@ class PermissionEnforcer {
           return { role: userRole, inherited: true };
         }
       } catch (error) {
-        console.error('Error resolving inherited permissions:', error);
+        backendLogger.error('Error resolving inherited permissions', { error: error.message, userId: userIdStr, resourceId: resource._id });
       }
     }
 

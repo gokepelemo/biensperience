@@ -4,6 +4,7 @@ const User = require("../../models/user");
 const Experience = require("../../models/experience");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 const permissions = require("../../utilities/permissions");
+const backendLogger = require("../../utilities/backend-logger");
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -15,7 +16,7 @@ async function index(req, res) {
     const destinations = await Destination.find({}).populate("photo");
     res.status(200).json(destinations);
   } catch (err) {
-    console.error('Error fetching destinations:', err);
+    backendLogger.error('Error fetching destinations', { error: err.message });
     res.status(400).json({ error: 'Failed to fetch destinations' });
   }
 }
@@ -80,7 +81,7 @@ async function createDestination(req, res) {
     const destination = await Destination.create(destinationData);
     res.json(destination);
   } catch (err) {
-    console.error('Error creating destination:', err);
+    backendLogger.error('Error creating destination', { error: err.message, userId: req.user._id, name: req.body.name, country: req.body.country });
     res.status(400).json({ error: 'Failed to create destination' });
   }
 }
@@ -92,7 +93,7 @@ async function showDestination(req, res) {
     );
     res.status(200).json(destination);
   } catch (err) {
-    console.error('Error fetching destination:', err);
+    backendLogger.error('Error fetching destination', { error: err.message, destinationId: req.params.id });
     res.status(400).json({ error: 'Failed to fetch destination' });
   }
 }
@@ -114,7 +115,7 @@ async function updateDestination(req, res) {
     
     // Check if user has permission to edit (owner or collaborator)
     const models = { Destination, Experience };
-    const hasEditPermission = await permissions.canEdit(req.user._id, destination, models);
+    const hasEditPermission = await permissions.canEdit(req.user, destination, models);
     
     if (!hasEditPermission) {
       return res.status(401).json({ error: 'Not authorized to update this destination. You must be the owner or a collaborator.' });
@@ -165,7 +166,7 @@ async function updateDestination(req, res) {
     await destination.save();
     res.status(200).json(destination);
   } catch (err) {
-    console.error('Error updating destination:', err);
+    backendLogger.error('Error updating destination', { error: err.message, userId: req.user._id, destinationId: req.params.id });
     res.status(400).json({ error: 'Failed to update destination' });
   }
 }
@@ -185,14 +186,19 @@ async function deleteDestination(req, res) {
       return res.status(404).json({ error: 'Destination not found' });
     }
     
-    if (req.user._id.toString() !== destination.user._id.toString()) {
+    // Check if user can delete (owner or super admin)
+    const models = { Destination, Experience };
+    const canDelete = await permissions.isOwner(req.user._id, destination, models) || 
+                      permissions.isSuperAdmin(req.user);
+    
+    if (!canDelete) {
       return res.status(401).json({ error: 'Not authorized to delete this destination' });
     }
     
     await destination.deleteOne();
     res.status(200).json({ message: 'Destination deleted successfully', destination });
   } catch (err) {
-    console.error('Error deleting destination:', err);
+    backendLogger.error('Error deleting destination', { error: err.message, userId: req.user._id, destinationId: req.params.id });
     res.status(400).json({ error: 'Failed to delete destination' });
   }
 }
@@ -222,12 +228,8 @@ async function toggleUserFavoriteDestination(req, res) {
     const idx = destination.users_favorite.findIndex(id => id.toString() === user._id.toString());
     const isOwner = permissions.isOwner(user._id, destination);
     
-    // Check if user is already a collaborator (direct permission check, no inheritance needed)
-    const isCollaborator = destination.permissions?.some(
-      p => p.entity === 'user' && 
-           p._id.toString() === user._id.toString() && 
-           p.type === 'collaborator'
-    );
+    // Check if user is already a collaborator (includes super admin check)
+    const isCollaborator = await permissions.isCollaborator(user._id, destination, { Destination, Experience });
     
     if (idx === -1) {
       // Adding to favorites
@@ -267,7 +269,7 @@ async function toggleUserFavoriteDestination(req, res) {
       res.status(200).json(destination);
     }
   } catch (err) {
-    console.error('Error toggling favorite destination:', err);
+    backendLogger.error('Error toggling favorite destination', { error: err.message, userId: req.user._id, destinationId: req.params.destinationId });
     res.status(400).json({ error: 'Failed to toggle favorite destination' });
   }
 }
@@ -301,7 +303,7 @@ async function addPhoto(req, res) {
 
     res.status(201).json(destination);
   } catch (err) {
-    console.error('Error adding photo to destination:', err);
+    backendLogger.error('Error adding photo to destination', { error: err.message, userId: req.user._id, destinationId: req.params.id, url: req.body.url });
     res.status(400).json({ error: 'Failed to add photo' });
   }
 }
@@ -336,7 +338,7 @@ async function removePhoto(req, res) {
 
     res.status(200).json(destination);
   } catch (err) {
-    console.error('Error removing photo from destination:', err);
+    backendLogger.error('Error removing photo from destination', { error: err.message, userId: req.user._id, destinationId: req.params.id, photoIndex: req.params.photoIndex });
     res.status(400).json({ error: 'Failed to remove photo' });
   }
 }
@@ -364,7 +366,7 @@ async function setDefaultPhoto(req, res) {
 
     res.status(200).json(destination);
   } catch (err) {
-    console.error('Error setting default photo:', err);
+    backendLogger.error('Error setting default photo', { error: err.message, userId: req.user._id, destinationId: req.params.id, photoIndex: req.params.photoIndex });
     res.status(400).json({ error: 'Failed to set default photo' });
   }
 }
@@ -391,7 +393,7 @@ async function addDestinationPermission(req, res) {
     }
 
     // Only owner can modify permissions
-    if (!permissions.isOwner(req.user._id, destination)) {
+    if (!permissions.isOwner(req.user, destination)) {
       return res.status(401).json({ error: 'Only the destination owner can manage permissions' });
     }
 
@@ -484,7 +486,7 @@ async function addDestinationPermission(req, res) {
     });
 
   } catch (err) {
-    console.error('Error adding destination permission:', err);
+    backendLogger.error('Error adding destination permission', { error: err.message, userId: req.user._id, destinationId: req.params.id, entityId: req.body.entityId, entityType: req.body.entityType, type: req.body.type });
     res.status(400).json({ error: 'Failed to add permission' });
   }
 }
@@ -512,7 +514,7 @@ async function removeDestinationPermission(req, res) {
     }
 
     // Only owner can modify permissions
-    if (!permissions.isOwner(req.user._id, destination)) {
+    if (!permissions.isOwner(req.user, destination)) {
       return res.status(401).json({ error: 'Only the destination owner can manage permissions' });
     }
 
@@ -540,7 +542,7 @@ async function removeDestinationPermission(req, res) {
     });
 
   } catch (err) {
-    console.error('Error removing destination permission:', err);
+    backendLogger.error('Error removing destination permission', { error: err.message, userId: req.user._id, destinationId: req.params.id, entityId: req.params.entityId, entityType: req.params.entityType });
     res.status(400).json({ error: 'Failed to remove permission' });
   }
 }
@@ -568,7 +570,7 @@ async function updateDestinationPermission(req, res) {
     }
 
     // Only owner can modify permissions
-    if (!permissions.isOwner(req.user._id, destination)) {
+    if (!permissions.isOwner(req.user, destination)) {
       return res.status(401).json({ error: 'Only the destination owner can manage permissions' });
     }
 
@@ -592,7 +594,7 @@ async function updateDestinationPermission(req, res) {
     });
 
   } catch (err) {
-    console.error('Error updating destination permission:', err);
+    backendLogger.error('Error updating destination permission', { error: err.message, userId: req.user._id, destinationId: req.params.id, userIdParam: req.params.userId, type: req.body.type });
     res.status(400).json({ error: 'Failed to update permission' });
   }
 }
@@ -628,7 +630,7 @@ async function getDestinationPermissions(req, res) {
     });
 
   } catch (err) {
-    console.error('Error getting destination permissions:', err);
+    backendLogger.error('Error getting destination permissions', { error: err.message, destinationId: req.params.id });
     res.status(400).json({ error: 'Failed to get permissions' });
   }
 }

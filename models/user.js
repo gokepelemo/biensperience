@@ -8,6 +8,7 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const bcrypt = require("bcrypt");
+const { USER_ROLES } = require("../utilities/user-roles");
 
 /**
  * Number of salt rounds for password hashing
@@ -154,7 +155,24 @@ const userSchema = new Schema(
      * Index of the default photo in photos array
      * @type {number}
      */
-    default_photo_index: { type: Number, default: 0 }
+    default_photo_index: { type: Number, default: 0 },
+
+    /**
+     * Super admin flag - grants full permissions across the entire site
+     * @type {boolean}
+     */
+    isSuperAdmin: { type: Boolean, default: false },
+
+    /**
+     * User role - enumeration of user types
+     * @type {string}
+     * @enum ['super_admin', 'regular_user']
+     */
+    role: {
+      type: String,
+      enum: Object.values(require("../utilities/user-roles").USER_ROLES),
+      default: require("../utilities/user-roles").USER_ROLES.REGULAR_USER
+    }
   },
   {
     timestamps: true,
@@ -168,6 +186,11 @@ const userSchema = new Schema(
 );
 
 userSchema.pre("save", async function (next) {
+  // Set role based on isSuperAdmin flag
+  if (this.isModified("isSuperAdmin")) {
+    this.role = this.isSuperAdmin ? USER_ROLES.SUPER_ADMIN : USER_ROLES.REGULAR_USER;
+  }
+
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, SALT_ROUNDS);
   return next();

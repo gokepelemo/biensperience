@@ -4,6 +4,7 @@ require("dotenv").config();
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const slugify = require("slugify");
 const path = require("path");
+const backendLogger = require("../utilities/backend-logger");
 
 // Create S3 client with v3 configuration
 const s3Client = new S3Client({
@@ -64,7 +65,7 @@ const s3Upload = function (file, originalName, newName) {
       console.log('S3 upload successful:', location);
       return data;
     } catch (err) {
-      console.error('S3 upload error:', err);
+      backendLogger.error('S3 upload error', { error: err.message, key, bucket: bucketName });
       throw err;
     }
   })();
@@ -118,7 +119,7 @@ const s3Delete = function (fileUrl) {
       console.log('S3 delete successful:', data);
       return data;
     } catch (err) {
-      console.error('S3 delete error:', err);
+      backendLogger.error('S3 delete error', { error: err.message, key: params.Key, bucket: params.Bucket });
       throw err;
     }
   })();

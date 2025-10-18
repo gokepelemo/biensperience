@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import "./NavBar.css"
 import * as usersService from "../../utilities/users-service.js";
 import { useEffect, useRef } from "react";
+import { isSuperAdmin } from "../../utilities/permissions";
 
 export default function NavBar({ user, setUser }) {
   const collapseRef = useRef(null);
@@ -218,6 +219,18 @@ export default function NavBar({ user, setUser }) {
                     Profile
                   </NavLink>
                 </li>
+                {isSuperAdmin(user) && (
+                  <li role="none">
+                    <NavLink
+                      to="/admin/users"
+                      className="dropdown-item"
+                      role="menuitem"
+                      aria-label="Admin panel - manage all users"
+                    >
+                      All Users
+                    </NavLink>
+                  </li>
+                )}
                 <li role="none">
                   <NavLink
                     to="/destinations/new"

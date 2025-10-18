@@ -5,6 +5,7 @@ const User = require('../../models/user');
 const Plan = require('../../models/plan');
 const permissions = require('../../utilities/permissions');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
+const backendLogger = require('../../utilities/backend-logger');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -20,7 +21,7 @@ async function index(req, res) {
       .exec();
     res.status(200).json(experiences);
   } catch (err) {
-    console.error('Error fetching experiences:', err);
+    backendLogger.error('Error fetching experiences', { error: err.message, userId: req.user?._id });
     res.status(400).json({ error: 'Failed to fetch experiences' });
   }
 }
@@ -72,7 +73,7 @@ async function createExperience(req, res) {
     let experience = await Experience.create(req.body);
     res.status(201).json(experience);
   } catch (err) {
-    console.error('Error creating experience:', err);
+    backendLogger.error('Error creating experience', { error: err.message, userId: req.user._id, name: req.body.name, destination: req.body.destination });
     res.status(400).json({ error: 'Failed to create experience' });
   }
 }
@@ -139,7 +140,7 @@ async function showExperience(req, res) {
     
     res.status(200).json(experience);
   } catch (err) {
-    console.error('Error fetching experience:', err);
+    backendLogger.error('Error fetching experience', { error: err.message, experienceId: req.params.id });
     res.status(400).json({ error: 'Failed to fetch experience' });
   }
 }
@@ -208,7 +209,7 @@ async function updateExperience(req, res) {
     await experience.save();
     res.status(200).json(experience);
   } catch (err) {
-    console.error('Error updating experience:', err);
+    backendLogger.error('Error updating experience', { error: err.message, userId: req.user._id, experienceId: experienceId });
     res.status(400).json({ error: 'Failed to update experience' });
   }
 }
@@ -275,7 +276,7 @@ async function deleteExperience(req, res) {
     await experience.deleteOne();
     res.status(200).json({ message: 'Experience deleted successfully' });
   } catch (err) {
-    console.error('Error deleting experience:', err);
+    backendLogger.error('Error deleting experience', { error: err.message, userId: req.user._id, experienceId: req.params.id });
     res.status(400).json({ error: 'Failed to delete experience' });
   }
 }
@@ -316,7 +317,7 @@ async function createPlanItem(req, res) {
     await experience.save();
     res.status(201).json(experience);
   } catch (err) {
-    console.error('Error creating plan item:', err);
+    backendLogger.error('Error creating plan item', { error: err.message, userId: req.user._id, experienceId: req.params.experienceId });
     res.status(400).json({ error: 'Failed to create plan item' });
   }
 }
@@ -365,7 +366,7 @@ async function updatePlanItem(req, res) {
     await experience.save();
     res.status(200).json(experience);
   } catch (err) {
-    console.error('Error updating plan item:', err);
+    backendLogger.error('Error updating plan item', { error: err.message, userId: req.user._id, experienceId: req.params.experienceId, planItemId: req.params.planItemId });
     res.status(400).json({ error: 'Failed to update plan item' });
   }
 }
@@ -412,7 +413,7 @@ async function deletePlanItem(req, res) {
     
     res.status(200).json(experience);
   } catch (err) {
-    console.error('Error deleting plan item:', err);
+    backendLogger.error('Error deleting plan item', { error: err.message, userId: req.user._id, experienceId: req.params.experienceId, planItemId: req.params.planItemId });
     res.status(400).json({ error: 'Failed to delete plan item' });
   }
 }
@@ -488,7 +489,7 @@ async function showUserExperiences(req, res) {
 
     res.status(200).json(experiences);
   } catch (err) {
-    console.error('Error fetching user experiences:', err);
+    backendLogger.error('Error fetching user experiences', { error: err.message, userId: req.params.userId });
     res.status(400).json({ error: 'Failed to fetch user experiences' });
   }
 }
@@ -507,7 +508,7 @@ async function showUserCreatedExperiences(req, res) {
       .exec();
     res.status(200).json(experiences);
   } catch (err) {
-    console.error('Error fetching user created experiences:', err);
+    backendLogger.error('Error fetching user created experiences', { error: err.message, userId: req.params.userId });
     res.status(400).json({ error: 'Failed to fetch user created experiences' });
   }
 }
@@ -560,7 +561,7 @@ async function getTagName(req, res) {
     // If no match found, return the slug as fallback
     res.status(404).json({ error: 'Tag not found', tagName: tagSlug });
   } catch (err) {
-    console.error('Error finding tag by slug:', err);
+    backendLogger.error('Error finding tag by slug', { error: err.message, tagSlug: req.params.tagSlug });
     res.status(400).json({ error: 'Failed to find tag' });
   }
 }
@@ -594,7 +595,7 @@ async function addPhoto(req, res) {
 
     res.status(201).json(experience);
   } catch (err) {
-    console.error('Error adding photo to experience:', err);
+    backendLogger.error('Error adding photo to experience', { error: err.message, userId: req.user._id, experienceId: req.params.id, url: req.body.url });
     res.status(400).json({ error: 'Failed to add photo' });
   }
 }
@@ -629,7 +630,7 @@ async function removePhoto(req, res) {
 
     res.status(200).json(experience);
   } catch (err) {
-    console.error('Error removing photo from experience:', err);
+    backendLogger.error('Error removing photo from experience', { error: err.message, userId: req.user._id, experienceId: req.params.id, photoIndex: req.params.photoIndex });
     res.status(400).json({ error: 'Failed to remove photo' });
   }
 }
@@ -657,7 +658,7 @@ async function setDefaultPhoto(req, res) {
 
     res.status(200).json(experience);
   } catch (err) {
-    console.error('Error setting default photo:', err);
+    backendLogger.error('Error setting default photo', { error: err.message, userId: req.user._id, experienceId: req.params.id, photoIndex: req.body.photoIndex });
     res.status(400).json({ error: 'Failed to set default photo' });
   }
 }
@@ -684,7 +685,7 @@ async function addExperiencePermission(req, res) {
     }
 
     // Only owner can modify permissions
-    if (!permissions.isOwner(req.user._id, experience)) {
+    if (!permissions.isOwner(req.user, experience)) {
       return res.status(401).json({ error: 'Only the experience owner can manage permissions' });
     }
 
@@ -777,7 +778,7 @@ async function addExperiencePermission(req, res) {
     });
 
   } catch (err) {
-    console.error('Error adding experience permission:', err);
+    backendLogger.error('Error adding experience permission', { error: err.message, userId: req.user._id, experienceId: req.params.id, entityId: req.body.entityId, entityType: req.body.entityType, type: req.body.type });
     res.status(400).json({ error: 'Failed to add permission' });
   }
 }
@@ -805,7 +806,7 @@ async function removeExperiencePermission(req, res) {
     }
 
     // Only owner can modify permissions
-    if (!permissions.isOwner(req.user._id, experience)) {
+    if (!permissions.isOwner(req.user, experience)) {
       return res.status(401).json({ error: 'Only the experience owner can manage permissions' });
     }
 
@@ -833,7 +834,7 @@ async function removeExperiencePermission(req, res) {
     });
 
   } catch (err) {
-    console.error('Error removing experience permission:', err);
+    backendLogger.error('Error removing experience permission', { error: err.message, userId: req.user._id, experienceId: req.params.id, entityId: req.params.entityId, entityType: req.params.entityType });
     res.status(400).json({ error: 'Failed to remove permission' });
   }
 }
@@ -861,7 +862,7 @@ async function updateExperiencePermission(req, res) {
     }
 
     // Only owner can modify permissions
-    if (!permissions.isOwner(req.user._id, experience)) {
+    if (!permissions.isOwner(req.user, experience)) {
       return res.status(401).json({ error: 'Only the experience owner can manage permissions' });
     }
 
@@ -885,7 +886,7 @@ async function updateExperiencePermission(req, res) {
     });
 
   } catch (err) {
-    console.error('Error updating experience permission:', err);
+    backendLogger.error('Error updating experience permission', { error: err.message, userId: req.user._id, experienceId: req.params.id, userIdParam: req.params.userId, type: req.body.type });
     res.status(400).json({ error: 'Failed to update permission' });
   }
 }
@@ -921,7 +922,7 @@ async function getExperiencePermissions(req, res) {
     });
 
   } catch (err) {
-    console.error('Error getting experience permissions:', err);
+    backendLogger.error('Error getting experience permissions', { error: err.message, experienceId: req.params.id });
     res.status(400).json({ error: 'Failed to get permissions' });
   }
 }
@@ -1037,8 +1038,10 @@ async function transferOwnership(req, res) {
       }
     });
 
+    });
+
   } catch (err) {
-    console.error('Error transferring ownership:', err);
+    backendLogger.error('Error transferring ownership', { error: err.message, userId: req.user._id, experienceId: req.params.experienceId, newOwnerId: req.body.newOwnerId });
     res.status(400).json({ error: 'Failed to transfer ownership' });
   }
 }

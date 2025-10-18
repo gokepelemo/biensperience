@@ -9,6 +9,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const TwitterStrategy = require('passport-twitter-oauth2').Strategy;
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
+const backendLogger = require('../utilities/backend-logger');
 
 /**
  * Serialize user for session
@@ -326,8 +327,7 @@ if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
       return done(null, newUser);
       
     } catch (err) {
-      console.error('[Twitter Strategy] Error:', err.message);
-      console.error('[Twitter Strategy] Stack:', err.stack);
+      backendLogger.error('[Twitter Strategy] Error', { error: err.message, stack: err.stack, profileId: profile.id });
       return done(err, null);
     }
   }));

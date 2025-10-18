@@ -30,6 +30,7 @@ yarn-error.log*
 /.claude
 CLAUDE.md
 .github/
+AGENTS.md
 
 # Data files
 addData.js

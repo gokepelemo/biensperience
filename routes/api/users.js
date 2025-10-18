@@ -16,4 +16,8 @@ router.post('/:id/photos', ensureLoggedIn, modificationLimiter, usersCtrl.addPho
 router.delete('/:id/photos/:photoIndex', ensureLoggedIn, modificationLimiter, usersCtrl.removePhoto);
 router.put('/:id/photos/default', ensureLoggedIn, modificationLimiter, usersCtrl.setDefaultPhoto);
 
+// Role management routes (super admin only)
+router.put('/:id/role', ensureLoggedIn, modificationLimiter, usersCtrl.updateUserRole);
+router.get('/all', ensureLoggedIn, usersCtrl.getAllUsers);
+
 module.exports = router;

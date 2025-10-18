@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { passport, createToken } = require('../../config/passport');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
+const backendLogger = require('../../utilities/backend-logger');
 
 /**
  * CSRF Token Endpoint
@@ -19,7 +20,7 @@ router.get('/csrf-token', (req, res) => {
     const csrfToken = generateToken(req, res);
     res.json({ csrfToken });
   } catch (err) {
-    console.error('CSRF token generation error:', err);
+    backendLogger.error('CSRF token generation error', { error: err.message });
     res.status(500).json({ error: 'Failed to generate CSRF token' });
   }
 });
@@ -49,7 +50,7 @@ router.get('/facebook/callback',
     const sessionState = req.session.oauthState;
     
     if (!state || !sessionState || state !== sessionState) {
-      console.error('OAuth state mismatch - potential CSRF attack');
+      backendLogger.error('OAuth state mismatch - potential CSRF attack', { state, sessionState, provider: 'facebook' });
       return res.redirect('/login?error=oauth_csrf_failed');
     }
     
@@ -69,7 +70,7 @@ router.get('/facebook/callback',
       // Redirect to frontend with token
       res.redirect(`/?token=${token}&oauth=facebook`);
     } catch (err) {
-      console.error('Facebook OAuth callback error:', err);
+      backendLogger.error('Facebook OAuth callback error', { error: err.message, userId: req.user?._id });
       res.redirect('/login?error=facebook_token_failed');
     }
   }
@@ -100,7 +101,7 @@ router.get('/google/callback',
     const sessionState = req.session.oauthState;
     
     if (!state || !sessionState || state !== sessionState) {
-      console.error('OAuth state mismatch - potential CSRF attack');
+      backendLogger.error('OAuth state mismatch - potential CSRF attack', { state, sessionState, provider: 'google' });
       return res.redirect('/login?error=oauth_csrf_failed');
     }
     
@@ -120,7 +121,7 @@ router.get('/google/callback',
       // Redirect to frontend with token
       res.redirect(`/?token=${token}&oauth=google`);
     } catch (err) {
-      console.error('Google OAuth callback error:', err);
+      backendLogger.error('Google OAuth callback error', { error: err.message, userId: req.user?._id });
       res.redirect('/login?error=google_token_failed');
     }
   }
@@ -136,7 +137,7 @@ router.get('/twitter', (req, res, next) => {
   const generateToken = req.app.get('csrfTokenGenerator');
   
   if (!generateToken || typeof generateToken !== 'function') {
-    console.error('CSRF token generator not found or not a function:', typeof generateToken);
+    backendLogger.error('CSRF token generator not found or not a function', { type: typeof generateToken });
     return res.status(500).json({ 
       error: 'Server configuration error',
       message: 'CSRF token generator is not available' 
@@ -186,7 +187,7 @@ router.get('/twitter/callback',
       // Redirect to frontend with token
       res.redirect(`/?token=${token}&oauth=twitter`);
     } catch (err) {
-      console.error('[Twitter OAuth] Callback error:', err);
+      backendLogger.error('[Twitter OAuth] Callback error', { error: err.message, userId: req.user?._id });
       res.redirect('/login?error=twitter_token_failed');
     }
   }
@@ -216,7 +217,7 @@ router.get('/link/facebook/callback', ensureLoggedIn,
     const sessionState = req.session.oauthState;
     
     if (!state || !sessionState || state !== sessionState) {
-      console.error('OAuth state mismatch - potential CSRF attack');
+      backendLogger.error('OAuth state mismatch - potential CSRF attack', { state, sessionState, provider: 'facebook-link' });
       return res.redirect('/profile/settings?error=oauth_csrf_failed');
     }
     
@@ -253,7 +254,7 @@ router.get('/link/google/callback', ensureLoggedIn,
     const sessionState = req.session.oauthState;
     
     if (!state || !sessionState || state !== sessionState) {
-      console.error('OAuth state mismatch - potential CSRF attack');
+      backendLogger.error('OAuth state mismatch - potential CSRF attack', { state, sessionState, provider: 'google-link' });
       return res.redirect('/profile/settings?error=oauth_csrf_failed');
     }
     
@@ -343,7 +344,7 @@ router.delete('/unlink/:provider', ensureLoggedIn, async (req, res) => {
     });
     
   } catch (err) {
-    console.error('Unlink account error:', err);
+    backendLogger.error('Unlink account error', { error: err.message, userId: req.user._id, provider });
     res.status(500).json({ error: 'Failed to unlink account' });
   }
 });
@@ -371,7 +372,7 @@ router.get('/linked-accounts', ensureLoggedIn, async (req, res) => {
     res.json(linkedAccounts);
     
   } catch (err) {
-    console.error('Get linked accounts error:', err);
+    backendLogger.error('Get linked accounts error', { error: err.message, userId: req.user._id });
     res.status(500).json({ error: 'Failed to get linked accounts' });
   }
 });

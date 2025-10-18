@@ -24,3 +24,11 @@ export async function updateUser(id, userData) {
 export async function searchUsers(query) {
   return await sendRequest(`${BASE_URL}search?q=${encodeURIComponent(query)}`, "GET");
 }
+
+export async function updateUserRole(userId, roleData) {
+  return await sendRequest(`${BASE_URL}${userId}/role`, "PUT", roleData);
+}
+
+export async function getAllUsers() {
+  return await sendRequest(`${BASE_URL}all`, "GET");
+}

@@ -5,6 +5,7 @@
  */
 
 const mongoose = require('mongoose');
+const backendLogger = require('./backend-logger');
 
 /**
  * Validate if a string is a valid MongoDB ObjectId
@@ -151,7 +152,7 @@ function createErrorResponse(message, statusCode = 400) {
 function asyncHandler(fn) {
   return (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch((err) => {
-      console.error('Controller error:', err);
+      backendLogger.error('Controller error', { error: err.message, method: req.method, url: req.url, userId: req.user?._id });
       
       // Handle specific error types
       if (err.name === 'CastError') {
@@ -207,7 +208,7 @@ async function findByIdWithValidation(Model, id, resourceName = 'Resource') {
       error: null
     };
   } catch (err) {
-    console.error(`Error finding ${resourceName}:`, err);
+    backendLogger.error(`Error finding ${resourceName}`, { error: err.message, resourceName, id });
     return {
       success: false,
       data: null,
