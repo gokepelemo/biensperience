@@ -1,23 +1,340 @@
-/* AllUsers.css */
-.table th {
-  font-weight: 600;
-  border-top: none;
+/* AllUsers.css - Modern Admin Panel Design */
+
+.all-users-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 }
 
-.table td {
-  vertical-align: middle;
+/* Stats Cards */
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.btn-group .btn {
-  min-width: 35px;
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+.stat-card-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.stat-card-primary .stat-card-icon {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.stat-card-success .stat-card-icon {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.stat-card-info .stat-card-icon {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+}
+
+.stat-card-content {
+  flex: 1;
+}
+
+.stat-card-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2d3748;
+  line-height: 1;
+}
+
+.stat-card-label {
+  font-size: 0.875rem;
+  color: #718096;
+  margin-top: 0.25rem;
+}
+
+/* Search Box */
+.search-box {
+  position: relative;
+}
+
+.search-box .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a0aec0;
+  z-index: 1;
+}
+
+.search-box .form-control {
+  padding-left: 2.5rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.search-box .form-control:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Card Styling */
 .card {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
 .card-header {
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-bottom: none;
+  color: white;
+  padding: 1.25rem 1.5rem;
+}
+
+.card-header h5 {
+  color: white;
+  font-weight: 600;
+  margin: 0;
+}
+
+.card-body .form-select {
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.card-body .form-select:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Users Table */
+.users-table {
+  font-size: 0.9375rem;
+}
+
+.users-table thead {
+  background: #f7fafc;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.users-table th {
+  font-weight: 600;
+  color: #2d3748;
+  border: none;
+  padding: 1rem 1.25rem;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.users-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.users-table th.sortable:hover {
+  background: #edf2f7;
+}
+
+.users-table td {
+  vertical-align: middle;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f7fafc;
+}
+
+.users-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.users-table tbody tr:hover {
+  background: #f7fafc;
+}
+
+.users-table tbody tr.current-user {
+  background: #ebf8ff !important;
+}
+
+.users-table tbody tr.current-user:hover {
+  background: #e0f5ff !important;
+}
+
+/* User Name Link */
+.user-name-link {
+  font-weight: 600;
+  color: #2d3748;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.user-name-link:hover {
+  color: #667eea;
+}
+
+/* Role Badges */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.813rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.role-badge-admin {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.role-badge-user {
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
+/* Role Buttons */
+.role-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.813rem;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.role-btn-inactive {
+  background: white;
+  border-color: #e2e8f0;
+  color: #718096;
+}
+
+.role-btn-inactive:hover:not(:disabled) {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+  color: #2d3748;
+  transform: translateY(-1px);
+}
+
+.role-btn-active {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.role-btn-admin.role-btn-active {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border-color: #f5576c;
+  color: white;
+}
+
+.role-btn-user.role-btn-active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+  color: white;
+}
+
+.role-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .stat-card {
+    padding: 1rem;
+  }
+
+  .stat-card-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 1.25rem;
+  }
+
+  .stat-card-value {
+    font-size: 1.5rem;
+  }
+
+  .users-table {
+    font-size: 0.875rem;
+  }
+
+  .users-table th,
+  .users-table td {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .role-btn {
+    padding: 0.375rem 0.625rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .all-users-container {
+    background: white;
+  }
+
+  .stat-card {
+    padding: 0.875rem;
+  }
+
+  .stat-card-icon {
+    width: 45px;
+    height: 45px;
+    font-size: 1.125rem;
+  }
+
+  .stat-card-value {
+    font-size: 1.375rem;
+  }
+
+  .users-table {
+    font-size: 0.813rem;
+  }
+
+  .role-badge {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Loading State */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.15em;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card,
+.stat-card {
+  animation: fadeIn 0.3s ease;
 }

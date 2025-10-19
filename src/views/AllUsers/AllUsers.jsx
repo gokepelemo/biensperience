@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import Alert from "../../components/Alert/Alert";
 import { getUser } from "../../utilities/users-service";
@@ -12,9 +13,15 @@ import "./AllUsers.css";
 export default function AllUsers({ updateData }) {
   const user = getUser();
   const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingUser, setUpdatingUser] = useState(null);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [sortField, setSortField] = useState('name');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [success, setSuccess] = useState(null);
 
   // Check if current user is super admin
   const isCurrentUserSuperAdmin = user && isSuperAdmin(user);
@@ -28,6 +35,10 @@ export default function AllUsers({ updateData }) {
 
     fetchAllUsers();
   }, [isCurrentUserSuperAdmin]);
+
+  useEffect(() => {
+    filterAndSortUsers();
+  }, [users, searchTerm, roleFilter, sortField, sortDirection]);
 
   const fetchAllUsers = async () => {
     try {
@@ -45,8 +56,73 @@ export default function AllUsers({ updateData }) {
     }
   };
 
+  const filterAndSortUsers = () => {
+    let result = [...users];
+
+    // Filter by search term
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(u =>
+        u.name.toLowerCase().includes(term) ||
+        u.email.toLowerCase().includes(term)
+      );
+    }
+
+    // Filter by role
+    if (roleFilter !== 'all') {
+      result = result.filter(u => u.role === roleFilter);
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+
+      // Handle date sorting
+      if (sortField === 'createdAt') {
+        aVal = new Date(aVal || 0).getTime();
+        bVal = new Date(bVal || 0).getTime();
+      } else if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredUsers(result);
+  };
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field) => {
+    if (sortField !== field) return <FaSort className="ms-1 text-muted" />;
+    return sortDirection === 'asc' ?
+      <FaSortUp className="ms-1" /> :
+      <FaSortDown className="ms-1" />;
+  };
+
   const handleRoleUpdate = async (userId, newRole) => {
+    // Prevent changing own role
+    if (userId === user._id) {
+      setError('You cannot change your own role.');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     setUpdatingUser(userId);
+    setError(null);
+    setSuccess(null);
+
     try {
       await updateUserRole(userId, { role: newRole });
 
@@ -58,11 +134,22 @@ export default function AllUsers({ updateData }) {
             : u
         )
       );
+
+      const userName = users.find(u => u._id === userId)?.name;
+      setSuccess(`${userName}'s role updated to ${USER_ROLE_DISPLAY_NAMES[newRole]}`);
+      setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
+      setError('Failed to update user role');
       handleError(error);
     } finally {
       setUpdatingUser(null);
     }
+  };
+
+  const getRoleStats = () => {
+    const superAdmins = users.filter(u => u.role === USER_ROLES.SUPER_ADMIN).length;
+    const regularUsers = users.filter(u => u.role === USER_ROLES.REGULAR_USER).length;
+    return { superAdmins, regularUsers, total: users.length };
   };
 
   if (!isCurrentUserSuperAdmin) {
@@ -79,6 +166,8 @@ export default function AllUsers({ updateData }) {
     );
   }
 
+  const stats = getRoleStats();
+
   return (
     <>
       <PageMeta
@@ -87,113 +176,255 @@ export default function AllUsers({ updateData }) {
         keywords="admin panel, user management, super admin, user roles"
       />
 
-      <div className="container mt-4">
-        <div className="row">
-          <div className="col-12">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h1>All Users</h1>
-              <Link to="/" className="btn btn-secondary">
-                ← Back to Home
-              </Link>
+      <div className="all-users-container">
+        <div className="container-fluid px-4 py-4">
+          {/* Header */}
+          <div className="row mb-4">
+            <div className="col-12">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <h1 className="mb-2">
+                    <FaUserShield className="me-2 text-success" />
+                    User Management
+                  </h1>
+                  <p className="text-muted mb-0">Super Admin Panel</p>
+                </div>
+                <Link to="/" className="btn btn-outline-secondary">
+                  ← Back to Home
+                </Link>
+              </div>
             </div>
+          </div>
 
-            {error && (
-              <Alert type="danger" message={error} className="mb-4" />
-            )}
-
-            {loading ? (
-              <div className="text-center">
-                <div className="spinner-border" role="status">
-                  <span className="visually-hidden">Loading...</span>
+          {/* Stats Cards */}
+          <div className="row mb-4">
+            <div className="col-md-4 mb-3 mb-md-0">
+              <div className="stat-card stat-card-primary">
+                <div className="stat-card-icon">
+                  <FaUser />
+                </div>
+                <div className="stat-card-content">
+                  <div className="stat-card-value">{stats.total}</div>
+                  <div className="stat-card-label">Total Users</div>
                 </div>
               </div>
-            ) : (
-              <div className="card">
-                <div className="card-header">
-                  <h5 className="mb-0">User Management ({users.length} users)</h5>
+            </div>
+            <div className="col-md-4 mb-3 mb-md-0">
+              <div className="stat-card stat-card-success">
+                <div className="stat-card-icon">
+                  <FaUserShield />
                 </div>
-                <div className="card-body p-0">
-                  {users.length === 0 ? (
-                    <div className="p-4 text-center text-muted">
-                      No users found
-                    </div>
-                  ) : (
-                    <div className="table-responsive">
-                      <table className="table table-hover mb-0">
-                        <thead className="table-light">
-                          <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Joined</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {users.map((userData) => (
-                            <tr key={userData._id}>
+                <div className="stat-card-content">
+                  <div className="stat-card-value">{stats.superAdmins}</div>
+                  <div className="stat-card-label">Super Admins</div>
+                </div>
+              </div>
+            </div>
+            <div className="col-md-4">
+              <div className="stat-card stat-card-info">
+                <div className="stat-card-icon">
+                  <FaUser />
+                </div>
+                <div className="stat-card-content">
+                  <div className="stat-card-value">{stats.regularUsers}</div>
+                  <div className="stat-card-label">Regular Users</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Alerts */}
+          {error && <Alert type="danger" message={error} dismissible className="mb-4" />}
+          {success && <Alert type="success" message={success} dismissible className="mb-4" />}
+
+          {/* Filters and Search */}
+          <div className="card mb-4">
+            <div className="card-body">
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <div className="search-box">
+                    <FaSearch className="search-icon" />
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Search by name or email..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="col-md-6">
+                  <select
+                    className="form-select"
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                  >
+                    <option value="all">All Roles</option>
+                    <option value={USER_ROLES.SUPER_ADMIN}>Super Admins Only</option>
+                    <option value={USER_ROLES.REGULAR_USER}>Regular Users Only</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Users Table */}
+          {loading ? (
+            <div className="text-center py-5">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <p className="mt-3 text-muted">Loading users...</p>
+            </div>
+          ) : (
+            <div className="card">
+              <div className="card-header">
+                <h5 className="mb-0">
+                  Users ({filteredUsers.length}{filteredUsers.length !== users.length ? ` of ${users.length}` : ''})
+                </h5>
+              </div>
+              <div className="card-body p-0">
+                {filteredUsers.length === 0 ? (
+                  <div className="p-5 text-center text-muted">
+                    <FaUser size={48} className="mb-3 opacity-50" />
+                    <p className="mb-0">
+                      {searchTerm || roleFilter !== 'all'
+                        ? 'No users match your filters'
+                        : 'No users found'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-hover users-table mb-0">
+                      <thead>
+                        <tr>
+                          <th onClick={() => handleSort('name')} className="sortable">
+                            Name {getSortIcon('name')}
+                          </th>
+                          <th onClick={() => handleSort('email')} className="sortable">
+                            Email {getSortIcon('email')}
+                          </th>
+                          <th onClick={() => handleSort('role')} className="sortable">
+                            Role {getSortIcon('role')}
+                          </th>
+                          <th onClick={() => handleSort('createdAt')} className="sortable">
+                            Joined {getSortIcon('createdAt')}
+                          </th>
+                          <th className="text-end">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredUsers.map((userData) => {
+                          const isCurrentUser = userData._id === user._id;
+                          return (
+                            <tr key={userData._id} className={isCurrentUser ? 'current-user' : ''}>
                               <td>
-                                <Link
-                                  to={`/profile/${userData._id}`}
-                                  className="text-decoration-none"
-                                >
-                                  {userData.name}
-                                </Link>
+                                <div className="d-flex align-items-center">
+                                  <Link
+                                    to={`/profile/${userData._id}`}
+                                    className="user-name-link"
+                                  >
+                                    {userData.name}
+                                  </Link>
+                                  {isCurrentUser && (
+                                    <span className="badge bg-info ms-2">You</span>
+                                  )}
+                                </div>
                               </td>
-                              <td>{userData.email}</td>
                               <td>
-                                <span className={`badge ${
+                                <div className="d-flex align-items-center text-muted">
+                                  <FaEnvelope className="me-2" size={14} />
+                                  {userData.email}
+                                </div>
+                              </td>
+                              <td>
+                                <span className={`role-badge ${
                                   userData.role === USER_ROLES.SUPER_ADMIN
-                                    ? 'bg-success'
-                                    : 'bg-secondary'
+                                    ? 'role-badge-admin'
+                                    : 'role-badge-user'
                                 }`}>
-                                  {USER_ROLE_DISPLAY_NAMES[userData.role] || 'Unknown'}
+                                  {userData.role === USER_ROLES.SUPER_ADMIN ? (
+                                    <><FaUserShield className="me-1" /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
+                                  ) : (
+                                    <><FaUser className="me-1" /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
+                                  )}
                                 </span>
                               </td>
                               <td>
-                                {userData.createdAt
-                                  ? new Date(userData.createdAt).toLocaleDateString()
-                                  : 'Unknown'
-                                }
+                                <div className="d-flex align-items-center text-muted">
+                                  <FaCalendarAlt className="me-2" size={14} />
+                                  {userData.createdAt
+                                    ? new Date(userData.createdAt).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric'
+                                      })
+                                    : 'Unknown'
+                                  }
+                                </div>
                               </td>
                               <td>
-                                <div className="btn-group btn-group-sm">
+                                <div className="d-flex justify-content-end gap-2">
                                   <button
-                                    className={`btn ${
+                                    className={`btn btn-sm role-btn ${
                                       userData.role === USER_ROLES.SUPER_ADMIN
-                                        ? 'btn-success'
-                                        : 'btn-outline-success'
+                                        ? 'role-btn-active role-btn-admin'
+                                        : 'role-btn-inactive'
                                     }`}
                                     onClick={() => handleRoleUpdate(userData._id, USER_ROLES.SUPER_ADMIN)}
-                                    disabled={updatingUser === userData._id || userData.role === USER_ROLES.SUPER_ADMIN}
-                                    title="Make Super Admin"
+                                    disabled={
+                                      updatingUser === userData._id ||
+                                      userData.role === USER_ROLES.SUPER_ADMIN ||
+                                      isCurrentUser
+                                    }
+                                    title={isCurrentUser ? "You cannot change your own role" : "Make Super Admin"}
                                   >
-                                    {updatingUser === userData._id ? '...' : 'SA'}
+                                    {updatingUser === userData._id ? (
+                                      <span className="spinner-border spinner-border-sm"></span>
+                                    ) : (
+                                      <>
+                                        <FaUserShield className="me-1" />
+                                        <span className="d-none d-md-inline">Super Admin</span>
+                                        <span className="d-inline d-md-none">SA</span>
+                                      </>
+                                    )}
                                   </button>
                                   <button
-                                    className={`btn ${
+                                    className={`btn btn-sm role-btn ${
                                       userData.role === USER_ROLES.REGULAR_USER
-                                        ? 'btn-secondary'
-                                        : 'btn-outline-secondary'
+                                        ? 'role-btn-active role-btn-user'
+                                        : 'role-btn-inactive'
                                     }`}
                                     onClick={() => handleRoleUpdate(userData._id, USER_ROLES.REGULAR_USER)}
-                                    disabled={updatingUser === userData._id || userData.role === USER_ROLES.REGULAR_USER}
-                                    title="Make Regular User"
+                                    disabled={
+                                      updatingUser === userData._id ||
+                                      userData.role === USER_ROLES.REGULAR_USER ||
+                                      isCurrentUser
+                                    }
+                                    title={isCurrentUser ? "You cannot change your own role" : "Make Regular User"}
                                   >
-                                    {updatingUser === userData._id ? '...' : 'RU'}
+                                    {updatingUser === userData._id ? (
+                                      <span className="spinner-border spinner-border-sm"></span>
+                                    ) : (
+                                      <>
+                                        <FaUser className="me-1" />
+                                        <span className="d-none d-md-inline">Regular User</span>
+                                        <span className="d-inline d-md-none">RU</span>
+                                      </>
+                                    )}
                                   </button>
                                 </div>
                               </td>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </>
