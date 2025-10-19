@@ -8,6 +8,7 @@ import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
+import { lang } from "../../lang.constants";
 import "./AllUsers.css";
 
 export default function AllUsers({ updateData }) {
@@ -114,7 +115,7 @@ export default function AllUsers({ updateData }) {
   const handleRoleUpdate = async (userId, newRole) => {
     // Prevent changing own role
     if (userId === user._id) {
-      setError('You cannot change your own role.');
+      setError(lang.en.admin.cannotChangeOwnRole);
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -136,10 +137,12 @@ export default function AllUsers({ updateData }) {
       );
 
       const userName = users.find(u => u._id === userId)?.name;
-      setSuccess(`${userName}'s role updated to ${USER_ROLE_DISPLAY_NAMES[newRole]}`);
+      setSuccess(lang.en.admin.roleUpdated
+        .replace('{name}', userName)
+        .replace('{role}', USER_ROLE_DISPLAY_NAMES[newRole]));
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
-      setError('Failed to update user role');
+      setError(lang.en.alert.loginFailed);
       handleError(error);
     } finally {
       setUpdatingUser(null);
@@ -185,12 +188,12 @@ export default function AllUsers({ updateData }) {
                 <div>
                   <h1 className="mb-2">
                     <FaUserShield className="me-2 text-success" />
-                    User Management
+                    {lang.en.admin.userManagement}
                   </h1>
-                  <p className="text-muted mb-0">Super Admin Panel</p>
+                  <p className="text-muted mb-0">{lang.en.admin.superAdminPanel}</p>
                 </div>
                 <Link to="/" className="btn btn-outline-secondary">
-                  ← Back to Home
+                  {lang.en.admin.backToHome}
                 </Link>
               </div>
             </div>
@@ -205,7 +208,7 @@ export default function AllUsers({ updateData }) {
                 </div>
                 <div className="stat-card-content">
                   <div className="stat-card-value">{stats.total}</div>
-                  <div className="stat-card-label">Total Users</div>
+                  <div className="stat-card-label">{lang.en.admin.totalUsers}</div>
                 </div>
               </div>
             </div>
@@ -216,7 +219,7 @@ export default function AllUsers({ updateData }) {
                 </div>
                 <div className="stat-card-content">
                   <div className="stat-card-value">{stats.superAdmins}</div>
-                  <div className="stat-card-label">Super Admins</div>
+                  <div className="stat-card-label">{lang.en.admin.superAdmins}</div>
                 </div>
               </div>
             </div>
@@ -227,7 +230,7 @@ export default function AllUsers({ updateData }) {
                 </div>
                 <div className="stat-card-content">
                   <div className="stat-card-value">{stats.regularUsers}</div>
-                  <div className="stat-card-label">Regular Users</div>
+                  <div className="stat-card-label">{lang.en.admin.regularUsers}</div>
                 </div>
               </div>
             </div>

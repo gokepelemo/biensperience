@@ -11,6 +11,7 @@ import { handleError } from "../../utilities/error-handler";
 import Modal from "../Modal/Modal";
 import FormField from "../FormField/FormField";
 import { Form } from "react-bootstrap";
+import { isSuperAdmin } from "../../utilities/permissions";
 
 export default function UpdateExperience({ user, updateData }) {
   const { experienceId } = useParams();
@@ -40,8 +41,11 @@ export default function UpdateExperience({ user, updateData }) {
           getDestinations()
         ]);
 
-        // Check if user is the owner
-        if (!experienceData.user || experienceData.user._id !== user._id) {
+        // Check if user is the owner or Super Admin
+        const isOwner = experienceData.user && experienceData.user._id === user._id;
+        const canEdit = isOwner || isSuperAdmin(user);
+
+        if (!canEdit) {
           setError("You are not authorized to update this experience.");
           setLoading(false);
           return;
