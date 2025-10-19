@@ -1,47 +1,58 @@
 import { NavLink } from "react-router-dom";
 import "./NavBar.css"
-import * as usersService from "../../utilities/users-service.js";
 import { useEffect, useRef } from "react";
-import { isSuperAdmin } from "../../utilities/permissions";
+import { useUser } from "../../contexts/UserContext";
+import { useApp } from "../../contexts/AppContext";
+import SearchBar from "../SearchBar/SearchBar";
+import ActionButtons from "../ActionButtons/ActionButtons";
 
-export default function NavBar({ user, setUser }) {
+export default function NavBar() {
   const collapseRef = useRef(null);
   const toggleRef = useRef(null);
   const dropdownButtonRef = useRef(null);
   const dropdownMenuRef = useRef(null);
-  
+  const navbarRef = useRef(null);
+
+  const { logoutUser, getDisplayName, isSuperAdmin: isSuper } = useUser();
+  const {
+    isScrolled,
+    h1Visible,
+    h1Text,
+    showActionButtons,
+    actionButtons,
+  } = useApp();
+
   function handleLogOut() {
-    usersService.logout();
-    setUser(null);
+    logoutUser();
   }
-  
+
   useEffect(() => {
     const collapseEl = collapseRef.current;
     const toggleBtn = toggleRef.current;
     const dropdownButton = dropdownButtonRef.current;
     const dropdownMenu = dropdownMenuRef.current;
-    
+
     if (!collapseEl || !toggleBtn) return;
-    
+
     // Custom toggle handler for mobile collapse
     const handleToggle = (e) => {
       e.preventDefault();
-      
+
       const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-      
+
       if (isExpanded) {
         // Close the menu
         collapseEl.style.height = collapseEl.scrollHeight + 'px';
         collapseEl.classList.remove('show');
         collapseEl.classList.add('collapsing');
-        
+
         // Force reflow to trigger transition
         void collapseEl.offsetHeight;
-        
+
         collapseEl.style.height = '0';
         toggleBtn.setAttribute('aria-expanded', 'false');
         toggleBtn.classList.add('collapsed');
-        
+
         setTimeout(() => {
           collapseEl.classList.remove('collapsing');
           collapseEl.style.height = '';
@@ -50,15 +61,15 @@ export default function NavBar({ user, setUser }) {
         // Open the menu
         collapseEl.classList.add('collapsing');
         collapseEl.style.height = '0';
-        
+
         // Force reflow to trigger transition
         void collapseEl.offsetHeight;
-        
+
         const height = collapseEl.scrollHeight;
         collapseEl.style.height = height + 'px';
         toggleBtn.setAttribute('aria-expanded', 'true');
         toggleBtn.classList.remove('collapsed');
-        
+
         setTimeout(() => {
           collapseEl.classList.remove('collapsing');
           collapseEl.classList.add('show');
@@ -66,24 +77,24 @@ export default function NavBar({ user, setUser }) {
         }, 350);
       }
     };
-    
+
     toggleBtn.addEventListener('click', handleToggle);
-    
+
     // Custom dropdown toggle handler with smooth animations
     const handleDropdownToggle = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      
+
       if (!dropdownMenu || !dropdownButton) return;
-      
+
       const isCurrentlyOpen = dropdownButton.getAttribute('aria-expanded') === 'true';
-      
+
       if (isCurrentlyOpen) {
         // Close dropdown with ease-out animation
         dropdownMenu.style.transition = 'opacity 0.2s ease-out, transform 0.2s ease-out';
         dropdownMenu.style.opacity = '0';
         dropdownMenu.style.transform = 'translateY(-10px)';
-        
+
         setTimeout(() => {
           dropdownMenu.style.display = 'none';
           dropdownButton.setAttribute('aria-expanded', 'false');
@@ -94,10 +105,10 @@ export default function NavBar({ user, setUser }) {
         dropdownMenu.style.opacity = '0';
         dropdownMenu.style.transform = 'translateY(-10px)';
         dropdownMenu.style.transition = 'opacity 0.3s ease-in, transform 0.3s ease-in';
-        
+
         // Force reflow
         void dropdownMenu.offsetHeight;
-        
+
         requestAnimationFrame(() => {
           dropdownMenu.style.opacity = '1';
           dropdownMenu.style.transform = 'translateY(0)';
@@ -105,19 +116,19 @@ export default function NavBar({ user, setUser }) {
         });
       }
     };
-    
+
     // Close dropdown when clicking outside
     const handleClickOutside = (e) => {
       if (!dropdownMenu || !dropdownButton) return;
-      
+
       if (!dropdownMenu.contains(e.target) && !dropdownButton.contains(e.target)) {
         const isCurrentlyOpen = dropdownButton.getAttribute('aria-expanded') === 'true';
-        
+
         if (isCurrentlyOpen) {
           dropdownMenu.style.transition = 'opacity 0.2s ease-out, transform 0.2s ease-out';
           dropdownMenu.style.opacity = '0';
           dropdownMenu.style.transform = 'translateY(-10px)';
-          
+
           setTimeout(() => {
             dropdownMenu.style.display = 'none';
             dropdownButton.setAttribute('aria-expanded', 'false');
@@ -125,40 +136,47 @@ export default function NavBar({ user, setUser }) {
         }
       }
     };
-    
+
     // Attach dropdown event listeners
     if (dropdownButton) {
       dropdownButton.addEventListener('click', handleDropdownToggle);
     }
-    
+
     document.addEventListener('click', handleClickOutside);
-    
+
     return () => {
       toggleBtn.removeEventListener('click', handleToggle);
-      
+
       if (dropdownButton) {
         dropdownButton.removeEventListener('click', handleDropdownToggle);
       }
-      
+
       document.removeEventListener('click', handleClickOutside);
     };
   }, []);
-  
+
   return (
     <nav
-      className="navbar navbar-expand-lg bg-dark border-bottom border-body"
+      ref={navbarRef}
+      className={`navbar navbar-expand-lg bg-dark border-bottom border-body ${isScrolled ? 'sticky' : ''}`}
       data-bs-theme="dark"
       role="navigation"
       aria-label="Main navigation"
     >
       <div className="container-fluid">
-        <NavLink
-          className="navbar-brand"
-          to="/"
-          aria-label="Biensperience home"
-        >
-          Biensperience <button className="btn btn-light btn-sm logo" aria-hidden="true">✚</button>
-        </NavLink>
+        <div className="navbar-brand-wrapper">
+          <NavLink
+            className="navbar-brand"
+            to="/"
+            aria-label="Biensperience home"
+          >
+            <span className="brand-text">
+              {!h1Visible && h1Text ? h1Text : 'Biensperience'}
+            </span>
+            <button className="btn btn-light btn-sm logo" aria-hidden="true">✚</button>
+          </NavLink>
+        </div>
+
         <button
           ref={toggleRef}
           className="navbar-toggler collapsed"
@@ -169,6 +187,7 @@ export default function NavBar({ user, setUser }) {
         >
           <span className="navbar-toggler-icon"></span>
         </button>
+
         <div ref={collapseRef} className="collapse navbar-collapse" id="navbarText">
           <ul className="navbar-nav me-auto mb-2 mb-lg-0 d-flex" role="menubar">
             <li className="nav-item" role="none">
@@ -198,14 +217,14 @@ export default function NavBar({ user, setUser }) {
                 type="button"
                 aria-expanded="false"
                 aria-haspopup="true"
-                aria-label={`User menu for ${user.name}`}
+                aria-label={`User menu for ${getDisplayName()}`}
               >
-                {user.name}
+                {getDisplayName()}
               </button>
-              <ul 
+              <ul
                 ref={dropdownMenuRef}
-                className="dropdown-menu" 
-                role="menu" 
+                className="dropdown-menu"
+                role="menu"
                 aria-label="User account options"
                 style={{ display: 'none' }}
               >
@@ -219,7 +238,7 @@ export default function NavBar({ user, setUser }) {
                     Profile
                   </NavLink>
                 </li>
-                {isSuperAdmin(user) && (
+                {isSuper() && (
                   <li role="none">
                     <NavLink
                       to="/admin/users"
@@ -268,6 +287,18 @@ export default function NavBar({ user, setUser }) {
               </ul>
             </li>
           </ul>
+
+          {/* Search Bar */}
+          <div className="navbar-search">
+            <SearchBar placeholder="Search..." className="navbar-search-input" />
+          </div>
+
+          {/* Dynamic Action Buttons - shown when scrolled past h1 */}
+          {showActionButtons && actionButtons.length > 0 && (
+            <div className="navbar-actions fade-in">
+              <ActionButtons buttons={actionButtons} compact={true} />
+            </div>
+          )}
         </div>
       </div>
     </nav>

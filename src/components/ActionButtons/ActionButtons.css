@@ -1,0 +1,93 @@
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.action-buttons.compact {
+  gap: 0.25rem;
+  padding: 0;
+}
+
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.action-button .button-icon {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+.action-button.btn-sm .button-icon {
+  font-size: 1em;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.action-button:active {
+  transform: translateY(0);
+}
+
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Icon-only buttons in compact mode */
+.action-buttons.compact .action-button {
+  min-width: 2rem;
+  padding: 0.25rem 0.5rem;
+}
+
+/* Responsive behavior */
+@media (max-width: 768px) {
+  .action-buttons {
+    justify-content: center !important;
+    width: 100%;
+  }
+
+  .action-button {
+    flex: 1 1 auto;
+    min-width: fit-content;
+  }
+}
+
+/* Navbar integration */
+.navbar .action-buttons {
+  margin-left: auto;
+}
+
+@media (max-width: 992px) {
+  .navbar .action-buttons {
+    width: 100%;
+    margin-top: 0.5rem;
+    justify-content: center !important;
+  }
+}
+
+/* Animation for navbar appearance */
+.navbar .action-buttons.fade-in {
+  animation: fadeInSlide 0.3s ease-out;
+}
+
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

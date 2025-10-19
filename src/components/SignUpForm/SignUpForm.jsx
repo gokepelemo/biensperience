@@ -5,6 +5,16 @@ import { lang } from "../../lang.constants";
 import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
 import "./SignUpForm.css";
 
+/**
+ * Sign up form component for user registration.
+ * Handles new user creation with password confirmation.
+ * Data will be automatically fetched by DataProvider via UserContext after signup.
+ *
+ * @param {Object} props - Component props
+ * @param {Function} props.setUser - Function to set the authenticated user
+ * @param {Function} [props.setSignup] - Optional function to toggle signup state
+ * @returns {JSX.Element} Sign up form component
+ */
 function SignUpForm(props) {
   const [state, setState] = React.useState({
     name: "",
@@ -15,6 +25,7 @@ function SignUpForm(props) {
   });
   const disable = state.password !== state.confirm;
   const navigate = useNavigate();
+
   const handleChange = (e) => {
     setState({
       ...state,
@@ -22,6 +33,7 @@ function SignUpForm(props) {
       error: "",
     });
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -34,6 +46,7 @@ function SignUpForm(props) {
       setState({ ...state, error: lang.en.alert.signupFailed });
     }
   };
+
   const handleLoginClick = () => {
     navigate("/");
     if (props.setSignup) props.setSignup(false);

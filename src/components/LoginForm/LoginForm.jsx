@@ -11,10 +11,9 @@ import "./LoginForm.css";
  *
  * @param {Object} props - Component props
  * @param {Function} props.setUser - Function to set the authenticated user
- * @param {Function} props.updateData - Function to refresh application data after login
  * @returns {JSX.Element} Login form component
  */
-export default function LoginForm({ setUser, updateData }) {
+export default function LoginForm({ setUser }) {
     const [credentials, setCredentials] = useState({
         email: "",
         password: ""
@@ -35,6 +34,7 @@ export default function LoginForm({ setUser, updateData }) {
     /**
      * Handles form submission for user login.
      * Authenticates user and navigates to home page on success.
+     * Data will be automatically fetched by DataProvider via UserContext.
      *
      * @async
      * @param {Event} e - Form submit event
@@ -44,7 +44,6 @@ export default function LoginForm({ setUser, updateData }) {
         try {
             const user = await usersService.login(credentials);
             setUser(user);
-            updateData();
             navigate("/"); // Update address bar to home after login
         } catch {
             setError(lang.en.alert.loginFailed);

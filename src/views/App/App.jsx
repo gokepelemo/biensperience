@@ -2,10 +2,12 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
 import "@fontsource/inter";
-import React from "react";
-import { useState, useEffect, useCallback } from "react";
+import React, { useEffect } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
-import { ToastProvider } from "../../contexts/ToastContext";
+import { ToastProvider, useToast } from "../../contexts/ToastContext";
+import { UserProvider, useUser } from "../../contexts/UserContext";
+import { DataProvider } from "../../contexts/DataContext";
+import { AppProvider } from "../../contexts/AppContext";
 import AuthPage from "../AuthPage/AuthPage";
 import AppHome from "../AppHome/AppHome";
 import NavBar from "../../components/NavBar/NavBar";
@@ -21,47 +23,34 @@ import NewDestination from "../../components/NewDestination/NewDestination";
 import UpdateDestination from "../../components/UpdateDestination/UpdateDestination";
 import Profile from "../Profile/Profile";
 import AllUsers from "../AllUsers/AllUsers";
-import { getUser } from "../../utilities/users-service";
-import { getExperiences } from "../../utilities/experiences-api";
-import { getDestinations } from "../../utilities/destinations-api";
 import { handleOAuthCallback } from "../../utilities/oauth-service";
-import { useToast } from "../../contexts/ToastContext";
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
 
 /**
- * Main application component that handles routing and global state management.
- * Manages user authentication, destinations, and experiences data across the app.
- *
- * @returns {JSX.Element} The main application component with routing
+ * Main application component wrapper
+ * Provides all context providers in the correct order
  */
 export default function App() {
-  const [user, setUser] = useState(getUser());
-  const [destinations, setDestinations] = useState([]);
-  const [experiences, setExperiences] = useState([]);
-  const { success, error: showError } = useToast();
+  return (
+    <ToastProvider>
+      <UserProvider>
+        <AppProvider>
+          <DataProvider>
+            <AppContent />
+          </DataProvider>
+        </AppProvider>
+      </UserProvider>
+    </ToastProvider>
+  );
+}
 
-  /**
-   * Fetches and updates destinations and experiences data from the API.
-   * Used as a callback to refresh data after mutations.
-   *
-   * @async
-   * @returns {Promise<void>}
-   */
-  const updateData = useCallback(async () => {
-    if (user) {
-      try {
-        const [destinationsData, experiencesData] = await Promise.all([
-          getDestinations(),
-          getExperiences()
-        ]);
-        setDestinations(destinationsData);
-        setExperiences(experiencesData || []);
-      } catch (error) {
-        console.error('Failed to update data:', error);
-        // Don't clear existing data on error
-      }
-    }
-  }, [user]);
+/**
+ * App content component that uses contexts
+ * Separated from App to allow hooks usage
+ */
+function AppContent() {
+  const { user, updateUser, isAuthenticated } = useUser();
+  const { success, error: showError } = useToast();
 
   // Handle OAuth callback on mount
   useEffect(() => {
@@ -70,9 +59,8 @@ export default function App() {
         const result = await handleOAuthCallback();
         if (result) {
           const { user: oauthUser, provider } = result;
-          setUser(oauthUser);
+          updateUser(oauthUser);
           success(`Successfully signed in with ${provider}!`);
-          // Data will be fetched by the updateData effect
         }
       } catch (err) {
         showError(err.message || 'Authentication failed');
@@ -82,156 +70,45 @@ export default function App() {
     processOAuth();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    updateData();
-  }, [updateData]);
-
   return (
-    <ToastProvider>
+    <>
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
       <div className="App">
         <CookieConsent />
-        {user ? (
+        {isAuthenticated ? (
           <>
-            <NavBar user={user} setUser={setUser} />
+            <NavBar />
             <main id="main-content" className="container" role="main" aria-label="Main content">
               <Routes>
-            <Route
-              path="/"
-              element={
-                <AppHome
-                  user={user}
-                  destinations={destinations}
-                  experiences={experiences}
-                  updateData={updateData}
-                />
-              }
-            />
-            <Route
-              path="/experiences/new"
-              element={<NewExperience updateData={updateData} />}
-            />
-            <Route
-              path="/destinations/new"
-              element={<NewDestination updateData={updateData} />}
-            />
-            <Route
-              path="/profile"
-              element={
-                <Profile
-                  user={user}
-                  destinations={destinations}
-                  experiences={experiences}
-                  updateData={updateData}
-                />
-              }
-            />
-            <Route
-              path="/profile/:profileId"
-              element={
-                <Profile
-                  user={user}
-                  destinations={destinations}
-                  experiences={experiences}
-                  updateData={updateData}
-                />
-              }
-            />
-            <Route
-              path="/profile/update"
-              element={<UpdateProfile user={user} setUser={setUser} updateData={updateData} />}
-            />
-            <Route
-              path="/admin/users"
-              element={<AllUsers updateData={updateData} />}
-            />
-            <Route
-              path="/experiences"
-              element={
-                <Experiences
-                  user={user}
-                  setUser={setUser}
-                  experiences={experiences}
-                  updateData={updateData}
-                />
-              }
-            />
-            <Route
-              path="/destinations"
-              element={
-                <Destinations
-                  destinations={destinations}
-                  experiences={experiences}
-                  updateData={updateData}
-                />
-              }
-            />
-            <Route
-              path="/experience-types/:tagName"
-              element={
-                <ExperiencesByTag
-                  user={user}
-                  setUser={setUser}
-                  experiences={experiences}
-                  updateData={updateData}
-                />
-              }
-            />
-            <Route
-              path="/experiences/:experienceId"
-              element={
-                <SingleExperience
-                  user={user}
-                  experiences={experiences}
-                  updateData={updateData}
-                />
-              }
-            />
-            <Route
-              path="/experiences/:experienceId/update"
-              element={
-                <UpdateExperience
-                  user={user}
-                  updateData={updateData}
-                />
-              }
-            />
-            <Route
-              path="/destinations/:destinationId"
-              element={
-                <SingleDestination
-                  destinations={destinations}
-                  experiences={experiences}
-                  user={user}
-                  setUser={setUser}
-                  updateData={updateData}
-                />
-              }
-            />
-            <Route
-              path="/destinations/:destinationId/update"
-              element={
-                <UpdateDestination
-                  user={user}
-                  updateData={updateData}
-                />
-              }
-            />
-            <Route path="/logout" element={<Navigate to="/" />} />
-          </Routes>
-        </main>
+                <Route path="/" element={<AppHome />} />
+                <Route path="/experiences/new" element={<NewExperience />} />
+                <Route path="/destinations/new" element={<NewDestination />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/profile/:profileId" element={<Profile />} />
+                <Route path="/profile/update" element={<UpdateProfile />} />
+                <Route path="/admin/users" element={<AllUsers />} />
+                <Route path="/experiences" element={<Experiences />} />
+                <Route path="/destinations" element={<Destinations />} />
+                <Route path="/experience-types/:tagName" element={<ExperiencesByTag />} />
+                <Route path="/experiences/:experienceId" element={<SingleExperience />} />
+                <Route path="/experiences/:experienceId/update" element={<UpdateExperience />} />
+                <Route path="/destinations/:destinationId" element={<SingleDestination />} />
+                <Route path="/destinations/:destinationId/update" element={<UpdateDestination />} />
+                <Route path="/logout" element={<Navigate to="/" />} />
+              </Routes>
+            </main>
           </>
         ) : (
           <main id="main-content" className="container" role="main" aria-label="Authentication">
             <Routes>
-              <Route path="/signup" element={<AuthPage setUser={setUser} />} />
-              <Route path="*" element={<AuthPage setUser={setUser} />} />
+              <Route path="/signup" element={<AuthPage />} />
+              <Route path="*" element={<AuthPage />} />
             </Routes>
           </main>
         )}
       </div>
-    </ToastProvider>
+    </>
   );
 }

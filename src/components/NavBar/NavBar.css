@@ -1,3 +1,30 @@
+/* Sticky navbar */
+.navbar.sticky {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Add padding to body when navbar is sticky to prevent content jump */
+body:has(.navbar.sticky) {
+    padding-top: 70px;
+}
+
 button.logo {
     margin: 0 0.25rem;
     font-size: 2rem; /* Match experience card buttons */
@@ -23,6 +50,17 @@ button.logo:hover {
 
 nav {
     font-weight: bold;
+}
+
+/* Navbar brand wrapper for dynamic text */
+.navbar-brand-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.brand-text {
+    transition: all 0.3s ease;
+    display: inline-block;
 }
 
 /* Nav link styling with theme colors and padding */
@@ -181,4 +219,33 @@ nav {
 
 .navbar-collapse.collapse.show {
     display: block;
+}
+
+/* Navbar search integration */
+.navbar-search {
+    flex: 0 1 400px;
+    max-width: 400px;
+    margin-left: 1rem;
+    margin-right: 1rem;
+}
+
+@media (max-width: 992px) {
+    .navbar-search {
+        flex: 1 1 100%;
+        max-width: 100%;
+        margin: 0.5rem 0;
+    }
+}
+
+/* Navbar actions container */
+.navbar-actions {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+@media (max-width: 992px) {
+    .navbar-actions {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
 }

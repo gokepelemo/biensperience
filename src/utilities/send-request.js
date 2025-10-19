@@ -2,6 +2,52 @@ import { getToken } from "./users-service.js"
 import { logger } from "./logger.js"
 
 /**
+ * Cache for CSRF token to avoid repeated requests
+ */
+let csrfToken = null;
+let csrfTokenPromise = null;
+
+/**
+ * Get CSRF token for state-changing requests
+ * @returns {Promise<string>} CSRF token
+ */
+async function getCsrfToken() {
+  // Return cached token if available
+  if (csrfToken) {
+    return csrfToken;
+  }
+
+  // Return pending request if already fetching
+  if (csrfTokenPromise) {
+    return csrfTokenPromise;
+  }
+
+  // Fetch new token
+  csrfTokenPromise = fetch('/api/auth/csrf-token', {
+    method: 'GET',
+    credentials: 'include' // Include cookies for session
+  })
+  .then(res => {
+    if (!res.ok) {
+      throw new Error(`Failed to get CSRF token: ${res.status}`);
+    }
+    return res.json();
+  })
+  .then(data => {
+    csrfToken = data.csrfToken;
+    csrfTokenPromise = null;
+    return csrfToken;
+  })
+  .catch(error => {
+    csrfTokenPromise = null;
+    logger.error('Failed to get CSRF token', error);
+    throw error;
+  });
+
+  return csrfTokenPromise;
+}
+
+/**
  * Sends an HTTP request with optional authentication and JSON payload.
  *
  * @async
@@ -13,10 +59,25 @@ import { logger } from "./logger.js"
  */
 export async function sendRequest(url, method = "GET", payload = null) {
     const options = { method };
+    
+    // Add CSRF token for state-changing requests
+    const isStateChanging = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
+    
     if (payload) {
         options.headers = { 'Content-Type': 'application/json' };
         options.body = JSON.stringify(payload);
     }
+    
+    if (isStateChanging) {
+        try {
+            const token = await getCsrfToken();
+            options.headers = options.headers || {};
+            options.headers['x-csrf-token'] = token;
+        } catch (error) {
+            logger.warn('Failed to get CSRF token, proceeding without it', error);
+        }
+    }
+    
     const token = getToken();
     if (token) {
         options.headers = options.headers || {};
