@@ -12,9 +12,10 @@ const { USER_ROLES } = require("../utilities/user-roles");
 
 /**
  * Number of salt rounds for password hashing
+ * Recommended minimum is 12 for production security
  * @type {number}
  */
-const SALT_ROUNDS = parseInt(6);
+const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || 12);
 
 const photoObjectSchema = new Schema({
   url: { type: String, required: true },

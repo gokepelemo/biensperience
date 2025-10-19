@@ -8,6 +8,7 @@ const router = express.Router();
 const { passport, createToken } = require('../../config/passport');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const backendLogger = require('../../utilities/backend-logger');
+const { authLimiter } = require('../../config/rateLimiters');
 
 /**
  * CSRF Token Endpoint
@@ -30,7 +31,7 @@ router.get('/csrf-token', (req, res) => {
  */
 
 // Initiate Facebook OAuth
-router.get('/facebook', (req, res, next) => {
+router.get('/facebook', authLimiter, (req, res, next) => {
   // Generate CSRF token and store in session
   const generateToken = req.app.get('csrfTokenGenerator');
   const csrfToken = generateToken(req, res);
@@ -92,7 +93,7 @@ router.get('/facebook/callback',
  */
 
 // Initiate Google OAuth
-router.get('/google', (req, res, next) => {
+router.get('/google', authLimiter, (req, res, next) => {
   // Generate CSRF token and store in session
   const generateToken = req.app.get('csrfTokenGenerator');
   const csrfToken = generateToken(req, res);
@@ -151,7 +152,7 @@ router.get('/google/callback',
  */
 
 // Initiate Twitter OAuth
-router.get('/twitter', (req, res, next) => {
+router.get('/twitter', authLimiter, (req, res, next) => {
   // Generate CSRF token and store in session
   const generateToken = req.app.get('csrfTokenGenerator');
   

@@ -227,9 +227,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
  * Twitter Strategy (OAuth 2.0)
  */
 if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
-  console.log('[Passport] Initializing Twitter OAuth 2.0 strategy');
-  console.log('[Passport] Twitter Client ID:', process.env.TWITTER_CLIENT_ID ? 'Set' : 'Missing');
-  console.log('[Passport] Twitter Callback URL:', process.env.TWITTER_CALLBACK_URL);
+  backendLogger.info('Initializing Twitter OAuth 2.0 strategy', {
+    hasClientId: !!process.env.TWITTER_CLIENT_ID,
+    callbackUrl: process.env.TWITTER_CALLBACK_URL
+  });
   
   passport.use(new TwitterStrategy({
     clientType: 'confidential',
@@ -241,9 +242,10 @@ if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
   },
   async (req, accessToken, refreshToken, profile, done) => {
     try {
-      console.log('[Twitter Strategy] Authentication callback invoked');
-      console.log('[Twitter Strategy] Profile ID:', profile.id);
-      console.log('[Twitter Strategy] Profile username:', profile.username);
+      backendLogger.info('Twitter OAuth callback invoked', {
+        profileId: profile.id,
+        username: profile.username
+      });
       
       // OAuth 2.0 profile structure is different
       const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
@@ -323,7 +325,10 @@ if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
       });
       
       await newUser.save();
-      console.log('[Twitter Strategy] New user created:', newUser.email);
+      backendLogger.info('Twitter OAuth new user created', {
+        email: newUser.email,
+        userId: newUser._id.toString()
+      });
       return done(null, newUser);
       
     } catch (err) {

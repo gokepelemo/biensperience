@@ -102,32 +102,23 @@ async function showExperience(req, res) {
       await Promise.all(
         experience.permissions.map(async (perm) => {
           if (perm._id) {
-            console.log('Processing permission for user:', perm._id.name);
-            console.log('  User photo field:', perm._id.photo);
-            console.log('  User photos array:', perm._id.photos);
-            console.log('  Default photo index:', perm._id.default_photo_index);
-            
             // Handle legacy photo field (ObjectId reference)
             if (perm._id.photo) {
-              const isObjectId = perm._id.photo.constructor.name === 'ObjectId' || 
+              const isObjectId = perm._id.photo.constructor.name === 'ObjectId' ||
                                 (typeof perm._id.photo === 'string') ||
                                 !perm._id.photo.url;
-              
+
               if (isObjectId) {
-                console.log('  Photo is ObjectId, populating...');
                 const populatedPhoto = await Photo.findById(perm._id.photo).select('url caption');
-                console.log('  Populated photo:', populatedPhoto);
                 perm._id.photo = populatedPhoto;
               }
             }
-            
+
             // Handle photos array - populate each photo if needed
             if (perm._id.photos && perm._id.photos.length > 0) {
-              console.log('  Processing photos array...');
               for (let i = 0; i < perm._id.photos.length; i++) {
                 const photoItem = perm._id.photos[i];
                 if (photoItem && !photoItem.url && (typeof photoItem === 'string' || photoItem.constructor.name === 'ObjectId')) {
-                  console.log('  Populating photo at index', i);
                   const populatedPhoto = await Photo.findById(photoItem).select('url caption');
                   perm._id.photos[i] = populatedPhoto;
                 }

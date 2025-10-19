@@ -1,8 +1,10 @@
 const Plan = require("../../models/plan");
 const Experience = require("../../models/experience");
+const Destination = require("../../models/destination");
 const User = require("../../models/user");
 const permissions = require("../../utilities/permissions");
 const { asyncHandler } = require("../../utilities/controller-helpers");
+const backendLogger = require("../../utilities/backend-logger");
 const mongoose = require("mongoose");
 
 /**
@@ -18,6 +20,14 @@ const createPlan = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: "Invalid experience ID" });
   }
 
+  if (!req.user || !req.user._id) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(req.user._id)) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
   // Check if experience exists
   const experience = await Experience.findById(experienceId);
   if (!experience) {
@@ -31,7 +41,16 @@ const createPlan = asyncHandler(async (req, res) => {
   });
 
   if (existingPlan) {
-    return res.status(400).json({ error: "Plan already exists for this experience" });
+    backendLogger.warn('Plan creation attempted for existing plan', {
+      experienceId,
+      userId: req.user._id.toString(),
+      existingPlanId: existingPlan._id.toString()
+    });
+    return res.status(409).json({
+      error: "Plan already exists for this experience",
+      message: "You already have a plan for this experience. Use the checkmark button to view it.",
+      planId: existingPlan._id
+    });
   }
 
   // Create snapshot of current plan items
