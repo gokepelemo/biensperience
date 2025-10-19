@@ -223,7 +223,7 @@ const en = {
     uploadPhotoNow: "Upload one now",
     noFavoriteDestinations:
       "No favorite destinations yet. Explore our destinations and add your favorites!",
-    addFavoriteDestinations: "add some favorite destinations",
+    addFavoriteDestinations: "Add some favorite destinations",
     noExperiencesYet: "No experiences planned yet. ",
     addExperiences: "Add some experiences",
     addOneNow: "Add one now",

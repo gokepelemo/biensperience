@@ -6,6 +6,7 @@ const { authLimiter, modificationLimiter } = require('../../config/rateLimiters'
 
 router.post('/', authLimiter, usersCtrl.create); // Rate limit signup
 router.get('/search', ensureLoggedIn, usersCtrl.searchUsers);
+router.get('/all', ensureLoggedIn, usersCtrl.getAllUsers);
 router.get('/:id', ensureLoggedIn, usersCtrl.getUser);
 router.put('/:id', ensureLoggedIn, modificationLimiter, usersCtrl.updateUser);
 router.post('/login', authLimiter, usersCtrl.login); // Rate limit login attempts
@@ -18,6 +19,5 @@ router.put('/:id/photos/default', ensureLoggedIn, modificationLimiter, usersCtrl
 
 // Role management routes (super admin only)
 router.put('/:id/role', ensureLoggedIn, modificationLimiter, usersCtrl.updateUserRole);
-router.get('/all', ensureLoggedIn, usersCtrl.getAllUsers);
 
 module.exports = router;

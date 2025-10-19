@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, memo, useEffect } from "react";
 import { lang } from "../../lang.constants";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import { deleteExperience } from "../../utilities/experiences-api";
-import { getUserPlans, checkUserPlanForExperience, createPlan, deletePlan } from "../../utilities/plans-api";
+import { checkUserPlanForExperience, createPlan, deletePlan } from "../../utilities/plans-api";
 import { handleError } from "../../utilities/error-handler";
 import { isSuperAdmin } from "../../utilities/permissions";
 import { logger } from "../../utilities/logger";
@@ -189,6 +189,15 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
       }
     } catch (err) {
       handleError(err, { context: isRemoving ? 'Remove plan' : 'Create plan' });
+      
+      // Special handling for "Plan already exists" error
+      if (!isRemoving && err.message && err.message.includes('Plan already exists')) {
+        // The database has a plan but our local state doesn't reflect it
+        // Update local state to show plan exists
+        setLocalPlanStateWithCache(true);
+        return; // Don't revert the state since we just corrected it
+      }
+      
       // REVERT on error: Restore previous state
       setLocalPlanStateWithCache(isRemoving);
     } finally {

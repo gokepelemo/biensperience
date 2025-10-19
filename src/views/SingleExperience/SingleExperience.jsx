@@ -1497,6 +1497,11 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           const firstPlan = collaborativePlans[0];
                           if (!firstPlan) return lang.en.heading.myPlan;
 
+                          // Handle case where user populate failed
+                          if (!firstPlan.user || !firstPlan.user._id) {
+                            return lang.en.heading.myPlan;
+                          }
+
                           const isUserOwned =
                             firstPlan.user._id === user._id ||
                             firstPlan.user === user._id;
@@ -1514,9 +1519,11 @@ export default function SingleExperience({ user, experiences, updateData }) {
                         >
                           {collaborativePlans.map((plan) => (
                             <option key={plan._id} value={plan._id}>
-                              {plan.user._id === user._id
+                              {plan.user && plan.user._id === user._id
                                 ? "My Plan"
-                                : `${plan.user.name}'s Plan`}
+                                : plan.user && plan.user.name
+                                ? `${plan.user.name}'s Plan`
+                                : "Plan"}
                             </option>
                           ))}
                         </select>
@@ -1539,7 +1546,9 @@ export default function SingleExperience({ user, experiences, updateData }) {
                               (p) =>
                                 p.entity === "user" &&
                                 p.type === "collaborator" &&
-                                p._id
+                                p._id &&
+                                typeof p._id === 'object' &&
+                                p._id.name // Only include if we have populated user data
                             )
                             .map((p) => p._id) || []
                         }
@@ -1743,8 +1752,18 @@ export default function SingleExperience({ user, experiences, updateData }) {
                       const currentPlan = collaborativePlans.find(
                         (p) => p._id === selectedPlanId
                       );
+                      // Get plan owner - use plan.user if available, otherwise find owner from permissions
+                      let planOwner = currentPlan?.user;
+                      if (!planOwner) {
+                        const ownerPermission = currentPlan?.permissions?.find(p => p.type === 'owner');
+                        if (ownerPermission?.user) {
+                          planOwner = ownerPermission.user;
+                        }
+                        // Don't create fake user objects - leave planOwner as undefined if no valid user data
+                      }
+
                       const isPlanOwner =
-                        currentPlan && currentPlan.user._id === user._id;
+                        planOwner && planOwner._id === user._id;
                       const isPlanCollaborator =
                         currentPlan &&
                         currentPlan.permissions?.some(
@@ -1758,17 +1777,18 @@ export default function SingleExperience({ user, experiences, updateData }) {
                         <div className="plan-header-row mb-4">
                           {/* Collaborators Display - Left Side */}
                           <UsersListDisplay
-                            owner={currentPlan?.user}
+                            owner={planOwner}
                             users={
                               currentPlan?.permissions
                                 ?.filter(
                                   (p) =>
                                     p.entity === "user" &&
                                     p.type === "collaborator" &&
-                                    p.user &&
-                                    p.user.name // Ensure user has a name
+                                    p._id &&
+                                    typeof p._id === 'object' &&
+                                    p._id.name // Only include if we have populated user data
                                 )
-                                .map((p) => p.user) || []
+                                .map((p) => p._id) || []
                             }
                             messageKey="PlanningExperience"
                           />
@@ -2042,10 +2062,20 @@ export default function SingleExperience({ user, experiences, updateData }) {
                                 </div>
                                 <div className="plan-item-actions">
                                   {(() => {
+                                    // Get plan owner for permission checks
+                                    let planOwner = currentPlan?.user;
+                                    if (!planOwner) {
+                                      const ownerPermission = currentPlan?.permissions?.find(p => p.type === 'owner');
+                                      if (ownerPermission?.user) {
+                                        planOwner = ownerPermission.user;
+                                      }
+                                      // Don't create fake user objects - leave planOwner as undefined if no valid user data
+                                    }
+                                    
                                     // Check if user can edit this plan (owner or collaborator)
                                     const canEditPlan =
                                       currentPlan &&
-                                      (currentPlan.user._id === user._id ||
+                                      ((planOwner && planOwner._id === user._id) ||
                                         currentPlan.permissions?.some(
                                           (p) =>
                                             p._id.toString() ===
