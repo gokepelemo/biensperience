@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import Alert from "../../components/Alert/Alert";
 import { updateUser, getUserData } from "../../utilities/users-api";
+import { updateToken } from "../../utilities/users-service";
 import { lang } from "../../lang.constants";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import { handleError } from "../../utilities/error-handler";
@@ -176,14 +177,24 @@ export default function UpdateProfile({ user, setUser, updateData }) {
 
     try {
       const dataToUpdate = { ...formData };
-      
+
       // Add password data if passwords are being changed
       if (passwordData.oldPassword && passwordData.newPassword) {
         dataToUpdate.oldPassword = passwordData.oldPassword;
         dataToUpdate.password = passwordData.newPassword;
       }
 
-      let updatedUser = await updateUser(user._id, dataToUpdate);
+      const response = await updateUser(user._id, dataToUpdate);
+
+      // Handle both old format (just user) and new format ({ user, token })
+      const updatedUser = response.user || response;
+      const token = response.token;
+
+      // Update token in localStorage if provided
+      if (token) {
+        updateToken(token);
+      }
+
       setUser(updatedUser);
       updateData && updateData();
       navigate('/profile');

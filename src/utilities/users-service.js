@@ -101,3 +101,17 @@ export async function login(credentials) {
 export async function checkToken() {
     return usersAPI.checkToken().then(dateStr => new Date(dateStr))
 }
+
+/**
+ * Updates the stored authentication token with new user data.
+ * Used when user profile is updated to keep localStorage in sync.
+ *
+ * @param {string} token - New JWT token to store
+ */
+export function updateToken(token) {
+    try {
+        localStorage.setItem('token', token);
+    } catch (error) {
+        console.warn('Failed to update token in localStorage:', error);
+    }
+}

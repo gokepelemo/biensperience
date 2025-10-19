@@ -213,7 +213,10 @@ async function updateUser(req, res, next) {
     }
 
     user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true }).populate("photo");
-    res.status(200).json(user);
+
+    // Generate new JWT token with updated user data
+    const token = createJWT(user);
+    res.status(200).json({ user, token });
   } catch (err) {
     backendLogger.error('Error updating user', { error: err.message, userId: req.params.id });
     res.status(400).json({ error: 'Failed to update user' });
@@ -251,7 +254,9 @@ async function addPhoto(req, res) {
 
     await user.save();
 
-    res.status(201).json(user);
+    // Generate new JWT token with updated user data
+    const token = createJWT(user);
+    res.status(201).json({ user, token });
   } catch (err) {
     backendLogger.error('Error adding photo to user', { error: err.message, userId: req.params.id, url: req.body.url });
     res.status(400).json({ error: 'Failed to add photo' });
@@ -290,7 +295,9 @@ async function removePhoto(req, res) {
 
     await user.save();
 
-    res.status(200).json(user);
+    // Generate new JWT token with updated user data
+    const token = createJWT(user);
+    res.status(200).json({ user, token });
   } catch (err) {
     backendLogger.error('Error removing photo from user', { error: err.message, userId: req.params.id, photoIndex: req.params.photoIndex });
     res.status(400).json({ error: 'Failed to remove photo' });
@@ -322,7 +329,9 @@ async function setDefaultPhoto(req, res) {
     user.default_photo_index = photoIndex;
     await user.save();
 
-    res.status(200).json(user);
+    // Generate new JWT token with updated user data
+    const token = createJWT(user);
+    res.status(200).json({ user, token });
   } catch (err) {
     backendLogger.error('Error setting default photo', { error: err.message, userId: req.params.id, photoIndex: req.body.photoIndex });
     res.status(400).json({ error: 'Failed to set default photo' });
@@ -362,11 +371,11 @@ async function getAllUsers(req, res) {
   try {
     // Only super admins can get all users
     if (!isSuperAdmin(req.user)) {
-      return res.status(403).json({ error: 'Only super admins can view all users' });
+      return res.status(403).json({ error: 'Access denied. Super admin privileges required.' });
     }
 
     const users = await User.find({})
-      .select('name email role isSuperAdmin createdAt')
+      .select('name email role createdAt')
       .sort({ createdAt: -1 });
 
     res.json(users);
