@@ -2,6 +2,7 @@ import "./PhotoCard.css";
 import { useMemo, useState, useEffect } from "react";
 import { lang } from "../../lang.constants";
 import PhotoModal from "../PhotoModal/PhotoModal";
+import { sanitizeText, sanitizeUrl } from "../../utilities/sanitize";
 
 export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, title }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
@@ -83,6 +84,10 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
     setImageLoading(false);
   };
 
+  // Sanitize user-controlled content to prevent XSS
+  const sanitizedCredit = sanitizeText(displayPhoto.photo_credit);
+  const sanitizedCreditUrl = sanitizeUrl(displayPhoto.photo_credit_url);
+
   return (
     <figure className="photoFrame" role="img" aria-label={imageAlt}>
       <div
@@ -107,7 +112,7 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
           src={displayPhoto.url}
           className="rounded img-fluid"
           alt={hasRealPhotos ? imageAlt : `${imageAlt} placeholder`}
-          title={hasRealPhotos ? (displayPhoto.photo_credit || title) : undefined}
+          title={hasRealPhotos ? (sanitizedCredit || title) : undefined}
           loading="lazy"
           decoding="async"
           role={hasRealPhotos ? undefined : "presentation"}
@@ -152,21 +157,21 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
       )}
 
       {/* Photo credit - only show for real photos with credit info */}
-      {hasRealPhotos && displayPhoto.photo_credit && displayPhoto.photo_credit !== "undefined" && (
+      {hasRealPhotos && sanitizedCredit && sanitizedCredit !== "undefined" && (
         <figcaption className="photo-credit-block">
           <small>
             Photo by{" "}
-            {displayPhoto.photo_credit_url ? (
+            {sanitizedCreditUrl ? (
               <a
-                href={displayPhoto.photo_credit_url}
+                href={sanitizedCreditUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={`Photo by ${displayPhoto.photo_credit}, opens in new window`}
+                aria-label={`Photo by ${sanitizedCredit}, opens in new window`}
               >
-                {displayPhoto.photo_credit}
+                {sanitizedCredit}
               </a>
             ) : (
-              displayPhoto.photo_credit
+              sanitizedCredit
             )}
           </small>
         </figcaption>

@@ -269,7 +269,7 @@ async function addCollaborator(req, res) {
     await photo.save();
     res.json({ message: 'Collaborator added successfully', photo });
   } catch (err) {
-    backendLogger.error('Add collaborator error', { error: err.message, userId: req.user._id, photoId: req.params.id, collaboratorId: req.params.userId });
+    backendLogger.error('Add collaborator error', { error: err.message, userId: req.user._id, photoId: req.params.id, collaboratorId: req.body.userId });
     res.status(500).json({ error: 'Failed to add collaborator' });
   }
 }

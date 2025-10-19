@@ -151,6 +151,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const apiLogger = require('./utilities/api-logger-middleware');
 app.use('/api', apiLogger);
 
+// Apply CSRF protection to state-changing API routes
+app.use('/api', doubleCsrfProtection);
+
 // Passport configuration for OAuth
 const { passport } = require('./config/passport');
 app.use(passport.initialize());

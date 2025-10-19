@@ -699,14 +699,14 @@ async function createSampleData() {
     }
     console.log(`✅ Created ${createdPlans.length} user plans with varying completion levels`);
 
-    // Display super admin credentials
+    // Display super admin credentials (without sensitive data)
     const superAdmin = createdUsers.find(u => u.isSuperAdmin);
     if (superAdmin && superAdmin.credentials) {
       console.log('\n🔐 SUPER ADMIN CREDENTIALS:');
       console.log('=====================================');
       console.log(`Name:     ${superAdmin.credentials.name}`);
       console.log(`Email:    ${superAdmin.credentials.email}`);
-      console.log(`Password: ${superAdmin.credentials.password}`);
+      console.log(`Password: [REDACTED - Check database or reset password]`);
       console.log('=====================================');
       console.log('⚠️  SAVE THESE CREDENTIALS - They will not be shown again!');
       console.log('The super admin has full access to all features and can manage everything.');

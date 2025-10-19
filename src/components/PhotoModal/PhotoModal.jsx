@@ -1,6 +1,7 @@
 import './PhotoModal.css';
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { sanitizeText, sanitizeUrl } from '../../utilities/sanitize';
 
 export default function PhotoModal({ photo, onClose }) {
   // Close modal on Escape key
@@ -23,6 +24,10 @@ export default function PhotoModal({ photo, onClose }) {
   }, [onClose]);
 
   if (!photo) return null;
+
+  // Sanitize user-controlled content to prevent XSS
+  const sanitizedCredit = sanitizeText(photo.photo_credit);
+  const sanitizedCreditUrl = sanitizeUrl(photo.photo_credit_url);
 
   const modalContent = (
     <div
@@ -50,20 +55,20 @@ export default function PhotoModal({ photo, onClose }) {
           className="photo-modal-image"
         />
 
-        {photo.photo_credit && (
+        {sanitizedCredit && (
           <div className="photo-modal-credits">
             <span>Photo by: </span>
-            {photo.photo_credit_url ? (
+            {sanitizedCreditUrl ? (
               <a
-                href={photo.photo_credit_url}
+                href={sanitizedCreditUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
               >
-                {photo.photo_credit}
+                {sanitizedCredit}
               </a>
             ) : (
-              <span>{photo.photo_credit}</span>
+              <span>{sanitizedCredit}</span>
             )}
           </div>
         )}
