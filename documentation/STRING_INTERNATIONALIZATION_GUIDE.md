@@ -1,25 +1,32 @@
-# String Internationalization Guide
+# Internationalization (i18n) Guide
 
 ## Overview
-This guide documents the process of moving all hardcoded strings to `lang.constants.js` for internationalization (i18n) support.
+Biensperience uses a centralized string management system to support multiple languages and simplify text updates. All UI strings are stored in `lang.constants.js`.
 
-## Current Status
+## Benefits
+- **Easy translation**: Add new language objects without touching components
+- **Centralized management**: Update text in one place
+- **Consistency**: Reuse common strings across the app
+- **Type safety**: Catch missing strings at development time
 
-### ✅ Completed
-- Core button strings
-- Alert messages
+## Current Coverage
+
+### Fully Externalized
+- Buttons and actions
+- Alerts and notifications
 - Modal dialogs
 - Form labels and placeholders
-- Helper text
-- Navigation items
+- Helper tooltips
+- Navigation menu
 - Cookie consent
-- **NEW**: Admin panel strings
-- **NEW**: Social login strings
+- Admin panel interface
+- Social login prompts
 
-### 🚧 In Progress
-- AllUsers component (partially updated)
-
-### ⏳ Pending Components
+### Components Using lang.constants
+- AllUsers (Admin Panel)
+- Profile views
+- Auth forms (Login/Signup)
+- CRUD forms (partial)
 
 #### High Priority (User-Facing)
 1. **NavBar.jsx** - Navigation text and ARIA labels
