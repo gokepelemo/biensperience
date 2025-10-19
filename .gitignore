@@ -37,6 +37,7 @@ AGENTS.md
 addData.js
 getData.js
 crud-helper.js
+test-sample-data.js
 
 style-guide.md
 *storybook.log
