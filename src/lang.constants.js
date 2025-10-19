@@ -304,7 +304,7 @@ const en = {
     role: "Role",
     joined: "Joined",
     actions: "Actions",
-    makeSuper Admin: "Make Super Admin",
+    makeSuperAdmin: "Make Super Admin",
     makeRegularUser: "Make Regular User",
     cannotChangeOwnRole: "You cannot change your own role",
     you: "You",
