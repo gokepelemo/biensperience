@@ -18,8 +18,14 @@ import { isSuperAdmin } from "../../utilities/permissions";
 
 export default function Profile({ user, destinations, updateData }) {
   let { profileId } = useParams();
+  
+  // Validate profileId format
+  if (profileId && (typeof profileId !== 'string' || profileId.length !== 24)) {
+    // Invalid profileId format - handled by validation below
+  }
+  
   let userId = profileId ? profileId : user._id;
-  const isOwner = !profileId || profileId === user._id;
+  const isOwner = !profileId || profileId === user._id || isSuperAdmin(user);
   const [currentProfile, setCurrentProfile] = useState(isOwner ? user : null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(!isOwner);
   const [profileError, setProfileError] = useState(null);
@@ -74,6 +80,14 @@ export default function Profile({ user, destinations, updateData }) {
       setIsLoadingProfile(true);
     }
     setProfileError(null);
+    
+    // Validate userId before API calls
+    if (!userId || typeof userId !== 'string' || userId.length !== 24) {
+      setProfileError('Invalid user ID');
+      setIsLoadingProfile(false);
+      return;
+    }
+    
     try {
       const [userData, experienceData, createdData] = await Promise.all([
         getUserData(userId),
