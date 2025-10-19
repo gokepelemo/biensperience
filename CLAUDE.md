@@ -3,11 +3,44 @@
 This document tracks major changes and architectural decisions in the Biensperience application.
 For AI agent guidelines and workflows, see [AGENTS.md](./AGENTS.md).
 
-## Current Version: 0.1.2
+## Current Version: 0.2.0
 
 ---
 
 ## Recent Major Changes (October 2025)
+
+### Sample Data Generator Enhancement (Oct 18, 2025)
+
+**Realistic Names and Duplicate Prevention**
+- Expanded name lists to 80+ first names and 75+ last names
+- Diverse, international names (English, Spanish, Chinese, Indian, Japanese, etc.)
+- Professional surname variety (common and international origins)
+- Intelligent duplicate prevention with Set-based tracking
+
+**Enhanced Email Generation**:
+- 10 realistic email domains (Gmail, Yahoo, Outlook, ProtonMail, etc.)
+- Smart collision handling with multiple fallback strategies
+- Unique email guarantee even with 200+ users
+- Natural email formats: firstname.lastname@domain.com
+
+**Duplicate Prevention Logic**:
+1. Try base email (james.smith@gmail.com)
+2. Try with random numbers (james.smith123@gmail.com)
+3. Fallback with timestamp + random string for extreme cases
+4. Track all used emails and names in Sets
+
+**Code Quality**:
+- Fixed duplicate "Queenstown" destination (replaced with Wellington)
+- Removed unused function parameters
+- Added comprehensive test suite: `test-sample-data.js`
+
+**Benefits**:
+- ✅ Zero duplicate names or emails
+- ✅ Production-realistic sample data
+- ✅ Better testing for user search/filtering
+- ✅ Handles high-volume generation (200+ users)
+
+---
 
 ### OAuth 2.0 Migration and Social Authentication (Oct 18, 2025)
 

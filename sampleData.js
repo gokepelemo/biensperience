@@ -145,20 +145,51 @@ function randomFutureDate() {
  */
 class DataGenerator {
   constructor() {
+    // Expanded list of realistic first names (diverse, international)
     this.firstNames = [
-      'Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace', 'Henry', 'Ivy', 'Jack',
-      'Kate', 'Liam', 'Maya', 'Noah', 'Olivia', 'Peter', 'Quinn', 'Ryan', 'Sara', 'Tom',
-      'Uma', 'Victor', 'Wendy', 'Xavier', 'Yara', 'Zane', 'Anna', 'Ben', 'Cora', 'Dean',
-      'Eva', 'Felix', 'Gina', 'Hugo', 'Iris', 'Jake', 'Luna', 'Max', 'Nina', 'Owen'
+      // Common English names
+      'James', 'Mary', 'Robert', 'Jennifer', 'Michael', 'Linda', 'William', 'Elizabeth',
+      'David', 'Barbara', 'Richard', 'Susan', 'Joseph', 'Jessica', 'Thomas', 'Sarah',
+      'Christopher', 'Karen', 'Daniel', 'Lisa', 'Matthew', 'Nancy', 'Anthony', 'Betty',
+      'Mark', 'Margaret', 'Donald', 'Sandra', 'Steven', 'Ashley', 'Andrew', 'Emily',
+      'Paul', 'Kimberly', 'Joshua', 'Donna', 'Kenneth', 'Michelle', 'Kevin', 'Carol',
+
+      // Modern/Popular names
+      'Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Ethan', 'Sophia', 'Mason', 'Isabella',
+      'Logan', 'Mia', 'Lucas', 'Charlotte', 'Jackson', 'Amelia', 'Aiden', 'Harper',
+      'Carter', 'Evelyn', 'Jayden', 'Abigail', 'Alexander', 'Emily', 'Sebastian', 'Ella',
+
+      // International names
+      'Wei', 'Yuki', 'Priya', 'Ahmed', 'Sofia', 'Carlos', 'Fatima', 'Luis', 'Aisha',
+      'Raj', 'Mei', 'Hassan', 'Nadia', 'Diego', 'Leila', 'Marco', 'Amara', 'Mateo',
+      'Zara', 'Jin', 'Aaliyah', 'Omar', 'Sakura', 'Ravi', 'Layla', 'Ivan', 'Lucia'
     ];
 
+    // Expanded list of realistic last names (diverse origins)
     this.lastNames = [
-      'Johnson', 'Smith', 'Davis', 'Wilson', 'Brown', 'Miller', 'Lee', 'Taylor', 'Chen', 'Rodriguez',
-      'Garcia', 'Martinez', 'Anderson', 'Thomas', 'Jackson', 'White', 'Harris', 'Martin', 'Thompson', 'Robinson',
-      'Clark', 'Lewis', 'Walker', 'Hall', 'Allen', 'Young', 'King', 'Wright', 'Lopez', 'Hill'
+      // Common surnames
+      'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis',
+      'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson',
+      'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson',
+      'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson', 'Walker',
+      'Young', 'Allen', 'King', 'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores',
+
+      // International surnames
+      'Chen', 'Wang', 'Li', 'Zhang', 'Liu', 'Kumar', 'Singh', 'Patel', 'Kim', 'Park',
+      'Yamamoto', 'Tanaka', 'Suzuki', 'Ivanov', 'Petrov', 'Silva', 'Santos', 'Costa',
+      'Rossi', 'Müller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Meyer', 'Wagner',
+      'Kowalski', 'Nowak', 'Kovács', 'Nielsen', 'Hansen', "O'Brien", 'Murphy', 'Kelly'
     ];
 
-    this.domains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com'];
+    // Realistic email domains
+    this.domains = [
+      'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com',
+      'protonmail.com', 'mail.com', 'aol.com', 'zoho.com', 'yandex.com'
+    ];
+
+    // Track generated emails to prevent duplicates
+    this.usedEmails = new Set();
+    this.usedNames = new Set();
 
     this.destinations = [
       // Major Cities
@@ -201,7 +232,7 @@ class DataGenerator {
       { name: 'Cape Town', country: 'South Africa', map_location: '-33.9249,18.4241' },
       { name: 'Reykjavik', country: 'Iceland', map_location: '64.1466,-21.9426' },
       { name: 'Cusco', country: 'Peru', map_location: '-13.5319,-71.9675' },
-      { name: 'Queenstown', country: 'New Zealand', map_location: '-45.0312,168.6626' },
+      { name: 'Wellington', country: 'New Zealand', map_location: '-41.2865,174.7762' },
       { name: 'Patagonia', country: 'Chile', map_location: '-53.1638,-70.9171' },
 
       // Food & Wine
@@ -261,7 +292,64 @@ class DataGenerator {
   }
 
   /**
-   * Generate users with varied profiles
+   * Generate unique email address
+   */
+  generateUniqueEmail(firstName, lastName) {
+    const domain = getRandomElement(this.domains);
+    const baseEmail = `${firstName.toLowerCase()}.${lastName.toLowerCase()}`;
+
+    // Try base email first
+    let email = `${baseEmail}@${domain}`;
+    if (!this.usedEmails.has(email)) {
+      this.usedEmails.add(email);
+      return email;
+    }
+
+    // Try with random numbers
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const randomNum = randomBetween(1, 9999);
+      email = `${baseEmail}${randomNum}@${domain}`;
+      if (!this.usedEmails.has(email)) {
+        this.usedEmails.add(email);
+        return email;
+      }
+    }
+
+    // Fallback: add timestamp + random string
+    const timestamp = Date.now().toString().slice(-6);
+    email = `${baseEmail}.${timestamp}${generateRandomString(4)}@${domain}`;
+    this.usedEmails.add(email);
+    return email;
+  }
+
+  /**
+   * Generate unique name
+   */
+  generateUniqueName() {
+    const maxAttempts = 1000;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const firstName = getRandomElement(this.firstNames);
+      const lastName = getRandomElement(this.lastNames);
+      const name = `${firstName} ${lastName}`;
+
+      if (!this.usedNames.has(name)) {
+        this.usedNames.add(name);
+        return { firstName, lastName, name };
+      }
+    }
+
+    // Fallback: add middle initial
+    const firstName = getRandomElement(this.firstNames);
+    const lastName = getRandomElement(this.lastNames);
+    const middleInitial = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // A-Z
+    const name = `${firstName} ${middleInitial}. ${lastName}`;
+    this.usedNames.add(name);
+    return { firstName, lastName, name };
+  }
+
+  /**
+   * Generate users with varied profiles (no duplicates)
    */
   generateUsers(count = 60) {
     const users = [];
@@ -280,14 +368,13 @@ class DataGenerator {
       credentials: { name: superAdminName, email: superAdminEmail, password: superAdminPassword }
     };
     users.push(superAdmin);
+    this.usedEmails.add(superAdminEmail);
+    this.usedNames.add(superAdminName);
 
-    // Generate regular users
+    // Generate regular users with unique names and emails
     for (let i = 0; i < count - 1; i++) {
-      const firstName = getRandomElement(this.firstNames);
-      const lastName = getRandomElement(this.lastNames);
-      const name = `${firstName} ${lastName}`;
-      const domain = getRandomElement(this.domains);
-      const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${randomBetween(1, 999)}@${domain}`;
+      const { firstName, lastName, name } = this.generateUniqueName();
+      const email = this.generateUniqueEmail(firstName, lastName);
 
       users.push({
         name,
@@ -306,7 +393,7 @@ class DataGenerator {
   generateDestinations(count = 30) {
     const selectedDestinations = getRandomElements(this.destinations, count);
 
-    return selectedDestinations.map((dest, index) => ({
+    return selectedDestinations.map((dest) => ({
       name: dest.name,
       country: dest.country,
       state: dest.state,
