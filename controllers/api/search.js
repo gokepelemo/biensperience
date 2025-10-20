@@ -2,8 +2,17 @@ const Destination = require('../../models/destination');
 const Experience = require('../../models/experience');
 const Plan = require('../../models/plan');
 const User = require('../../models/user');
-const { isSuperAdmin } = require('../../utilities/user-roles');
+const { USER_ROLES } = require('../../utilities/user-roles');
 const logger = require('../../utilities/backend-logger');
+
+/**
+ * Check if user is a super admin
+ * @param {Object} user - User object
+ * @returns {boolean} True if user is super admin
+ */
+function isSuperAdmin(user) {
+  return user && (user.isSuperAdmin === true || user.role === USER_ROLES.SUPER_ADMIN);
+}
 
 /**
  * Search configuration
