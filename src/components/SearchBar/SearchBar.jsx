@@ -165,9 +165,9 @@ export default function SearchBar({ placeholder = 'Search destinations, experien
       case 'destination':
         return result.name;
       case 'experience':
-        return result.title;
+        return result.name;
       case 'plan':
-        return result.experience?.title || 'Plan';
+        return result.experience?.name || 'Plan';
       case 'user':
         return result.name;
       default:

@@ -133,12 +133,12 @@ async function searchDestinationsInternal(query, limit, user) {
  */
 async function searchExperiencesInternal(query, limit, user) {
   try {
-    const searchQuery = buildRegexSearchQuery(query, ['title', 'description', 'tags']);
+    const searchQuery = buildRegexSearchQuery(query, ['name', 'description', 'experience_type']);
 
     const experiences = await Experience.find(searchQuery)
       .limit(limit)
       .populate('destination', 'name city country')
-      .select('title description destination tags cost photos')
+      .select('name description destination experience_type photos')
       .lean();
 
     return experiences.map(exp => ({
