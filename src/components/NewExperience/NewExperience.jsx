@@ -130,11 +130,12 @@ export default function NewExperience() {
                     );
                   })}
               </datalist>
-              <div className="mt-1">
-                <Link to="/destinations/new" className="small">
+              <small className="form-text text-muted">
+                {lang.en.helper.destinationRequired}
+                <Link to="/destinations/new" className="ms-1">
                   {lang.en.helper.createNewDestination}
                 </Link>
-              </div>
+              </small>
             </div>
 
             <FormField

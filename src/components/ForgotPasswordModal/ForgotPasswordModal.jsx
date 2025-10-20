@@ -5,6 +5,7 @@ import Alert from '../Alert/Alert';
 import { requestPasswordReset } from '../../utilities/users-api';
 import { handleError } from '../../utilities/error-handler';
 import { lang } from '../../lang.constants';
+import './ForgotPasswordModal.css';
 
 export default function ForgotPasswordModal({ show, onClose }) {
   const [email, setEmail] = useState('');
@@ -12,8 +13,7 @@ export default function ForgotPasswordModal({ show, onClose }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setError('');
     setLoading(true);
 
@@ -45,8 +45,15 @@ export default function ForgotPasswordModal({ show, onClose }) {
     <Modal
       show={show}
       onClose={handleClose}
+      onSubmit={success ? undefined : handleSubmit}
       title="Reset Password"
       size="md"
+      submitText="Send Reset Link"
+      cancelText={lang.en.button.cancel}
+      showCancelButton={!success}
+      showSubmitButton={!success}
+      disableSubmit={!email}
+      loading={loading}
     >
       {success ? (
         <Alert type="success" className="mb-0">
@@ -57,7 +64,7 @@ export default function ForgotPasswordModal({ show, onClose }) {
           </p>
         </Alert>
       ) : (
-        <form onSubmit={handleSubmit}>
+        <form className="forgot-password-form">
           {error && (
             <Alert type="danger" message={error} className="mb-3" />
           )}
@@ -77,24 +84,6 @@ export default function ForgotPasswordModal({ show, onClose }) {
             autoComplete="email"
             autoFocus
           />
-
-          <div className="d-flex justify-content-end gap-2 mt-4">
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleClose}
-              disabled={loading}
-            >
-              {lang.en.button.cancel}
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading || !email}
-            >
-              {loading ? 'Sending...' : 'Send Reset Link'}
-            </button>
-          </div>
         </form>
       )}
     </Modal>

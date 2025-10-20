@@ -309,6 +309,8 @@ export default function UpdateExperience() {
               <Form.Select
                 id="destination"
                 name="destination"
+                label={lang.en.label.destinationLabel}
+                tooltip={`${lang.en.helper.destinationRequired}${lang.en.helper.createNewDestination}`}
                 value={(() => {
                   const dest = destinations.find(d => d._id === experience.destination);
                   return dest ? `${dest.name}, ${dest.country}` : '';
@@ -337,6 +339,7 @@ export default function UpdateExperience() {
               </Form.Label>
               <TagInput
                 tags={tags}
+                label={lang.en.label.experienceTypes}
                 onChange={handleTagsChange}
                 placeholder={lang.en.placeholder.experienceType}
               />
@@ -367,7 +370,8 @@ export default function UpdateExperience() {
                   placeholder={lang.en.placeholder.planningDays}
                   min="1"
                   append="days"
-                  helpText="Minimum days needed to plan in advance (optional)"
+                  tooltip={lang.en.helper.planningDaysOptional}
+                  tooltipPlacement="top"
                 />
               </div>
 
@@ -381,7 +385,8 @@ export default function UpdateExperience() {
                   placeholder={lang.en.placeholder.costEstimate}
                   min="0"
                   prepend="$"
-                  helpText="Estimated cost in dollars (optional)"
+                  tooltip={lang.en.helper.costEstimateOptional}
+                  tooltipPlacement="top"
                 />
               </div>
             </div>

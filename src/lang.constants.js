@@ -187,7 +187,7 @@ const en = {
     nameRequired:
       "Give your experience an exciting name that captures what makes it special! ✨",
     destinationRequired: "Pick where this adventure takes place, or ",
-    createNewDestination: "Add a new destination to our map 🗺️",
+    createNewDestination: "add a new destination to our map 🗺️",
     experienceTypesOptional:
       "Tag your experience to help others discover it (food, adventure, culture, etc.)",
     addressOptional:
@@ -351,7 +351,7 @@ const en = {
     },
     emailConfirmation: {
       subject: "{appName} - Confirm Your Email Address",
-      heading: "Welcome to {appName}!",
+      heading: "Welcome to {appName}",
       greeting: "Hello {userName},",
       body: "Thank you for signing up for {appName}! To complete your registration and start planning your adventures, please confirm your email address.",
       buttonText: "Confirm Email Address",

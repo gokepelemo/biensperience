@@ -36,10 +36,9 @@ const UsersListDisplay = ({
   // Show loading placeholder if loading
   if (loading) {
     return (
-      <div className={`users-list-display ${className}`} style={{ minHeight: '40px', opacity: 0.5 }}>
-        {showHeading && (
-          <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
-        )}
+      <div className={`users-list-display ${className}`} style={{ minHeight: '40px', minWidth: '200px', opacity: 0.5 }}>
+        {/* Always show heading to prevent layout shift */}
+        <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
         <div className="d-flex align-items-center">
           <div className="users-avatar-stack">
             <div className={`user-avatar user-avatar-${size} stacked-avatar`} style={{ backgroundColor: '#e0e0e0' }}>
@@ -58,7 +57,12 @@ const UsersListDisplay = ({
 
   // Reserve space if requested and no users
   if (reserveSpace && !owner && (!users || users.length === 0)) {
-    return <div className={`users-list-display ${className}`} style={{ minHeight: '40px' }} />;
+    return (
+      <div className={`users-list-display ${className}`} style={{ minHeight: '40px', minWidth: '200px' }}>
+        {/* Always show heading to prevent layout shift */}
+        <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
+      </div>
+    );
   }
 
   // Don't render if there's no owner and no users (0 people total)

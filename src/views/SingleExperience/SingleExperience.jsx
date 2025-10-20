@@ -1647,6 +1647,7 @@ export default function SingleExperience() {
                         users={experienceCollaborators}
                         messageKey="CreatingPlan"
                         loading={experienceOwnerLoading || experienceCollaboratorsLoading}
+                        reserveSpace={true}
                       />
 
                       {/* Action Buttons - Right Side */}
@@ -1866,6 +1867,7 @@ export default function SingleExperience() {
                             users={planCollaborators}
                             messageKey="PlanningExperience"
                             loading={planOwnerLoading || planCollaboratorsLoading}
+                            reserveSpace={true}
                           />
 
                           {/* Action Buttons - Right Side */}
