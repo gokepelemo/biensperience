@@ -173,6 +173,49 @@ const userSchema = new Schema(
       type: String,
       enum: Object.values(require("../utilities/user-roles").USER_ROLES),
       default: require("../utilities/user-roles").USER_ROLES.REGULAR_USER
+    },
+
+    /**
+     * Password reset token
+     * @type {string}
+     */
+    resetPasswordToken: {
+      type: String,
+      sparse: true
+    },
+
+    /**
+     * Password reset token expiration
+     * @type {Date}
+     */
+    resetPasswordExpires: {
+      type: Date
+    },
+
+    /**
+     * Email confirmation status
+     * @type {boolean}
+     */
+    emailConfirmed: {
+      type: Boolean,
+      default: false
+    },
+
+    /**
+     * Email confirmation token
+     * @type {string}
+     */
+    emailConfirmationToken: {
+      type: String,
+      sparse: true
+    },
+
+    /**
+     * Email confirmation token expiration
+     * @type {Date}
+     */
+    emailConfirmationExpires: {
+      type: Date
     }
   },
   {
@@ -196,5 +239,15 @@ userSchema.pre("save", async function (next) {
   this.password = await bcrypt.hash(this.password, SALT_ROUNDS);
   return next();
 });
+
+/**
+ * Database indexes for query performance optimization
+ */
+userSchema.index({ email: 1 });  // For login and search queries
+userSchema.index({ role: 1 });  // For admin queries
+userSchema.index({ provider: 1 });  // For OAuth queries
+userSchema.index({ resetPasswordToken: 1, resetPasswordExpires: 1 });  // For password reset lookups
+userSchema.index({ emailConfirmationToken: 1, emailConfirmationExpires: 1 });  // For email confirmation
+userSchema.index({ createdAt: -1 });  // For sorting in getAllUsers
 
 module.exports = mongoose.model("User", userSchema);

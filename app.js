@@ -61,7 +61,7 @@ app.use(
   session({
     secret: process.env.SESSION_SECRET || process.env.SECRET,
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: true, // Changed to true to create sessions for CSRF tokens
     cookie: {
       secure: process.env.NODE_ENV === 'production', // HTTPS only in production
       httpOnly: true, // Prevents client-side JS from accessing the cookie
@@ -151,15 +151,29 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const apiLogger = require('./utilities/api-logger-middleware');
 app.use('/api', apiLogger);
 
-// Apply CSRF protection to state-changing API routes
-app.use('/api', doubleCsrfProtection);
+// Register auth routes BEFORE CSRF protection (csrf-token endpoint needs to be unprotected)
+app.use("/api/auth", require("./routes/api/auth"));
+
+// Apply CSRF protection to state-changing API routes (after auth routes)
+// Skip CSRF for safe methods and login endpoint
+app.use('/api', (req, res, next) => {
+  // Skip CSRF for safe methods
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return next();
+  }
+  // Skip CSRF for login and signup endpoints (authentication doesn't need CSRF protection)
+  if (req.path === '/users/login' || req.path === '/users/') {
+    return next();
+  }
+  // Apply CSRF protection for state-changing methods
+  doubleCsrfProtection(req, res, next);
+});
 
 // Passport configuration for OAuth
 const { passport } = require('./config/passport');
 app.use(passport.initialize());
 
 app.use(require("./config/checkToken"));
-app.use("/api/auth", require("./routes/api/auth"));
 app.use("/api/users", require("./routes/api/users"));
 app.use("/api/destinations", require("./routes/api/destinations"));
 app.use("/api/experiences", require("./routes/api/experiences"));

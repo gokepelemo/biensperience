@@ -42,9 +42,15 @@ export function filterExperiences(experiences, filterBy, userId, userPlans = [])
       );
 
     case "created":
-      return experiences.filter(exp =>
-        exp.user === userId || (exp.user && exp.user._id === userId)
-      );
+      return experiences.filter(exp => {
+        // Check if user is owner using permissions
+        if (!exp.permissions || !Array.isArray(exp.permissions)) return false;
+        return exp.permissions.some(p =>
+          p.entity === 'user' &&
+          p.type === 'owner' &&
+          (p._id === userId || (p._id && p._id.toString() === userId))
+        );
+      });
 
     case "all":
     default:

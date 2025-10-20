@@ -1,6 +1,7 @@
 const User = require("../../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const mongoose = require("mongoose");
 const { USER_ROLES } = require("../../utilities/user-roles");
 const { isSuperAdmin } = require("../../utilities/permissions");
@@ -38,6 +39,26 @@ async function create(req, res) {
     }
 
     const user = await User.create(req.body);
+
+    // Generate email confirmation token
+    const confirmToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(confirmToken).digest('hex');
+
+    user.emailConfirmationToken = hashedToken;
+    user.emailConfirmationExpires = Date.now() + 24 * 3600000; // 24 hours
+    await user.save();
+
+    // Send confirmation email
+    try {
+      const confirmUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/confirm-email/${confirmToken}`;
+      const { sendEmailConfirmation } = require('../../utilities/email-service');
+      await sendEmailConfirmation(user.email, user.name, confirmUrl);
+      backendLogger.info('Email confirmation sent', { email: user.email, userId: user._id });
+    } catch (emailError) {
+      backendLogger.error('Failed to send confirmation email', { error: emailError.message, email: user.email });
+      // Don't fail signup if email fails - user can resend
+    }
+
     const token = createJWT(user);
     res.status(201).json(token);
   } catch (err) {
@@ -423,6 +444,218 @@ async function updateUserRole(req, res) {
   }
 }
 
+/**
+ * Request password reset
+ * Generates a reset token and sends email
+ */
+async function requestPasswordReset(req, res) {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    // Always return success to prevent email enumeration attacks
+    if (!user) {
+      backendLogger.info('Password reset requested for non-existent email', { email });
+      return res.json({ message: 'If an account exists, a reset email has been sent' });
+    }
+
+    // Check if user uses OAuth (no password to reset)
+    if (user.provider !== 'local') {
+      backendLogger.info('Password reset requested for OAuth user', { email, provider: user.provider });
+      return res.json({ message: 'If an account exists, a reset email has been sent' });
+    }
+
+    // Generate reset token (32 bytes = 64 hex characters)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    // Hash the token before storing
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Set token and expiration (1 hour from now)
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await user.save();
+
+    // Send email with reset link
+    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+
+    try {
+      const { sendPasswordResetEmail } = require('../../utilities/email-service');
+      await sendPasswordResetEmail(user.email, user.name, resetUrl);
+      backendLogger.info('Password reset email sent', { email: user.email, userId: user._id });
+    } catch (emailError) {
+      backendLogger.error('Failed to send password reset email', { error: emailError.message, email: user.email });
+      // Clear the token since email failed
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+      return res.status(500).json({ error: 'Failed to send reset email. Please try again.' });
+    }
+
+    res.json({ message: 'If an account exists, a reset email has been sent' });
+  } catch (err) {
+    backendLogger.error('Error requesting password reset', { error: err.message });
+    res.status(500).json({ error: 'Failed to process password reset request' });
+  }
+}
+
+/**
+ * Reset password with token
+ */
+async function resetPassword(req, res) {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    // Validate password strength
+    if (typeof password !== 'string' || password.length < 3) {
+      return res.status(400).json({ error: 'Password must be at least 3 characters long' });
+    }
+
+    // Hash the token to match what's stored
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find user with valid token
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      backendLogger.warn('Invalid or expired password reset token');
+      return res.status(400).json({ error: 'Password reset token is invalid or has expired' });
+    }
+
+    // Update password (will be hashed by pre-save hook)
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    backendLogger.info('Password reset successful', { userId: user._id, email: user.email });
+
+    // Send confirmation email
+    try {
+      const { sendPasswordResetConfirmation } = require('../../utilities/email-service');
+      await sendPasswordResetConfirmation(user.email, user.name);
+    } catch (emailError) {
+      backendLogger.error('Failed to send password reset confirmation', { error: emailError.message });
+      // Don't fail the request if confirmation email fails
+    }
+
+    res.json({ message: 'Password has been reset successfully' });
+  } catch (err) {
+    backendLogger.error('Error resetting password', { error: err.message });
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+}
+
+/**
+ * Confirm email with token
+ */
+async function confirmEmail(req, res) {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      return res.status(400).json({ error: 'Token is required' });
+    }
+
+    // Hash the token to match what's stored
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find user with valid token
+    const user = await User.findOne({
+      emailConfirmationToken: hashedToken,
+      emailConfirmationExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      backendLogger.warn('Invalid or expired email confirmation token');
+      return res.status(400).json({ error: 'Email confirmation token is invalid or has expired' });
+    }
+
+    // Confirm email
+    user.emailConfirmed = true;
+    user.emailConfirmationToken = undefined;
+    user.emailConfirmationExpires = undefined;
+    await user.save();
+
+    backendLogger.info('Email confirmed successfully', { userId: user._id, email: user.email });
+
+    res.json({ message: 'Email confirmed successfully' });
+  } catch (err) {
+    backendLogger.error('Error confirming email', { error: err.message });
+    res.status(500).json({ error: 'Failed to confirm email' });
+  }
+}
+
+/**
+ * Resend confirmation email
+ */
+async function resendConfirmation(req, res) {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      backendLogger.info('Confirmation resend requested for non-existent email', { email });
+      return res.json({ message: 'If an account exists, a confirmation email has been sent' });
+    }
+
+    // Check if already confirmed
+    if (user.emailConfirmed) {
+      return res.json({ message: 'Email is already confirmed' });
+    }
+
+    // Check if user uses OAuth (no email confirmation needed)
+    if (user.provider !== 'local') {
+      backendLogger.info('Confirmation resend requested for OAuth user', { email, provider: user.provider });
+      return res.json({ message: 'If an account exists, a confirmation email has been sent' });
+    }
+
+    // Generate new confirmation token
+    const confirmToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(confirmToken).digest('hex');
+
+    user.emailConfirmationToken = hashedToken;
+    user.emailConfirmationExpires = Date.now() + 24 * 3600000; // 24 hours
+    await user.save();
+
+    // Send confirmation email
+    try {
+      const confirmUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/confirm-email/${confirmToken}`;
+      const { sendEmailConfirmation } = require('../../utilities/email-service');
+      await sendEmailConfirmation(user.email, user.name, confirmUrl);
+      backendLogger.info('Confirmation email resent', { email: user.email, userId: user._id });
+    } catch (emailError) {
+      backendLogger.error('Failed to resend confirmation email', { error: emailError.message, email: user.email });
+      return res.status(500).json({ error: 'Failed to send confirmation email. Please try again.' });
+    }
+
+    res.json({ message: 'If an account exists, a confirmation email has been sent' });
+  } catch (err) {
+    backendLogger.error('Error resending confirmation', { error: err.message });
+    res.status(500).json({ error: 'Failed to resend confirmation email' });
+  }
+}
+
 module.exports = {
   create,
   login,
@@ -435,4 +668,8 @@ module.exports = {
   searchUsers,
   updateUserRole,
   getAllUsers,
+  requestPasswordReset,
+  resetPassword,
+  confirmEmail,
+  resendConfirmation,
 };

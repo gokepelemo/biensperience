@@ -6,11 +6,18 @@ module.exports = function(req, res, next) {
     if (token) {
         token = token.replace("Bearer ", "");
         jwt.verify(token, process.env.SECRET, function(err, decoded) {
-            req.user = err ? null : decoded.user;
-            req.exp = err ? null : new Date(decoded.exp * 1000);
+            if (err) {
+                console.log('JWT verification failed:', err.message);
+                req.user = null;
+            } else {
+                console.log('JWT verified successfully for user:', decoded.user.email);
+                req.user = decoded.user;
+                req.exp = new Date(decoded.exp * 1000);
+            }
             return next();
         })
     } else {
+        console.log('No token found in request');
         req.user = null;
         return next();
     }

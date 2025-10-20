@@ -1,19 +1,26 @@
 import "./UpdateExperience.css";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { updateExperience, showExperience } from "../../utilities/experiences-api";
-import { getDestinations } from "../../utilities/destinations-api";
+import { updateExperience as updateExpAPI, showExperience } from "../../utilities/experiences-api";
+import { useUser } from "../../contexts/UserContext";
+import { useData } from "../../contexts/DataContext";
+import { useToast } from "../../contexts/ToastContext";
 import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import TagInput from "../../components/TagInput/TagInput";
 import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
+import { formatChanges } from "../../utilities/change-formatter";
 import Modal from "../Modal/Modal";
 import FormField from "../FormField/FormField";
+import { isOwner } from "../../utilities/permissions";
 import { Form } from "react-bootstrap";
 import { isSuperAdmin } from "../../utilities/permissions";
 
-export default function UpdateExperience({ user, updateData }) {
+export default function UpdateExperience() {
+  const { user } = useUser();
+  const { destinations: destData, updateExperience } = useData();
+  const { success, error: showError } = useToast();
   const { experienceId } = useParams();
   const [experience, setExperience] = useState(null);
   const [destinations, setDestinations] = useState([]);
@@ -25,25 +32,13 @@ export default function UpdateExperience({ user, updateData }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Convert snake_case to Title Case
-  function formatFieldName(fieldName) {
-    return fieldName
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
-
   useEffect(() => {
     async function fetchData() {
       try {
-        const [experienceData, destinationsData] = await Promise.all([
-          showExperience(experienceId),
-          getDestinations()
-        ]);
+        const experienceData = await showExperience(experienceId);
 
         // Check if user is the owner or Super Admin
-        const isOwner = experienceData.user && experienceData.user._id === user._id;
-        const canEdit = isOwner || isSuperAdmin(user);
+        const canEdit = isOwner(user, experienceData) || isSuperAdmin(user);
 
         if (!canEdit) {
           setError("You are not authorized to update this experience.");
@@ -61,7 +56,7 @@ export default function UpdateExperience({ user, updateData }) {
 
         setExperience(normalizedExperience);
         setOriginalExperience(experienceData);
-        setDestinations(destinationsData);
+        if (destData) setDestinations(destData);
 
         // Set tags from experience_type
         if (experienceData.experience_type) {
@@ -85,7 +80,7 @@ export default function UpdateExperience({ user, updateData }) {
     if (user && experienceId) {
       fetchData();
     }
-  }, [experienceId, user, navigate]);
+  }, [experienceId, user, navigate, destData]);
 
   // Track photo changes
   useEffect(() => {
@@ -207,11 +202,13 @@ export default function UpdateExperience({ user, updateData }) {
     }
 
     try {
-      await updateExperience(experienceId, experience);
-      updateData && updateData();
+      const updated = await updateExpAPI(experienceId, experience);
+      updateExperience(updated); // Instant UI update!
+      success('Experience updated!');
       navigate(`/experiences/${experienceId}`);
     } catch (err) {
-      handleError(err, { context: 'Update experience' });
+      const errorMsg = handleError(err, { context: 'Update experience' });
+      showError(errorMsg);
     }
   }
 
@@ -273,6 +270,22 @@ export default function UpdateExperience({ user, updateData }) {
           <h1 className="my-4 h fade-in">{lang.en.heading.updateExperience}</h1>
         </div>
       </div>
+
+      {Object.keys(changes).length > 0 && (
+        <Alert
+          type="info"
+          className="mb-4 fade-in"
+        >
+          <strong>Changes detected:</strong>
+          <ul className="mb-0 mt-2">
+            {Object.keys(changes).map((field, idx) => (
+              <li key={idx} style={{ whiteSpace: 'pre-line' }}>
+                {formatChanges(field, changes[field], 'experience')}
+              </li>
+            ))}
+          </ul>
+        </Alert>
+      )}
 
       <div className="row my-4 fade-in">
         <div className="col-12">
@@ -353,7 +366,7 @@ export default function UpdateExperience({ user, updateData }) {
                   onChange={handleChange}
                   placeholder={lang.en.placeholder.planningDays}
                   min="1"
-                  append={<span className="input-group-text">days</span>}
+                  append="days"
                   helpText="Minimum days needed to plan in advance (optional)"
                 />
               </div>
@@ -367,7 +380,7 @@ export default function UpdateExperience({ user, updateData }) {
                   onChange={handleChange}
                   placeholder={lang.en.placeholder.costEstimate}
                   min="0"
-                  prepend={<span className="input-group-text">$</span>}
+                  prepend="$"
                   helpText="Estimated cost in dollars (optional)"
                 />
               </div>
@@ -430,10 +443,9 @@ export default function UpdateExperience({ user, updateData }) {
         <ul className="list-group">
           {Object.entries(changes).map(([field, change]) => (
             <li key={field} className="list-group-item">
-              <strong>{formatFieldName(field)}:</strong>{' '}
-              {typeof change.from === 'object' ? JSON.stringify(change.from) : (change.from || 'None')}{' '}
-              →{' '}
-              {typeof change.to === 'object' ? JSON.stringify(change.to) : (change.to || 'None')}
+              <div style={{ whiteSpace: 'pre-line' }}>
+                {formatChanges(field, change, 'experience')}
+              </div>
             </li>
           ))}
         </ul>

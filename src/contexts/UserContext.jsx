@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { getUser, logout } from '../utilities/users-service';
 import { getUserData } from '../utilities/users-api';
 
+console.log('UserContext module loaded');
+
 const UserContext = createContext();
 
 /**
@@ -22,11 +24,18 @@ export function useUser() {
  * Manages user details, avatar, favorites, planned experiences, and permissions
  */
 export function UserProvider({ children }) {
+  console.log('UserProvider function called');
   const [user, setUser] = useState(getUser());
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [favoriteDestinations, setFavoriteDestinations] = useState([]);
   const [plannedExperiences, setPlannedExperiences] = useState([]);
+
+  // Debug initial user state
+  useEffect(() => {
+    const initialUser = getUser();
+    console.log('UserContext initialized with user:', initialUser ? { email: initialUser.email, _id: initialUser._id } : null);
+  }, []);
 
   /**
    * Fetch full user profile with favorites and plans
@@ -59,12 +68,15 @@ export function UserProvider({ children }) {
    * @param {Object} newUser - Updated user object
    */
   const updateUser = useCallback((newUser) => {
+    console.log('UserContext updateUser called with:', newUser ? { email: newUser.email, _id: newUser._id } : null);
     setUser(newUser);
 
     // Fetch fresh profile data when user changes
     if (newUser) {
+      console.log('User set, calling fetchProfile');
       fetchProfile();
     } else {
+      console.log('User cleared, clearing profile data');
       // Clear profile data on logout
       setProfile(null);
       setFavoriteDestinations([]);

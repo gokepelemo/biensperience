@@ -59,10 +59,6 @@ const experienceSchema = new Schema(
       default: []
     },
     default_photo_index: { type: Number, default: 0 },
-    user: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-    },
     permissions: {
       type: [permissionSchema],
       default: [],
@@ -89,7 +85,6 @@ const experienceSchema = new Schema(
   }
 );
 
-experienceSchema.index({ user: 1 });
 experienceSchema.index({ destination: 1 });
 
 experienceSchema.virtual("cost_estimate").get(function () {
@@ -136,5 +131,16 @@ experienceSchema.virtual("completion_percentage").get(function () {
   // Return 0 for backward compatibility
   return 0;
 });
+
+/**
+ * Additional database indexes for query performance optimization
+ * Note: experienceSchema.index({ destination: 1 }) already exists on line 88
+ */
+experienceSchema.index({ name: 1 });  // For duplicate checking and name searches
+experienceSchema.index({ 'permissions._id': 1, 'permissions.type': 1 });  // For permission queries
+experienceSchema.index({ 'permissions._id': 1 });  // For owner checks
+experienceSchema.index({ experience_type: 1 });  // For tag filtering
+experienceSchema.index({ destination: 1, createdAt: -1 });  // Compound index for common query patterns
+experienceSchema.index({ createdAt: -1 });  // For sorting by creation date
 
 module.exports = mongoose.model("Experience", experienceSchema);

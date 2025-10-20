@@ -40,14 +40,17 @@ function validateObjectId(id, fieldName = 'ID') {
 /**
  * Check if the authenticated user is authorized to modify a resource
  * @param {Object} user - The authenticated user (from req.user)
- * @param {Object} resource - The resource with a user field
+ * @param {Object} resource - The resource with permissions array
  * @returns {boolean} - True if authorized
  */
 function isAuthorized(user, resource) {
-  if (!user || !resource || !resource.user) {
+  if (!user || !resource) {
     return false;
   }
-  return user._id.toString() === resource.user._id.toString();
+
+  // Import isOwner function
+  const { isOwner } = require('./permissions');
+  return isOwner(user, resource);
 }
 
 /**

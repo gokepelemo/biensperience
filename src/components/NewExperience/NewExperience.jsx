@@ -1,8 +1,9 @@
 import "./NewExperience.css";
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { createExperience, getExperiences } from "../../utilities/experiences-api";
-import { getDestinations } from "../../utilities/destinations-api";
+import { useData } from "../../contexts/DataContext";
+import { useToast } from "../../contexts/ToastContext";
+import { createExperience } from "../../utilities/experiences-api";
 import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import TagInput from "../../components/TagInput/TagInput";
@@ -13,9 +14,11 @@ import FormField from "../FormField/FormField";
 import { FormTooltip } from "../Tooltip/Tooltip";
 import { Form } from "react-bootstrap";
 
-export default function NewExperience({ updateData }) {
+export default function NewExperience() {
+  const { destinations: destData, experiences: expData, addExperience } = useData();
+  const { success } = useToast();
   const [newExperience, setNewExperience] = useState({});
-  const [destinations, setDestinations] = useState({});
+  const [destinations, setDestinations] = useState([]);
   const [experiences, setExperiences] = useState([]);
   const [tags, setTags] = useState([]);
   const [error, setError] = useState("");
@@ -55,7 +58,8 @@ export default function NewExperience({ updateData }) {
         })
       );
       let experience = await createExperience(newExperience);
-      updateData();
+      addExperience(experience); // Instant UI update!
+      success('Experience created!');
       navigate(`/experiences/${experience._id}`);
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Create experience' });
@@ -68,17 +72,10 @@ export default function NewExperience({ updateData }) {
     }
   }
   useEffect(() => {
-    async function updateDestinations() {
-      const [destinationData, experienceData] = await Promise.all([
-        getDestinations(),
-        getExperiences()
-      ]);
-      setDestinations(destinationData);
-      setExperiences(experienceData);
-      document.title = `New Experience - Biensperience`;
-    }
-    updateDestinations();
-  }, []);
+    if (destData) setDestinations(destData);
+    if (expData) setExperiences(expData);
+    document.title = `New Experience - Biensperience`;
+  }, [destData, expData]);
   return (
     <>
       <div className="row fade-in">
@@ -189,7 +186,7 @@ export default function NewExperience({ updateData }) {
                   min="1"
                   tooltip={lang.en.helper.planningDaysOptional}
                   tooltipPlacement="top"
-                  append={<span className="input-group-text">days</span>}
+                  append="days"
                 />
               </div>
 
@@ -204,7 +201,7 @@ export default function NewExperience({ updateData }) {
                   min="0"
                   tooltip={lang.en.helper.costEstimateOptional}
                   tooltipPlacement="top"
-                  prepend={<span className="input-group-text">$</span>}
+                  prepend="$"
                 />
               </div>
             </div>

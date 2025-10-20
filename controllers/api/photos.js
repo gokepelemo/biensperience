@@ -37,7 +37,6 @@ async function createPhoto(req, res) {
           photo_credit: req.body.photo_credit,
           photo_credit_url: req.body.photo_credit_url,
           url: response.Location,
-          user: req.user._id,
           permissions: [{
             _id: req.user._id,
             entity: 'user',
@@ -164,7 +163,6 @@ async function createPhotoFromUrl(req, res) {
       photo_credit: photo_credit || 'Unknown',
       photo_credit_url: photo_credit_url || url,
       url: url,
-      user: req.user._id,
       permissions: [{
         _id: req.user._id,
         entity: 'user',
@@ -201,7 +199,6 @@ async function createPhotoBatch(req, res) {
             photo_credit: req.body.photo_credit || 'Biensperience',
             photo_credit_url: req.body.photo_credit_url || '',
             url: response.Location,
-            user: req.user._id,
             permissions: [{
               _id: req.user._id,
               entity: 'user',

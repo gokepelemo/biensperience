@@ -399,7 +399,6 @@ class DataGenerator {
       state: dest.state,
       map_location: dest.map_location,
       travel_tips: this.generateTravelTips(dest.name),
-      user: null, // Will be set after users are created
       permissions: [], // Will be set after users are created
       photo: null // Will be set after photos are created
     }));
@@ -434,7 +433,6 @@ class DataGenerator {
         url: getRandomElement(this.unsplashUrls),
         photo_credit: 'Unsplash',
         photo_credit_url: 'https://unsplash.com',
-        user: null, // Will be set after users are created
         permissions: [] // Will be set after users are created
       });
     }
@@ -496,7 +494,6 @@ class DataGenerator {
         name: this.generateExperienceName(destination.name, experienceTypes),
         destination: destination._id,
         experience_type: experienceTypes,
-        user: owner._id,
         permissions,
         photo: getRandomElement(photos)._id,
         plan_items: planItems

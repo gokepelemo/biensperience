@@ -17,7 +17,6 @@ async function index(req, res) {
   try {
     let experiences = await Experience.find({})
       .populate("destination")
-      .populate("user")
       .exec();
     res.status(200).json(experiences);
   } catch (err) {
@@ -28,8 +27,6 @@ async function index(req, res) {
 
 async function createExperience(req, res) {
   try {
-    req.body.user = req.user._id;
-
     // Initialize permissions array with owner
     req.body.permissions = [
       {
@@ -40,12 +37,26 @@ async function createExperience(req, res) {
     ];
 
     // Get all user experiences for fuzzy checking
-    const userExperiences = await Experience.find({ user: req.user._id });
+    const userExperiences = await Experience.find({
+      permissions: {
+        $elemMatch: {
+          entity: permissions.ENTITY_TYPES.USER,
+          type: permissions.ROLES.OWNER,
+          _id: req.user._id
+        }
+      }
+    });
 
     // Check for exact duplicate (case-insensitive)
     const exactDuplicate = await Experience.findOne({
       name: { $regex: new RegExp(`^${escapeRegex(req.body.name)}$`, 'i') },
-      user: req.user._id
+      permissions: {
+        $elemMatch: {
+          entity: permissions.ENTITY_TYPES.USER,
+          type: permissions.ROLES.OWNER,
+          _id: req.user._id
+        }
+      }
     });
 
     if (exactDuplicate) {
@@ -82,14 +93,6 @@ async function showExperience(req, res) {
   try {
     let experience = await Experience.findById(req.params.id)
       .populate("destination")
-      .populate({
-        path: "user",
-        select: "name email photo photos default_photo_index",
-        populate: {
-          path: "photo",
-          model: "Photo"
-        }
-      })
       .populate({
         path: "permissions._id",
         select: "name photo photos default_photo_index"
@@ -139,7 +142,7 @@ async function showExperience(req, res) {
 async function updateExperience(req, res) {
   const experienceId = req.params.experienceId || req.params.id;
   try {
-    let experience = await Experience.findById(experienceId).populate("user");
+    let experience = await Experience.findById(experienceId);
     
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
@@ -164,7 +167,13 @@ async function updateExperience(req, res) {
       // Check for exact duplicate
       const exactDuplicate = await Experience.findOne({
         name: { $regex: new RegExp(`^${escapeRegex(req.body.name)}$`, 'i') },
-        user: req.user._id,
+        permissions: {
+          $elemMatch: {
+            entity: permissions.ENTITY_TYPES.USER,
+            type: permissions.ROLES.OWNER,
+            _id: req.user._id
+          }
+        },
         _id: { $ne: experienceId }
       });
 
@@ -177,7 +186,13 @@ async function updateExperience(req, res) {
 
       // Check for fuzzy duplicate
       const userExperiences = await Experience.find({
-        user: req.user._id,
+        permissions: {
+          $elemMatch: {
+            entity: permissions.ENTITY_TYPES.USER,
+            type: permissions.ROLES.OWNER,
+            _id: req.user._id
+          }
+        },
         _id: { $ne: experienceId }
       });
 
@@ -212,7 +227,7 @@ async function deleteExperience(req, res) {
       return res.status(400).json({ error: 'Invalid experience ID format' });
     }
 
-    let experience = await Experience.findById(req.params.id).populate("user");
+    let experience = await Experience.findById(req.params.id);
     
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
@@ -281,7 +296,18 @@ async function createPlanItem(req, res) {
 
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
-      .populate("user");
+      .populate({
+        path: "user",
+        select: "name email photo photos default_photo_index",
+        populate: {
+          path: "photo",
+          model: "Photo"
+        }
+      })
+      .populate({
+        path: "permissions._id",
+        select: "name photo photos default_photo_index"
+      });
     
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
@@ -306,6 +332,23 @@ async function createPlanItem(req, res) {
       : req.body.cost_estimate;
     experience.plan_items.push(req.body);
     await experience.save();
+
+    // Re-fetch with populated permissions for consistent response
+    experience = await Experience.findById(req.params.experienceId)
+      .populate("destination")
+      .populate({
+        path: "user",
+        select: "name email photo photos default_photo_index",
+        populate: {
+          path: "photo",
+          model: "Photo"
+        }
+      })
+      .populate({
+        path: "permissions._id",
+        select: "name photo photos default_photo_index"
+      });
+
     res.status(201).json(experience);
   } catch (err) {
     backendLogger.error('Error creating plan item', { error: err.message, userId: req.user._id, experienceId: req.params.experienceId });
@@ -325,7 +368,18 @@ async function updatePlanItem(req, res) {
 
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
-      .populate("user");
+      .populate({
+        path: "user",
+        select: "name email photo photos default_photo_index",
+        populate: {
+          path: "photo",
+          model: "Photo"
+        }
+      })
+      .populate({
+        path: "permissions._id",
+        select: "name photo photos default_photo_index"
+      });
     
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
@@ -355,6 +409,23 @@ async function updatePlanItem(req, res) {
     const { _id, ...updateData } = req.body;
     Object.assign(plan_item, updateData);
     await experience.save();
+
+    // Re-fetch with populated permissions for consistent response
+    experience = await Experience.findById(req.params.experienceId)
+      .populate("destination")
+      .populate({
+        path: "user",
+        select: "name email photo photos default_photo_index",
+        populate: {
+          path: "photo",
+          model: "Photo"
+        }
+      })
+      .populate({
+        path: "permissions._id",
+        select: "name photo photos default_photo_index"
+      });
+
     res.status(200).json(experience);
   } catch (err) {
     backendLogger.error('Error updating plan item', { error: err.message, userId: req.user._id, experienceId: req.params.experienceId, planItemId: req.params.planItemId });
@@ -374,7 +445,18 @@ async function deletePlanItem(req, res) {
 
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
-      .populate("user");
+      .populate({
+        path: "user",
+        select: "name email photo photos default_photo_index",
+        populate: {
+          path: "photo",
+          model: "Photo"
+        }
+      })
+      .populate({
+        path: "permissions._id",
+        select: "name photo photos default_photo_index"
+      });
     
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
@@ -401,6 +483,22 @@ async function deletePlanItem(req, res) {
     
     planItem.deleteOne();
     await experience.save();
+
+    // Re-fetch with populated permissions for consistent response
+    experience = await Experience.findById(req.params.experienceId)
+      .populate("destination")
+      .populate({
+        path: "user",
+        select: "name email photo photos default_photo_index",
+        populate: {
+          path: "photo",
+          model: "Photo"
+        }
+      })
+      .populate({
+        path: "permissions._id",
+        select: "name photo photos default_photo_index"
+      });
     
     res.status(200).json(experience);
   } catch (err) {
@@ -493,9 +591,16 @@ async function showUserCreatedExperiences(req, res) {
     }
     const userId = new mongoose.Types.ObjectId(req.params.userId);
 
-    let experiences = await Experience.find({ user: userId })
+    let experiences = await Experience.find({
+      permissions: {
+        $elemMatch: {
+          entity: permissions.ENTITY_TYPES.USER,
+          type: permissions.ROLES.OWNER,
+          _id: userId
+        }
+      }
+    })
       .populate("destination")
-      .populate("user")
       .exec();
     res.status(200).json(experiences);
   } catch (err) {
@@ -559,14 +664,24 @@ async function getTagName(req, res) {
 
 async function addPhoto(req, res) {
   try {
-    const experience = await Experience.findById(req.params.id).populate("user");
+    const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
     }
 
-    if (req.user._id.toString() !== experience.user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to modify this experience' });
+    // Check if user has permission to edit
+    const enforcer = getEnforcer({ Destination, Experience });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: experience
+    });
+
+    if (!permCheck.allowed) {
+      return res.status(401).json({
+        error: 'Not authorized to modify this experience',
+        message: permCheck.reason
+      });
     }
 
     const { url, photo_credit, photo_credit_url } = req.body;
@@ -593,14 +708,24 @@ async function addPhoto(req, res) {
 
 async function removePhoto(req, res) {
   try {
-    const experience = await Experience.findById(req.params.id).populate("user");
+    const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
     }
 
-    if (req.user._id.toString() !== experience.user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to modify this experience' });
+    // Check if user has permission to edit using PermissionEnforcer
+    const enforcer = getEnforcer({ Destination, Experience });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: experience
+    });
+
+    if (!permCheck.allowed) {
+      return res.status(403).json({
+        error: 'Not authorized',
+        message: permCheck.reason || 'You must be the owner or a collaborator to modify this experience.'
+      });
     }
 
     const photoIndex = parseInt(req.params.photoIndex);
@@ -628,14 +753,24 @@ async function removePhoto(req, res) {
 
 async function setDefaultPhoto(req, res) {
   try {
-    const experience = await Experience.findById(req.params.id).populate("user");
+    const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
     }
 
-    if (req.user._id.toString() !== experience.user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to modify this experience' });
+    // Check if user has permission to edit
+    const enforcer = getEnforcer({ Destination, Experience });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: experience
+    });
+
+    if (!permCheck.allowed) {
+      return res.status(401).json({
+        error: 'Not authorized to modify this experience',
+        message: permCheck.reason
+      });
     }
 
     const photoIndex = parseInt(req.body.photoIndex);
@@ -669,7 +804,7 @@ async function addExperiencePermission(req, res) {
       return res.status(400).json({ error: 'Invalid experience ID format' });
     }
 
-    const experience = await Experience.findById(req.params.id).populate('user');
+    const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
@@ -700,7 +835,10 @@ async function addExperiencePermission(req, res) {
       }
 
       // Prevent owner from being added as permission
-      if (_id === experience.user._id.toString()) {
+      const ownerPermission = experience.permissions.find(p =>
+        p.entity === 'user' && p.type === 'owner'
+      );
+      if (ownerPermission && _id === ownerPermission._id.toString()) {
         return res.status(400).json({ error: 'Owner already has full permissions' });
       }
 
@@ -790,7 +928,7 @@ async function removeExperiencePermission(req, res) {
       return res.status(400).json({ error: 'Invalid entity ID format' });
     }
 
-    const experience = await Experience.findById(req.params.id).populate('user');
+    const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
@@ -846,7 +984,7 @@ async function updateExperiencePermission(req, res) {
       return res.status(400).json({ error: 'Invalid user ID format' });
     }
 
-    const experience = await Experience.findById(req.params.id).populate('user');
+    const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
@@ -893,7 +1031,7 @@ async function getExperiencePermissions(req, res) {
       return res.status(400).json({ error: 'Invalid experience ID format' });
     }
 
-    const experience = await Experience.findById(req.params.id).populate('user');
+    const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
@@ -902,12 +1040,25 @@ async function getExperiencePermissions(req, res) {
     const models = { Destination, Experience };
     const allPermissions = await permissions.getAllPermissions(experience, models);
 
+    // Get owner information from permissions
+    const ownerPermission = experience.permissions.find(p =>
+      p.entity === 'user' && p.type === 'owner'
+    );
+
+    let ownerInfo = null;
+    if (ownerPermission) {
+      const ownerUser = await User.findById(ownerPermission._id).select('name');
+      if (ownerUser) {
+        ownerInfo = {
+          userId: ownerPermission._id,
+          name: ownerUser.name,
+          role: permissions.ROLES.OWNER
+        };
+      }
+    }
+
     res.status(200).json({
-      owner: {
-        userId: experience.user._id,
-        name: experience.user.name,
-        role: permissions.ROLES.OWNER
-      },
+      owner: ownerInfo,
       permissions: allPermissions,
       directPermissions: experience.permissions || []
     });
@@ -966,10 +1117,7 @@ async function transferOwnership(req, res) {
     }
 
     // Update ownership
-    // 1. Update legacy user field
-    experience.user = newOwnerId;
-
-    // 2. Update permissions array
+    // Update permissions array
     // Remove old owner's owner permission
     experience.permissions = experience.permissions.filter(
       p => !(p.entity === 'user' && p._id.toString() === req.user._id.toString() && p.type === 'owner')
@@ -1013,7 +1161,6 @@ async function transferOwnership(req, res) {
 
     // Return updated experience with new owner details
     const updatedExperience = await Experience.findById(experienceId)
-      .populate('user', '_id name email')
       .populate('destination');
 
     res.json({

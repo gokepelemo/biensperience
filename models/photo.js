@@ -36,7 +36,6 @@ const photoSchema = new Schema(
     photo_credit: { type: String },
     photo_credit_url: { type: String },
     caption: { type: String },
-    user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     permissions: {
       type: [permissionSchema],
       default: [],
@@ -73,5 +72,12 @@ const photoSchema = new Schema(
     timestamps: true,
   }
 );
+
+/**
+ * Database indexes for query performance optimization
+ */
+photoSchema.index({ 'permissions._id': 1 });  // For permission queries
+photoSchema.index({ url: 1 });  // For finding by URL
+photoSchema.index({ createdAt: -1 });  // For sorting
 
 module.exports = mongoose.model("Photo", photoSchema);

@@ -1,22 +1,23 @@
 import "./SingleDestination.css";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { showDestination } from "../../utilities/destinations-api";
+import { useUser } from "../../contexts/UserContext";
+import { useData } from "../../contexts/DataContext";
+import { useApp } from "../../contexts/AppContext";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
 import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
 import PageMeta from "../../components/PageMeta/PageMeta";
-import { isSuperAdmin } from "../../utilities/permissions";
+import PageWrapper from "../../components/PageWrapper/PageWrapper";
+import { isSuperAdmin, isOwner } from "../../utilities/permissions";
 
-export default function SingleDestination({
-  experiences,
-  destinations,
-  user,
-  setUser,
-  updateData,
-}) {
+export default function SingleDestination() {
+  const { user } = useUser();
+  const { experiences, destinations, plans, fetchDestinations } = useData();
+  const { registerH1, setPageActionButtons, clearActionButtons, updateShowH1InNavbar } = useApp();
   const { destinationId } = useParams();
   const navigate = useNavigate();
   const [destination, setDestination] = useState(null);
@@ -24,16 +25,15 @@ export default function SingleDestination({
 
   const getData = useCallback(async () => {
     try {
-      // Fetch destination data and update global state in parallel
-      const [destinationData] = await Promise.all([
-        showDestination(destinationId),
-        updateData()
-      ]);
+      // Fetch destination data
+      const destinationData = await showDestination(destinationId);
       setDestination(destinationData);
+      // Refresh destinations list in background
+      fetchDestinations();
     } catch (error) {
       console.error('Error fetching destination:', error);
     }
-  }, [destinationId, updateData]);
+  }, [destinationId, fetchDestinations]);
 
   // Update local state when global destinations or experiences change
   useEffect(() => {
@@ -54,6 +54,33 @@ export default function SingleDestination({
   useEffect(() => {
     getData();
   }, [getData]);
+
+  // Register h1 and action buttons
+  useEffect(() => {
+    const h1 = document.querySelector('h1');
+    if (h1) registerH1(h1);
+
+    // Enable h1 text in navbar for this view
+    updateShowH1InNavbar(true);
+
+    // Set up action buttons if user is owner or super admin
+    if (user && destination && isOwner(user, destination)) {
+      setPageActionButtons([
+        {
+          label: 'Edit',
+          onClick: () => navigate(`/destinations/${destination._id}/update`),
+          variant: 'outline-primary',
+          icon: '✏️',
+          tooltip: 'Edit Destination'
+        }
+      ]);
+    }
+
+    return () => {
+      clearActionButtons();
+      updateShowH1InNavbar(false);
+    };
+  }, [registerH1, setPageActionButtons, clearActionButtons, updateShowH1InNavbar, user, destination, navigate]);
 
   // Get the default photo to display
   const getDefaultPhoto = () => {
@@ -97,7 +124,7 @@ export default function SingleDestination({
               </div>
               <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center gap-3">
                 {user && <FavoriteDestination destination={destination} user={user} getData={getData} />}
-                {user && (user._id === destination.user || isSuperAdmin(user)) && (
+                {user && isOwner(user, destination) && (
                   <button
                     className="btn btn-icon"
                     onClick={() => navigate(`/destinations/${destination._id}/update`)}
@@ -205,10 +232,8 @@ export default function SingleDestination({
                 destinationExperiences.map((experience, index) => (
                   <ExperienceCard
                     key={index}
-                    user={user}
-                    setUser={setUser}
                     experience={experience}
-                    updateData={updateData}
+                    userPlans={plans}
                   />
                 ))
               ) : (

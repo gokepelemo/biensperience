@@ -172,12 +172,6 @@ async function resolvePermissionsWithInheritance(resource, models, visited = new
   }
   visited.add(resourceKey);
 
-  // Add owner as highest permission
-  if (resource.user) {
-    const userId = resource.user._id || resource.user;
-    resolvedPermissions.set(userId.toString(), ROLES.OWNER);
-  }
-
   // Process permissions array if it exists
   if (resource.permissions && Array.isArray(resource.permissions)) {
     for (const permission of resource.permissions) {
@@ -330,9 +324,7 @@ async function canEdit(userId, resource, models) {
 
 /**
  * Check if user is the owner of a resource
- * Maintains backwards compatibility by checking both:
- * 1. Legacy `user` attribute (creator)
- * 2. Owner role in permissions array
+ * Uses the permissions array to determine ownership
  * 
  * @param {string|Object} userId - User ID or User object to check
  * @param {Object} resource - Resource (experience/destination)
@@ -344,15 +336,11 @@ function isOwner(userId, resource) {
     return true;
   }
   
-  const userIdStr = (typeof userId === 'object' ? userId._id : userId).toString();
-  
-  // Check legacy user attribute (backwards compatibility)
-  if (resource.user) {
-    const ownerId = resource.user._id || resource.user;
-    if (userIdStr === ownerId.toString()) {
-      return true;
-    }
+  if (!userId || !resource) {
+    return false;
   }
+  
+  const userIdStr = (typeof userId === 'object' ? userId._id : userId).toString();
   
   // Check permissions array for owner role
   if (resource.permissions && Array.isArray(resource.permissions)) {

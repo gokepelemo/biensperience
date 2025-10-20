@@ -2,7 +2,9 @@ import "./NewDestination.css";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { lang } from "../../lang.constants";
-import { createDestination, getDestinations } from "../../utilities/destinations-api";
+import { createDestination } from "../../utilities/destinations-api";
+import { useData } from "../../contexts/DataContext";
+import { useToast } from "../../contexts/ToastContext";
 import ImageUpload from "../ImageUpload/ImageUpload";
 import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
@@ -11,7 +13,9 @@ import FormField from "../FormField/FormField";
 import { FormTooltip } from "../Tooltip/Tooltip";
 import { Form } from "react-bootstrap";
 
-export default function NewDestination({ updateData }) {
+export default function NewDestination() {
+  const { destinations: destData, addDestination } = useData();
+  const { success } = useToast();
   const [newDestination, setNewDestination] = useState({});
   const [destinations, setDestinations] = useState([]);
   const [travelTips, setTravelTips] = useState([]);
@@ -22,13 +26,9 @@ export default function NewDestination({ updateData }) {
   const navigate = useNavigate();
   
   useEffect(() => {
-    async function fetchDestinations() {
-      const destinationData = await getDestinations();
-      setDestinations(destinationData);
-      document.title = `New Destination - Biensperience`;
-    }
-    fetchDestinations();
-  }, []);
+    if (destData) setDestinations(destData);
+    document.title = `New Destination - Biensperience`;
+  }, [destData]);
   function handleChange(e) {
     setNewDestination({ ...newDestination, [e.target.name]: e.target.value });
   }
@@ -50,10 +50,11 @@ export default function NewDestination({ updateData }) {
     }
 
     try {
-        await createDestination(
+      const destination = await createDestination(
         Object.assign({ ...newDestination }, { travel_tips: travelTips })
       );
-      updateData();
+      addDestination(destination); // Instant UI update!
+      success('Destination created!');
       navigate(`/experiences/new`);
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Create destination' });

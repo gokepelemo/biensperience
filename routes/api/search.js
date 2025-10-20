@@ -1,37 +1,37 @@
 const express = require('express');
 const router = express.Router();
 const searchController = require('../../controllers/api/search');
-const requireAuth = require('../../utilities/require-auth');
+const ensureLoggedIn = require('../../config/ensureLoggedIn');
 
 /**
  * Global search endpoint
  * GET /api/search?q=query&types=destination,experience&limit=10
  * Searches across all collections: destinations, experiences, plans, users
  */
-router.get('/', requireAuth, searchController.searchAll);
+router.get('/', ensureLoggedIn, searchController.searchAll);
 
 /**
  * Search destinations
  * GET /api/search/destinations?q=query&limit=10
  */
-router.get('/destinations', requireAuth, searchController.searchDestinations);
+router.get('/destinations', ensureLoggedIn, searchController.searchDestinations);
 
 /**
  * Search experiences
  * GET /api/search/experiences?q=query&limit=10
  */
-router.get('/experiences', requireAuth, searchController.searchExperiences);
+router.get('/experiences', ensureLoggedIn, searchController.searchExperiences);
 
 /**
  * Search plans
  * GET /api/search/plans?q=query&limit=10
  */
-router.get('/plans', requireAuth, searchController.searchPlans);
+router.get('/plans', ensureLoggedIn, searchController.searchPlans);
 
 /**
- * Search users (admin only)
+ * Search users
  * GET /api/search/users?q=query&limit=10
  */
-router.get('/users', requireAuth, searchController.searchUsers);
+router.get('/users', ensureLoggedIn, searchController.searchUsers);
 
 module.exports = router;

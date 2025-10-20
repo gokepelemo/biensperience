@@ -276,14 +276,24 @@ async function toggleUserFavoriteDestination(req, res) {
 
 async function addPhoto(req, res) {
   try {
-    const destination = await Destination.findById(req.params.id).populate("user");
+    const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
       return res.status(404).json({ error: 'Destination not found' });
     }
 
-    if (req.user._id.toString() !== destination.user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to modify this destination' });
+    // Check if user has permission to edit
+    const enforcer = getEnforcer({ Destination, Experience });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: destination
+    });
+
+    if (!permCheck.allowed) {
+      return res.status(401).json({
+        error: 'Not authorized to modify this destination',
+        message: permCheck.reason
+      });
     }
 
     const { url, photo_credit, photo_credit_url } = req.body;
@@ -310,14 +320,24 @@ async function addPhoto(req, res) {
 
 async function removePhoto(req, res) {
   try {
-    const destination = await Destination.findById(req.params.id).populate("user");
+    const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
       return res.status(404).json({ error: 'Destination not found' });
     }
 
-    if (req.user._id.toString() !== destination.user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to modify this destination' });
+    // Check if user has permission to edit
+    const enforcer = getEnforcer({ Destination, Experience });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: destination
+    });
+
+    if (!permCheck.allowed) {
+      return res.status(401).json({
+        error: 'Not authorized to modify this destination',
+        message: permCheck.reason
+      });
     }
 
     const photoIndex = parseInt(req.params.photoIndex);
@@ -345,14 +365,24 @@ async function removePhoto(req, res) {
 
 async function setDefaultPhoto(req, res) {
   try {
-    const destination = await Destination.findById(req.params.id).populate("user");
+    const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
       return res.status(404).json({ error: 'Destination not found' });
     }
 
-    if (req.user._id.toString() !== destination.user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to modify this destination' });
+    // Check if user has permission to edit
+    const enforcer = getEnforcer({ Destination, Experience });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: destination
+    });
+
+    if (!permCheck.allowed) {
+      return res.status(401).json({
+        error: 'Not authorized to modify this destination',
+        message: permCheck.reason
+      });
     }
 
     const photoIndex = parseInt(req.body.photoIndex);
@@ -386,7 +416,7 @@ async function addDestinationPermission(req, res) {
       return res.status(400).json({ error: 'Invalid destination ID format' });
     }
 
-    const destination = await Destination.findById(req.params.id).populate('user');
+    const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
       return res.status(404).json({ error: 'Destination not found' });
@@ -417,7 +447,10 @@ async function addDestinationPermission(req, res) {
       }
 
       // Prevent owner from being added as permission (already has owner role)
-      if (_id === destination.user._id.toString()) {
+      const ownerPermission = destination.permissions.find(p =>
+        p.entity === 'user' && p.type === 'owner'
+      );
+      if (ownerPermission && _id === ownerPermission._id.toString()) {
         return res.status(400).json({ error: 'Owner already has full permissions' });
       }
 
@@ -507,7 +540,7 @@ async function removeDestinationPermission(req, res) {
       return res.status(400).json({ error: 'Invalid entity ID format' });
     }
 
-    const destination = await Destination.findById(req.params.id).populate('user');
+    const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
       return res.status(404).json({ error: 'Destination not found' });
@@ -563,7 +596,7 @@ async function updateDestinationPermission(req, res) {
       return res.status(400).json({ error: 'Invalid user ID format' });
     }
 
-    const destination = await Destination.findById(req.params.id).populate('user');
+    const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
       return res.status(404).json({ error: 'Destination not found' });
@@ -610,7 +643,7 @@ async function getDestinationPermissions(req, res) {
       return res.status(400).json({ error: 'Invalid destination ID format' });
     }
 
-    const destination = await Destination.findById(req.params.id).populate('user');
+    const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
       return res.status(404).json({ error: 'Destination not found' });
@@ -619,12 +652,25 @@ async function getDestinationPermissions(req, res) {
     const models = { Destination, Experience };
     const allPermissions = await permissions.getAllPermissions(destination, models);
 
+    // Get owner information from permissions
+    const ownerPermission = destination.permissions.find(p =>
+      p.entity === 'user' && p.type === 'owner'
+    );
+
+    let ownerInfo = null;
+    if (ownerPermission) {
+      const ownerUser = await User.findById(ownerPermission._id).select('name');
+      if (ownerUser) {
+        ownerInfo = {
+          userId: ownerPermission._id,
+          name: ownerUser.name,
+          role: permissions.ROLES.OWNER
+        };
+      }
+    }
+
     res.status(200).json({
-      owner: {
-        userId: destination.user._id,
-        name: destination.user.name,
-        role: permissions.ROLES.OWNER
-      },
+      owner: ownerInfo,
       permissions: allPermissions,
       directPermissions: destination.permissions || []
     });

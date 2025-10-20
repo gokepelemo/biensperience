@@ -4,6 +4,8 @@ import { getExperiences } from '../utilities/experiences-api';
 import { getUserPlans } from '../utilities/plans-api';
 import { useUser } from './UserContext';
 
+console.log('DataContext module loaded');
+
 const DataContext = createContext();
 
 /**
@@ -25,6 +27,7 @@ export function useData() {
  * Integrates with UserContext for user-specific data filtering
  */
 export function DataProvider({ children }) {
+  console.log('DataProvider function called');
   const { user, isAuthenticated } = useUser();
   const [destinations, setDestinations] = useState([]);
   const [experiences, setExperiences] = useState([]);
@@ -41,10 +44,16 @@ export function DataProvider({ children }) {
    * @returns {Promise<Array>} Array of destinations
    */
   const fetchDestinations = useCallback(async () => {
-    if (!user) return [];
+    console.log('fetchDestinations called, user:', user ? user.email : 'null');
+    if (!user) {
+      console.log('No user, returning empty array');
+      return [];
+    }
 
     try {
+      console.log('Calling getDestinations API');
       const data = await getDestinations();
+      console.log('getDestinations returned:', data ? data.length : 'null', 'destinations');
       setDestinations(data || []);
       setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
       return data || [];
@@ -99,7 +108,12 @@ export function DataProvider({ children }) {
    * @returns {Promise<void>}
    */
   const refreshAll = useCallback(async (options = {}) => {
-    if (!user) return;
+    if (!user) {
+      console.log('refreshAll called but no user, returning early');
+      return;
+    }
+
+    console.log('refreshAll called for user:', user.email, 'with options:', options);
 
     const {
       destinations: refreshDestinations = true,
@@ -111,11 +125,23 @@ export function DataProvider({ children }) {
     try {
       const promises = [];
 
-      if (refreshDestinations) promises.push(fetchDestinations());
-      if (refreshExperiences) promises.push(fetchExperiences());
-      if (refreshPlans) promises.push(fetchPlans());
+      if (refreshDestinations) {
+        console.log('Adding fetchDestinations to promises');
+        promises.push(fetchDestinations());
+      }
+      if (refreshExperiences) {
+        console.log('Adding fetchExperiences to promises');
+        promises.push(fetchExperiences());
+      }
+      if (refreshPlans) {
+        console.log('Adding fetchPlans to promises');
+        promises.push(fetchPlans());
+      }
 
-      await Promise.all(promises);
+      console.log('Executing', promises.length, 'fetch promises');
+      const results = await Promise.all(promises);
+      console.log('refreshAll completed, results:', results.map(r => r?.length || 0));
+
     } catch (error) {
       console.error('Failed to refresh data:', error);
     } finally {
@@ -254,15 +280,22 @@ export function DataProvider({ children }) {
 
   // Initial data fetch on mount or when user changes
   useEffect(() => {
+    console.log('DataContext useEffect triggered:', {
+      isAuthenticated,
+      user: user ? { email: user.email, _id: user._id } : null,
+      userId: user?._id
+    });
     if (isAuthenticated && user) {
+      console.log('Calling refreshAll() for user:', user.email);
       refreshAll();
     } else {
+      console.log('Clearing data - user not authenticated or user is null');
       // Clear data when user logs out
       setDestinations([]);
       setExperiences([]);
       setPlans([]);
     }
-  }, [isAuthenticated, user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user, refreshAll]); // Include refreshAll to satisfy linting
 
   const value = {
     // State

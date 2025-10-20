@@ -68,11 +68,15 @@ export function getToken() {
  */
 export function getUser() {
     const token = getToken();
+    console.log('getUser called, token exists:', !!token);
     let user;
     if (token) {
         user = JSON.parse(atob(token.split('.')[1])).user;
         user.experiences = null;
-     }
+        console.log('getUser decoded user:', { email: user.email, _id: user._id });
+    } else {
+        console.log('getUser: no token found');
+    }
     return token ? user : null;
 }
 
@@ -89,13 +93,18 @@ export function logout() {
 }
 
 export async function login(credentials) {
+    console.log('users-service login called with credentials:', { email: credentials.email });
     const token = await usersAPI.login(credentials);
+    console.log('users-service login got token:', token ? 'token received' : 'no token');
     try {
         localStorage.setItem('token', token);
+        console.log('Token stored in localStorage');
     } catch (error) {
         console.warn('Failed to store token in localStorage:', error);
     }
-    return getUser()
+    const user = getUser();
+    console.log('users-service login returning user:', user ? { email: user.email, _id: user._id } : null);
+    return user;
 }
 
 export async function checkToken() {

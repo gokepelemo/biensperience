@@ -13,7 +13,7 @@ import { sortItems, filterExperiences } from "../../utilities/sort-filter";
 
 export default function Experiences() {
   const { user } = useUser();
-  const { experiences, loading } = useData();
+  const { experiences, plans, loading } = useData();
   const { registerH1, clearActionButtons } = useApp();
   const [sortBy, setSortBy] = useState("alphabetical");
   const [filterBy, setFilterBy] = useState("all");
@@ -75,6 +75,7 @@ export default function Experiences() {
                   experience={experience}
                   key={experience._id || index}
                   className="fade-in"
+                  userPlans={plans}
                 />
               ))
             ) : (

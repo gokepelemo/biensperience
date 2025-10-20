@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
+import { useUser } from "../../contexts/UserContext";
+import { useApp } from "../../contexts/AppContext";
+import { useToast } from "../../contexts/ToastContext";
 import PageMeta from "../../components/PageMeta/PageMeta";
+import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Alert from "../../components/Alert/Alert";
-import { getUser } from "../../utilities/users-service";
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
@@ -11,8 +14,10 @@ import { isSuperAdmin } from "../../utilities/permissions";
 import { lang } from "../../lang.constants";
 import "./AllUsers.css";
 
-export default function AllUsers({ updateData }) {
-  const user = getUser();
+export default function AllUsers() {
+  const { user } = useUser();
+  const { registerH1, clearActionButtons } = useApp();
+  const { success: showSuccess } = useToast();
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +27,6 @@ export default function AllUsers({ updateData }) {
   const [roleFilter, setRoleFilter] = useState('all');
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
-  const [success, setSuccess] = useState(null);
 
   // Check if current user is super admin
   const isCurrentUserSuperAdmin = user && isSuperAdmin(user);
@@ -40,6 +44,14 @@ export default function AllUsers({ updateData }) {
   useEffect(() => {
     filterAndSortUsers();
   }, [users, searchTerm, roleFilter, sortField, sortDirection]);
+
+  // Register h1 for navbar integration
+  useEffect(() => {
+    const h1 = document.querySelector('h1');
+    if (h1) registerH1(h1);
+
+    return () => clearActionButtons();
+  }, [registerH1, clearActionButtons]);
 
   const fetchAllUsers = async () => {
     try {
@@ -122,7 +134,6 @@ export default function AllUsers({ updateData }) {
 
     setUpdatingUser(userId);
     setError(null);
-    setSuccess(null);
 
     try {
       await updateUserRole(userId, { role: newRole });
@@ -137,10 +148,9 @@ export default function AllUsers({ updateData }) {
       );
 
       const userName = users.find(u => u._id === userId)?.name;
-      setSuccess(lang.en.admin.roleUpdated
+      showSuccess(lang.en.admin.roleUpdated
         .replace('{name}', userName)
         .replace('{role}', USER_ROLE_DISPLAY_NAMES[newRole]));
-      setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       setError(lang.en.alert.loginFailed);
       handleError(error);
@@ -238,7 +248,6 @@ export default function AllUsers({ updateData }) {
 
           {/* Alerts */}
           {error && <Alert type="danger" message={error} dismissible className="mb-4" />}
-          {success && <Alert type="success" message={success} dismissible className="mb-4" />}
 
           {/* Filters and Search */}
           <div className="card mb-4">

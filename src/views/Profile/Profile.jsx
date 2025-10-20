@@ -1,13 +1,18 @@
-import { FaUser, FaPassport } from "react-icons/fa";
+import { FaUser, FaPassport, FaCheckCircle } from "react-icons/fa";
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import "./Profile.css";
+import { useUser } from "../../contexts/UserContext";
+import { useData } from "../../contexts/DataContext";
+import { useApp } from "../../contexts/AppContext";
+import { useToast } from "../../contexts/ToastContext";
 import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import Alert from "../../components/Alert/Alert";
+import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
-import { getUserData, updateUserRole } from "../../utilities/users-api";
+import { getUserData, updateUserRole, updateUser } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
 import { handleError } from "../../utilities/error-handler";
 import PageMeta from "../../components/PageMeta/PageMeta";
@@ -16,7 +21,10 @@ import { createUrlSlug } from "../../utilities/url-utils";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
 
-export default function Profile({ user, destinations, updateData }) {
+export default function Profile() {
+  const { user } = useUser();
+  const { destinations, plans } = useData();
+  const { registerH1, clearActionButtons } = useApp();
   let { profileId } = useParams();
   
   // Validate profileId format
@@ -129,9 +137,36 @@ export default function Profile({ user, destinations, updateData }) {
     }
   };
 
+  const handleEmailConfirmationUpdate = async (emailConfirmed) => {
+    if (!isSuperAdmin(user)) {
+      handleError({ message: 'Only super admins can update email confirmation' });
+      return;
+    }
+
+    setIsUpdatingRole(true);
+    try {
+      await updateUser(profileId, { emailConfirmed });
+      // Refresh profile data
+      await getProfile();
+      alert(`Email ${emailConfirmed ? 'confirmed' : 'unconfirmed'} successfully`);
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsUpdatingRole(false);
+    }
+  };
+
   useEffect(() => {
     getProfile();
   }, [getProfile]);
+
+  // Register h1 for navbar integration
+  useEffect(() => {
+    const h1 = document.querySelector('h1');
+    if (h1) registerH1(h1);
+
+    return () => clearActionButtons();
+  }, [registerH1, clearActionButtons]);
 
   const handleExpNav = useCallback((view) => {
     setUiState({
@@ -204,7 +239,17 @@ export default function Profile({ user, destinations, updateData }) {
               {isLoadingProfile ? (
                 <span className="loading-skeleton loading-skeleton-text"></span>
               ) : (
-                currentProfile?.name
+                <>
+                  {currentProfile?.name}
+                  {currentProfile?.emailConfirmed && (
+                    <FaCheckCircle
+                      className="text-success ms-2"
+                      style={{ fontSize: '0.6em' }}
+                      title="Email confirmed"
+                      aria-label="Email confirmed"
+                    />
+                  )}
+                </>
               )}
             </h1>
           </div>
@@ -343,7 +388,6 @@ export default function Profile({ user, destinations, updateData }) {
                 return destination ? (
                   <DestinationCard
                     key={destination._id || index}
-                    updateData={updateData}
                     destination={destination}
                   />
                 ) : null;
@@ -352,18 +396,16 @@ export default function Profile({ user, destinations, updateData }) {
               uniqueUserExperiences.map((experience, index) => (
                 <ExperienceCard
                   experience={experience}
-                  user={user}
-                  updateData={updateData}
                   key={experience._id || index}
+                  userPlans={plans}
                 />
               ))}
             {uiState.created &&
               uniqueCreatedExperiences.map((experience, index) => (
                 <ExperienceCard
                   experience={experience}
-                  user={user}
-                  updateData={updateData}
                   key={experience._id || index}
+                  userPlans={plans}
                 />
               ))}
           </div>
@@ -392,7 +434,7 @@ export default function Profile({ user, destinations, updateData }) {
                 <h5 className="mb-0">Super Admin Permissions</h5>
               </div>
               <div className="card-body">
-                <div className="row align-items-center">
+                <div className="row align-items-center mb-4">
                   <div className="col-md-6">
                     <p className="mb-2">
                       <strong>Current Role:</strong> {USER_ROLE_DISPLAY_NAMES[currentProfile.role] || 'Unknown'}
@@ -416,6 +458,43 @@ export default function Profile({ user, destinations, updateData }) {
                         disabled={isUpdatingRole || currentProfile.role === USER_ROLES.REGULAR_USER}
                       >
                         {isUpdatingRole ? 'Updating...' : 'Make Regular User'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <hr />
+                <div className="row align-items-center mt-4">
+                  <div className="col-md-6">
+                    <p className="mb-2">
+                      <strong>Email Status:</strong>{' '}
+                      {currentProfile.emailConfirmed ? (
+                        <span className="text-success">
+                          <FaCheckCircle className="me-1" />
+                          Confirmed
+                        </span>
+                      ) : (
+                        <span className="text-warning">Not Confirmed</span>
+                      )}
+                    </p>
+                    <p className="text-muted small mb-0">
+                      Manually confirm or unconfirm this user's email address.
+                    </p>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="d-flex gap-2">
+                      <button
+                        className={`btn ${currentProfile.emailConfirmed ? 'btn-success' : 'btn-outline-success'}`}
+                        onClick={() => handleEmailConfirmationUpdate(true)}
+                        disabled={isUpdatingRole || currentProfile.emailConfirmed}
+                      >
+                        {isUpdatingRole ? 'Updating...' : 'Confirm Email'}
+                      </button>
+                      <button
+                        className={`btn ${!currentProfile.emailConfirmed ? 'btn-outline-secondary' : 'btn-outline-danger'}`}
+                        onClick={() => handleEmailConfirmationUpdate(false)}
+                        disabled={isUpdatingRole || !currentProfile.emailConfirmed}
+                      >
+                        {isUpdatingRole ? 'Updating...' : 'Unconfirm Email'}
                       </button>
                     </div>
                   </div>

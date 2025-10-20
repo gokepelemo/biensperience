@@ -3,16 +3,22 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import Alert from "../../components/Alert/Alert";
-import { updateUser, getUserData } from "../../utilities/users-api";
+import { updateUser as updateUserAPI } from "../../utilities/users-api";
 import { updateToken } from "../../utilities/users-service";
+import { useUser } from "../../contexts/UserContext";
+import { useToast } from "../../contexts/ToastContext";
 import { lang } from "../../lang.constants";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import { handleError } from "../../utilities/error-handler";
+import { formatChanges } from "../../utilities/change-formatter";
 import FormField from "../../components/FormField/FormField";
 import { FormTooltip } from "../../components/Tooltip/Tooltip";
 import { Form } from "react-bootstrap";
+import { isSuperAdmin } from "../../utilities/permissions";
 
-export default function UpdateProfile({ user, setUser, updateData }) {
+export default function UpdateProfile() {
+  const { user, updateUser: updateUserContext, fetchProfile } = useUser();
+  const { success, error: showError } = useToast();
   const [formData, setFormData] = useState(user);
   const [originalUser] = useState(user);
   const [changes, setChanges] = useState({});
@@ -31,8 +37,8 @@ export default function UpdateProfile({ user, setUser, updateData }) {
   useEffect(() => {
     async function fetchUserData() {
       try {
-        const fullUserData = await getUserData(user._id);
-        setFormData(fullUserData);
+        await fetchProfile(); // Fetch latest profile data
+        setFormData(user);
         setLoading(false);
       } catch (err) {
         const errorMsg = handleError(err, { context: 'Load user data' });
@@ -40,26 +46,19 @@ export default function UpdateProfile({ user, setUser, updateData }) {
         setLoading(false);
       }
     }
-    
-    fetchUserData();
-  }, [user._id]);
 
-  // Convert snake_case to Title Case
-  function formatFieldName(fieldName) {
-    return fieldName
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
+    fetchUserData();
+  }, [user._id, fetchProfile]);
 
   function handleChange(e) {
-    const { name, value } = e.target;
-    const updatedFormData = { ...formData, [name]: value };
+    const { name, value, type, checked } = e.target;
+    const fieldValue = type === 'checkbox' ? checked : value;
+    const updatedFormData = { ...formData, [name]: fieldValue };
 
     // Track changes
     const newChanges = { ...changes };
-    if (originalUser && originalUser[name] !== value) {
-      newChanges[name] = { from: originalUser[name], to: value };
+    if (originalUser && originalUser[name] !== fieldValue) {
+      newChanges[name] = { from: originalUser[name], to: fieldValue };
     } else {
       delete newChanges[name];
     }
@@ -184,7 +183,7 @@ export default function UpdateProfile({ user, setUser, updateData }) {
         dataToUpdate.password = passwordData.newPassword;
       }
 
-      const response = await updateUser(user._id, dataToUpdate);
+      const response = await updateUserAPI(user._id, dataToUpdate);
 
       // Handle both old format (just user) and new format ({ user, token })
       const updatedUser = response.user || response;
@@ -195,12 +194,13 @@ export default function UpdateProfile({ user, setUser, updateData }) {
         updateToken(token);
       }
 
-      setUser(updatedUser);
-      updateData && updateData();
+      updateUserContext(updatedUser); // Instant UI update!
+      success('Profile updated!');
       navigate('/profile');
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Update profile' });
       setError(errorMsg || 'Failed to update profile. Please try again.');
+      showError(errorMsg);
     }
   }
 
@@ -245,8 +245,8 @@ export default function UpdateProfile({ user, setUser, updateData }) {
           <strong>Changes detected:</strong>
           <ul className="mb-0 mt-2">
             {Object.keys(changes).map((field, idx) => (
-              <li key={idx}>
-                <strong>{formatFieldName(field)}:</strong> {changes[field].from || '(empty)'} → {changes[field].to || '(empty)'}
+              <li key={idx} style={{ whiteSpace: 'pre-line' }}>
+                {formatChanges(field, changes[field], 'profile')}
               </li>
             ))}
           </ul>
@@ -272,6 +272,7 @@ export default function UpdateProfile({ user, setUser, updateData }) {
               onChange={handleChange}
               placeholder={lang.en.placeholder.nameField}
               required
+              autoComplete="name"
               tooltip={lang.en.helper.profileName}
               tooltipPlacement="top"
             />
@@ -284,9 +285,30 @@ export default function UpdateProfile({ user, setUser, updateData }) {
               onChange={handleChange}
               placeholder={lang.en.placeholder.emailField}
               required
+              autoComplete="email"
               tooltip={lang.en.helper.profileEmail}
               tooltipPlacement="top"
             />
+
+            {isSuperAdmin(user) && (
+              <Form.Group className="mb-4" controlId="emailConfirmed">
+                <Form.Check
+                  type="checkbox"
+                  id="emailConfirmed"
+                  name="emailConfirmed"
+                  label={
+                    <>
+                      Email Confirmed <span className="text-warning" title="Super Admin Only">🔐</span>
+                    </>
+                  }
+                  checked={formData.emailConfirmed || false}
+                  onChange={handleChange}
+                />
+                <Form.Text className="text-muted">
+                  Manually confirm or unconfirm this user's email address.
+                </Form.Text>
+              </Form.Group>
+            )}
 
             <div className="mb-4">
               <h5 className="mb-3">Change Password (Optional)</h5>
@@ -391,10 +413,9 @@ export default function UpdateProfile({ user, setUser, updateData }) {
                 <ul className="list-group">
                   {Object.entries(changes).map(([field, change]) => (
                     <li key={field} className="list-group-item">
-                      <strong>{formatFieldName(field)}:</strong>{' '}
-                      {typeof change.from === 'object' ? JSON.stringify(change.from) : (change.from || 'None')}{' '}
-                      →{' '}
-                      {typeof change.to === 'object' ? JSON.stringify(change.to) : (change.to || 'None')}
+                      <div style={{ whiteSpace: 'pre-line' }}>
+                        {formatChanges(field, change, 'profile')}
+                      </div>
                     </li>
                   ))}
                 </ul>

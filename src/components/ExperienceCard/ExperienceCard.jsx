@@ -6,10 +6,12 @@ import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import { deleteExperience } from "../../utilities/experiences-api";
 import { checkUserPlanForExperience, createPlan, deletePlan } from "../../utilities/plans-api";
 import { handleError } from "../../utilities/error-handler";
-import { isSuperAdmin } from "../../utilities/permissions";
+import { isOwner } from "../../utilities/permissions";
 import { logger } from "../../utilities/logger";
+import { useUser } from "../../contexts/UserContext";
 
-function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
+function ExperienceCard({ experience, updateData, userPlans = [] }) {
+  const { user } = useUser();
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -45,7 +47,7 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
     }
   }, [experience._id]);
 
-  const isOwner = (experience?.user && experience.user._id === user?._id) || isSuperAdmin(user);
+  const userIsOwner = isOwner(user, experience);
 
   // Check if user has a plan for this experience
   // Use local state if available, otherwise check userPlans prop
@@ -190,8 +192,8 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
     } catch (err) {
       handleError(err, { context: isRemoving ? 'Remove plan' : 'Create plan' });
       
-      // Special handling for "Plan already exists" error
-      if (!isRemoving && err.message && err.message.includes('Plan already exists')) {
+      // Special handling for "Plan already exists" error (409 Conflict)
+      if (!isRemoving && err.message && (err.message.includes('Plan already exists') || err.message.includes('409'))) {
         // The database has a plan but our local state doesn't reflect it
         // Update local state to show plan exists
         setLocalPlanStateWithCache(true);
@@ -239,7 +241,7 @@ function ExperienceCard({ experience, user, updateData, userPlans = [] }) {
             >
               {experienceAdded ? (isHovered ? "-" : "✅") : "✚"}
             </button>
-            {isOwner && (
+            {userIsOwner && (
               <>
                 <Link
                   to={`/experiences/${experience._id}/update`}

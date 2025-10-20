@@ -27,6 +27,7 @@ export function AppProvider({ children }) {
   const [h1Visible, setH1Visible] = useState(true);
   const [actionButtons, setActionButtons] = useState([]);
   const [showActionButtons, setShowActionButtons] = useState(false);
+  const [showH1InNavbar, setShowH1InNavbar] = useState(false);
 
   /**
    * Register the h1 element for tracking
@@ -54,6 +55,14 @@ export function AppProvider({ children }) {
   const clearActionButtons = useCallback(() => {
     setActionButtons([]);
     setShowActionButtons(false);
+  }, []);
+
+  /**
+   * Set whether to show h1 text in navbar when scrolled
+   * @param {boolean} show - Whether to show h1 text in navbar
+   */
+  const updateShowH1InNavbar = useCallback((show) => {
+    setShowH1InNavbar(show);
   }, []);
 
   /**
@@ -122,6 +131,8 @@ export function AppProvider({ children }) {
     h1Text,
     h1Visible,
     registerH1,
+    showH1InNavbar,
+    updateShowH1InNavbar,
 
     // Action buttons
     actionButtons,

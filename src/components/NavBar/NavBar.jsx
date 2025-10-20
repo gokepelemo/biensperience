@@ -1,7 +1,8 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import "./NavBar.css"
 import { useEffect, useRef } from "react";
 import { useUser } from "../../contexts/UserContext";
+import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
 import SearchBar from "../SearchBar/SearchBar";
 import ActionButtons from "../ActionButtons/ActionButtons";
@@ -13,14 +14,46 @@ export default function NavBar() {
   const dropdownMenuRef = useRef(null);
   const navbarRef = useRef(null);
 
-  const { logoutUser, getDisplayName, isSuperAdmin: isSuper } = useUser();
+  const { logoutUser, getDisplayName, isSuperAdmin: isSuper, user } = useUser();
+  const { getExperience, getDestination } = useData();
   const {
     isScrolled,
     h1Visible,
     h1Text,
     showActionButtons,
     actionButtons,
+    showH1InNavbar,
   } = useApp();
+  const location = useLocation();
+
+  // Determine brand text based on current route and context
+  const getBrandText = () => {
+    // Check if we're on an update route
+    const path = location.pathname;
+    
+    if (path.includes('/update')) {
+      if (path.startsWith('/experiences/') && path.endsWith('/update')) {
+        // Extract experience ID from path
+        const experienceId = path.split('/')[2];
+        const experience = getExperience(experienceId);
+        if (experience) {
+          return `Update: ${experience.name}`;
+        }
+      } else if (path.startsWith('/destinations/') && path.endsWith('/update')) {
+        // Extract destination ID from path
+        const destinationId = path.split('/')[2];
+        const destination = getDestination(destinationId);
+        if (destination) {
+          return `Update: ${destination.name}`;
+        }
+      } else if (path === '/profile/update') {
+        return `Update: ${user?.name || 'Profile'}`;
+      }
+    }
+    
+    // Default logic: show h1 text when scrolled past h1, otherwise show Biensperience
+    return (!h1Visible && h1Text && showH1InNavbar) ? h1Text : 'Biensperience';
+  };
 
   function handleLogOut() {
     logoutUser();
@@ -171,7 +204,7 @@ export default function NavBar() {
             aria-label="Biensperience home"
           >
             <span className="brand-text">
-              {!h1Visible && h1Text ? h1Text : 'Biensperience'}
+              {getBrandText()}
             </span>
             <button className="btn btn-light btn-sm logo" aria-hidden="true">✚</button>
           </NavLink>

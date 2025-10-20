@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import * as usersService from "../../utilities/users-service";
 import { lang } from "../../lang.constants";
 import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
+import ForgotPasswordModal from "../ForgotPasswordModal/ForgotPasswordModal";
 import "./LoginForm.css";
 
 /**
@@ -19,7 +20,10 @@ export default function LoginForm({ setUser }) {
         password: ""
     });
     const [error, setError] = useState("");
+    const [showForgotPassword, setShowForgotPassword] = useState(false);
+    const [showForgotPasswordLink, setShowForgotPasswordLink] = useState(false);
     const navigate = useNavigate();
+    const passwordTimerRef = useRef(null);
 
     /**
      * Handles input field changes and clears any existing errors.
@@ -29,6 +33,46 @@ export default function LoginForm({ setUser }) {
     function handleChange(e) {
         setCredentials({ ...credentials, [e.target.name]: e.target.value });
         setError("");
+
+        // Reset timer when user types in password field
+        if (e.target.name === 'password') {
+            if (passwordTimerRef.current) {
+                clearTimeout(passwordTimerRef.current);
+            }
+            // Start new 3-second timer
+            passwordTimerRef.current = setTimeout(() => {
+                setShowForgotPasswordLink(true);
+            }, 3000);
+        }
+    }
+
+    /**
+     * Handles password field focus - starts timer to show forgot password link
+     *
+     * @param {Event} e - Focus event
+     */
+    function handlePasswordFocus(e) {
+        // Clear any existing timer
+        if (passwordTimerRef.current) {
+            clearTimeout(passwordTimerRef.current);
+        }
+
+        // Start 3-second timer to show forgot password link
+        passwordTimerRef.current = setTimeout(() => {
+            setShowForgotPasswordLink(true);
+        }, 3000);
+    }
+
+    /**
+     * Handles password field blur - clears timer
+     *
+     * @param {Event} e - Blur event
+     */
+    function handlePasswordBlur(e) {
+        // Clear timer if user leaves field
+        if (passwordTimerRef.current) {
+            clearTimeout(passwordTimerRef.current);
+        }
     }
 
     /**
@@ -47,8 +91,18 @@ export default function LoginForm({ setUser }) {
             navigate("/"); // Update address bar to home after login
         } catch {
             setError(lang.en.alert.loginFailed);
+            setShowForgotPasswordLink(true); // Show link immediately on failed login
         }
     }
+
+    // Cleanup timer on component unmount
+    useEffect(() => {
+        return () => {
+            if (passwordTimerRef.current) {
+                clearTimeout(passwordTimerRef.current);
+            }
+        };
+    }, []);
 
     return (
         <div className="login-bg center-login">
@@ -58,7 +112,7 @@ export default function LoginForm({ setUser }) {
                 <form className="login-form" onSubmit={handleSubmit}>
                     <input
                         className="form-control login-input"
-                        autoComplete="off"
+                        autoComplete="email"
                         type="email"
                         name="email"
                         id="email"
@@ -75,6 +129,8 @@ export default function LoginForm({ setUser }) {
                         id="password"
                         value={credentials.password}
                         onChange={handleChange}
+                        onFocus={handlePasswordFocus}
+                        onBlur={handlePasswordBlur}
                         placeholder={lang.en.placeholder.password}
                         required
                     />
@@ -82,14 +138,39 @@ export default function LoginForm({ setUser }) {
                         {lang.en.button.signInArrow}
                     </button>
                 </form>
-                <p className="error-message">&nbsp;{error ? error : ""}</p>
-                
+
+                {/* Forgot Password link appears after failed login or 3 seconds of no typing */}
+                {showForgotPasswordLink && (
+                    <div className="text-center mb-3" style={{ marginTop: '-0.5rem' }}>
+                        <button
+                            type="button"
+                            className="link-btn text-muted"
+                            onClick={() => setShowForgotPassword(true)}
+                            style={{ fontSize: '0.9rem', textDecoration: 'underline' }}
+                        >
+                            Forgot Password?
+                        </button>
+                    </div>
+                )}
+
+                {/* Error message */}
+                {error && (
+                    <div className="mb-3">
+                        <p className="error-message text-center mb-0">{error}</p>
+                    </div>
+                )}
+
                 <SocialLoginButtons />
-                
+
                 <div className="login-signup center-login">
                     <span>{lang.en.message.dontHaveAccount}</span> <button type="button" className="signup-link link-btn" onClick={() => navigate('/signup')}>{lang.en.button.signup}</button>
                 </div>
             </div>
+
+            <ForgotPasswordModal
+                show={showForgotPassword}
+                onClose={() => setShowForgotPassword(false)}
+            />
         </div>
     );
 }

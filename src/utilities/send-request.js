@@ -97,7 +97,22 @@ export async function sendRequest(url, method = "GET", payload = null) {
             statusText: res.statusText,
             errorText
         });
-        throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+
+        // Try to parse JSON error response
+        let errorMessage = `Request failed: ${res.status} ${res.statusText}`;
+        try {
+            const errorData = JSON.parse(errorText);
+            if (errorData.error) {
+                errorMessage = errorData.error;
+            }
+        } catch (e) {
+            // If not JSON, use the text as-is if it's not too long
+            if (errorText && errorText.length < 200) {
+                errorMessage = errorText;
+            }
+        }
+
+        throw new Error(errorMessage);
     } catch (error) {
         // Handle network errors, CORS issues, etc.
         logger.error('Network request failed', {

@@ -65,6 +65,7 @@ function SignUpForm(props) {
             onChange={handleChange}
             placeholder={lang.en.placeholder.name}
             required
+            autoComplete="name"
           />
           <input
             className="form-control login-input"
@@ -74,6 +75,7 @@ function SignUpForm(props) {
             onChange={handleChange}
             placeholder={lang.en.placeholder.emailExample}
             required
+            autoComplete="email"
           />
           <input
             className="form-control login-input"

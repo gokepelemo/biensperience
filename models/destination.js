@@ -38,10 +38,6 @@ const destinationSchema = new Schema(
       type: String,
       required: true,
     },
-    user: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-    },
     state: {
       type: String,
     },
@@ -78,5 +74,14 @@ const destinationSchema = new Schema(
     timestamps: true,
   }
 );
+
+/**
+ * Database indexes for query performance optimization
+ */
+destinationSchema.index({ name: 1, country: 1 });  // For duplicate checking
+destinationSchema.index({ country: 1 });  // For filtering by country
+destinationSchema.index({ 'permissions._id': 1 });  // For permission queries
+destinationSchema.index({ users_favorite: 1 });  // For favorite queries
+destinationSchema.index({ createdAt: -1 });  // For sorting
 
 module.exports = mongoose.model("Destination", destinationSchema);

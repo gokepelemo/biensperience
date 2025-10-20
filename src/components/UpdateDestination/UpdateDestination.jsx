@@ -1,17 +1,25 @@
 import "./UpdateDestination.css";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { updateDestination, showDestination } from "../../utilities/destinations-api";
+import { updateDestination as updateDestAPI, showDestination } from "../../utilities/destinations-api";
+import { useUser } from "../../contexts/UserContext";
+import { useData } from "../../contexts/DataContext";
+import { useToast } from "../../contexts/ToastContext";
 import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
+import { formatChanges } from "../../utilities/change-formatter";
 import Modal from "../Modal/Modal";
 import FormField from "../FormField/FormField";
 import { Form } from "react-bootstrap";
+import { isOwner } from "../../utilities/permissions";
 import { isSuperAdmin } from "../../utilities/permissions";
 
-export default function UpdateDestination({ user, updateData }) {
+export default function UpdateDestination() {
+  const { user } = useUser();
+  const { updateDestination } = useData();
+  const { success, error: showError } = useToast();
   const { destinationId } = useParams();
   const [destination, setDestination] = useState(null);
   const [travelTips, setTravelTips] = useState([]);
@@ -23,22 +31,13 @@ export default function UpdateDestination({ user, updateData }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Convert snake_case to Title Case
-  function formatFieldName(fieldName) {
-    return fieldName
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
-
   useEffect(() => {
     async function fetchData() {
       try {
         const destinationData = await showDestination(destinationId);
 
         // Check if user is the owner or Super Admin
-        const isOwner = destinationData.user && destinationData.user._id === user._id;
-        const canEdit = isOwner || isSuperAdmin(user);
+        const canEdit = isOwner(user, destinationData) || isSuperAdmin(user);
 
         if (!canEdit) {
           setError("You are not authorized to update this destination.");
@@ -163,8 +162,9 @@ export default function UpdateDestination({ user, updateData }) {
         travel_tips: travelTips
       };
 
-      await updateDestination(destinationId, dataToUpdate);
-      updateData && updateData();
+      const updated = await updateDestAPI(destinationId, dataToUpdate);
+      updateDestination(updated); // Instant UI update!
+      success('Destination updated!');
       navigate(`/destinations/${destinationId}`);
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Update destination' });
@@ -173,6 +173,7 @@ export default function UpdateDestination({ user, updateData }) {
       } else {
         setError(errorMsg);
       }
+      showError(errorMsg);
     }
   }
 
@@ -231,8 +232,8 @@ export default function UpdateDestination({ user, updateData }) {
           <strong>Changes detected:</strong>
           <ul className="mb-0 mt-2">
             {Object.keys(changes).map((field, idx) => (
-              <li key={idx}>
-                <strong>{formatFieldName(field)}:</strong> {changes[field].from || '(empty)'} → {changes[field].to || '(empty)'}
+              <li key={idx} style={{ whiteSpace: 'pre-line' }}>
+                {formatChanges(field, changes[field], 'destination')}
               </li>
             ))}
           </ul>
@@ -371,10 +372,9 @@ export default function UpdateDestination({ user, updateData }) {
         <ul className="list-group">
           {Object.entries(changes).map(([field, change]) => (
             <li key={field} className="list-group-item">
-              <strong>{formatFieldName(field)}:</strong>{' '}
-              {typeof change.from === 'object' ? JSON.stringify(change.from) : (change.from || 'None')}{' '}
-              →{' '}
-              {typeof change.to === 'object' ? JSON.stringify(change.to) : (change.to || 'None')}
+              <div style={{ whiteSpace: 'pre-line' }}>
+                {formatChanges(field, change, 'destination')}
+              </div>
             </li>
           ))}
         </ul>

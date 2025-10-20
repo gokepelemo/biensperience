@@ -1,16 +1,21 @@
 import "./SingleExperience.css";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { FaUserPlus, FaTimes } from "react-icons/fa";
 import { BsPlusCircle, BsPersonPlus, BsCheckCircleFill } from "react-icons/bs";
+import { useUser } from "../../contexts/UserContext";
+import { useData } from "../../contexts/DataContext";
+import { useApp } from "../../contexts/AppContext";
+import { useToast } from "../../contexts/ToastContext";
+import { useCollaboratorUsers } from "../../hooks/useCollaboratorUsers";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import Modal from "../../components/Modal/Modal";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import Alert from "../../components/Alert/Alert";
-import { isSuperAdmin } from "../../utilities/permissions";
+import { isOwner } from "../../utilities/permissions";
 import {
   showExperience,
   deleteExperience,
@@ -65,13 +70,16 @@ function setSyncAlertCookie(planId) {
   syncAlertStorage.set(planId);
 }
 
-export default function SingleExperience({ user, experiences, updateData }) {
+export default function SingleExperience() {
+  const { user } = useUser();
+  const { removeExperience, fetchExperiences } = useData();
+  const { registerH1, setPageActionButtons, clearActionButtons, updateShowH1InNavbar } = useApp();
+  const { success, error: showError } = useToast();
   const { experienceId } = useParams();
   const navigate = useNavigate();
   const [experience, setExperience] = useState(null);
   const [userHasExperience, setUserHasExperience] = useState(false);
   const [travelTips, setTravelTips] = useState([]);
-  const [isOwner, setIsOwner] = useState(false);
   const [favHover, setFavHover] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hoveredPlanItem, setHoveredPlanItem] = useState(null);
@@ -120,6 +128,71 @@ export default function SingleExperience({ user, experiences, updateData }) {
   // Ref for dynamic font sizing on planned date metric
   const plannedDateRef = useRef(null);
 
+  // Get owner and collaborator user IDs for experience
+  const experienceOwnerPermission = useMemo(() =>
+    experience?.permissions?.find(p => p.entity === "user" && p.type === "owner"),
+    [experience?.permissions]
+  );
+
+  const experienceOwnerId = useMemo(() =>
+    experienceOwnerPermission?._id,
+    [experienceOwnerPermission]
+  );
+
+  const experienceCollaboratorIds = useMemo(() =>
+    experience?.permissions
+      ?.filter(p => p.entity === "user" && p.type === "collaborator")
+      .map(p => p._id) || [],
+    [experience?.permissions]
+  );
+
+  // Get current plan for collaborator IDs - MUST be memoized to prevent infinite re-renders
+  const currentPlan = useMemo(() =>
+    activeTab === "experience" ? null :
+    selectedPlanId ? collaborativePlans.find(p => p._id === selectedPlanId) : userPlan,
+    [activeTab, selectedPlanId, collaborativePlans, userPlan]
+  );
+
+  // Get plan owner and collaborator user IDs
+  const planOwnerPermission = useMemo(() =>
+    currentPlan?.permissions?.find(p => p.entity === "user" && p.type === "owner"),
+    [currentPlan?.permissions]
+  );
+
+  const planOwnerId = useMemo(() =>
+    planOwnerPermission?._id,
+    [planOwnerPermission]
+  );
+
+  const planCollaboratorIds = useMemo(() =>
+    currentPlan?.permissions
+      ?.filter(p => p.entity === "user" && p.type === "collaborator")
+      .map(p => p._id) || [],
+    [currentPlan?.permissions]
+  );
+
+  // Memoize owner ID arrays to prevent infinite re-renders from hook
+  const experienceOwnerIds = useMemo(() =>
+    experienceOwnerId ? [experienceOwnerId] : [],
+    [experienceOwnerId]
+  );
+
+  const planOwnerIds = useMemo(() =>
+    planOwnerId ? [planOwnerId] : [],
+    [planOwnerId]
+  );
+
+  // Fetch fresh user data for owners and collaborators
+  const { users: experienceOwnerData, loading: experienceOwnerLoading } = useCollaboratorUsers(experienceOwnerIds);
+  const experienceOwner = experienceOwnerData?.[0];
+
+  const { users: experienceCollaborators, loading: experienceCollaboratorsLoading } = useCollaboratorUsers(experienceCollaboratorIds);
+
+  const { users: planOwnerData, loading: planOwnerLoading } = useCollaboratorUsers(planOwnerIds);
+  const planOwner = planOwnerData?.[0];
+
+  const { users: planCollaborators, loading: planCollaboratorsLoading } = useCollaboratorUsers(planCollaboratorIds);
+
   const toggleExpanded = useCallback((parentId) => {
     setExpandedParents((prev) => {
       const newSet = new Set(prev);
@@ -156,10 +229,6 @@ export default function SingleExperience({ user, experiences, updateData }) {
         );
       }
       setExperience(experienceData);
-      // Set isOwner if current user is the creator or super admin
-      setIsOwner(
-        (experienceData.user && experienceData.user._id.toString() === user._id) || isSuperAdmin(user)
-      );
 
       // userHasExperience will be set in fetchUserPlan based on Plan model
       // No longer using experience.users array
@@ -178,7 +247,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
       debug.error("Error fetching experience:", err);
       setExperience(null);
     }
-  }, [experienceId, user._id, user.role]);
+  }, [experienceId, user]);
 
   const fetchUserPlan = useCallback(async () => {
     try {
@@ -305,6 +374,36 @@ export default function SingleExperience({ user, experiences, updateData }) {
     fetchUserPlan();
     fetchCollaborativePlans();
   }, [fetchExperience, fetchUserPlan, fetchCollaborativePlans]);
+
+  // Register h1 and action buttons for navbar
+  useEffect(() => {
+    const h1 = document.querySelector('h1');
+    if (h1) registerH1(h1);
+
+    // Set up action buttons if user is owner or super admin
+    if (user && experience && isOwner(user, experience)) {
+      setPageActionButtons([
+        {
+          label: 'Edit',
+          onClick: () => navigate(`/experiences/${experience._id}/update`),
+          variant: 'outline-primary',
+          icon: '✏️',
+          tooltip: 'Edit Experience',
+          compact: true
+        },
+        {
+          label: 'Delete',
+          onClick: () => setShowDeleteModal(true),
+          variant: 'outline-danger',
+          icon: '🗑️',
+          tooltip: 'Delete Experience',
+          compact: true
+        }
+      ]);
+    }
+
+    return () => clearActionButtons();
+  }, [registerH1, setPageActionButtons, clearActionButtons, user, experience, navigate]);
 
   // Check for divergence when plan or experience changes
   useEffect(() => {
@@ -883,25 +982,20 @@ export default function SingleExperience({ user, experiences, updateData }) {
 
   const openCollaboratorModal = useCallback((context) => {
     setCollaboratorContext(context);
-    
-    // Get existing collaborators based on context
+
+    // Get existing collaborators based on context - use the fetched user data
     let existing = [];
     if (context === "experience") {
-      existing = experience?.permissions
-        ?.filter((p) => p.entity === "user" && p.type === "collaborator" && p._id)
-        .map((p) => p._id) || [];
+      existing = experienceCollaborators || [];
     } else {
-      const currentPlan = collaborativePlans.find((p) => p._id === selectedPlanId);
-      existing = currentPlan?.permissions
-        ?.filter((p) => p.entity === "user" && p.type === "collaborator" && p.user)
-        .map((p) => p.user) || [];
+      existing = planCollaborators || [];
     }
-    
+
     setExistingCollaborators(existing);
     setSelectedCollaborators(existing);
     setRemovedCollaborators([]);
     setShowCollaboratorModal(true);
-  }, [experience, collaborativePlans, selectedPlanId]);
+  }, [experienceCollaborators, planCollaborators]);
 
   const handleSearchUsers = useCallback(async (query) => {
     setCollaboratorSearch(query);
@@ -1086,7 +1180,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
         setDisplayedPlannedDate(dateToSend);
 
         debug.log("Plan date updated successfully");
-      } else if (!isOwner) {
+      } else if (!isOwner(user, experience)) {
         // Only non-owners can update planned date on Experience tab
         // Owners don't have a planned date since they manage the experience directly
 
@@ -1109,7 +1203,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
 
         // Refresh experience to get updated state
         await fetchExperience();
-      } else if (isOwner) {
+      } else if (isOwner(user, experience)) {
         // Owners can now create plans for their own experiences
         // Check if owner already has a plan
         if (userPlan) {
@@ -1143,7 +1237,8 @@ export default function SingleExperience({ user, experiences, updateData }) {
     plannedDate,
     activeTab,
     selectedPlanId,
-    isOwner,
+    user,
+    experience,
     userPlan,
     handleAddExperience,
     fetchUserPlan,
@@ -1152,15 +1247,19 @@ export default function SingleExperience({ user, experiences, updateData }) {
   ]);
 
   const handleDeleteExperience = useCallback(async () => {
-    if (!experience || !isOwner) return;
+    if (!experience || !isOwner(user, experience)) return;
     try {
+      removeExperience(experience._id); // Instant UI update!
       await deleteExperience(experience._id);
-      updateData && updateData();
+      success('Experience deleted!');
       navigate("/experiences");
     } catch (err) {
-      handleError(err, { context: "Delete experience" });
+      const errorMsg = handleError(err, { context: "Delete experience" });
+      showError(errorMsg);
+      // Rollback on error
+      await fetchExperiences();
     }
-  }, [experience, isOwner, navigate, updateData]);
+  }, [experience, user, navigate, removeExperience, success, showError, fetchExperiences]);
 
   const handlePlanDelete = useCallback(
     async (planItemId) => {
@@ -1169,14 +1268,30 @@ export default function SingleExperience({ user, experiences, updateData }) {
         await deletePlanItem(experience._id, planItemId);
         // Refetch experience to get updated virtuals
         await fetchExperience();
-        updateData && updateData();
+        await fetchExperiences();
         setShowPlanDeleteModal(false);
+        success('Plan item deleted!');
       } catch (err) {
-        handleError(err, { context: "Delete plan item" });
+        const errorMsg = handleError(err, { context: "Delete plan item" });
+        showError(errorMsg);
       }
     },
-    [experience, updateData, fetchExperience]
+    [experience, fetchExperiences, fetchExperience, success, showError]
   );
+
+  // Set up navbar for single experience view
+  useEffect(() => {
+    const h1 = document.querySelector('h1');
+    if (h1) registerH1(h1);
+
+    // Enable h1 text in navbar for this view
+    updateShowH1InNavbar(true);
+
+    return () => {
+      clearActionButtons();
+      updateShowH1InNavbar(false);
+    };
+  }, [registerH1, clearActionButtons, updateShowH1InNavbar]);
 
   return (
     <>
@@ -1242,17 +1357,6 @@ export default function SingleExperience({ user, experiences, updateData }) {
                   </h2>
                 )}
               </div>
-              {experience.user ? (
-                <h3 className="h6 fade-in">
-                  {lang.en.heading.createdBy}{" "}
-                  <Link
-                    to={`/profile/${experience.user._id}`}
-                    title={experience.user.name}
-                  >
-                    {experience.user.name}
-                  </Link>
-                </h3>
-              ) : null}
             </div>
             <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center flex-row experience-actions">
               <button
@@ -1308,7 +1412,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                   📅
                 </button>
               )}
-              {isOwner && (
+              {isOwner(user, experience) && (
                 <>
                   <button
                     className="btn btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
@@ -1539,24 +1643,14 @@ export default function SingleExperience({ user, experiences, updateData }) {
                     <div className="plan-header-row mb-4">
                       {/* Collaborators Display - Left Side */}
                       <UsersListDisplay
-                        owner={experience.user}
-                        users={
-                          experience.permissions
-                            ?.filter(
-                              (p) =>
-                                p.entity === "user" &&
-                                p.type === "collaborator" &&
-                                p._id &&
-                                typeof p._id === 'object' &&
-                                p._id.name // Only include if we have populated user data
-                            )
-                            .map((p) => p._id) || []
-                        }
+                        owner={experienceOwner}
+                        users={experienceCollaborators}
                         messageKey="CreatingPlan"
+                        loading={experienceOwnerLoading || experienceCollaboratorsLoading}
                       />
 
                       {/* Action Buttons - Right Side */}
-                      {isOwner && (
+                      {isOwner(user, experience) && (
                         <div className="plan-action-buttons">
                           <button
                             className="btn btn-primary"
@@ -1661,7 +1755,7 @@ export default function SingleExperience({ user, experiences, updateData }) {
                               )}
                             </div>
                             <div className="plan-item-actions">
-                              {isOwner && (
+                              {isOwner(user, experience) && (
                                 <div className="d-flex gap-1">
                                   {!planItem.parent && (
                                     <button
@@ -1752,15 +1846,6 @@ export default function SingleExperience({ user, experiences, updateData }) {
                       const currentPlan = collaborativePlans.find(
                         (p) => p._id === selectedPlanId
                       );
-                      // Get plan owner - use plan.user if available, otherwise find owner from permissions
-                      let planOwner = currentPlan?.user;
-                      if (!planOwner) {
-                        const ownerPermission = currentPlan?.permissions?.find(p => p.type === 'owner');
-                        if (ownerPermission?.user) {
-                          planOwner = ownerPermission.user;
-                        }
-                        // Don't create fake user objects - leave planOwner as undefined if no valid user data
-                      }
 
                       const isPlanOwner =
                         planOwner && planOwner._id === user._id;
@@ -1778,19 +1863,9 @@ export default function SingleExperience({ user, experiences, updateData }) {
                           {/* Collaborators Display - Left Side */}
                           <UsersListDisplay
                             owner={planOwner}
-                            users={
-                              currentPlan?.permissions
-                                ?.filter(
-                                  (p) =>
-                                    p.entity === "user" &&
-                                    p.type === "collaborator" &&
-                                    p._id &&
-                                    typeof p._id === 'object' &&
-                                    p._id.name // Only include if we have populated user data
-                                )
-                                .map((p) => p._id) || []
-                            }
+                            users={planCollaborators}
                             messageKey="PlanningExperience"
+                            loading={planOwnerLoading || planCollaboratorsLoading}
                           />
 
                           {/* Action Buttons - Right Side */}
