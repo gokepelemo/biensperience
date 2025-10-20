@@ -6,7 +6,7 @@ import PropTypes from "prop-types";
 /**
  * UsersListDisplay - Reusable component for displaying a list of users with avatars
  * Shows owner + additional users with overlap effect and count message
- * 
+ *
  * @param {Object} props - Component props
  * @param {Object} props.owner - Primary user object { _id, name, photo }
  * @param {Array} props.users - Array of additional user objects [{ _id, name, photo }]
@@ -17,18 +17,50 @@ import PropTypes from "prop-types";
  * @param {boolean} props.showHeading - Whether to show heading (default: true)
  * @param {string} props.size - Avatar size: 'sm', 'md', 'lg', 'xl' (default: 'md')
  * @param {string} props.className - Additional CSS classes
+ * @param {boolean} props.loading - Whether data is still loading (reserves space)
+ * @param {boolean} props.reserveSpace - Whether to reserve space when no users (default: false)
  */
-const UsersListDisplay = ({ 
-  owner, 
-  users = [], 
+const UsersListDisplay = ({
+  owner,
+  users = [],
   messageKey = 'CreatingPlan',
   heading,
   maxVisible = 7,
   showMessage = true,
   showHeading = true,
   size = 'md',
-  className = ""
+  className = "",
+  loading = false,
+  reserveSpace = false
 }) => {
+  // Show loading placeholder if loading
+  if (loading) {
+    return (
+      <div className={`users-list-display ${className}`} style={{ minHeight: '40px', opacity: 0.5 }}>
+        {showHeading && (
+          <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
+        )}
+        <div className="d-flex align-items-center">
+          <div className="users-avatar-stack">
+            <div className={`user-avatar user-avatar-${size} stacked-avatar`} style={{ backgroundColor: '#e0e0e0' }}>
+              <div className="avatar-initials">...</div>
+            </div>
+          </div>
+          {showMessage && (
+            <div className="ms-3">
+              <p className="mb-0 text-muted small">Loading...</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Reserve space if requested and no users
+  if (reserveSpace && !owner && (!users || users.length === 0)) {
+    return <div className={`users-list-display ${className}`} style={{ minHeight: '40px' }} />;
+  }
+
   // Don't render if there's no owner and no users (0 people total)
   if (!owner && (!users || users.length === 0)) {
     return null;
@@ -46,8 +78,10 @@ const UsersListDisplay = ({
     );
   }
 
-  const totalCount = users.length + (owner ? 1 : 0);
-  const remainingCount = Math.max(0, users.length - maxVisible);
+  // Calculate expected count for loading placeholders
+  const expectedCount = loading ? Math.max(1, users.length + (owner ? 1 : 0)) : users.length + (owner ? 1 : 0);
+  const totalCount = expectedCount;
+  const remainingCount = Math.max(0, expectedCount - maxVisible);
   
   // Get singular and plural message keys
   const singularKey = `person${messageKey}`;
@@ -65,33 +99,48 @@ const UsersListDisplay = ({
       )}
       <div className="d-flex align-items-center">
         <div className="users-avatar-stack">
-          {/* Owner Avatar */}
-          {owner && (
-            <UserAvatar 
-              user={owner} 
-              size={size}
-              className="stacked-avatar"
-            />
-          )}
-          
-          {/* Additional User Avatars */}
-          {users.slice(0, maxVisible).map((user, idx) => (
-            <UserAvatar 
-              key={user._id || idx}
-              user={user} 
-              size={size}
-              className="stacked-avatar"
-            />
-          ))}
-          
-          {/* +N Badge */}
-          {remainingCount > 0 && (
-            <div 
-              className={`user-avatar user-avatar-${size} avatar-more stacked-avatar`}
-              title={`${remainingCount} more`}
-            >
-              <div className="avatar-initials">+{remainingCount}</div>
-            </div>
+          {/* Loading State: Show blank avatar placeholders */}
+          {loading ? (
+            Array.from({ length: Math.min(expectedCount, maxVisible + (remainingCount > 0 ? 1 : 0)) }, (_, idx) => (
+              <div
+                key={`loading-${idx}`}
+                className={`user-avatar user-avatar-${size} stacked-avatar loading-placeholder`}
+                title="Loading..."
+              >
+                <div className="avatar-initials">?</div>
+              </div>
+            ))
+          ) : (
+            <>
+              {/* Owner Avatar */}
+              {owner && (
+                <UserAvatar 
+                  user={owner} 
+                  size={size}
+                  className="stacked-avatar"
+                />
+              )}
+              
+              {/* Additional User Avatars */}
+              {users.slice(0, maxVisible).map((user, idx) => (
+                <UserAvatar 
+                  key={user._id || idx}
+                  user={user} 
+                  size={size}
+                  className="stacked-avatar"
+                />
+              ))}
+              
+              {/* +N Badge */}
+              {remainingCount > 0 && (
+                <div 
+                  className={`user-avatar user-avatar-${size} avatar-more stacked-avatar`}
+                  title={`${remainingCount} more`}
+                >
+                  <div className="avatar-initials">+{remainingCount}</div>
+                </div>
+              )}
+            </>
           )}
         </div>
         
@@ -126,6 +175,8 @@ UsersListDisplay.propTypes = {
   showHeading: PropTypes.bool,
   size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl']),
   className: PropTypes.string,
+  loading: PropTypes.bool,
+  reserveSpace: PropTypes.bool,
 };
 
 export default UsersListDisplay;

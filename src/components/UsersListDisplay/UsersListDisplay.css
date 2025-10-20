@@ -33,15 +33,29 @@
     margin-left: 0; /* First avatar doesn't overlap */
 }
 
-/* +N Badge styling */
-.avatar-more {
-    background: #e9ecef;
-    border-color: white;
+/* Loading placeholder styling */
+.loading-placeholder {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    animation: pulse 1.5s ease-in-out infinite;
 }
 
-.avatar-more .avatar-initials {
-    color: #667eea;
-    font-weight: 700;
+.loading-placeholder .avatar-initials {
+    color: #adb5bd;
+    font-weight: 400;
+}
+
+/* Pulse animation for loading placeholders */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+    100% {
+        opacity: 1;
+    }
 }
 
 /* Mobile/Tablet: Center collaborators on viewport */
