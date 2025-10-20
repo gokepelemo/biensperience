@@ -29,13 +29,24 @@ function buildTextSearchQuery(query) {
 }
 
 /**
+ * Escape special regex characters to prevent injection
+ * @param {string} string - String to escape
+ * @returns {string} Escaped string safe for regex
+ */
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Build MongoDB regex search query (fallback when text index not available)
  * @param {string} query - Search query
  * @param {Array<string>} fields - Fields to search
  * @returns {Object} MongoDB regex query object
  */
 function buildRegexSearchQuery(query, fields) {
-  const regex = new RegExp(query.split(' ').join('|'), 'i');
+  // Escape special regex characters to prevent injection
+  const escapedQuery = escapeRegex(query);
+  const regex = new RegExp(escapedQuery.split(' ').join('|'), 'i');
   return {
     $or: fields.map(field => ({ [field]: regex }))
   };

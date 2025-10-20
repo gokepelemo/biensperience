@@ -14,7 +14,20 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Email configuration
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@biensperience.com';
 const APP_NAME = 'Biensperience';
-const USER_AGENT = `Biensperience/${version}`;
+/**
+ * Strip HTML tags from text content safely
+ * @param {string} html - HTML content to strip
+ * @returns {string} Plain text content
+ */
+function stripHtml(html) {
+  // Remove HTML tags
+  let text = html.replace(/<[^>]*>/g, '');
+  // Remove HTML entities
+  text = text.replace(/&[^;]+;/g, '');
+  // Remove extra whitespace
+  text = text.replace(/\s+/g, ' ').trim();
+  return text;
+}
 
 /**
  * Replace template variables
@@ -141,9 +154,9 @@ ${greeting}
 ${body}
 
 ${buttonText && buttonUrl ? `${buttonText}: ${buttonUrl}\n` : ''}
-${additionalSections.map(s => s.replace(/<[^>]*>/g, '')).join('\n\n')}
+${additionalSections.map(s => stripHtml(s)).join('\n\n')}
 
-${signature.replace(/<br>/g, '\n')}
+${stripHtml(signature).replace(/\n/g, '\n')}
 
 ${footer}
   `.trim();
