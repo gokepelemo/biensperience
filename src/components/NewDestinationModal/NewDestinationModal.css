@@ -1,0 +1,19 @@
+/* NewDestinationModal styles */
+.new-destination-modal {
+  /* Additional modal-specific styles if needed */
+}
+
+.new-destination-modal .alert-info {
+  background-color: rgba(102, 126, 234, 0.1);
+  border-color: rgba(102, 126, 234, 0.3);
+  color: #495057;
+}
+
+.new-destination-modal .alert-info a {
+  color: #667eea;
+  text-decoration: underline;
+}
+
+.new-destination-modal .alert-info a:hover {
+  color: #5568d3;
+}

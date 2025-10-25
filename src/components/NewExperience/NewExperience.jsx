@@ -1,6 +1,6 @@
 import "./NewExperience.css";
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
 import { useToast } from "../../contexts/ToastContext";
 import { createExperience } from "../../utilities/experiences-api";
@@ -14,6 +14,7 @@ import FormField from "../FormField/FormField";
 import { FormTooltip } from "../Tooltip/Tooltip";
 import { Form } from "react-bootstrap";
 import { useFormPersistence } from "../../hooks/useFormPersistence";
+import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 
 export default function NewExperience() {
   const { destinations: destData, experiences: expData, addExperience } = useData();
@@ -23,6 +24,8 @@ export default function NewExperience() {
   const [experiences, setExperiences] = useState([]);
   const [tags, setTags] = useState([]);
   const [error, setError] = useState("");
+  const [showDestinationModal, setShowDestinationModal] = useState(false);
+  const [destinationInput, setDestinationInput] = useState("");
   const navigate = useNavigate();
 
   // Form persistence - combines newExperience and tags
@@ -60,6 +63,30 @@ export default function NewExperience() {
     setNewExperience(
       Object.assign(experience, { [e.target.name]: e.target.value })
     );
+
+    // Track destination input for modal prefill
+    if (e.target.name === 'destination') {
+      setDestinationInput(e.target.value);
+    }
+  }
+
+  function handleDestinationCreated(newDestination) {
+    // Add to local destinations list
+    setDestinations(prev => [...prev, newDestination]);
+
+    // Set as selected destination
+    setNewExperience({
+      ...newExperience,
+      destination: `${newDestination.name}, ${newDestination.country}`
+    });
+
+    // Update input tracking
+    setDestinationInput(`${newDestination.name}, ${newDestination.country}`);
+  }
+
+  function handleCreateDestinationClick(e) {
+    e.preventDefault();
+    setShowDestinationModal(true);
   }
 
   function handleTagsChange(newTags) {
@@ -115,6 +142,15 @@ export default function NewExperience() {
     if (expData) setExperiences(expData);
     document.title = `New Experience - Biensperience`;
   }, [destData, expData]);
+
+  // Watch for "+ Create New Destination" selection
+  useEffect(() => {
+    if (newExperience.destination === '+ Create New Destination') {
+      setShowDestinationModal(true);
+      // Clear the special value so it doesn't interfere
+      setNewExperience(prev => ({ ...prev, destination: '' }));
+    }
+  }, [newExperience.destination]);
   return (
     <>
       <div className="row fade-in">
@@ -178,12 +214,18 @@ export default function NewExperience() {
                       <option key={index} value={`${destination.name}, ${destination.country}`} />
                     );
                   })}
+                <option value="+ Create New Destination">+ Create New Destination</option>
               </datalist>
               <small className="form-text text-muted">
                 {lang.en.helper.destinationRequired}
-                <Link to="/destinations/new" className="ms-1">
+                <button
+                  type="button"
+                  onClick={handleCreateDestinationClick}
+                  className="btn btn-link p-0 ms-1 align-baseline"
+                  style={{ textDecoration: 'none' }}
+                >
                   {lang.en.helper.createNewDestination}
-                </Link>
+                </button>
               </small>
             </div>
 
@@ -268,6 +310,13 @@ export default function NewExperience() {
           </Form>
         </div>
       </div>
+
+      <NewDestinationModal
+        show={showDestinationModal}
+        onClose={() => setShowDestinationModal(false)}
+        onDestinationCreated={handleDestinationCreated}
+        prefillName={destinationInput.split(',')[0].replace('+ Create New Destination', '').trim()}
+      />
     </>
   );
 }

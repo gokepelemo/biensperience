@@ -16,6 +16,7 @@ import FormField from "../FormField/FormField";
 import { isOwner } from "../../utilities/permissions";
 import { Form } from "react-bootstrap";
 import { isSuperAdmin } from "../../utilities/permissions";
+import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 
 export default function UpdateExperience() {
   const { user } = useUser();
@@ -28,6 +29,7 @@ export default function UpdateExperience() {
   const [originalExperience, setOriginalExperience] = useState(null);
   const [changes, setChanges] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showDestinationModal, setShowDestinationModal] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -165,6 +167,12 @@ export default function UpdateExperience() {
   }
 
   function handleDestinationChange(selectedDestination) {
+    // Check if user selected "Create New Destination"
+    if (selectedDestination === '+ Create New Destination') {
+      setShowDestinationModal(true);
+      return;
+    }
+
     const destination = destinations.find(d => d.name === selectedDestination.split(", ")[0]);
     if (destination) {
       const updatedExperience = { ...experience, destination: destination._id };
@@ -190,6 +198,35 @@ export default function UpdateExperience() {
       setExperience(updatedExperience);
       setChanges(newChanges);
     }
+  }
+
+  function handleDestinationCreated(newDestination) {
+    // Add to local destinations list
+    setDestinations(prev => [...prev, newDestination]);
+
+    // Set as selected destination and track change
+    const updatedExperience = { ...experience, destination: newDestination._id };
+
+    const newChanges = { ...changes };
+    const originalDestId = typeof originalExperience?.destination === 'object'
+      ? originalExperience.destination._id
+      : originalExperience?.destination;
+    const originalDestName = typeof originalExperience?.destination === 'object'
+      ? `${originalExperience.destination.name}, ${originalExperience.destination.country}`
+      : destinations.find(d => d._id === originalDestId)?.name || 'Unknown';
+
+    newChanges.destination = {
+      from: originalDestName,
+      to: `${newDestination.name}, ${newDestination.country}`
+    };
+
+    setExperience(updatedExperience);
+    setChanges(newChanges);
+  }
+
+  function handleCreateDestinationClick(e) {
+    e.preventDefault();
+    setShowDestinationModal(true);
   }
 
   async function handleSubmit(e) {
@@ -329,12 +366,18 @@ export default function UpdateExperience() {
                     {destination.name}, {destination.country}
                   </option>
                 ))}
+                <option value="+ Create New Destination">+ Create New Destination</option>
               </Form.Select>
               <small className="form-text text-muted">
                 {lang.en.helper.destinationRequired}
-                <Link to="/destinations/new" className="ms-1">
+                <button
+                  type="button"
+                  onClick={handleCreateDestinationClick}
+                  className="btn btn-link p-0 ms-1 align-baseline"
+                  style={{ textDecoration: 'none' }}
+                >
                   {lang.en.helper.createNewDestination}
-                </Link>
+                </button>
               </small>
             </div>
 
@@ -460,6 +503,13 @@ export default function UpdateExperience() {
           ))}
         </ul>
       </Modal>
+
+      <NewDestinationModal
+        show={showDestinationModal}
+        onClose={() => setShowDestinationModal(false)}
+        onDestinationCreated={handleDestinationCreated}
+        prefillName=""
+      />
     </>
   );
 }
