@@ -78,6 +78,16 @@ const en = {
     noChangesMade: "No changes were made.",
     searchCollaboratorsHelp:
       "Search for users by name or email to add as collaborators. They will be able to view and edit this {context}.",
+    emailNotVerified: "Email Verification Required",
+    emailNotVerifiedMessage: "You must verify your email address before creating or updating content. Please check your email for a verification link.",
+    emailNotVerifiedAction: "Resend Verification Email",
+    userNotFound: "User Not Found",
+    userNotFoundMessage: "The user profile you're looking for doesn't exist or has been removed.",
+    unableToLoadProfile: "Unable to Load Profile",
+    profileLoadError: "There was an error loading this profile. Please try again.",
+    changesDetected: "Changes detected:",
+    loadingUserData: "Loading user data...",
+    loadingProfile: "Loading your profile...",
   },
 
   modal: {

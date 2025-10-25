@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 import { useUser } from "../../contexts/UserContext";
 import { useApp } from "../../contexts/AppContext";
 import { useToast } from "../../contexts/ToastContext";
 import PageMeta from "../../components/PageMeta/PageMeta";
-import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Alert from "../../components/Alert/Alert";
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
@@ -31,28 +30,7 @@ export default function AllUsers() {
   // Check if current user is super admin
   const isCurrentUserSuperAdmin = user && isSuperAdmin(user);
 
-  useEffect(() => {
-    if (!isCurrentUserSuperAdmin) {
-      setError('Access denied. Only super admins can view this page.');
-      setLoading(false);
-      return;
-    }
-
-    fetchAllUsers();
-  }, [isCurrentUserSuperAdmin]);
-
-  useEffect(() => {
-    filterAndSortUsers();
-  }, [users, searchTerm, roleFilter, sortField, sortDirection]);
-
-  // Register h1 for navbar integration
-  useEffect(() => {
-    const h1 = document.querySelector('h1');
-    if (h1) registerH1(h1);
-
-    return () => clearActionButtons();
-  }, [registerH1, clearActionButtons]);
-
+  // Define helper functions
   const fetchAllUsers = async () => {
     try {
       setLoading(true);
@@ -69,7 +47,7 @@ export default function AllUsers() {
     }
   };
 
-  const filterAndSortUsers = () => {
+  const filterAndSortUsers = useCallback(() => {
     let result = [...users];
 
     // Filter by search term
@@ -106,7 +84,30 @@ export default function AllUsers() {
     });
 
     setFilteredUsers(result);
-  };
+  }, [users, searchTerm, roleFilter, sortField, sortDirection]);
+
+  // Effects
+  useEffect(() => {
+    if (!isCurrentUserSuperAdmin) {
+      setError('Access denied. Only super admins can view this page.');
+      setLoading(false);
+      return;
+    }
+
+    fetchAllUsers();
+  }, [isCurrentUserSuperAdmin]);
+
+  useEffect(() => {
+    filterAndSortUsers();
+  }, [users, searchTerm, roleFilter, sortField, sortDirection, filterAndSortUsers]);
+
+  // Register h1 for navbar integration
+  useEffect(() => {
+    const h1 = document.querySelector('h1');
+    if (h1) registerH1(h1);
+
+    return () => clearActionButtons();
+  }, [registerH1, clearActionButtons]);
 
   const handleSort = (field) => {
     if (sortField === field) {

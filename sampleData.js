@@ -1,5 +1,8 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const readline = require('readline');
+const fs = require('fs');
+const path = require('path');
 const User = require('./models/user');
 const Destination = require('./models/destination');
 const Experience = require('./models/experience');
@@ -11,10 +14,26 @@ const Plan = require('./models/plan');
  */
 function parseArgs() {
   const args = process.argv.slice(2);
-  return {
+  const parsed = {
     clear: args.includes('--clear') || args.includes('-c'),
-    help: args.includes('--help') || args.includes('-h')
+    help: args.includes('--help') || args.includes('-h'),
+    adminName: null,
+    adminEmail: null
   };
+
+  // Parse --admin-name flag
+  const nameIndex = args.findIndex(arg => arg === '--admin-name');
+  if (nameIndex !== -1 && args[nameIndex + 1]) {
+    parsed.adminName = args[nameIndex + 1];
+  }
+
+  // Parse --admin-email flag
+  const emailIndex = args.findIndex(arg => arg === '--admin-email');
+  if (emailIndex !== -1 && args[emailIndex + 1]) {
+    parsed.adminEmail = args[emailIndex + 1];
+  }
+
+  return parsed;
 }
 
 /**
@@ -27,24 +46,102 @@ Biensperience Sample Data Generator
 Usage: node sampleData.js [options]
 
 Options:
-  --clear, -c    Clear all existing data before generating new sample data
-  --help, -h     Show this help message
+  --clear, -c                     Clear all existing data before generating new sample data
+  --admin-name "Full Name"        Set the super admin's full name
+  --admin-email "email@domain"    Set the super admin's email address
+  --help, -h                      Show this help message
 
 Description:
   Generates comprehensive sample data for Biensperience including:
-  - 1 randomized super admin user
+  - 1 super admin user (interactive or via flags)
   - 50+ regular users with varied profiles
   - 30+ destinations worldwide
   - 90+ experiences with collaborators and plan items
   - 200+ photos from Unsplash
   - 150+ user plans with varying completion levels
 
+  If --admin-name and --admin-email are not provided, the script will prompt
+  you interactively for these details.
+
+  All output including super admin credentials is saved to sampleData.txt.
+  This file is automatically added to .gitignore for security.
+
 Examples:
-  node sampleData.js              # Generate sample data (keeps existing data)
-  node sampleData.js --clear      # Clear database and generate fresh sample data
-  node sampleData.js --help       # Show this help message
+  node sampleData.js
+    # Generate sample data with interactive super admin setup
+
+  node sampleData.js --clear
+    # Clear database and generate fresh sample data (interactive)
+
+  node sampleData.js --admin-name "John Doe" --admin-email "john@example.com"
+    # Generate with specific super admin credentials
+
+  node sampleData.js --clear --admin-name "Admin User" --admin-email "admin@company.com"
+    # Clear database and generate with specific super admin
+
+  node sampleData.js --help
+    # Show this help message
+
+Output:
+  - All output is displayed in the terminal
+  - Super admin credentials and full log saved to sampleData.txt
+  - sampleData.txt is excluded from git for security (contains passwords)
 `);
   process.exit(0);
+}
+
+/**
+ * Prompt user for input
+ */
+function promptUser(question) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
+/**
+ * Get super admin details interactively or from flags
+ */
+async function getSuperAdminDetails(args) {
+  let adminName = args.adminName;
+  let adminEmail = args.adminEmail;
+
+  // If name not provided via flag, prompt interactively
+  if (!adminName) {
+    console.log('\n👤 Super Admin Setup');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    adminName = await promptUser('Enter super admin full name: ');
+
+    // Validate name is not empty
+    while (!adminName || adminName.length === 0) {
+      console.log('❌ Name cannot be empty.');
+      adminName = await promptUser('Enter super admin full name: ');
+    }
+  }
+
+  // If email not provided via flag, prompt interactively
+  if (!adminEmail) {
+    adminEmail = await promptUser('Enter super admin email address: ');
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    while (!adminEmail || !emailRegex.test(adminEmail)) {
+      console.log('❌ Invalid email format.');
+      adminEmail = await promptUser('Enter super admin email address: ');
+    }
+  }
+
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+  return { adminName, adminEmail };
 }
 
 /**
@@ -350,13 +447,17 @@ class DataGenerator {
 
   /**
    * Generate users with varied profiles (no duplicates)
+   * @param {number} count - Total number of users to generate
+   * @param {Object} adminDetails - Custom super admin details (optional)
+   * @param {string} adminDetails.name - Super admin full name
+   * @param {string} adminDetails.email - Super admin email address
    */
-  generateUsers(count = 60) {
+  generateUsers(count = 60, adminDetails = null) {
     const users = [];
 
     // Create super admin first
-    const superAdminName = `SuperAdmin_${generateRandomString(6)}`;
-    const superAdminEmail = `superadmin_${generateRandomString(8).toLowerCase()}@biensperience.demo`;
+    const superAdminName = adminDetails?.name || `SuperAdmin_${generateRandomString(6)}`;
+    const superAdminEmail = adminDetails?.email || `superadmin_${generateRandomString(8).toLowerCase()}@biensperience.demo`;
     const superAdminPassword = generateRandomString(12);
 
     const superAdmin = {
@@ -560,10 +661,36 @@ class DataGenerator {
 }
 
 /**
+ * Output manager for writing to both console and file
+ */
+class OutputManager {
+  constructor(filePath) {
+    this.filePath = filePath;
+    this.output = [];
+  }
+
+  log(message) {
+    console.log(message);
+    this.output.push(message);
+  }
+
+  error(message) {
+    console.error(message);
+    this.output.push(`ERROR: ${message}`);
+  }
+
+  writeToFile() {
+    const content = this.output.join('\n');
+    fs.writeFileSync(this.filePath, content, 'utf8');
+    console.log(`\n📄 Output saved to: ${this.filePath}`);
+  }
+}
+
+/**
  * Clear all existing data
  */
-async function clearDatabase() {
-  console.log('🧹 Clearing all existing data...');
+async function clearDatabase(output) {
+  output.log('🧹 Clearing all existing data...');
   await Promise.all([
     User.deleteMany({}),
     Destination.deleteMany({}),
@@ -571,7 +698,7 @@ async function clearDatabase() {
     Photo.deleteMany({}),
     Plan.deleteMany({})
   ]);
-  console.log('✅ Database cleared');
+  output.log('✅ Database cleared');
 }
 
 /**
@@ -583,38 +710,45 @@ async function createSampleData() {
     showHelp();
   }
 
+  // Initialize output manager
+  const outputFilePath = path.join(__dirname, 'sampleData.txt');
+  const output = new OutputManager(outputFilePath);
+
   try {
     // Check for required environment variables
     if (!process.env.DATABASE_URL) {
-      console.error('❌ ERROR: DATABASE_URL environment variable is not set!');
-      console.error('Please ensure your .env file contains:');
-      console.error('DATABASE_URL=mongodb+srv://username:password@cluster.mongodb.net/database');
+      output.error('❌ ERROR: DATABASE_URL environment variable is not set!');
+      output.error('Please ensure your .env file contains:');
+      output.error('DATABASE_URL=mongodb+srv://username:password@cluster.mongodb.net/database');
       process.exit(1);
     }
 
     if (!process.env.SECRET) {
-      console.error('❌ ERROR: SECRET environment variable is not set!');
-      console.error('Please ensure your .env file contains:');
-      console.error('SECRET=your-secret-key-here');
+      output.error('❌ ERROR: SECRET environment variable is not set!');
+      output.error('Please ensure your .env file contains:');
+      output.error('SECRET=your-secret-key-here');
       process.exit(1);
     }
 
-    console.log('🔌 Connecting to database...');
+    // Get super admin details (interactive or from flags)
+    const { adminName, adminEmail } = await getSuperAdminDetails(args);
+
+    output.log('🔌 Connecting to database...');
     await mongoose.connect(process.env.DATABASE_URL);
-    console.log('✅ Connected to database successfully');
+    output.log('✅ Connected to database successfully');
 
     // Clear database if requested
     if (args.clear) {
-      await clearDatabase();
+      await clearDatabase(output);
     } else {
-      console.log('ℹ️  Keeping existing data. Use --clear to remove all data first.');
+      output.log('ℹ️  Keeping existing data. Use --clear to remove all data first.');
     }
 
     const generator = new DataGenerator();
 
-    // Generate and create users
-    console.log('👥 Generating users...');
-    const userData = generator.generateUsers(60);
+    // Generate and create users with custom super admin details
+    output.log('👥 Generating users...');
+    const userData = generator.generateUsers(60, { name: adminName, email: adminEmail });
     const createdUsers = [];
 
     for (const userInfo of userData) {
@@ -628,10 +762,10 @@ async function createSampleData() {
       await user.save();
       createdUsers.push({ ...user.toObject(), credentials: userInfo.credentials });
     }
-    console.log(`✅ Created ${createdUsers.length} users (${createdUsers.filter(u => u.isSuperAdmin).length} super admin, ${createdUsers.filter(u => !u.isSuperAdmin).length} regular users)`);
+    output.log(`✅ Created ${createdUsers.length} users (${createdUsers.filter(u => u.isSuperAdmin).length} super admin, ${createdUsers.filter(u => !u.isSuperAdmin).length} regular users)`);
 
     // Generate and create destinations
-    console.log('📍 Generating destinations...');
+    output.log('📍 Generating destinations...');
     const destinationData = generator.generateDestinations(30);
     const createdDestinations = [];
 
@@ -646,10 +780,10 @@ async function createSampleData() {
       await destination.save();
       createdDestinations.push(destination);
     }
-    console.log(`✅ Created ${createdDestinations.length} destinations`);
+    output.log(`✅ Created ${createdDestinations.length} destinations`);
 
     // Generate and create photos
-    console.log('📸 Generating photos...');
+    output.log('📸 Generating photos...');
     const photoData = generator.generatePhotos(200);
     const createdPhotos = [];
 
@@ -662,10 +796,10 @@ async function createSampleData() {
       await photo.save();
       createdPhotos.push(photo);
     }
-    console.log(`✅ Created ${createdPhotos.length} photos`);
+    output.log(`✅ Created ${createdPhotos.length} photos`);
 
     // Assign photos to destinations
-    console.log('🔗 Assigning photos to destinations...');
+    output.log('🔗 Assigning photos to destinations...');
     for (const destination of createdDestinations) {
       const randomPhoto = getRandomElement(createdPhotos);
       destination.photo = randomPhoto._id;
@@ -673,7 +807,7 @@ async function createSampleData() {
     }
 
     // Generate and create experiences
-    console.log('🎯 Generating experiences...');
+    output.log('🎯 Generating experiences...');
     const experienceData = generator.generateExperiences(90, createdUsers, createdDestinations, createdPhotos);
     const createdExperiences = [];
 
@@ -682,10 +816,10 @@ async function createSampleData() {
       await experience.save();
       createdExperiences.push(experience);
     }
-    console.log(`✅ Created ${createdExperiences.length} experiences with varied collaborators and plan items`);
+    output.log(`✅ Created ${createdExperiences.length} experiences with varied collaborators and plan items`);
 
     // Generate and create plans
-    console.log('📋 Generating user plans...');
+    output.log('📋 Generating user plans...');
     const planData = generator.generatePlans(150, createdExperiences, createdUsers);
     const createdPlans = [];
 
@@ -694,52 +828,59 @@ async function createSampleData() {
       await plan.save();
       createdPlans.push(plan);
     }
-    console.log(`✅ Created ${createdPlans.length} user plans with varying completion levels`);
+    output.log(`✅ Created ${createdPlans.length} user plans with varying completion levels`);
 
-    // Display super admin credentials (without sensitive data)
+    // Display super admin credentials
     const superAdmin = createdUsers.find(u => u.isSuperAdmin);
     if (superAdmin && superAdmin.credentials) {
-      console.log('\n🔐 SUPER ADMIN CREDENTIALS:');
-      console.log('=====================================');
-      console.log(`Name:     ${superAdmin.credentials.name}`);
-      console.log(`Email:    ${superAdmin.credentials.email}`);
-      console.log(`Password: [REDACTED - Check database or reset password]`);
-      console.log('=====================================');
-      console.log('⚠️  SAVE THESE CREDENTIALS - They will not be shown again!');
-      console.log('The super admin has full access to all features and can manage everything.');
+      output.log('\n🔐 SUPER ADMIN CREDENTIALS:');
+      output.log('=====================================');
+      output.log(`Name:     ${superAdmin.credentials.name}`);
+      output.log(`Email:    ${superAdmin.credentials.email}`);
+      output.log(`Password: ${superAdmin.credentials.password}`);
+      output.log('=====================================');
+      output.log('⚠️  SAVE THESE CREDENTIALS - They will not be shown again!');
+      output.log('The super admin has full access to all features and can manage everything.');
     }
 
-    console.log('\n🎉 Sample data generation complete!');
-    console.log('📊 Summary:');
-    console.log(`   👑 Super Admin: 1 user (randomized credentials)`);
-    console.log(`   👥 Regular Users: ${createdUsers.length - 1} users`);
-    console.log(`   📍 Destinations: ${createdDestinations.length}`);
-    console.log(`   🎯 Experiences: ${createdExperiences.length} (with varied collaborators and plan items)`);
-    console.log(`   📸 Photos: ${createdPhotos.length}`);
-    console.log(`   📋 Plans: ${createdPlans.length} (with completion tracking)`);
+    output.log('\n🎉 Sample data generation complete!');
+    output.log('📊 Summary:');
+    output.log(`   👑 Super Admin: 1 user (custom credentials)`);
+    output.log(`   👥 Regular Users: ${createdUsers.length - 1} users`);
+    output.log(`   📍 Destinations: ${createdDestinations.length}`);
+    output.log(`   🎯 Experiences: ${createdExperiences.length} (with varied collaborators and plan items)`);
+    output.log(`   📸 Photos: ${createdPhotos.length}`);
+    output.log(`   📋 Plans: ${createdPlans.length} (with completion tracking)`);
 
-    console.log('\n👥 DEMO USER ACCOUNTS:');
-    console.log('All regular users have password: demo123');
+    output.log('\n👥 DEMO USER ACCOUNTS:');
+    output.log('All regular users have password: demo123');
     createdUsers.filter(u => !u.isSuperAdmin).slice(0, 10).forEach(user => {
-      console.log(`   ${user.name} - ${user.email}`);
+      output.log(`   ${user.name} - ${user.email}`);
     });
     if (createdUsers.filter(u => !u.isSuperAdmin).length > 10) {
-      console.log(`   ... and ${createdUsers.filter(u => !u.isSuperAdmin).length - 10} more users`);
+      output.log(`   ... and ${createdUsers.filter(u => !u.isSuperAdmin).length - 10} more users`);
     }
 
-    console.log('\n🔍 SAMPLE SCENARIOS TO EXPLORE:');
-    console.log('   • Experiences with multiple collaborators and contributors');
-    console.log('   • Plans with different completion percentages');
-    console.log('   • Destinations with varied travel tips');
-    console.log('   • Super admin access to all resources');
-    console.log('   • User plans with realistic cost variations');
+    output.log('\n🔍 SAMPLE SCENARIOS TO EXPLORE:');
+    output.log('   • Experiences with multiple collaborators and contributors');
+    output.log('   • Plans with different completion percentages');
+    output.log('   • Destinations with varied travel tips');
+    output.log('   • Super admin access to all resources');
+    output.log('   • User plans with realistic cost variations');
+
+    // Write output to file
+    output.writeToFile();
 
   } catch (error) {
-    console.error('❌ Error creating sample data:', error);
+    output.error('❌ Error creating sample data:');
+    output.error(error.message);
+    output.error(error.stack);
+    output.writeToFile();
     process.exit(1);
   } finally {
     await mongoose.disconnect();
-    console.log('🔌 Disconnected from database');
+    output.log('🔌 Disconnected from database');
+    output.writeToFile();
   }
 }
 

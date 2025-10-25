@@ -5,12 +5,10 @@ import "./Profile.css";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
-import { useToast } from "../../contexts/ToastContext";
 import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import Alert from "../../components/Alert/Alert";
-import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
 import { getUserData, updateUserRole, updateUser } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
@@ -306,7 +304,6 @@ export default function Profile() {
                         <Link to="/destinations" className="fw-bold">
                           {lang.en.message.addFavoriteDestinations}
                         </Link>
-                        .
                       </>
                     ) : isLoadingProfile ? (
                       <span className="loading-skeleton loading-skeleton-text"></span>

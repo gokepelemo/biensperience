@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
 import HeroBanner from "../../components/HeroBanner/HeroBanner";
@@ -9,7 +8,6 @@ import PageMeta from "../../components/PageMeta/PageMeta";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 
 export default function AppHome() {
-  const { user } = useUser();
   const { experiences, destinations, plans, loading } = useData();
   const { registerH1, clearActionButtons } = useApp();
 

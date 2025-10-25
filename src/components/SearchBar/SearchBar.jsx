@@ -204,6 +204,7 @@ export default function SearchBar({ placeholder = 'Search destinations, experien
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onFocus={() => query.length >= 2 && setShowResults(true)}
+          role="combobox"
           aria-label="Global search"
           aria-autocomplete="list"
           aria-controls="search-results"

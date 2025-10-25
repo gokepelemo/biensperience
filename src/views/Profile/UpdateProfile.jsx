@@ -48,7 +48,7 @@ export default function UpdateProfile() {
     }
 
     fetchUserData();
-  }, [user._id, fetchProfile]);
+  }, [user, user._id, fetchProfile]);
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;

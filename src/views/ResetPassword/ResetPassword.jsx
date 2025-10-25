@@ -5,7 +5,6 @@ import { handleError } from '../../utilities/error-handler';
 import FormField from '../../components/FormField/FormField';
 import Alert from '../../components/Alert/Alert';
 import PageMeta from '../../components/PageMeta/PageMeta';
-import { lang } from '../../lang.constants';
 import './ResetPassword.css';
 
 export default function ResetPassword() {

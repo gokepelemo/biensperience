@@ -3,15 +3,16 @@ const router = express.Router()
 const experiencesCtrl = require('../../controllers/api/experiences');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { collaboratorLimiter, modificationLimiter } = require('../../config/rateLimiters');
+const { requireEmailVerification } = require('../../utilities/email-verification-middleware');
 
 router.get('/', ensureLoggedIn, experiencesCtrl.index);
-router.post('/', ensureLoggedIn, modificationLimiter, experiencesCtrl.create);
+router.post('/', ensureLoggedIn, requireEmailVerification, modificationLimiter, experiencesCtrl.create);
 router.get('/tag/:tagSlug', ensureLoggedIn, experiencesCtrl.getTagName);
 router.get('/user/:userId/created', ensureLoggedIn, experiencesCtrl.showUserCreatedExperiences);
 router.get('/user/:userId', ensureLoggedIn, experiencesCtrl.showUserExperiences);
 router.delete('/:id', ensureLoggedIn, modificationLimiter, experiencesCtrl.delete);
 router.put('/:id/transfer-ownership', ensureLoggedIn, collaboratorLimiter, experiencesCtrl.transferOwnership);
-router.put('/:id', ensureLoggedIn, modificationLimiter, experiencesCtrl.update);
+router.put('/:id', ensureLoggedIn, requireEmailVerification, modificationLimiter, experiencesCtrl.update);
 router.get('/:id', ensureLoggedIn, experiencesCtrl.show);
 router.post('/:experienceId/plan-item', ensureLoggedIn, modificationLimiter, experiencesCtrl.createPlanItem);
 router.delete('/:experienceId/plan-item/:planItemId', ensureLoggedIn, modificationLimiter, experiencesCtrl.deletePlanItem);

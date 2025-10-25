@@ -247,7 +247,7 @@ export default function SingleExperience() {
       debug.error("Error fetching experience:", err);
       setExperience(null);
     }
-  }, [experienceId, user]);
+  }, [experienceId]);
 
   const fetchUserPlan = useCallback(async () => {
     try {

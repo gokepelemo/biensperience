@@ -208,7 +208,12 @@ export default function UpdateExperience() {
       navigate(`/experiences/${experienceId}`);
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Update experience' });
-      showError(errorMsg);
+      // Check if it's an email verification error
+      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        showError(err.response.data.error || lang.en.alert.emailNotVerifiedMessage);
+      } else {
+        showError(errorMsg);
+      }
     }
   }
 

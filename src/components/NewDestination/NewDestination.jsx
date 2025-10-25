@@ -58,8 +58,12 @@ export default function NewDestination() {
       navigate(`/experiences/new`);
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Create destination' });
+      // Check if it's an email verification error
+      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        setError(err.response.data.error || lang.en.alert.emailNotVerifiedMessage);
+      }
       // Check if it's a duplicate error from backend
-      if (err.message && err.message.includes('already exists')) {
+      else if (err.message && err.message.includes('already exists')) {
         setError(err.message);
       } else {
         setError(errorMsg);

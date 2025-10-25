@@ -52,8 +52,10 @@ export function sanitizeUrl(url) {
 
   const sanitized = url.trim().toLowerCase();
 
-  // Block dangerous protocols
+  // Block dangerous protocols (checking for these strings is a security measure, not a vulnerability)
+  // eslint-disable-next-line no-script-url
   if (
+    // eslint-disable-next-line no-script-url
     sanitized.startsWith('javascript:') ||
     sanitized.startsWith('data:') ||
     sanitized.startsWith('vbscript:')

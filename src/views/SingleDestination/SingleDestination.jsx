@@ -1,5 +1,5 @@
 import "./SingleDestination.css";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { showDestination } from "../../utilities/destinations-api";
 import { useUser } from "../../contexts/UserContext";
@@ -11,8 +11,7 @@ import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDe
 import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
 import PageMeta from "../../components/PageMeta/PageMeta";
-import PageWrapper from "../../components/PageWrapper/PageWrapper";
-import { isSuperAdmin, isOwner } from "../../utilities/permissions";
+import { isOwner } from "../../utilities/permissions";
 
 export default function SingleDestination() {
   const { user } = useUser();

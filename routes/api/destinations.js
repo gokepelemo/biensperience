@@ -3,11 +3,12 @@ const router = express.Router()
 const destinationsCtrl = require('../../controllers/api/destinations');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { collaboratorLimiter, modificationLimiter } = require('../../config/rateLimiters');
+const { requireEmailVerification } = require('../../utilities/email-verification-middleware');
 
 router.get('/', ensureLoggedIn, destinationsCtrl.index);
-router.post('/', ensureLoggedIn, modificationLimiter, destinationsCtrl.create);
+router.post('/', ensureLoggedIn, requireEmailVerification, modificationLimiter, destinationsCtrl.create);
 router.delete('/:id', ensureLoggedIn, modificationLimiter, destinationsCtrl.delete);
-router.put('/:id', ensureLoggedIn, modificationLimiter, destinationsCtrl.update);
+router.put('/:id', ensureLoggedIn, requireEmailVerification, modificationLimiter, destinationsCtrl.update);
 router.get('/:id', ensureLoggedIn, destinationsCtrl.show);
 router.post('/:destinationId/user/:userId', ensureLoggedIn, destinationsCtrl.toggleUserFavoriteDestination);
 

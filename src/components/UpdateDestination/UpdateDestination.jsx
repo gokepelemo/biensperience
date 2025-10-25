@@ -168,12 +168,19 @@ export default function UpdateDestination() {
       navigate(`/destinations/${destinationId}`);
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Update destination' });
-      if (err.message && err.message.includes('already exists')) {
+      // Check if it's an email verification error
+      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        const verifyError = err.response.data.error || lang.en.alert.emailNotVerifiedMessage;
+        setError(verifyError);
+        showError(verifyError);
+      }
+      else if (err.message && err.message.includes('already exists')) {
         setError(err.message);
+        showError(err.message);
       } else {
         setError(errorMsg);
+        showError(errorMsg);
       }
-      showError(errorMsg);
     }
   }
 
