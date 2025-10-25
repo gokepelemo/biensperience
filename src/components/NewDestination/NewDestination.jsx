@@ -44,7 +44,7 @@ export default function NewDestination() {
       enabled: true,
       ttl: 24 * 60 * 60 * 1000, // 24 hours
       debounceMs: 1000, // Save after 1 second of inactivity
-      excludeFields: [], // Save all fields
+      excludeFields: ['photos', 'photo'], // Exclude File objects (non-serializable)
       onRestore: (savedData, age) => {
         // Show toast notification
         success(

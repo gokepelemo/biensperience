@@ -3,8 +3,6 @@ import { getUser, logout } from '../utilities/users-service';
 import { getUserData } from '../utilities/users-api';
 import { logger } from '../utilities/logger';
 
-logger.debug('UserContext module loaded');
-
 const UserContext = createContext();
 
 /**
@@ -25,19 +23,21 @@ export function useUser() {
  * Manages user details, avatar, favorites, planned experiences, and permissions
  */
 export function UserProvider({ children }) {
-  logger.debug('UserProvider function called');
   const [user, setUser] = useState(getUser());
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [favoriteDestinations, setFavoriteDestinations] = useState([]);
   const [plannedExperiences, setPlannedExperiences] = useState([]);
 
-  // Debug initial user state
+  // Initialization tracking
   useEffect(() => {
     const initialUser = getUser();
-    logger.debug('UserContext initialized with user', {
-      user: initialUser ? { email: initialUser.email, _id: initialUser._id } : null
-    });
+    if (initialUser) {
+      logger.info('User session initialized', {
+        email: initialUser.email,
+        id: initialUser._id
+      });
+    }
   }, []);
 
   /**
@@ -71,17 +71,12 @@ export function UserProvider({ children }) {
    * @param {Object} newUser - Updated user object
    */
   const updateUser = useCallback((newUser) => {
-    logger.debug('UserContext updateUser called', {
-      user: newUser ? { email: newUser.email, _id: newUser._id } : null
-    });
     setUser(newUser);
 
     // Fetch fresh profile data when user changes
     if (newUser) {
-      logger.debug('User set, calling fetchProfile');
       fetchProfile();
     } else {
-      logger.debug('User cleared, clearing profile data');
       // Clear profile data on logout
       setProfile(null);
       setFavoriteDestinations([]);
