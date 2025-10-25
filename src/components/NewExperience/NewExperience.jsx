@@ -274,37 +274,31 @@ export default function NewExperience() {
               <ImageUpload data={newExperience} setData={setNewExperience} />
             </div>
 
-            <div className="row mb-4">
-              <div className="col-md-6 mb-3 mb-md-0">
-                <FormField
-                  name="max_planning_days"
-                  label={lang.en.label.planningDays}
-                  type="number"
-                  value={newExperience.max_planning_days || ''}
-                  onChange={handleChange}
-                  placeholder={lang.en.placeholder.planningDays}
-                  min="1"
-                  tooltip={lang.en.helper.planningDaysOptional}
-                  tooltipPlacement="top"
-                  append="days"
-                />
-              </div>
+            <FormField
+              name="max_planning_days"
+              label={lang.en.label.planningDays}
+              type="number"
+              value={newExperience.max_planning_days || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.planningDays}
+              min="1"
+              tooltip={lang.en.helper.planningDaysOptional}
+              tooltipPlacement="top"
+              append="days"
+            />
 
-              <div className="col-md-6">
-                <FormField
-                  name="cost_estimate"
-                  label={lang.en.label.costEstimate}
-                  type="number"
-                  value={newExperience.cost_estimate || ''}
-                  onChange={handleChange}
-                  placeholder={lang.en.placeholder.costEstimate}
-                  min="0"
-                  tooltip={lang.en.helper.costEstimateOptional}
-                  tooltipPlacement="top"
-                  prepend="$"
-                />
-              </div>
-            </div>
+            <FormField
+              name="cost_estimate"
+              label={lang.en.label.costEstimate}
+              type="number"
+              value={newExperience.cost_estimate || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.costEstimate}
+              min="0"
+              tooltip={lang.en.helper.costEstimateOptional}
+              tooltipPlacement="top"
+              prepend="$"
+            />
 
             <div className="d-flex justify-content-end mt-4">
               <button

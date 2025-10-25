@@ -171,36 +171,28 @@ export default function NewDestination() {
               tooltipPlacement="top"
             />
 
-            <div className="row mb-4">
-              <div className="col-md-6 mb-3 mb-md-0">
-                <FormField
-                  name="state"
-                  label="State / Province"
-                  type="text"
-                  value={newDestination.state || ''}
-                  onChange={handleChange}
-                  placeholder={lang.en.placeholder.stateProvince}
-                  tooltip={lang.en.helper.stateProvinceRequired}
-                  tooltipPlacement="top"
-                  className="mb-0"
-                />
-              </div>
+            <FormField
+              name="state"
+              label="State / Province"
+              type="text"
+              value={newDestination.state || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.stateProvince}
+              tooltip={lang.en.helper.stateProvinceRequired}
+              tooltipPlacement="top"
+            />
 
-              <div className="col-md-6">
-                <FormField
-                  name="country"
-                  label="Country"
-                  type="text"
-                  value={newDestination.country || ''}
-                  onChange={handleChange}
-                  placeholder={lang.en.placeholder.country}
-                  required
-                  tooltip={lang.en.helper.countryRequired}
-                  tooltipPlacement="top"
-                  className="mb-0"
-                />
-              </div>
-            </div>
+            <FormField
+              name="country"
+              label="Country"
+              type="text"
+              value={newDestination.country || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.country}
+              required
+              tooltip={lang.en.helper.countryRequired}
+              tooltipPlacement="top"
+            />
 
             <div className="mb-4">
               <Form.Label>
