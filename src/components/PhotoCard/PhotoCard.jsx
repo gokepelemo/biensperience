@@ -181,7 +181,14 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
       {showModal && (
         <PhotoModal
           photo={displayPhoto}
+          photos={hasRealPhotos ? photoArray : null}
           onClose={() => setShowModal(false)}
+          onNavigate={hasRealPhotos && photoArray.length > 1 ? (photo) => {
+            const newIndex = photoArray.findIndex(p => p._id === photo._id || p.url === photo.url);
+            if (newIndex !== -1) {
+              setSelectedPhotoIndex(newIndex);
+            }
+          } : null}
         />
       )}
     </figure>

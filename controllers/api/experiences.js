@@ -6,6 +6,7 @@ const Plan = require('../../models/plan');
 const permissions = require('../../utilities/permissions');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require('../../utilities/backend-logger');
+const photoUtils = require('../../utilities/photo-utils');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -140,11 +141,15 @@ async function showExperience(req, res) {
 }
 
 async function updateExperience(req, res) {
+  backendLogger.info('updateExperience called', { experienceId: req.params.experienceId || req.params.id, userId: req.user._id });
   const experienceId = req.params.experienceId || req.params.id;
   try {
+    backendLogger.info('Looking up experience', { experienceId });
     let experience = await Experience.findById(experienceId);
+    backendLogger.info('Experience lookup result', { found: !!experience });
     
     if (!experience) {
+      backendLogger.warn('Experience not found', { experienceId });
       return res.status(404).json({ error: 'Experience not found' });
     }
     
@@ -211,12 +216,89 @@ async function updateExperience(req, res) {
       }
     }
 
-    experience = Object.assign(experience, req.body);
+    // Filter out fields that shouldn't be updated
+    const allowedFields = [
+      'name', 'destination', 'map_location', 'experience_type', 
+      'plan_items', 'photo', 'photos', 'default_photo_index', 'permissions'
+    ];
+    
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (req.body.hasOwnProperty(field)) {
+        updateData[field] = req.body[field];
+      }
+    }
+    backendLogger.debug('About to validate permissions');
+    // Validate permissions if present
+    if (updateData.permissions) {
+      backendLogger.debug('Validating permissions', { count: updateData.permissions.length });
+      for (const perm of updateData.permissions) {
+        backendLogger.debug('Checking permission', { permission: perm });
+        if (!perm._id) {
+          backendLogger.error('Invalid permission: missing _id', { permission: perm, experienceId });
+          return res.status(400).json({ error: 'Invalid permissions data: missing _id' });
+        }
+        if (!perm.entity || !['user', 'destination', 'experience'].includes(perm.entity)) {
+          backendLogger.error('Invalid permission: invalid entity', { permission: perm, experienceId });
+          return res.status(400).json({ error: 'Invalid permissions data: invalid entity' });
+        }
+      }
+    }
+    
+    backendLogger.info('Filtered update data', { 
+      experienceId, 
+      updateFields: Object.keys(updateData),
+      originalBodyKeys: Object.keys(req.body)
+    });
+    
+    // Validate permissions if present
+    if (updateData.permissions) {
+      for (const perm of updateData.permissions) {
+        if (!perm._id) {
+          backendLogger.error('Invalid permission: missing _id', { permission: perm, experienceId });
+          return res.status(400).json({ error: 'Invalid permissions data: missing _id' });
+        }
+        if (!perm.entity || !['user', 'destination', 'experience'].includes(perm.entity)) {
+          backendLogger.error('Invalid permission: invalid entity', { permission: perm, experienceId });
+          return res.status(400).json({ error: 'Invalid permissions data: invalid entity' });
+        }
+      }
+    }
+    
+    experience = Object.assign(experience, updateData);
+    
+    backendLogger.info('About to save experience', { experienceId, bodyKeys: Object.keys(req.body) });
     await experience.save();
+    backendLogger.info('Experience saved successfully', { experienceId });
     res.status(200).json(experience);
   } catch (err) {
-    backendLogger.error('Error updating experience', { error: err.message, userId: req.user._id, experienceId: experienceId });
-    res.status(400).json({ error: 'Failed to update experience' });
+    backendLogger.error('Experience save error details', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name,
+      code: err.code,
+      errors: err.errors
+    });
+    
+    // Safe logging to avoid undefined property access
+    const safeExperienceId = experienceId || 'undefined';
+    const safeUserId = req.user && req.user._id ? req.user._id.toString() : 'undefined';
+    
+    backendLogger.error('Error saving experience', { 
+      error: err.message, 
+      errors: err.errors, 
+      userId: safeUserId, 
+      experienceId: safeExperienceId 
+    });
+    
+    res.status(400).json({ 
+      error: 'Failed to update experience',
+      details: {
+        message: err.message,
+        name: err.name,
+        code: err.code
+      }
+    });
   }
 }
 
@@ -513,7 +595,7 @@ async function deletePlanItem(req, res) {
  * Kept for backward compatibility during migration
  */
 async function addUser(req, res) {
-  console.warn('addUser endpoint is deprecated. Use POST /api/plans/experience/:experienceId instead');
+  backendLogger.warn('addUser endpoint is deprecated', { endpoint: 'POST /api/plans/experience/:experienceId' });
   res.status(410).json({ 
     error: 'This endpoint is deprecated',
     message: 'Please use POST /api/plans/experience/:experienceId to create a plan',
@@ -527,7 +609,7 @@ async function addUser(req, res) {
  * Kept for backward compatibility during migration
  */
 async function removeUser(req, res) {
-  console.warn('removeUser endpoint is deprecated. Use DELETE /api/plans/:id instead');
+  backendLogger.warn('removeUser endpoint is deprecated', { endpoint: 'DELETE /api/plans/:id' });
   res.status(410).json({ 
     error: 'This endpoint is deprecated',
     message: 'Please use DELETE /api/plans/:id to remove a plan',
@@ -541,7 +623,7 @@ async function removeUser(req, res) {
  * Kept for backward compatibility during migration
  */
 async function userPlanItemDone(req, res) {
-  console.warn('userPlanItemDone endpoint is deprecated. Use PATCH /api/plans/:id/items/:itemId instead');
+  backendLogger.warn('userPlanItemDone endpoint is deprecated', { endpoint: 'PATCH /api/plans/:id/items/:itemId' });
   res.status(410).json({ 
     error: 'This endpoint is deprecated',
     message: 'Please use PATCH /api/plans/:id/items/:itemId to update plan item completion',
@@ -734,12 +816,14 @@ async function removePhoto(req, res) {
       return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    // Remove photo from array
-    experience.photos.splice(photoIndex, 1);
+    // Get the photo ID before removing
+    const photoId = experience.photos[photoIndex]._id;
 
-    // Adjust default_photo_index if necessary
-    if (experience.default_photo_index >= experience.photos.length) {
-      experience.default_photo_index = Math.max(0, experience.photos.length - 1);
+    // Remove photo using utility (handles default photo adjustment)
+    const removed = photoUtils.removePhoto(experience, photoId);
+
+    if (!removed) {
+      return res.status(400).json({ error: 'Failed to remove photo' });
     }
 
     await experience.save();
@@ -773,13 +857,25 @@ async function setDefaultPhoto(req, res) {
       });
     }
 
-    const photoIndex = parseInt(req.body.photoIndex);
+    // Support both photoId (new) and photoIndex (legacy) params
+    const photoId = req.body.photoId;
+    const photoIndex = req.body.photoIndex !== undefined ? parseInt(req.body.photoIndex) : null;
 
-    if (photoIndex < 0 || photoIndex >= experience.photos.length) {
-      return res.status(400).json({ error: 'Invalid photo index' });
+    let success;
+    if (photoId) {
+      // New method: Use photo ID
+      success = photoUtils.setDefaultPhotoById(experience, photoId);
+    } else if (photoIndex !== null) {
+      // Legacy method: Use photo index
+      success = photoUtils.setDefaultPhotoByIndex(experience, photoIndex);
+    } else {
+      return res.status(400).json({ error: 'photoId or photoIndex required' });
     }
 
-    experience.default_photo_index = photoIndex;
+    if (!success) {
+      return res.status(400).json({ error: 'Invalid photo ID or index' });
+    }
+
     await experience.save();
 
     res.status(200).json(experience);

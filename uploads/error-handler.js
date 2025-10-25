@@ -1,3 +1,5 @@
+const backendLogger = require('../utilities/backend-logger');
+
 module.exports = function (err, res) {
   if (err.name.match(/Valid/) || err.name === "MongoError") {
     const message = "The received params failed a Mongoose validation";
@@ -8,5 +10,7 @@ module.exports = function (err, res) {
     err.status = 422;
   }
   res.status(err.status || 500).json(err);
-  process.env.TESTENV || console.error(err);
+  if (!process.env.TESTENV) {
+    backendLogger.error('Upload error handler', { error: err.message, status: err.status, name: err.name });
+  }
 };

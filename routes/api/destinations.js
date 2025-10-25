@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router()
 const destinationsCtrl = require('../../controllers/api/destinations');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
-const { collaboratorLimiter, modificationLimiter } = require('../../config/rateLimiters');
 const { requireEmailVerification } = require('../../utilities/email-verification-middleware');
+const { collaboratorLimiter, modificationLimiter } = require('../../config/rateLimiters');
 
 router.get('/', ensureLoggedIn, destinationsCtrl.index);
 router.post('/', ensureLoggedIn, requireEmailVerification, modificationLimiter, destinationsCtrl.create);

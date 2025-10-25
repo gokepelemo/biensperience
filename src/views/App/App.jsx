@@ -27,15 +27,16 @@ import ResetPassword from "../ResetPassword/ResetPassword";
 import ConfirmEmail from "../ConfirmEmail/ConfirmEmail";
 import { handleOAuthCallback } from "../../utilities/oauth-service";
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
+import { logger } from "../../utilities/logger";
 
-console.log('App.jsx loaded');
+logger.debug('App.jsx loaded');
 
 /**
  * Main application component wrapper
  * Provides all context providers in the correct order
  */
 export default function App() {
-  console.log('App component function called');
+  logger.debug('App component function called');
   return (
     <ToastProvider>
       <UserProvider>
@@ -54,19 +55,19 @@ export default function App() {
  * Separated from App to allow hooks usage
  */
 function AppContent() {
-  console.log('AppContent component function called');
+  logger.debug('AppContent component function called');
 
-  console.log('About to call useUser');
+  logger.debug('About to call useUser');
   const { updateUser, isAuthenticated } = useUser();
-  console.log('useUser completed, isAuthenticated:', isAuthenticated);
+  logger.debug('useUser completed', { isAuthenticated });
 
-  console.log('About to call useApp');
+  logger.debug('About to call useApp');
   const { isScrolled } = useApp();
-  console.log('useApp completed');
+  logger.debug('useApp completed');
 
-  console.log('About to call useToast');
+  logger.debug('About to call useToast');
   const { success, error: showError } = useToast();
-  console.log('useToast completed');
+  logger.debug('useToast completed');
 
     // Handle OAuth callback on mount
     useEffect(() => {
@@ -106,6 +107,7 @@ function AppContent() {
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/profile/:profileId" element={<Profile />} />
                   <Route path="/profile/update" element={<UpdateProfile />} />
+                  <Route path="/profile/:userId/update" element={<UpdateProfile />} />
                   <Route path="/admin/users" element={<AllUsers />} />
                   <Route path="/experiences" element={<Experiences />} />
                   <Route path="/destinations" element={<Destinations />} />

@@ -5,6 +5,7 @@ const Experience = require("../../models/experience");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 const permissions = require("../../utilities/permissions");
 const backendLogger = require("../../utilities/backend-logger");
+const photoUtils = require("../../utilities/photo-utils");
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -24,7 +25,7 @@ async function index(req, res) {
 async function createDestination(req, res) {
   try {
     // Whitelist allowed fields to prevent mass assignment
-    const allowedFields = ['name', 'country', 'description', 'photo', 'travel_tips', 'tags'];
+    const allowedFields = ['name', 'country', 'state', 'description', 'photo', 'travel_tips', 'tags'];
     const destinationData = {};
     
     allowedFields.forEach(field => {
@@ -105,9 +106,7 @@ async function updateDestination(req, res) {
       return res.status(400).json({ error: 'Invalid destination ID format' });
     }
 
-    let destination = await Destination.findById(req.params.id).populate(
-      "user"
-    );
+    let destination = await Destination.findById(req.params.id);
     
     if (!destination) {
       return res.status(404).json({ error: 'Destination not found' });
@@ -115,7 +114,8 @@ async function updateDestination(req, res) {
     
     // Check if user has permission to edit (owner or collaborator)
     const models = { Destination, Experience };
-    const hasEditPermission = await permissions.canEdit(req.user, destination, models);
+    const hasEditPermission = permissions.isOwner(req.user._id, destination) || 
+                             await permissions.canEdit(req.user._id, destination, models);
     
     if (!hasEditPermission) {
       return res.status(401).json({ error: 'Not authorized to update this destination. You must be the owner or a collaborator.' });
@@ -178,17 +178,14 @@ async function deleteDestination(req, res) {
       return res.status(400).json({ error: 'Invalid destination ID format' });
     }
 
-    let destination = await Destination.findById(req.params.id).populate(
-      "user"
-    );
+    let destination = await Destination.findById(req.params.id);
     
     if (!destination) {
       return res.status(404).json({ error: 'Destination not found' });
     }
     
     // Check if user can delete (owner or super admin)
-    const models = { Destination, Experience };
-    const canDelete = await permissions.isOwner(req.user._id, destination, models) || 
+    const canDelete = permissions.isOwner(req.user._id, destination) || 
                       permissions.isSuperAdmin(req.user);
     
     if (!canDelete) {
@@ -346,12 +343,14 @@ async function removePhoto(req, res) {
       return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    // Remove photo from array
-    destination.photos.splice(photoIndex, 1);
+    // Get the photo ID before removing
+    const photoId = destination.photos[photoIndex]._id;
 
-    // Adjust default_photo_index if necessary
-    if (destination.default_photo_index >= destination.photos.length) {
-      destination.default_photo_index = Math.max(0, destination.photos.length - 1);
+    // Remove photo using utility (handles default photo adjustment)
+    const removed = photoUtils.removePhoto(destination, photoId);
+
+    if (!removed) {
+      return res.status(400).json({ error: 'Failed to remove photo' });
     }
 
     await destination.save();
@@ -385,13 +384,25 @@ async function setDefaultPhoto(req, res) {
       });
     }
 
-    const photoIndex = parseInt(req.body.photoIndex);
+    // Support both photoId (new) and photoIndex (legacy) params
+    const photoId = req.body.photoId;
+    const photoIndex = req.body.photoIndex !== undefined ? parseInt(req.body.photoIndex) : null;
 
-    if (photoIndex < 0 || photoIndex >= destination.photos.length) {
-      return res.status(400).json({ error: 'Invalid photo index' });
+    let success;
+    if (photoId) {
+      // New method: Use photo ID
+      success = photoUtils.setDefaultPhotoById(destination, photoId);
+    } else if (photoIndex !== null) {
+      // Legacy method: Use photo index
+      success = photoUtils.setDefaultPhotoByIndex(destination, photoIndex);
+    } else {
+      return res.status(400).json({ error: 'photoId or photoIndex required' });
     }
 
-    destination.default_photo_index = photoIndex;
+    if (!success) {
+      return res.status(400).json({ error: 'Invalid photo ID or index' });
+    }
+
     await destination.save();
 
     res.status(200).json(destination);

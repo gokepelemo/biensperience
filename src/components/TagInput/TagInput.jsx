@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import "./TagInput.css";
+import { logger } from "../../utilities/logger";
 import { getExperiences } from "../../utilities/experiences-api";
 
 export default function TagInput({ tags = [], onChange, placeholder = "Add tags..." }) {
@@ -36,7 +37,7 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
 
         setAllTags(Array.from(tagSet).sort());
       } catch (error) {
-        console.error('Error fetching tags:', error);
+        logger.error('Error fetching tags', {}, error);
       }
     }
     fetchTags();

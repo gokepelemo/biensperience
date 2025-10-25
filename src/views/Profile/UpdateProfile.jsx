@@ -1,9 +1,9 @@
 import "./Profile.css";
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import Alert from "../../components/Alert/Alert";
-import { updateUser as updateUserAPI } from "../../utilities/users-api";
+import { updateUser as updateUserAPI, updateUserAsAdmin, getUserData } from "../../utilities/users-api";
 import { updateToken } from "../../utilities/users-service";
 import { useUser } from "../../contexts/UserContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -19,8 +19,9 @@ import { isSuperAdmin } from "../../utilities/permissions";
 export default function UpdateProfile() {
   const { user, updateUser: updateUserContext, fetchProfile } = useUser();
   const { success, error: showError } = useToast();
-  const [formData, setFormData] = useState(user);
-  const [originalUser] = useState(user);
+  const [targetUser, setTargetUser] = useState(null);
+  const [formData, setFormData] = useState({});
+  const [originalUser, setOriginalUser] = useState(null);
   const [changes, setChanges] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [error, setError] = useState("");
@@ -32,23 +33,50 @@ export default function UpdateProfile() {
   });
   const [passwordError, setPasswordError] = useState("");
   const navigate = useNavigate();
+  const { userId } = useParams();
 
-  // Fetch full user data including photos on component mount
+  // Determine if this is admin mode (editing another user)
+  const isAdminMode = !!userId && userId !== user._id;
+  const currentUser = isAdminMode ? targetUser : user;
+  const isEditingSelf = !isAdminMode;
+
+  // Check admin permissions for admin mode
+  useEffect(() => {
+    if (isAdminMode && !isSuperAdmin(user)) {
+      navigate('/profile');
+      return;
+    }
+  }, [user, isAdminMode, navigate]);
+
+  // Fetch user data (self or target user)
   useEffect(() => {
     async function fetchUserData() {
       try {
-        await fetchProfile(); // Fetch latest profile data
-        setFormData(user);
+        let userData;
+        if (isAdminMode) {
+          // Admin mode: fetch target user data
+          userData = await getUserData(userId);
+          setTargetUser(userData);
+        } else {
+          // Self mode: fetch current user data
+          await fetchProfile();
+          userData = user;
+        }
+
+        setOriginalUser(userData);
+        setFormData(userData);
         setLoading(false);
       } catch (err) {
-        const errorMsg = handleError(err, { context: 'Load user data' });
+        const errorMsg = handleError(err, { context: isAdminMode ? 'Load user data' : 'Load profile data' });
         setError(errorMsg || 'Failed to load user data');
         setLoading(false);
       }
     }
 
-    fetchUserData();
-  }, [user, user._id, fetchProfile]);
+    if (user) {
+      fetchUserData();
+    }
+  }, [user, userId, isAdminMode, fetchProfile]);
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
@@ -152,24 +180,24 @@ export default function UpdateProfile() {
 
     // Validate password fields if any password field is filled
     if (passwordData.oldPassword || passwordData.newPassword || passwordData.confirmPassword) {
-      if (!passwordData.oldPassword) {
+      if (isEditingSelf && !passwordData.oldPassword) {
         setPasswordError("Old password is required to change password");
         return;
       }
       if (!passwordData.newPassword) {
-        setPasswordError("New password is required");
+        setPasswordError(isEditingSelf ? "New password is required" : "Password is required");
         return;
       }
       if (!passwordData.confirmPassword) {
-        setPasswordError("Please confirm your new password");
+        setPasswordError(isEditingSelf ? "Please confirm your new password" : "Please confirm the password");
         return;
       }
       if (passwordData.newPassword !== passwordData.confirmPassword) {
-        setPasswordError("New passwords do not match");
+        setPasswordError(isEditingSelf ? "New passwords do not match" : "Passwords do not match");
         return;
       }
       if (passwordData.newPassword.length < 3) {
-        setPasswordError("New password must be at least 3 characters");
+        setPasswordError("Password must be at least 3 characters");
         return;
       }
     }
@@ -177,28 +205,41 @@ export default function UpdateProfile() {
     try {
       const dataToUpdate = { ...formData };
 
-      // Add password data if passwords are being changed
-      if (passwordData.oldPassword && passwordData.newPassword) {
-        dataToUpdate.oldPassword = passwordData.oldPassword;
+      // Add password data
+      if (passwordData.newPassword) {
+        if (isEditingSelf) {
+          // Self-editing: require old password
+          dataToUpdate.oldPassword = passwordData.oldPassword;
+        }
+        // Both modes: set new password
         dataToUpdate.password = passwordData.newPassword;
       }
 
-      const response = await updateUserAPI(user._id, dataToUpdate);
+      let response;
+      if (isAdminMode) {
+        // Admin mode: use admin API
+        response = await updateUserAsAdmin(userId, dataToUpdate);
+        success('User profile updated successfully!');
+        navigate(`/profile/${userId}`);
+      } else {
+        // Self mode: use regular API
+        response = await updateUserAPI(user._id, dataToUpdate);
 
-      // Handle both old format (just user) and new format ({ user, token })
-      const updatedUser = response.user || response;
-      const token = response.token;
+        // Handle both old format (just user) and new format ({ user, token })
+        const updatedUser = response.user || response;
+        const token = response.token;
 
-      // Update token in localStorage if provided
-      if (token) {
-        updateToken(token);
+        // Update token in localStorage if provided
+        if (token) {
+          updateToken(token);
+        }
+
+        updateUserContext(updatedUser); // Instant UI update!
+        success('Profile updated!');
+        navigate('/profile');
       }
-
-      updateUserContext(updatedUser); // Instant UI update!
-      success('Profile updated!');
-      navigate('/profile');
     } catch (err) {
-      const errorMsg = handleError(err, { context: 'Update profile' });
+      const errorMsg = handleError(err, { context: isAdminMode ? 'Update user profile' : 'Update profile' });
       setError(errorMsg || 'Failed to update profile. Please try again.');
       showError(errorMsg);
     }
@@ -216,16 +257,27 @@ export default function UpdateProfile() {
   return (
     <>
       <PageMeta
-        title={`Edit Profile - ${user.name}`}
-        description={`Update your Biensperience profile settings, change your name, email, and profile photo. Manage your travel planning account.`}
+        title={isAdminMode ? `Edit User - ${currentUser?.name}` : `Edit Profile - ${user.name}`}
+        description={isAdminMode ? 
+          `Admin: Update user profile settings, change name, email, and account settings.` :
+          `Update your Biensperience profile settings, change your name, email, and profile photo. Manage your travel planning account.`
+        }
         keywords="edit profile, update profile, account settings, profile photo, user settings"
-        ogTitle={`Edit Profile - ${user.name}`}
-        ogDescription="Update your Biensperience profile and account settings"
+        ogTitle={isAdminMode ? `Edit User - ${currentUser?.name}` : `Edit Profile - ${user.name}`}
+        ogDescription={isAdminMode ? 
+          "Admin: Update user profile and account settings" :
+          "Update your Biensperience profile and account settings"
+        }
       />
 
       <div className="row fade-in">
         <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">{lang.en.heading.updateProfile.replace('{name}', user.name)}</h1>
+          <h1 className="my-4 h fade-in">
+            {isAdminMode ? 
+              `Edit User: ${currentUser?.name}` : 
+              lang.en.heading.updateProfile.replace('{name}', user.name)
+            }
+          </h1>
         </div>
       </div>
 
@@ -253,12 +305,16 @@ export default function UpdateProfile() {
         </Alert>
       )}
 
-      {loading ? (
+      {isAdminMode && !isSuperAdmin(user) ? (
+        <div className="container mt-4">
+          <Alert type="danger" message="Access denied. Super admin privileges required." />
+        </div>
+      ) : loading ? (
         <div className="text-center my-5">
           <div className="spinner-border text-primary" role="status">
             <span className="visually-hidden">Loading user data...</span>
           </div>
-          <p className="mt-3">Loading your profile...</p>
+          <p className="mt-3">Loading {isAdminMode ? 'user' : 'your'} profile...</p>
         </div>
       ) : (
         <div className="row my-4 fade-in">
@@ -319,29 +375,31 @@ export default function UpdateProfile() {
                 />
               )}
               
-              <FormField
-                name="oldPassword"
-                label="Current Password"
-                type="password"
-                value={passwordData.oldPassword}
-                onChange={handlePasswordChange}
-                placeholder="Enter your current password"
-                autoComplete="current-password"
-                tooltip={lang.en.helper.currentPassword}
-                tooltipPlacement="top"
-                className="mb-3"
-              />
+              {isEditingSelf && (
+                <FormField
+                  name="oldPassword"
+                  label="Current Password"
+                  type="password"
+                  value={passwordData.oldPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="Enter your current password"
+                  autoComplete="current-password"
+                  tooltip={lang.en.helper.currentPassword}
+                  tooltipPlacement="top"
+                  className="mb-3"
+                />
+              )}
 
               <FormField
                 name="newPassword"
-                label="New Password"
+                label={isEditingSelf ? "New Password" : "Password"}
                 type="password"
                 value={passwordData.newPassword}
                 onChange={handlePasswordChange}
-                placeholder="Enter your new password"
+                placeholder={isEditingSelf ? "Enter your new password" : "Enter password"}
                 autoComplete="new-password"
                 minLength={3}
-                tooltip={lang.en.helper.newPassword}
+                tooltip={isEditingSelf ? lang.en.helper.newPassword : "Set a new password for this user"}
                 tooltipPlacement="top"
                 className="mb-3"
               />
@@ -373,7 +431,7 @@ export default function UpdateProfile() {
 
             <div className="d-flex justify-content-between mt-4 gap-3">
               <Link
-                to="/profile"
+                to={isAdminMode ? `/profile/${userId}` : "/profile"}
                 className="btn btn-secondary btn-lg"
                 aria-label={lang.en.button.cancel}
               >

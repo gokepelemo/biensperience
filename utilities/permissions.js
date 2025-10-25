@@ -355,6 +355,11 @@ function isOwner(userId, resource) {
     }
   }
   
+  // Check legacy user field for backwards compatibility
+  if (resource.user && resource.user.toString() === userIdStr) {
+    return true;
+  }
+  
   return false;
 }
 

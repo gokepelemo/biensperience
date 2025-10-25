@@ -264,6 +264,16 @@ export default function Profile() {
                 ✏️ Update Profile
               </Link>
             )}
+            {isSuperAdmin(user) && !isLoadingProfile && profileId && profileId !== user._id && (
+              <Link
+                to={`/profile/${profileId}/update`}
+                className="btn btn-warning"
+                aria-label="Admin: Update User Profile"
+                title="Admin: Update User Profile"
+              >
+                👑 Admin Update
+              </Link>
+            )}
           </div>
         </div>
       </div>

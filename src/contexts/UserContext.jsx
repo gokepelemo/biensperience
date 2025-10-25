@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { getUser, logout } from '../utilities/users-service';
 import { getUserData } from '../utilities/users-api';
+import { logger } from '../utilities/logger';
 
-console.log('UserContext module loaded');
+logger.debug('UserContext module loaded');
 
 const UserContext = createContext();
 
@@ -24,7 +25,7 @@ export function useUser() {
  * Manages user details, avatar, favorites, planned experiences, and permissions
  */
 export function UserProvider({ children }) {
-  console.log('UserProvider function called');
+  logger.debug('UserProvider function called');
   const [user, setUser] = useState(getUser());
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -34,7 +35,9 @@ export function UserProvider({ children }) {
   // Debug initial user state
   useEffect(() => {
     const initialUser = getUser();
-    console.log('UserContext initialized with user:', initialUser ? { email: initialUser.email, _id: initialUser._id } : null);
+    logger.debug('UserContext initialized with user', {
+      user: initialUser ? { email: initialUser.email, _id: initialUser._id } : null
+    });
   }, []);
 
   /**
@@ -57,7 +60,7 @@ export function UserProvider({ children }) {
         setPlannedExperiences(profileData.experiences);
       }
     } catch (error) {
-      console.error('Failed to fetch user profile:', error);
+      logger.error('Failed to fetch user profile', { error: error.message }, error);
     } finally {
       setLoading(false);
     }
@@ -68,15 +71,17 @@ export function UserProvider({ children }) {
    * @param {Object} newUser - Updated user object
    */
   const updateUser = useCallback((newUser) => {
-    console.log('UserContext updateUser called with:', newUser ? { email: newUser.email, _id: newUser._id } : null);
+    logger.debug('UserContext updateUser called', {
+      user: newUser ? { email: newUser.email, _id: newUser._id } : null
+    });
     setUser(newUser);
 
     // Fetch fresh profile data when user changes
     if (newUser) {
-      console.log('User set, calling fetchProfile');
+      logger.debug('User set, calling fetchProfile');
       fetchProfile();
     } else {
-      console.log('User cleared, clearing profile data');
+      logger.debug('User cleared, clearing profile data');
       // Clear profile data on logout
       setProfile(null);
       setFavoriteDestinations([]);

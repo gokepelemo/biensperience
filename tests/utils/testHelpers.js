@@ -21,6 +21,7 @@ async function createTestUser(userData = {}) {
     name: 'Test User',
     email: `test${Date.now()}@test.com`,
     password: 'Test123!',
+    emailConfirmed: true, // Verified by default for tests
     ...userData,
   };
 
@@ -46,6 +47,13 @@ async function createTestDestination(user, destinationData = {}) {
     state: 'Test State',
     travel_tips: ['Tip 1', 'Tip 2'],
     user: user._id,
+    permissions: [
+      {
+        _id: user._id,
+        entity: 'user',
+        type: 'owner'
+      }
+    ],
     users_favorite: [],
     ...destinationData,
   };
@@ -63,6 +71,13 @@ async function createTestExperience(user, destination, experienceData = {}) {
     description: 'Test Description',
     destination: destination._id,
     user: user._id,
+    permissions: [
+      {
+        _id: user._id,
+        entity: 'user',
+        type: 'owner'
+      }
+    ],
     tags: ['test', 'sample'],
     users: [],
     plan_items: [],
@@ -110,10 +125,11 @@ const validators = {
     expect(destination).toHaveProperty('_id');
     expect(destination).toHaveProperty('name');
     expect(destination).toHaveProperty('country');
-    expect(destination).toHaveProperty('user');
+    expect(destination).toHaveProperty('permissions');
     expect(destination).toHaveProperty('users_favorite');
     expect(typeof destination.name).toBe('string');
     expect(typeof destination.country).toBe('string');
+    expect(Array.isArray(destination.permissions)).toBe(true);
     expect(Array.isArray(destination.users_favorite)).toBe(true);
     expect(Array.isArray(destination.travel_tips)).toBe(true);
   },

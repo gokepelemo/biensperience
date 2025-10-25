@@ -82,15 +82,27 @@ class PermissionEnforcer {
         };
       }
 
+      backendLogger.info('PERMISSION_DEBUG: can() called', { userId, resourceId: resource._id, action });
+
       // Convert userId to string for consistent comparison
       const userIdStr = userId.toString ? userId.toString() : userId;
+      backendLogger.info('PERMISSION_DEBUG: userIdStr', { userIdStr });
+
+      // Check email verification requirements for actions that require it
+      if (action === ACTIONS.EDIT || action === ACTIONS.DELETE || action === ACTIONS.MANAGE_PERMISSIONS) {
+        const emailCheck = await this._checkEmailVerification(userIdStr);
+        if (!emailCheck.allowed) {
+          return emailCheck;
+        }
+      }
 
       // Handle resource visibility first (for VIEW action)
       if (action === ACTIONS.VIEW) {
         const visibilityCheck = await this._checkVisibility(userIdStr, resource, context);
-        if (!visibilityCheck.allowed) {
-          return visibilityCheck;
+        if (visibilityCheck.allowed) {
+          return visibilityCheck;  // Return success if visibility allows view
         }
+        // If visibility doesn't allow, continue to permission check
       }
 
       // Get user's role and permissions for this resource
@@ -105,7 +117,7 @@ class PermissionEnforcer {
         role: permissionInfo.role
       };
     } catch (error) {
-      backendLogger.error('Permission check error', { error: error.message, userId: userId, resourceId: resource._id, action });
+      backendLogger.error('Permission check error', { error: error.message, userId: userId, resourceId: resource?.toString(), action });
       return {
         allowed: false,
         reason: 'Error checking permissions',
@@ -116,50 +128,50 @@ class PermissionEnforcer {
 
   /**
    * Check if user can view a resource
-   * @param {string} userId - User ID
-   * @param {Object} resource - Resource to check
-   * @param {Object} context - Optional context
+   * @param {Object} params - Parameters object
+   * @param {string} params.userId - User ID to check
+   * @param {Object} params.resource - Resource to check
+   * @param {Object} params.context - Optional context
    * @returns {Promise<boolean>}
    */
-  async canView(userId, resource, context = {}) {
-    const result = await this.can({ userId, resource, action: ACTIONS.VIEW, context });
-    return result.allowed;
+  async canView({ userId, resource, context = {} }) {
+    return await this.can({ userId, resource, action: ACTIONS.VIEW, context });
   }
 
   /**
    * Check if user can edit a resource
-   * @param {string} userId - User ID
-   * @param {Object} resource - Resource to check
-   * @param {Object} context - Optional context
+   * @param {Object} params - Parameters object
+   * @param {string} params.userId - User ID to check
+   * @param {Object} params.resource - Resource to check
+   * @param {Object} params.context - Optional context
    * @returns {Promise<boolean>}
    */
-  async canEdit(userId, resource, context = {}) {
-    const result = await this.can({ userId, resource, action: ACTIONS.EDIT, context });
-    return result.allowed;
+  async canEdit({ userId, resource, context = {} }) {
+    return await this.can({ userId, resource, action: ACTIONS.EDIT, context });
   }
 
   /**
    * Check if user can delete a resource
-   * @param {string} userId - User ID
-   * @param {Object} resource - Resource to check
-   * @param {Object} context - Optional context
+   * @param {Object} params - Parameters object
+   * @param {string} params.userId - User ID to check
+   * @param {Object} params.resource - Resource to check
+   * @param {Object} params.context - Optional context
    * @returns {Promise<boolean>}
    */
-  async canDelete(userId, resource, context = {}) {
-    const result = await this.can({ userId, resource, action: ACTIONS.DELETE, context });
-    return result.allowed;
+  async canDelete({ userId, resource, context = {} }) {
+    return await this.can({ userId, resource, action: ACTIONS.DELETE, context });
   }
 
   /**
    * Check if user can manage permissions for a resource
-   * @param {string} userId - User ID
-   * @param {Object} resource - Resource to check
-   * @param {Object} context - Optional context
+   * @param {Object} params - Parameters object
+   * @param {string} params.userId - User ID to check
+   * @param {Object} params.resource - Resource to check
+   * @param {Object} params.context - Optional context
    * @returns {Promise<boolean>}
    */
-  async canManagePermissions(userId, resource, context = {}) {
-    const result = await this.can({ userId, resource, action: ACTIONS.MANAGE_PERMISSIONS, context });
-    return result.allowed;
+  async canManagePermissions({ userId, resource, context = {} }) {
+    return await this.can({ userId, resource, action: ACTIONS.MANAGE_PERMISSIONS, context });
   }
 
   /**
@@ -281,7 +293,7 @@ class PermissionEnforcer {
 
         next();
       } catch (error) {
-        backendLogger.error('Permission middleware error', { error: error.message, userId: req.user?._id, resourceType, resourceId });
+        backendLogger.error('Permission middleware error', { error: error.message, userId: req.user?._id });
         res.status(500).json({ error: 'Error checking permissions' });
       }
     };
@@ -295,17 +307,33 @@ class PermissionEnforcer {
    */
   async _getUserPermissions(userId, resource, context = {}) {
     const userIdStr = userId.toString();
+    backendLogger.info('PERMISSION_DEBUG: _getUserPermissions called for userId:', userIdStr);
 
     // Check if user is super admin - they have full access to everything
     if (this.models.User) {
       try {
+        backendLogger.info('PERMISSION_DEBUG: Checking super admin status for userId:', userIdStr);
         const user = await this.models.User.findById(userIdStr);
-        if (user && isSuperAdmin(user)) {
-          return { role: ROLES.OWNER, inherited: false, superAdmin: true };
+        backendLogger.info('PERMISSION_DEBUG: User found:', !!user);
+        if (user) {
+          backendLogger.info('PERMISSION_DEBUG: User details:', {
+            _id: user._id,
+            role: user.role,
+            isSuperAdmin: user.isSuperAdmin,
+            email: user.email
+          });
+          if (isSuperAdmin(user)) {
+            backendLogger.info('PERMISSION_DEBUG: User is super admin - granting OWNER role');
+            return { role: ROLES.OWNER, inherited: false, superAdmin: true };
+          } else {
+            backendLogger.info('PERMISSION_DEBUG: User is NOT super admin');
+          }
         }
       } catch (error) {
         backendLogger.error('Error checking super admin status', { error: error.message, userId: userIdStr });
       }
+    } else {
+      backendLogger.info('PERMISSION_DEBUG: No User model available');
     }
 
     // Check if user is owner (highest priority)
@@ -434,6 +462,66 @@ class PermissionEnforcer {
 
     const allowedActions = rolePermissions[role] || [];
     return allowedActions.includes(action);
+  }
+
+  /**
+   * Check if user meets email verification requirements
+   * @private
+   */
+  async _checkEmailVerification(userId) {
+    const userIdStr = userId.toString();
+
+    if (!this.models.User) {
+      backendLogger.info('PERMISSION_DEBUG: No User model available for email verification check');
+      return { allowed: false, reason: 'User model not available for email verification' };
+    }
+
+    try {
+      backendLogger.info('PERMISSION_DEBUG: Checking email verification for user', userIdStr);
+      const user = await this.models.User.findById(userIdStr);
+
+      if (!user) {
+        backendLogger.info('PERMISSION_DEBUG: User not found for email verification', userIdStr);
+        return { allowed: false, reason: 'User not found' };
+      }
+
+      backendLogger.info('PERMISSION_DEBUG: User details for email check', {
+        userId: userIdStr,
+        email: user.email,
+        isSuperAdmin: user.isSuperAdmin,
+        role: user.role,
+        provider: user.provider,
+        emailConfirmed: user.emailConfirmed
+      });
+
+      // OAuth users are automatically verified
+      if (user.provider && user.provider !== 'local') {
+        backendLogger.info('PERMISSION_DEBUG: OAuth user - email verification bypassed', userIdStr);
+        return { allowed: true };
+      }
+
+      // Super admins bypass email verification
+      if (isSuperAdmin(user)) {
+        backendLogger.info('PERMISSION_DEBUG: Super admin user - email verification bypassed', userIdStr);
+        return { allowed: true };
+      }
+
+      // Check if email is confirmed
+      if (!user.emailConfirmed) {
+        backendLogger.info('PERMISSION_DEBUG: Email not confirmed - blocking action', userIdStr);
+        return {
+          allowed: false,
+          reason: 'Email verification required. Please check your email for a verification link.',
+          code: 'EMAIL_NOT_VERIFIED'
+        };
+      }
+
+      backendLogger.info('PERMISSION_DEBUG: Email verification passed', userIdStr);
+      return { allowed: true };
+    } catch (error) {
+      backendLogger.info('PERMISSION_DEBUG: Error checking email verification', error.message, userIdStr);
+      return { allowed: false, reason: 'Error checking email verification status' };
+    }
   }
 }
 

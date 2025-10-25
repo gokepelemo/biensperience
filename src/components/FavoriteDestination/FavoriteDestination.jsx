@@ -1,6 +1,7 @@
 import "./FavoriteDestination.css";
 import { useState } from "react";
 import { lang } from "../../lang.constants";
+import { logger } from "../../utilities/logger";
 import {
   toggleUserFavoriteDestination,
 } from "../../utilities/destinations-api";
@@ -28,7 +29,7 @@ export default function FavoriteDestination({ destination, user, getData }) {
         await getData();
       }
     } catch (error) {
-      console.error('Failed to toggle favorite:', error);
+      logger.error('Failed to toggle favorite', { destinationId: destination._id }, error);
       setShowAlertModal(true);
     } finally {
       setLoading(false);

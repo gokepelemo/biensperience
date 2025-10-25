@@ -37,7 +37,7 @@ const s3Upload = function (file, originalName, newName) {
   // Sanitize user-controlled file names
   newName = sanitizeFileName(slugify(newName, { lower: true }));
   const bucketName = process.env.BUCKET_NAME;
-  console.log("file is ", file);
+  backendLogger.debug('S3 upload file info', { file });
   const contentType = mime.lookup(originalName);
   const extension = mime.extension(contentType);
   const stream = fs.createReadStream(file);
@@ -61,8 +61,8 @@ const s3Upload = function (file, originalName, newName) {
       
       // Add Location to response for backward compatibility
       data.Location = location;
-      
-      console.log('S3 upload successful:', location);
+
+      backendLogger.info('S3 upload successful', { location, key });
       return data;
     } catch (err) {
       backendLogger.error('S3 upload error', { error: err.message, key, bucket: bucketName });
@@ -101,10 +101,10 @@ const s3Delete = function (fileUrl) {
     }
   } catch (err) {
     // If it's not a valid URL, assume it's already just the key
-    console.log('Using fileUrl as key directly:', fileUrl);
+    backendLogger.debug('Using fileUrl as key directly', { fileUrl });
   }
 
-  console.log('Deleting from S3:', { bucket: bucketName, key });
+  backendLogger.debug('Deleting from S3', { bucket: bucketName, key });
 
   const params = {
     Bucket: bucketName,
@@ -116,7 +116,7 @@ const s3Delete = function (fileUrl) {
     try {
       const command = new DeleteObjectCommand(params);
       const data = await s3Client.send(command);
-      console.log('S3 delete successful:', data);
+      backendLogger.info('S3 delete successful', { key: params.Key });
       return data;
     } catch (err) {
       backendLogger.error('S3 delete error', { error: err.message, key: params.Key, bucket: params.Bucket });

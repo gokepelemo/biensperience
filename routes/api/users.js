@@ -9,6 +9,7 @@ router.get('/search', ensureLoggedIn, usersCtrl.searchUsers);
 router.get('/all', ensureLoggedIn, usersCtrl.getAllUsers);
 router.get('/:id', ensureLoggedIn, usersCtrl.getUser);
 router.put('/:id', ensureLoggedIn, modificationLimiter, usersCtrl.updateUser);
+router.put('/:id/admin', ensureLoggedIn, modificationLimiter, usersCtrl.updateUserAsAdmin);
 router.post('/login', authLimiter, usersCtrl.login); // Rate limit login attempts
 router.get('/check-token', ensureLoggedIn, usersCtrl.checkToken);
 

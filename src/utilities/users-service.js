@@ -1,4 +1,6 @@
 import * as usersAPI from "./users-api.js"
+import { debug } from "./debug.js"
+import { logger } from "./logger.js"
 
 /**
  * Signs up a new user and stores their authentication token.
@@ -16,7 +18,7 @@ export async function signUp(userData) {
     try {
         localStorage.setItem('token', token);
     } catch (error) {
-        console.warn('Failed to store token in localStorage:', error);
+        logger.warn('Failed to store token in localStorage', {}, error);
     }
     return getUser();
 }
@@ -35,7 +37,7 @@ export function getToken() {
         // Validate token format (should be 3 parts separated by dots)
         const parts = token.split('.');
         if (parts.length !== 3) {
-            console.warn('Invalid token format - removing corrupted token');
+            logger.warn('Invalid token format - removing corrupted token');
             localStorage.removeItem('token');
             return null;
         }
@@ -50,13 +52,13 @@ export function getToken() {
             return token;
         } catch (decodeError) {
             // Token is corrupted or invalid
-            console.warn('Failed to decode token - removing corrupted token:', decodeError.message);
+            logger.warn('Failed to decode token - removing corrupted token', { error: decodeError.message });
             localStorage.removeItem('token');
             return null;
         }
     } catch (error) {
         // Handle Safari private browsing mode or other localStorage issues
-        console.warn('localStorage access failed:', error);
+        logger.warn('localStorage access failed', {}, error);
         return null;
     }
 }
@@ -68,14 +70,14 @@ export function getToken() {
  */
 export function getUser() {
     const token = getToken();
-    console.log('getUser called, token exists:', !!token);
+    debug.log('getUser called, token exists:', !!token);
     let user;
     if (token) {
         user = JSON.parse(atob(token.split('.')[1])).user;
         user.experiences = null;
-        console.log('getUser decoded user:', { email: user.email, _id: user._id });
+        debug.log('getUser decoded user:', { email: user.email, _id: user._id });
     } else {
-        console.log('getUser: no token found');
+        debug.log('getUser: no token found');
     }
     return token ? user : null;
 }
@@ -88,22 +90,22 @@ export function logout() {
     try {
         localStorage.removeItem('token');
     } catch (error) {
-        console.warn('Failed to remove token from localStorage:', error);
+        logger.warn('Failed to remove token from localStorage', {}, error);
     }
 }
 
 export async function login(credentials) {
-    console.log('users-service login called with credentials:', { email: credentials.email });
+    debug.log('users-service login called with credentials:', { email: credentials.email });
     const token = await usersAPI.login(credentials);
-    console.log('users-service login got token:', token ? 'token received' : 'no token');
+    debug.log('users-service login got token:', token ? 'token received' : 'no token');
     try {
         localStorage.setItem('token', token);
-        console.log('Token stored in localStorage');
+        debug.log('Token stored in localStorage');
     } catch (error) {
-        console.warn('Failed to store token in localStorage:', error);
+        logger.warn('Failed to store token in localStorage', {}, error);
     }
     const user = getUser();
-    console.log('users-service login returning user:', user ? { email: user.email, _id: user._id } : null);
+    debug.log('users-service login returning user:', user ? { email: user.email, _id: user._id } : null);
     return user;
 }
 
@@ -121,6 +123,6 @@ export function updateToken(token) {
     try {
         localStorage.setItem('token', token);
     } catch (error) {
-        console.warn('Failed to update token in localStorage:', error);
+        logger.warn('Failed to update token in localStorage', {}, error);
     }
 }

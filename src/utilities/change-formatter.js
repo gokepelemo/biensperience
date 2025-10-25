@@ -316,6 +316,8 @@ function formatValue(value, fieldName = '') {
 function deepEqual(a, b, maxDepth = 10, currentDepth = 0) {
   // Prevent stack overflow from deeply nested objects
   if (currentDepth >= maxDepth) {
+    // Note: Not adding logger import here as this is a utility that shouldn't log in production
+    // This is a developer warning that indicates a data structure issue
     console.warn('deepEqual: Maximum depth reached, treating as unequal');
     return false;
   }

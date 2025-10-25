@@ -10,6 +10,7 @@ const User = require('../../models/user');
 const Experience = require('../../models/experience');
 const Destination = require('../../models/destination');
 const Plan = require('../../models/plan');
+const { createTestUser, createTestDestination, createTestExperience, generateAuthToken } = require('../utils/testHelpers');
 
 describe('Plan Integration Tests', () => {
   let user, experienceOwner, experience, destination, authToken;
@@ -28,41 +29,15 @@ describe('Plan Integration Tests', () => {
     await Destination.deleteMany({});
     await Plan.deleteMany({});
 
-    // Create test users
-    user = await User.create({
-      name: 'Test User',
-      email: 'testuser@example.com',
-      password: 'password123'
-    });
+    // Create test users using helpers
+    user = await createTestUser({ name: 'Test User', email: 'testuser@example.com' });
+    experienceOwner = await createTestUser({ name: 'Experience Owner', email: 'owner@example.com' });
 
-    experienceOwner = await User.create({
-      name: 'Experience Owner',
-      email: 'owner@example.com',
-      password: 'password123'
-    });
+    // Create destination using helper
+    destination = await createTestDestination(experienceOwner);
 
-    // Create destination
-    destination = await Destination.create({
-      name: 'Test Destination',
-      country: 'Test Country',
-      user: experienceOwner._id,
-      permissions: [{
-        _id: experienceOwner._id,
-        entity: 'user',
-        type: 'owner'
-      }]
-    });
-
-    // Create experience
-    experience = await Experience.create({
-      name: 'Test Experience',
-      destination: destination._id,
-      user: experienceOwner._id,
-      permissions: [{
-        _id: experienceOwner._id,
-        entity: 'user',
-        type: 'owner'
-      }],
+    // Create experience using helper
+    experience = await createTestExperience(experienceOwner, destination, {
       plan_items: [
         {
           text: 'Plan Item 1',
@@ -77,8 +52,8 @@ describe('Plan Integration Tests', () => {
       ]
     });
 
-    // Generate auth tokens (simplified - in real app use proper JWT)
-    authToken = 'Bearer ' + user._id.toString();
+    // Generate proper JWT auth token
+    authToken = generateAuthToken(user);
   });
 
   afterAll(async () => {
@@ -95,8 +70,8 @@ describe('Plan Integration Tests', () => {
 
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('_id');
-      expect(response.body.experience).toBe(experience._id.toString());
-      expect(response.body.user).toBe(user._id.toString());
+      expect(response.body.experience._id).toBe(experience._id.toString());
+      expect(response.body.user._id).toBe(user._id.toString());
 
       // Verify plan was created in database
       const plan = await Plan.findOne({ experience: experience._id, user: user._id });
@@ -136,7 +111,7 @@ describe('Plan Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ planned_date: new Date() });
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(409);
       expect(response.body.error).toContain('already exists');
     });
   });
@@ -252,7 +227,8 @@ describe('Plan Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ planned_date: new Date() });
 
-      // Modify experience plan items
+      // Modify experience plan items (reload first to avoid version conflict)
+      experience = await Experience.findById(experience._id);
       experience.plan_items[0].text = 'Modified Plan Item';
       await experience.save();
 

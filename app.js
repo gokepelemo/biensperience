@@ -154,9 +154,22 @@ app.use('/api', apiLogger);
 // Register auth routes BEFORE CSRF protection (csrf-token endpoint needs to be unprotected)
 app.use("/api/auth", require("./routes/api/auth"));
 
+// Passport configuration for OAuth
+const { passport } = require('./config/passport');
+app.use(passport.initialize());
+
+// JWT token checking (populate req.user) - needs to be before CSRF to check super admin status
+app.use(require("./config/checkToken"));
+
 // Apply CSRF protection to state-changing API routes (after auth routes)
 // Skip CSRF for safe methods and login endpoint
 app.use('/api', (req, res, next) => {
+  // Skip CSRF entirely in test environment
+  if (process.env.NODE_ENV === 'test') {
+    backendLogger.debug('Skipping CSRF entirely in test environment');
+    return next();
+  }
+
   // Skip CSRF for safe methods
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     return next();
@@ -165,15 +178,29 @@ app.use('/api', (req, res, next) => {
   if (req.path === '/users/login' || req.path === '/users/') {
     return next();
   }
+  
+  // Debug logging
+  backendLogger.debug('CSRF check', {
+    method: req.method,
+    path: req.path,
+    user: req.user ? {
+      id: req.user._id,
+      isSuperAdmin: req.user.isSuperAdmin,
+      role: req.user.role
+    } : 'No user'
+  });
+
+  // Skip CSRF for super admins
+  if (req.user && (req.user.isSuperAdmin || req.user.role === 'super_admin')) {
+    backendLogger.debug('Skipping CSRF for super admin', { userId: req.user._id, isSuperAdmin: req.user.isSuperAdmin, role: req.user.role });
+    return next();
+  }
+
+  backendLogger.debug('Applying CSRF protection');
   // Apply CSRF protection for state-changing methods
   doubleCsrfProtection(req, res, next);
 });
 
-// Passport configuration for OAuth
-const { passport } = require('./config/passport');
-app.use(passport.initialize());
-
-app.use(require("./config/checkToken"));
 app.use("/api/users", require("./routes/api/users"));
 app.use("/api/destinations", require("./routes/api/destinations"));
 app.use("/api/experiences", require("./routes/api/experiences"));

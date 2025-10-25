@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
+const backendLogger = require('../utilities/backend-logger');
 
 mongoose.connect(process.env.DATABASE_URL);
 
 const db = mongoose.connection;
 
 db.on('connected', function () {
-    console.log(`Connected to ${db.name} at ${db.host}:${db.port}`);
+    backendLogger.info('Database connected', { database: db.name, host: db.host, port: db.port });
 });

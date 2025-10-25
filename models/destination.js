@@ -5,7 +5,7 @@ const photoObjectSchema = new Schema({
   url: { type: String, required: true },
   photo_credit: { type: String, default: 'Unknown' },
   photo_credit_url: { type: String }
-}, { _id: false });
+}, { _id: true }); // Enable _id for tracking default photo
 
 const permissionSchema = new Schema({
   _id: { type: Schema.Types.ObjectId, required: true },
@@ -48,7 +48,8 @@ const destinationSchema = new Schema(
       type: [photoObjectSchema],
       default: []
     },
-    default_photo_index: { type: Number, default: 0 },
+    default_photo_index: { type: Number, default: 0 }, // DEPRECATED: Use default_photo_id instead
+    default_photo_id: { type: Schema.Types.ObjectId }, // ID of the default photo in photos array
     travel_tips: [String],
     permissions: {
       type: [permissionSchema],

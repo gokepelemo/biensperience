@@ -110,7 +110,7 @@ describe('Destinations API Routes', () => {
     test('should create a new destination with valid data', async () => {
       logger.section('POST /api/destinations - Success case');
 
-      const user = await createTestUser();
+      const user = await createTestUser({ isSuperAdmin: true, role: 'super_admin' });
       const token = generateAuthToken(user);
 
       const newDestination = {
@@ -137,7 +137,9 @@ describe('Destinations API Routes', () => {
       expect(response.body.country).toBe(newDestination.country);
       expect(response.body.state).toBe(newDestination.state);
       expect(response.body.travel_tips).toEqual(newDestination.travel_tips);
-      expect(response.body.user).toBeDefined();
+      expect(response.body.permissions).toBeDefined();
+      expect(Array.isArray(response.body.permissions)).toBe(true);
+      expect(response.body.permissions.length).toBeGreaterThan(0);
 
       logger.success('Destination created successfully', {
         id: response.body._id,
@@ -434,7 +436,7 @@ describe('Destinations API Routes', () => {
 
       expect(response.status).toBe(201);
       validators.isValidDestination(response.body);
-      expect(response.body.users_favorite).toContainEqual(user._id);
+      expect(response.body.users_favorite).toContain(user._id.toString());
 
       logger.success('Destination added to favorites', {
         favorites: response.body.users_favorite,

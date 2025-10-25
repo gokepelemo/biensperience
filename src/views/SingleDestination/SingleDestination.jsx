@@ -12,6 +12,7 @@ import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import { isOwner } from "../../utilities/permissions";
+import { logger } from "../../utilities/logger";
 
 export default function SingleDestination() {
   const { user } = useUser();
@@ -30,7 +31,7 @@ export default function SingleDestination() {
       // Refresh destinations list in background
       fetchDestinations();
     } catch (error) {
-      console.error('Error fetching destination:', error);
+      logger.error('Error fetching destination', { destinationId }, error);
     }
   }, [destinationId, fetchDestinations]);
 

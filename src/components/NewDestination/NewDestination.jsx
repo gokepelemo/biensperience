@@ -12,6 +12,7 @@ import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import FormField from "../FormField/FormField";
 import { FormTooltip } from "../Tooltip/Tooltip";
 import { Form } from "react-bootstrap";
+import { useFormPersistence } from "../../hooks/useFormPersistence";
 
 export default function NewDestination() {
   const { destinations: destData, addDestination } = useData();
@@ -24,6 +25,36 @@ export default function NewDestination() {
   const [tipToDelete, setTipToDelete] = useState(null);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  // Form persistence - combines newDestination and travelTips
+  const formData = { ...newDestination, travel_tips: travelTips };
+  const setFormData = (data) => {
+    const { travel_tips, ...destData } = data;
+    setNewDestination(destData);
+    if (travel_tips) {
+      setTravelTips(travel_tips);
+    }
+  };
+
+  const persistence = useFormPersistence(
+    'new-destination-form',
+    formData,
+    setFormData,
+    {
+      enabled: true,
+      ttl: 24 * 60 * 60 * 1000, // 24 hours
+      debounceMs: 1000, // Save after 1 second of inactivity
+      excludeFields: [], // Save all fields
+      onRestore: (savedData, age) => {
+        // Show toast notification
+        success(
+          `Form data restored from ${Math.floor(age / 60000)} minutes ago. ` +
+          `You can continue editing or clear the form to start fresh.`,
+          { duration: 8000 }
+        );
+      }
+    }
+  );
   
   useEffect(() => {
     if (destData) setDestinations(destData);
@@ -54,6 +85,10 @@ export default function NewDestination() {
         Object.assign({ ...newDestination }, { travel_tips: travelTips })
       );
       addDestination(destination); // Instant UI update!
+
+      // Clear saved form data on success
+      persistence.clear();
+
       success('Destination created!');
       navigate(`/experiences/new`);
     } catch (err) {
@@ -98,9 +133,19 @@ export default function NewDestination() {
       {error && (
         <Alert
           type="danger"
-          message={error}
           className="mb-4"
-        />
+        >
+          <div>
+            {error}
+            {error.includes('verify your email') && (
+              <div className="mt-2">
+                <a href="/resend-confirmation" className="btn btn-sm btn-outline-primary">
+                  Resend Verification Email
+                </a>
+              </div>
+            )}
+          </div>
+        </Alert>
       )}
 
       <div className="row my-4 fade-in">

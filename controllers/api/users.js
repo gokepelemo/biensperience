@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const { USER_ROLES } = require("../../utilities/user-roles");
 const { isSuperAdmin } = require("../../utilities/permissions");
 const backendLogger = require("../../utilities/backend-logger");
+const photoUtils = require("../../utilities/photo-utils");
 
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
@@ -145,6 +146,11 @@ async function updateUser(req, res, next) {
     }
     const userId = new mongoose.Types.ObjectId(req.params.id);
 
+    // Check if user is updating their own profile or is a super admin
+    if (req.user._id.toString() !== userId.toString() && !isSuperAdmin(req.user)) {
+      return res.status(403).json({ error: 'You can only update your own profile' });
+    }
+
     // Whitelist allowed fields to prevent mass assignment vulnerabilities
     const allowedFields = ['name', 'email', 'photos', 'default_photo_index', 'password', 'oldPassword'];
     const updateData = {};
@@ -244,6 +250,123 @@ async function updateUser(req, res, next) {
   }
 }
 
+async function updateUserAsAdmin(req, res) {
+  try {
+    // Check if requester is a super admin
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({ error: 'Super admin access required' });
+    }
+
+    // Validate ObjectId format and convert to prevent injection
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+    const userId = new mongoose.Types.ObjectId(req.params.id);
+
+    // Whitelist allowed fields for admin updates (includes emailConfirmed)
+    const allowedFields = ['name', 'email', 'photos', 'default_photo_index', 'password', 'emailConfirmed'];
+    const updateData = {};
+
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+
+    // Validate email format if being updated
+    if (updateData.email) {
+      const email = updateData.email;
+      if (typeof email !== 'string' || email.length > 254 || email.length < 3) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+      const hasAt = email.includes('@');
+      const hasDot = email.includes('.');
+      const atPosition = email.indexOf('@');
+      const lastDotPosition = email.lastIndexOf('.');
+
+      if (!hasAt || !hasDot || atPosition < 1 || lastDotPosition < atPosition + 2 || lastDotPosition >= email.length - 1) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+    }
+
+    // Validate emailConfirmed field
+    if (updateData.emailConfirmed !== undefined) {
+      if (typeof updateData.emailConfirmed !== 'boolean') {
+        return res.status(400).json({ error: 'emailConfirmed must be a boolean' });
+      }
+    }
+
+    // Handle password update if provided (no old password required for admin)
+    if (updateData.password) {
+      // Validate new password
+      if (typeof updateData.password !== 'string' || updateData.password.length < 3) {
+        return res.status(400).json({ error: 'New password must be at least 3 characters' });
+      }
+    }
+
+    // Validate update data to ensure it's safe
+    const validatedUpdateData = {};
+    if (updateData.name && typeof updateData.name === 'string' && updateData.name.length <= 100) {
+      validatedUpdateData.name = updateData.name.trim();
+    }
+    if (updateData.email && typeof updateData.email === 'string' && updateData.email.length <= 254) {
+      validatedUpdateData.email = updateData.email.trim();
+    }
+
+    // Validate photos array if provided
+    if (updateData.photos !== undefined) {
+      if (Array.isArray(updateData.photos)) {
+        // Validate each photo object
+        const validPhotos = updateData.photos.filter(photo => {
+          return photo &&
+                 typeof photo === 'object' &&
+                 typeof photo.url === 'string' &&
+                 photo.url.length > 0 &&
+                 photo.url.length <= 2048; // Reasonable URL length limit
+        });
+        validatedUpdateData.photos = validPhotos;
+      }
+    }
+
+    // Validate default_photo_index if provided
+    if (updateData.default_photo_index !== undefined) {
+      const index = parseInt(updateData.default_photo_index);
+      if (!isNaN(index) && index >= 0 && index < 1000) { // Reasonable max photos limit
+        validatedUpdateData.default_photo_index = index;
+      }
+    }
+
+    // Add password to validated data if it passed validation
+    if (updateData.password) {
+      validatedUpdateData.password = updateData.password;
+    }
+
+    // Add emailConfirmed to validated data if provided
+    if (updateData.emailConfirmed !== undefined) {
+      validatedUpdateData.emailConfirmed = updateData.emailConfirmed;
+    }
+
+    const user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true }).populate("photo");
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    backendLogger.info('User updated by admin', {
+      adminId: req.user._id,
+      adminEmail: req.user.email,
+      targetUserId: user._id,
+      targetUserEmail: user.email,
+      changes: Object.keys(validatedUpdateData)
+    });
+
+    res.status(200).json({ user });
+  } catch (err) {
+    backendLogger.error('Error updating user as admin', { error: err.message, userId: req.params.id, adminId: req.user._id });
+    res.status(400).json({ error: 'Failed to update user' });
+  }
+}
+
 async function addPhoto(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -306,12 +429,14 @@ async function removePhoto(req, res) {
       return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    // Remove photo from array
-    user.photos.splice(photoIndex, 1);
+    // Get the photo ID before removing
+    const photoId = user.photos[photoIndex]._id;
 
-    // Adjust default_photo_index if necessary
-    if (user.default_photo_index >= user.photos.length) {
-      user.default_photo_index = Math.max(0, user.photos.length - 1);
+    // Remove photo using utility (handles default photo adjustment)
+    const removed = photoUtils.removePhoto(user, photoId);
+
+    if (!removed) {
+      return res.status(400).json({ error: 'Failed to remove photo' });
     }
 
     await user.save();
@@ -341,13 +466,25 @@ async function setDefaultPhoto(req, res) {
       return res.status(401).json({ error: 'Not authorized to modify this user profile' });
     }
 
-    const photoIndex = parseInt(req.body.photoIndex);
+    // Support both photoId (new) and photoIndex (legacy) params
+    const photoId = req.body.photoId;
+    const photoIndex = req.body.photoIndex !== undefined ? parseInt(req.body.photoIndex) : null;
 
-    if (photoIndex < 0 || photoIndex >= user.photos.length) {
-      return res.status(400).json({ error: 'Invalid photo index' });
+    let success;
+    if (photoId) {
+      // New method: Use photo ID
+      success = photoUtils.setDefaultPhotoById(user, photoId);
+    } else if (photoIndex !== null) {
+      // Legacy method: Use photo index
+      success = photoUtils.setDefaultPhotoByIndex(user, photoIndex);
+    } else {
+      return res.status(400).json({ error: 'photoId or photoIndex required' });
     }
 
-    user.default_photo_index = photoIndex;
+    if (!success) {
+      return res.status(400).json({ error: 'Invalid photo ID or index' });
+    }
+
     await user.save();
 
     // Generate new JWT token with updated user data
@@ -662,6 +799,7 @@ module.exports = {
   checkToken,
   getUser,
   updateUser,
+  updateUserAsAdmin,
   addPhoto,
   removePhoto,
   setDefaultPhoto,

@@ -401,7 +401,7 @@ const deletePlan = asyncHandler(async (req, res) => {
   }
 
   // Only owner can delete
-  if (plan.user.toString() !== req.user._id.toString()) {
+  if (!permissions.isOwner(req.user, plan)) {
     return res.status(403).json({ error: "Only the plan owner can delete it" });
   }
 
@@ -472,7 +472,7 @@ const addCollaborator = asyncHandler(async (req, res) => {
   }
 
   // Only owner can add collaborators
-  if (plan.user.toString() !== req.user._id.toString()) {
+  if (!permissions.isOwner(req.user, plan)) {
     return res.status(403).json({ error: "Only the plan owner can add collaborators" });
   }
 
@@ -526,7 +526,7 @@ const removeCollaborator = asyncHandler(async (req, res) => {
   }
 
   // Only owner can remove collaborators
-  if (plan.user.toString() !== req.user._id.toString()) {
+  if (!permissions.isOwner(req.user, plan)) {
     return res.status(403).json({ error: "Only the plan owner can remove collaborators" });
   }
 
