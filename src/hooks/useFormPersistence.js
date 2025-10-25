@@ -41,15 +41,39 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
 
   /**
    * Filter out excluded fields from data
+   * Also filters out non-serializable values (File objects, Blob objects)
    */
   const filterData = useCallback((data) => {
-    if (!data || excludeFields.length === 0) {
+    if (!data) {
       return data;
     }
 
     const filtered = { ...data };
+
+    // Remove explicitly excluded fields
     excludeFields.forEach(field => {
       delete filtered[field];
+    });
+
+    // Remove non-serializable objects (File, Blob, etc.)
+    Object.keys(filtered).forEach(key => {
+      const value = filtered[key];
+
+      // Check if value is a File or Blob
+      if (value instanceof File || value instanceof Blob) {
+        delete filtered[key];
+      }
+
+      // Check if value is an array containing Files
+      if (Array.isArray(value) && value.length > 0) {
+        const hasFiles = value.some(item => item instanceof File || item instanceof Blob);
+        if (hasFiles) {
+          // Filter out File/Blob objects but keep serializable objects (like uploaded photo URLs)
+          filtered[key] = value.filter(item => {
+            return !(item instanceof File) && !(item instanceof Blob);
+          });
+        }
+      }
     });
 
     return filtered;

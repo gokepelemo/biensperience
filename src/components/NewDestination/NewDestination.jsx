@@ -44,14 +44,22 @@ export default function NewDestination() {
       enabled: true,
       ttl: 24 * 60 * 60 * 1000, // 24 hours
       debounceMs: 1000, // Save after 1 second of inactivity
-      excludeFields: ['photos', 'photo'], // Exclude File objects (non-serializable)
+      excludeFields: [], // File objects auto-excluded by persistence hook
       onRestore: (savedData, age) => {
-        // Show toast notification
-        success(
-          `Form data restored from ${Math.floor(age / 60000)} minutes ago. ` +
-          `You can continue editing or clear the form to start fresh.`,
-          { duration: 8000 }
-        );
+        // Show toast notification with clear option
+        const message = `Form data restored from ${Math.floor(age / 60000)} minutes ago. You can continue editing.`;
+        success(message, {
+          duration: 10000,
+          actions: [{
+            label: 'Clear Form',
+            onClick: () => {
+              setNewDestination({});
+              setTravelTips([]);
+              persistence.clear();
+            },
+            variant: 'outline-danger'
+          }]
+        });
       }
     }
   );
