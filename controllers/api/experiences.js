@@ -149,7 +149,7 @@ async function updateExperience(req, res) {
     }
     
     // Check if user has permission to edit using PermissionEnforcer
-    const enforcer = getEnforcer({ Destination, Experience });
+    const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canEdit({
       userId: req.user._id,
       resource: experience
@@ -234,7 +234,7 @@ async function deleteExperience(req, res) {
     }
     
     // Check if user has permission to delete using PermissionEnforcer
-    const enforcer = getEnforcer({ Destination, Experience });
+    const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canDelete({
       userId: req.user._id,
       resource: experience
@@ -314,7 +314,7 @@ async function createPlanItem(req, res) {
     }
     
     // Check if user has permission to edit using PermissionEnforcer
-    const enforcer = getEnforcer({ Destination, Experience });
+    const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canEdit({
       userId: req.user._id,
       resource: experience
@@ -386,7 +386,7 @@ async function updatePlanItem(req, res) {
     }
     
     // Check if user has permission to edit using PermissionEnforcer
-    const enforcer = getEnforcer({ Destination, Experience });
+    const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canEdit({
       userId: req.user._id,
       resource: experience
@@ -463,7 +463,7 @@ async function deletePlanItem(req, res) {
     }
     
     // Check if user has permission to edit using PermissionEnforcer
-    const enforcer = getEnforcer({ Destination, Experience });
+    const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canEdit({
       userId: req.user._id,
       resource: experience
@@ -671,7 +671,7 @@ async function addPhoto(req, res) {
     }
 
     // Check if user has permission to edit
-    const enforcer = getEnforcer({ Destination, Experience });
+    const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canEdit({
       userId: req.user._id,
       resource: experience
@@ -715,7 +715,7 @@ async function removePhoto(req, res) {
     }
 
     // Check if user has permission to edit using PermissionEnforcer
-    const enforcer = getEnforcer({ Destination, Experience });
+    const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canEdit({
       userId: req.user._id,
       resource: experience
@@ -760,7 +760,7 @@ async function setDefaultPhoto(req, res) {
     }
 
     // Check if user has permission to edit
-    const enforcer = getEnforcer({ Destination, Experience });
+    const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canEdit({
       userId: req.user._id,
       resource: experience
