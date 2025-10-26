@@ -270,6 +270,27 @@ async function log(level, message, meta = {}, error = null) {
 // Backend logger API
 const backendLogger = {
   /**
+   * Set log level at runtime (useful for debugging)
+   * @param {string} level - Log level: 'ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'
+   */
+  setLevel: (level) => {
+    const upperLevel = level.toUpperCase();
+    if (LOG_LEVELS[upperLevel] !== undefined) {
+      backendConfig.logLevel = LOG_LEVELS[upperLevel];
+      console.log(`Backend log level set to: ${upperLevel}`);
+    } else {
+      console.warn(`Invalid log level: ${level}. Valid levels:`, Object.keys(LOG_LEVELS));
+    }
+  },
+
+  /**
+   * Get current log level
+   */
+  getLevel: () => {
+    return Object.keys(LOG_LEVELS).find(key => LOG_LEVELS[key] === backendConfig.logLevel);
+  },
+
+  /**
    * Log error message
    * @param {string} message - Error message
    * @param {Object} meta - Additional metadata
