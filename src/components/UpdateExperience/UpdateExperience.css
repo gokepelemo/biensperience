@@ -8,24 +8,22 @@ form.new-experience-form {
     gap: 0 !important;
 }
 
+/* Responsive sizing handled by shared/forms.css */
 form.update-experience-form .form-control,
 form.update-experience-form .form-select,
 form.new-experience-form .form-control,
 form.new-experience-form .form-select {
     border-radius: 2rem;
-    padding: 0.75rem 1.25rem;
-    font-size: 1rem;
     line-height: 1.5;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
-/* InputGroup container styling */
+/* InputGroup container styling - responsive sizing in shared/forms.css */
 form.update-experience-form .input-group,
 form.new-experience-form .input-group {
     border-radius: 2rem;
     border: 1px solid #ced4da;
     background-color: #fff;
-    padding: 0.75rem 1.25rem;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
@@ -34,7 +32,6 @@ form.update-experience-form .input-group .form-control,
 form.new-experience-form .input-group .form-control {
     border: none;
     padding: 0;
-    font-size: 1rem;
     line-height: 1.5;
 }
 
