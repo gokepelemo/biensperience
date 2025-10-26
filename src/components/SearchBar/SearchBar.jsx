@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchAll } from '../../utilities/search-api';
-import { logger } from '../../utilities/logger';
 import './SearchBar.css';
 
 /**
@@ -35,7 +34,7 @@ export default function SearchBar({ placeholder = 'Search destinations, experien
       setShowResults(true);
       setSelectedIndex(-1);
     } catch (error) {
-      logger.error('Search error', { query: searchQuery }, error);
+      console.error('Search error:', error);
       setResults([]);
       setShowResults(false);
     } finally {
@@ -85,7 +84,7 @@ export default function SearchBar({ placeholder = 'Search destinations, experien
         navigate(`/profile/${_id}`);
         break;
       default:
-        logger.warn('Unknown result type', { type });
+        console.warn('Unknown result type:', type);
     }
 
     // Clear search

@@ -1,6 +1,5 @@
 import * as usersAPI from "./users-api.js"
 import { debug } from "./debug.js"
-import { logger } from "./logger.js"
 
 /**
  * Signs up a new user and stores their authentication token.
@@ -18,7 +17,7 @@ export async function signUp(userData) {
     try {
         localStorage.setItem('token', token);
     } catch (error) {
-        logger.warn('Failed to store token in localStorage', {}, error);
+        console.warn('Failed to store token in localStorage:', error);
     }
     return getUser();
 }
@@ -37,7 +36,7 @@ export function getToken() {
         // Validate token format (should be 3 parts separated by dots)
         const parts = token.split('.');
         if (parts.length !== 3) {
-            logger.warn('Invalid token format - removing corrupted token');
+            console.warn('Invalid token format - removing corrupted token');
             localStorage.removeItem('token');
             return null;
         }
@@ -52,13 +51,13 @@ export function getToken() {
             return token;
         } catch (decodeError) {
             // Token is corrupted or invalid
-            logger.warn('Failed to decode token - removing corrupted token', { error: decodeError.message });
+            console.warn('Failed to decode token - removing corrupted token:', decodeError.message);
             localStorage.removeItem('token');
             return null;
         }
     } catch (error) {
         // Handle Safari private browsing mode or other localStorage issues
-        logger.warn('localStorage access failed', {}, error);
+        console.warn('localStorage access failed:', error);
         return null;
     }
 }
@@ -90,7 +89,7 @@ export function logout() {
     try {
         localStorage.removeItem('token');
     } catch (error) {
-        logger.warn('Failed to remove token from localStorage', {}, error);
+        console.warn('Failed to remove token from localStorage:', error);
     }
 }
 
@@ -102,7 +101,7 @@ export async function login(credentials) {
         localStorage.setItem('token', token);
         debug.log('Token stored in localStorage');
     } catch (error) {
-        logger.warn('Failed to store token in localStorage', {}, error);
+        console.warn('Failed to store token in localStorage:', error);
     }
     const user = getUser();
     debug.log('users-service login returning user:', user ? { email: user.email, _id: user._id } : null);
@@ -123,6 +122,6 @@ export function updateToken(token) {
     try {
         localStorage.setItem('token', token);
     } catch (error) {
-        logger.warn('Failed to update token in localStorage', {}, error);
+        console.warn('Failed to update token in localStorage:', error);
     }
 }

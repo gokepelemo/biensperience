@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { lang } from "../../lang.constants";
 import { createDestination } from "../../utilities/destinations-api";
 import { useData } from "../../contexts/DataContext";
+import { useUser } from "../../contexts/UserContext";
 import { useToast } from "../../contexts/ToastContext";
 import ImageUpload from "../ImageUpload/ImageUpload";
 import Alert from "../Alert/Alert";
@@ -13,9 +14,11 @@ import FormField from "../FormField/FormField";
 import { FormTooltip } from "../Tooltip/Tooltip";
 import { Form } from "react-bootstrap";
 import { useFormPersistence } from "../../hooks/useFormPersistence";
+import { formatRestorationMessage } from "../../utilities/time-format";
 
 export default function NewDestination() {
   const { destinations: destData, addDestination } = useData();
+  const { user } = useUser();
   const { success } = useToast();
   const [newDestination, setNewDestination] = useState({});
   const [destinations, setDestinations] = useState([]);
@@ -42,16 +45,17 @@ export default function NewDestination() {
     setFormData,
     {
       enabled: true,
+      userId: user?._id, // Encryption and user-specific storage
       ttl: 24 * 60 * 60 * 1000, // 24 hours
       debounceMs: 1000, // Save after 1 second of inactivity
       excludeFields: [], // File objects auto-excluded by persistence hook
       onRestore: (savedData, age) => {
-        // Show toast notification with clear option
-        const message = `Form data restored from ${Math.floor(age / 60000)} minutes ago. You can continue editing.`;
+        // Show toast notification with clear option and friendly time formatting
+        const message = formatRestorationMessage(age, 'create');
         success(message, {
-          duration: 10000,
+          duration: 20000,
           actions: [{
-            label: 'Clear Form',
+            label: lang.en.button.clearForm,
             onClick: () => {
               setNewDestination({});
               setTravelTips([]);
@@ -171,28 +175,36 @@ export default function NewDestination() {
               tooltipPlacement="top"
             />
 
-            <FormField
-              name="state"
-              label="State / Province"
-              type="text"
-              value={newDestination.state || ''}
-              onChange={handleChange}
-              placeholder={lang.en.placeholder.stateProvince}
-              tooltip={lang.en.helper.stateProvinceRequired}
-              tooltipPlacement="top"
-            />
+            <div className="row mb-4">
+              <div className="col-md-6 mb-3 mb-md-0">
+                <FormField
+                  name="state"
+                  label="State / Province"
+                  type="text"
+                  value={newDestination.state || ''}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.stateProvince}
+                  tooltip={lang.en.helper.stateProvinceRequired}
+                  tooltipPlacement="top"
+                  className="mb-0"
+                />
+              </div>
 
-            <FormField
-              name="country"
-              label="Country"
-              type="text"
-              value={newDestination.country || ''}
-              onChange={handleChange}
-              placeholder={lang.en.placeholder.country}
-              required
-              tooltip={lang.en.helper.countryRequired}
-              tooltipPlacement="top"
-            />
+              <div className="col-md-6">
+                <FormField
+                  name="country"
+                  label="Country"
+                  type="text"
+                  value={newDestination.country || ''}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.country}
+                  required
+                  tooltip={lang.en.helper.countryRequired}
+                  tooltipPlacement="top"
+                  className="mb-0"
+                />
+              </div>
+            </div>
 
             <div className="mb-4">
               <Form.Label>

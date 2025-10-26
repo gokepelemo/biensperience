@@ -5,7 +5,6 @@ const Experience = require("../../models/experience");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 const permissions = require("../../utilities/permissions");
 const backendLogger = require("../../utilities/backend-logger");
-const photoUtils = require("../../utilities/photo-utils");
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -343,14 +342,12 @@ async function removePhoto(req, res) {
       return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    // Get the photo ID before removing
-    const photoId = destination.photos[photoIndex]._id;
+    // Remove photo from array
+    destination.photos.splice(photoIndex, 1);
 
-    // Remove photo using utility (handles default photo adjustment)
-    const removed = photoUtils.removePhoto(destination, photoId);
-
-    if (!removed) {
-      return res.status(400).json({ error: 'Failed to remove photo' });
+    // Adjust default_photo_index if necessary
+    if (destination.default_photo_index >= destination.photos.length) {
+      destination.default_photo_index = Math.max(0, destination.photos.length - 1);
     }
 
     await destination.save();
@@ -384,25 +381,13 @@ async function setDefaultPhoto(req, res) {
       });
     }
 
-    // Support both photoId (new) and photoIndex (legacy) params
-    const photoId = req.body.photoId;
-    const photoIndex = req.body.photoIndex !== undefined ? parseInt(req.body.photoIndex) : null;
+    const photoIndex = parseInt(req.body.photoIndex);
 
-    let success;
-    if (photoId) {
-      // New method: Use photo ID
-      success = photoUtils.setDefaultPhotoById(destination, photoId);
-    } else if (photoIndex !== null) {
-      // Legacy method: Use photo index
-      success = photoUtils.setDefaultPhotoByIndex(destination, photoIndex);
-    } else {
-      return res.status(400).json({ error: 'photoId or photoIndex required' });
+    if (photoIndex < 0 || photoIndex >= destination.photos.length) {
+      return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    if (!success) {
-      return res.status(400).json({ error: 'Invalid photo ID or index' });
-    }
-
+    destination.default_photo_index = photoIndex;
     await destination.save();
 
     res.status(200).json(destination);

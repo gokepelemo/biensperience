@@ -165,7 +165,7 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
           // OPTIMIZATION 3: Fire-and-forget deletion
           // Don't await - let it complete in background
           deletePlan(userPlan._id).catch(err => {
-            logger.error('Failed to delete plan', { planId: userPlan._id }, err);
+            console.error('Failed to delete plan:', err);
             // Revert UI on failure
             setLocalPlanState(true);
             handleError(err, { context: 'Remove plan' });
@@ -186,7 +186,7 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
         // Only refresh on create (when we might need new plan data)
         // Don't refresh on delete (we already updated UI optimistically)
         updateData().catch(err => {
-          logger.warn('Failed to refresh data after plan creation', {}, err);
+          console.warn('Failed to refresh data after plan creation:', err);
         });
       }
     } catch (err) {

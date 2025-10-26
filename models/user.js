@@ -21,7 +21,7 @@ const photoObjectSchema = new Schema({
   url: { type: String, required: true },
   photo_credit: { type: String, default: 'Unknown' },
   photo_credit_url: { type: String }
-}, { _id: true }); // Enable _id for tracking default photo
+}, { _id: false });
 
 /**
  * Mongoose schema for User model
@@ -155,15 +155,8 @@ const userSchema = new Schema(
     /**
      * Index of the default photo in photos array
      * @type {number}
-     * @deprecated Use default_photo_id instead
      */
     default_photo_index: { type: Number, default: 0 },
-
-    /**
-     * ID of the default photo in photos array
-     * @type {mongoose.Schema.Types.ObjectId}
-     */
-    default_photo_id: { type: Schema.Types.ObjectId },
 
     /**
      * Super admin flag - grants full permissions across the entire site

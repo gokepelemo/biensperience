@@ -2,6 +2,7 @@ import "./NewExperience.css";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
+import { useUser } from "../../contexts/UserContext";
 import { useToast } from "../../contexts/ToastContext";
 import { createExperience } from "../../utilities/experiences-api";
 import { lang } from "../../lang.constants";
@@ -14,10 +15,12 @@ import FormField from "../FormField/FormField";
 import { FormTooltip } from "../Tooltip/Tooltip";
 import { Form } from "react-bootstrap";
 import { useFormPersistence } from "../../hooks/useFormPersistence";
+import { formatRestorationMessage } from "../../utilities/time-format";
 import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 
 export default function NewExperience() {
   const { destinations: destData, experiences: expData, addExperience } = useData();
+  const { user } = useUser();
   const { success } = useToast();
   const [newExperience, setNewExperience] = useState({});
   const [destinations, setDestinations] = useState([]);
@@ -44,16 +47,17 @@ export default function NewExperience() {
     setFormData,
     {
       enabled: true,
+      userId: user?._id, // Encryption and user-specific storage
       ttl: 24 * 60 * 60 * 1000, // 24 hours
       debounceMs: 1000,
       excludeFields: [], // File objects auto-excluded by persistence hook
       onRestore: (savedData, age) => {
-        // Show toast notification with clear option
-        const message = `Form data restored from ${Math.floor(age / 60000)} minutes ago. You can continue editing.`;
+        // Show toast notification with clear option and friendly time formatting
+        const message = formatRestorationMessage(age, 'create');
         success(message, {
-          duration: 10000,
+          duration: 20000,
           actions: [{
-            label: 'Clear Form',
+            label: lang.en.button.clearForm,
             onClick: () => {
               setNewExperience({});
               setTags([]);
@@ -74,7 +78,15 @@ export default function NewExperience() {
 
     // Track destination input for modal prefill
     if (e.target.name === 'destination') {
-      setDestinationInput(e.target.value);
+      const inputValue = e.target.value;
+      setDestinationInput(inputValue);
+
+      // Check if user selected "+ Create New Destination"
+      if (inputValue === '+ Create New Destination') {
+        setShowDestinationModal(true);
+        // Clear the field so the special value doesn't persist
+        setNewExperience(prev => ({ ...prev, destination: '' }));
+      }
     }
   }
 
@@ -150,15 +162,6 @@ export default function NewExperience() {
     if (expData) setExperiences(expData);
     document.title = `New Experience - Biensperience`;
   }, [destData, expData]);
-
-  // Watch for "+ Create New Destination" selection
-  useEffect(() => {
-    if (newExperience.destination === '+ Create New Destination') {
-      setShowDestinationModal(true);
-      // Clear the special value so it doesn't interfere
-      setNewExperience(prev => ({ ...prev, destination: '' }));
-    }
-  }, [newExperience.destination]);
   return (
     <>
       <div className="row fade-in">

@@ -11,7 +11,6 @@ import { handleError } from "../../utilities/error-handler";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
 import { lang } from "../../lang.constants";
-import { logger } from "../../utilities/logger";
 import "./AllUsers.css";
 
 export default function AllUsers() {
@@ -40,7 +39,7 @@ export default function AllUsers() {
       const allUsers = await getAllUsers();
       setUsers(allUsers);
     } catch (err) {
-      logger.error('Error fetching users', {}, err);
+      console.error('Error fetching users:', err);
       setError('Failed to load users');
       handleError(err);
     } finally {

@@ -6,7 +6,6 @@ const mongoose = require("mongoose");
 const { USER_ROLES } = require("../../utilities/user-roles");
 const { isSuperAdmin } = require("../../utilities/permissions");
 const backendLogger = require("../../utilities/backend-logger");
-const photoUtils = require("../../utilities/photo-utils");
 
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
@@ -429,14 +428,12 @@ async function removePhoto(req, res) {
       return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    // Get the photo ID before removing
-    const photoId = user.photos[photoIndex]._id;
+    // Remove photo from array
+    user.photos.splice(photoIndex, 1);
 
-    // Remove photo using utility (handles default photo adjustment)
-    const removed = photoUtils.removePhoto(user, photoId);
-
-    if (!removed) {
-      return res.status(400).json({ error: 'Failed to remove photo' });
+    // Adjust default_photo_index if necessary
+    if (user.default_photo_index >= user.photos.length) {
+      user.default_photo_index = Math.max(0, user.photos.length - 1);
     }
 
     await user.save();
@@ -466,25 +463,13 @@ async function setDefaultPhoto(req, res) {
       return res.status(401).json({ error: 'Not authorized to modify this user profile' });
     }
 
-    // Support both photoId (new) and photoIndex (legacy) params
-    const photoId = req.body.photoId;
-    const photoIndex = req.body.photoIndex !== undefined ? parseInt(req.body.photoIndex) : null;
+    const photoIndex = parseInt(req.body.photoIndex);
 
-    let success;
-    if (photoId) {
-      // New method: Use photo ID
-      success = photoUtils.setDefaultPhotoById(user, photoId);
-    } else if (photoIndex !== null) {
-      // Legacy method: Use photo index
-      success = photoUtils.setDefaultPhotoByIndex(user, photoIndex);
-    } else {
-      return res.status(400).json({ error: 'photoId or photoIndex required' });
+    if (photoIndex < 0 || photoIndex >= user.photos.length) {
+      return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    if (!success) {
-      return res.status(400).json({ error: 'Invalid photo ID or index' });
-    }
-
+    user.default_photo_index = photoIndex;
     await user.save();
 
     // Generate new JWT token with updated user data

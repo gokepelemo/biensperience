@@ -3,8 +3,6 @@
  * Provides internationalization support for currency display
  */
 
-import { logger } from './logger';
-
 /**
  * Currency configuration object
  * Can be extended for multiple currencies and locales
@@ -59,7 +57,7 @@ export function setDefaultCurrency(currencyCode) {
   if (currencyConfig[currencyCode]) {
     defaultCurrency = currencyCode;
   } else {
-    logger.warn('Currency not found, using USD', { currencyCode });
+    console.warn(`Currency ${currencyCode} not found. Using USD.`);
     defaultCurrency = 'USD';
   }
 }

@@ -6,7 +6,6 @@ const Plan = require('../../models/plan');
 const permissions = require('../../utilities/permissions');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require('../../utilities/backend-logger');
-const photoUtils = require('../../utilities/photo-utils');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -595,7 +594,7 @@ async function deletePlanItem(req, res) {
  * Kept for backward compatibility during migration
  */
 async function addUser(req, res) {
-  backendLogger.warn('addUser endpoint is deprecated', { endpoint: 'POST /api/plans/experience/:experienceId' });
+  console.warn('addUser endpoint is deprecated. Use POST /api/plans/experience/:experienceId instead');
   res.status(410).json({ 
     error: 'This endpoint is deprecated',
     message: 'Please use POST /api/plans/experience/:experienceId to create a plan',
@@ -609,7 +608,7 @@ async function addUser(req, res) {
  * Kept for backward compatibility during migration
  */
 async function removeUser(req, res) {
-  backendLogger.warn('removeUser endpoint is deprecated', { endpoint: 'DELETE /api/plans/:id' });
+  console.warn('removeUser endpoint is deprecated. Use DELETE /api/plans/:id instead');
   res.status(410).json({ 
     error: 'This endpoint is deprecated',
     message: 'Please use DELETE /api/plans/:id to remove a plan',
@@ -623,7 +622,7 @@ async function removeUser(req, res) {
  * Kept for backward compatibility during migration
  */
 async function userPlanItemDone(req, res) {
-  backendLogger.warn('userPlanItemDone endpoint is deprecated', { endpoint: 'PATCH /api/plans/:id/items/:itemId' });
+  console.warn('userPlanItemDone endpoint is deprecated. Use PATCH /api/plans/:id/items/:itemId instead');
   res.status(410).json({ 
     error: 'This endpoint is deprecated',
     message: 'Please use PATCH /api/plans/:id/items/:itemId to update plan item completion',
@@ -816,14 +815,12 @@ async function removePhoto(req, res) {
       return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    // Get the photo ID before removing
-    const photoId = experience.photos[photoIndex]._id;
+    // Remove photo from array
+    experience.photos.splice(photoIndex, 1);
 
-    // Remove photo using utility (handles default photo adjustment)
-    const removed = photoUtils.removePhoto(experience, photoId);
-
-    if (!removed) {
-      return res.status(400).json({ error: 'Failed to remove photo' });
+    // Adjust default_photo_index if necessary
+    if (experience.default_photo_index >= experience.photos.length) {
+      experience.default_photo_index = Math.max(0, experience.photos.length - 1);
     }
 
     await experience.save();
@@ -857,25 +854,13 @@ async function setDefaultPhoto(req, res) {
       });
     }
 
-    // Support both photoId (new) and photoIndex (legacy) params
-    const photoId = req.body.photoId;
-    const photoIndex = req.body.photoIndex !== undefined ? parseInt(req.body.photoIndex) : null;
+    const photoIndex = parseInt(req.body.photoIndex);
 
-    let success;
-    if (photoId) {
-      // New method: Use photo ID
-      success = photoUtils.setDefaultPhotoById(experience, photoId);
-    } else if (photoIndex !== null) {
-      // Legacy method: Use photo index
-      success = photoUtils.setDefaultPhotoByIndex(experience, photoIndex);
-    } else {
-      return res.status(400).json({ error: 'photoId or photoIndex required' });
+    if (photoIndex < 0 || photoIndex >= experience.photos.length) {
+      return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    if (!success) {
-      return res.status(400).json({ error: 'Invalid photo ID or index' });
-    }
-
+    experience.default_photo_index = photoIndex;
     await experience.save();
 
     res.status(200).json(experience);

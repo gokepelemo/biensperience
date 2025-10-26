@@ -7,7 +7,6 @@ import { lang } from "../../lang.constants";
 import Alert from "../Alert/Alert";
 import AlertModal from "../AlertModal/AlertModal";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
-import { logger } from "../../utilities/logger";
 
 /**
  * Sanitizes text for safe display in JSX
@@ -235,9 +234,9 @@ export default function ImageUpload({ data, setData }) {
     if (photoToRemove._id) {
       try {
         await deletePhoto(photoToRemove._id);
-        logger.info('Successfully deleted photo from server', { photoId: photoToRemove._id });
+        console.log('Successfully deleted photo from server:', photoToRemove._id);
       } catch (err) {
-        logger.error('Failed to delete photo from server', { error: err.message, photoId: photoToRemove._id }, err);
+        console.error('Failed to delete photo from server:', err);
         handleError(err);
         return; // Don't remove from local array if server deletion failed
       }

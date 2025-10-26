@@ -5,6 +5,8 @@ import { getUserPlans } from '../utilities/plans-api';
 import { useUser } from './UserContext';
 import { logger } from '../utilities/logger';
 
+logger.debug('DataContext module loaded');
+
 const DataContext = createContext();
 
 /**
@@ -26,6 +28,7 @@ export function useData() {
  * Integrates with UserContext for user-specific data filtering
  */
 export function DataProvider({ children }) {
+  console.log('DataProvider function called');
   const { user, isAuthenticated } = useUser();
   const [destinations, setDestinations] = useState([]);
   const [experiences, setExperiences] = useState([]);
@@ -42,17 +45,21 @@ export function DataProvider({ children }) {
    * @returns {Promise<Array>} Array of destinations
    */
   const fetchDestinations = useCallback(async () => {
+    console.log('fetchDestinations called, user:', user ? user.email : 'null');
     if (!user) {
+      console.log('No user, returning empty array');
       return [];
     }
 
     try {
+      console.log('Calling getDestinations API');
       const data = await getDestinations();
+      console.log('getDestinations returned:', data ? data.length : 'null', 'destinations');
       setDestinations(data || []);
       setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
       return data || [];
     } catch (error) {
-      logger.error('Failed to fetch destinations', { user: user?.email }, error);
+      console.error('Failed to fetch destinations:', error);
       return [];
     }
   }, [user]);
@@ -70,7 +77,7 @@ export function DataProvider({ children }) {
       setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
       return data || [];
     } catch (error) {
-      logger.error('Failed to fetch experiences', { user: user?.email }, error);
+      console.error('Failed to fetch experiences:', error);
       return [];
     }
   }, [user]);
@@ -88,7 +95,7 @@ export function DataProvider({ children }) {
       setLastUpdated(prev => ({ ...prev, plans: new Date() }));
       return data || [];
     } catch (error) {
-      logger.error('Failed to fetch plans', { user: user?.email }, error);
+      console.error('Failed to fetch plans:', error);
       return [];
     }
   }, [user]);
@@ -103,8 +110,11 @@ export function DataProvider({ children }) {
    */
   const refreshAll = useCallback(async (options = {}) => {
     if (!user) {
+      console.log('refreshAll called but no user, returning early');
       return;
     }
+
+    console.log('refreshAll called for user:', user.email, 'with options:', options);
 
     const {
       destinations: refreshDestinations = true,
@@ -117,19 +127,24 @@ export function DataProvider({ children }) {
       const promises = [];
 
       if (refreshDestinations) {
+        console.log('Adding fetchDestinations to promises');
         promises.push(fetchDestinations());
       }
       if (refreshExperiences) {
+        console.log('Adding fetchExperiences to promises');
         promises.push(fetchExperiences());
       }
       if (refreshPlans) {
+        console.log('Adding fetchPlans to promises');
         promises.push(fetchPlans());
       }
 
-      await Promise.all(promises);
+      console.log('Executing', promises.length, 'fetch promises');
+      const results = await Promise.all(promises);
+      console.log('refreshAll completed, results:', results.map(r => r?.length || 0));
 
     } catch (error) {
-      logger.error('Failed to refresh data', { user: user.email }, error);
+      console.error('Failed to refresh data:', error);
     } finally {
       setLoading(false);
     }
@@ -266,9 +281,16 @@ export function DataProvider({ children }) {
 
   // Initial data fetch on mount or when user changes
   useEffect(() => {
+    console.log('DataContext useEffect triggered:', {
+      isAuthenticated,
+      user: user ? { email: user.email, _id: user._id } : null,
+      userId: user?._id
+    });
     if (isAuthenticated && user) {
+      console.log('Calling refreshAll() for user:', user.email);
       refreshAll();
     } else {
+      console.log('Clearing data - user not authenticated or user is null');
       // Clear data when user logs out
       setDestinations([]);
       setExperiences([]);

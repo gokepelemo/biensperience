@@ -1,6 +1,7 @@
 /**
  * React hook for automatic form data persistence
  * Saves form state to localStorage and restores on mount
+ * Supports encryption and user-specific storage
  *
  * @module useFormPersistence
  */
@@ -17,8 +18,9 @@ import { logger } from '../utilities/logger';
  * @param {Function} setFormData - State setter function for form data
  * @param {Object} options - Configuration options
  * @param {boolean} options.enabled - Enable/disable persistence (default: true)
+ * @param {string} options.userId - User ID for encryption and user-specific storage
  * @param {number} options.ttl - Time to live in milliseconds (default: 24 hours)
- * @param {number} options.debounceMs - Debounce save operations (default: 500ms)
+ * @param {number} options.debounceMs - Debounce save operations (default: 1000ms)
  * @param {Function} options.onRestore - Callback when data is restored
  * @param {Function} options.shouldSave - Function to determine if data should be saved
  * @param {Array<string>} options.excludeFields - Fields to exclude from persistence
@@ -28,8 +30,9 @@ import { logger } from '../utilities/logger';
 export function useFormPersistence(formId, formData, setFormData, options = {}) {
   const {
     enabled = true,
+    userId = null,
     ttl = 24 * 60 * 60 * 1000, // 24 hours
-    debounceMs = 500,
+    debounceMs = 1000,
     onRestore = null,
     shouldSave = null,
     excludeFields = []
@@ -93,7 +96,7 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
     }
 
     // Set new timer
-    saveTimerRef.current = setTimeout(() => {
+    saveTimerRef.current = setTimeout(async () => {
       // Check if we should save
       if (shouldSave && !shouldSave(formData)) {
         logger.debug('Form persistence skipped by shouldSave predicate', { formId });
@@ -101,33 +104,40 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
       }
 
       const dataToSave = filterData(formData);
-      saveFormData(formId, dataToSave, ttl);
+      await saveFormData(formId, dataToSave, ttl, userId);
     }, debounceMs);
-  }, [enabled, formId, formData, ttl, debounceMs, shouldSave, filterData]);
+  }, [enabled, formId, formData, ttl, debounceMs, shouldSave, filterData, userId]);
 
   /**
    * Restore form data from storage
    */
-  const restore = useCallback(() => {
+  const restore = useCallback(async () => {
     if (!enabled || !formId || hasRestoredRef.current) {
       return false;
     }
 
-    const savedData = loadFormData(formId);
+    const savedData = await loadFormData(formId, true, userId);
     if (savedData) {
-      const age = getFormDataAge(formId);
+      const age = getFormDataAge(formId, userId);
+
+      // Log with actual values for debugging
+      const dataPreview = Object.keys(savedData).reduce((acc, key) => {
+        const value = savedData[key];
+        acc[key] = Array.isArray(value) ? `Array(${value.length})` : typeof value;
+        return acc;
+      }, {});
+
       logger.info('Restoring form data', {
         formId,
+        userId: userId ? 'provided' : 'none',
+        encrypted: !!userId,
         ageMs: age,
-        fields: Object.keys(savedData)
+        fields: dataPreview
       });
 
-      // Merge saved data with current form data
-      // This preserves any fields that weren't saved
-      setFormData(prevData => ({
-        ...prevData,
-        ...savedData
-      }));
+      // Call setFormData directly with the saved data
+      // The parent component's setFormData will handle splitting it appropriately
+      setFormData(savedData);
 
       hasRestoredRef.current = true;
 
@@ -140,7 +150,7 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
     }
 
     return false;
-  }, [enabled, formId, setFormData, onRestore]);
+  }, [enabled, formId, setFormData, onRestore, userId]);
 
   /**
    * Clear persisted data
@@ -150,10 +160,10 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
       clearTimeout(saveTimerRef.current);
     }
     if (formId) {
-      clearFormData(formId);
-      logger.debug('Form persistence cleared', { formId });
+      clearFormData(formId, userId);
+      logger.debug('Form persistence cleared', { formId, userId: userId ? 'provided' : 'none' });
     }
-  }, [formId]);
+  }, [formId, userId]);
 
   /**
    * Check if there's saved data available
@@ -162,8 +172,8 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
     if (!formId) {
       return false;
     }
-    return hasFormData(formId);
-  }, [formId]);
+    return hasFormData(formId, userId);
+  }, [formId, userId]);
 
   // Restore data on mount
   useEffect(() => {
@@ -200,12 +210,12 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
   }, []);
 
   return {
-    save: () => {
+    save: async () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
       }
       const dataToSave = filterData(formData);
-      saveFormData(formId, dataToSave, ttl);
+      await saveFormData(formId, dataToSave, ttl, userId);
     },
     restore,
     clear,
@@ -225,12 +235,8 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
  */
 export function usePersistedFormState(formId, initialData, options = {}) {
   const [formData, setFormData] = useState(() => {
-    // Try to load saved data on initialization
-    const saved = loadFormData(formId);
-    if (saved) {
-      logger.info('Initializing form with saved data', { formId });
-      return { ...initialData, ...saved };
-    }
+    // Note: Cannot use async in useState initializer
+    // Data will be loaded in useEffect via restore() instead
     return initialData;
   });
 

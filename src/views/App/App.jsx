@@ -28,11 +28,14 @@ import ConfirmEmail from "../ConfirmEmail/ConfirmEmail";
 import { handleOAuthCallback } from "../../utilities/oauth-service";
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
 
+console.log('App.jsx loaded');
+
 /**
  * Main application component wrapper
  * Provides all context providers in the correct order
  */
 export default function App() {
+  console.log('App component function called');
   return (
     <ToastProvider>
       <UserProvider>
@@ -51,9 +54,19 @@ export default function App() {
  * Separated from App to allow hooks usage
  */
 function AppContent() {
+  console.log('AppContent component function called');
+
+  console.log('About to call useUser');
   const { updateUser, isAuthenticated } = useUser();
+  console.log('useUser completed, isAuthenticated:', isAuthenticated);
+
+  console.log('About to call useApp');
   const { isScrolled } = useApp();
+  console.log('useApp completed');
+
+  console.log('About to call useToast');
   const { success, error: showError } = useToast();
+  console.log('useToast completed');
 
     // Handle OAuth callback on mount
     useEffect(() => {

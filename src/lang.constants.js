@@ -8,6 +8,7 @@ const en = {
     addCollaborators: "Manage Collaborators",
     adding: "Adding...",
     cancel: "Cancel",
+    clearForm: "Clear Form",
     create: "Create",
     delete: "Delete",
     confirmUpdate: "Confirm Update",
@@ -241,6 +242,17 @@ const en = {
     personCreatingPlan: "{count} person is creating this plan",
     peoplePlanningExperience: "{count} people are planning this experience",
     personPlanningExperience: "{count} person is planning this experience",
+  },
+
+  formPersistence: {
+    momentsAgo: "moments ago",
+    minutesAgo: "{minutes} minute{plural} ago",
+    hoursAgo: "{hours} hour{plural} ago",
+    daysAgo: "{days} day{plural} ago",
+    restoredCreating: "Your progress was restored from {timeAgo}. You can continue creating.",
+    restoredUpdating: "Your progress was restored from {timeAgo}. You can continue updating.",
+    savedSuccessfully: "Form progress saved",
+    clearingForm: "Clearing saved form data...",
   },
 
   nav: {
