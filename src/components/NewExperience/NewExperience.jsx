@@ -81,14 +81,45 @@ export default function NewExperience() {
       const inputValue = e.target.value;
       setDestinationInput(inputValue);
 
-      // Check if user selected "+ Create New Destination"
-      if (inputValue === '+ Create New Destination') {
+      // Check if user selected create new destination option
+      // Matches: "✚ Create New: [text]", "✚ Create New Destination", or variations
+      if (inputValue.includes('✚ Create New') ||
+          inputValue === '+ Create New Destination' ||
+          inputValue.startsWith('Create "')) {
         setShowDestinationModal(true);
         // Clear the field so the special value doesn't persist
         setNewExperience(prev => ({ ...prev, destination: '' }));
       }
     }
   }
+
+  // Get filtered destinations and always add create option at the end
+  const getDestinationOptions = () => {
+    const input = destinationInput || newExperience.destination || '';
+    const options = [...destinations];
+
+    // Always add the create new destination option at the end
+    // The browser will show it when relevant based on input matching
+    if (input.trim() !== '') {
+      // Format: "✚ Create New: [user's input]"
+      options.push({
+        _id: 'create-new',
+        name: `✚ Create New`,
+        country: input, // Use country field to show the input
+        isCreateOption: true
+      });
+    } else {
+      // When empty, just show generic create option
+      options.push({
+        _id: 'create-new-generic',
+        name: '✚ Create New Destination',
+        country: '',
+        isCreateOption: true
+      });
+    }
+
+    return options;
+  };
 
   function handleDestinationCreated(newDestination) {
     // Add to local destinations list
@@ -165,8 +196,8 @@ export default function NewExperience() {
   return (
     <>
       <div className="row fade-in">
-        <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">{lang.en.heading.createExperience}</h1>
+        <div className="col-md-12 fade-in">
+          <h1 className="my-4 h fade-in text-center">{lang.en.heading.createExperience}</h1>
         </div>
       </div>
 
@@ -219,13 +250,23 @@ export default function NewExperience() {
                 className="mb-2"
               />
               <datalist type="text" id="destination_list">
-                {destinations.length &&
-                  destinations.map((destination, index) => {
+                {getDestinationOptions().map((destination, index) => {
+                  // Handle create option differently
+                  if (destination.isCreateOption) {
+                    const value = destination.country
+                      ? `${destination.name}: ${destination.country}`
+                      : destination.name;
                     return (
-                      <option key={index} value={`${destination.name}, ${destination.country}`} />
+                      <option key={destination._id} value={value}>
+                        {value}
+                      </option>
                     );
-                  })}
-                <option value="+ Create New Destination">+ Create New Destination</option>
+                  }
+                  // Regular destination option
+                  return (
+                    <option key={destination._id || index} value={`${destination.name}, ${destination.country}`} />
+                  );
+                })}
               </datalist>
               <small className="form-text text-muted">
                 {lang.en.helper.destinationRequired}

@@ -137,8 +137,8 @@ export default function NewDestination() {
   return (
     <>
       <div className="row fade-in">
-        <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">{lang.en.heading.createDestination}</h1>
+        <div className="col-md-12 fade-in">
+          <h1 className="my-4 h fade-in text-center">{lang.en.heading.createDestination}</h1>
         </div>
       </div>
 

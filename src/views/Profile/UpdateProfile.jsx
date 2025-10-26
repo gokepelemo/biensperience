@@ -271,10 +271,10 @@ export default function UpdateProfile() {
       />
 
       <div className="row fade-in">
-        <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">
-            {isAdminMode ? 
-              `Edit User: ${currentUser?.name}` : 
+        <div className="col-md-12 fade-in">
+          <h1 className="my-4 h fade-in text-center">
+            {isAdminMode ?
+              `Edit User: ${currentUser?.name}` :
               lang.en.heading.updateProfile.replace('{name}', user.name)
             }
           </h1>
