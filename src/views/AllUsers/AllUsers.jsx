@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { Badge } from "react-bootstrap";
 import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
 import { useUser } from "../../contexts/UserContext";
 import { useApp } from "../../contexts/AppContext";
@@ -350,7 +351,7 @@ export default function AllUsers() {
                           return (
                             <tr key={userData._id} className={isCurrentUser ? 'current-user' : ''}>
                               <td>
-                                <div className="d-flex align-items-center">
+                                <div className="d-flex align-items-center gap-2">
                                   <Link
                                     to={`/profile/${userData._id}`}
                                     className="user-name-link"
@@ -358,7 +359,7 @@ export default function AllUsers() {
                                     {userData.name}
                                   </Link>
                                   {isCurrentUser && (
-                                    <span className="badge bg-info ms-2">You</span>
+                                    <Badge bg="info">You</Badge>
                                   )}
                                 </div>
                               </td>

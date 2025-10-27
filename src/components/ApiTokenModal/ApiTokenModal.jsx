@@ -318,6 +318,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                   <Button
                     type="submit"
                     variant="primary"
+                    className="generate-token"
                     disabled={isCreating}
                   >
                     {isCreating ? 'Creating...' : 'Generate Token'}
