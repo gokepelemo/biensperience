@@ -222,30 +222,41 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
   })
   .sort({ updatedAt: -1 });
 
-  // Manually populate collaborator user data in permissions array
-  const plansWithCollaborators = await Promise.all(plans.map(async (plan) => {
+  // OPTIMIZATION: Batch fetch all unique user IDs across all plans in ONE query
+  // This replaces N queries (one per plan) with a single query
+  const allUserIds = new Set();
+  plans.forEach(plan => {
+    if (plan.permissions && plan.permissions.length > 0) {
+      plan.permissions
+        .filter(p => p.entity === 'user')
+        .forEach(p => allUserIds.add(p._id.toString()));
+    }
+  });
+
+  // Single batch query for all users with .lean() for performance
+  const allUsers = await User.find({ _id: { $in: Array.from(allUserIds) } })
+    .select('name email photo photos default_photo_index')
+    .populate('photo', 'url caption')
+    .lean()
+    .exec();
+
+  // Create user lookup map (O(1) access)
+  const userMap = {};
+  allUsers.forEach(u => {
+    userMap[u._id.toString()] = {
+      name: u.name,
+      email: u.email,
+      _id: u._id,
+      photo: u.photo,
+      photos: u.photos,
+      default_photo_index: u.default_photo_index
+    };
+  });
+
+  // Enhance all plans with user data (no async operations needed)
+  const plansWithCollaborators = plans.map(plan => {
     const planObj = plan.toObject();
     if (planObj.permissions && planObj.permissions.length > 0) {
-      const userPermissions = planObj.permissions.filter(p => p.entity === 'user');
-      const userIds = userPermissions.map(p => p._id);
-      const users = await User.find({ _id: { $in: userIds } })
-        .select('name email photo photos default_photo_index')
-        .populate('photo', 'url caption');
-      
-      // Create a map for quick lookup
-      const userMap = {};
-      users.forEach(u => {
-        userMap[u._id.toString()] = { 
-          name: u.name, 
-          email: u.email, 
-          _id: u._id,
-          photo: u.photo,
-          photos: u.photos,
-          default_photo_index: u.default_photo_index
-        };
-      });
-      
-      // Enhance permissions with user data
       planObj.permissions = planObj.permissions.map(p => {
         if (p.entity === 'user' && userMap[p._id.toString()]) {
           return {
@@ -257,7 +268,7 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
       });
     }
     return planObj;
-  }));
+  });
 
   res.json(plansWithCollaborators);
 });

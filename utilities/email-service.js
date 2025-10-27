@@ -8,8 +8,18 @@ const backendLogger = require('./backend-logger');
 const { lang } = require('./lang.constants');
 const { version } = require('../package.json');
 
-// Initialize Resend with API key
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend with API key (mock in test environment)
+let resend;
+if (process.env.NODE_ENV === 'test') {
+  // Mock Resend in test environment to avoid "Headers is not defined" error
+  resend = {
+    emails: {
+      send: async () => ({ data: { id: 'test-email-id' }, error: null })
+    }
+  };
+} else {
+  resend = new Resend(process.env.RESEND_API_KEY);
+}
 
 // Email configuration
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@biensperience.com';

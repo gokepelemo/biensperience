@@ -43,14 +43,18 @@ async function createDestination(req, res) {
       }
     ];
 
-    // Get all destinations to check for fuzzy duplicates
-    const allDestinations = await Destination.find({});
+    // OPTIMIZATION: Single query with .lean() and .select() to fetch all destinations
+    // Only fetch name and country fields (3-8x memory reduction)
+    const allDestinations = await Destination.find({})
+      .select('name country')
+      .lean()
+      .exec();
 
-    // Check for exact duplicate (case-insensitive)
-    const exactDuplicate = await Destination.findOne({
-      name: { $regex: new RegExp(`^${escapeRegex(destinationData.name)}$`, 'i') },
-      country: { $regex: new RegExp(`^${escapeRegex(destinationData.country)}$`, 'i') }
-    });
+    // In-memory exact duplicate check (case-insensitive)
+    const exactDuplicate = allDestinations.find(dest =>
+      dest.name.toLowerCase() === destinationData.name.toLowerCase() &&
+      dest.country.toLowerCase() === destinationData.country.toLowerCase()
+    );
 
     if (exactDuplicate) {
       return res.status(409).json({

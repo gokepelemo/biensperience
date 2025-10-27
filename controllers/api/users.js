@@ -89,13 +89,16 @@ async function login(req, res) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const user = await User.findOne({ email: email }).populate("photo");
-    
+    // OPTIMIZATION: Use .lean() for read-only query (Phase 3.2)
+    const user = await User.findOne({ email: email })
+      .populate("photo")
+      .lean();
+
     // Check if user exists before attempting password comparison
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
+
     const passwordTest = await bcrypt.compare(req.body.password, user.password);
     
     if (!passwordTest) {
@@ -122,13 +125,16 @@ async function getUser(req, res) {
     }
     const userId = new mongoose.Types.ObjectId(req.params.id);
 
-    const user = await User.findOne({ _id: userId }).populate("photo");
-    
+    // OPTIMIZATION: Use .lean() for read-only query (Phase 3.2)
+    const user = await User.findOne({ _id: userId })
+      .populate("photo")
+      .lean();
+
     // Return 404 if user doesn't exist
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     res.status(200).json(user);
   } catch (err) {
     backendLogger.error('Error fetching user', { error: err.message, userId: req.params.id });

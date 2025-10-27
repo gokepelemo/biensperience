@@ -129,6 +129,10 @@ planSchema.index({ experience: 1, user: 1 }, { unique: true }); // One plan per 
 planSchema.index({ user: 1 });
 planSchema.index({ experience: 1 });
 
+// OPTIMIZATION: Compound index for permission-based queries (Phase 2.3)
+// Supports queries that filter by experience and permission entities
+planSchema.index({ experience: 1, 'permissions._id': 1, 'permissions.type': 1 });  // For getExperiencePlans queries
+
 /**
  * Virtual for total estimated cost of plan
  */

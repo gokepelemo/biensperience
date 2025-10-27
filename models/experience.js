@@ -150,4 +150,8 @@ experienceSchema.index({ experience_type: 1 });  // For tag filtering
 experienceSchema.index({ destination: 1, createdAt: -1 });  // Compound index for common query patterns
 experienceSchema.index({ createdAt: -1 });  // For sorting by creation date
 
+// OPTIMIZATION: Compound index for duplicate checking queries (Phase 2.3)
+// Supports queries that filter by permissions and check for duplicate names
+experienceSchema.index({ 'permissions._id': 1, 'permissions.type': 1, name: 1 });  // For owner duplicate checks
+
 module.exports = mongoose.model("Experience", experienceSchema);
