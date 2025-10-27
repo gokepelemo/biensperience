@@ -8,20 +8,13 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const imageAlt = altText || title || lang.en.image.alt.photo;
 
-  // Determine photos array - support both old (single photo) and new (photos array) formats
+  // Determine photos array
   const photoArray = useMemo(() => {
     if (photos && photos.length > 0) {
       return photos;
-    } else if (photo && photo.url) {
-      // Backward compatibility: convert single photo to array (only if it has a URL)
-      return [{
-        url: photo.url,
-        photo_credit: photo.photo_credit,
-        photo_credit_url: photo.photo_credit_url
-      }];
     }
     return [];
-  }, [photo, photos]);
+  }, [photos]);
 
   const defaultIndex = defaultPhotoIndex || 0;
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(defaultIndex);

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Modal from './Modal';
+import { logger } from '../../utilities/logger';
 
 /**
  * Example component demonstrating Modal usage
@@ -18,7 +19,7 @@ export default function ModalExamples() {
     setLoading(true);
     // Simulate API call
     setTimeout(() => {
-      console.log('Form submitted:', formData);
+      logger.debug('Form submitted', { formData });
       setLoading(false);
       setShowForm(false);
       setFormData({ name: '', email: '' });
@@ -26,7 +27,7 @@ export default function ModalExamples() {
   };
 
   const handleDangerAction = () => {
-    console.log('Danger action confirmed');
+    logger.debug('Danger action confirmed');
     setShowDanger(false);
   };
 
@@ -86,7 +87,7 @@ export default function ModalExamples() {
         show={showBasic}
         onClose={() => setShowBasic(false)}
         onSubmit={() => {
-          console.log('Basic modal submitted');
+          logger.debug('Basic modal submitted');
           setShowBasic(false);
         }}
         title="Basic Modal"
@@ -139,7 +140,7 @@ export default function ModalExamples() {
             <button 
               className="btn btn-warning" 
               onClick={() => {
-                console.log('Option 1 selected');
+                logger.debug('Option 1 selected');
                 setShowCustom(false);
               }}
             >
@@ -148,7 +149,7 @@ export default function ModalExamples() {
             <button 
               className="btn btn-info" 
               onClick={() => {
-                console.log('Option 2 selected');
+                logger.debug('Option 2 selected');
                 setShowCustom(false);
               }}
             >
@@ -157,7 +158,7 @@ export default function ModalExamples() {
             <button 
               className="btn btn-success" 
               onClick={() => {
-                console.log('Option 3 selected');
+                logger.debug('Option 3 selected');
                 setShowCustom(false);
               }}
             >

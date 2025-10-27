@@ -8,6 +8,7 @@ import PageMeta from "../../components/PageMeta/PageMeta";
 import Alert from "../../components/Alert/Alert";
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
+import { logger } from "../../utilities/logger";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
 import { lang } from "../../lang.constants";
@@ -39,7 +40,7 @@ export default function AllUsers() {
       const allUsers = await getAllUsers();
       setUsers(allUsers);
     } catch (err) {
-      console.error('Error fetching users:', err);
+      logger.error('Error fetching users', { error: err.message });
       setError('Failed to load users');
       handleError(err);
     } finally {
@@ -166,6 +167,11 @@ export default function AllUsers() {
     return { superAdmins, regularUsers, total: users.length };
   };
 
+  // Helper function for singular/plural labels
+  const getUserLabel = (count, singular, plural) => {
+    return count === 1 ? `${count} ${singular}` : `${count} ${plural}`;
+  };
+
   if (!isCurrentUserSuperAdmin) {
     return (
       <>
@@ -211,15 +217,16 @@ export default function AllUsers() {
           </div>
 
           {/* Stats Cards */}
+                    {/* Stats Cards */}
           <div className="row mb-4">
             <div className="col-md-4 mb-3 mb-md-0">
               <div className="stat-card stat-card-primary">
                 <div className="stat-card-icon">
                   <FaUser />
                 </div>
-                <div className="stat-card-content">
+                                <div className="stat-card-content">
                   <div className="stat-card-value">{stats.total}</div>
-                  <div className="stat-card-label">{lang.en.admin.totalUsers}</div>
+                  <div className="stat-card-label">{getUserLabel(stats.total, 'Total User', 'Total Users')}</div>
                 </div>
               </div>
             </div>
@@ -228,9 +235,9 @@ export default function AllUsers() {
                 <div className="stat-card-icon">
                   <FaUserShield />
                 </div>
-                <div className="stat-card-content">
+                                <div className="stat-card-content">
                   <div className="stat-card-value">{stats.superAdmins}</div>
-                  <div className="stat-card-label">{lang.en.admin.superAdmins}</div>
+                  <div className="stat-card-label">{getUserLabel(stats.superAdmins, 'Super Admin', 'Super Admins')}</div>
                 </div>
               </div>
             </div>
@@ -241,7 +248,7 @@ export default function AllUsers() {
                 </div>
                 <div className="stat-card-content">
                   <div className="stat-card-value">{stats.regularUsers}</div>
-                  <div className="stat-card-label">{lang.en.admin.regularUsers}</div>
+                  <div className="stat-card-label">{getUserLabel(stats.regularUsers, 'Regular User', 'Regular Users')}</div>
                 </div>
               </div>
             </div>

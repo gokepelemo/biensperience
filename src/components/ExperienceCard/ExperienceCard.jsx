@@ -125,11 +125,6 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
       return `url(${experience.photos[index].url})`;
     }
     
-    // Backward compatibility: if single photo exists
-    if (experience.photo && experience.photo.url) {
-      return `url(${experience.photo.url})`;
-    }
-    
     // Fallback to placeholder
     return `url(https://picsum.photos/400?rand=${rand})`;
   }, [experience, rand]);
@@ -165,7 +160,7 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
           // OPTIMIZATION 3: Fire-and-forget deletion
           // Don't await - let it complete in background
           deletePlan(userPlan._id).catch(err => {
-            console.error('Failed to delete plan:', err);
+            logger.error('Failed to delete plan', { planId: userPlan._id, error: err.message });
             // Revert UI on failure
             setLocalPlanState(true);
             handleError(err, { context: 'Remove plan' });
@@ -186,7 +181,7 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
         // Only refresh on create (when we might need new plan data)
         // Don't refresh on delete (we already updated UI optimistically)
         updateData().catch(err => {
-          console.warn('Failed to refresh data after plan creation:', err);
+          logger.warn('Failed to refresh data after plan creation', { error: err.message });
         });
       }
     } catch (err) {

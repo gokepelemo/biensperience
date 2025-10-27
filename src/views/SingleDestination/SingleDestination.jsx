@@ -8,6 +8,7 @@ import { useApp } from "../../contexts/AppContext";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
+import { logger } from "../../utilities/logger";
 import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
 import PageMeta from "../../components/PageMeta/PageMeta";
@@ -30,7 +31,7 @@ export default function SingleDestination() {
       // Refresh destinations list in background
       fetchDestinations();
     } catch (error) {
-      console.error('Error fetching destination:', error);
+      logger.error('Error fetching destination', { destinationId, error: error.message });
     }
   }, [destinationId, fetchDestinations]);
 
@@ -104,7 +105,8 @@ export default function SingleDestination() {
           keywords={`${destination.name}, ${destination.country}, travel destination, tourism${destination.state ? `, ${destination.state}` : ''}, experiences, travel tips`}
           ogTitle={`${destination.name}, ${destination.country}`}
           ogDescription={`${destinationExperiences.length > 0 ? `Explore ${destinationExperiences.length} unique experiences in ${destination.name}. ` : ''}${destination.travel_tips && destination.travel_tips.length > 0 ? destination.travel_tips[0] : `Plan your trip to ${destination.name} today.`}`}
-          ogImage={destination.photo || '/logo.png'}
+          entity={destination}
+          entityType="destination"
         />
       )}
       <>

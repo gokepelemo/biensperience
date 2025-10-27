@@ -271,6 +271,16 @@ export default function NavBar() {
                     Profile
                   </NavLink>
                 </li>
+                <li role="none">
+                  <NavLink
+                    to="/invites"
+                    className="dropdown-item"
+                    role="menuitem"
+                    aria-label="Track your invite codes"
+                  >
+                    Invites
+                  </NavLink>
+                </li>
                 {isSuper() && (
                   <li role="none">
                     <NavLink

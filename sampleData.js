@@ -8,6 +8,7 @@ const Destination = require('./models/destination');
 const Experience = require('./models/experience');
 const Photo = require('./models/photo');
 const Plan = require('./models/plan');
+const backendLogger = require('./utilities/backend-logger');
 
 /**
  * Parse command line arguments
@@ -40,7 +41,7 @@ function parseArgs() {
  * Display help information
  */
 function showHelp() {
-  console.log(`
+  backendLogger.info(`
 Biensperience Sample Data Generator
 
 Usage: node sampleData.js [options]
@@ -116,13 +117,13 @@ async function getSuperAdminDetails(args) {
 
   // If name not provided via flag, prompt interactively
   if (!adminName) {
-    console.log('\n👤 Super Admin Setup');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    backendLogger.info('\n👤 Super Admin Setup');
+    backendLogger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     adminName = await promptUser('Enter super admin full name: ');
 
     // Validate name is not empty
     while (!adminName || adminName.length === 0) {
-      console.log('❌ Name cannot be empty.');
+      backendLogger.warn('❌ Name cannot be empty.');
       adminName = await promptUser('Enter super admin full name: ');
     }
   }
@@ -134,12 +135,12 @@ async function getSuperAdminDetails(args) {
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     while (!adminEmail || !emailRegex.test(adminEmail)) {
-      console.log('❌ Invalid email format.');
+      backendLogger.warn('❌ Invalid email format.');
       adminEmail = await promptUser('Enter super admin email address: ');
     }
   }
 
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  backendLogger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   return { adminName, adminEmail };
 }
@@ -670,19 +671,19 @@ class OutputManager {
   }
 
   log(message) {
-    console.log(message);
+    backendLogger.info(message);
     this.output.push(message);
   }
 
   error(message) {
-    console.error(message);
+    backendLogger.error(message);
     this.output.push(`ERROR: ${message}`);
   }
 
   writeToFile() {
     const content = this.output.join('\n');
     fs.writeFileSync(this.filePath, content, 'utf8');
-    console.log(`\n📄 Output saved to: ${this.filePath}`);
+    backendLogger.info(`Output saved to file`, { filePath: this.filePath });
   }
 }
 
@@ -885,4 +886,4 @@ async function createSampleData() {
 }
 
 // Run the function
-createSampleData().catch(console.error);
+createSampleData().catch(error => backendLogger.error('Sample data creation failed', error));

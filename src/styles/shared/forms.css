@@ -66,7 +66,7 @@ input[type="url"],
 textarea,
 select {
     font-size: clamp(0.875rem, 1.5vw, 1.1rem) !important;
-    padding: clamp(0.5rem, 1.5vw, 0.875rem) clamp(0.75rem, 2vw, 1.25rem) !important;
+    padding: clamp(0.5rem, 1.5vw, 0.875rem) clamp(0.75rem, 2vw, 1.25rem);
     min-height: clamp(2.5rem, 6vw, 3.5rem);
     line-height: 1.5;
     border-radius: clamp(0.5rem, 1vw, 0.75rem);
@@ -283,6 +283,34 @@ small.form-text {
         outline: 3px solid currentColor;
         outline-offset: 2px;
     }
+}
+
+/* ========================================
+   Checkbox and Radio Button Styles
+   ======================================== */
+
+/* Fix spacing between checkbox/radio and label */
+.form-check {
+    padding-left: 0;
+    margin-bottom: 1rem;
+}
+
+.form-check-input {
+    margin-right: 0.75rem;
+    margin-top: 0.25rem;
+    float: left;
+}
+
+.form-check-label {
+    display: inline-block;
+    padding-left: 0;
+    margin-left: 2rem;
+}
+
+/* Ensure checkbox label has proper spacing */
+.form-check .form-check-input + .form-check-label {
+    margin-left: 0;
+    padding-left: 0.5rem;
 }
 
 /* ========================================

@@ -1,0 +1,55 @@
+/**
+ * Invite Code Modal Styles
+ */
+
+.code-display {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+  color: #0d6efd;
+}
+
+/* List group items */
+.list-group-item {
+  transition: background-color 0.2s ease;
+}
+
+.list-group-item:hover {
+  background-color: #f8f9fa;
+}
+
+/* Tabs */
+.nav-tabs .nav-link {
+  color: #6c757d;
+}
+
+.nav-tabs .nav-link.active {
+  color: #0d6efd;
+  font-weight: 600;
+}
+
+/* Form selects for multi-select */
+.form-select[multiple] option {
+  padding: 0.5rem;
+}
+
+.form-select[multiple] option:checked {
+  background-color: #0d6efd;
+  color: white;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .modal-xl {
+    max-width: 100%;
+    margin: 0.5rem;
+  }
+
+  .code-display {
+    font-size: 0.95rem;
+  }
+
+  .form-select[multiple] {
+    height: 80px !important;
+  }
+}

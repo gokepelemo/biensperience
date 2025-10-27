@@ -588,47 +588,7 @@ async function deletePlanItem(req, res) {
   }
 }
 
-/**
- * @deprecated Use Plan model instead
- * Legacy endpoint - redirects to Plan creation
- * Kept for backward compatibility during migration
- */
-async function addUser(req, res) {
-  console.warn('addUser endpoint is deprecated. Use POST /api/plans/experience/:experienceId instead');
-  res.status(410).json({ 
-    error: 'This endpoint is deprecated',
-    message: 'Please use POST /api/plans/experience/:experienceId to create a plan',
-    alternativeEndpoint: `/api/plans/experience/${req.params.experienceId}`
-  });
-}
 
-/**
- * @deprecated Use Plan model instead
- * Legacy endpoint - redirects to Plan deletion
- * Kept for backward compatibility during migration
- */
-async function removeUser(req, res) {
-  console.warn('removeUser endpoint is deprecated. Use DELETE /api/plans/:id instead');
-  res.status(410).json({ 
-    error: 'This endpoint is deprecated',
-    message: 'Please use DELETE /api/plans/:id to remove a plan',
-    note: 'You must first get the plan ID using GET /api/plans'
-  });
-}
-
-/**
- * @deprecated Use Plan model instead
- * Legacy endpoint - redirects to Plan item updates
- * Kept for backward compatibility during migration
- */
-async function userPlanItemDone(req, res) {
-  console.warn('userPlanItemDone endpoint is deprecated. Use PATCH /api/plans/:id/items/:itemId instead');
-  res.status(410).json({ 
-    error: 'This endpoint is deprecated',
-    message: 'Please use PATCH /api/plans/:id/items/:itemId to update plan item completion',
-    note: 'You must first get the plan ID using GET /api/plans'
-  });
-}
 
 /**
  * Get experiences where user has created a plan (contributor permission)
@@ -1273,9 +1233,6 @@ module.exports = {
   createPlanItem,
   updatePlanItem,
   deletePlanItem,
-  addUser,
-  removeUser,
-  userPlanItemDone,
   showUserExperiences,
   showUserCreatedExperiences,
   getTagName,

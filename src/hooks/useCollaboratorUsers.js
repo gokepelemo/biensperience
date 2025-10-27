@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getUserData } from '../utilities/users-api';
 import { debug } from '../utilities/debug';
+import { logger } from '../utilities/logger';
 
 /**
  * Custom hook to fetch and manage collaborator user data
@@ -32,7 +33,7 @@ export function useCollaboratorUsers(userIds = []) {
         try {
           return await getUserData(id);
         } catch (err) {
-          console.warn(`Failed to fetch user ${id}:`, err);
+          logger.warn('Failed to fetch user', { userId: id, error: err.message });
           return null; // Return null for failed fetches
         }
       });

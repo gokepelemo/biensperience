@@ -297,6 +297,73 @@ async function hasRole(userId, resource, requiredRole, models) {
 }
 
 /**
+ * Check if user can view a resource based on visibility settings
+ * @param {string} userId - User ID to check (can be null for anonymous users)
+ * @param {Object} resource - Resource (experience/destination/user)
+ * @param {Object} models - Object containing Destination, Experience, and User models
+ * @returns {Promise<boolean>} - True if user can view the resource
+ */
+async function canView(userId, resource, models) {
+  // Super admins can view everything
+  if (userId && models && models.User) {
+    try {
+      const user = await models.User.findById(userId);
+      if (user && user.isSuperAdmin) {
+        return true;
+      }
+    } catch (error) {
+      backendLogger.error('Error checking super admin status in canView', { error: error.message, userId });
+    }
+  }
+
+  // If no visibility field, default to public (backward compatibility)
+  const visibility = resource.visibility || 'public';
+
+  switch (visibility) {
+    case 'public':
+      // Anyone can view public resources
+      return true;
+
+    case 'contributors':
+      // Only contributors and higher can view
+      if (!userId) return false;
+      return await hasRole(userId, resource, ROLES.CONTRIBUTOR, models);
+
+    case 'private':
+      // Only the owner can view private resources
+      if (!userId) return false;
+      return await hasRole(userId, resource, ROLES.OWNER, models);
+
+    default:
+      // Unknown visibility, default to private for security
+      backendLogger.warn('Unknown visibility setting, defaulting to private', { visibility, resourceId: resource._id });
+      return false;
+  }
+}
+
+/**
+ * Check if user can list/search for a resource in public listings
+ * @param {string} userId - User ID to check (can be null for anonymous users)
+ * @param {Object} resource - Resource (experience/destination/user)
+ * @param {Object} models - Object containing Destination, Experience, and User models
+ * @returns {Promise<boolean>} - True if user can see the resource in listings
+ */
+async function canList(userId, resource, models) {
+  // For users, private means not in search results but still directly linkable
+  if (resource.constructor && resource.constructor.modelName === 'User') {
+    const visibility = resource.visibility || 'public';
+    if (visibility === 'private') {
+      // Private users are not shown in search results unless you're the user yourself
+      return userId && userId.toString() === resource._id.toString();
+    }
+    return true; // Public users are always listable
+  }
+
+  // For other resources, use the same logic as canView
+  return await canView(userId, resource, models);
+}
+
+/**
  * Check if user can edit a resource (owner or collaborator)
  * @param {string} userId - User ID to check
  * @param {Object} resource - Resource (experience/destination)
@@ -642,6 +709,8 @@ module.exports = {
   resolvePermissionsWithInheritance,
   getRolePriority,
   hasRole,
+  canView,
+  canList,
   canEdit,
   isOwner,
   isCollaborator,

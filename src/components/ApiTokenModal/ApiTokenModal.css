@@ -1,0 +1,106 @@
+/**
+ * API Token Modal Styles
+ */
+
+.api-access-toggle {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  transition: all 0.3s ease;
+}
+
+.api-access-toggle:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+form {
+    margin: 2.5rem 0;
+    padding: 0;
+}
+
+button.generate-token {
+  margin: 0 !important;
+  padding: 1.1rem;
+}
+
+.api-access-toggle .form-check-input {
+  cursor: pointer;
+  width: 4rem;
+  height: 2rem;
+  transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  position: relative;
+}
+
+.api-access-toggle .form-check-input::after {
+  transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.api-access-toggle .form-check-input:checked {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.api-access-toggle .form-check-input:focus {
+  box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.25);
+  border-color: #28a745;
+}
+
+/* Token display */
+.user-select-all {
+  user-select: all;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.875rem;
+  word-break: break-all;
+}
+
+/* List group items */
+.list-group-item {
+  transition: background-color 0.2s ease;
+}
+
+.list-group-item:hover {
+  background-color: #f8f9fa;
+}
+
+/* Code blocks */
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.875rem;
+}
+
+code {
+  background-color: #f8f9fa;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .modal-xl {
+    max-width: 100%;
+    margin: 0.5rem;
+  }
+
+  .modal-lg {
+    max-width: 100%;
+    margin: 0.5rem;
+  }
+
+  .api-access-toggle h5 {
+    font-size: 1rem;
+  }
+
+  .api-access-toggle .small {
+    font-size: 0.75rem;
+  }
+
+  pre {
+    font-size: 0.75rem;
+  }
+}
+
+/* Modal body scrolling */
+.modal-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}

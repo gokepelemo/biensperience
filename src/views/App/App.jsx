@@ -1,9 +1,11 @@
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "bootstrap/dist/css/bootstrap.min.css";
+import "../../styles/shared/text-legibility.css";
 import "./App.css";
 import "@fontsource/inter";
 import React, { useEffect } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
+import { HelmetProvider } from 'react-helmet-async';
 import { ToastProvider, useToast } from "../../contexts/ToastContext";
 import { UserProvider, useUser } from "../../contexts/UserContext";
 import { DataProvider } from "../../contexts/DataContext";
@@ -22,30 +24,65 @@ import UpdateExperience from "../../components/UpdateExperience/UpdateExperience
 import NewDestination from "../../components/NewDestination/NewDestination";
 import UpdateDestination from "../../components/UpdateDestination/UpdateDestination";
 import Profile from "../Profile/Profile";
+import { logger } from "../../utilities/logger";
 import AllUsers from "../AllUsers/AllUsers";
+import InviteTracking from "../InviteTracking/InviteTracking";
 import ResetPassword from "../ResetPassword/ResetPassword";
 import ConfirmEmail from "../ConfirmEmail/ConfirmEmail";
 import { handleOAuthCallback } from "../../utilities/oauth-service";
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
+import { Helmet } from 'react-helmet-async';
 
-console.log('App.jsx loaded');
+logger.info('App.jsx loaded');
 
 /**
  * Main application component wrapper
  * Provides all context providers in the correct order
  */
 export default function App() {
-  console.log('App component function called');
+  logger.debug('App component function called');
   return (
-    <ToastProvider>
-      <UserProvider>
-        <AppProvider>
-          <DataProvider>
-            <AppContent />
-          </DataProvider>
-        </AppProvider>
-      </UserProvider>
-    </ToastProvider>
+    <HelmetProvider>
+      <Helmet>
+        {/* Basic meta tags */}
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#9333ea" />
+
+        {/* Open Graph defaults */}
+        <meta property="og:site_name" content="Biensperience" />
+        <meta property="og:type" content="website" />
+
+        {/* Twitter Card defaults */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:site" content="@biensperience" />
+
+        {/* Schema.org defaults */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            'name': 'Biensperience',
+            'description': 'Visual travel experience platform for planning and sharing adventures',
+            'url': window.location.origin,
+            'publisher': {
+              '@type': 'Organization',
+              'name': 'Biensperience'
+            }
+          })}
+        </script>
+      </Helmet>
+
+      <ToastProvider>
+        <UserProvider>
+          <AppProvider>
+            <DataProvider>
+              <AppContent />
+            </DataProvider>
+          </AppProvider>
+        </UserProvider>
+      </ToastProvider>
+    </HelmetProvider>
   );
 }
 
@@ -54,19 +91,19 @@ export default function App() {
  * Separated from App to allow hooks usage
  */
 function AppContent() {
-  console.log('AppContent component function called');
+  logger.debug('AppContent component function called');
 
-  console.log('About to call useUser');
+  logger.debug('About to call useUser');
   const { updateUser, isAuthenticated } = useUser();
-  console.log('useUser completed, isAuthenticated:', isAuthenticated);
+  logger.debug('useUser completed', { isAuthenticated });
 
-  console.log('About to call useApp');
+  logger.debug('About to call useApp');
   const { isScrolled } = useApp();
-  console.log('useApp completed');
+  logger.debug('useApp completed');
 
-  console.log('About to call useToast');
+  logger.debug('About to call useToast');
   const { success, error: showError } = useToast();
-  console.log('useToast completed');
+  logger.debug('useToast completed');
 
     // Handle OAuth callback on mount
     useEffect(() => {
@@ -107,6 +144,7 @@ function AppContent() {
                   <Route path="/profile/:profileId" element={<Profile />} />
                   <Route path="/profile/update" element={<UpdateProfile />} />
                   <Route path="/profile/:userId/update" element={<UpdateProfile />} />
+                  <Route path="/invites" element={<InviteTracking />} />
                   <Route path="/admin/users" element={<AllUsers />} />
                   <Route path="/experiences" element={<Experiences />} />
                   <Route path="/destinations" element={<Destinations />} />

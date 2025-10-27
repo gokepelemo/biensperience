@@ -1,4 +1,4 @@
-import { FaUser, FaPassport, FaCheckCircle } from "react-icons/fa";
+import { FaUser, FaPassport, FaCheckCircle, FaKey } from "react-icons/fa";
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import "./Profile.css";
@@ -9,8 +9,9 @@ import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import Alert from "../../components/Alert/Alert";
+import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
-import { getUserData, updateUserRole, updateUser } from "../../utilities/users-api";
+import { getUserData, updateUserRole, updateUser as updateUserApi } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
 import { handleError } from "../../utilities/error-handler";
 import PageMeta from "../../components/PageMeta/PageMeta";
@@ -20,16 +21,16 @@ import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles"
 import { isSuperAdmin } from "../../utilities/permissions";
 
 export default function Profile() {
-  const { user } = useUser();
+  const { user, updateUser: updateUserContext } = useUser();
   const { destinations, plans } = useData();
   const { registerH1, clearActionButtons } = useApp();
   let { profileId } = useParams();
-  
+
   // Validate profileId format
   if (profileId && (typeof profileId !== 'string' || profileId.length !== 24)) {
     // Invalid profileId format - handled by validation below
   }
-  
+
   let userId = profileId ? profileId : user._id;
   const isOwner = !profileId || profileId === user._id || isSuperAdmin(user);
   const [currentProfile, setCurrentProfile] = useState(isOwner ? user : null);
@@ -43,6 +44,7 @@ export default function Profile() {
   const [userExperiences, setUserExperiences] = useState([]);
   const [createdExperiences, setCreatedExperiences] = useState([]);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [showApiTokenModal, setShowApiTokenModal] = useState(false);
 
   // Deduplicate user experiences by ID
   const uniqueUserExperiences = useMemo(() => {
@@ -143,7 +145,7 @@ export default function Profile() {
 
     setIsUpdatingRole(true);
     try {
-      await updateUser(profileId, { emailConfirmed });
+      await updateUserApi(profileId, { emailConfirmed });
       // Refresh profile data
       await getProfile();
       alert(`Email ${emailConfirmed ? 'confirmed' : 'unconfirmed'} successfully`);
@@ -153,6 +155,23 @@ export default function Profile() {
       setIsUpdatingRole(false);
     }
   };
+
+  const handleUserUpdate = useCallback(async () => {
+    // Refresh user context after API token changes
+    await getProfile();
+    if (isOwner && updateUserContext) {
+      const freshUserData = await getUserData(user._id);
+      updateUserContext(freshUserData);
+    }
+  }, [getProfile, isOwner, updateUserContext, user._id]);
+
+  const handleOpenApiModal = useCallback(() => {
+    setShowApiTokenModal(true);
+  }, []);
+
+  const handleCloseApiModal = useCallback(() => {
+    setShowApiTokenModal(false);
+  }, []);
 
   useEffect(() => {
     getProfile();
@@ -227,10 +246,11 @@ export default function Profile() {
           keywords={`${currentProfile.name}, travel profile, experiences, destinations, travel planning${userExperienceTypes.length > 0 ? `, ${userExperienceTypes.join(', ')}` : ''}`}
           ogTitle={`${currentProfile.name} on Biensperience`}
           ogDescription={`${currentProfile.name} is planning ${uniqueUserExperiences.length} travel experiences${favoriteDestinations.length > 0 ? ` across ${favoriteDestinations.length} favorite destinations` : ''}.`}
-          ogImage={currentProfile.photo || '/logo.png'}
+          entity={currentProfile}
+          entityType="user"
         />
       )}
-      <div className="row fade-in">
+      <div className="row fade-in profile-header-row">
         <div className="col-md-6 fade-in">
           <div className="d-flex align-items-center gap-3 my-4">
             <h1 className="h fade-in mb-0">
@@ -253,8 +273,31 @@ export default function Profile() {
           </div>
         </div>
         <div className="col-md-6 fade-in">
-          <div className="d-flex align-items-center justify-content-end gap-3 my-4">
-            {isOwner && !isLoadingProfile && (
+          <div className="d-flex align-items-center justify-content-end gap-2 my-4 flex-wrap">
+            {isSuperAdmin(user) && !isLoadingProfile && (
+              <>
+                <button
+                  onClick={handleOpenApiModal}
+                  className="btn btn-outline-secondary"
+                  aria-label="API Tokens"
+                  title="Manage API Tokens"
+                  type="button"
+                >
+                  <FaKey className="me-1" /> API Key
+                </button>
+                {isOwner && (
+                  <Link
+                    to="/profile/update"
+                    className="btn btn-primary"
+                    aria-label="Update Profile"
+                    title="Update Profile"
+                  >
+                    ✏️ Update Profile
+                  </Link>
+                )}
+              </>
+            )}
+            {!isSuperAdmin(user) && isOwner && !isLoadingProfile && (
               <Link
                 to="/profile/update"
                 className="btn btn-primary"
@@ -510,6 +553,16 @@ export default function Profile() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* API Token Modal */}
+      {isSuperAdmin(user) && (
+        <ApiTokenModal
+          show={showApiTokenModal}
+          onHide={handleCloseApiModal}
+          user={currentProfile}
+          onUserUpdate={handleUserUpdate}
+        />
       )}
     </>
   );

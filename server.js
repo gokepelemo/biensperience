@@ -6,9 +6,10 @@
  */
 
 const app = require('./app');
+const backendLogger = require('./utilities/backend-logger');
 
 const port = process.env.PORT || 3001;
 
 app.listen(port, function () {
-  console.log(`Express app running on ${port}`);
+  backendLogger.info('Express app started', { port, environment: process.env.NODE_ENV || 'development' });
 });

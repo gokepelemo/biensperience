@@ -8,6 +8,7 @@ import Alert from "../../components/Alert/Alert";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import { createUrlSlug } from "../../utilities/url-utils";
+import { logger } from "../../utilities/logger";
 import * as experiencesAPI from "../../utilities/experiences-api";
 
 export default function ExperiencesByTag() {
@@ -58,7 +59,7 @@ export default function ExperiencesByTag() {
         setActualTagName(response.tagName || tagName);
       } catch (error) {
         // If the API call fails, fall back to the URL slug
-        console.error('Error fetching tag name:', error);
+        logger.error('Error fetching tag name', { tagName, error: error.message });
         setActualTagName(tagName);
       }
     }

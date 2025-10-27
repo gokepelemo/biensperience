@@ -43,13 +43,21 @@ const destinationSchema = new Schema(
     },
     map_location: { type: String },
     users_favorite: [{ type: Schema.Types.ObjectId, ref: "User" }],
-    photo: { type: Schema.Types.ObjectId, ref: "Photo" }, // Keep for backward compatibility during migration
+    photo: { 
+      type: Schema.Types.ObjectId, 
+      ref: "Photo",
+    },
     photos: {
       type: [photoObjectSchema],
       default: []
     },
     default_photo_index: { type: Number, default: 0 },
     travel_tips: [String],
+    visibility: {
+      type: String,
+      enum: ['private', 'contributors', 'public'],
+      default: 'public'
+    },
     permissions: {
       type: [permissionSchema],
       default: [],

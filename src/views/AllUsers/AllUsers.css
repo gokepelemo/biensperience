@@ -3,6 +3,25 @@
 .all-users-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  color: #2d3748;
+}
+
+/* Ensure all headings are visible */
+.all-users-container h1,
+.all-users-container h2,
+.all-users-container h3,
+.all-users-container h4,
+.all-users-container h5,
+.all-users-container h6 {
+  color: #2d3748 !important;
+}
+
+.all-users-container p {
+  color: #4a5568;
+}
+
+.all-users-container .text-muted {
+  color: #718096 !important;
 }
 
 /* Stats Cards */
@@ -126,6 +145,7 @@
 /* Users Table */
 .users-table {
   font-size: 0.9375rem;
+  color: #2d3748;
 }
 
 .users-table thead {
@@ -135,7 +155,7 @@
 
 .users-table th {
   font-weight: 600;
-  color: #2d3748;
+  color: #2d3748 !important;
   border: none;
   padding: 1rem 1.25rem;
   text-transform: uppercase;
@@ -157,6 +177,7 @@
   vertical-align: middle;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid #f7fafc;
+  color: #2d3748 !important;
 }
 
 .users-table tbody tr {

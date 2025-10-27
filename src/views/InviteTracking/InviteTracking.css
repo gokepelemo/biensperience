@@ -1,0 +1,285 @@
+/**
+ * Invite Tracking Styles
+ */
+
+.invite-tracking-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Statistics Cards */
+.stat-card {
+  text-align: center;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card .stat-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: var(--bs-primary);
+}
+
+.stat-card h3 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: var(--bs-dark);
+}
+
+.stat-card p {
+  margin-bottom: 0;
+  font-size: 0.9rem;
+}
+
+/* Invite Code Display */
+.invite-code {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: bold;
+  padding: 0.25rem 0.5rem;
+  background: linear-gradient(
+    135deg,
+    var(--purple-light),
+    var(--purple-medium)
+  );
+  color: white;
+  border-radius: 4px;
+  letter-spacing: 1px;
+}
+
+.invite-code-large {
+  font-family: 'Courier New', monospace;
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(
+    135deg,
+    var(--purple-light),
+    var(--purple-medium)
+  );
+  color: white;
+  border-radius: 6px;
+  letter-spacing: 2px;
+  display: block;
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+/* Invite Details */
+.invite-detail-item {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--bs-gray-200);
+}
+
+.invite-detail-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.invite-detail-item strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--bs-dark);
+}
+
+/* Resource Lists */
+.resource-list {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 0.5rem;
+}
+
+.resource-list li {
+  padding: 0.25rem 0;
+  color: var(--bs-secondary);
+}
+
+.resource-list li::before {
+  content: '•';
+  color: var(--purple-medium);
+  font-weight: bold;
+  display: inline-block;
+  width: 1em;
+  margin-left: -1em;
+  margin-right: 0.5em;
+}
+
+/* User Avatars */
+.user-avatar-small {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--purple-light);
+}
+
+/* Analytics Cards */
+.analytics-card {
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s;
+}
+
+.analytics-card:hover {
+  transform: translateY(-2px);
+}
+
+.analytics-card h6 {
+  color: var(--bs-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  font-weight: normal;
+}
+
+.analytics-card h2 {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin: 0;
+  color: var(--purple-dark);
+}
+
+.analytics-item {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--bs-gray-200);
+}
+
+.analytics-item:last-child {
+  border-bottom: none;
+}
+
+/* Table Customization */
+.table {
+  margin-bottom: 0;
+}
+
+.invite-tracking-container .table thead th {
+  background: linear-gradient(
+    135deg,
+    var(--purple-light),
+    var(--purple-medium)
+  );
+  color: white !important;
+  border: none;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+
+.invite-tracking-container .table tbody td {
+  color: #2d3748 !important;
+}
+
+.table tbody tr {
+  transition: background-color 0.2s;
+}
+
+.table tbody tr:hover {
+  background-color: rgba(var(--purple-light-rgb), 0.1);
+}
+
+/* Tabs */
+.nav-tabs {
+  border-bottom: 2px solid var(--purple-light);
+}
+
+.nav-tabs .nav-link {
+  color: var(--bs-secondary);
+  border: none;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.nav-tabs .nav-link:hover {
+  color: var(--purple-dark);
+  border-color: transparent;
+  background-color: rgba(var(--purple-light-rgb), 0.1);
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--purple-dark);
+  background-color: transparent;
+  border-color: transparent transparent var(--purple-medium) transparent;
+  font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .stat-card h3 {
+    font-size: 1.5rem;
+  }
+
+  .stat-card .stat-icon {
+    font-size: 2rem;
+  }
+
+  .analytics-card h2 {
+    font-size: 2rem;
+  }
+
+  .invite-code-large {
+    font-size: 1.2rem;
+    letter-spacing: 1px;
+  }
+
+  .table {
+    font-size: 0.9rem;
+  }
+
+  .table thead th {
+    font-size: 0.75rem;
+  }
+}
+
+/* Loading State */
+.spinner-border {
+  color: var(--purple-medium);
+}
+
+/* Card Headers */
+.card-header {
+  background: linear-gradient(
+    135deg,
+    var(--purple-light),
+    var(--purple-medium)
+  );
+  color: white;
+  font-weight: 600;
+  border-bottom: none;
+}
+
+.card-header h5,
+.card-header h6 {
+  margin: 0;
+  color: #212529bf;
+}
+
+/* Buttons */
+.btn-outline-primary {
+  border-color: var(--purple-medium);
+  color: var(--purple-medium);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--purple-medium);
+  border-color: var(--purple-medium);
+  color: white;
+}
+
+.btn-outline-secondary {
+  transition: all 0.2s;
+}
+
+.btn-outline-secondary:hover {
+  background-color: var(--bs-secondary);
+  color: white;
+}

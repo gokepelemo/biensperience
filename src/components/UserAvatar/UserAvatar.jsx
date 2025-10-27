@@ -28,18 +28,8 @@ const UserAvatar = ({
   debug.log('UserAvatar - user.name:', user.name);
   debug.log('UserAvatar - user.photo:', user.photo);
 
-  // Helper function to get photo URL from various formats
+  // Helper function to get photo URL from photos array
   const getPhotoUrl = (user) => {
-    // If photo is a string, use it directly (URL) - but only if not empty and not "null"
-    if (typeof user.photo === 'string' && user.photo.trim() && user.photo !== 'null') {
-      return user.photo;
-    }
-    
-    // If photo is an object with url property
-    if (user.photo && typeof user.photo === 'object' && user.photo.url) {
-      return user.photo.url;
-    }
-    
     // If using photos array with default_photo_index
     if (user.photos && user.photos.length > 0) {
       const photoIndex = user.default_photo_index || 0;

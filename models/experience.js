@@ -53,12 +53,20 @@ const experienceSchema = new Schema(
     },
     experience_type: [String],
     plan_items: [planItemSchema],
-    photo: { type: Schema.Types.ObjectId, ref: "Photo" }, // Keep for backward compatibility during migration
+    photo: { 
+      type: Schema.Types.ObjectId, 
+      ref: "Photo",
+    },
     photos: {
       type: [photoObjectSchema],
       default: []
     },
     default_photo_index: { type: Number, default: 0 },
+    visibility: {
+      type: String,
+      enum: ['private', 'contributors', 'public'],
+      default: 'public'
+    },
     permissions: {
       type: [permissionSchema],
       default: [],
@@ -125,7 +133,6 @@ experienceSchema.virtual("max_planning_days").get(function () {
 });
 
 experienceSchema.virtual("completion_percentage").get(function () {
-  // DEPRECATED: This virtual is no longer supported after migrating to Plan model
   // Completion tracking is now handled per-plan, not at the experience level
   // Each user's plan has its own completion tracking via Plan model
   // Return 0 for backward compatibility

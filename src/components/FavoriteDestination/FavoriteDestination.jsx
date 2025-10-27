@@ -5,6 +5,7 @@ import {
   toggleUserFavoriteDestination,
 } from "../../utilities/destinations-api";
 import AlertModal from "../AlertModal/AlertModal";
+import { logger } from "../../utilities/logger";
 
 export default function FavoriteDestination({ destination, user, getData }) {
   const [favHover, setFavHover] = useState(false);
@@ -28,7 +29,7 @@ export default function FavoriteDestination({ destination, user, getData }) {
         await getData();
       }
     } catch (error) {
-      console.error('Failed to toggle favorite:', error);
+      logger.error('Failed to toggle favorite', { destinationId: destination._id, error: error.message });
       setShowAlertModal(true);
     } finally {
       setLoading(false);

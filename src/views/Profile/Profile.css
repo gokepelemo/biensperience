@@ -237,3 +237,23 @@
     height: 2.5rem;
     border-radius: 0.25rem;
 }
+
+/* Responsive: Center h1 and buttons on mobile/tablet */
+@media (max-width: 991px) {
+    /* Center the h1 container on tablet and below */
+    .profile-header-row .col-md-6:first-child .d-flex {
+        justify-content: center !important;
+        text-align: center;
+    }
+
+    /* Center the buttons container on tablet and below */
+    .profile-header-row .col-md-6:last-child .d-flex {
+        justify-content: center !important;
+        margin-top: 1rem;
+    }
+
+    /* Make h1 center-aligned text */
+    .profile-header-row h1 {
+        text-align: center;
+    }
+}

@@ -5,7 +5,7 @@
  * @module api-logger-middleware
  */
 
-const logger = require('../utilities/logger');
+const backendLogger = require('../utilities/backend-logger');
 
 /**
  * Middleware to log API events
@@ -25,18 +25,7 @@ function apiLogger(req, res, next) {
 
     // Log API event asynchronously (fire-and-forget)
     // NOTE: Request body intentionally NOT logged to prevent password/token exposure
-    logger.apiEvent(
-      req.method,
-      req.originalUrl,
-      res.statusCode,
-      duration,
-      {
-        userId: req.user?._id,
-        userAgent: req.get('User-Agent'),
-        ip: req.ip,
-        query: req.query
-      }
-    );
+    backendLogger.apiEvent(req, res, duration);
 
     // Call original end method
     originalEnd.apply(this, args);

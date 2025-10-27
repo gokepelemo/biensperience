@@ -134,7 +134,7 @@ const userSchema = new Schema(
     }],
 
     /**
-     * Reference to user's profile photo (kept for backward compatibility)
+     * Reference to user's profile photo
      * @type {mongoose.Schema.Types.ObjectId}
      * @ref Photo
      */
@@ -216,6 +216,38 @@ const userSchema = new Schema(
      */
     emailConfirmationExpires: {
       type: Date
+    },
+
+    /**
+     * User profile visibility setting
+     * @type {string}
+     * @enum ['private', 'public']
+     * @default 'public'
+     */
+    visibility: {
+      type: String,
+      enum: ['private', 'public'],
+      default: 'public'
+    },
+
+    /**
+     * Invite code used to sign up (optional)
+     * @type {string}
+     */
+    inviteCode: {
+      type: String,
+      uppercase: true,
+      trim: true
+    },
+
+    /**
+     * Whether API access is enabled for this user
+     * @type {boolean}
+     * @default false
+     */
+    apiEnabled: {
+      type: Boolean,
+      default: false
     }
   },
   {

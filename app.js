@@ -133,6 +133,57 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(limiter);
 }
 
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Root endpoint - API info for API clients (must be BEFORE static file serving)
+app.get('/', (req, res, next) => {
+  // Check if request is from an API client (curl, Postman, etc.)
+  const userAgent = req.get('User-Agent') || '';
+  const acceptsJson = req.accepts('json') && !req.accepts('html');
+  const isApiClient = acceptsJson ||
+                      userAgent.includes('curl') ||
+                      userAgent.includes('Postman') ||
+                      userAgent.includes('HTTPie') ||
+                      userAgent.includes('Insomnia');
+
+  if (isApiClient) {
+    // Return API information for API clients
+    const clientOrigin = process.env.CLIENT_ORIGIN || `http://localhost:${CLIENTDEVPORT}`;
+    const apiPort = process.env.PORT || 3001;
+    const apiHost = req.get('host') || `localhost:${apiPort}`;
+
+    return res.json({
+      message: 'Biensperience API Server',
+      status: 'running',
+      version: '0.2.0',
+      frontend: {
+        url: clientOrigin,
+        message: `Please visit ${clientOrigin} to use the application`
+      },
+      api: {
+        url: `${req.protocol}://${apiHost}`,
+        endpoints: {
+          auth: '/api/auth',
+          users: '/api/users',
+          destinations: '/api/destinations',
+          experiences: '/api/experiences',
+          photos: '/api/photos',
+          plans: '/api/plans',
+          search: '/api/search',
+          tokens: '/api/tokens',
+          invites: '/api/invites',
+          health: '/health-check'
+        }
+      },
+      documentation: 'https://github.com/gokepelemo/biensperience'
+    });
+  }
+
+  // Browser request - continue to static file serving
+  next();
+});
+
 // Only serve static files if build directory exists (not in test environment)
 const buildPath = path.join(__dirname, "build");
 try {
@@ -144,9 +195,6 @@ try {
   // Build directory doesn't exist, skip static file serving
 }
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
 // API logging middleware (async, non-blocking)
 const apiLogger = require('./utilities/api-logger-middleware');
 app.use('/api', apiLogger);
@@ -157,6 +205,9 @@ app.use("/api/auth", require("./routes/api/auth"));
 // Passport configuration for OAuth
 const { passport } = require('./config/passport');
 app.use(passport.initialize());
+
+// API token checking (populate req.user and req.isApiToken) - must be before JWT
+app.use(require("./utilities/api-token-middleware"));
 
 // JWT token checking (populate req.user) - needs to be before CSRF to check super admin status
 app.use(require("./config/checkToken"));
@@ -190,6 +241,12 @@ app.use('/api', (req, res, next) => {
     } : 'No user'
   });
 
+  // Skip CSRF for API token authentication
+  if (req.isApiToken) {
+    backendLogger.debug('Skipping CSRF for API token authentication', { userId: req.user._id });
+    return next();
+  }
+
   // Skip CSRF for super admins
   if (req.user && (req.user.isSuperAdmin || req.user.role === 'super_admin')) {
     backendLogger.debug('Skipping CSRF for super admin', { userId: req.user._id, isSuperAdmin: req.user.isSuperAdmin, role: req.user.role });
@@ -207,6 +264,9 @@ app.use("/api/experiences", require("./routes/api/experiences"));
 app.use("/api/photos", require("./routes/api/photos"));
 app.use("/api/plans", require("./routes/api/plans"));
 app.use("/api/search", require("./routes/api/search"));
+app.use("/api/tokens", require("./routes/api/tokens"));
+app.use("/api/invites", require("./routes/api/invites"));
+app.use("/api/invite-tracking", require("./routes/api/invite-tracking"));
 app.use("/health-check", (req, res) => {
   res.send("OK");
 });

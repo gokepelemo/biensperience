@@ -17,9 +17,6 @@ router.get('/:id', ensureLoggedIn, experiencesCtrl.show);
 router.post('/:experienceId/plan-item', ensureLoggedIn, modificationLimiter, experiencesCtrl.createPlanItem);
 router.delete('/:experienceId/plan-item/:planItemId', ensureLoggedIn, modificationLimiter, experiencesCtrl.deletePlanItem);
 router.put('/:experienceId/plan-item/:planItemId', ensureLoggedIn, modificationLimiter, experiencesCtrl.updatePlanItem);
-router.post('/:experienceId/user/:userId', ensureLoggedIn, experiencesCtrl.addUser);
-router.delete('/:experienceId/user/:userId', ensureLoggedIn, experiencesCtrl.removeUser);
-router.post('/:experienceId/plan-item/:planItemId', ensureLoggedIn, experiencesCtrl.userPlanItemDone);
 
 // Photo management routes
 router.post('/:id/photos', ensureLoggedIn, modificationLimiter, experiencesCtrl.addPhoto);

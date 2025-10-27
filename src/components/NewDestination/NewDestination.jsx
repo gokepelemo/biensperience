@@ -61,7 +61,7 @@ export default function NewDestination() {
               setTravelTips([]);
               persistence.clear();
             },
-            variant: 'outline-danger'
+            variant: 'link'
           }]
         });
       }

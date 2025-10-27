@@ -96,6 +96,22 @@
   border-color: #9ca3af;
 }
 
+/* Link style buttons in toasts */
+.toast-actions .btn-link {
+  color: #1e40af !important;
+  text-decoration: underline;
+  padding: 0.25rem 0.5rem;
+  font-weight: 600;
+  background: transparent !important;
+  border: none !important;
+}
+
+.toast-actions .btn-link:hover {
+  color: #1e3a8a !important;
+  text-decoration: underline;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
 .toast-action-button:active {
   transform: scale(0.98);
 }

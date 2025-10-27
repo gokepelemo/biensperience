@@ -1328,6 +1328,8 @@ export default function SingleExperience() {
               ? travelTips[0]
               : "Start planning your perfect travel experience today."
           }`}
+          entity={experience}
+          entityType="experience"
         />
       )}
       {experience ? (

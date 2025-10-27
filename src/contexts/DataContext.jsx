@@ -28,7 +28,7 @@ export function useData() {
  * Integrates with UserContext for user-specific data filtering
  */
 export function DataProvider({ children }) {
-  console.log('DataProvider function called');
+  logger.debug('DataProvider function called');
   const { user, isAuthenticated } = useUser();
   const [destinations, setDestinations] = useState([]);
   const [experiences, setExperiences] = useState([]);
@@ -45,21 +45,21 @@ export function DataProvider({ children }) {
    * @returns {Promise<Array>} Array of destinations
    */
   const fetchDestinations = useCallback(async () => {
-    console.log('fetchDestinations called, user:', user ? user.email : 'null');
+    logger.debug('fetchDestinations called', { user: user ? user.email : 'null' });
     if (!user) {
-      console.log('No user, returning empty array');
+      logger.debug('No user, returning empty array');
       return [];
     }
 
     try {
-      console.log('Calling getDestinations API');
+      logger.debug('Calling getDestinations API');
       const data = await getDestinations();
-      console.log('getDestinations returned:', data ? data.length : 'null', 'destinations');
+      logger.debug('getDestinations returned', { count: data ? data.length : 'null' });
       setDestinations(data || []);
       setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
       return data || [];
     } catch (error) {
-      console.error('Failed to fetch destinations:', error);
+      logger.error('Failed to fetch destinations', { error: error.message });
       return [];
     }
   }, [user]);
@@ -77,7 +77,7 @@ export function DataProvider({ children }) {
       setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
       return data || [];
     } catch (error) {
-      console.error('Failed to fetch experiences:', error);
+      logger.error('Failed to fetch experiences', { error: error.message });
       return [];
     }
   }, [user]);
@@ -95,7 +95,7 @@ export function DataProvider({ children }) {
       setLastUpdated(prev => ({ ...prev, plans: new Date() }));
       return data || [];
     } catch (error) {
-      console.error('Failed to fetch plans:', error);
+      logger.error('Failed to fetch plans', { error: error.message });
       return [];
     }
   }, [user]);
@@ -110,11 +110,11 @@ export function DataProvider({ children }) {
    */
   const refreshAll = useCallback(async (options = {}) => {
     if (!user) {
-      console.log('refreshAll called but no user, returning early');
+      logger.debug('refreshAll called but no user, returning early');
       return;
     }
 
-    console.log('refreshAll called for user:', user.email, 'with options:', options);
+    logger.debug('refreshAll called', { user: user.email, options });
 
     const {
       destinations: refreshDestinations = true,
@@ -127,24 +127,24 @@ export function DataProvider({ children }) {
       const promises = [];
 
       if (refreshDestinations) {
-        console.log('Adding fetchDestinations to promises');
+        logger.debug('Adding fetchDestinations to promises');
         promises.push(fetchDestinations());
       }
       if (refreshExperiences) {
-        console.log('Adding fetchExperiences to promises');
+        logger.debug('Adding fetchExperiences to promises');
         promises.push(fetchExperiences());
       }
       if (refreshPlans) {
-        console.log('Adding fetchPlans to promises');
+        logger.debug('Adding fetchPlans to promises');
         promises.push(fetchPlans());
       }
 
-      console.log('Executing', promises.length, 'fetch promises');
+      logger.debug('Executing fetch promises', { count: promises.length });
       const results = await Promise.all(promises);
-      console.log('refreshAll completed, results:', results.map(r => r?.length || 0));
+      logger.debug('refreshAll completed', { results: results.map(r => r?.length || 0) });
 
     } catch (error) {
-      console.error('Failed to refresh data:', error);
+      logger.error('Failed to refresh data', { error: error.message });
     } finally {
       setLoading(false);
     }
@@ -281,16 +281,16 @@ export function DataProvider({ children }) {
 
   // Initial data fetch on mount or when user changes
   useEffect(() => {
-    console.log('DataContext useEffect triggered:', {
+    logger.debug('DataContext useEffect triggered', {
       isAuthenticated,
       user: user ? { email: user.email, _id: user._id } : null,
       userId: user?._id
     });
     if (isAuthenticated && user) {
-      console.log('Calling refreshAll() for user:', user.email);
+      logger.debug('Calling refreshAll() for user', { user: user.email });
       refreshAll();
     } else {
-      console.log('Clearing data - user not authenticated or user is null');
+      logger.debug('Clearing data - user not authenticated or user is null');
       // Clear data when user logs out
       setDestinations([]);
       setExperiences([]);

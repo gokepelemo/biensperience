@@ -63,7 +63,7 @@ export default function NewExperience() {
               setTags([]);
               persistence.clear();
             },
-            variant: 'outline-danger'
+            variant: 'link'
           }]
         });
       }

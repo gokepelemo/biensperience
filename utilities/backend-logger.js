@@ -338,7 +338,6 @@ const backendLogger = {
                   res.statusCode >= 400 ? LOG_LEVELS.WARN : LOG_LEVELS.INFO;
 
     log(level, `API ${req.method} ${req.originalUrl || req.url} - ${res.statusCode} (${duration}ms)`, {
-      req,
       api: {
         method: req.method,
         url: req.originalUrl || req.url,
@@ -346,7 +345,9 @@ const backendLogger = {
         duration,
         userAgent: req.get('User-Agent'),
         ip: req.ip || req.connection?.remoteAddress,
-        userId: req.user?._id?.toString()
+        userId: req.user?._id?.toString(),
+        query: req.query,
+        params: req.params
       }
     }, error);
   },

@@ -337,7 +337,9 @@ if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
     }
   }));
 } else {
-  console.warn('[Passport] Twitter OAuth 2.0 not configured - missing TWITTER_CLIENT_ID or TWITTER_CLIENT_SECRET');
+  backendLogger.warn('Twitter OAuth 2.0 not configured', { 
+    missing: ['TWITTER_CLIENT_ID', 'TWITTER_CLIENT_SECRET'].filter(key => !process.env[key]) 
+  });
 }
 
 /**
