@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "react-bootstrap";
 import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
 import { useUser } from "../../contexts/UserContext";
+import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
 import { useToast } from "../../contexts/ToastContext";
 import PageMeta from "../../components/PageMeta/PageMeta";
@@ -18,6 +19,7 @@ import "./AllUsers.css";
 
 export default function AllUsers() {
   const { user } = useUser();
+  const { experiences, destinations } = useData();
   const { registerH1, clearActionButtons } = useApp();
   const { success: showSuccess } = useToast();
   const [users, setUsers] = useState([]);
@@ -464,6 +466,8 @@ export default function AllUsers() {
       <InviteCodeModal
         show={showInviteModal}
         onHide={() => setShowInviteModal(false)}
+        experiences={experiences}
+        destinations={destinations}
       />
     </>
   );

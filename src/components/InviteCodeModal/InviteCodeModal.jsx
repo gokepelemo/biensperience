@@ -349,7 +349,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                 >
                   {experiences.map((exp) => (
                     <option key={exp._id} value={exp._id}>
-                      {exp.title}
+                      {exp.name}
                     </option>
                   ))}
                 </Form.Select>
@@ -449,7 +449,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                   >
                     {experiences.map((exp) => (
                       <option key={exp._id} value={exp._id}>
-                        {exp.title}
+                        {exp.name}
                       </option>
                     ))}
                   </Form.Select>
