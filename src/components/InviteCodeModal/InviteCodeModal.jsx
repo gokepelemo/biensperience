@@ -47,13 +47,21 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
   const [sendBulkEmails, setSendBulkEmails] = useState(false);
 
   const [isCreating, setIsCreating] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const { success, error: showError } = useToast();
 
-  // Load invites when modal opens
+  // Load invites when modal opens and reset state when it closes
   useEffect(() => {
     if (show) {
+      setIsClosing(false); // Reset closing flag when modal opens
       loadInvites();
+    } else {
+      // Reset state when modal closes
+      setActiveTab('list');
+      setBulkResult(null);
+      setCsvData(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
   const loadInvites = async () => {
@@ -198,13 +206,50 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
     window.URL.revokeObjectURL(url);
   };
 
+  const handleClose = () => {
+    // Prevent multiple simultaneous close attempts
+    if (isClosing) {
+      logger.debug('Modal already closing, ignoring close request');
+      return;
+    }
+
+    // Prevent closing while async operations are running
+    if (isLoading || isCreating) {
+      logger.debug('Cannot close modal - async operation in progress');
+      return;
+    }
+
+    logger.debug('Invite Code Modal closing');
+    setIsClosing(true);
+
+    // Call parent's onHide immediately
+    if (onHide) {
+      onHide();
+    }
+  };
+
   return (
-    <Modal show={show} onHide={onHide} size="xl" centered>
-      <Modal.Header closeButton>
+    <Modal
+      show={show}
+      onHide={handleClose}
+      size="xl"
+      centered
+      backdrop={true}
+      keyboard={true}
+      scrollable={true}
+      key={show ? 'modal-open' : 'modal-closed'}
+    >
+      <Modal.Header>
         <Modal.Title>
           <FaEnvelope className="me-2" />
           Invite Codes
         </Modal.Title>
+        <button
+          type="button"
+          className="btn-close"
+          onClick={handleClose}
+          aria-label="Close"
+        ></button>
       </Modal.Header>
       <Modal.Body>
         <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">
@@ -492,7 +537,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
         </Tabs>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
+        <Button variant="secondary" onClick={handleClose}>
           Close
         </Button>
       </Modal.Footer>
