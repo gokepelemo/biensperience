@@ -52,13 +52,15 @@ export async function createInviteCode(inviteData) {
  * @param {Array<Object>} invites - Array of invite data objects
  * @returns {Promise<Object>} - { created, errors }
  */
-export async function bulkCreateInviteCodes(invites) {
+export async function bulkCreateInviteCodes(invites, sendEmail = false) {
   try {
-    const result = await sendRequest(`${BASE_URL}/bulk`, 'POST', { invites });
+    const result = await sendRequest(`${BASE_URL}/bulk`, 'POST', { invites, sendEmail });
     logger.info('Bulk created invite codes', {
       total: invites.length,
       created: result.created.length,
-      errors: result.errors.length
+      errors: result.errors.length,
+      emailsSent: result.emailResults?.sent || 0,
+      emailsFailed: result.emailResults?.failed || 0
     });
     return result;
   } catch (error) {

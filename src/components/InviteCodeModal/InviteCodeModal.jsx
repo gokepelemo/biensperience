@@ -44,6 +44,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
   const [bulkExperiences, setBulkExperiences] = useState([]);
   const [bulkDestinations, setBulkDestinations] = useState([]);
   const [bulkResult, setBulkResult] = useState(null);
+  const [sendBulkEmails, setSendBulkEmails] = useState(false);
 
   const [isCreating, setIsCreating] = useState(false);
   const { success, error: showError } = useToast();
@@ -128,11 +129,14 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
         maxUses: 1
       }));
 
-      const result = await bulkCreateInviteCodes(invitesWithResources);
+      const result = await bulkCreateInviteCodes(invitesWithResources, sendBulkEmails);
       setBulkResult(result);
 
       if (result.created.length > 0) {
-        success(`Created ${result.created.length} invite codes`);
+        const emailMsg = sendBulkEmails && result.emailResults
+          ? ` (${result.emailResults.sent} emails sent${result.emailResults.failed > 0 ? `, ${result.emailResults.failed} failed` : ''})`
+          : '';
+        success(`Created ${result.created.length} invite codes${emailMsg}`);
         loadInvites(); // Refresh list
       }
 
@@ -426,21 +430,48 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                   </Form.Select>
                 </Form.Group>
 
-                <Button
-                  variant="primary"
-                  onClick={handleBulkCreate}
-                  disabled={isCreating}
-                >
-                  {isCreating ? 'Creating...' : `Create ${csvData.length} Invite Codes`}
-                </Button>
+                <Form.Group className="mb-3">
+                  <Form.Check
+                    type="checkbox"
+                    id="send-bulk-emails"
+                    label="Send email invitations to all recipients"
+                    checked={sendBulkEmails}
+                    onChange={(e) => setSendBulkEmails(e.target.checked)}
+                  />
+                  <Form.Text className="text-muted">
+                    If checked, each recipient will receive an email with their unique invite code and signup link
+                  </Form.Text>
+                </Form.Group>
+
+                <div className="d-flex align-items-center gap-2">
+                  <Button
+                    variant="primary"
+                    onClick={handleBulkCreate}
+                    disabled={isCreating}
+                  >
+                    {isCreating ? 'Creating...' : `Create ${csvData.length} Invite Code${csvData.length > 1 ? 's' : ''}`}
+                  </Button>
+                  {sendBulkEmails && (
+                    <Badge bg="info">
+                      Will send {csvData.length} email{csvData.length > 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
               </>
             )}
 
             {bulkResult && (
               <div className="mt-3">
                 <BootstrapAlert variant="info">
-                  <strong>Results:</strong> Created {bulkResult.created.length} invites
+                  <strong>Results:</strong> Created {bulkResult.created.length} invite{bulkResult.created.length > 1 ? 's' : ''}
                   {bulkResult.errors.length > 0 && `, ${bulkResult.errors.length} failed`}
+                  {bulkResult.emailResults && (
+                    <>
+                      <br />
+                      <strong>Emails:</strong> {bulkResult.emailResults.sent} sent
+                      {bulkResult.emailResults.failed > 0 && `, ${bulkResult.emailResults.failed} failed`}
+                    </>
+                  )}
                 </BootstrapAlert>
 
                 {bulkResult.errors.length > 0 && (

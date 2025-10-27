@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { getUser, logout } from '../utilities/users-service';
 import { getUserData } from '../utilities/users-api';
+import { redeemInviteCode } from '../utilities/invite-codes-service';
 import { logger } from '../utilities/logger';
 
 const UserContext = createContext();
@@ -28,6 +29,7 @@ export function UserProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [favoriteDestinations, setFavoriteDestinations] = useState([]);
   const [plannedExperiences, setPlannedExperiences] = useState([]);
+  const inviteCodeRedeemedRef = useRef(false);
 
   // Initialization tracking
   useEffect(() => {
@@ -256,6 +258,52 @@ export function UserProvider({ children }) {
       createdDestinationsCount: profile?.createdDestinations?.length || 0,
     };
   }, [favoriteDestinations, plannedExperiences, profile]);
+
+  // Auto-redeem invite code if user signed up with one
+  useEffect(() => {
+    // Check if user has invite code and hasn't been redeemed yet
+    if (user && profile && profile.inviteCode && !inviteCodeRedeemedRef.current) {
+      inviteCodeRedeemedRef.current = true;
+
+      const redeemInvite = async () => {
+        try {
+          logger.info('Auto-redeeming invite code', {
+            userId: user._id,
+            inviteCode: profile.inviteCode
+          });
+
+          const result = await redeemInviteCode(profile.inviteCode);
+
+          // Add returned destinations to favorites
+          if (result.destinations && result.destinations.length > 0) {
+            result.destinations.forEach(dest => {
+              addFavoriteDestination(dest);
+            });
+          }
+
+          // Refresh profile to get newly created plans
+          await fetchProfile();
+
+          logger.info('Invite code redeemed successfully', {
+            userId: user._id,
+            inviteCode: profile.inviteCode,
+            experiencesCount: result.experiences?.length || 0,
+            destinationsCount: result.destinations?.length || 0
+          });
+        } catch (error) {
+          logger.error('Failed to redeem invite code', {
+            userId: user._id,
+            inviteCode: profile.inviteCode,
+            error: error.message
+          }, error);
+          // Don't block user experience if redemption fails
+          // The invite can be redeemed manually later
+        }
+      };
+
+      redeemInvite();
+    }
+  }, [user, profile, fetchProfile, addFavoriteDestination]);
 
   // Fetch profile when user changes
   useEffect(() => {

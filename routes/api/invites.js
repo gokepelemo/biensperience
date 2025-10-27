@@ -18,6 +18,7 @@ const User = require('../../models/user');
 const Plan = require('../../models/plan');
 const backendLogger = require('../../utilities/backend-logger');
 const { isSuperAdmin } = require('../../utilities/permissions');
+const { sendInviteEmail } = require('../../utilities/email-service');
 
 /**
  * Middleware to ensure user is authenticated
@@ -141,7 +142,7 @@ router.post('/', requireAuth, async (req, res) => {
  */
 router.post('/bulk', requireAuth, requireSuperAdmin, async (req, res) => {
   try {
-    const { invites } = req.body;
+    const { invites, sendEmail = false } = req.body;
 
     if (!Array.isArray(invites) || invites.length === 0) {
       return res.status(400).json({ error: 'invites must be a non-empty array' });
@@ -149,15 +150,68 @@ router.post('/bulk', requireAuth, requireSuperAdmin, async (req, res) => {
 
     const result = await InviteCode.bulkCreateInvites(invites, req.user._id);
 
+    // Send emails if requested
+    let emailResults = { sent: 0, failed: 0 };
+    if (sendEmail && result.created.length > 0) {
+      backendLogger.info('Sending bulk invite emails', {
+        userId: req.user._id,
+        count: result.created.length
+      });
+
+      for (const invite of result.created) {
+        try {
+          await sendInviteEmail({
+            toEmail: invite.email,
+            inviterName: req.user.name,
+            inviteCode: invite.code,
+            inviteeName: invite.inviteeName,
+            customMessage: invite.customMessage,
+            experiencesCount: invite.experiences?.length || 0,
+            destinationsCount: invite.destinations?.length || 0
+          });
+
+          // Update invite metadata
+          invite.inviteMetadata = {
+            ...invite.inviteMetadata,
+            emailSent: true,
+            sentAt: new Date(),
+            sentFrom: req.user._id
+          };
+          await invite.save();
+
+          emailResults.sent++;
+        } catch (emailError) {
+          backendLogger.error('Failed to send bulk invite email', {
+            userId: req.user._id,
+            inviteId: invite._id,
+            email: invite.email,
+            error: emailError.message
+          });
+          emailResults.failed++;
+        }
+      }
+
+      backendLogger.info('Bulk invite emails completed', {
+        userId: req.user._id,
+        sent: emailResults.sent,
+        failed: emailResults.failed
+      });
+    }
+
     backendLogger.info('Bulk invite codes created', {
       userId: req.user._id,
       totalRequested: invites.length,
       successCount: result.created.length,
       errorCount: result.errors.length,
+      emailsSent: emailResults.sent,
+      emailsFailed: emailResults.failed,
       audit: true
     });
 
-    res.status(201).json(result);
+    res.status(201).json({
+      ...result,
+      emailResults: sendEmail ? emailResults : null
+    });
   } catch (error) {
     backendLogger.error('Error creating bulk invites', {
       userId: req.user._id,
@@ -386,25 +440,55 @@ router.post('/email', requireAuth, async (req, res) => {
       customMessage: customMessage || `${req.user.name} has invited you to collaborate on "${resourceName}"`
     });
 
-    // TODO: Send email with invite code and signup link
-    // This would integrate with your email service (SendGrid, etc.)
-    // For now, we'll just return the invite code
+    // Send email with invite code and signup link
+    let emailSent = false;
+    try {
+      await sendInviteEmail({
+        toEmail: email,
+        inviterName: req.user.name,
+        inviteCode: invite.code,
+        inviteeName: name,
+        customMessage: invite.customMessage,
+        experiencesCount: experiences.length,
+        destinationsCount: destinations.length
+      });
 
-    backendLogger.info('Email invite created', {
-      userId: req.user._id,
-      inviteId: invite._id,
-      email,
-      resourceType,
-      resourceId,
-      audit: true
-    });
+      emailSent = true;
+
+      // Update invite metadata
+      invite.inviteMetadata = {
+        ...invite.inviteMetadata,
+        emailSent: true,
+        sentAt: new Date(),
+        sentFrom: req.user._id
+      };
+      await invite.save();
+
+      backendLogger.info('Email invite sent successfully', {
+        userId: req.user._id,
+        inviteId: invite._id,
+        email,
+        resourceType,
+        resourceId,
+        audit: true
+      });
+    } catch (emailError) {
+      backendLogger.error('Failed to send invite email, but invite code created', {
+        userId: req.user._id,
+        inviteId: invite._id,
+        email,
+        error: emailError.message
+      });
+      // Don't fail the request - invite code was created successfully
+    }
 
     res.status(201).json({
       success: true,
       invite,
-      message: 'Invite code created. Email sending not yet implemented.',
-      // TODO: Change to true when email is implemented
-      emailSent: false
+      message: emailSent
+        ? 'Invite created and email sent successfully.'
+        : 'Invite created but email failed to send. You can share the invite code manually.',
+      emailSent
     });
   } catch (error) {
     backendLogger.error('Error creating email invite', {

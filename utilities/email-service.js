@@ -321,8 +321,141 @@ async function sendEmailConfirmation(toEmail, userName, confirmUrl) {
   }
 }
 
+/**
+ * Send invite email
+ * @param {Object} options - Invite options
+ * @param {string} options.toEmail - Recipient email address
+ * @param {string} options.inviterName - Name of person sending invite
+ * @param {string} options.inviteCode - Invite code
+ * @param {string} options.inviteeName - Name of person being invited (optional)
+ * @param {string} options.customMessage - Custom message from inviter (optional)
+ * @param {number} options.experiencesCount - Number of experiences included
+ * @param {number} options.destinationsCount - Number of destinations included
+ */
+async function sendInviteEmail(options) {
+  try {
+    const {
+      toEmail,
+      inviterName,
+      inviteCode,
+      inviteeName = '',
+      customMessage = '',
+      experiencesCount = 0,
+      destinationsCount = 0
+    } = options;
+
+    const t = lang.current.email.invite;
+    const vars = {
+      userName: inviteeName ? ` ${inviteeName}` : '',
+      inviterName,
+      appName: APP_NAME
+    };
+
+    // Build signup URL with invite code
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const signupUrl = `${baseUrl}/signup?invite=${inviteCode}`;
+
+    // Build additional sections
+    const additionalSections = [];
+
+    // Add custom message if provided
+    if (customMessage) {
+      additionalSections.push(`
+        <div class="info">
+          <strong>${replaceVars(t.customMessage, vars)}</strong>
+          <p style="margin-top: 10px; font-style: italic;">"${customMessage}"</p>
+        </div>
+      `);
+    }
+
+    // Add invite code display
+    additionalSections.push(`
+      <div style="background: #f5f5f5; padding: 20px; border-radius: 6px; text-align: center; margin: 20px 0;">
+        <p style="margin: 0; color: #666; font-size: 14px;"><strong>${t.inviteCodeLabel}</strong></p>
+        <p style="margin: 10px 0 0 0; font-size: 24px; font-family: 'Courier New', monospace; font-weight: bold; color: #667eea; letter-spacing: 2px;">${inviteCode}</p>
+        <p style="margin: 5px 0 0 0; color: #999; font-size: 12px;">${t.inviteCodeInstruction}</p>
+      </div>
+    `);
+
+    // Add included items if any
+    if (experiencesCount > 0 || destinationsCount > 0) {
+      const includesList = [];
+      if (experiencesCount > 0) {
+        const plural = experiencesCount === 1 ? '' : 's';
+        includesList.push(replaceVars(t.experiencesIncluded, { count: experiencesCount, plural }));
+      }
+      if (destinationsCount > 0) {
+        const plural = destinationsCount === 1 ? '' : 's';
+        includesList.push(replaceVars(t.destinationsIncluded, { count: destinationsCount, plural }));
+      }
+
+      additionalSections.push(`
+        <div class="success">
+          <strong>${t.includesHeading}</strong>
+          <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+            ${includesList.map(item => `<li>${item}</li>`).join('')}
+          </ul>
+        </div>
+      `);
+    }
+
+    // Add alternative link
+    additionalSections.push(`
+      <p style="font-size: 0.9rem; color: #666;">${t.altLinkText}<br><a href="${signupUrl}" style="word-break: break-all;">${signupUrl}</a></p>
+    `);
+
+    // Add about section
+    additionalSections.push(`
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+        <p><strong>${replaceVars(t.aboutAppTitle, vars)}</strong></p>
+        <p>${replaceVars(t.aboutAppText, vars)}</p>
+      </div>
+    `);
+
+    const { html, text } = createEmailTemplate({
+      heading: t.heading,
+      greeting: replaceVars(t.greeting, vars),
+      body: replaceVars(t.inviterMessage, vars) + ' ' + t.body,
+      buttonText: t.buttonText,
+      buttonUrl: signupUrl,
+      additionalSections,
+      signature: replaceVars(t.signature, vars),
+      footer: t.footer
+    });
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: toEmail,
+      subject: replaceVars(t.subject, vars),
+      html,
+      text
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Failed to send email');
+    }
+
+    backendLogger.info('Invite email sent successfully', {
+      to: toEmail,
+      inviterName,
+      inviteCode,
+      messageId: data?.id
+    });
+
+    return data;
+  } catch (error) {
+    backendLogger.error('Failed to send invite email', {
+      error: error.message,
+      to: options.toEmail,
+      inviterName: options.inviterName
+    });
+    throw error;
+  }
+}
+
 module.exports = {
   sendPasswordResetEmail,
   sendPasswordResetConfirmation,
   sendEmailConfirmation,
+  sendInviteEmail,
 };

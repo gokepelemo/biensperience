@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
+import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
 import { useUser } from "../../contexts/UserContext";
 import { useApp } from "../../contexts/AppContext";
 import { useToast } from "../../contexts/ToastContext";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import Alert from "../../components/Alert/Alert";
+import InviteCodeModal from "../../components/InviteCodeModal/InviteCodeModal";
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
 import { logger } from "../../utilities/logger";
@@ -27,6 +28,7 @@ export default function AllUsers() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   // Check if current user is super admin
   const isCurrentUserSuperAdmin = user && isSuperAdmin(user);
@@ -209,9 +211,18 @@ export default function AllUsers() {
                   </h1>
                   <p className="text-muted mb-0">{lang.en.admin.superAdminPanel}</p>
                 </div>
-                <Link to="/" className="btn btn-outline-secondary">
-                  {lang.en.admin.backToHome}
-                </Link>
+                <div className="d-flex gap-2">
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => setShowInviteModal(true)}
+                  >
+                    <FaUserPlus className="me-2" />
+                    {lang.en.invite.heading}
+                  </button>
+                  <Link to="/" className="btn btn-outline-secondary">
+                    {lang.en.admin.backToHome}
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -447,6 +458,12 @@ export default function AllUsers() {
           )}
         </div>
       </div>
+
+      {/* Invite Code Modal */}
+      <InviteCodeModal
+        show={showInviteModal}
+        onHide={() => setShowInviteModal(false)}
+      />
     </>
   );
 }
