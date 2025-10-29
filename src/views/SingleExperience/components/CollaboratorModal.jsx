@@ -4,11 +4,12 @@
  */
 
 import { useState } from 'react';
-import { Form, ListGroup, Badge } from 'react-bootstrap';
-import { FaTimes, FaUserPlus } from 'react-icons/fa';
+import { Form, ListGroup, Badge, ButtonGroup, Button } from 'react-bootstrap';
+import { FaTimes, FaUserPlus, FaEnvelope } from 'react-icons/fa';
 import Modal from '../../../components/Modal/Modal';
 import UsersListDisplay from '../../../components/UsersListDisplay/UsersListDisplay';
 import Alert from '../../../components/Alert/Alert';
+import logger from '../../../utilities/logger';
 
 export default function CollaboratorModal({
   show,
@@ -16,6 +17,7 @@ export default function CollaboratorModal({
   onSearch,
   onAddCollaborators,
   onRemoveCollaborator,
+  onSendEmailInvite,
   context = 'plan',
   searchTerm,
   onSearchTermChange,
@@ -26,9 +28,60 @@ export default function CollaboratorModal({
   removedCollaborators = [],
   addSuccess = false,
   addedCollaborators = [],
-  actuallyRemovedCollaborators = []
+  actuallyRemovedCollaborators = [],
+  experienceName = '',
+  destinationName = ''
 }) {
+  const [mode, setMode] = useState('search'); // 'search' or 'email'
+  const [emailForm, setEmailForm] = useState({ email: '', name: '' });
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+
   const title = context === 'plan' ? 'Manage Plan Collaborators' : 'Manage Experience Collaborators';
+
+  const handleEmailChange = (field, value) => {
+    setEmailForm(prev => ({ ...prev, [field]: value }));
+    setEmailError('');
+  };
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleSendInvite = async () => {
+    // Validation
+    if (!emailForm.email.trim()) {
+      setEmailError('Email is required');
+      return;
+    }
+    if (!validateEmail(emailForm.email)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+    if (!emailForm.name.trim()) {
+      setEmailError('Name is required');
+      return;
+    }
+
+    setIsSendingEmail(true);
+    setEmailError('');
+
+    try {
+      await onSendEmailInvite(emailForm.email, emailForm.name);
+      setEmailSuccess(true);
+      setEmailForm({ email: '', name: '' });
+
+      // Clear success message after 5 seconds
+      setTimeout(() => setEmailSuccess(false), 5000);
+    } catch (error) {
+      logger.error('Error sending email invite', { error: error.message });
+      setEmailError(error.message || 'Failed to send email invite');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
 
   return (
     <Modal
@@ -56,6 +109,26 @@ export default function CollaboratorModal({
             onClose={() => {}}
           >
             Successfully removed {actuallyRemovedCollaborators.length} collaborator{actuallyRemovedCollaborators.length > 1 ? 's' : ''}!
+          </Alert>
+        )}
+
+        {emailSuccess && (
+          <Alert
+            type="success"
+            dismissible
+            onClose={() => setEmailSuccess(false)}
+          >
+            Email invite sent successfully! They will receive an invitation to join Biensperience and collaborate on this {context}.
+          </Alert>
+        )}
+
+        {emailError && (
+          <Alert
+            type="danger"
+            dismissible
+            onClose={() => setEmailError('')}
+          >
+            {emailError}
           </Alert>
         )}
 
@@ -94,22 +167,87 @@ export default function CollaboratorModal({
         {/* Add Collaborators */}
         <div className="mb-3">
           <h5>Add Collaborators</h5>
-          <Form.Group className="mb-3">
-            <Form.Control
-              type="text"
-              placeholder="Search by name or email..."
-              value={searchTerm}
-              onChange={onSearchTermChange}
-            />
-          </Form.Group>
 
-          <button
-            className="btn btn-primary w-100 mb-3"
-            onClick={onSearch}
-            disabled={!searchTerm.trim()}
-          >
-            Search Users
-          </button>
+          {/* Mode Toggle */}
+          <ButtonGroup className="mb-3 w-100">
+            <Button
+              variant={mode === 'search' ? 'primary' : 'outline-secondary'}
+              onClick={() => setMode('search')}
+            >
+              <FaUserPlus className="me-2" />
+              Search Existing Users
+            </Button>
+            <Button
+              variant={mode === 'email' ? 'primary' : 'outline-secondary'}
+              onClick={() => setMode('email')}
+            >
+              <FaEnvelope className="me-2" />
+              Send Email Invite
+            </Button>
+          </ButtonGroup>
+
+          {/* Search Mode */}
+          {mode === 'search' && (
+            <>
+              <Form.Group className="mb-3">
+                <Form.Control
+                  type="text"
+                  placeholder="Search by name or email..."
+                  value={searchTerm}
+                  onChange={onSearchTermChange}
+                />
+              </Form.Group>
+
+              <button
+                className="btn btn-primary w-100 mb-3"
+                onClick={onSearch}
+                disabled={!searchTerm.trim()}
+              >
+                Search Users
+              </button>
+            </>
+          )}
+
+          {/* Email Invite Mode */}
+          {mode === 'email' && (
+            <>
+              <Form.Group className="mb-3">
+                <Form.Label>Email Address</Form.Label>
+                <Form.Control
+                  type="email"
+                  placeholder="collaborator@example.com"
+                  value={emailForm.email}
+                  onChange={(e) => handleEmailChange('email', e.target.value)}
+                  isInvalid={emailError && !emailForm.email.trim()}
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Name</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Collaborator's full name"
+                  value={emailForm.name}
+                  onChange={(e) => handleEmailChange('name', e.target.value)}
+                  isInvalid={emailError && !emailForm.name.trim()}
+                />
+              </Form.Group>
+
+              <div className="alert alert-info mb-3">
+                <small>
+                  <strong>Note:</strong> We'll send an email to <strong>{emailForm.email || 'this address'}</strong> inviting them to join Biensperience and collaborate on <strong>{experienceName || 'this experience'}</strong> in <strong>{destinationName || 'this destination'}</strong>.
+                </small>
+              </div>
+
+              <button
+                className="btn btn-primary w-100 mb-3"
+                onClick={handleSendInvite}
+                disabled={isSendingEmail || !emailForm.email.trim() || !emailForm.name.trim()}
+              >
+                {isSendingEmail ? 'Sending...' : 'Send Email Invite'}
+              </button>
+            </>
+          )}
 
           {/* Search Results */}
           {searchResults.length > 0 && (

@@ -44,6 +44,7 @@ import {
 import { handleError } from "../../utilities/error-handler";
 import { createExpirableStorage } from "../../utilities/cookie-utils";
 import { formatCurrency } from "../../utilities/currency-utils";
+import { sendEmailInvite } from "../../utilities/invites-api";
 import debug from "../../utilities/debug";
 
 // Constants for sync alert cookie management
@@ -121,6 +122,10 @@ export default function SingleExperience() {
   const [collaboratorAddSuccess, setCollaboratorAddSuccess] = useState(false);
   const [addedCollaborators, setAddedCollaborators] = useState([]); // Track multiple additions
   const [actuallyRemovedCollaborators, setActuallyRemovedCollaborators] = useState([]); // Track actually removed for success message
+  const [showEmailInviteForm, setShowEmailInviteForm] = useState(false); // Toggle email invite form
+  const [emailInviteData, setEmailInviteData] = useState({ email: '', name: '' }); // Email invite form data
+  const [emailInviteSending, setEmailInviteSending] = useState(false); // Email sending state
+  const [emailInviteError, setEmailInviteError] = useState(''); // Email invite errors
   const [showPlanItemModal, setShowPlanItemModal] = useState(false);
   const [planItemFormState, setPlanItemFormState] = useState(1); // 1 = add, 0 = edit
   const [editingPlanItem, setEditingPlanItem] = useState({});
@@ -953,6 +958,50 @@ export default function SingleExperience() {
       fetchCollaborativePlans,
       fetchExperience,
     ]
+  );
+
+  const handleSendEmailInvite = useCallback(
+    async (e) => {
+      e.preventDefault();
+
+      // Validation
+      if (!emailInviteData.email.trim() || !emailInviteData.name.trim()) {
+        setEmailInviteError('Email and name are required');
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailInviteData.email)) {
+        setEmailInviteError('Please enter a valid email address');
+        return;
+      }
+
+      setEmailInviteSending(true);
+      setEmailInviteError('');
+
+      try {
+        await sendEmailInvite({
+          email: emailInviteData.email,
+          name: emailInviteData.name,
+          resourceType: 'experience',
+          resourceId: experienceId,
+          resourceName: experience?.title || 'this experience',
+          customMessage: `Join me in planning ${experience?.title || 'this experience'}!`
+        });
+
+        // Show success
+        success(`Email invite sent successfully to ${emailInviteData.email}!`);
+
+        // Reset form
+        setEmailInviteData({ email: '', name: '' });
+        setShowEmailInviteForm(false);
+      } catch (error) {
+        setEmailInviteError(error.message || 'Failed to send email invite');
+      } finally {
+        setEmailInviteSending(false);
+      }
+    },
+    [emailInviteData, experienceId, experience, success]
   );
 
   const handleSelectUser = useCallback((user) => {
@@ -2592,6 +2641,76 @@ export default function SingleExperience() {
                 </div>
               )}
             </div>
+
+            {/* Email Invite Toggle */}
+            <div className="mb-3">
+              <button
+                type="button"
+                className="btn btn-link p-0 text-decoration-none"
+                onClick={() => {
+                  setShowEmailInviteForm(!showEmailInviteForm);
+                  setEmailInviteError('');
+                }}
+              >
+                {showEmailInviteForm ? '← Back to search' : '✉ Invite via email (for non-users)'}
+              </button>
+            </div>
+
+            {/* Email Invite Form */}
+            {showEmailInviteForm && (
+              <div className="border rounded p-3 mb-3 bg-light">
+                <h6 className="mb-3">Send Email Invite</h6>
+
+                {emailInviteError && (
+                  <Alert type="danger" dismissible onClose={() => setEmailInviteError('')}>
+                    {emailInviteError}
+                  </Alert>
+                )}
+
+                <div className="mb-3">
+                  <label htmlFor="inviteEmail" className="form-label">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    id="inviteEmail"
+                    value={emailInviteData.email}
+                    onChange={(e) => setEmailInviteData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="collaborator@example.com"
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label htmlFor="inviteName" className="form-label">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="inviteName"
+                    value={emailInviteData.name}
+                    onChange={(e) => setEmailInviteData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Collaborator's name"
+                  />
+                </div>
+
+                <div className="alert alert-info mb-3">
+                  <small>
+                    We'll send an email to <strong>{emailInviteData.email || 'this address'}</strong> inviting them to join Biensperience and collaborate on <strong>{experience?.title || 'this experience'}</strong>.
+                  </small>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-primary w-100"
+                  onClick={handleSendEmailInvite}
+                  disabled={emailInviteSending || !emailInviteData.email.trim() || !emailInviteData.name.trim()}
+                >
+                  {emailInviteSending ? 'Sending...' : 'Send Email Invite'}
+                </button>
+              </div>
+            )}
           </form>
         )}
       </Modal>

@@ -54,8 +54,70 @@
 .travel-tip-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   margin-bottom: 0.5rem;
+}
+
+/* Icon Wrapper with Gradient Background */
+.travel-tip-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.travel-tip-icon-wrapper.simple {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.travel-tip:hover .travel-tip-icon-wrapper {
+  transform: scale(1.05) rotate(5deg);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Emoji and FA Icon Display */
+.travel-tip-emoji {
+  font-size: 1.5rem;
+  position: absolute;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  line-height: 1;
+}
+
+.travel-tip-fa-icon {
+  font-size: 1.25rem;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  position: absolute;
+}
+
+.travel-tip:hover .travel-tip-emoji {
+  opacity: 0;
+}
+
+.travel-tip:hover .travel-tip-fa-icon {
+  opacity: 1;
+}
+
+.travel-tip-simple .travel-tip-fa-icon {
+  font-size: 1.1rem;
+  opacity: 1;
+  position: static;
+}
+
+.travel-tip-header-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
 }
 
 .travel-tip-structured .travel-tip-icon {

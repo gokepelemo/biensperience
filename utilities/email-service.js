@@ -598,5 +598,5 @@ module.exports = {
   sendPasswordResetConfirmation,
   sendEmailConfirmation,
   sendInviteEmail,
-  sendCollaboratorInviteEmail,
+  // sendCollaboratorInviteEmail - Future enhancement for dedicated collaborator invites
 };

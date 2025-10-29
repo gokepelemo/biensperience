@@ -1,7 +1,14 @@
 import "./TravelTip.css";
 import { Badge, Button } from 'react-bootstrap';
+import {
+  FaLanguage, FaMoneyBillWave, FaBus, FaShieldAlt,
+  FaCloudSun, FaHandshake, FaUtensils, FaHotel,
+  FaExclamationTriangle, FaThumbtack, FaLightbulb,
+  FaExternalLinkAlt, FaTimes
+} from 'react-icons/fa';
 
-const TIP_ICONS = {
+// Emoji icons for colorful display
+const TIP_EMOJIS = {
   Language: '🗣️',
   Currency: '💶',
   Transportation: '🚇',
@@ -12,6 +19,20 @@ const TIP_ICONS = {
   Accommodation: '🏨',
   Emergency: '🚨',
   Custom: '📌'
+};
+
+// Font Awesome icons for professional display
+const TIP_FA_ICONS = {
+  Language: FaLanguage,
+  Currency: FaMoneyBillWave,
+  Transportation: FaBus,
+  Safety: FaShieldAlt,
+  Weather: FaCloudSun,
+  Customs: FaHandshake,
+  Food: FaUtensils,
+  Accommodation: FaHotel,
+  Emergency: FaExclamationTriangle,
+  Custom: FaThumbtack
 };
 
 const TIP_COLORS = {
@@ -27,23 +48,39 @@ const TIP_COLORS = {
   Custom: 'secondary'
 };
 
+// Gradient backgrounds for each tip type
+const TIP_GRADIENTS = {
+  Language: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  Currency: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  Transportation: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  Safety: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  Weather: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+  Customs: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+  Food: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+  Accommodation: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+  Emergency: 'linear-gradient(135deg, #ff6a00 0%, #ee0979 100%)',
+  Custom: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)'
+};
+
 export default function TravelTip({ tip, index, onDelete, editable = false }) {
   // Handle simple string tip
   if (typeof tip === 'string') {
     return (
       <div className="travel-tip travel-tip-simple" key={index}>
+        <div className="travel-tip-icon-wrapper simple">
+          <FaLightbulb className="travel-tip-fa-icon" />
+        </div>
         <div className="travel-tip-content-simple">
-          <span className="travel-tip-icon">💡</span>
           <span className="travel-tip-text">{tip}</span>
         </div>
         {editable && (
           <button
             type="button"
-            className="btn btn-sm btn-danger travel-tip-delete"
+            className="btn btn-sm btn-outline-danger travel-tip-delete"
             onClick={() => onDelete(index)}
             aria-label="Delete tip"
           >
-            ×
+            <FaTimes />
           </button>
         )}
       </div>
@@ -62,9 +99,11 @@ export default function TravelTip({ tip, index, onDelete, editable = false }) {
     schema
   } = tip;
 
-  const displayIcon = icon || TIP_ICONS[type] || '📌';
+  const displayEmoji = icon || TIP_EMOJIS[type] || '📌';
+  const FAIcon = TIP_FA_ICONS[type] || FaThumbtack;
   const displayCategory = category || type;
   const badgeColor = TIP_COLORS[type] || 'secondary';
+  const gradient = TIP_GRADIENTS[type] || TIP_GRADIENTS.Custom;
 
   // Schema.org markup attributes
   const schemaProps = schema ? {
@@ -82,18 +121,28 @@ export default function TravelTip({ tip, index, onDelete, editable = false }) {
       {...schemaProps}
     >
       <div className="travel-tip-header">
-        <span className="travel-tip-icon" aria-hidden="true">{displayIcon}</span>
-        <Badge bg={badgeColor} className="travel-tip-badge">
-          {displayCategory}
-        </Badge>
+        <div
+          className="travel-tip-icon-wrapper"
+          style={{ background: gradient }}
+          aria-hidden="true"
+        >
+          <div className="travel-tip-emoji">{displayEmoji}</div>
+          <FAIcon className="travel-tip-fa-icon" />
+        </div>
+        <div className="travel-tip-header-content">
+          <Badge bg={badgeColor} className="travel-tip-badge">
+            <FAIcon className="me-1" size="0.8em" />
+            {displayCategory}
+          </Badge>
+        </div>
         {editable && (
           <button
             type="button"
-            className="btn btn-sm btn-danger travel-tip-delete ms-auto"
+            className="btn btn-sm btn-outline-danger travel-tip-delete ms-auto"
             onClick={() => onDelete(index)}
             aria-label="Delete tip"
           >
-            ×
+            <FaTimes />
           </button>
         )}
       </div>
@@ -105,13 +154,16 @@ export default function TravelTip({ tip, index, onDelete, editable = false }) {
 
         {note && (
           <div className="travel-tip-note" itemProp="description">
-            {note}
+            💬 {note}
           </div>
         )}
 
         {exchangeRate && type === 'Currency' && (
           <div className="travel-tip-exchange-rate">
-            <small className="text-muted">{exchangeRate}</small>
+            <small className="text-muted">
+              <FaMoneyBillWave className="me-1" />
+              {exchangeRate}
+            </small>
           </div>
         )}
 
@@ -125,7 +177,8 @@ export default function TravelTip({ tip, index, onDelete, editable = false }) {
               variant="outline-primary"
               className="travel-tip-cta-button"
             >
-              {callToAction.label || 'Learn More'} →
+              {callToAction.label || 'Learn More'}
+              <FaExternalLinkAlt className="ms-1" size="0.8em" />
             </Button>
           </div>
         )}
