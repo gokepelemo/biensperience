@@ -105,7 +105,7 @@ export default function SingleDestination() {
           description={`Discover ${destination.name}, ${destination.country}. Explore popular experiences, travel tips, and plan your perfect visit to this amazing destination.${destinationExperiences.length > 0 ? ` Find ${destinationExperiences.length} curated experiences.` : ''}`}
           keywords={`${destination.name}, ${destination.country}, travel destination, tourism${destination.state ? `, ${destination.state}` : ''}, experiences, travel tips`}
           ogTitle={`${destination.name}, ${destination.country}`}
-          ogDescription={`${destinationExperiences.length > 0 ? `Explore ${destinationExperiences.length} unique experiences in ${destination.name}. ` : ''}${destination.travel_tips && destination.travel_tips.length > 0 ? destination.travel_tips[0] : `Plan your trip to ${destination.name} today.`}`}
+          ogDescription={`${destinationExperiences.length > 0 ? `Explore ${destinationExperiences.length} unique experiences in ${destination.name}. ` : ''}${destination.travel_tips?.length > 0 && typeof destination.travel_tips[0] === 'string' ? destination.travel_tips[0] : destination.travel_tips?.length > 0 && destination.travel_tips[0]?.value ? destination.travel_tips[0].value : `Plan your trip to ${destination.name} today.`}`}
           entity={destination}
           entityType="destination"
         />
@@ -200,7 +200,7 @@ export default function SingleDestination() {
             </div>
 
             {/* Enhanced Travel Tips with Schema.org markup - Full Width Card */}
-            {destination.travel_tips && destination.travel_tips.length > 0 && (
+            {destination.travel_tips?.length > 0 && (
               <div className="row my-4">
                 <div className="col-12 p-3">
                   <div className="destination-detail-card">
