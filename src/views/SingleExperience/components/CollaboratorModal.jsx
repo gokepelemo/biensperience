@@ -9,7 +9,7 @@ import { FaTimes, FaUserPlus, FaEnvelope } from 'react-icons/fa';
 import Modal from '../../../components/Modal/Modal';
 import UsersListDisplay from '../../../components/UsersListDisplay/UsersListDisplay';
 import Alert from '../../../components/Alert/Alert';
-import logger from '../../../utilities/logger';
+import { logger } from '../../../utilities/logger';
 
 export default function CollaboratorModal({
   show,

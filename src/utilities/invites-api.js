@@ -4,7 +4,7 @@
  */
 
 import { getToken } from './users-service';
-import logger from './logger';
+import { logger } from './logger';
 
 const BASE_URL = '/api/invites';
 
