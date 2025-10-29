@@ -14,7 +14,7 @@ const TIP_TYPES = [
   { value: 'Transportation', icon: '🚇', label: 'Transportation' },
   { value: 'Safety', icon: '🛡️', label: 'Safety' },
   { value: 'Weather', icon: '🌤️', label: 'Weather' },
-  { value: 'Customs', icon: '🤝', label: 'Customs' },
+  { value: 'Culture', icon: '🤝', label: 'Culture' },
   { value: 'Food', icon: '🍽️', label: 'Food & Drink' },
   { value: 'Accommodation', icon: '🏨', label: 'Accommodation' },
   { value: 'Emergency', icon: '🚨', label: 'Emergency' },
@@ -123,18 +123,18 @@ export default function TravelTipsManager({
           </Form.Label>
 
           {onModeChange && (
-            <ButtonGroup size="sm">
+            <ButtonGroup size="sm" className="align-self-start">
               <Button
                 variant={isSimpleMode ? 'primary' : 'outline-secondary'}
                 onClick={() => onModeChange('simple')}
               >
-                💡 Simple
+                💡 Quick Tip
               </Button>
               <Button
                 variant={!isSimpleMode ? 'primary' : 'outline-secondary'}
                 onClick={() => onModeChange('structured')}
               >
-                📋 Structured
+                📋 Details
               </Button>
             </ButtonGroup>
           )}
@@ -190,7 +190,7 @@ export default function TravelTipsManager({
             </Row>
 
             <Form.Group className="mb-3">
-              <Form.Label>Tip Content *</Form.Label>
+              <Form.Label>Description *</Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Main tip content (required)"
