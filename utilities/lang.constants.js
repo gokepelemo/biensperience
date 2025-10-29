@@ -57,6 +57,33 @@ const en = {
       signature: "Best regards,<br>The {appName} Team",
       footer: "This is an automated email. Please do not reply to this message.",
     },
+    collaboratorInvite: {
+      subject: "{inviterName} invited you to collaborate on {appName}",
+      heading: "Collaboration Invitation",
+      greeting: "Hello{userName},",
+      inviterMessage: "{inviterName} has invited you to {appName} to collaborate on creating a travel plan for an experience in {destinationName}.",
+      experienceDetails: "Experience: <strong>{experienceName}</strong>",
+      destinationDetails: "Location: {destinationName}",
+      body: "As a collaborator, you'll be able to help plan this exciting travel experience, add ideas, manage itinerary items, and work together to create the perfect trip.",
+      buttonText: "Accept Invite & Start Collaborating",
+      inviteCodeLabel: "Your invite code:",
+      inviteCodeInstruction: "You'll need this code when you sign up",
+      whatYouCanDo: "What you can do as a collaborator:",
+      collaboratorPerks: [
+        "✅ View and edit the travel plan",
+        "✅ Add and manage plan items",
+        "✅ Suggest activities and experiences",
+        "✅ Chat with other collaborators",
+        "✅ Mark items as complete"
+      ],
+      existingUserNote: "If you already have an account, simply log in to access this collaboration.",
+      newUserNote: "Don't have an account yet? No problem! Sign up using the button above and you'll automatically be added as a collaborator.",
+      altLinkText: "If the button doesn't work, copy this link into your browser:",
+      aboutAppTitle: "About {appName}",
+      aboutAppText: "{appName} helps you plan and organize your travel experiences around the world. Collaborate with friends and family to create amazing travel memories together.",
+      signature: "Happy Planning!<br>The {appName} Team",
+      footer: "This is an automated email. Please do not reply to this message.",
+    },
   },
 };
 

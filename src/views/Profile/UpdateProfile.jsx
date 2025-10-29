@@ -317,9 +317,9 @@ export default function UpdateProfile() {
           <p className="mt-3">Loading {isAdminMode ? 'user' : 'your'} profile...</p>
         </div>
       ) : (
-        <div className="row my-4 fade-in">
-          <div className="col-12">
-            <Form className="updateProfile" autoComplete="off" onSubmit={handleSubmit} style={{ display: 'block' }}>
+        <div className="row my-4 fade-in justify-content-center">
+          <div className="col-md-8 col-lg-6">
+            <Form className="update-profile-form" autoComplete="off" onSubmit={handleSubmit} style={{ display: 'block' }}>
             <FormField
               name="name"
               label="Name"

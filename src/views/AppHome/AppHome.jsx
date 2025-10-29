@@ -1,15 +1,20 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
+import { useUser } from "../../contexts/UserContext";
 import HeroBanner from "../../components/HeroBanner/HeroBanner";
 import DestinationCard from "../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
+import Alert from "../../components/Alert/Alert";
 
 export default function AppHome() {
   const { experiences, destinations, plans, loading } = useData();
   const { registerH1, clearActionButtons } = useApp();
+  const { user } = useUser();
+  const navigate = useNavigate();
 
   // Register h1 for navbar integration
   useEffect(() => {
@@ -18,6 +23,10 @@ export default function AppHome() {
 
     return () => clearActionButtons();
   }, [registerH1, clearActionButtons]);
+
+  // Check if this is a new user with no content
+  const isEmptyState = !loading && destinations.length === 0 && experiences.length === 0;
+  const hasNothingPlanned = !loading && plans.length === 0;
 
   return (
     <PageWrapper title="Biensperience">
@@ -36,6 +45,34 @@ export default function AppHome() {
             <span className="visually-hidden">Loading...</span>
           </div>
         </div>
+      ) : isEmptyState ? (
+        <div className="row justify-content-center my-5">
+          <div className="col-12 col-md-8 col-lg-6">
+            <Alert
+              type="info"
+              title={`Welcome${user?.name ? `, ${user.name}` : ''}!`}
+              dismissible={false}
+            >
+              <p className="mb-3">
+                It looks like this is a fresh start! Get started by creating your first destination or experience.
+              </p>
+              <div className="d-grid gap-2 d-md-flex justify-content-md-center">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => navigate('/destinations/new')}
+                >
+                  ✚ Create Your First Destination
+                </button>
+                <button
+                  className="btn btn-outline-primary"
+                  onClick={() => navigate('/experiences/new')}
+                >
+                  ✚ Create Your First Experience
+                </button>
+              </div>
+            </Alert>
+          </div>
+        </div>
       ) : (
         <>
           <div className="row d-flex justify-content-center align-items-center fade-in">
@@ -51,7 +88,17 @@ export default function AppHome() {
                   />
                 ))
             ) : (
-              <p className="text-center text-muted">No destinations available yet.</p>
+              <div className="col-12">
+                <Alert type="info" dismissible={false}>
+                  <p className="mb-2">No destinations yet. Be the first to add one!</p>
+                  <button
+                    className="btn btn-sm btn-primary"
+                    onClick={() => navigate('/destinations/new')}
+                  >
+                    ✚ Add Destination
+                  </button>
+                </Alert>
+              </div>
             )}
           </div>
 
@@ -69,7 +116,17 @@ export default function AppHome() {
                   />
                 ))
             ) : (
-              <p className="text-center text-muted">No experiences available yet.</p>
+              <div className="col-12">
+                <Alert type="info" dismissible={false}>
+                  <p className="mb-2">No experiences yet. Create the first one!</p>
+                  <button
+                    className="btn btn-sm btn-primary"
+                    onClick={() => navigate('/experiences/new')}
+                  >
+                    ✚ Add Experience
+                  </button>
+                </Alert>
+              </div>
             )}
           </div>
         </>

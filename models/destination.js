@@ -52,7 +52,23 @@ const destinationSchema = new Schema(
       default: []
     },
     default_photo_index: { type: Number, default: 0 },
-    travel_tips: [String],
+    travel_tips: {
+      type: [Schema.Types.Mixed],
+      default: [],
+      validate: {
+        validator: function(tips) {
+          return tips.every(tip => {
+            // Must be string or object with type and value fields
+            if (typeof tip === 'string') return true;
+            if (typeof tip === 'object' && tip !== null) {
+              return tip.type && typeof tip.value === 'string';
+            }
+            return false;
+          });
+        },
+        message: 'Travel tips must be strings or structured tip objects with type and value'
+      }
+    },
     visibility: {
       type: String,
       enum: ['private', 'contributors', 'public'],

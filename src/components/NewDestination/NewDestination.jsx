@@ -6,28 +6,55 @@ import { createDestination } from "../../utilities/destinations-api";
 import { useData } from "../../contexts/DataContext";
 import { useUser } from "../../contexts/UserContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useFormPersistence } from "../../hooks/useFormPersistence";
+import { useFormChangeHandler } from "../../hooks/useFormChangeHandler";
+import { useTravelTipsManager } from "../../hooks/useTravelTipsManager";
+import { useFormErrorHandling } from "../../hooks/useFormErrorHandling";
+import { formatRestorationMessage } from "../../utilities/time-format";
 import ImageUpload from "../ImageUpload/ImageUpload";
 import Alert from "../Alert/Alert";
-import { handleError } from "../../utilities/error-handler";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import FormField from "../FormField/FormField";
-import { FormTooltip } from "../Tooltip/Tooltip";
+import TravelTipsManager from "../TravelTipsManager/TravelTipsManager";
 import { Form } from "react-bootstrap";
-import { useFormPersistence } from "../../hooks/useFormPersistence";
-import { formatRestorationMessage } from "../../utilities/time-format";
 
 export default function NewDestination() {
   const { destinations: destData, addDestination } = useData();
   const { user } = useUser();
   const { success } = useToast();
+  const navigate = useNavigate();
+
   const [newDestination, setNewDestination] = useState({});
   const [destinations, setDestinations] = useState([]);
-  const [travelTips, setTravelTips] = useState([]);
-  const [newTravelTip, setNewTravelTip] = useState({});
+  const [error, setError] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [tipToDelete, setTipToDelete] = useState(null);
-  const [error, setError] = useState("");
-  const navigate = useNavigate();
+
+  // Use custom hooks
+  const handleChange = useFormChangeHandler(newDestination, setNewDestination);
+
+  const {
+    travelTips,
+    newTravelTip,
+    setTravelTips,
+    addTravelTip,
+    deleteTravelTip,
+    handleNewTipChange,
+    handleNewTipKeyPress,
+    // Structured tip management
+    tipMode,
+    setTipMode,
+    structuredTip,
+    addStructuredTip,
+    updateStructuredTipField,
+    updateCallToAction
+  } = useTravelTipsManager([]);
+
+  const handleFormError = useFormErrorHandling(setError, {
+    onEmailNotVerified: (data) => {
+      setError(data.error || lang.en.alert.emailNotVerifiedMessage);
+    }
+  });
 
   // Form persistence - combines newDestination and travelTips
   const formData = { ...newDestination, travel_tips: travelTips };
@@ -45,12 +72,11 @@ export default function NewDestination() {
     setFormData,
     {
       enabled: true,
-      userId: user?._id, // Encryption and user-specific storage
-      ttl: 24 * 60 * 60 * 1000, // 24 hours
-      debounceMs: 1000, // Save after 1 second of inactivity
-      excludeFields: [], // File objects auto-excluded by persistence hook
+      userId: user?._id,
+      ttl: 24 * 60 * 60 * 1000,
+      debounceMs: 1000,
+      excludeFields: [],
       onRestore: (savedData, age) => {
-        // Show toast notification with clear option and friendly time formatting
         const message = formatRestorationMessage(age, 'create');
         success(message, {
           duration: 20000,
@@ -67,19 +93,17 @@ export default function NewDestination() {
       }
     }
   );
-  
+
   useEffect(() => {
     if (destData) setDestinations(destData);
     document.title = `New Destination - Biensperience`;
   }, [destData]);
-  function handleChange(e) {
-    setNewDestination({ ...newDestination, [e.target.name]: e.target.value });
-  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
 
-    // Frontend duplicate check (case-insensitive name and country combination)
+    // Frontend duplicate check
     if (newDestination.name && newDestination.country) {
       const duplicate = destinations.find(dest =>
         dest.name.toLowerCase().trim() === newDestination.name.toLowerCase().trim() &&
@@ -96,44 +120,26 @@ export default function NewDestination() {
       const destination = await createDestination(
         Object.assign({ ...newDestination }, { travel_tips: travelTips })
       );
-      addDestination(destination); // Instant UI update!
-
-      // Clear saved form data on success
+      addDestination(destination);
       persistence.clear();
-
       success('Destination created!');
       navigate(`/experiences/new`);
     } catch (err) {
-      const errorMsg = handleError(err, { context: 'Create destination' });
-      // Check if it's an email verification error
-      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
-        setError(err.response.data.error || lang.en.alert.emailNotVerifiedMessage);
-      }
-      // Check if it's a duplicate error from backend
-      else if (err.message && err.message.includes('already exists')) {
-        setError(err.message);
-      } else {
-        setError(errorMsg);
-      }
+      handleFormError(err, { context: 'Create destination' });
     }
   }
-  function addTravelTip(text) {
-    setTravelTips([...travelTips, text]);
-  }
-  function deleteTravelTip(id) {
-    let newTravelTips = [...travelTips];
-    newTravelTips.splice(id, 1);
-    setTravelTips([...newTravelTips]);
-  }
-  function handleAddTravelTip(e) {
-    if (newTravelTip.tipkey.length && newTravelTip.tipvalue.length) {
-      addTravelTip(`${newTravelTip.tipkey}: ${newTravelTip.tipvalue}`);
+
+  function handleAddTravelTip() {
+    if (newTravelTip.trim()) {
+      addTravelTip();
     }
-    setNewTravelTip({ tipkey: "", tipvalue: "" });
   }
-  function handleTravelTipChange(e) {
-    setNewTravelTip({ ...newTravelTip, [e.target.name]: e.target.value });
+
+  function handleDeleteTravelTip(index) {
+    setTipToDelete(index);
+    setShowDeleteModal(true);
   }
+
   return (
     <>
       <div className="row fade-in">
@@ -143,10 +149,7 @@ export default function NewDestination() {
       </div>
 
       {error && (
-        <Alert
-          type="danger"
-          className="mb-4"
-        >
+        <Alert type="danger" className="mb-4">
           <div>
             {error}
             {error.includes('verify your email') && (
@@ -206,79 +209,44 @@ export default function NewDestination() {
               </div>
             </div>
 
+            <FormField
+              name="description"
+              label="Description"
+              type="textarea"
+              value={newDestination.description || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.destinationDescription}
+              rows={4}
+              tooltip={lang.en.helper.descriptionOptional}
+              tooltipPlacement="top"
+            />
+
             <div className="mb-4">
               <Form.Label>
-                Photos
-                <FormTooltip content={lang.en.helper.destinationPhoto} placement="top" />
+                {lang.en.heading.photos}
               </Form.Label>
               <ImageUpload data={newDestination} setData={setNewDestination} />
             </div>
 
-            <div className="mb-4">
-              <Form.Label>
-                {lang.en.heading.travelTips}
-                <FormTooltip 
-                  content="Share insider tips that'll help travelers make the most of this destination! 💡" 
-                  placement="top" 
-                />
-              </Form.Label>
-
-              <div className="input-group mb-3">
-                <input
-                  type="text"
-                  name="tipkey"
-                  className="form-control"
-                  placeholder={lang.en.placeholder.language}
-                  onChange={(e) => handleTravelTipChange(e)}
-                  value={newTravelTip.tipkey || ''}
-                  autoComplete="off"
-                  style={{ padding: '1rem' }}
-                />
-                <input
-                  type="text"
-                  name="tipvalue"
-                  className="form-control rounded-end"
-                  placeholder={lang.en.placeholder.spanish}
-                  onChange={(e) => handleTravelTipChange(e)}
-                  value={newTravelTip.tipvalue || ''}
-                  autoComplete="off"
-                  style={{ padding: '1rem' }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  onClick={handleAddTravelTip}
-                >
-                  Add Tip
-                </button>
-              </div>
-
-              {travelTips.length > 0 && (
-                <ul className="list-group">
-                  {travelTips.map((travelTip, idx) => (
-                    <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
-                      <span>{travelTip}</span>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => {
-                          setTipToDelete(idx);
-                          setShowDeleteModal(true);
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {travelTips.length === 0 && (
-                <Alert
-                  type="info"
-                  message={lang.en.alert.noTravelTips}
-                />
-              )}
-            </div>
+            <TravelTipsManager
+              tips={travelTips}
+              newTip={newTravelTip}
+              onNewTipChange={handleNewTipChange}
+              onNewTipKeyPress={handleNewTipKeyPress}
+              onAddTip={handleAddTravelTip}
+              onDeleteTip={handleDeleteTravelTip}
+              label={lang.en.heading.travelTips}
+              placeholder="Share an insider tip (e.g., 'Best time to visit is spring')"
+              addButtonText="Add Tip"
+              deleteButtonText="Remove"
+              // Enhanced props for structured tips
+              mode={tipMode}
+              onModeChange={setTipMode}
+              structuredTip={structuredTip}
+              onStructuredTipFieldChange={updateStructuredTipField}
+              onCallToActionChange={updateCallToAction}
+              onAddStructuredTip={addStructuredTip}
+            />
 
             <div className="d-flex justify-content-end mt-4">
               <button
@@ -292,7 +260,7 @@ export default function NewDestination() {
           </Form>
         </div>
       </div>
-      
+
       <ConfirmModal
         show={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}

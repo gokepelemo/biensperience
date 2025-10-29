@@ -35,7 +35,8 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
     experiences: [],
     destinations: [],
     maxUses: 1,
-    customMessage: ''
+    customMessage: '',
+    sendEmail: true  // Default to sending email
   });
 
   // Bulk upload
@@ -44,7 +45,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
   const [bulkExperiences, setBulkExperiences] = useState([]);
   const [bulkDestinations, setBulkDestinations] = useState([]);
   const [bulkResult, setBulkResult] = useState(null);
-  const [sendBulkEmails, setSendBulkEmails] = useState(false);
+  const [sendBulkEmails, setSendBulkEmails] = useState(true);  // Default to sending emails
 
   const [isCreating, setIsCreating] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -91,11 +92,17 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
         experiences: [],
         destinations: [],
         maxUses: 1,
-        customMessage: ''
+        customMessage: '',
+        sendEmail: true
       });
-      success(`Invite code created: ${invite.code}`);
+      const emailMsg = singleForm.sendEmail && singleForm.email && invite.emailSent
+        ? ' (email sent)'
+        : singleForm.sendEmail && singleForm.email && !invite.emailSent
+        ? ' (email failed to send)'
+        : '';
+      success(`Invite code created: ${invite.code}${emailMsg}`);
       setActiveTab('list');
-      logger.info('Invite code created', { code: invite.code });
+      logger.info('Invite code created', { code: invite.code, emailSent: invite.emailSent });
     } catch (err) {
       logger.error('Error creating invite code', {}, err);
       showError('Failed to create invite code');
@@ -396,6 +403,21 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                   value={singleForm.customMessage}
                   onChange={(e) => setSingleForm({ ...singleForm, customMessage: e.target.value })}
                 />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Check
+                  type="checkbox"
+                  id="sendEmailCheckbox"
+                  label="Send invite email"
+                  checked={singleForm.sendEmail}
+                  onChange={(e) => setSingleForm({ ...singleForm, sendEmail: e.target.checked })}
+                />
+                <Form.Text className="text-muted">
+                  {singleForm.email
+                    ? `Email will be sent to ${singleForm.email}`
+                    : 'Email address required to send invite email'}
+                </Form.Text>
               </Form.Group>
 
               <Button type="submit" variant="primary" disabled={isCreating}>

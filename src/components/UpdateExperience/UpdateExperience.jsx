@@ -18,6 +18,10 @@ import { Form } from "react-bootstrap";
 import { isSuperAdmin } from "../../utilities/permissions";
 import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 
+// Custom hooks
+import { useChangeTrackingHandler } from "../../hooks/useFormChangeHandler";
+import { useFormErrorHandling } from "../../hooks/useFormErrorHandling";
+
 export default function UpdateExperience() {
   const { user } = useUser();
   const { destinations: destData, updateExperience } = useData();
@@ -33,6 +37,21 @@ export default function UpdateExperience() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Custom hooks
+  const handleChange = useChangeTrackingHandler(
+    experience,
+    setExperience,
+    originalExperience,
+    changes,
+    setChanges
+  );
+
+  const handleFormError = useFormErrorHandling(setError, {
+    onEmailNotVerified: (data) => {
+      showError(data.error || lang.en.alert.emailNotVerifiedMessage);
+    }
+  });
 
   useEffect(() => {
     async function fetchData() {
@@ -89,17 +108,17 @@ export default function UpdateExperience() {
     if (!experience || !originalExperience) return;
 
     const newChanges = { ...changes };
-    
+
     // Check if photos array changed
     const originalPhotos = originalExperience.photos || [];
     const currentPhotos = experience.photos || [];
-    
+
     const photosChanged = JSON.stringify(originalPhotos) !== JSON.stringify(currentPhotos);
-    
+
     if (photosChanged) {
       const fromText = originalPhotos.length === 0 ? 'No photos' : `${originalPhotos.length} photo${originalPhotos.length > 1 ? 's' : ''}`;
       const toText = currentPhotos.length === 0 ? 'No photos' : `${currentPhotos.length} photo${currentPhotos.length > 1 ? 's' : ''}`;
-      
+
       newChanges.photos = {
         from: fromText,
         to: toText
@@ -107,11 +126,11 @@ export default function UpdateExperience() {
     } else {
       delete newChanges.photos;
     }
-    
+
     // Check if default photo index changed
     const originalIndex = originalExperience.default_photo_index || 0;
     const currentIndex = experience.default_photo_index || 0;
-    
+
     if (originalIndex !== currentIndex && currentPhotos.length > 0) {
       newChanges.default_photo_index = {
         from: `Photo #${originalIndex + 1}`,
@@ -120,7 +139,7 @@ export default function UpdateExperience() {
     } else {
       delete newChanges.default_photo_index;
     }
-    
+
     // Only update if changes actually differ
     if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
       setChanges(newChanges);
@@ -128,42 +147,32 @@ export default function UpdateExperience() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experience, originalExperience]);
 
-  function handleChange(e) {
-    const { name, value } = e.target;
-    const updatedExperience = { ...experience, [name]: value };
+  // Track tags changes
+  useEffect(() => {
+    if (!originalExperience) return;
 
-    // Track changes
-    const newChanges = { ...changes };
-    if (originalExperience && originalExperience[name] !== value) {
-      newChanges[name] = { from: originalExperience[name], to: value };
-    } else {
-      delete newChanges[name];
-    }
-
-    setExperience(updatedExperience);
-    setChanges(newChanges);
-  }
-
-  function handleTagsChange(newTags) {
-    setTags(newTags);
-    // Store as array, not comma-separated string
-    const updatedExperience = { ...experience, experience_type: newTags };
-
-    // Track changes (compare arrays properly)
     const newChanges = { ...changes };
     const originalTags = Array.isArray(originalExperience?.experience_type)
       ? originalExperience.experience_type
       : [];
-    const tagsChanged = JSON.stringify(originalTags.sort()) !== JSON.stringify([...newTags].sort());
+    const tagsChanged = JSON.stringify(originalTags.sort()) !== JSON.stringify([...tags].sort());
 
-    if (originalExperience && tagsChanged) {
-      newChanges.experience_type = { from: originalTags.join(', '), to: newTags.join(', ') };
+    if (tagsChanged) {
+      newChanges.experience_type = { from: originalTags.join(', '), to: tags.join(', ') };
     } else {
       delete newChanges.experience_type;
     }
 
+    if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
+      setChanges(newChanges);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tags, originalExperience]);
+
+  function handleTagsChange(newTags) {
+    setTags(newTags);
+    const updatedExperience = { ...experience, experience_type: newTags };
     setExperience(updatedExperience);
-    setChanges(newChanges);
   }
 
   function handleDestinationChange(selectedDestination) {
@@ -244,13 +253,8 @@ export default function UpdateExperience() {
       success('Experience updated!');
       navigate(`/experiences/${experienceId}`);
     } catch (err) {
-      const errorMsg = handleError(err, { context: 'Update experience' });
-      // Check if it's an email verification error
-      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
-        showError(err.response.data.error || lang.en.alert.emailNotVerifiedMessage);
-      } else {
-        showError(errorMsg);
-      }
+      handleFormError(err, { context: 'Update experience' });
+      showError(handleError(err, { context: 'Update experience' }));
     }
   }
 

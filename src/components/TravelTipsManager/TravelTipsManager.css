@@ -1,0 +1,44 @@
+/**
+ * TravelTipsManager Component Styles
+ */
+
+.structured-tip-form {
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  background-color: #ffffff;
+}
+
+.structured-tip-preview {
+  padding: 1rem;
+}
+
+.structured-tip-preview .badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.structured-tip-preview strong {
+  font-size: 1rem;
+  color: #212529;
+}
+
+.structured-tip-preview .text-muted {
+  font-size: 0.875rem;
+}
+
+/* Mode toggle buttons */
+.btn-group .btn {
+  font-size: 0.875rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .structured-tip-form {
+    padding: 0.75rem;
+  }
+
+  .structured-tip-preview {
+    padding: 0.75rem;
+  }
+}

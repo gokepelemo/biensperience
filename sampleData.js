@@ -238,6 +238,19 @@ function randomFutureDate() {
   const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
   return new Date(now.getTime() + Math.random() * (oneYearFromNow.getTime() - now.getTime()));
 }
+
+/**
+ * Shuffle array using Fisher-Yates algorithm
+ */
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 /**
  * Data generators for comprehensive sample data
  */
@@ -507,21 +520,128 @@ class DataGenerator {
   }
 
   /**
-   * Generate travel tips for a destination
+   * Generate travel tips for a destination (mix of simple and structured)
    */
   generateTravelTips(destinationName) {
-    const tips = [
-      `Visit the main attractions in ${destinationName} early to avoid crowds`,
-      'Try authentic local cuisine at family-run restaurants',
-      'Learn basic local phrases to enhance your experience',
-      'Use public transportation for efficient exploration',
-      'Respect local customs and traditions',
-      'Book popular activities in advance during peak season',
-      'Explore neighborhoods beyond the tourist areas',
-      'Try street food for an authentic culinary experience'
+    // Simple string tips (backwards compatible)
+    const simpleTips = [
+      `🏛️ Visit the main attractions in ${destinationName} early to avoid crowds`,
+      '🍜 Try authentic local cuisine at family-run restaurants',
+      '🗣️ Learn basic local phrases to enhance your experience',
+      '🌙 Experience the nightlife in the city center',
+      '📸 Best photo spots are near the waterfront at sunset',
+      '👟 Wear comfortable shoes for exploring cobblestone streets'
     ];
 
-    return getRandomElements(tips, randomBetween(3, 6));
+    // Structured tips with rich metadata
+    const structuredTips = [
+      {
+        type: 'Currency',
+        value: 'Euro (EUR) is the official currency',
+        note: 'Credit cards widely accepted in tourist areas',
+        exchangeRate: '1 USD ≈ 0.85 EUR (check current rates)',
+        icon: '💶',
+        callToAction: {
+          label: 'Check Current Rate',
+          url: 'https://www.xe.com/currency-converter'
+        }
+      },
+      {
+        type: 'Language',
+        value: 'English widely spoken in tourist areas',
+        note: 'Learn these phrases: "Hello" (Bonjour), "Thank you" (Merci), "Excuse me" (Excusez-moi)',
+        icon: '🗣️'
+      },
+      {
+        type: 'Transportation',
+        value: 'Metro system is the fastest way to get around',
+        note: 'Purchase a multi-day pass for unlimited rides. Trains run from 5:30 AM to 1:00 AM',
+        icon: '🚇',
+        callToAction: {
+          label: 'View Metro Map',
+          url: 'https://www.google.com/maps'
+        }
+      },
+      {
+        type: 'Safety',
+        value: 'Generally safe for tourists, but stay vigilant',
+        note: 'Keep valuables secure in crowded tourist areas. Avoid isolated areas at night',
+        icon: '🛡️'
+      },
+      {
+        type: 'Weather',
+        value: 'Best time to visit is April-June and September-October',
+        note: 'Summer (July-August) can be very hot and crowded. Winter is mild but rainy',
+        icon: '🌤️'
+      },
+      {
+        type: 'Customs',
+        value: 'Greet shopkeepers when entering stores',
+        note: 'Tipping is appreciated but not mandatory (5-10% in restaurants). Dress modestly when visiting religious sites',
+        icon: '🤝'
+      },
+      {
+        type: 'Food',
+        value: 'Don\'t miss the local specialty dishes',
+        note: 'Try the street food markets for authentic flavors. Lunch is served 12-2 PM, dinner after 8 PM',
+        icon: '🍽️',
+        callToAction: {
+          label: 'Top Restaurants',
+          url: 'https://www.tripadvisor.com'
+        }
+      },
+      {
+        type: 'Accommodation',
+        value: 'Book hotels in the city center for easy access',
+        note: 'Consider boutique hotels or vacation rentals for local experience. Book 2-3 months in advance for peak season',
+        icon: '🏨',
+        callToAction: {
+          label: 'Search Hotels',
+          url: 'https://www.booking.com'
+        }
+      },
+      {
+        type: 'Emergency',
+        value: 'Emergency number: 112 (EU standard)',
+        note: 'Tourist police available 24/7. Keep hotel contact card for taxi drivers',
+        icon: '🚨'
+      },
+      {
+        type: 'Custom',
+        category: 'Shopping',
+        value: 'Markets are best on Saturday mornings',
+        note: 'Bargaining is not common in shops. VAT refund available for purchases over €175',
+        icon: '🛍️'
+      },
+      {
+        type: 'Custom',
+        category: 'WiFi & Connectivity',
+        value: 'Free WiFi available in most cafes and hotels',
+        note: 'Consider getting a local SIM card for data. Roaming charges apply outside EU',
+        icon: '📱',
+        callToAction: {
+          label: 'Buy eSIM',
+          url: 'https://www.airalo.com'
+        }
+      }
+    ];
+
+    // Mix simple and structured tips (roughly 40% simple, 60% structured)
+    const mixedTips = [];
+    const totalTips = randomBetween(4, 8);
+    const simpleCount = Math.floor(totalTips * 0.4);
+    const structuredCount = totalTips - simpleCount;
+
+    // Add random simple tips
+    const selectedSimple = getRandomElements(simpleTips, simpleCount);
+    mixedTips.push(...selectedSimple);
+
+    // Add random structured tips
+    const selectedStructured = getRandomElements(structuredTips, structuredCount);
+    mixedTips.push(...selectedStructured);
+
+    // Shuffle the mixed array for variety
+    return shuffleArray(mixedTips);
   }
 
   /**

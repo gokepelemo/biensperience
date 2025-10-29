@@ -18,6 +18,11 @@ import { useFormPersistence } from "../../hooks/useFormPersistence";
 import { formatRestorationMessage } from "../../utilities/time-format";
 import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 
+// Custom hooks
+import { useFormChangeHandler } from "../../hooks/useFormChangeHandler";
+import { useDestinationManagement } from "../../hooks/useDestinationManagement";
+import { useFormErrorHandling } from "../../hooks/useFormErrorHandling";
+
 export default function NewExperience() {
   const { destinations: destData, experiences: expData, addExperience } = useData();
   const { user } = useUser();
@@ -27,9 +32,40 @@ export default function NewExperience() {
   const [experiences, setExperiences] = useState([]);
   const [tags, setTags] = useState([]);
   const [error, setError] = useState("");
-  const [showDestinationModal, setShowDestinationModal] = useState(false);
-  const [destinationInput, setDestinationInput] = useState("");
   const navigate = useNavigate();
+
+  // Custom hooks for form handling
+  const handleChange = useFormChangeHandler(newExperience, setNewExperience, {
+    onFieldChange: (name, value) => {
+      // Track destination input for modal prefill
+      if (name === 'destination') {
+        setDestinationInput(value);
+      }
+    }
+  });
+
+  // Destination management hook
+  const {
+    showDestinationModal,
+    destinationInput,
+    prefillName,
+    getDestinationOptions,
+    handleDestinationChange,
+    handleDestinationCreated,
+    handleCreateDestinationClick,
+    closeDestinationModal,
+    setDestinationInput
+  } = useDestinationManagement(destinations, newExperience, setNewExperience, setDestinations);
+
+  // Error handling hook
+  const handleFormError = useFormErrorHandling(setError, {
+    onEmailNotVerified: (data) => {
+      setError(data.error || lang.en.alert.emailNotVerifiedMessage);
+    },
+    onDuplicateError: (err) => {
+      setError(err.message);
+    }
+  });
 
   // Form persistence - combines newExperience and tags
   const formData = { ...newExperience, experience_type: tags };
@@ -70,76 +106,6 @@ export default function NewExperience() {
     }
   );
 
-  function handleChange(e) {
-    let experience = { ...newExperience };
-    setNewExperience(
-      Object.assign(experience, { [e.target.name]: e.target.value })
-    );
-
-    // Track destination input for modal prefill
-    if (e.target.name === 'destination') {
-      const inputValue = e.target.value;
-      setDestinationInput(inputValue);
-
-      // Check if user selected create new destination option
-      // Matches: "✚ Create New: [text]", "✚ Create New Destination", or variations
-      if (inputValue.includes('✚ Create New') ||
-          inputValue === '+ Create New Destination' ||
-          inputValue.startsWith('Create "')) {
-        setShowDestinationModal(true);
-        // Clear the field so the special value doesn't persist
-        setNewExperience(prev => ({ ...prev, destination: '' }));
-      }
-    }
-  }
-
-  // Get filtered destinations and always add create option at the end
-  const getDestinationOptions = () => {
-    const input = destinationInput || newExperience.destination || '';
-    const options = [...destinations];
-
-    // Always add the create new destination option at the end
-    // The browser will show it when relevant based on input matching
-    if (input.trim() !== '') {
-      // Format: "✚ Create New: [user's input]"
-      options.push({
-        _id: 'create-new',
-        name: `✚ Create New`,
-        country: input, // Use country field to show the input
-        isCreateOption: true
-      });
-    } else {
-      // When empty, just show generic create option
-      options.push({
-        _id: 'create-new-generic',
-        name: '✚ Create New Destination',
-        country: '',
-        isCreateOption: true
-      });
-    }
-
-    return options;
-  };
-
-  function handleDestinationCreated(newDestination) {
-    // Add to local destinations list
-    setDestinations(prev => [...prev, newDestination]);
-
-    // Set as selected destination
-    setNewExperience({
-      ...newExperience,
-      destination: `${newDestination.name}, ${newDestination.country}`
-    });
-
-    // Update input tracking
-    setDestinationInput(`${newDestination.name}, ${newDestination.country}`);
-  }
-
-  function handleCreateDestinationClick(e) {
-    e.preventDefault();
-    setShowDestinationModal(true);
-  }
-
   function handleTagsChange(newTags) {
     setTags(newTags);
     setNewExperience({
@@ -147,6 +113,7 @@ export default function NewExperience() {
       experience_type: newTags // Store as array, not comma-separated string
     });
   }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -175,24 +142,16 @@ export default function NewExperience() {
       success('Experience created!');
       navigate(`/experiences/${experience._id}`);
     } catch (err) {
-      const errorMsg = handleError(err, { context: 'Create experience' });
-      // Check if it's an email verification error
-      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
-        setError(err.response.data.error || lang.en.alert.emailNotVerifiedMessage);
-      }
-      // Check if it's a duplicate error from backend
-      else if (err.message && err.message.includes('already exists')) {
-        setError(err.message);
-      } else {
-        setError(errorMsg);
-      }
+      handleFormError(err, { context: 'Create experience' });
     }
   }
+
   useEffect(() => {
     if (destData) setDestinations(destData);
     if (expData) setExperiences(expData);
     document.title = `New Experience - Biensperience`;
   }, [destData, expData]);
+
   return (
     <>
       <div className="row fade-in">
@@ -240,7 +199,7 @@ export default function NewExperience() {
                 label={lang.en.label.destinationLabel}
                 type="text"
                 value={newExperience.destination || ''}
-                onChange={handleChange}
+                onChange={handleDestinationChange}
                 placeholder={lang.en.placeholder.destination}
                 required
                 tooltip={`${lang.en.helper.destinationRequired}${lang.en.helper.createNewDestination}`}
@@ -295,7 +254,7 @@ export default function NewExperience() {
             <div className="mb-4">
               <Form.Label htmlFor="experience_type">
                 {lang.en.label.experienceTypes}
-                <FormTooltip 
+                <FormTooltip
                   content={lang.en.helper.experienceTypesOptional}
                   placement="top"
                 />
@@ -310,7 +269,7 @@ export default function NewExperience() {
             <div className="mb-4">
               <Form.Label>
                 Photos
-                <FormTooltip 
+                <FormTooltip
                   content={lang.en.helper.photosOptional}
                   placement="top"
                 />
@@ -359,9 +318,9 @@ export default function NewExperience() {
 
       <NewDestinationModal
         show={showDestinationModal}
-        onClose={() => setShowDestinationModal(false)}
+        onClose={closeDestinationModal}
         onDestinationCreated={handleDestinationCreated}
-        prefillName={destinationInput.split(',')[0].replace('+ Create New Destination', '').trim()}
+        prefillName={prefillName}
       />
     </>
   );

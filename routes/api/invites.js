@@ -93,7 +93,8 @@ router.post('/', requireAuth, async (req, res) => {
       destinations,
       maxUses,
       expiresAt,
-      customMessage
+      customMessage,
+      sendEmail = false
     } = req.body;
 
     const invite = await InviteCode.createInvite({
@@ -115,7 +116,52 @@ router.post('/', requireAuth, async (req, res) => {
       audit: true
     });
 
-    res.status(201).json(invite);
+    // Send email if requested and email is provided
+    let emailSent = false;
+    if (sendEmail && email) {
+      try {
+        await sendInviteEmail({
+          toEmail: email,
+          inviterName: req.user.name,
+          inviteCode: invite.code,
+          inviteeName,
+          customMessage,
+          experiencesCount: (experiences || []).length,
+          destinationsCount: (destinations || []).length
+        });
+
+        emailSent = true;
+
+        // Update invite metadata
+        invite.inviteMetadata = {
+          ...invite.inviteMetadata,
+          emailSent: true,
+          sentAt: new Date(),
+          sentFrom: req.user._id
+        };
+        await invite.save();
+
+        backendLogger.info('Invite email sent successfully', {
+          userId: req.user._id,
+          inviteId: invite._id,
+          email,
+          audit: true
+        });
+      } catch (emailError) {
+        backendLogger.error('Failed to send invite email, but invite code created', {
+          userId: req.user._id,
+          inviteId: invite._id,
+          email,
+          error: emailError.message
+        });
+        // Don't fail the request - invite code was created successfully
+      }
+    }
+
+    res.status(201).json({
+      ...invite.toObject(),
+      emailSent
+    });
   } catch (error) {
     backendLogger.error('Error creating invite code', {
       userId: req.user._id,
@@ -283,7 +329,7 @@ router.post('/redeem', requireAuth, async (req, res) => {
 
     const invite = result.invite;
 
-    // Add experiences to user's plans
+    // Add experiences to user's plans with proper snapshot creation
     const experiencesAdded = [];
     for (const experience of invite.experiences) {
       try {
@@ -294,18 +340,39 @@ router.post('/redeem', requireAuth, async (req, res) => {
         });
 
         if (!existingPlan) {
-          // Create a new plan
-          await Plan.create({
+          // Create snapshot of current plan items (matching plans.js controller logic)
+          const planSnapshot = experience.plan_items.map(item => ({
+            plan_item_id: item._id,
+            complete: false,
+            cost: item.cost_estimate || 0,
+            planning_days: item.planning_days || 0,
+            text: item.text,
+            url: item.url,
+            photo: item.photo,
+            parent: item.parent
+          }));
+
+          // Create a new plan with snapshot
+          const newPlan = await Plan.create({
             experience: experience._id,
             user: req.user._id,
-            items: [],
+            plan: planSnapshot,  // Correct field name with snapshot data
             permissions: [{
               entity: 'user',
               type: 'owner',
               _id: req.user._id
             }]
           });
-          experiencesAdded.push(experience);
+
+          if (newPlan) {
+            experiencesAdded.push(experience);
+            backendLogger.debug('Plan created from invite redemption', {
+              userId: req.user._id,
+              experienceId: experience._id,
+              planId: newPlan._id,
+              itemsCount: planSnapshot.length
+            });
+          }
         }
       } catch (err) {
         backendLogger.error('Error adding experience to plan', {

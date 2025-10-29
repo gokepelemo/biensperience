@@ -9,6 +9,7 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const crypto = require("crypto");
+const logger = require("../utilities/backend-logger");
 
 /**
  * Mongoose schema for API Token model
@@ -195,7 +196,7 @@ apiTokenSchema.statics.findUserByToken = async function(token) {
   apiToken.lastUsed = new Date();
   apiToken.save().catch(err => {
     // Log error but don't fail the request
-    console.error('Failed to update lastUsed timestamp:', err);
+    logger.error('Failed to update lastUsed timestamp', { tokenId: apiToken._id, error: err.message });
   });
 
   return apiToken.user;

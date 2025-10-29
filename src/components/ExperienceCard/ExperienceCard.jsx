@@ -16,7 +16,21 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Initialize local plan state based on userPlans if available, or sessionStorage
   const [localPlanState, setLocalPlanState] = useState(() => {
     if (userPlans.length > 0) {
@@ -211,12 +225,27 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
       handleError(err, { context: 'Delete experience' });
     }
   }, [experience._id, updateData]);
+
+  // Toggle expansion on mobile (tap to expand/collapse)
+  const handleCardClick = useCallback((e) => {
+    // Only handle on mobile
+    if (!isMobile) return;
+
+    // Don't toggle if clicking buttons or links
+    if (e.target.closest('button') || e.target.closest('a')) {
+      return;
+    }
+
+    setIsExpanded(prev => !prev);
+  }, [isMobile]);
+
   return (
     <div className="d-inline-block m-2" style={{ width: 'fit-content', verticalAlign: 'top' }}>
       {experience ? (
         <div
-          className="experienceCard d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden"
+          className={`experienceCard d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden ${isMobile ? 'mobile' : ''} ${isExpanded ? 'expanded' : ''}`}
           style={{ backgroundImage: getBackgroundImage }}
+          onClick={handleCardClick}
         >
           <Link to={`/experiences/${experience._id}`} className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100 text-decoration-none">
             <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center text-white text-center p-3 w-100">

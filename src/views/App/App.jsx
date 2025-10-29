@@ -31,6 +31,7 @@ import ResetPassword from "../ResetPassword/ResetPassword";
 import ConfirmEmail from "../ConfirmEmail/ConfirmEmail";
 import { handleOAuthCallback } from "../../utilities/oauth-service";
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
+import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import { Helmet } from 'react-helmet-async';
 
 logger.info('App.jsx loaded');
@@ -136,25 +137,55 @@ function AppContent() {
             <>
               <NavBar />
               <main id="main-content" className="container" role="main" aria-label="Main content">
-                <Routes>
-                  <Route path="/" element={<AppHome />} />
-                  <Route path="/experiences/new" element={<NewExperience />} />
-                  <Route path="/destinations/new" element={<NewDestination />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/profile/:profileId" element={<Profile />} />
-                  <Route path="/profile/update" element={<UpdateProfile />} />
-                  <Route path="/profile/:userId/update" element={<UpdateProfile />} />
-                  <Route path="/invites" element={<InviteTracking />} />
-                  <Route path="/admin/users" element={<AllUsers />} />
-                  <Route path="/experiences" element={<Experiences />} />
-                  <Route path="/destinations" element={<Destinations />} />
-                  <Route path="/experience-types/:tagName" element={<ExperiencesByTag />} />
-                  <Route path="/experiences/:experienceId" element={<SingleExperience />} />
-                  <Route path="/experiences/:experienceId/update" element={<UpdateExperience />} />
-                  <Route path="/destinations/:destinationId" element={<SingleDestination />} />
-                  <Route path="/destinations/:destinationId/update" element={<UpdateDestination />} />
-                  <Route path="/logout" element={<Navigate to="/" />} />
-                </Routes>
+                <ErrorBoundary
+                  title="Page Error"
+                  message="We encountered an error loading this page. Please try again or return home."
+                  showHomeButton={true}
+                >
+                  <Routes>
+                    <Route path="/" element={<AppHome />} />
+                    <Route path="/experiences/new" element={
+                      <ErrorBoundary title="Form Error" message="Error loading the new experience form.">
+                        <NewExperience />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="/destinations/new" element={
+                      <ErrorBoundary title="Form Error" message="Error loading the new destination form.">
+                        <NewDestination />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/profile/:profileId" element={<Profile />} />
+                    <Route path="/profile/update" element={<UpdateProfile />} />
+                    <Route path="/profile/:userId/update" element={<UpdateProfile />} />
+                    <Route path="/invites" element={<InviteTracking />} />
+                    <Route path="/admin/users" element={<AllUsers />} />
+                    <Route path="/experiences" element={<Experiences />} />
+                    <Route path="/destinations" element={<Destinations />} />
+                    <Route path="/experience-types/:tagName" element={<ExperiencesByTag />} />
+                    <Route path="/experiences/:experienceId" element={
+                      <ErrorBoundary title="Experience Error" message="Error loading experience details.">
+                        <SingleExperience />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="/experiences/:experienceId/update" element={
+                      <ErrorBoundary title="Form Error" message="Error loading the update experience form.">
+                        <UpdateExperience />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="/destinations/:destinationId" element={
+                      <ErrorBoundary title="Destination Error" message="Error loading destination details.">
+                        <SingleDestination />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="/destinations/:destinationId/update" element={
+                      <ErrorBoundary title="Form Error" message="Error loading the update destination form.">
+                        <UpdateDestination />
+                      </ErrorBoundary>
+                    } />
+                    <Route path="/logout" element={<Navigate to="/" />} />
+                  </Routes>
+                </ErrorBoundary>
               </main>
             </>
           ) : (

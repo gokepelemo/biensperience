@@ -8,6 +8,7 @@ import { useApp } from "../../contexts/AppContext";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
+import TravelTipsList from "../../components/TravelTipsList/TravelTipsList";
 import { logger } from "../../utilities/logger";
 import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
@@ -194,37 +195,21 @@ export default function SingleDestination() {
                       </div>
                     </div>
                   )}
-                  {destination.travel_tips.length > 0 && (
-                    <div className="destination-detail-section">
-                      <h5 className="destination-detail-section-title">
-                        {lang.en.heading.travelTips}
-                      </h5>
-                      <div className="destination-detail-content">
-                        {destination.travel_tips.map((tip, idx) => {
-                          const colonIndex = tip.indexOf(':');
-                          const hasColon = colonIndex > -1;
-                          const tipKey = hasColon ? tip.substring(0, colonIndex) : '';
-                          const tipValue = hasColon ? tip.substring(colonIndex + 1).trim() : tip;
-
-                          return (
-                            <div className="destination-detail-tip" key={idx}>
-                              {hasColon ? (
-                                <>
-                                  <strong className="tip-key">{tipKey}:</strong>
-                                  <span className="tip-value"> {tipValue}</span>
-                                </>
-                              ) : (
-                                <span className="tip-value">{tip}</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
+
+            {/* Enhanced Travel Tips with Schema.org markup - Full Width Card */}
+            {destination.travel_tips && destination.travel_tips.length > 0 && (
+              <div className="row my-4">
+                <div className="col-12 p-3">
+                  <div className="destination-detail-card">
+                    <TravelTipsList tips={destination.travel_tips} />
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="row my-2 p-3 d-flex align-items-center justify-content-center">
               <h2 className="experiencesHeading mb-5">
                 {lang.en.heading.experiencesIn} {destination.name}

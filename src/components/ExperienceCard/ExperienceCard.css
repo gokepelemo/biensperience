@@ -7,7 +7,21 @@
     background-position: center;
     border-radius: 0.5rem;
     transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    will-change: min-height;
+    will-change: min-height, transform;
+}
+
+/* Mobile-specific styles */
+.experienceCard.mobile {
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+/* Expanded state on mobile */
+.experienceCard.mobile.expanded {
+    min-height: auto;
+    transform: scale(1.05);
+    z-index: 10;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .experience-card-link {
@@ -28,8 +42,8 @@
     overflow: hidden;
 }
 
-/* Truncation only applies to non-hovered state */
-.experienceCard:not(:hover) .experience-card-title {
+/* Truncation only applies to non-hovered/non-expanded state */
+.experienceCard:not(:hover):not(.expanded) .experience-card-title {
     max-height: 5.5rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -39,8 +53,9 @@
     -webkit-box-orient: vertical;
 }
 
-/* Full text display on hover */
-.experienceCard:hover .experience-card-title {
+/* Full text display on hover or expanded (mobile) */
+.experienceCard:hover .experience-card-title,
+.experienceCard.mobile.expanded .experience-card-title {
     max-height: none;
     display: flex !important;
     align-items: center !important;

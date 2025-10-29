@@ -1,0 +1,76 @@
+/* Travel Tips List Container */
+.travel-tips-list {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.travel-tips-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 600;
+  color: #212529;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+.travel-tips-icon {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  line-height: 1;
+}
+
+/* Grid Layout for Tips */
+.travel-tips-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+/* Responsive Grid */
+@media (min-width: 768px) {
+  .travel-tips-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .travel-tips-grid {
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  }
+}
+
+/* Empty State */
+.travel-tips-list:empty {
+  display: none;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .travel-tips-list {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+    border-color: rgba(102, 126, 234, 0.2);
+  }
+
+  .travel-tips-heading {
+    color: #f8f9fa;
+    border-bottom-color: rgba(102, 126, 234, 0.3);
+  }
+}
+
+/* Print Styles */
+@media print {
+  .travel-tips-list {
+    background: white;
+    border: 1px solid #dee2e6;
+    page-break-inside: avoid;
+  }
+
+  .travel-tips-grid {
+    grid-template-columns: 1fr;
+  }
+}

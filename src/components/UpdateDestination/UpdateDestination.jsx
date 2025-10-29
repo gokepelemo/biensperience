@@ -12,9 +12,15 @@ import { handleError } from "../../utilities/error-handler";
 import { formatChanges } from "../../utilities/change-formatter";
 import Modal from "../Modal/Modal";
 import FormField from "../FormField/FormField";
+import TravelTipsManager from "../TravelTipsManager/TravelTipsManager";
 import { Form } from "react-bootstrap";
 import { isOwner } from "../../utilities/permissions";
 import { isSuperAdmin } from "../../utilities/permissions";
+
+// Custom hooks
+import { useChangeTrackingHandler } from "../../hooks/useFormChangeHandler";
+import { useTravelTipsManager } from "../../hooks/useTravelTipsManager";
+import { useFormErrorHandling } from "../../hooks/useFormErrorHandling";
 
 export default function UpdateDestination() {
   const { user } = useUser();
@@ -22,14 +28,51 @@ export default function UpdateDestination() {
   const { success, error: showError } = useToast();
   const { destinationId } = useParams();
   const [destination, setDestination] = useState(null);
-  const [travelTips, setTravelTips] = useState([]);
-  const [newTravelTip, setNewTravelTip] = useState({});
   const [originalDestination, setOriginalDestination] = useState(null);
   const [changes, setChanges] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Use custom hooks
+  const handleChange = useChangeTrackingHandler(
+    destination,
+    setDestination,
+    originalDestination,
+    changes,
+    setChanges
+  );
+
+  const {
+    travelTips,
+    newTravelTip,
+    setTravelTips,
+    addTravelTip: addTip,
+    deleteTravelTip,
+    handleNewTipChange,
+    handleNewTipKeyPress,
+    // Structured tip management
+    tipMode,
+    setTipMode,
+    structuredTip,
+    addStructuredTip,
+    updateStructuredTipField,
+    updateCallToAction
+  } = useTravelTipsManager([]);
+
+  const handleFormError = useFormErrorHandling(setError, {
+    onEmailNotVerified: (data) => {
+      const verifyError = data.error || lang.en.alert.emailNotVerifiedMessage;
+      setError(verifyError);
+      showError(verifyError);
+    },
+    onDuplicateError: (err) => {
+      const message = err.message;
+      setError(message);
+      showError(message);
+    }
+  });
 
   useEffect(() => {
     async function fetchData() {
@@ -59,24 +102,24 @@ export default function UpdateDestination() {
     if (user && destinationId) {
       fetchData();
     }
-  }, [destinationId, user]);
+  }, [destinationId, user, setTravelTips]);
 
   // Track photo changes
   useEffect(() => {
     if (!destination || !originalDestination) return;
 
     const newChanges = { ...changes };
-    
+
     // Check if photos array changed
     const originalPhotos = originalDestination.photos || [];
     const currentPhotos = destination.photos || [];
-    
+
     const photosChanged = JSON.stringify(originalPhotos) !== JSON.stringify(currentPhotos);
-    
+
     if (photosChanged) {
       const fromText = originalPhotos.length === 0 ? 'No photos' : `${originalPhotos.length} photo${originalPhotos.length > 1 ? 's' : ''}`;
       const toText = currentPhotos.length === 0 ? 'No photos' : `${currentPhotos.length} photo${currentPhotos.length > 1 ? 's' : ''}`;
-      
+
       newChanges.photos = {
         from: fromText,
         to: toText
@@ -84,11 +127,11 @@ export default function UpdateDestination() {
     } else {
       delete newChanges.photos;
     }
-    
+
     // Check if default photo index changed
     const originalIndex = originalDestination.default_photo_index || 0;
     const currentIndex = destination.default_photo_index || 0;
-    
+
     if (originalIndex !== currentIndex && currentPhotos.length > 0) {
       newChanges.default_photo_index = {
         from: `Photo #${originalIndex + 1}`,
@@ -97,7 +140,7 @@ export default function UpdateDestination() {
     } else {
       delete newChanges.default_photo_index;
     }
-    
+
     // Only update if changes actually differ
     if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
       setChanges(newChanges);
@@ -105,51 +148,31 @@ export default function UpdateDestination() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destination, originalDestination]);
 
-  function handleChange(e) {
-    const { name, value } = e.target;
-    const updatedDestination = { ...destination, [name]: value };
+  // Track travel tips changes
+  useEffect(() => {
+    if (!originalDestination) return;
 
-    // Track changes
     const newChanges = { ...changes };
-    if (originalDestination && originalDestination[name] !== value) {
-      newChanges[name] = { from: originalDestination[name], to: value };
+
+    if (JSON.stringify(travelTips) !== JSON.stringify(originalDestination.travel_tips || [])) {
+      newChanges.travel_tips = {
+        from: originalDestination.travel_tips || [],
+        to: travelTips
+      };
     } else {
-      delete newChanges[name];
+      delete newChanges.travel_tips;
     }
 
-    setDestination(updatedDestination);
-    setChanges(newChanges);
-  }
-
-  function addTravelTip(text) {
-    const newTips = [...travelTips, text];
-    setTravelTips(newTips);
-    // Track changes for travel tips
-    if (JSON.stringify(newTips) !== JSON.stringify(originalDestination.travel_tips)) {
-      setChanges({ ...changes, travel_tips: { from: originalDestination.travel_tips, to: newTips } });
+    if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
+      setChanges(newChanges);
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [travelTips, originalDestination]);
 
-  function deleteTravelTip(id) {
-    let newTravelTips = [...travelTips];
-    newTravelTips.splice(id, 1);
-    setTravelTips([...newTravelTips]);
-    // Track changes for travel tips
-    if (JSON.stringify(newTravelTips) !== JSON.stringify(originalDestination.travel_tips)) {
-      setChanges({ ...changes, travel_tips: { from: originalDestination.travel_tips, to: newTravelTips } });
+  function handleAddTravelTip() {
+    if (newTravelTip.trim()) {
+      addTip();
     }
-  }
-
-  function handleAddTravelTip(e) {
-    e.preventDefault();
-    if (newTravelTip.tipkey && newTravelTip.tipkey.length && newTravelTip.tipvalue && newTravelTip.tipvalue.length) {
-      addTravelTip(`${newTravelTip.tipkey}: ${newTravelTip.tipvalue}`);
-    }
-    setNewTravelTip({ tipkey: "", tipvalue: "" });
-  }
-
-  function handleTravelTipChange(e) {
-    setNewTravelTip({ ...newTravelTip, [e.target.name]: e.target.value });
   }
 
   async function handleSubmit(e) {
@@ -167,20 +190,8 @@ export default function UpdateDestination() {
       success('Destination updated!');
       navigate(`/destinations/${destinationId}`);
     } catch (err) {
-      const errorMsg = handleError(err, { context: 'Update destination' });
-      // Check if it's an email verification error
-      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
-        const verifyError = err.response.data.error || lang.en.alert.emailNotVerifiedMessage;
-        setError(verifyError);
-        showError(verifyError);
-      }
-      else if (err.message && err.message.includes('already exists')) {
-        setError(err.message);
-        showError(err.message);
-      } else {
-        setError(errorMsg);
-        showError(errorMsg);
-      }
+      handleFormError(err, { context: 'Update destination' });
+      showError(handleError(err, { context: 'Update destination' }));
     }
   }
 
@@ -295,62 +306,25 @@ export default function UpdateDestination() {
               </small>
             </div>
 
-            <div className="mb-4">
-              <label className="form-label">
-                {lang.en.heading.travelTips}
-              </label>
-
-              <div className="input-group mb-3">
-                <input
-                  type="text"
-                  name="tipkey"
-                  className="form-control"
-                  placeholder={lang.en.placeholder.language}
-                  onChange={(e) => handleTravelTipChange(e)}
-                  value={newTravelTip.tipkey || ''}
-                  autoComplete="off"
-                  style={{ padding: '1rem' }}
-                />
-                <input
-                  type="text"
-                  name="tipvalue"
-                  className="form-control rounded-end"
-                  placeholder={lang.en.placeholder.spanish}
-                  onChange={(e) => handleTravelTipChange(e)}
-                  value={newTravelTip.tipvalue || ''}
-                  autoComplete="off"
-                  style={{ padding: '1rem' }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  onClick={handleAddTravelTip}
-                >
-                  Add Tip
-                </button>
-              </div>
-
-              <small className="form-text text-muted d-block mb-2">
-                Add helpful travel tips for this destination (optional)
-              </small>
-
-              {travelTips.length > 0 && (
-                <ul className="list-group">
-                  {travelTips.map((tip, index) => (
-                    <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
-                      {tip}
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-danger"
-                        onClick={() => deleteTravelTip(index)}
-                      >
-                        Delete
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <TravelTipsManager
+              tips={travelTips}
+              newTip={newTravelTip}
+              onNewTipChange={handleNewTipChange}
+              onNewTipKeyPress={handleNewTipKeyPress}
+              onAddTip={handleAddTravelTip}
+              onDeleteTip={deleteTravelTip}
+              label={lang.en.heading.travelTips}
+              placeholder="Share an insider tip..."
+              addButtonText="Add Tip"
+              deleteButtonText="Delete"
+              // Enhanced props for structured tips
+              mode={tipMode}
+              onModeChange={setTipMode}
+              structuredTip={structuredTip}
+              onStructuredTipFieldChange={updateStructuredTipField}
+              onCallToActionChange={updateCallToAction}
+              onAddStructuredTip={addStructuredTip}
+            />
 
             <button
               type="button"

@@ -1,0 +1,33 @@
+/**
+ * ErrorBoundary Styles
+ */
+
+.error-boundary-container {
+  max-width: 800px;
+}
+
+.error-boundary-alert {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.error-details summary {
+  cursor: pointer;
+  user-select: none;
+  color: var(--bs-danger);
+  font-weight: 600;
+}
+
+.error-details summary:hover {
+  text-decoration: underline;
+}
+
+.error-details pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}

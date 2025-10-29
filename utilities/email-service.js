@@ -463,9 +463,140 @@ async function sendInviteEmail(options) {
   }
 }
 
+/**
+ * Send collaborator invite email
+ * @param {Object} options - Invite options
+ * @param {string} options.toEmail - Recipient email address
+ * @param {string} options.inviterName - Name of person sending invite
+ * @param {string} options.experienceName - Name of the experience
+ * @param {string} options.destinationName - Name and location of destination
+ * @param {string} options.signupUrl - Direct signup/login URL with invite token
+ * @param {string} options.inviteCode - Optional invite code for display
+ */
+async function sendCollaboratorInviteEmail(options) {
+  try {
+    const {
+      toEmail,
+      inviterName,
+      experienceName,
+      destinationName,
+      signupUrl,
+      inviteCode = ''
+    } = options;
+
+    const t = lang.current.email.collaboratorInvite;
+    const vars = {
+      userName: '', // Will be filled if we know their name
+      inviterName,
+      experienceName,
+      destinationName,
+      appName: APP_NAME
+    };
+
+    // Build additional sections
+    const additionalSections = [];
+
+    // Add experience details
+    additionalSections.push(`
+      <div class="info">
+        <p style="margin: 0;">${replaceVars(t.experienceDetails, vars)}</p>
+        <p style="margin: 5px 0 0 0;">${replaceVars(t.destinationDetails, vars)}</p>
+      </div>
+    `);
+
+    // Add what collaborators can do
+    additionalSections.push(`
+      <div style="margin: 20px 0;">
+        <p><strong>${t.whatYouCanDo}</strong></p>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+          ${t.collaboratorPerks.map(perk => `<li>${perk}</li>`).join('')}
+        </ul>
+      </div>
+    `);
+
+    // Add invite code if provided
+    if (inviteCode) {
+      additionalSections.push(`
+        <div style="background: #f5f5f5; padding: 20px; border-radius: 6px; text-align: center; margin: 20px 0;">
+          <p style="margin: 0; color: #666; font-size: 14px;"><strong>${t.inviteCodeLabel}</strong></p>
+          <p style="margin: 10px 0 0 0; font-size: 24px; font-family: 'Courier New', monospace; font-weight: bold; color: #667eea; letter-spacing: 2px;">${inviteCode}</p>
+          <p style="margin: 5px 0 0 0; color: #999; font-size: 12px;">${t.inviteCodeInstruction}</p>
+        </div>
+      `);
+    }
+
+    // Add notes for existing vs new users
+    additionalSections.push(`
+      <div class="success">
+        <p style="margin: 0;"><strong>Existing User?</strong> ${t.existingUserNote}</p>
+      </div>
+    `);
+
+    additionalSections.push(`
+      <div class="info">
+        <p style="margin: 0;"><strong>New to ${APP_NAME}?</strong> ${t.newUserNote}</p>
+      </div>
+    `);
+
+    // Add alternative link
+    additionalSections.push(`
+      <p style="font-size: 0.9rem; color: #666;">${t.altLinkText}<br><a href="${signupUrl}" style="word-break: break-all;">${signupUrl}</a></p>
+    `);
+
+    // Add about section
+    additionalSections.push(`
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+        <p><strong>${replaceVars(t.aboutAppTitle, vars)}</strong></p>
+        <p>${replaceVars(t.aboutAppText, vars)}</p>
+      </div>
+    `);
+
+    const { html, text } = createEmailTemplate({
+      heading: t.heading,
+      greeting: replaceVars(t.greeting, vars),
+      body: replaceVars(t.inviterMessage, vars) + ' ' + t.body,
+      buttonText: t.buttonText,
+      buttonUrl: signupUrl,
+      additionalSections,
+      signature: replaceVars(t.signature, vars),
+      footer: t.footer
+    });
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: toEmail,
+      subject: replaceVars(t.subject, vars),
+      html,
+      text
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Failed to send email');
+    }
+
+    backendLogger.info('Collaborator invite email sent successfully', {
+      to: toEmail,
+      inviterName,
+      experienceName,
+      destinationName,
+      messageId: data?.id
+    });
+
+    return data;
+  } catch (error) {
+    backendLogger.error('Failed to send collaborator invite email', {
+      error: error.message,
+      to: options.toEmail,
+      inviterName: options.inviterName
+    });
+    throw error;
+  }
+}
+
 module.exports = {
   sendPasswordResetEmail,
   sendPasswordResetConfirmation,
   sendEmailConfirmation,
   sendInviteEmail,
+  sendCollaboratorInviteEmail,
 };
