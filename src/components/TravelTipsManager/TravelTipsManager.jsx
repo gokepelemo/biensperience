@@ -114,16 +114,16 @@ export default function TravelTipsManager({
   return (
     <div className={className}>
       <Form.Group className="mb-3">
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <Form.Label className="mb-0">
-            {label}
-            <FormTooltip id="travel-tips-tooltip">
+        <div className="d-flex justify-content-between align-items-start mb-2">
+          <div className="flex-grow-1">
+            <Form.Label className="mb-1">{label}</Form.Label>
+            <div className="text-muted small">
               Add helpful tips for travelers. Choose simple tips for quick notes, or structured tips with detailed information and links.
-            </FormTooltip>
-          </Form.Label>
+            </div>
+          </div>
 
           {onModeChange && (
-            <ButtonGroup size="sm" className="align-self-start">
+            <ButtonGroup size="sm" className="ms-3 flex-shrink-0">
               <Button
                 variant={isSimpleMode ? 'primary' : 'outline-secondary'}
                 onClick={() => onModeChange('simple')}
