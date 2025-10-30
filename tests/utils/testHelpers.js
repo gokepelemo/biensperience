@@ -12,6 +12,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../../models/user');
 const Destination = require('../../models/destination');
 const Experience = require('../../models/experience');
+const Plan = require('../../models/plan');
+const Photo = require('../../models/photo');
 
 /**
  * Creates a test user and returns the user object
@@ -89,6 +91,54 @@ async function createTestExperience(user, destination, experienceData = {}) {
 }
 
 /**
+ * Creates a test plan
+ */
+async function createTestPlan(user, experience, planData = {}) {
+  const defaultPlan = {
+    user: user._id,
+    experience: experience._id,
+    planned_date: new Date(),
+    plan: [],
+    permissions: [
+      {
+        _id: user._id,
+        entity: 'user',
+        type: 'owner',
+        granted_by: user._id
+      }
+    ],
+    ...planData,
+  };
+
+  const plan = await Plan.create(defaultPlan);
+  return plan;
+}
+
+/**
+ * Creates a test photo
+ */
+async function createTestPhoto(user, photoData = {}) {
+  const defaultPhoto = {
+    url: 'https://example.com/test-photo.jpg',
+    caption: 'Test Photo',
+    photo_credit: 'Test Photographer',
+    photo_credit_url: 'https://example.com',
+    user: user._id,
+    permissions: [
+      {
+        _id: user._id,
+        entity: 'user',
+        type: 'owner'
+      }
+    ],
+    ...photoData,
+  };
+
+  const photo = await Photo.create(defaultPhoto);
+  return photo;
+}
+
+/**
  * Clears all test data from the database
  */
 async function clearTestData() {
@@ -96,6 +146,8 @@ async function clearTestData() {
     User.deleteMany({}),
     Destination.deleteMany({}),
     Experience.deleteMany({}),
+    Plan.deleteMany({}),
+    Photo.deleteMany({}),
   ]);
 }
 
@@ -228,6 +280,8 @@ module.exports = {
   generateAuthToken,
   createTestDestination,
   createTestExperience,
+  createTestPlan,
+  createTestPhoto,
   clearTestData,
   validators,
   createMultipleTestUsers,

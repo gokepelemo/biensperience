@@ -117,7 +117,7 @@ export default function TravelTipsManager({
         <div className="d-flex justify-content-between align-items-start mb-2">
           <div className="flex-grow-1">
             <Form.Label className="mb-1">{label}</Form.Label>
-            <div className="text-muted small">
+            <div className="travel-tips-helper">
               {lang.en.helper.travelTipsHelp}
             </div>
           </div>

@@ -2,6 +2,13 @@
  * TravelTipsManager Component Styles
  */
 
+/* Helper text override for better contrast */
+.travel-tips-helper {
+  color: #495057 !important; /* Darker gray for WCAG AAA compliance */
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
 .structured-tip-form {
   border: 1px solid #dee2e6;
   border-radius: 0.375rem;
