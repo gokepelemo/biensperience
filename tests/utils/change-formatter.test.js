@@ -183,6 +183,68 @@ describe('formatChanges - arrays of objects', () => {
   });
 });
 
+describe('formatChanges - travel tips', () => {
+  test('formats added simple string tips', () => {
+    const from = ['Tip 1'];
+    const to = ['Tip 1', 'Tip 2'];
+    const result = formatChanges('travel_tips', { from, to });
+    expect(result).toContain('💡 New Tip: 💡 Tip 2');
+  });
+
+  test('formats removed simple string tips', () => {
+    const from = ['Tip 1', 'Tip 2'];
+    const to = ['Tip 1'];
+    const result = formatChanges('travel_tips', { from, to });
+    expect(result).toContain('💡 Removed Tip: 💡 Tip 2');
+  });
+
+  test('formats added structured tips', () => {
+    const from = [];
+    const to = [{
+      type: 'Currency',
+      value: 'Euro (EUR) is the official currency',
+      note: 'Credit cards widely accepted',
+      exchangeRate: '1 USD ≈ 0.85 EUR',
+      icon: '💶',
+      callToAction: {
+        label: 'Check Current Rate',
+        url: 'https://www.xe.com'
+      }
+    }];
+    const result = formatChanges('travel_tips', { from, to });
+    expect(result).toContain('💡 New Currency Tip: 💶 Euro (EUR) is the official currency');
+    expect(result).toContain('Note: Credit cards widely accepted');
+    expect(result).toContain('1 USD ≈ 0.85 EUR');
+    expect(result).toContain('Link: Check Current Rate');
+  });
+
+  test('formats removed structured tips', () => {
+    const from = [{
+      type: 'Language',
+      value: 'English widely spoken',
+      note: 'Learn basic phrases',
+      icon: '🗣️'
+    }];
+    const to = [];
+    const result = formatChanges('travel_tips', { from, to });
+    expect(result).toContain('💡 Removed Language Tip: 🗣️ English widely spoken');
+    expect(result).toContain('Note: Learn basic phrases');
+  });
+
+  test('handles mixed simple and structured tips', () => {
+    const from = ['Simple tip'];
+    const to = [{
+      type: 'Safety',
+      value: 'Stay vigilant',
+      note: 'Keep valuables secure',
+      icon: '🛡️'
+    }];
+    const result = formatChanges('travel_tips', { from, to });
+    expect(result).toContain('💡 Removed Tip: 💡 Simple tip');
+    expect(result).toContain('💡 New Safety Tip: 🛡️ Stay vigilant');
+  });
+});
+
 describe('formatChanges - dates', () => {
   test('formats date changes', () => {
     const from = new Date('2024-01-01');

@@ -145,9 +145,84 @@ export function formatChanges(field, change, entityType = '') {
  * @param {string} icon - Field icon
  * @returns {string} Formatted array changes
  */
+
+/**
+ * Format travel tips changes with special handling for structured tips
+ * @param {Object} change - Change object with from/to arrays
+ * @param {string} icon - Field icon
+ * @returns {string} Formatted travel tips changes
+ */
+function formatTravelTipsChanges(change, icon) {
+  const changes = [];
+
+  // Find added tips
+  change.to.forEach((tip, index) => {
+    const isNew = !change.from.some(oldTip => {
+      // For structured tips, compare key properties
+      if (typeof tip === 'object' && typeof oldTip === 'object') {
+        return tip.value === oldTip.value && tip.type === oldTip.type;
+      }
+      // For simple string tips, direct comparison
+      return tip === oldTip;
+    });
+
+    if (isNew) {
+      if (typeof tip === 'object') {
+        // Structured tip
+        const tipType = tip.type || 'Custom';
+        const tipIcon = tip.icon || '💡';
+        changes.push(`${icon} New ${tipType} Tip: ${tipIcon} ${tip.value}`);
+        if (tip.note) {
+          changes.push(`  • Note: ${tip.note}`);
+        }
+        if (tip.exchangeRate) {
+          changes.push(`  • ${tip.exchangeRate}`);
+        }
+        if (tip.callToAction?.url) {
+          changes.push(`  • Link: ${tip.callToAction.label || 'Learn More'}`);
+        }
+      } else {
+        // Simple string tip
+        changes.push(`${icon} New Tip: 💡 ${tip}`);
+      }
+    }
+  });
+
+  // Find removed tips
+  change.from.forEach((tip, index) => {
+    const isRemoved = !change.to.some(newTip => {
+      // For structured tips, compare key properties
+      if (typeof tip === 'object' && typeof newTip === 'object') {
+        return tip.value === newTip.value && tip.type === newTip.type;
+      }
+      // For simple string tips, direct comparison
+      return tip === newTip;
+    });
+
+    if (isRemoved) {
+      if (typeof tip === 'object') {
+        // Structured tip
+        const tipType = tip.type || 'Custom';
+        const tipIcon = tip.icon || '💡';
+        changes.push(`${icon} Removed ${tipType} Tip: ${tipIcon} ${tip.value}`);
+      } else {
+        // Simple string tip
+        changes.push(`${icon} Removed Tip: 💡 ${tip}`);
+      }
+    }
+  });
+
+  return changes.join('\n');
+}
+
 function formatArrayChanges(field, change, icon) {
   const added = [];
   const removed = [];
+
+  // Special handling for travel_tips field
+  if (field === 'travel_tips') {
+    return formatTravelTipsChanges(change, icon);
+  }
 
   // Handle arrays of objects
   if (change.from.length > 0 && typeof change.from[0] === 'object') {
