@@ -4,6 +4,7 @@
  */
 
 const User = require('../models/user');
+const { USER_ROLES } = require('./user-roles');
 const backendLogger = require('./backend-logger');
 
 /**
@@ -52,7 +53,7 @@ function requireEmailVerification(req, res, next) {
         }
 
         // Super admins bypass email verification
-        if (freshUser.isSuperAdmin || freshUser.role === 'super_admin') {
+        if (freshUser.isSuperAdmin || freshUser.role === USER_ROLES.SUPER_ADMIN) {
           backendLogger.debug('Super admin user - bypassing email verification');
           return next();
         }

@@ -4,6 +4,7 @@ const User = require("../../models/user");
 const Experience = require("../../models/experience");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 const permissions = require("../../utilities/permissions");
+const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require("../../utilities/backend-logger");
 
 // Helper function to escape regex special characters
@@ -115,13 +116,18 @@ async function updateDestination(req, res) {
       return res.status(404).json({ error: 'Destination not found' });
     }
     
-    // Check if user has permission to edit (owner or collaborator)
-    const models = { Destination, Experience };
-    const hasEditPermission = permissions.isOwner(req.user._id, destination) || 
-                             await permissions.canEdit(req.user._id, destination, models);
-    
-    if (!hasEditPermission) {
-      return res.status(401).json({ error: 'Not authorized to update this destination. You must be the owner or a collaborator.' });
+    // Check if user has permission to edit using PermissionEnforcer (handles super admin correctly)
+    const enforcer = getEnforcer({ Destination, Experience, User });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: destination
+    });
+
+    if (!permCheck.allowed) {
+      return res.status(403).json({
+        error: 'Not authorized to update this destination',
+        message: permCheck.reason || 'You must be the owner or a collaborator to edit this destination.'
+      });
     }
 
     // Check for duplicate destination if name or country is being updated
@@ -187,12 +193,18 @@ async function deleteDestination(req, res) {
       return res.status(404).json({ error: 'Destination not found' });
     }
     
-    // Check if user can delete (owner or super admin)
-    const canDelete = permissions.isOwner(req.user._id, destination) || 
-                      permissions.isSuperAdmin(req.user);
-    
-    if (!canDelete) {
-      return res.status(401).json({ error: 'Not authorized to delete this destination' });
+    // Check if user can delete using PermissionEnforcer (handles super admin correctly)
+    const enforcer = getEnforcer({ Destination, Experience, User });
+    const permCheck = await enforcer.canDelete({
+      userId: req.user._id,
+      resource: destination
+    });
+
+    if (!permCheck.allowed) {
+      return res.status(403).json({
+        error: 'Not authorized to delete this destination',
+        message: permCheck.reason || 'You must be the owner to delete this destination.'
+      });
     }
     
     await destination.deleteOne();
