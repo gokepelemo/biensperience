@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 const Photo = require("../../models/photo");
+const User = require("../../models/user");
 const { s3Upload, s3Delete } = require("../../uploads/aws-s3-upload");
-const { isOwner } = require("../../utilities/permissions");
+const { getEnforcer } = require("../../utilities/permission-enforcer");
 const backendLogger = require("../../utilities/backend-logger");
 const fs = require("fs");
 const path = require("path");
@@ -70,9 +71,18 @@ async function updatePhoto(req, res) {
       return res.status(404).json({ error: 'Photo not found' });
     }
     
-    // Use isOwner for backwards compatibility
-    if (!isOwner(req.user._id, photo)) {
-      return res.status(401).json({ error: 'Not authorized to update this photo' });
+    // Check if user can edit using PermissionEnforcer
+    const enforcer = getEnforcer({ Photo, User });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: photo
+    });
+
+    if (!permCheck.allowed) {
+      return res.status(403).json({
+        error: 'Not authorized to update this photo',
+        message: permCheck.reason
+      });
     }
     photo = Object.assign(photo, req.body);
     await photo.save();
@@ -95,9 +105,18 @@ async function deletePhoto(req, res) {
       return res.status(404).json({ error: 'Photo not found' });
     }
     
-    // Use isOwner for backwards compatibility
-    if (!isOwner(req.user._id, photo)) {
-      return res.status(401).json({ error: 'Not authorized to delete this photo' });
+    // Check if user can delete using PermissionEnforcer
+    const enforcer = getEnforcer({ Photo, User });
+    const permCheck = await enforcer.canDelete({
+      userId: req.user._id,
+      resource: photo
+    });
+
+    if (!permCheck.allowed) {
+      return res.status(403).json({
+        error: 'Not authorized to delete this photo',
+        message: permCheck.reason
+      });
     }
 
     // Delete from S3 if the photo URL is an S3 URL
@@ -237,9 +256,18 @@ async function addCollaborator(req, res) {
       return res.status(404).json({ error: 'Photo not found' });
     }
 
-    // Only owners can add collaborators
-    if (!isOwner(req.user._id, photo)) {
-      return res.status(403).json({ error: 'Only owners can add collaborators' });
+    // Only owners can manage permissions
+    const enforcer = getEnforcer({ Photo, User });
+    const permCheck = await enforcer.canManagePermissions({
+      userId: req.user._id,
+      resource: photo
+    });
+
+    if (!permCheck.allowed) {
+      return res.status(403).json({
+        error: 'Only owners can add collaborators',
+        message: permCheck.reason
+      });
     }
 
     // Check if user already has a permission

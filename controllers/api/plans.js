@@ -3,6 +3,7 @@ const Experience = require("../../models/experience");
 const Destination = require("../../models/destination");
 const User = require("../../models/user");
 const permissions = require("../../utilities/permissions");
+const { getEnforcer } = require("../../utilities/permission-enforcer");
 const { asyncHandler } = require("../../utilities/controller-helpers");
 const backendLogger = require("../../utilities/backend-logger");
 const mongoose = require("mongoose");
@@ -80,25 +81,19 @@ const createPlan = asyncHandler(async (req, res) => {
   });
 
   // Add user as contributor to experience if not already owner/collaborator
-  const isOwner = permissions.isOwner(req.user, experience);
-  const isCollaborator = await permissions.isCollaborator(req.user._id, experience, { Experience, Destination });
-  
-  if (!isOwner && !isCollaborator) {
-    // Check if already a contributor
-    const isContributor = experience.permissions.some(
-      p => p.entity === 'user' && p._id.toString() === req.user._id.toString() && p.type === 'contributor'
-    );
-    
-    if (!isContributor) {
-      experience.permissions.push({
-        _id: req.user._id,
-        entity: 'user',
-        type: 'contributor',
-        granted_by: req.user._id,
-        granted_at: new Date()
-      });
-      await experience.save();
-    }
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const userRole = await enforcer.getUserRole(req.user._id, experience);
+
+  // Only add as contributor if user has no existing role
+  if (!userRole) {
+    experience.permissions.push({
+      _id: req.user._id,
+      entity: 'user',
+      type: 'contributor',
+      granted_by: req.user._id,
+      granted_at: new Date()
+    });
+    await experience.save();
   }
 
   const populatedPlan = await Plan.findById(plan._id)
@@ -166,12 +161,17 @@ const getPlanById = asyncHandler(async (req, res) => {
   }
 
   // Check if user has permission to view (owner, collaborator, or contributor)
-  const canView = (plan.user.toString() === req.user._id.toString()) || 
-                  permissions.hasDirectPermission(plan, req.user._id, 'collaborator') ||
-                  permissions.hasDirectPermission(plan, req.user._id, 'contributor');
-  
-  if (!canView) {
-    return res.status(403).json({ error: "Insufficient permissions to view this plan" });
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canView({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: "Insufficient permissions to view this plan",
+      message: permCheck.reason
+    });
   }
 
   res.json(plan);
@@ -339,9 +339,17 @@ const updatePlan = asyncHandler(async (req, res) => {
   }
 
   // Check permissions - must be owner or collaborator
-  const canEdit = permissions.isOwner(req.user, plan) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
-  if (!canEdit) {
-    return res.status(403).json({ error: "Insufficient permissions to edit this plan" });
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: "Insufficient permissions to edit this plan",
+      message: permCheck.reason
+    });
   }
 
   // Validate update fields
@@ -412,8 +420,17 @@ const deletePlan = asyncHandler(async (req, res) => {
   }
 
   // Only owner can delete
-  if (!permissions.isOwner(req.user, plan)) {
-    return res.status(403).json({ error: "Only the plan owner can delete it" });
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canDelete({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: "Only the plan owner can delete it",
+      message: permCheck.reason
+    });
   }
 
   // OPTIMIZATION 1: Parallel database operations instead of sequential
@@ -435,10 +452,10 @@ const deletePlan = asyncHandler(async (req, res) => {
 
       if (experience) {
         // Check if user is NOT owner or collaborator
-        const isOwnerOrCollaborator = 
-          permissions.isOwner(req.user, experience) || 
-          permissions.hasDirectPermission(experience, req.user._id, 'collaborator');
-        
+        const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+        const userRole = await enforcer.getUserRole(req.user._id, experience);
+        const isOwnerOrCollaborator = userRole === 'owner' || userRole === 'collaborator';
+
         if (!isOwnerOrCollaborator) {
           // OPTIMIZATION 3: Use updateOne instead of find + save
           // This is a single atomic operation
@@ -483,8 +500,17 @@ const addCollaborator = asyncHandler(async (req, res) => {
   }
 
   // Only owner can add collaborators
-  if (!permissions.isOwner(req.user, plan)) {
-    return res.status(403).json({ error: "Only the plan owner can add collaborators" });
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canManagePermissions({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: "Only the plan owner can add collaborators",
+      message: permCheck.reason
+    });
   }
 
   // Check if user already has permission
@@ -537,8 +563,17 @@ const removeCollaborator = asyncHandler(async (req, res) => {
   }
 
   // Only owner can remove collaborators
-  if (!permissions.isOwner(req.user, plan)) {
-    return res.status(403).json({ error: "Only the plan owner can remove collaborators" });
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canManagePermissions({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: "Only the plan owner can remove collaborators",
+      message: permCheck.reason
+    });
   }
 
   plan.permissions = plan.permissions.filter(
@@ -568,9 +603,17 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   }
 
   // Check permissions - must be owner or collaborator
-  const canEdit = (plan.user.toString() === req.user._id.toString()) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
-  if (!canEdit) {
-    return res.status(403).json({ error: "Insufficient permissions to edit this plan" });
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: "Insufficient permissions to edit this plan",
+      message: permCheck.reason
+    });
   }
 
   // Find and update the plan item
@@ -607,12 +650,17 @@ const getCollaborators = asyncHandler(async (req, res) => {
   }
 
   // Check if user has permission to view (owner, collaborator, or contributor)
-  const canView = (plan.user.toString() === req.user._id.toString()) || 
-                  permissions.hasDirectPermission(plan, req.user._id, 'collaborator') ||
-                  permissions.hasDirectPermission(plan, req.user._id, 'contributor');
-  
-  if (!canView) {
-    return res.status(403).json({ error: "Insufficient permissions to view this plan" });
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canView({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: "Insufficient permissions to view this plan",
+      message: permCheck.reason
+    });
   }
 
   // Get all user collaborators (not owner, only collaborators)
@@ -651,9 +699,17 @@ const addPlanItem = asyncHandler(async (req, res) => {
   }
 
   // Check permissions - must be owner or collaborator
-  const canEdit = (plan.user.toString() === req.user._id.toString()) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
-  if (!canEdit) {
-    return res.status(403).json({ error: "Insufficient permissions to edit this plan" });
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: "Insufficient permissions to edit this plan",
+      message: permCheck.reason
+    });
   }
 
   // Create new plan item (Mongoose will auto-generate _id)
@@ -693,9 +749,17 @@ const deletePlanItem = asyncHandler(async (req, res) => {
   }
 
   // Check permissions - must be owner or collaborator
-  const canEdit = (plan.user.toString() === req.user._id.toString()) || permissions.hasDirectPermission(plan, req.user._id, 'collaborator');
-  if (!canEdit) {
-    return res.status(403).json({ error: "Insufficient permissions to edit this plan" });
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: "Insufficient permissions to edit this plan",
+      message: permCheck.reason
+    });
   }
 
   // Find the item to delete
