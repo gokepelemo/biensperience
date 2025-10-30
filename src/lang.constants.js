@@ -49,6 +49,9 @@ const en = {
     syncNow: "🔄 Sync Now",
     syncing: "Syncing...",
     edit: "Edit",
+    quickTip: "💡 Quick Tip",
+    details: "📋 Details",
+    addTip: "Add Tip",
   },
 
   alert: {
@@ -173,6 +176,13 @@ const en = {
     addedItems: "✚ Added Items ({count})",
     removedItems: "✖ Removed Items ({count})",
     modifiedItems: "✎ Modified Items ({count})",
+    travelTipsType: "Type",
+    travelTipsDescription: "Details",
+    travelTipsAdditionalNote: "Additional Notes",
+    travelTipsIcon: "Icon (Optional)",
+    travelTipsCategory: "Category",
+    travelTipsExchangeRate: "Exchange Rate Info",
+    travelTipsCallToAction: "Call-to-Action (Optional)",
   },
 
   placeholder: {
@@ -201,6 +211,14 @@ const en = {
     photoCreditUrl: "Photo Credit URL e.g. http://unsplash.com",
     itemDescription: "Enter item description",
     urlPlaceholder: "https://example.com",
+    travelTipSimple: "Add a helpful tip...",
+    travelTipDescription: "Main tip content (required)",
+    travelTipNote: "Optional additional details or context",
+    travelTipCategory: "e.g., Shopping, Nightlife",
+    travelTipIcon: "Custom emoji or icon (optional)",
+    travelTipExchangeRate: "e.g., 1 USD = 0.85 EUR (as of Jan 2025)",
+    travelTipCtaLabel: "Button text (e.g., 'Book Now')",
+    travelTipCtaUrl: "https://example.com",
   },
 
   helper: {
@@ -234,6 +252,9 @@ const en = {
     destinationPhoto: "Upload photos that capture this destination's vibe",
     experiencePhoto: "Share photos that inspire others to try this experience",
     map: "map",
+    travelTipsHelp: "Add helpful tips for travelers. Choose simple tips for quick notes, or structured tips with detailed information and links.",
+    travelTipsIconHelp: "Leave blank to use default icon for this type",
+    travelTipsCtaHelp: "Add a button with a link for more information",
   },
 
   message: {
