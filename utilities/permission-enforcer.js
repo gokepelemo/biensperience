@@ -551,7 +551,7 @@ class PermissionEnforcer {
         return { success: false, error: validation.error, rollbackToken: null };
       }
 
-      // 2. Check for duplicates
+      // 2. Check for duplicates (pre-check before expensive operations)
       const existingIndex = resource.permissions?.findIndex(p => 
         p._id.toString() === permission._id.toString() && 
         p.entity === permission.entity
@@ -591,22 +591,150 @@ class PermissionEnforcer {
         resource.permissions = [];
       }
 
-      // 6. Add permission with metadata
+      // 6. Reload resource from database to get latest state (race condition protection)
+      // Use optimistic locking - reload and check version
+      let freshResource;
+      const originalVersion = resource.__v;
+      
+      try {
+        const Model = resource.constructor;
+        freshResource = await Model.findById(resource._id);
+        if (!freshResource) {
+          return { success: false, error: 'Resource not found', rollbackToken: null };
+        }
+        
+        // Check if resource was modified by another operation (version changed)
+        if (originalVersion !== undefined && freshResource.__v !== originalVersion) {
+          backendLogger.warn('Resource modified by concurrent operation (version mismatch)', {
+            resourceId: resource._id,
+            originalVersion,
+            currentVersion: freshResource.__v
+          });
+          // Resource was modified - need to re-validate
+          // Check for duplicates in fresh data
+          const freshDuplicateCheck = freshResource.permissions?.findIndex(p => 
+            p._id.toString() === permission._id.toString() && 
+            p.entity === permission.entity
+          );
+          
+          if (freshDuplicateCheck !== -1) {
+            return { success: false, error: 'Permission already exists', rollbackToken: null };
+          }
+        }
+        
+        // Final duplicate check in fresh data
+        const freshDuplicateCheck = freshResource.permissions?.findIndex(p => 
+          p._id.toString() === permission._id.toString() && 
+          p.entity === permission.entity
+        );
+        
+        if (freshDuplicateCheck !== -1) {
+          backendLogger.warn('Race condition detected: duplicate found in database', {
+            resourceId: resource._id,
+            permissionId: permission._id
+          });
+          return { success: false, error: 'Permission already exists', rollbackToken: null };
+        }
+        
+        // Update the passed-in resource object to match DB state
+        resource.permissions = freshResource.permissions || [];
+        resource.__v = freshResource.__v;
+      } catch (reloadError) {
+        backendLogger.error('Error reloading resource for race condition check', {
+          error: reloadError.message,
+          resourceId: resource._id
+        });
+        // Continue with existing resource if reload fails
+      }
+
+      // 7. Add permission with metadata
       const newPermission = {
         ...permission,
         granted_at: new Date(),
         granted_by: actorId
       };
+      
       resource.permissions.push(newPermission);
 
-      // 7. Capture state after change
+      // 8. Save to database using atomic update to prevent "Can't save() the same doc multiple times in parallel" error
+      let saved = false;
+      let saveAttempts = 0;
+      const maxAttempts = 3;
+      
+      while (!saved && saveAttempts < maxAttempts) {
+        try {
+          // Use atomic $push to add permission (prevents parallel save conflicts)
+          const Model = resource.constructor;
+          const result = await Model.findOneAndUpdate(
+            { 
+              _id: resource._id,
+              __v: resource.__v,  // Optimistic locking
+              'permissions._id': { $ne: newPermission._id }  // Ensure no duplicate
+            },
+            { 
+              $push: { permissions: newPermission },
+              $inc: { __v: 1 }
+            },
+            { new: true }
+          );
+          
+          if (result) {
+            // Update local resource to match saved state
+            resource.permissions = result.permissions;
+            resource.__v = result.__v;
+            saved = true;
+          } else {
+            // Update failed - either version conflict or duplicate
+            saveAttempts++;
+            
+            if (saveAttempts < maxAttempts) {
+              backendLogger.warn('Atomic update failed, retrying', {
+                resourceId: resource._id,
+                attempt: saveAttempts
+              });
+              
+              // Reload and check for duplicate
+              const freshResource = await Model.findById(resource._id);
+              const dupCheck = freshResource.permissions?.findIndex(p => 
+                p._id.toString() === permission._id.toString() && 
+                p.entity === permission.entity
+              );
+              
+              if (dupCheck !== -1) {
+                // Duplicate was added by concurrent operation
+                return { success: false, error: 'Permission already exists', rollbackToken: null };
+              }
+              
+              // Update resource and retry
+              resource.permissions = freshResource.permissions || [];
+              resource.permissions.push(newPermission);
+              resource.__v = freshResource.__v;
+            } else {
+              return { success: false, error: 'Failed to save permission after multiple attempts', rollbackToken: null };
+            }
+          }
+        } catch (saveError) {
+          saveAttempts++;
+          backendLogger.error('Error saving permission', {
+            error: saveError.message,
+            resourceId: resource._id,
+            attempt: saveAttempts
+          });
+          
+          if (saveAttempts >= maxAttempts) {
+            throw saveError;
+          }
+        }
+      }
+
+      // 9. Capture state after change
       const newState = JSON.parse(JSON.stringify(resource.permissions));
 
-      // 8. Generate rollback token
+      // 10. Generate rollback token
       const crypto = require('crypto');
       const rollbackToken = crypto.randomBytes(32).toString('hex');
 
-      // 9. Create audit log
+      // 11. Create audit log
       const auditResult = await this._createAuditLog({
         action: 'permission_added',
         actor,

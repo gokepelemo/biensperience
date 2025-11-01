@@ -86,7 +86,7 @@ const createPlan = asyncHandler(async (req, res) => {
 
   // Only add as contributor if user has no existing role (SECURE)
   if (!userRole) {
-    const result = await enforcer.addPermission({
+    await enforcer.addPermission({
       resource: experience,
       permission: {
         _id: req.user._id,
@@ -103,10 +103,7 @@ const createPlan = asyncHandler(async (req, res) => {
       },
       allowSelfContributor: true  // Allow user to add themselves as contributor
     });
-
-    if (result.success) {
-      await experience.save();
-    }
+    // Permission saved by enforcer, no need to save again
   }
 
   const populatedPlan = await Plan.findById(plan._id)
@@ -557,7 +554,7 @@ const addCollaborator = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: result.error });
   }
 
-  await plan.save();
+  // Permission saved by enforcer, no need to save again
 
   const updatedPlan = await Plan.findById(plan._id)
     .populate('experience', 'name')

@@ -928,7 +928,7 @@ async function addExperiencePermission(req, res) {
       return res.status(400).json({ error: result.error });
     }
 
-    await experience.save();
+    // Permission saved by enforcer, no need to save again
 
     res.status(201).json({
       message: 'Permission added successfully',

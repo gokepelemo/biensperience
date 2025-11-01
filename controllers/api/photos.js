@@ -320,7 +320,7 @@ async function addCollaborator(req, res) {
       return res.status(400).json({ error: result.error });
     }
 
-    await photo.save();
+    // Permission saved by enforcer, no need to save again
     res.json({ message: 'Collaborator added successfully', photo });
   } catch (err) {
     backendLogger.error('Add collaborator error', { error: err.message, userId: req.user._id, photoId: req.params.id, collaboratorId: req.body.userId });
@@ -454,7 +454,7 @@ async function addContributor(req, res) {
       return res.status(400).json({ error: result.error });
     }
 
-    await photo.save();
+    // Permission saved by enforcer, no need to save again
     res.json({ message: 'Contributor added successfully', photo });
   } catch (err) {
     backendLogger.error('Add contributor error', { error: err.message, userId: req.user._id, photoId: req.params.id, contributorId: req.params.userId });
