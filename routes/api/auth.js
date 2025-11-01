@@ -9,6 +9,8 @@ const { passport, createToken } = require('../../config/passport');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const backendLogger = require('../../utilities/backend-logger');
 const { authLimiter } = require('../../config/rateLimiters');
+const User = require('../../models/user');
+const { createSessionForUser } = require('../../utilities/session-middleware');
 
 /**
  * CSRF Token Endpoint
@@ -23,6 +25,38 @@ router.get('/csrf-token', (req, res) => {
   } catch (err) {
     backendLogger.error('CSRF token generation error', { error: err.message });
     res.status(500).json({ error: 'Failed to generate CSRF token' });
+  }
+});
+
+/**
+ * Available OAuth Providers Endpoint
+ * Returns list of configured OAuth providers
+ * Used by frontend to conditionally render login buttons
+ */
+router.get('/available-providers', (req, res) => {
+  try {
+    const providers = [];
+
+    // Check Facebook configuration
+    if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
+      providers.push('facebook');
+    }
+
+    // Check Google configuration
+    if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+      providers.push('google');
+    }
+
+    // Check Twitter/X configuration
+    if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
+      providers.push('twitter');
+    }
+
+    backendLogger.debug('Available OAuth providers', { providers });
+    res.json({ providers });
+  } catch (err) {
+    backendLogger.error('Error checking OAuth providers', { error: err.message });
+    res.status(500).json({ error: 'Failed to check OAuth providers' });
   }
 });
 
@@ -65,22 +99,41 @@ router.get('/facebook/callback',
   }),
   (req, res) => {
     try {
-      // Create JWT token
-      const token = createToken(req.user);
+      // Create new session for user (get mutable user document)
+      const { createSessionForUser } = require('../../utilities/session-middleware');
+      User.findById(req.user._id)
+        .then(async (user) => {
+          const sessionId = await createSessionForUser(user);
+          
+          // Create JWT token
+          const token = createToken(req.user);
 
-      // Set secure HTTP-only cookie
-      res.cookie('auth_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-      });
+          // Set secure HTTP-only cookie
+          res.cookie('auth_token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+          });
+          
+          // Add session ID to cookie for frontend
+          res.cookie('bien_session_id', sessionId, {
+            httpOnly: false, // Frontend needs to read this
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+          });
 
-      // Clear session state
-      delete req.session.oauthState;
+          // Clear session state
+          delete req.session.oauthState;
 
-      // Redirect to frontend without token in URL
-      res.redirect(`/?oauth=facebook`);
+          // Redirect to frontend without token in URL
+          res.redirect(`/?oauth=facebook`);
+        })
+        .catch((err) => {
+          backendLogger.error('Facebook OAuth session creation error', { error: err.message, userId: req.user?._id });
+          res.redirect('/login?error=facebook_session_failed');
+        });
     } catch (err) {
       backendLogger.error('Facebook OAuth callback error', { error: err.message, userId: req.user?._id });
       res.redirect('/login?error=facebook_token_failed');
@@ -125,14 +178,36 @@ router.get('/google/callback',
     failureRedirect: '/login?error=google_auth_failed',
     session: false 
   }),
-  (req, res) => {
+  async (req, res) => {
     try {
+      // Get mutable user document for session creation
+      const user = await User.findById(req.user._id);
+      
+      if (!user) {
+        backendLogger.error('Google OAuth user not found', { userId: req.user._id });
+        return res.redirect('/login?error=google_user_not_found');
+      }
+
+      // Create session for user
+      await createSessionForUser(user).catch(err => {
+        backendLogger.error('Google OAuth session creation error', { error: err.message, userId: req.user?._id });
+        throw err;
+      });
+
       // Create JWT token
       const token = createToken(req.user);
 
       // Set secure HTTP-only cookie
       res.cookie('auth_token', token, {
         httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      });
+
+      // Set session ID cookie for frontend access
+      res.cookie('bien_session_id', user.currentSessionId, {
+        httpOnly: false, // Frontend needs to read this
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
@@ -201,14 +276,36 @@ router.get('/twitter/callback',
     failureRedirect: '/login?error=twitter_auth_failed',
     session: false 
   }),
-  (req, res) => {
+  async (req, res) => {
     try {
+      // Get mutable user document for session creation
+      const user = await User.findById(req.user._id);
+      
+      if (!user) {
+        backendLogger.error('Twitter OAuth user not found', { userId: req.user._id });
+        return res.redirect('/login?error=twitter_user_not_found');
+      }
+
+      // Create session for user
+      await createSessionForUser(user).catch(err => {
+        backendLogger.error('Twitter OAuth session creation error', { error: err.message, userId: req.user?._id });
+        throw err;
+      });
+
       // Create JWT token
       const token = createToken(req.user);
 
       // Set secure HTTP-only cookie
       res.cookie('auth_token', token, {
         httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      });
+
+      // Set session ID cookie for frontend access
+      res.cookie('bien_session_id', user.currentSessionId, {
+        httpOnly: false, // Frontend needs to read this
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
@@ -377,6 +474,7 @@ router.delete('/unlink/:provider', ensureLoggedIn, async (req, res) => {
     });
     
   } catch (err) {
+    const provider = req.params.provider || 'unknown';
     backendLogger.error('Unlink account error', { error: err.message, userId: req.user._id, provider });
     res.status(500).json({ error: 'Failed to unlink account' });
   }
@@ -387,7 +485,6 @@ router.delete('/unlink/:provider', ensureLoggedIn, async (req, res) => {
  */
 router.get('/linked-accounts', ensureLoggedIn, async (req, res) => {
   try {
-    const User = require('../../models/user');
     const user = await User.findById(req.user._id);
     
     if (!user) {
@@ -407,6 +504,46 @@ router.get('/linked-accounts', ensureLoggedIn, async (req, res) => {
   } catch (err) {
     backendLogger.error('Get linked accounts error', { error: err.message, userId: req.user._id });
     res.status(500).json({ error: 'Failed to get linked accounts' });
+  }
+});
+
+/**
+ * Logout endpoint
+ * Clears user session on backend
+ */
+router.post('/logout', ensureLoggedIn, async (req, res) => {
+  try {
+    const { clearSessionForUser } = require('../../utilities/session-middleware');
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      backendLogger.warn('Logout attempted for non-existent user', { userId: req.user._id });
+      return res.status(200).json({ message: 'Logged out successfully' });
+    }
+    
+    // Clear session from database
+    await clearSessionForUser(user);
+    
+    // Clear session cookie
+    res.clearCookie('bien_session_id', {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax'
+    });
+    
+    // Clear auth token cookie
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax'
+    });
+    
+    backendLogger.info('User logged out successfully', { userId: req.user._id });
+    res.json({ message: 'Logged out successfully' });
+    
+  } catch (err) {
+    backendLogger.error('Logout error', { error: err.message, userId: req.user._id });
+    res.status(500).json({ error: 'Failed to logout' });
   }
 });
 
