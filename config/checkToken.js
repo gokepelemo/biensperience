@@ -46,19 +46,33 @@ module.exports = function(req, res, next) {
                     backendLogger.warn('User in token no longer exists', {
                         userId: decoded.user._id,
                         email: decoded.user.email,
-                        ip: req.ip
+                        ip: req.ip,
+                        path: req.path
                     });
                     req.user = null;
                     return next();
                 }
 
-                backendLogger.debug('JWT verified and user exists', { userId: user._id, email: user.email });
+                backendLogger.debug('JWT verified and user exists', {
+                    userId: user._id,
+                    email: user.email,
+                    role: user.role,
+                    isSuperAdmin: user.isSuperAdmin,
+                    path: req.path
+                });
+
                 // Use fresh user object from database (has latest role, permissions, etc.)
+                // Convert to plain object to ensure all properties are accessible
                 req.user = user.toObject ? user.toObject() : user;
                 req.exp = new Date(decoded.exp * 1000);
                 return next();
             } catch (dbErr) {
-                backendLogger.error('Error checking user existence', { error: dbErr.message, userId: decoded.user._id });
+                backendLogger.error('Error checking user existence', {
+                    error: dbErr.message,
+                    stack: dbErr.stack,
+                    userId: decoded.user._id,
+                    path: req.path
+                });
                 req.user = null;
                 return next();
             }
