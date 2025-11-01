@@ -19,6 +19,12 @@ function requireEmailVerification(req, res, next) {
       return next();
     }
 
+    // API tokens bypass email verification (programmatic access)
+    if (req.isApiToken) {
+      backendLogger.debug('API token authentication - bypassing email verification');
+      return next();
+    }
+
     // Check if user is authenticated
     if (!req.user) {
       return res.status(401).json({

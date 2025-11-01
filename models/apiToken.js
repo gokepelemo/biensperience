@@ -192,6 +192,12 @@ apiTokenSchema.statics.findUserByToken = async function(token) {
     return null;
   }
 
+  // Check if API access is enabled for the user
+  if (!apiToken.user.apiEnabled) {
+    logger.warn('API access is disabled for user', { userId: apiToken.user._id, email: apiToken.user.email });
+    return null;
+  }
+
   // Update last used timestamp (async, don't wait)
   apiToken.lastUsed = new Date();
   apiToken.save().catch(err => {
