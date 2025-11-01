@@ -375,7 +375,7 @@ describe('Super Admin Permissions - Photos', () => {
       .send(updateData);
 
     logger.endTimer('Super admin photo update');
-    logger.response(response.status);
+    logger.response(response.status, response.body);
 
     expect(response.status).toBe(200);
     expect(response.body.caption).toBe(updateData.caption);

@@ -66,7 +66,7 @@ async function updatePhoto(req, res) {
       return res.status(400).json({ error: 'Invalid photo ID format' });
     }
 
-    let photo = await Photo.findById(req.params.id).populate("user");
+    let photo = await Photo.findById(req.params.id);
     if (!photo) {
       return res.status(404).json({ error: 'Photo not found' });
     }
@@ -84,12 +84,26 @@ async function updatePhoto(req, res) {
         message: permCheck.reason
       });
     }
-    photo = Object.assign(photo, req.body);
+
+    // Update only allowed fields (prevent modification of permissions via this endpoint)
+    const allowedFields = ['caption', 'photo_credit', 'photo_credit_url'];
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        photo[field] = req.body[field];
+      }
+    });
+
     await photo.save();
     return res.status(200).json(photo);
   } catch (err) {
-    backendLogger.error('Update photo error', { error: err.message, userId: req.user._id, photoId: req.params.id });
-    res.status(400).json({ error: 'Failed to update photo' });
+    backendLogger.error('Update photo error', {
+      error: err.message,
+      stack: err.stack,
+      userId: req.user._id,
+      photoId: req.params.id,
+      validationErrors: err.errors
+    });
+    res.status(400).json({ error: 'Failed to update photo', details: err.message });
   }
 }
 
@@ -100,7 +114,7 @@ async function deletePhoto(req, res) {
       return res.status(400).json({ error: 'Invalid photo ID format' });
     }
 
-    const photo = await Photo.findById(req.params.id).populate("user");
+    const photo = await Photo.findById(req.params.id);
     if (!photo) {
       return res.status(404).json({ error: 'Photo not found' });
     }
