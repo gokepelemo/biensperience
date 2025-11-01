@@ -1,4 +1,4 @@
-import { getToken } from "./users-service.js"
+import { getToken, logout } from "./users-service.js"
 import { logger } from "./logger.js"
 
 /**
@@ -88,6 +88,24 @@ export async function sendRequest(url, method = "GET", payload = null) {
         const res = await fetch(url, options);
         if (res.ok) return res.json();
 
+        // Handle 401 Unauthorized - user deleted or token invalid
+        if (res.status === 401) {
+            logger.warn('Received 401 Unauthorized - logging out user', {
+                url,
+                method,
+                status: res.status
+            });
+
+            // Clear token and redirect to login
+            logout();
+
+            // Redirect to home page (which will show login)
+            window.location.href = '/';
+
+            // Throw error to prevent further processing
+            throw new Error('Session expired. Please log in again.');
+        }
+
         // Log detailed error information for debugging
         const errorText = await res.text().catch(() => 'Unable to read error response');
         logger.error(`HTTP ${res.status} ${res.statusText}`, {
@@ -151,6 +169,24 @@ export async function uploadFile(url, method = "POST", payload = null) {
     try {
         const res = await fetch(url, options);
         if (res.ok) return res.json();
+
+        // Handle 401 Unauthorized - user deleted or token invalid
+        if (res.status === 401) {
+            logger.warn('Received 401 Unauthorized during upload - logging out user', {
+                url,
+                method,
+                status: res.status
+            });
+
+            // Clear token and redirect to login
+            logout();
+
+            // Redirect to home page (which will show login)
+            window.location.href = '/';
+
+            // Throw error to prevent further processing
+            throw new Error('Session expired. Please log in again.');
+        }
 
         // Log detailed error information for debugging
         const errorText = await res.text().catch(() => 'Unable to read error response');
