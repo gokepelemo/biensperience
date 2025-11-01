@@ -1589,24 +1589,23 @@ export default function SingleExperience() {
               </div>
             </div>
             <div className="col-md-6 p-3 fade-in">
-              <ul className="list-group experience-detail fade-in mb-4">
+
+              <div className="travel-tips-box fade-in mb-4">
                 {experience.destination && (
-                  <li className="list-group-item list-group-item-secondary fw-bold text-center h5 fade-in">
+                  <div className="fw-bold text-center h5 fade-in">
                     <Link to={`/destinations/${experience.destination._id}`}>
-                      {lang.en.label.destinationLabel}:{" "}
-                      {experience.destination.name}
+                      {lang.en.label.destinationLabel}: {experience.destination.name}
                     </Link>
-                  </li>
+                  </div>
                 )}
-                {travelTips.map((tip, index) => (
-                  <li
-                    key={index}
-                    className="list-group-item list-group-item-secondary fade-in"
-                  >
-                    {tip}
-                  </li>
-                ))}
-              </ul>
+                <div className="d-flex gap-3 flex-wrap mt-3">
+                  {travelTips.map((tip, index) => (
+                    <div key={index} className="travel-tip-card fade-in">
+                      {tip}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               {experience.destination && (
                 <iframe
