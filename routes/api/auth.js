@@ -11,7 +11,7 @@ const backendLogger = require('../../utilities/backend-logger');
 const { authLimiter } = require('../../config/rateLimiters');
 const User = require('../../models/user');
 const { createSessionForUser } = require('../../utilities/session-middleware');
-const { trackOAuthAuth, trackOAuthUnlink } = require('../../utilities/auth-activity-tracker');
+const { trackOAuthAuth, trackOAuthUnlink } = require('../../utilities/activity-tracker');
 
 /**
  * CSRF Token Endpoint

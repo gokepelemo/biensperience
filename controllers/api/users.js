@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 const { USER_ROLES } = require("../../utilities/user-roles");
 const { isSuperAdmin } = require("../../utilities/permissions");
 const backendLogger = require("../../utilities/backend-logger");
-const { trackSignup, trackLogin, trackFailedLogin } = require("../../utilities/auth-activity-tracker");
+const { trackSignup, trackLogin, trackFailedLogin } = require("../../utilities/activity-tracker");
 
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
