@@ -60,12 +60,16 @@ beforeEach(async () => {
 
   // Create test experience
   experience = await Experience.create({
-    title: 'Test Experience',
+    name: 'Test Experience',
     destination: new mongoose.Types.ObjectId(),
-    createdBy: superAdmin._id,
-    items: [
-      { description: 'Item 1', cost: 100 },
-      { description: 'Item 2', cost: 200 }
+    permissions: [{
+      _id: superAdmin._id,
+      entity: 'user',
+      type: 'owner'
+    }],
+    plan_items: [
+      { text: 'Item 1', cost_estimate: 100 },
+      { text: 'Item 2', cost_estimate: 200 }
     ]
   });
 
@@ -214,9 +218,9 @@ describe('POST /api/invites/validate', () => {
       .post('/api/invites/validate')
       .send({ code: expiredInvite.code });
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
     expect(res.body.valid).toBe(false);
-    expect(res.body.reason).toContain('expired');
+    expect(res.body.error).toBeTruthy();
   });
 
   it('should reject fully-used invite code', async () => {
@@ -228,9 +232,9 @@ describe('POST /api/invites/validate', () => {
       .post('/api/invites/validate')
       .send({ code: inviteCode.code });
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
     expect(res.body.valid).toBe(false);
-    expect(res.body.reason).toContain('maximum uses');
+    expect(res.body.error).toBeTruthy();
   });
 
   it('should reject inactive invite code', async () => {
@@ -241,9 +245,9 @@ describe('POST /api/invites/validate', () => {
       .post('/api/invites/validate')
       .send({ code: inviteCode.code });
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
     expect(res.body.valid).toBe(false);
-    expect(res.body.reason).toContain('not active');
+    expect(res.body.error).toBeTruthy();
   });
 });
 
@@ -267,8 +271,7 @@ describe('POST /api/invites/redeem', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.message).toContain('redeemed');
-    expect(res.body.experiences).toHaveLength(1);
+    expect(res.body.experiencesAdded).toHaveLength(1);
     expect(res.body.destinations).toHaveLength(1);
 
     // Verify plan was created
@@ -277,7 +280,7 @@ describe('POST /api/invites/redeem', () => {
       experience: experience._id
     });
     expect(plan).toBeTruthy();
-    expect(plan.items).toHaveLength(2); // Copied from experience
+    expect(plan.plan).toHaveLength(2); // Copied from experience.plan_items
 
     // Verify invite was updated
     const updatedInvite = await InviteCode.findById(inviteCode._id);

@@ -328,13 +328,14 @@ describe('API Token Authentication', () => {
         .post('/api/experiences')
         .set('Authorization', `Bearer ${validApiToken}`)
         .send({
-          title: 'Test Experience',
+          name: 'Test Experience',
           destination: new mongoose.Types.ObjectId()
         });
 
       // Should not fail with CSRF error
       // (may fail with other validation errors, but not CSRF)
-      expect(response.status).not.toBe(403);
+      // Expect 201 (success) since we're providing valid data
+      expect(response.status).toBe(201);
     });
 
     test('should fail when API access is disabled for user', async () => {

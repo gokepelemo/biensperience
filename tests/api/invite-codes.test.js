@@ -31,20 +31,13 @@ beforeAll(async () => {
   const mongoUri = mongoServer.getUri();
   await mongoose.connect(mongoUri);
 
-  // Create test destination
-  testDestination = await Destination.create({
-    name: 'Paris',
-    country: 'France',
-    description: 'City of Light',
-    permissions: []
-  });
-
-  // Create test experience
-  testExperience = await Experience.create({
-    title: 'Eiffel Tower Visit',
-    description: 'Visit the iconic Eiffel Tower',
-    destination: testDestination._id,
-    permissions: []
+  // Create admin user first (needed for permissions)
+  adminUser = await User.create({
+    name: 'Admin User',
+    email: 'admin@example.com',
+    password: 'password123',
+    emailConfirmed: true,
+    isSuperAdmin: true
   });
 
   // Create regular user
@@ -55,13 +48,28 @@ beforeAll(async () => {
     emailConfirmed: true
   });
 
-  // Create admin user
-  adminUser = await User.create({
-    name: 'Admin User',
-    email: 'admin@example.com',
-    password: 'password123',
-    emailConfirmed: true,
-    isSuperAdmin: true
+  // Create test destination
+  testDestination = await Destination.create({
+    name: 'Paris',
+    country: 'France',
+    description: 'City of Light',
+    permissions: [{
+      _id: adminUser._id,
+      entity: 'user',
+      type: 'owner'
+    }]
+  });
+
+  // Create test experience
+  testExperience = await Experience.create({
+    name: 'Eiffel Tower Visit',
+    description: 'Visit the iconic Eiffel Tower',
+    destination: testDestination._id,
+    permissions: [{
+      _id: adminUser._id,
+      entity: 'user',
+      type: 'owner'
+    }]
   });
 
   // Generate JWT tokens

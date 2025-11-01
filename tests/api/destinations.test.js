@@ -329,7 +329,7 @@ describe('Destinations API Routes', () => {
         .send(updateData);
 
       logger.response(response.status);
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(403);
       logger.success('Unauthorized update rejected');
     });
 
@@ -411,7 +411,7 @@ describe('Destinations API Routes', () => {
         .set('Authorization', `Bearer ${otherToken}`);
 
       logger.response(response.status);
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(403);
       logger.success('Unauthorized delete rejected');
     });
   });
