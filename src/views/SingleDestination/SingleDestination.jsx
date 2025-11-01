@@ -93,7 +93,7 @@ export default function SingleDestination() {
       return destination.photos[defaultIndex] || destination.photos[0];
     }
     
-    // Fallback to legacy photo field
+    // Fallback to photo field
     return destination.photo;
   };
 

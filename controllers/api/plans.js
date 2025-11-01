@@ -84,16 +84,29 @@ const createPlan = asyncHandler(async (req, res) => {
   const enforcer = getEnforcer({ Plan, Experience, Destination, User });
   const userRole = await enforcer.getUserRole(req.user._id, experience);
 
-  // Only add as contributor if user has no existing role
+  // Only add as contributor if user has no existing role (SECURE)
   if (!userRole) {
-    experience.permissions.push({
-      _id: req.user._id,
-      entity: 'user',
-      type: 'contributor',
-      granted_by: req.user._id,
-      granted_at: new Date()
+    const result = await enforcer.addPermission({
+      resource: experience,
+      permission: {
+        _id: req.user._id,
+        entity: 'user',
+        type: 'contributor'
+      },
+      actorId: req.user._id,
+      reason: 'User created plan for experience',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      },
+      allowSelfContributor: true  // Allow user to add themselves as contributor
     });
-    await experience.save();
+
+    if (result.success) {
+      await experience.save();
+    }
   }
 
   const populatedPlan = await Plan.findById(plan._id)
@@ -315,7 +328,7 @@ const checkUserPlanForExperience = asyncHandler(async (req, res) => {
   res.json({ 
     hasPlan: true, 
     plans: transformedPlans,
-    // Legacy compatibility - return first plan's data
+    // Return first plan's data
     planId: transformedPlans[0]._id,
     createdAt: transformedPlans[0].createdAt
   });
@@ -522,13 +535,27 @@ const addCollaborator = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: "User already has permissions on this plan" });
   }
 
-  plan.permissions.push({
-    _id: userId,
-    entity: 'user',
-    type: 'collaborator',
-    granted_by: req.user._id,
-    granted_at: new Date()
+  // Add collaborator using enforcer (SECURE)
+  const result = await enforcer.addPermission({
+    resource: plan,
+    permission: {
+      _id: userId,
+      entity: 'user',
+      type: 'collaborator'
+    },
+    actorId: req.user._id,
+    reason: 'Collaborator added to plan',
+    metadata: {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      requestPath: req.path,
+      requestMethod: req.method
+    }
   });
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
 
   await plan.save();
 
@@ -576,9 +603,24 @@ const removeCollaborator = asyncHandler(async (req, res) => {
     });
   }
 
-  plan.permissions = plan.permissions.filter(
-    p => !(p.entity === 'user' && p._id.toString() === userId && p.type === 'collaborator')
-  );
+  // Remove collaborator using enforcer (SECURE)
+  const result = await enforcer.removePermission({
+    resource: plan,
+    permissionId: userId,
+    entityType: 'user',
+    actorId: req.user._id,
+    reason: 'Collaborator removed from plan',
+    metadata: {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      requestPath: req.path,
+      requestMethod: req.method
+    }
+  });
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
 
   await plan.save();
 

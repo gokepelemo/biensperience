@@ -243,6 +243,10 @@ async function toggleUserFavoriteDestination(req, res) {
     // Check if user is already a collaborator (includes super admin check)
     const isCollaborator = await permissions.isCollaborator(user._id, destination, { Destination, Experience });
     
+    // Get enforcer for secure permission mutations
+    const { getEnforcer } = require('../../utilities/permission-enforcer');
+    const enforcer = getEnforcer({ Destination, Experience, User });
+    
     if (idx === -1) {
       // Adding to favorites
       destination.users_favorite.push(user._id);
@@ -254,12 +258,22 @@ async function toggleUserFavoriteDestination(req, res) {
         );
         
         if (!existingContributor) {
-          destination.permissions.push({
-            _id: user._id,
-            entity: 'user',
-            type: 'contributor',
-            granted_by: user._id,
-            granted_at: new Date()
+          await enforcer.addPermission({
+            resource: destination,
+            permission: {
+              _id: user._id,
+              entity: 'user',
+              type: 'contributor'
+            },
+            actorId: user._id,
+            reason: 'User favorited destination',
+            metadata: {
+              ipAddress: req.ip,
+              userAgent: req.get('user-agent'),
+              requestPath: req.path,
+              requestMethod: req.method
+            },
+            allowSelfContributor: true  // Allow user to add themselves as contributor
           });
         }
       }
@@ -272,9 +286,19 @@ async function toggleUserFavoriteDestination(req, res) {
       
       // Remove contributor permission if not owner or collaborator
       if (!isOwner && !isCollaborator) {
-        destination.permissions = destination.permissions.filter(
-          p => !(p.entity === 'user' && p._id.toString() === user._id.toString() && p.type === 'contributor')
-        );
+        await enforcer.removePermission({
+          resource: destination,
+          permissionId: user._id,
+          entityType: 'user',
+          actorId: user._id,
+          reason: 'User un-favorited destination',
+          metadata: {
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent'),
+            requestPath: req.path,
+            requestMethod: req.method
+          }
+        });
       }
       
       await destination.save();
@@ -511,13 +535,27 @@ async function addDestinationPermission(req, res) {
       }
     }
 
-    // Add permission
+    // Add permission using enforcer (SECURE)
+    const { getEnforcer } = require('../../utilities/permission-enforcer');
+    const enforcer = getEnforcer({ Destination, Experience, User });
+    
     const permission = { _id, entity };
     if (type) {
       permission.type = type;
     }
 
-    const result = permissions.addPermission(destination, permission);
+    const result = await enforcer.addPermission({
+      resource: destination,
+      permission,
+      actorId: req.user._id,
+      reason: 'Owner added permission via API',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      }
+    });
 
     if (!result.success) {
       return res.status(400).json({ error: result.error });
@@ -572,10 +610,26 @@ async function removeDestinationPermission(req, res) {
       });
     }
 
-    const result = permissions.removePermission(destination, entityId, entityType);
+    // Remove permission using enforcer (SECURE)
+    const { getEnforcer } = require('../../utilities/permission-enforcer');
+    const enforcer = getEnforcer({ Destination, Experience, User });
+
+    const result = await enforcer.removePermission({
+      resource: destination,
+      permissionId: entityId,
+      entityType,
+      actorId: req.user._id,
+      reason: 'Owner removed permission via API',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      }
+    });
 
     if (!result.success) {
-      return res.status(404).json({ error: result.error });
+      return res.status(400).json({ error: result.error });
     }
 
     await destination.save();
@@ -625,7 +679,24 @@ async function updateDestinationPermission(req, res) {
       return res.status(400).json({ error: 'Permission type is required' });
     }
 
-    const result = permissions.updatePermissionType(destination, req.params.userId, type);
+    // Update permission using enforcer (SECURE)
+    const { getEnforcer } = require('../../utilities/permission-enforcer');
+    const enforcer = getEnforcer({ Destination, Experience, User });
+
+    const result = await enforcer.updatePermission({
+      resource: destination,
+      permissionId: req.params.userId,
+      entityType: 'user',
+      newType: type,
+      actorId: req.user._id,
+      reason: 'Owner updated permission type via API',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      }
+    });
 
     if (!result.success) {
       return res.status(400).json({ error: result.error });

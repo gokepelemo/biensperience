@@ -902,13 +902,27 @@ async function addExperiencePermission(req, res) {
       }
     }
 
-    // Add permission
+    // Add permission using enforcer (SECURE)
+    const { getEnforcer } = require('../../utilities/permission-enforcer');
+    const enforcer = getEnforcer({ Experience, Destination, User });
+    
     const permission = { _id, entity };
     if (type) {
       permission.type = type;
     }
 
-    const result = permissions.addPermission(experience, permission);
+    const result = await enforcer.addPermission({
+      resource: experience,
+      permission,
+      actorId: req.user._id,
+      reason: 'Owner added permission via API',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      }
+    });
 
     if (!result.success) {
       return res.status(400).json({ error: result.error });
@@ -963,10 +977,26 @@ async function removeExperiencePermission(req, res) {
       });
     }
 
-    const result = permissions.removePermission(experience, entityId, entityType);
+    // Remove permission using enforcer (SECURE)
+    const { getEnforcer } = require('../../utilities/permission-enforcer');
+    const enforcer = getEnforcer({ Experience, Destination, User });
+
+    const result = await enforcer.removePermission({
+      resource: experience,
+      permissionId: entityId,
+      entityType,
+      actorId: req.user._id,
+      reason: 'Owner removed permission via API',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      }
+    });
 
     if (!result.success) {
-      return res.status(404).json({ error: result.error });
+      return res.status(400).json({ error: result.error });
     }
 
     await experience.save();
@@ -1016,7 +1046,24 @@ async function updateExperiencePermission(req, res) {
       return res.status(400).json({ error: 'Permission type is required' });
     }
 
-    const result = permissions.updatePermissionType(experience, req.params.userId, type);
+    // Update permission using enforcer (SECURE)
+    const { getEnforcer } = require('../../utilities/permission-enforcer');
+    const enforcer = getEnforcer({ Experience, Destination, User });
+
+    const result = await enforcer.updatePermission({
+      resource: experience,
+      permissionId: req.params.userId,
+      entityType: 'user',
+      newType: type,
+      actorId: req.user._id,
+      reason: 'Owner updated permission type via API',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      }
+    });
 
     if (!result.success) {
       return res.status(400).json({ error: result.error });
@@ -1131,44 +1178,28 @@ async function transferOwnership(req, res) {
       });
     }
 
-    // Update ownership
-    // Update permissions array
-    // Remove old owner's owner permission
-    experience.permissions = experience.permissions.filter(
-      p => !(p.entity === 'user' && p._id.toString() === req.user._id.toString() && p.type === 'owner')
-    );
+    // Update ownership using PermissionEnforcer (SECURE)
+    const { getEnforcer } = require('../../utilities/permission-enforcer');
+    const enforcer = getEnforcer({ Destination, Experience, User });
 
-    // Check if new owner already has a permission entry
-    const newOwnerPermIndex = experience.permissions.findIndex(
-      p => p.entity === 'user' && p._id.toString() === newOwnerId
-    );
+    const transferResult = await enforcer.transferOwnership({
+      resource: experience,
+      oldOwnerId: req.user._id,
+      newOwnerId: newOwnerId,
+      actorId: req.user._id,
+      reason: 'Ownership transfer requested by current owner',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      }
+    });
 
-    if (newOwnerPermIndex !== -1) {
-      // Update existing permission to owner
-      experience.permissions[newOwnerPermIndex].type = 'owner';
-    } else {
-      // Add new owner permission
-      experience.permissions.push({
-        _id: newOwnerId,
-        entity: 'user',
-        type: 'owner',
-        granted_by: req.user._id,
-        granted_at: new Date()
-      });
-    }
-
-    // 3. Add previous owner as contributor (so they can still view their original creation)
-    const prevOwnerExists = experience.permissions.some(
-      p => p.entity === 'user' && p._id.toString() === req.user._id.toString()
-    );
-
-    if (!prevOwnerExists) {
-      experience.permissions.push({
-        _id: req.user._id,
-        entity: 'user',
-        type: 'contributor',
-        granted_by: newOwnerId,
-        granted_at: new Date()
+    if (!transferResult.success) {
+      return res.status(400).json({
+        error: 'Transfer failed',
+        message: transferResult.error
       });
     }
 

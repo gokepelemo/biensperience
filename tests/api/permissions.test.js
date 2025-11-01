@@ -4,9 +4,6 @@ const {
   ENTITY_TYPES,
   validatePermission,
   validatePermissions,
-  addPermission,
-  removePermission,
-  updatePermissionType,
   isOwner,
   hasRole,
   canEdit
@@ -70,111 +67,6 @@ describe('Permissions Utility Tests', () => {
       const result = validatePermission(permission);
       expect(result.valid).toBe(false);
       expect(result.error).toContain('Permission entity must be one of');
-    });
-  });
-
-  describe('addPermission', () => {
-    test('should add valid permission', () => {
-      const resource = { ...mockDestination };
-      const permission = {
-        _id: mockUser._id,
-        entity: ENTITY_TYPES.USER,
-        type: ROLES.COLLABORATOR
-      };
-
-      const result = addPermission(resource, permission);
-      expect(result.success).toBe(true);
-      expect(result.error).toBeNull();
-      expect(resource.permissions).toHaveLength(1);
-      expect(resource.permissions[0]).toEqual(permission);
-    });
-
-    test('should reject duplicate permission', () => {
-      const resource = {
-        ...mockDestination,
-        permissions: [{
-          _id: mockUser._id,
-          entity: ENTITY_TYPES.USER,
-          type: ROLES.COLLABORATOR
-        }]
-      };
-      const permission = {
-        _id: mockUser._id,
-        entity: ENTITY_TYPES.USER,
-        type: ROLES.CONTRIBUTOR
-      };
-
-      const result = addPermission(resource, permission);
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Permission already exists');
-    });
-  });
-
-  describe('removePermission', () => {
-    test('should remove existing permission', () => {
-      const resource = {
-        ...mockDestination,
-        permissions: [{
-          _id: mockUser._id,
-          entity: ENTITY_TYPES.USER,
-          type: ROLES.COLLABORATOR
-        }]
-      };
-
-      const result = removePermission(resource, mockUser._id, ENTITY_TYPES.USER);
-      expect(result.success).toBe(true);
-      expect(result.error).toBeNull();
-      expect(result.removed).toEqual({
-        _id: mockUser._id,
-        entity: ENTITY_TYPES.USER,
-        type: ROLES.COLLABORATOR
-      });
-      expect(resource.permissions).toHaveLength(0);
-    });
-
-    test('should return error for non-existent permission', () => {
-      const resource = { 
-        ...mockDestination, 
-        permissions: [] // Explicitly set empty permissions
-      };
-
-      const result = removePermission(resource, mockUser._id, ENTITY_TYPES.USER);
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Permission not found');
-      expect(result.removed).toBeNull();
-    });
-  });
-
-  describe('updatePermissionType', () => {
-    test('should update permission type', () => {
-      const resource = {
-        ...mockDestination,
-        permissions: [{
-          _id: mockUser._id,
-          entity: ENTITY_TYPES.USER,
-          type: ROLES.CONTRIBUTOR
-        }]
-      };
-
-      const result = updatePermissionType(resource, mockUser._id, ROLES.COLLABORATOR);
-      expect(result.success).toBe(true);
-      expect(result.error).toBeNull();
-      expect(resource.permissions[0].type).toBe(ROLES.COLLABORATOR);
-    });
-
-    test('should reject invalid role type', () => {
-      const resource = {
-        ...mockDestination,
-        permissions: [{
-          _id: mockUser._id,
-          entity: ENTITY_TYPES.USER,
-          type: ROLES.CONTRIBUTOR
-        }]
-      };
-
-      const result = updatePermissionType(resource, mockUser._id, 'invalid_role');
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Invalid role type');
     });
   });
 

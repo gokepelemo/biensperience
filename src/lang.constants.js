@@ -567,7 +567,7 @@ const lang = {
   get current() {
     return getLang();
   },
-  // Keep backward compatibility
+  // Export English directly
   en: languages.en,
 };
 

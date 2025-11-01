@@ -1,7 +1,5 @@
 /**
  * Photo utility functions for handling photo arrays with ID-based operations
- * Provides backwards compatibility with index-based operations
- * Frontend version
  * @module photo-utils
  */
 
@@ -9,7 +7,6 @@ import { logger } from './logger';
 
 /**
  * Get the default photo from a resource
- * Supports both new ID-based and legacy index-based selection
  * @param {Object} resource - The resource (destination, experience, or user) with photos
  * @returns {Object|null} The default photo object or null if none found
  */
@@ -18,20 +15,19 @@ export function getDefaultPhoto(resource) {
     return null;
   }
 
-  // Try ID-based selection first (new method)
+  // Try ID-based selection first
   if (resource.default_photo_id) {
     const photo = resource.photos.find(p => p._id && p._id.toString() === resource.default_photo_id.toString());
     if (photo) {
       return photo;
     }
-    // If ID not found, fall through to index-based
     logger.warn('Default photo ID not found in photos array, falling back to index', {
       resourceId: resource._id,
       default_photo_id: resource.default_photo_id
     });
   }
 
-  // Fall back to index-based selection (legacy method)
+  // Fall back to index-based selection
   const index = resource.default_photo_index || 0;
   if (index >= 0 && index < resource.photos.length) {
     return resource.photos[index];
@@ -125,7 +121,7 @@ export function setDefaultPhotoById(resource, photoId) {
   return {
     ...resource,
     default_photo_id: photoId,
-    default_photo_index: index // Keep in sync for backwards compatibility
+    default_photo_index: index
   };
 }
 

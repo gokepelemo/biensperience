@@ -119,7 +119,7 @@ export async function decryptData(encryptedString, userId) {
     const decoder = new TextDecoder();
     return JSON.parse(decoder.decode(decryptedData));
   } catch (error) {
-    // If decryption fails, try parsing as plain JSON (backwards compatibility)
+    // If decryption fails, try parsing as plain JSON
     logger.warn('Decryption failed, attempting plain JSON parse', { error: error.message });
     try {
       return JSON.parse(encryptedString);

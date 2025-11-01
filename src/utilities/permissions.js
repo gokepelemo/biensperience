@@ -68,12 +68,10 @@ export function getOwner(resource) {
   );
 
   if (ownerPermission) {
-    // For now, we need to get user info from somewhere else
-    // This might require API changes to include user info in permissions
-    // For backward compatibility, return minimal info
+    // Return minimal owner info
     return {
       _id: ownerPermission._id,
-      name: 'Owner' // Placeholder - will need to be updated when API provides user names
+      name: 'Owner'
     };
   }
 

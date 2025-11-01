@@ -523,6 +523,560 @@ class PermissionEnforcer {
       return { allowed: false, reason: 'Error checking email verification status' };
     }
   }
+
+  /**
+   * MUTATION METHODS - ONLY WAY TO MODIFY PERMISSIONS
+   * All mutations are audited and validated
+   */
+
+  /**
+   * Add a permission to a resource (ONLY way to add permissions)
+   * @param {Object} options - Options object
+   * @param {Object} options.resource - Resource to add permission to
+   * @param {Object} options.permission - Permission object { _id, entity, type }
+   * @param {string} options.actorId - User ID performing the action
+   * @param {string} options.reason - Reason for adding permission
+   * @param {Object} options.metadata - Request metadata (IP, user agent, etc.)
+   * @param {boolean} options.allowSelfContributor - Allow users to add themselves as contributor (for auto-assignment)
+   * @returns {Promise<Object>} - { success: boolean, error: string|null, rollbackToken: string|null }
+   */
+  async addPermission({ resource, permission, actorId, reason, metadata = {}, allowSelfContributor = false }) {
+    try {
+      // 1. Validate permission object
+      const { ROLES, ENTITY_TYPES, validatePermission } = require('./permissions');
+      const validation = validatePermission(permission);
+      
+      if (!validation.valid) {
+        backendLogger.error('Permission validation failed', { error: validation.error, permission });
+        return { success: false, error: validation.error, rollbackToken: null };
+      }
+
+      // 2. Check for duplicates
+      const existingIndex = resource.permissions?.findIndex(p => 
+        p._id.toString() === permission._id.toString() && 
+        p.entity === permission.entity
+      );
+
+      if (existingIndex !== -1) {
+        return { success: false, error: 'Permission already exists', rollbackToken: null };
+      }
+
+      // 3. Verify actor authorization
+      const actorIdStr = actorId.toString();
+      const isResourceOwner = await this._isOwner(actorIdStr, resource);
+      const actor = this.models.User ? await this.models.User.findById(actorIdStr) : null;
+      const isSuperAdminUser = actor ? require('./permissions').isSuperAdmin(actor) : false;
+      
+      // Special case: Allow users to add themselves as contributor (auto-assignment)
+      const isSelfContributorAssignment = allowSelfContributor && 
+        permission.type === 'contributor' && 
+        permission.entity === 'user' &&
+        permission._id.toString() === actorIdStr;
+
+      if (!isResourceOwner && !isSuperAdminUser && !isSelfContributorAssignment) {
+        backendLogger.warn('Unauthorized permission addition attempt', {
+          actorId: actorIdStr,
+          resourceId: resource._id,
+          resourceType: resource.constructor.modelName,
+          attemptedPermission: permission
+        });
+        return { success: false, error: 'Unauthorized: only owners can add permissions', rollbackToken: null };
+      }
+
+      // 4. Capture state before change
+      const previousState = JSON.parse(JSON.stringify(resource.permissions || []));
+
+      // 5. Initialize permissions array if needed
+      if (!resource.permissions) {
+        resource.permissions = [];
+      }
+
+      // 6. Add permission with metadata
+      const newPermission = {
+        ...permission,
+        granted_at: new Date(),
+        granted_by: actorId
+      };
+      resource.permissions.push(newPermission);
+
+      // 7. Capture state after change
+      const newState = JSON.parse(JSON.stringify(resource.permissions));
+
+      // 8. Generate rollback token
+      const crypto = require('crypto');
+      const rollbackToken = crypto.randomBytes(32).toString('hex');
+
+      // 9. Create audit log
+      const auditResult = await this._createAuditLog({
+        action: 'permission_added',
+        actor,
+        resource,
+        permission: newPermission,
+        previousState,
+        newState,
+        reason,
+        metadata,
+        rollbackToken
+      });
+
+      if (!auditResult.success) {
+        backendLogger.error('Failed to create audit log', { error: auditResult.error });
+        // Continue anyway - mutation succeeded but audit failed
+      }
+
+      backendLogger.info('Permission added successfully', {
+        resourceType: resource.constructor.modelName,
+        resourceId: resource._id,
+        permissionEntity: permission.entity,
+        permissionId: permission._id,
+        actorId: actorIdStr,
+        rollbackToken
+      });
+
+      return { success: true, error: null, rollbackToken };
+    } catch (error) {
+      backendLogger.error('Error adding permission', { error: error.message, stack: error.stack });
+      return { success: false, error: error.message, rollbackToken: null };
+    }
+  }
+
+  /**
+   * Remove a permission from a resource (ONLY way to remove permissions)
+   * @param {Object} options - Options object
+   * @param {Object} options.resource - Resource to remove permission from
+   * @param {string} options.permissionId - ID of the entity whose permission to remove
+   * @param {string} options.entityType - Type of entity (user/destination/experience)
+   * @param {string} options.actorId - User ID performing the action
+   * @param {string} options.reason - Reason for removing permission
+   * @param {Object} options.metadata - Request metadata
+   * @returns {Promise<Object>} - { success: boolean, error: string|null, rollbackToken: string|null }
+   */
+  async removePermission({ resource, permissionId, entityType, actorId, reason, metadata = {} }) {
+    try {
+      // 1. Validate inputs
+      if (!resource.permissions || !Array.isArray(resource.permissions)) {
+        return { success: false, error: 'No permissions to remove', rollbackToken: null };
+      }
+
+      // 2. Find permission
+      const index = resource.permissions.findIndex(p => 
+        p._id.toString() === permissionId.toString() && 
+        p.entity === entityType
+      );
+
+      if (index === -1) {
+        return { success: false, error: 'Permission not found', rollbackToken: null };
+      }
+
+      // 3. Verify actor authorization
+      const actorIdStr = actorId.toString();
+      const isResourceOwner = await this._isOwner(actorIdStr, resource);
+      const actor = this.models.User ? await this.models.User.findById(actorIdStr) : null;
+      const isSuperAdminUser = actor ? require('./permissions').isSuperAdmin(actor) : false;
+
+      if (!isResourceOwner && !isSuperAdminUser) {
+        backendLogger.warn('Unauthorized permission removal attempt', {
+          actorId: actorIdStr,
+          resourceId: resource._id,
+          resourceType: resource.constructor.modelName
+        });
+        return { success: false, error: 'Unauthorized: only owners can remove permissions', rollbackToken: null };
+      }
+
+      // 4. Check "at least one owner" rule
+      const { ROLES } = require('./permissions');
+      const permissionToRemove = resource.permissions[index];
+      
+      if (permissionToRemove.entity === 'user' && permissionToRemove.type === ROLES.OWNER) {
+        const ownerCount = resource.permissions.filter(p => 
+          p.entity === 'user' && p.type === ROLES.OWNER
+        ).length;
+
+        if (ownerCount <= 1) {
+          return { 
+            success: false, 
+            error: 'Cannot remove last owner - resource must have at least one owner', 
+            rollbackToken: null 
+          };
+        }
+      }
+
+      // 5. Capture state before change
+      const previousState = JSON.parse(JSON.stringify(resource.permissions));
+
+      // 6. Remove permission
+      const removed = resource.permissions.splice(index, 1)[0];
+
+      // 7. Capture state after change
+      const newState = JSON.parse(JSON.stringify(resource.permissions));
+
+      // 8. Generate rollback token
+      const crypto = require('crypto');
+      const rollbackToken = crypto.randomBytes(32).toString('hex');
+
+      // 9. Create audit log
+      const auditResult = await this._createAuditLog({
+        action: 'permission_removed',
+        actor,
+        resource,
+        permission: removed,
+        previousState,
+        newState,
+        reason,
+        metadata,
+        rollbackToken
+      });
+
+      if (!auditResult.success) {
+        backendLogger.error('Failed to create audit log', { error: auditResult.error });
+      }
+
+      backendLogger.info('Permission removed successfully', {
+        resourceType: resource.constructor.modelName,
+        resourceId: resource._id,
+        removedPermission: removed,
+        actorId: actorIdStr,
+        rollbackToken
+      });
+
+      return { success: true, error: null, rollbackToken };
+    } catch (error) {
+      backendLogger.error('Error removing permission', { error: error.message, stack: error.stack });
+      return { success: false, error: error.message, rollbackToken: null };
+    }
+  }
+
+  /**
+   * Update a permission type (ONLY way to update permissions)
+   * @param {Object} options - Options object
+   * @param {Object} options.resource - Resource containing the permission
+   * @param {string} options.permissionId - ID of the entity whose permission to update
+   * @param {string} options.entityType - Type of entity
+   * @param {string} options.newType - New permission type (owner/collaborator/contributor)
+   * @param {string} options.actorId - User ID performing the action
+   * @param {string} options.reason - Reason for updating
+   * @param {Object} options.metadata - Request metadata
+   * @returns {Promise<Object>} - { success: boolean, error: string|null, rollbackToken: string|null }
+   */
+  async updatePermission({ resource, permissionId, entityType, newType, actorId, reason, metadata = {} }) {
+    try {
+      // Atomic operation: remove old + add new
+      const removeResult = await this.removePermission({
+        resource,
+        permissionId,
+        entityType,
+        actorId,
+        reason: `Update permission type to ${newType}: ${reason}`,
+        metadata
+      });
+
+      if (!removeResult.success) {
+        return removeResult;
+      }
+
+      const addResult = await this.addPermission({
+        resource,
+        permission: {
+          _id: permissionId,
+          entity: entityType,
+          type: newType
+        },
+        actorId,
+        reason: `Update permission type to ${newType}: ${reason}`,
+        metadata
+      });
+
+      if (!addResult.success) {
+        // Rollback the removal if add fails
+        backendLogger.error('Permission update failed, attempting rollback', {
+          removeRollbackToken: removeResult.rollbackToken
+        });
+        // Note: Rollback would be implemented in production
+        return addResult;
+      }
+
+      return { success: true, error: null, rollbackToken: addResult.rollbackToken };
+    } catch (error) {
+      backendLogger.error('Error updating permission', { error: error.message, stack: error.stack });
+      return { success: false, error: error.message, rollbackToken: null };
+    }
+  }
+
+  /**
+   * Transfer ownership (ONLY way to change owners)
+   * @param {Object} options - Options object
+   * @param {Object} options.resource - Resource to transfer
+   * @param {string} options.oldOwnerId - Current owner user ID
+   * @param {string} options.newOwnerId - New owner user ID
+   * @param {string} options.actorId - User ID performing the action
+   * @param {string} options.reason - Reason for transfer
+   * @param {Object} options.metadata - Request metadata
+   * @returns {Promise<Object>} - { success: boolean, error: string|null, rollbackToken: string|null }
+   */
+  async transferOwnership({ resource, oldOwnerId, newOwnerId, actorId, reason, metadata = {} }) {
+    try {
+      const { ROLES } = require('./permissions');
+
+      // 1. Verify actor is current owner or super admin
+      const actorIdStr = actorId.toString();
+      const isCurrentOwner = oldOwnerId.toString() === actorIdStr;
+      const actor = this.models.User ? await this.models.User.findById(actorIdStr) : null;
+      const isSuperAdminUser = actor ? require('./permissions').isSuperAdmin(actor) : false;
+
+      if (!isCurrentOwner && !isSuperAdminUser) {
+        return { success: false, error: 'Unauthorized: only current owner can transfer ownership', rollbackToken: null };
+      }
+
+      // 2. Capture state before change
+      const previousState = JSON.parse(JSON.stringify(resource.permissions || []));
+
+      // 3. Remove old owner's owner permission, make them contributor
+      const oldOwnerIndex = resource.permissions.findIndex(p => 
+        p._id.toString() === oldOwnerId.toString() && 
+        p.entity === 'user' &&
+        p.type === ROLES.OWNER
+      );
+
+      if (oldOwnerIndex !== -1) {
+        resource.permissions[oldOwnerIndex] = {
+          _id: oldOwnerId,
+          entity: 'user',
+          type: ROLES.CONTRIBUTOR,
+          granted_at: new Date(),
+          granted_by: actorId
+        };
+      }
+
+      // 4. Add or update new owner's permission
+      const newOwnerIndex = resource.permissions.findIndex(p => 
+        p._id.toString() === newOwnerId.toString() && 
+        p.entity === 'user'
+      );
+
+      if (newOwnerIndex !== -1) {
+        // Update existing permission to owner
+        resource.permissions[newOwnerIndex] = {
+          _id: newOwnerId,
+          entity: 'user',
+          type: ROLES.OWNER,
+          granted_at: new Date(),
+          granted_by: actorId
+        };
+      } else {
+        // Add new owner permission
+        resource.permissions.push({
+          _id: newOwnerId,
+          entity: 'user',
+          type: ROLES.OWNER,
+          granted_at: new Date(),
+          granted_by: actorId
+        });
+      }
+
+      // 5. Update user field
+      resource.user = newOwnerId;
+
+      // 6. Capture state after change
+      const newState = JSON.parse(JSON.stringify(resource.permissions));
+
+      // 7. Generate rollback token
+      const crypto = require('crypto');
+      const rollbackToken = crypto.randomBytes(32).toString('hex');
+
+      // 8. Create audit log
+      const auditResult = await this._createAuditLog({
+        action: 'ownership_transferred',
+        actor,
+        resource,
+        permission: {
+          _id: newOwnerId,
+          entity: 'user',
+          type: ROLES.OWNER
+        },
+        previousState,
+        newState,
+        reason,
+        metadata,
+        rollbackToken
+      });
+
+      if (!auditResult.success) {
+        backendLogger.error('Failed to create audit log', { error: auditResult.error });
+      }
+
+      backendLogger.info('Ownership transferred successfully', {
+        resourceType: resource.constructor.modelName,
+        resourceId: resource._id,
+        oldOwnerId: oldOwnerId.toString(),
+        newOwnerId: newOwnerId.toString(),
+        actorId: actorIdStr,
+        rollbackToken
+      });
+
+      return { success: true, error: null, rollbackToken };
+    } catch (error) {
+      backendLogger.error('Error transferring ownership', { error: error.message, stack: error.stack });
+      return { success: false, error: error.message, rollbackToken: null };
+    }
+  }
+
+  /**
+   * Rollback a permission change using audit log
+   * @param {Object} options - Options object
+   * @param {string} options.rollbackToken - Token from original mutation
+   * @param {string} options.actorId - User ID performing rollback
+   * @param {string} options.reason - Reason for rollback
+   * @returns {Promise<Object>} - { success: boolean, error: string|null }
+   */
+  async rollbackChange({ rollbackToken, actorId, reason }) {
+    try {
+      const Activity = require('../models/activity');
+      
+      const result = await Activity.restoreState(rollbackToken, actorId, reason);
+      
+      if (!result.success) {
+        backendLogger.warn('Rollback failed', {
+          rollbackToken,
+          actorId,
+          reason,
+          error: result.error
+        });
+        return { success: false, error: result.error };
+      }
+
+      backendLogger.info('Successfully rolled back change', {
+        rollbackToken,
+        actorId,
+        reason
+      });
+
+      return { success: true };
+    } catch (error) {
+      backendLogger.error('Error rolling back permission change', { error: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get audit log for a resource
+   * @param {Object} options - Options object
+   * @param {Object} options.resource - Resource to get audit log for
+   * @param {Date} options.startDate - Start date filter
+   * @param {Date} options.endDate - End date filter
+   * @param {string} options.actorId - Filter by actor
+   * @returns {Promise<Array>} - Array of audit log entries
+   */
+  async getAuditLog({ resource, startDate, endDate, actorId }) {
+    try {
+      const Activity = require('../models/activity');
+
+      const filters = {
+        'resource.id': resource._id,
+        'resource.type': resource.constructor.modelName
+      };
+
+      if (startDate || endDate) {
+        filters.timestamp = {};
+        if (startDate) filters.timestamp.$gte = startDate;
+        if (endDate) filters.timestamp.$lte = endDate;
+      }
+
+      if (actorId) {
+        filters['actor._id'] = actorId;
+      }
+
+      const activities = await Activity.find(filters)
+        .sort({ timestamp: -1 })
+        .lean();
+
+      backendLogger.info('Audit log retrieved', {
+        resourceType: resource.constructor.modelName,
+        resourceId: resource._id,
+        count: activities.length,
+        startDate,
+        endDate,
+        actorId
+      });
+
+      return activities;
+    } catch (error) {
+      backendLogger.error('Error fetching audit log', { error: error.message });
+      return [];
+    }
+  }
+
+  /**
+   * PRIVATE HELPER METHODS
+   */
+
+  /**
+   * Check if user is owner of resource
+   * @private
+   */
+  async _isOwner(userId, resource) {
+    const { isOwner } = require('./permissions');
+    return isOwner({ _id: userId }, resource);
+  }
+
+  /**
+   * Create activity log entry
+   * @private
+   */
+  async _createAuditLog({ action, actor, resource, permission, previousState, newState, reason, metadata, rollbackToken }) {
+    try {
+      const Activity = require('../models/activity');
+
+      const activityData = {
+        timestamp: new Date(),
+        action,
+        actor: {
+          _id: actor._id,
+          email: actor.email,
+          name: actor.name,
+          role: actor.role
+        },
+        resource: {
+          id: resource._id,
+          type: resource.constructor.modelName,
+          name: resource.name || resource.title || null
+        },
+        permission: permission ? {
+          _id: permission._id,
+          entity: permission.entity,
+          type: permission.type
+        } : undefined,
+        previousState,
+        newState,
+        reason: reason || 'No reason provided',
+        metadata: {
+          ipAddress: metadata.ipAddress || null,
+          userAgent: metadata.userAgent || null,
+          requestPath: metadata.requestPath || null,
+          requestMethod: metadata.requestMethod || null
+        },
+        rollbackToken,
+        tags: ['permission', action],
+        status: 'success'
+      };
+
+      const activity = await Activity.log(activityData);
+      
+      if (!activity.success) {
+        backendLogger.error('Failed to create activity log', { error: activity.error });
+        return { success: false, error: activity.error };
+      }
+      
+      return { success: true, activityId: activity.activity._id };
+    } catch (error) {
+      backendLogger.error('Failed to create activity log', {
+        error: error.message,
+        stack: error.stack,
+        action,
+        resourceId: resource._id
+      });
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 /**

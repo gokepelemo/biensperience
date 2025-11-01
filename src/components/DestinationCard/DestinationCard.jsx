@@ -29,7 +29,7 @@ function DestinationCard({ destination }) {
       return `url(${destination.photos[index].url})`;
     }
     
-    // Backward compatibility: if single photo exists
+    // If single photo exists
     if (destination.photo && destination.photo.url) {
       return `url(${destination.photo.url})`;
     }

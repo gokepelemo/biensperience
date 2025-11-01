@@ -3,6 +3,7 @@ const Photo = require("../../models/photo");
 const User = require("../../models/user");
 const { s3Upload, s3Delete } = require("../../uploads/aws-s3-upload");
 const { getEnforcer } = require("../../utilities/permission-enforcer");
+const { isOwner } = require("../../utilities/permissions");
 const backendLogger = require("../../utilities/backend-logger");
 const fs = require("fs");
 const path = require("path");
@@ -10,7 +11,7 @@ const path = require("path");
 async function createPhoto(req, res) {
   let rand = Math.ceil(Math.random() * 500);
   try {
-    // Populate both user field (legacy) and permissions array (new)
+    // Set owner
     req.body.user = req.user._id;
     req.body.permissions = [{
       _id: req.user._id,
@@ -293,17 +294,31 @@ async function addCollaborator(req, res) {
       return res.status(400).json({ error: 'User already has permission on this photo' });
     }
 
-    // Add collaborator permission
+    // Add collaborator permission using enforcer (SECURE)
     if (!photo.permissions) {
       photo.permissions = [];
     }
 
-    photo.permissions.push({
-      _id: req.body.userId,
-      entity: 'user',
-      type: 'collaborator',
-      granted_by: req.user._id
+    const result = await enforcer.addPermission({
+      resource: photo,
+      permission: {
+        _id: req.body.userId,
+        entity: 'user',
+        type: 'collaborator'
+      },
+      actorId: req.user._id,
+      reason: 'Collaborator added by photo owner',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      }
     });
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
 
     await photo.save();
     res.json({ message: 'Collaborator added successfully', photo });
@@ -336,7 +351,7 @@ async function removeCollaborator(req, res) {
       return res.status(403).json({ error: 'Only owners can remove collaborators' });
     }
 
-    // Find and remove the permission
+    // Find the permission
     const permissionIndex = photo.permissions?.findIndex(p =>
       p.entity === 'user' &&
       p._id.toString() === req.params.userId &&
@@ -347,7 +362,28 @@ async function removeCollaborator(req, res) {
       return res.status(404).json({ error: 'Collaborator not found' });
     }
 
-    photo.permissions.splice(permissionIndex, 1);
+    // Remove permission using enforcer (SECURE)
+    const { getEnforcer } = require('../../utilities/permission-enforcer');
+    const enforcer = getEnforcer({ Photo, User });
+
+    const result = await enforcer.removePermission({
+      resource: photo,
+      permissionId: req.params.userId,
+      entityType: 'user',
+      actorId: req.user._id,
+      reason: 'Collaborator removed by photo owner',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      }
+    });
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
     await photo.save();
 
     res.json({ message: 'Collaborator removed successfully', photo });
@@ -389,17 +425,34 @@ async function addContributor(req, res) {
       return res.status(400).json({ error: 'User already has permission on this photo' });
     }
 
-    // Add contributor permission
+    // Add contributor permission using enforcer (SECURE)
+    const { getEnforcer } = require('../../utilities/permission-enforcer');
+    const enforcer = getEnforcer({ Photo, User });
+
     if (!photo.permissions) {
       photo.permissions = [];
     }
 
-    photo.permissions.push({
-      _id: req.body.userId,
-      entity: 'user',
-      type: 'contributor',
-      granted_by: req.user._id
+    const result = await enforcer.addPermission({
+      resource: photo,
+      permission: {
+        _id: req.body.userId,
+        entity: 'user',
+        type: 'contributor'
+      },
+      actorId: req.user._id,
+      reason: 'Contributor added by photo owner',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      }
     });
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
 
     await photo.save();
     res.json({ message: 'Contributor added successfully', photo });
@@ -432,7 +485,7 @@ async function removeContributor(req, res) {
       return res.status(403).json({ error: 'Only owners can remove contributors' });
     }
 
-    // Find and remove the permission
+    // Find the permission
     const permissionIndex = photo.permissions?.findIndex(p =>
       p.entity === 'user' &&
       p._id.toString() === req.params.userId &&
@@ -443,7 +496,28 @@ async function removeContributor(req, res) {
       return res.status(404).json({ error: 'Contributor not found' });
     }
 
-    photo.permissions.splice(permissionIndex, 1);
+    // Remove permission using enforcer (SECURE)
+    const { getEnforcer } = require('../../utilities/permission-enforcer');
+    const enforcer = getEnforcer({ Photo, User });
+
+    const result = await enforcer.removePermission({
+      resource: photo,
+      permissionId: req.params.userId,
+      entityType: 'user',
+      actorId: req.user._id,
+      reason: 'Contributor removed by photo owner',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      }
+    });
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
     await photo.save();
 
     res.json({ message: 'Contributor removed successfully', photo });

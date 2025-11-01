@@ -422,7 +422,7 @@ function isOwner(userId, resource) {
     }
   }
   
-  // Check legacy user field for backwards compatibility
+    // Check user field
   if (resource.user && resource.user.toString() === userIdStr) {
     return true;
   }
@@ -483,132 +483,6 @@ async function getAllPermissions(resource, models) {
     userId,
     role
   }));
-}
-
-/**
- * Add a permission to a resource (atomic operation)
- * @param {Object} resource - Resource to add permission to
- * @param {Object} permission - Permission object to add
- * @returns {Object} - { success: boolean, error: string|null }
- */
-function addPermission(resource, permission) {
-  const validation = validatePermission(permission);
-  
-  if (!validation.valid) {
-    return { success: false, error: validation.error };
-  }
-
-  // Check for duplicate using atomic operation
-  const existingIndex = resource.permissions?.findIndex(p => 
-    p._id.toString() === permission._id.toString() && 
-    p.entity === permission.entity
-  );
-
-  if (existingIndex !== -1) {
-    return { success: false, error: 'Permission already exists' };
-  }
-
-  // Initialize permissions array if it doesn't exist
-  if (!resource.permissions) {
-    resource.permissions = [];
-  }
-
-  resource.permissions.push(permission);
-  
-  // Audit logging for permission addition
-  backendLogger.info('Permission added', {
-    audit: true,
-    action: 'permission_added',
-    userId: permission._id,
-    permissionType: permission.type || 'entity',
-    entity: permission.entity,
-    resourceType: resource.constructor.modelName,
-    resourceId: resource._id
-  });
-  
-  return { success: true, error: null };
-}
-
-/**
- * Remove a permission from a resource (atomic operation)
- * @param {Object} resource - Resource to remove permission from
- * @param {string} entityId - ID of the entity to remove
- * @param {string} entityType - Type of entity (user/destination/experience)
- * @returns {Object} - { success: boolean, error: string|null, removed: Object|null }
- */
-function removePermission(resource, entityId, entityType) {
-  if (!resource.permissions || !Array.isArray(resource.permissions)) {
-    return { success: false, error: 'No permissions to remove', removed: null };
-  }
-
-  const index = resource.permissions.findIndex(p => 
-    p._id.toString() === entityId.toString() && 
-    p.entity === entityType
-  );
-
-  if (index === -1) {
-    return { success: false, error: 'Permission not found', removed: null };
-  }
-
-  const removed = resource.permissions.splice(index, 1)[0];
-  
-  // Audit logging for permission removal
-  backendLogger.info('Permission removed', {
-    audit: true,
-    action: 'permission_removed',
-    userId: removed._id,
-    permissionType: removed.type || 'entity',
-    entity: removed.entity,
-    resourceType: resource.constructor.modelName,
-    resourceId: resource._id
-  });
-  
-  return { success: true, error: null, removed };
-}
-
-/**
- * Update a permission type (only for user entities)
- * @param {Object} resource - Resource to update permission on
- * @param {string} userId - User ID to update
- * @param {string} newType - New permission type
- * @returns {Object} - { success: boolean, error: string|null }
- */
-function updatePermissionType(resource, userId, newType) {
-  if (!Object.values(ROLES).includes(newType)) {
-    return { 
-      success: false, 
-      error: `Invalid role type. Must be one of: ${Object.values(ROLES).join(', ')}` 
-    };
-  }
-
-  if (!resource.permissions || !Array.isArray(resource.permissions)) {
-    return { success: false, error: 'No permissions to update' };
-  }
-
-  const permission = resource.permissions.find(p => 
-    p._id.toString() === userId.toString() && 
-    p.entity === ENTITY_TYPES.USER
-  );
-
-  if (!permission) {
-    return { success: false, error: 'Permission not found' };
-  }
-
-  const oldType = permission.type;
-  permission.type = newType;
-  
-  // Audit logging for permission type update
-  backendLogger.info('Permission updated', {
-    audit: true,
-    action: 'permission_updated',
-    userId,
-    oldType,
-    newType,
-    resourceType: resource.constructor.modelName,
-    resourceId: resource._id
-  });
-  
-  return { success: true, error: null };
 }
 
 /**
@@ -715,9 +589,6 @@ module.exports = {
   isOwner,
   isCollaborator,
   getAllPermissions,
-  addPermission,
-  removePermission,
-  updatePermissionType,
   wouldCreateCircularDependency,
   hasDirectPermission
 };
