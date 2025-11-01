@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const { USER_ROLES } = require("../../utilities/user-roles");
 const { isSuperAdmin } = require("../../utilities/permissions");
 const backendLogger = require("../../utilities/backend-logger");
+const { trackSignup, trackLogin, trackFailedLogin } = require("../../utilities/auth-activity-tracker");
 
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
@@ -59,6 +60,9 @@ async function create(req, res) {
       // Don't fail signup if email fails - user can resend
     }
 
+    // Track signup activity (non-blocking)
+    trackSignup({ user, req, method: 'password' });
+
     const token = createJWT(user);
     res.status(201).json(token);
   } catch (err) {
@@ -89,23 +93,37 @@ async function login(req, res) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    // OPTIMIZATION: Use .lean() for read-only query (Phase 3.2)
+    // OPTIMIZATION: Use .lean() but need mutable document for session creation
     const user = await User.findOne({ email: email })
-      .populate("photo")
-      .lean();
+      .populate("photo");
 
     // Check if user exists before attempting password comparison
     if (!user) {
+      // Track failed login (non-blocking)
+      trackFailedLogin({ email, req, reason: 'user_not_found' });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const passwordTest = await bcrypt.compare(req.body.password, user.password);
-    
+
     if (!passwordTest) {
+      // Track failed login (non-blocking)
+      trackFailedLogin({ email, req, reason: 'invalid_password' });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
+    // Create new session for user
+    const { createSessionForUser } = require('../../utilities/session-middleware');
+    const sessionId = await createSessionForUser(user);
+
+    // Track successful login (non-blocking)
+    trackLogin({ user, req, method: 'password' });
+
+    // Create JWT token
     const token = createJWT(user);
+
+    // Add session ID to response
+    res.setHeader('bien-session-id', sessionId);
     res.status(200).json(token);
   } catch (err) {
     backendLogger.error('Error logging in user', { error: err.message, email: req.body.email });
