@@ -3,6 +3,10 @@
 /uploads/images/
 /documentation/
 
+# visual regression test screenshots (current/diff only, keep baseline)
+/tests/visual-regression/screenshots/current/
+/tests/visual-regression/screenshots/diff/
+
 # dependencies
 /node_modules
 /.pnp
