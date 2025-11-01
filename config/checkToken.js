@@ -15,7 +15,7 @@ module.exports = function(req, res, next) {
             ApiToken.findUserByToken(token).then(user => {
                 if (user) {
                     backendLogger.debug('API token verified successfully', { userId: user._id, email: user.email });
-                    req.user = user;
+                    req.user = user.toObject ? user.toObject() : user;
                     req.isApiToken = true; // Flag to indicate this request used an API token
                     return next();
                 } else {
@@ -53,7 +53,8 @@ module.exports = function(req, res, next) {
                 }
 
                 backendLogger.debug('JWT verified and user exists', { userId: user._id, email: user.email });
-                req.user = decoded.user;
+                // Use fresh user object from database (has latest role, permissions, etc.)
+                req.user = user.toObject ? user.toObject() : user;
                 req.exp = new Date(decoded.exp * 1000);
                 return next();
             } catch (dbErr) {
