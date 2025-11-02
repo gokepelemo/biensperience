@@ -150,7 +150,6 @@ form .btn,
 form button[type="submit"],
 form .btn-primary {
     min-width: clamp(120px, 30%, 200px);
-    margin: clamp(1rem, 3vw, 2rem) auto;
 }
 
 /* Button groups */
