@@ -1,0 +1,583 @@
+/**
+ * ActivityMonitor Component
+ * Super admin monitoring dashboard for Activity logs
+ * Features: filtering, search, pagination, and rollback UI
+ */
+
+import { useState, useEffect, useCallback } from 'react';
+import { Button, Form, Table, Badge, Alert, Pagination, InputGroup, Spinner } from 'react-bootstrap';
+import { FaSearch, FaFilter, FaUndo, FaEye, FaTimes } from 'react-icons/fa';
+import Modal from '../Modal/Modal';
+import { getAllActivities, restoreResourceState } from '../../utilities/activities-api';
+import { formatDateTime } from '../../utilities/date-utils';
+import { handleError } from '../../utilities/error-handler';
+import { useToast } from '../../contexts/ToastContext';
+import './ActivityMonitor.css';
+
+const ACTION_TYPES = [
+  'permission_added', 'permission_removed', 'permission_updated', 'ownership_transferred',
+  'resource_created', 'resource_updated', 'resource_deleted',
+  'user_registered', 'user_updated', 'user_deleted', 'email_verified', 'password_changed', 'profile_updated',
+  'plan_created', 'plan_updated', 'plan_deleted', 'plan_item_completed', 'plan_item_uncompleted',
+  'favorite_added', 'favorite_removed', 'collaborator_added', 'collaborator_removed',
+  'data_imported', 'data_exported', 'backup_created', 'rollback_performed'
+];
+
+const RESOURCE_TYPES = ['User', 'Experience', 'Destination', 'Photo', 'Plan', 'PlanItem'];
+
+export default function ActivityMonitor({ show, onHide }) {
+  const { success, error } = useToast();
+  
+  // State management
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({
+    action: '',
+    resourceType: '',
+    startDate: '',
+    endDate: '',
+    actorId: '',
+    resourceId: ''
+  });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 25,
+    totalPages: 0,
+    totalCount: 0
+  });
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [rollbackLoading, setRollbackLoading] = useState(false);
+
+  // Fetch activities with current filters and pagination
+  const fetchActivities = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = {
+        page: pagination.page,
+        limit: pagination.limit,
+        ...filters
+      };
+
+      // Add search term to actor or resource name filter
+      if (searchTerm.trim()) {
+        // This is a simple implementation - the API would need to be enhanced
+        // to support full-text search across multiple fields
+        params.search = searchTerm.trim();
+      }
+
+      const response = await getAllActivities(params);
+      
+      setActivities(response.activities || []);
+      setPagination(prev => ({
+        ...prev,
+        totalPages: response.totalPages || 0,
+        totalCount: response.totalCount || 0
+      }));
+    } catch (err) {
+      const errorMsg = handleError(err, { context: 'Fetch activities' });
+      error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.page, pagination.limit, filters, searchTerm, error]);
+
+  // Fetch activities when component mounts or dependencies change
+  useEffect(() => {
+    if (show) {
+      fetchActivities();
+    }
+  }, [show, fetchActivities]);
+
+  // Handle filter changes
+  const handleFilterChange = (field, value) => {
+    setFilters(prev => ({ ...prev, [field]: value }));
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
+  // Handle search
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setPagination(prev => ({ ...prev, page: 1 }));
+    fetchActivities();
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      action: '',
+      resourceType: '',
+      startDate: '',
+      endDate: '',
+      actorId: '',
+      resourceId: ''
+    });
+    setSearchTerm('');
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  // Handle pagination
+  const handlePageChange = (page) => {
+    setPagination(prev => ({ ...prev, page }));
+  };
+
+  // Show activity details
+  const showActivityDetails = (activity) => {
+    setSelectedActivity(activity);
+    setShowDetails(true);
+  };
+
+  // Handle rollback
+  const handleRollback = async (activity) => {
+    if (!activity.rollbackToken) {
+      error('No rollback token available for this activity');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to rollback this change? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setRollbackLoading(true);
+      await restoreResourceState(activity.rollbackToken);
+      success('State restored successfully');
+      fetchActivities(); // Refresh the list
+    } catch (err) {
+      const errorMsg = handleError(err, { context: 'Rollback state' });
+      error(errorMsg);
+    } finally {
+      setRollbackLoading(false);
+    }
+  };
+
+  // Get action badge variant
+  const getActionBadgeVariant = (action) => {
+    if (action.includes('created')) return 'success';
+    if (action.includes('deleted')) return 'danger';
+    if (action.includes('updated')) return 'warning';
+    if (action.includes('permission')) return 'info';
+    return 'secondary';
+  };
+
+  // Render pagination
+  const renderPagination = () => {
+    if (pagination.totalPages <= 1) return null;
+
+    const items = [];
+    const current = pagination.page;
+    const total = pagination.totalPages;
+    
+    // Always show first page
+    if (current > 3) {
+      items.push(
+        <Pagination.Item key={1} onClick={() => handlePageChange(1)}>
+          1
+        </Pagination.Item>
+      );
+      if (current > 4) {
+        items.push(<Pagination.Ellipsis key="ellipsis1" />);
+      }
+    }
+
+    // Show pages around current
+    for (let page = Math.max(1, current - 2); page <= Math.min(total, current + 2); page++) {
+      items.push(
+        <Pagination.Item 
+          key={page} 
+          active={page === current}
+          onClick={() => handlePageChange(page)}
+        >
+          {page}
+        </Pagination.Item>
+      );
+    }
+
+    // Always show last page
+    if (current < total - 2) {
+      if (current < total - 3) {
+        items.push(<Pagination.Ellipsis key="ellipsis2" />);
+      }
+      items.push(
+        <Pagination.Item key={total} onClick={() => handlePageChange(total)}>
+          {total}
+        </Pagination.Item>
+      );
+    }
+
+    return (
+      <div className="d-flex justify-content-between align-items-center mt-3">
+        <div className="text-muted">
+          Showing {activities.length} of {pagination.totalCount} activities
+        </div>
+        <Pagination size="sm">
+          <Pagination.Prev 
+            disabled={current === 1}
+            onClick={() => handlePageChange(current - 1)}
+          />
+          {items}
+          <Pagination.Next 
+            disabled={current === total}
+            onClick={() => handlePageChange(current + 1)}
+          />
+        </Pagination>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <Modal 
+        show={show} 
+        onClose={onHide} 
+        title={
+          <>
+            <FaEye className="me-2" />
+            Activity Monitor
+            <Badge bg="secondary" className="ms-2">Super Admin</Badge>
+          </>
+        }
+        size="xl"
+        scrollable={true}
+        showSubmitButton={false}
+        showCancelButton={false}
+        footer={
+          <Button variant="secondary" onClick={onHide}>
+            Close
+          </Button>
+        }
+      >
+        <div className="activity-monitor">
+          {/* Search and Filters */}
+          <div className="filters-section mb-4">
+            <Form onSubmit={handleSearch}>
+              <div className="row g-2 align-items-end">
+                {/* Search */}
+                <div className="col-lg-3 col-md-6">
+                  <Form.Label className="small">Search</Form.Label>
+                  <InputGroup size="sm">
+                    <Form.Control
+                      type="text"
+                      placeholder="Search activities..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <Button variant="outline-secondary" type="submit" disabled={loading}>
+                      <FaSearch />
+                    </Button>
+                  </InputGroup>
+                </div>
+
+                {/* Action Filter */}
+                <div className="col-lg-2 col-md-6">
+                  <Form.Label className="small">Action</Form.Label>
+                  <Form.Select 
+                    size="sm"
+                    value={filters.action} 
+                    onChange={(e) => handleFilterChange('action', e.target.value)}
+                  >
+                    <option value="">All Actions</option>
+                    {ACTION_TYPES.map(action => (
+                      <option key={action} value={action}>
+                        {action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </div>
+
+                {/* Resource Type Filter */}
+                <div className="col-lg-2 col-md-6">
+                  <Form.Label className="small">Resource</Form.Label>
+                  <Form.Select 
+                    size="sm"
+                    value={filters.resourceType} 
+                    onChange={(e) => handleFilterChange('resourceType', e.target.value)}
+                  >
+                    <option value="">All Resources</option>
+                    {RESOURCE_TYPES.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </Form.Select>
+                </div>
+
+                {/* Date Range */}
+                <div className="col-lg-2 col-md-6">
+                  <Form.Label className="small">Start Date</Form.Label>
+                  <Form.Control
+                    size="sm"
+                    type="date"
+                    value={filters.startDate}
+                    onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                  />
+                </div>
+                <div className="col-lg-2 col-md-6">
+                  <Form.Label className="small">End Date</Form.Label>
+                  <Form.Control
+                    size="sm"
+                    type="date"
+                    value={filters.endDate}
+                    onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="col-12">
+                  <div className="d-flex gap-2 mt-2">
+                    <Button variant="primary" size="sm" type="submit" disabled={loading}>
+                      <FaFilter className="me-1" />
+                      Apply Filters
+                    </Button>
+                    <Button variant="outline-secondary" size="sm" onClick={clearFilters} disabled={loading}>
+                      <FaTimes className="me-1" />
+                      Clear Filters
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Form>
+          </div>
+
+          {/* Activities Table */}
+          <div className="table-responsive">
+            {loading ? (
+              <div className="text-center py-4">
+                <Spinner animation="border" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </Spinner>
+              </div>
+            ) : activities.length === 0 ? (
+              <Alert variant="info">
+                No activities found with the current filters.
+              </Alert>
+            ) : (
+              <Table striped hover size="sm">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Action</th>
+                    <th>Actor</th>
+                    <th>Resource</th>
+                    <th>Reason</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activities.map((activity) => (
+                    <tr key={activity._id}>
+                      <td>
+                        <small>{formatDateTime(activity.timestamp)}</small>
+                      </td>
+                      <td>
+                        <Badge bg={getActionBadgeVariant(activity.action)}>
+                          {activity.action.replace(/_/g, ' ')}
+                        </Badge>
+                      </td>
+                      <td>
+                        <div>
+                          <strong>{activity.actor.name}</strong>
+                          <br />
+                          <small className="text-muted">{activity.actor.email}</small>
+                        </div>
+                      </td>
+                      <td>
+                        <div>
+                          <Badge bg="light" text="dark">{activity.resource.type}</Badge>
+                          <br />
+                          <small>{activity.resource.name || 'Unnamed'}</small>
+                        </div>
+                      </td>
+                      <td>
+                        <small>{activity.reason}</small>
+                      </td>
+                      <td>
+                        <div className="d-flex gap-1">
+                          <Button
+                            variant="outline-info"
+                            size="sm"
+                            onClick={() => showActivityDetails(activity)}
+                          >
+                            <FaEye />
+                          </Button>
+                          {activity.rollbackToken && (
+                            <Button
+                              variant="outline-warning"
+                              size="sm"
+                              onClick={() => handleRollback(activity)}
+                              disabled={rollbackLoading}
+                            >
+                              <FaUndo />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {renderPagination()}
+        </div>
+      </Modal>
+
+      {/* Activity Details Modal */}
+      <Modal 
+        show={showDetails} 
+        onClose={() => setShowDetails(false)} 
+        title="Activity Details"
+        size="lg"
+        showSubmitButton={false}
+        showCancelButton={false}
+        footer={
+          <Button variant="secondary" onClick={() => setShowDetails(false)}>
+            Close
+          </Button>
+        }
+      >
+          {selectedActivity && (
+            <div className="activity-details">
+              <div className="row g-3">
+                <div className="col-12">
+                  <h6>Basic Information</h6>
+                  <Table borderless size="sm">
+                    <tbody>
+                      <tr>
+                        <td><strong>Timestamp:</strong></td>
+                        <td>{formatDateTime(selectedActivity.timestamp)}</td>
+                      </tr>
+                      <tr>
+                        <td><strong>Action:</strong></td>
+                        <td>
+                          <Badge bg={getActionBadgeVariant(selectedActivity.action)}>
+                            {selectedActivity.action.replace(/_/g, ' ')}
+                          </Badge>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><strong>Reason:</strong></td>
+                        <td>{selectedActivity.reason}</td>
+                      </tr>
+                    </tbody>
+                  </Table>
+                </div>
+
+                <div className="col-md-6">
+                  <h6>Actor</h6>
+                  <Table borderless size="sm">
+                    <tbody>
+                      <tr>
+                        <td><strong>Name:</strong></td>
+                        <td>{selectedActivity.actor.name}</td>
+                      </tr>
+                      <tr>
+                        <td><strong>Email:</strong></td>
+                        <td>{selectedActivity.actor.email}</td>
+                      </tr>
+                      <tr>
+                        <td><strong>Role:</strong></td>
+                        <td>{selectedActivity.actor.role}</td>
+                      </tr>
+                    </tbody>
+                  </Table>
+                </div>
+
+                <div className="col-md-6">
+                  <h6>Resource</h6>
+                  <Table borderless size="sm">
+                    <tbody>
+                      <tr>
+                        <td><strong>Type:</strong></td>
+                        <td>{selectedActivity.resource.type}</td>
+                      </tr>
+                      <tr>
+                        <td><strong>Name:</strong></td>
+                        <td>{selectedActivity.resource.name || 'Unnamed'}</td>
+                      </tr>
+                      <tr>
+                        <td><strong>ID:</strong></td>
+                        <td><code>{selectedActivity.resource.id}</code></td>
+                      </tr>
+                    </tbody>
+                  </Table>
+                </div>
+
+                {selectedActivity.metadata && (
+                  <div className="col-12">
+                    <h6>Request Metadata</h6>
+                    <Table borderless size="sm">
+                      <tbody>
+                        {selectedActivity.metadata.ipAddress && (
+                          <tr>
+                            <td><strong>IP Address:</strong></td>
+                            <td>{selectedActivity.metadata.ipAddress}</td>
+                          </tr>
+                        )}
+                        {selectedActivity.metadata.userAgent && (
+                          <tr>
+                            <td><strong>User Agent:</strong></td>
+                            <td><small>{selectedActivity.metadata.userAgent}</small></td>
+                          </tr>
+                        )}
+                        {selectedActivity.metadata.requestPath && (
+                          <tr>
+                            <td><strong>Request Path:</strong></td>
+                            <td>{selectedActivity.metadata.requestPath}</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </Table>
+                  </div>
+                )}
+
+                {selectedActivity.changes && selectedActivity.changes.length > 0 && (
+                  <div className="col-12">
+                    <h6>Changes</h6>
+                    <Table striped size="sm">
+                      <thead>
+                        <tr>
+                          <th>Field</th>
+                          <th>Old Value</th>
+                          <th>New Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedActivity.changes.map((change, index) => (
+                          <tr key={index}>
+                            <td><code>{change.field}</code></td>
+                            <td><code>{JSON.stringify(change.oldValue)}</code></td>
+                            <td><code>{JSON.stringify(change.newValue)}</code></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </div>
+                )}
+
+                {selectedActivity.rollbackToken && (
+                  <div className="col-12">
+                    <Alert variant="info">
+                      <strong>Rollback Available:</strong> This activity has a rollback token and can be reverted.
+                      <br />
+                      <Button 
+                        variant="warning" 
+                        size="sm" 
+                        className="mt-2"
+                        onClick={() => handleRollback(selectedActivity)}
+                        disabled={rollbackLoading}
+                      >
+                        <FaUndo className="me-1" />
+                        Rollback This Change
+                      </Button>
+                    </Alert>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+      </Modal>
+    </>
+  );
+}

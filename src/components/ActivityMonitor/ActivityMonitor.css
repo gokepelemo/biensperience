@@ -1,0 +1,185 @@
+/**
+ * ActivityMonitor Component Styles
+ * Super admin monitoring dashboard for Activity logs
+ */
+
+.activity-monitor {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.filters-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1.25rem;
+  border: 1px solid #dee2e6;
+}
+
+.filters-section .form-label {
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+  color: #495057;
+}
+
+.filters-section .form-control,
+.filters-section .form-select {
+  font-size: 0.875rem;
+}
+
+.filters-section .input-group-text,
+.filters-section .btn {
+  font-size: 0.875rem;
+}
+
+.activity-monitor .table {
+  margin-bottom: 0;
+}
+
+.activity-monitor .table td {
+  vertical-align: middle;
+}
+
+.activity-monitor .table td small {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.activity-monitor .badge {
+  font-size: 0.75rem;
+}
+
+.activity-details .table td {
+  padding: 0.25rem 0.5rem;
+}
+
+.activity-details .table td:first-child {
+  width: 30%;
+  color: #6c757d;
+}
+
+.activity-details code {
+  font-size: 0.8rem;
+  background: #f8f9fa;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  word-break: break-all;
+}
+
+/* Loading state */
+.activity-monitor .spinner-border {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .activity-monitor {
+    max-height: 60vh;
+  }
+  
+  .filters-section .row > div {
+    margin-bottom: 0.5rem;
+  }
+  
+  .activity-monitor .table td {
+    font-size: 0.875rem;
+  }
+  
+  .activity-monitor .table td small {
+    font-size: 0.75rem;
+  }
+}
+
+/* Modal fullscreen on small screens */
+@media (max-width: 992px) {
+  .modal-fullscreen-lg-down .activity-monitor {
+    max-height: calc(100vh - 180px);
+  }
+}
+
+/* Pagination styling */
+.activity-monitor .pagination {
+  margin-bottom: 0;
+}
+
+.activity-monitor .pagination .page-item .page-link {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* Badge color improvements */
+.badge.bg-light {
+  color: #495057 !important;
+  border: 1px solid #ced4da;
+}
+
+/* Table hover effects */
+.activity-monitor .table-hover tbody tr:hover {
+  background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Action buttons */
+.activity-monitor .btn-outline-info,
+.activity-monitor .btn-outline-warning {
+  border-width: 1px;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.activity-monitor .btn-outline-info:hover {
+  background-color: #0dcaf0;
+  border-color: #0dcaf0;
+}
+
+.activity-monitor .btn-outline-warning:hover {
+  background-color: #ffc107;
+  border-color: #ffc107;
+}
+
+/* Alert styling in details modal */
+.activity-details .alert {
+  margin-bottom: 0;
+}
+
+.activity-details .alert .btn {
+  margin-top: 0.5rem;
+}
+
+/* Improved table readability */
+.activity-monitor .table thead th {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #495057;
+}
+
+/* Resource type badges */
+.activity-monitor .badge.bg-light {
+  background-color: #e9ecef !important;
+  color: #495057 !important;
+  font-weight: 500;
+}
+
+/* Action badges color coding */
+.badge.bg-success {
+  background-color: #198754 !important;
+}
+
+.badge.bg-danger {
+  background-color: #dc3545 !important;
+}
+
+.badge.bg-warning {
+  background-color: #ffc107 !important;
+  color: #000 !important;
+}
+
+.badge.bg-info {
+  background-color: #0dcaf0 !important;
+  color: #000 !important;
+}
+
+.badge.bg-secondary {
+  background-color: #6c757d !important;
+}
