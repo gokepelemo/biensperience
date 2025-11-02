@@ -83,14 +83,43 @@ export function getUser() {
 }
 
 /**
- * Logs out the current user by removing their authentication token.
+ * Logs out the current user by removing their authentication token and clearing session.
  * Handles Safari private browsing mode where localStorage may not be available.
  */
-export function logout() {
+export async function logout() {
+    // Import session utilities
+    const { clearSession } = await import('./session-utils.js');
+    
     try {
+        // Clear session on backend if user is authenticated
+        const token = getToken();
+        if (token) {
+            try {
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+            } catch (error) {
+                logger.warn('Failed to clear session on backend', { error: error.message });
+            }
+        }
+        
+        // Clear frontend session storage
+        clearSession();
+        
+        // Clear authentication token
         localStorage.removeItem('token');
     } catch (error) {
-        logger.warn('Failed to remove token from localStorage', { error: error.message });
+        logger.warn('Logout error', { error: error.message });
+        // Still try to clear token even if other operations fail
+        try {
+            localStorage.removeItem('token');
+        } catch (storageError) {
+            logger.warn('Failed to remove token from localStorage', { error: storageError.message });
+        }
     }
 }
 

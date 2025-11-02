@@ -11,7 +11,6 @@ const backendLogger = require('../../utilities/backend-logger');
 const { authLimiter } = require('../../config/rateLimiters');
 const User = require('../../models/user');
 const { createSessionForUser } = require('../../utilities/session-middleware');
-const { trackOAuthAuth, trackOAuthUnlink } = require('../../utilities/activity-tracker');
 
 /**
  * CSRF Token Endpoint
@@ -26,38 +25,6 @@ router.get('/csrf-token', (req, res) => {
   } catch (err) {
     backendLogger.error('CSRF token generation error', { error: err.message });
     res.status(500).json({ error: 'Failed to generate CSRF token' });
-  }
-});
-
-/**
- * Available OAuth Providers Endpoint
- * Returns list of configured OAuth providers
- * Used by frontend to conditionally render login buttons
- */
-router.get('/available-providers', (req, res) => {
-  try {
-    const providers = [];
-
-    // Check Facebook configuration
-    if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
-      providers.push('facebook');
-    }
-
-    // Check Google configuration
-    if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-      providers.push('google');
-    }
-
-    // Check Twitter/X configuration
-    if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
-      providers.push('twitter');
-    }
-
-    backendLogger.debug('Available OAuth providers', { providers });
-    res.json({ providers });
-  } catch (err) {
-    backendLogger.error('Error checking OAuth providers', { error: err.message });
-    res.status(500).json({ error: 'Failed to check OAuth providers' });
   }
 });
 
@@ -105,10 +72,7 @@ router.get('/facebook/callback',
       User.findById(req.user._id)
         .then(async (user) => {
           const sessionId = await createSessionForUser(user);
-
-          // Track successful Facebook OAuth login (non-blocking)
-          trackOAuthAuth({ user, req, provider: 'facebook', success: true, isLinking: false });
-
+          
           // Create JWT token
           const token = createToken(req.user);
 
@@ -119,7 +83,7 @@ router.get('/facebook/callback',
             sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
           });
-
+          
           // Add session ID to cookie for frontend
           res.cookie('bien_session_id', sessionId, {
             httpOnly: false, // Frontend needs to read this
@@ -136,8 +100,6 @@ router.get('/facebook/callback',
         })
         .catch((err) => {
           backendLogger.error('Facebook OAuth session creation error', { error: err.message, userId: req.user?._id });
-          // Track failed Facebook OAuth (non-blocking)
-          trackOAuthAuth({ user: req.user, req, provider: 'facebook', success: false, isLinking: false, error: err.message });
           res.redirect('/login?error=facebook_session_failed');
         });
     } catch (err) {
@@ -200,9 +162,6 @@ router.get('/google/callback',
         throw err;
       });
 
-      // Track successful Google OAuth login (non-blocking)
-      trackOAuthAuth({ user, req, provider: 'google', success: true, isLinking: false });
-
       // Create JWT token
       const token = createToken(req.user);
 
@@ -226,8 +185,6 @@ router.get('/google/callback',
       res.redirect(`/?oauth=google`);
     } catch (err) {
       backendLogger.error('Google OAuth callback error', { error: err.message, userId: req.user?._id });
-      // Track failed Google OAuth (non-blocking)
-      trackOAuthAuth({ user: req.user, req, provider: 'google', success: false, isLinking: false, error: err.message });
       res.redirect('/login?error=google_token_failed');
     }
   }
@@ -303,9 +260,6 @@ router.get('/twitter/callback',
         throw err;
       });
 
-      // Track successful Twitter OAuth login (non-blocking)
-      trackOAuthAuth({ user, req, provider: 'twitter', success: true, isLinking: false });
-
       // Create JWT token
       const token = createToken(req.user);
 
@@ -332,8 +286,6 @@ router.get('/twitter/callback',
       res.redirect(`/?oauth=twitter`);
     } catch (err) {
       backendLogger.error('Twitter OAuth callback error', { error: err.message, userId: req.user?._id });
-      // Track failed Twitter OAuth (non-blocking)
-      trackOAuthAuth({ user: req.user, req, provider: 'twitter', success: false, isLinking: false, error: err.message });
       res.redirect('/login?error=twitter_token_failed');
     }
   }
@@ -374,12 +326,8 @@ router.get('/link/facebook/callback', ensureLoggedIn,
   passport.authenticate('facebook', { session: false }),
   (req, res) => {
     if (!req.user) {
-      // Track failed Facebook account linking (non-blocking)
-      trackOAuthAuth({ user: req.user, req, provider: 'facebook', success: false, isLinking: true, error: 'User not found after authentication' });
       return res.redirect('/profile/settings?error=facebook_link_failed');
     }
-    // Track successful Facebook account linking (non-blocking)
-    trackOAuthAuth({ user: req.user, req, provider: 'facebook', success: true, isLinking: true });
     res.redirect('/profile/settings?success=facebook_linked');
   }
 );
@@ -415,12 +363,8 @@ router.get('/link/google/callback', ensureLoggedIn,
   passport.authenticate('google', { session: false }),
   (req, res) => {
     if (!req.user) {
-      // Track failed Google account linking (non-blocking)
-      trackOAuthAuth({ user: req.user, req, provider: 'google', success: false, isLinking: true, error: 'User not found after authentication' });
       return res.redirect('/profile/settings?error=google_link_failed');
     }
-    // Track successful Google account linking (non-blocking)
-    trackOAuthAuth({ user: req.user, req, provider: 'google', success: true, isLinking: true });
     res.redirect('/profile/settings?success=google_linked');
   }
 );
@@ -445,12 +389,8 @@ router.get('/link/twitter/callback', ensureLoggedIn,
   passport.authenticate('twitter', { session: false }),
   (req, res) => {
     if (!req.user) {
-      // Track failed Twitter account linking (non-blocking)
-      trackOAuthAuth({ user: req.user, req, provider: 'twitter', success: false, isLinking: true, error: 'User not found after authentication' });
       return res.redirect('/profile/settings?error=twitter_link_failed');
     }
-    // Track successful Twitter account linking (non-blocking)
-    trackOAuthAuth({ user: req.user, req, provider: 'twitter', success: true, isLinking: true });
     res.redirect('/profile/settings?success=twitter_linked');
   }
 );
@@ -495,13 +435,10 @@ router.delete('/unlink/:provider', ensureLoggedIn, async (req, res) => {
     }
     
     await user.save();
-
-    // Track OAuth account unlinking (non-blocking)
-    trackOAuthUnlink({ user, req, provider });
-
-    res.json({
+    
+    res.json({ 
       message: `${provider.charAt(0).toUpperCase() + provider.slice(1)} account unlinked successfully`,
-      user
+      user 
     });
     
   } catch (err) {

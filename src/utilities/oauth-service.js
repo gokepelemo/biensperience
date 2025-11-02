@@ -113,41 +113,10 @@ export async function unlinkAccount(provider) {
 
 /**
  * Link a social account (opens OAuth flow in same window)
- *
+ * 
  * @param {string} provider - Provider to link ('facebook', 'google', 'twitter')
  */
 export function linkAccount(provider) {
   const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   window.location.href = `${baseUrl}/api/auth/link/${provider}`;
-}
-
-/**
- * Get list of available (configured) OAuth providers
- * @returns {Promise<string[]>} Array of provider names ('facebook', 'google', 'twitter')
- */
-export async function getAvailableProviders() {
-  try {
-    const response = await fetch('/api/auth/available-providers');
-
-    if (!response.ok) {
-      console.error('Failed to fetch available OAuth providers');
-      return []; // Return empty array on error (no OAuth buttons shown)
-    }
-
-    const data = await response.json();
-    return data.providers || [];
-  } catch (error) {
-    console.error('Error fetching available OAuth providers:', error);
-    return []; // Return empty array on error (no OAuth buttons shown)
-  }
-}
-
-/**
- * Check if a specific provider is available
- * @param {string} provider - Provider name ('facebook', 'google', 'twitter')
- * @returns {Promise<boolean>}
- */
-export async function isProviderAvailable(provider) {
-  const providers = await getAvailableProviders();
-  return providers.includes(provider);
 }

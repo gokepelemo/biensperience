@@ -1,5 +1,7 @@
 import { getToken, logout } from "./users-service.js"
 import { logger } from "./logger.js"
+import { getSessionId, refreshSessionIfNeeded } from "./session-utils.js"
+import { generateTraceId } from "./trace-utils.js"
 
 /**
  * Cache for CSRF token to avoid repeated requests
@@ -82,7 +84,31 @@ export async function sendRequest(url, method = "GET", payload = null) {
     if (token) {
         options.headers = options.headers || {};
         options.headers.Authorization = `Bearer ${token}`;
+        
+        // Add session ID for authenticated requests
+        try {
+            // Get user from token payload
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const userId = payload.user?._id;
+            
+            if (userId) {
+                // Refresh session if needed
+                const { sessionId } = await refreshSessionIfNeeded(userId);
+                
+                if (sessionId) {
+                    options.headers['bien-session-id'] = sessionId;
+                }
+            }
+        } catch (error) {
+            logger.debug('Failed to extract user ID from token or refresh session', error);
+            // Continue without session ID - not critical
+        }
     }
+    
+    // Always add trace ID for request tracking
+    const traceId = generateTraceId();
+    options.headers = options.headers || {};
+    options.headers['bien-trace-id'] = traceId;
 
     try {
         const res = await fetch(url, options);

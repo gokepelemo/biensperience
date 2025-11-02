@@ -134,25 +134,26 @@ planSchema.index({ experience: 1 });
 planSchema.index({ experience: 1, 'permissions._id': 1, 'permissions.type': 1 });  // For getExperiencePlans queries
 
 /**
- * Virtual for total estimated cost of plan
+ * Virtual property for total cost
  */
 planSchema.virtual("total_cost").get(function () {
+  if (!this.plan || !Array.isArray(this.plan)) return 0;
   return this.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
 });
 
 /**
- * Virtual for maximum planning days in plan
+ * Virtual property for maximum planning days
  */
 planSchema.virtual("max_days").get(function () {
-  if (this.plan.length === 0) return 0;
-  return Math.max(...this.plan.map(item => item.planning_days || 0));
+  if (!this.plan || !Array.isArray(this.plan)) return 0;
+  return this.plan.reduce((max, item) => Math.max(max, item.days || 0), 0);
 });
 
 /**
- * Virtual for completion percentage
+ * Virtual property for completion percentage
  */
 planSchema.virtual("completion_percentage").get(function () {
-  if (this.plan.length === 0) return 0;
+  if (!this.plan || !Array.isArray(this.plan) || this.plan.length === 0) return 0;
   const completed = this.plan.filter(item => item.complete).length;
   return Math.round((completed / this.plan.length) * 100);
 });

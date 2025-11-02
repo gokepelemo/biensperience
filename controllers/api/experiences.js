@@ -6,6 +6,7 @@ const Plan = require('../../models/plan');
 const permissions = require('../../utilities/permissions');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require('../../utilities/backend-logger');
+const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activity-tracker');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -79,6 +80,16 @@ async function createExperience(req, res) {
     }
 
     let experience = await Experience.create(req.body);
+    
+    // Track creation (non-blocking)
+    trackCreate({
+      resource: experience,
+      resourceType: 'Experience',
+      actor: req.user,
+      req,
+      reason: `Experience "${experience.name}" created`
+    });
+    
     res.status(201).json(experience);
   } catch (err) {
     backendLogger.error('Error creating experience', { error: err.message, userId: req.user._id, name: req.body.name, destination: req.body.destination });
@@ -239,11 +250,26 @@ async function updateExperience(req, res) {
       }
     }
     
+    // Capture previous state for activity tracking
+    const previousState = experience.toObject();
+    
     experience = Object.assign(experience, updateData);
     
     backendLogger.info('About to save experience', { experienceId, bodyKeys: Object.keys(req.body) });
     await experience.save();
     backendLogger.info('Experience saved successfully', { experienceId });
+    
+    // Track update (non-blocking)
+    trackUpdate({
+      resource: experience,
+      previousState,
+      resourceType: 'Experience',
+      actor: req.user,
+      req,
+      fieldsToTrack: Object.keys(updateData),
+      reason: `Experience "${experience.name}" updated`
+    });
+    
     res.status(200).json(experience);
   } catch (err) {
     backendLogger.error('Experience save error details', {
@@ -334,6 +360,15 @@ async function deleteExperience(req, res) {
         });
       }
     }
+    
+    // Track deletion (non-blocking) - must happen before deleteOne()
+    trackDelete({
+      resource: experience,
+      resourceType: 'Experience',
+      actor: req.user,
+      req,
+      reason: `Experience "${experience.name}" deleted`
+    });
     
     await experience.deleteOne();
     res.status(200).json({ message: 'Experience deleted successfully' });

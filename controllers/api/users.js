@@ -6,7 +6,6 @@ const mongoose = require("mongoose");
 const { USER_ROLES } = require("../../utilities/user-roles");
 const { isSuperAdmin } = require("../../utilities/permissions");
 const backendLogger = require("../../utilities/backend-logger");
-const { trackSignup, trackLogin, trackFailedLogin } = require("../../utilities/activity-tracker");
 
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
@@ -60,9 +59,6 @@ async function create(req, res) {
       // Don't fail signup if email fails - user can resend
     }
 
-    // Track signup activity (non-blocking)
-    trackSignup({ user, req, method: 'password' });
-
     const token = createJWT(user);
     res.status(201).json(token);
   } catch (err) {
@@ -99,32 +95,35 @@ async function login(req, res) {
 
     // Check if user exists before attempting password comparison
     if (!user) {
-      // Track failed login (non-blocking)
-      trackFailedLogin({ email, req, reason: 'user_not_found' });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const passwordTest = await bcrypt.compare(req.body.password, user.password);
-
+    
     if (!passwordTest) {
-      // Track failed login (non-blocking)
-      trackFailedLogin({ email, req, reason: 'invalid_password' });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
     // Create new session for user
     const { createSessionForUser } = require('../../utilities/session-middleware');
     const sessionId = await createSessionForUser(user);
-
-    // Track successful login (non-blocking)
-    trackLogin({ user, req, method: 'password' });
-
+    
     // Create JWT token
     const token = createJWT(user);
-
+    
     // Add session ID to response
     res.setHeader('bien-session-id', sessionId);
-    res.status(200).json(token);
+    res.status(200).json({ 
+      success: true,
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        photo: user.photo
+      }
+    });
   } catch (err) {
     backendLogger.error('Error logging in user', { error: err.message, email: req.body.email });
     res.status(400).json({ error: 'Failed to login' });
@@ -157,6 +156,24 @@ async function getUser(req, res) {
   } catch (err) {
     backendLogger.error('Error fetching user', { error: err.message, userId: req.params.id });
     res.status(400).json({ error: 'Failed to fetch user' });
+  }
+}
+
+async function getProfile(req, res) {
+  try {
+    // Get current user's profile
+    const user = await User.findOne({ _id: req.user._id })
+      .populate("photo")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.status(200).json(user);
+  } catch (err) {
+    backendLogger.error('Error fetching user profile', { error: err.message, userId: req.user._id });
+    res.status(400).json({ error: 'Failed to fetch user profile' });
   }
 }
 
@@ -807,6 +824,7 @@ module.exports = {
   login,
   checkToken,
   getUser,
+  getProfile,
   updateUser,
   updateUserAsAdmin,
   addPhoto,

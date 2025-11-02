@@ -28,6 +28,32 @@ export function formatDate(date, locale = 'en-US', options = {}) {
 }
 
 /**
+ * Formats a date with time for display (e.g., "Jan 15, 2024 at 3:45 PM")
+ * @param {string|Date} date - The date to format
+ * @param {string} locale - The locale for formatting (default: 'en-US')
+ * @returns {string} Formatted date and time string
+ */
+export function formatDateTime(date, locale = 'en-US') {
+  if (!date) return '';
+
+  const options = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  };
+
+  try {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return dateObj.toLocaleDateString(locale, options);
+  } catch (error) {
+    return '';
+  }
+}
+
+/**
  * Formats a date to ISO format (YYYY-MM-DD) for date inputs
  * @param {string|Date} date - The date to format
  * @returns {string} ISO formatted date string (YYYY-MM-DD)

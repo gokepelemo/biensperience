@@ -51,29 +51,29 @@ bd show <id>          # Read full context for an issue
 **Creating Tasks**:
 ```bash
 # Simple task
-bd new "Fix race condition in permission test"
+bd create "Fix race condition in permission test"
 
 # With full context (RECOMMENDED)
-bd new "Fix permission enforcer race condition test" \
-  -m "Test calls resource.save() after enforcer already saved atomically.
+bd create "Fix permission enforcer race condition test" \
+  --body "Test calls resource.save() after enforcer already saved atomically.
 
 File: tests/api/permission-enforcer-security.test.js:559-586
 Root cause: Manual save() after atomic findOneAndUpdate
 Fix: Remove lines 577-583 and 598-604"
 
 # With dependencies
-bd new "Create dashboard UI" --depends-on bd-123
+bd create "Create dashboard UI" --depends-on bd-123
 
-# With tags
-bd new "Optimize queries" --tag performance --tag database
+# With labels
+bd create "Optimize queries" --label performance --label database
 ```
 
 **Working on Tasks**:
 ```bash
-bd start <id>         # Mark as started
+bd update <id> --status in-progress  # Mark as started
 bd edit <id>          # Add notes, context, decisions
-bd finish <id>        # Mark complete
-bd finish <id> -m "Summary of what was done"
+bd close <id>         # Mark complete
+bd close <id> --reason "Summary of what was done"
 ```
 
 **Managing Blockers**:
@@ -106,7 +106,7 @@ bd edit bd-456
 # Follow-up: Consider caching for high-volume scenarios
 
 # When done
-bd finish bd-456 -m "Race condition test fixed. Removed double-save pattern."
+bd close bd-456 --reason "Race condition test fixed. Removed double-save pattern."
 
 # Link git commit
 git commit -m "fix: Remove double-save in race condition test
@@ -126,11 +126,11 @@ Refs: bd-456"
 bd ready
 
 # 2. If continuing existing work
-bd status
+bd list
 bd show bd-123  # Read full context
 
 # 3. If starting new work
-bd start bd-123
+bd update bd-123 --status in-progress
 ```
 
 **During Implementation**:
@@ -146,14 +146,14 @@ bd edit bd-123
 # - Test results
 
 # Break down complex tasks
-bd new "Sub-task 1" --depends-on bd-123
-bd new "Sub-task 2" --depends-on bd-123
+bd create "Sub-task 1" --depends-on bd-123
+bd create "Sub-task 2" --depends-on bd-123
 ```
 
 **After Completing Work**:
 ```bash
 # 1. Finish with summary
-bd finish bd-123 -m "Permission enforcer security audit complete.
+bd close bd-123 --reason "Permission enforcer security audit complete.
 - All 4 controllers verified using enforcer exclusively
 - ESLint rules blocking direct mutations
 - Activity model logging all changes
@@ -167,7 +167,7 @@ Files:
 Test results: 188/201 passing (93.5%)"
 
 # 2. Create follow-up tasks
-bd new "Fix remaining 13 test failures" --depends-on bd-123 --tag testing
+bd create "Fix remaining 13 test failures" --depends-on bd-123 --label testing
 
 # 3. Link commits
 git commit -m "docs: Add permissions security verification
@@ -187,12 +187,12 @@ Closes: bd-123"
 
 ```bash
 # While implementing
-bd new "Add rate limiting to permission mutations"
-bd start bd-789
+bd create "Add rate limiting to permission mutations"
+bd update bd-789 --status in-progress
 bd edit bd-789  # Store implementation notes
 
 # After complete
-bd finish bd-789 -m "Rate limiting added. 100 req/min per user."
+bd close bd-789 --reason "Rate limiting added. 100 req/min per user."
 
 # THEN update CLAUDE.md for posterity
 # Add to "Recent Major Changes" section:
@@ -219,29 +219,26 @@ bd finish bd-789 -m "Rate limiting added. 100 req/min per user."
 ```bash
 # Viewing
 bd ready              # Next available tasks
-bd status             # Active issues
-bd show <id>          # Full issue details
 bd list               # All issues
-bd list --tag <tag>   # Filter by tag
+bd show <id>          # Full issue details
+bd list --label <label>               # Filter by label
 
 # Creating
-bd new "description"                    # Create issue
-bd new "desc" -m "long description"    # With body
-bd new "desc" --depends-on <id>        # With dependency
-bd new "desc" --tag <tag>              # With tag
+bd create "description"               # Create issue
+bd create "desc" --body "long description"  # With body
+bd create "desc" --depends-on <id>    # With dependency
+bd create "desc" --label <label>      # With label
 
 # Updating
-bd start <id>         # Mark started
-bd finish <id>        # Mark finished
-bd finish <id> -m "summary"            # With summary
-bd block <id> "why"   # Mark blocked
-bd unblock <id>       # Unblock
-bd edit <id>          # Edit in editor
+bd update <id> --status in-progress   # Mark started
+bd close <id>                         # Mark finished/closed
+bd close <id> --reason "summary"      # Close with reason
+bd update <id> --status blocked       # Mark blocked
+bd edit <id>                          # Edit in editor
 
-# Organizing
-bd depends <id> <dep_id>               # Add dependency
-bd tag <id> <tag>                      # Add tag
-bd priority <id> <high|medium|low>     # Set priority
+# Dependencies & Organization
+bd dep add <id> <dep_id>              # Add dependency
+bd label add <id> <label>             # Add label
 
 # Help
 bd help               # All commands
@@ -254,18 +251,18 @@ If you have existing TodoWrite todos, convert immediately:
 
 ```bash
 # Instead of TodoWrite
-bd new "Fix permission enforcer race condition test"
-bd new "Fix high load pressure test timeout"
-bd new "Run full test suite to verify fixes"
-bd new "Verify all controllers use PermissionEnforcer"
-bd new "Create permissions security verification report"
+bd create "Fix permission enforcer race condition test"
+bd create "Fix high load pressure test timeout"
+bd create "Run full test suite to verify fixes"
+bd create "Verify all controllers use PermissionEnforcer"
+bd create "Create permissions security verification report"
 
 # Mark first as started
-bd start bd-1
+bd update bd-1 --status in-progress
 
 # As you complete each
-bd finish bd-1 -m "Race condition test fixed"
-bd start bd-2
+bd close bd-1 --reason "Race condition test fixed"
+bd update bd-2 --status in-progress
 # ... continue ...
 ```
 
@@ -275,8 +272,8 @@ bd start bd-2
 
 ```bash
 # 1. User requests feature
-bd new "Implement permission monitoring dashboard" \
-  -m "User requested real-time dashboard for permission changes.
+bd create "Implement permission monitoring dashboard" \
+  --body "User requested real-time dashboard for permission changes.
 
 Requirements:
 - WebSocket for real-time updates
@@ -285,21 +282,21 @@ Requirements:
 - Admin-only access"
 
 # 2. Break down into sub-tasks
-bd new "Create monitoring API endpoints" --depends-on bd-456
-bd new "Create WebSocket event system" --depends-on bd-456
-bd new "Create dashboard React component" --depends-on bd-457 --depends-on bd-458
-bd new "Add admin authorization" --depends-on bd-456
+bd create "Create monitoring API endpoints" --depends-on bd-456
+bd create "Create WebSocket event system" --depends-on bd-456
+bd create "Create dashboard React component" --depends-on bd-457 --depends-on bd-458
+bd create "Add admin authorization" --depends-on bd-456
 
 # 3. Work on first ready task
 bd ready  # Shows bd-457
-bd start bd-457
+bd update bd-457 --status in-progress
 
 # 4. Implement and capture context
 bd edit bd-457
 # Add: Implementation approach, files modified, decisions made
 
 # 5. Complete task
-bd finish bd-457 -m "API endpoints created.
+bd close bd-457 --reason "API endpoints created.
 Files: controllers/api/monitoring.js, tests/api/monitoring.test.js"
 
 git commit -m "feat: Add permission monitoring endpoints
@@ -308,11 +305,11 @@ Refs: bd-457"
 
 # 6. Continue with next tasks
 bd ready  # Shows bd-458
-bd start bd-458
+bd update bd-458 --status in-progress
 # ... repeat ...
 
 # 7. Complete parent task
-bd finish bd-456 -m "Dashboard complete and tested.
+bd close bd-456 --reason "Dashboard complete and tested.
 - Real-time WebSocket updates
 - CSV export working
 - Admin-only access enforced
@@ -369,80 +366,6 @@ bd finish bd-456 -m "Dashboard complete and tested.
 - 🛡️ - For security-related admin features
 
 ### Implementation Guidelines
-
-#### 🚨 CRITICAL: Single Activity Tracker Pattern
-
-**DO NOT create separate activity trackers for different domains**
-
-When implementing activity tracking for new features (auth, payments, notifications, etc.), **ALWAYS extend the existing `utilities/activity-tracker.js`** instead of creating domain-specific trackers.
-
-**Why This Matters:**
-- Single source of truth for ALL activity tracking
-- Consistent metadata capture across all domains
-- Prevents code duplication and maintenance burden
-- All activities queryable from one unified location
-- Shared utility functions (extractMetadata, extractActor, etc.)
-
-**Pattern to Follow:**
-```javascript
-// ✅ CORRECT: Add to utilities/activity-tracker.js
-async function trackLogin(options) {
-  const { user, req, method } = options;
-
-  Activity.create({
-    timestamp: new Date(),
-    action: 'user_login',
-    actor: extractActor(user),  // Reuse existing utility
-    resource: { id: user._id, type: 'User', name: user.name },
-    metadata: {
-      ...extractMetadata(req),  // Reuse existing utility
-      loginMethod: method
-    },
-    status: 'success',
-    tags: ['auth', 'login', method]
-  }).catch(err => {
-    backendLogger.error('Failed to track login', {
-      error: err.message,
-      userId: user._id
-    });
-  });
-}
-
-// Export with organized groups
-module.exports = {
-  // Resource tracking
-  trackCreate,
-  trackUpdate,
-  trackDelete,
-
-  // Auth tracking
-  trackLogin,
-  trackFailedLogin,
-  trackOAuthAuth,
-
-  // Utilities (shared)
-  extractMetadata,
-  extractActor
-};
-```
-
-**❌ WRONG: Creating separate files**
-```javascript
-// DON'T create these:
-// utilities/auth-activity-tracker.js
-// utilities/payment-activity-tracker.js
-// utilities/notification-activity-tracker.js
-```
-
-**Required Practices:**
-1. All tracking functions in ONE file: `utilities/activity-tracker.js`
-2. Group related functions with comments (// Auth tracking, // Payment tracking)
-3. Reuse existing utilities (extractMetadata, extractActor, generateRollbackToken)
-4. All tracking MUST be non-blocking (fire-and-forget with .catch())
-5. Consistent Activity schema for all create() calls
-6. Follow same error handling pattern
-
----
 
 #### ✅ DO: Use emojis in form labels with accessibility
 

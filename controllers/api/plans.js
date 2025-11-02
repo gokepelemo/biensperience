@@ -7,6 +7,7 @@ const { getEnforcer } = require("../../utilities/permission-enforcer");
 const { asyncHandler } = require("../../utilities/controller-helpers");
 const backendLogger = require("../../utilities/backend-logger");
 const mongoose = require("mongoose");
+const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion } = require('../../utilities/activity-tracker');
 
 /**
  * Create a new plan for an experience
@@ -116,6 +117,15 @@ const createPlan = asyncHandler(async (req, res) => {
         select: 'url caption'
       }
     });
+
+  // Track creation (non-blocking)
+  trackCreate({
+    resource: populatedPlan,
+    resourceType: 'Plan',
+    actor: req.user,
+    req,
+    reason: `Plan created for experience "${experience.name}"`
+  });
 
   res.status(201).json(populatedPlan);
 });
@@ -382,8 +392,12 @@ const updatePlan = asyncHandler(async (req, res) => {
     }
   };
 
+  // Capture previous state for activity tracking
+  const previousState = plan.toObject();
+
   // Update allowed fields with validation
   const allowedUpdates = ['planned_date', 'plan', 'notes'];
+  const fieldsToTrack = [];
   for (const field of allowedUpdates) {
     if (updates[field] !== undefined) {
       if (!validateUpdate(field, updates[field])) {
@@ -393,6 +407,7 @@ const updatePlan = asyncHandler(async (req, res) => {
         });
       }
       plan[field] = updates[field];
+      fieldsToTrack.push(field);
     }
   }
 
@@ -408,6 +423,17 @@ const updatePlan = asyncHandler(async (req, res) => {
         select: 'url caption'
       }
     });
+
+  // Track update (non-blocking)
+  trackUpdate({
+    resource: updatedPlan,
+    previousState,
+    resourceType: 'Plan',
+    actor: req.user,
+    req,
+    fieldsToTrack,
+    reason: `Plan updated`
+  });
 
   res.json(updatedPlan);
 });
@@ -442,6 +468,15 @@ const deletePlan = asyncHandler(async (req, res) => {
       message: permCheck.reason
     });
   }
+
+  // Track deletion (non-blocking) - must happen before deleteOne()
+  trackDelete({
+    resource: plan,
+    resourceType: 'Plan',
+    actor: req.user,
+    req,
+    reason: `Plan deleted`
+  });
 
   // OPTIMIZATION 1: Parallel database operations instead of sequential
   // Delete plan and update experience permissions simultaneously
@@ -662,11 +697,28 @@ const updatePlanItem = asyncHandler(async (req, res) => {
     return res.status(404).json({ error: "Plan item not found" });
   }
 
+  // Track completion status change if it's being updated
+  const wasComplete = planItem.complete;
+  const willBeComplete = complete !== undefined ? complete : wasComplete;
+
   if (complete !== undefined) planItem.complete = complete;
   if (cost !== undefined) planItem.cost = cost;
   if (planning_days !== undefined) planItem.planning_days = planning_days;
 
   await plan.save();
+
+  // Track plan item completion change (non-blocking)
+  if (complete !== undefined && wasComplete !== willBeComplete) {
+    trackPlanItemCompletion({
+      resource: plan,
+      resourceType: 'Plan',
+      actor: req.user,
+      req,
+      planItemId: itemId,
+      completed: willBeComplete,
+      reason: `Plan item ${willBeComplete ? 'completed' : 'marked incomplete'}`
+    });
+  }
 
   res.json(plan);
 });

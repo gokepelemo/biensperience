@@ -108,9 +108,11 @@ export function useDestinationManagement(destinations, formData, setFormData, se
    */
   const handleCreateDestinationClick = useCallback((e) => {
     e.preventDefault();
-    setPrefillName(destinationInput);
+    // Use the current destination field value from formData, not destinationInput
+    const currentDestinationValue = formData.destination || '';
+    setPrefillName(currentDestinationValue);
     setShowDestinationModal(true);
-  }, [destinationInput]);
+  }, [formData.destination]);
 
   /**
    * Close destination modal

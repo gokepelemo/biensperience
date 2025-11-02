@@ -7,6 +7,7 @@ const { authLimiter, modificationLimiter } = require('../../config/rateLimiters'
 router.post('/', authLimiter, usersCtrl.create); // Rate limit signup
 router.get('/search', ensureLoggedIn, usersCtrl.searchUsers);
 router.get('/all', ensureLoggedIn, usersCtrl.getAllUsers);
+router.get('/profile', ensureLoggedIn, usersCtrl.getProfile); // Get current user's profile
 router.get('/:id', ensureLoggedIn, usersCtrl.getUser);
 router.put('/:id', ensureLoggedIn, modificationLimiter, usersCtrl.updateUser);
 router.put('/:id/admin', ensureLoggedIn, modificationLimiter, usersCtrl.updateUserAsAdmin);

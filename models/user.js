@@ -219,6 +219,34 @@ const userSchema = new Schema(
     },
 
     /**
+     * Current session ID (bien-session-id)
+     * Bound to user's login session, expires after 24h by default
+     * @type {string}
+     */
+    currentSessionId: {
+      type: String,
+      sparse: true
+    },
+
+    /**
+     * Session creation timestamp (epoch milliseconds)
+     * Used to calculate session expiry
+     * @type {number}
+     */
+    sessionCreatedAt: {
+      type: Number
+    },
+
+    /**
+     * Session expiration timestamp (epoch milliseconds)
+     * Session is invalid after this time
+     * @type {number}
+     */
+    sessionExpiresAt: {
+      type: Number
+    },
+
+    /**
      * User profile visibility setting
      * @type {string}
      * @enum ['private', 'public']
@@ -273,6 +301,45 @@ userSchema.pre("save", async function (next) {
 });
 
 /**
+ * Instance method: Check if a session is valid
+ * Validates session ID matches and hasn't expired
+ * 
+ * @param {string} sessionId - Session ID to validate
+ * @returns {boolean} True if session is valid
+ */
+userSchema.methods.isSessionValid = function(sessionId) {
+  if (!sessionId || !this.currentSessionId) {
+    return false;
+  }
+
+  // Check session ID matches
+  if (this.currentSessionId !== sessionId) {
+    return false;
+  }
+
+  // Check session hasn't expired
+  const now = Date.now();
+  if (!this.sessionExpiresAt || now >= this.sessionExpiresAt) {
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Generate JWT token for the user
+ * @returns {string} JWT token for authentication
+ */
+userSchema.methods.generateToken = function() {
+  const jwt = require('jsonwebtoken');
+  return jwt.sign(
+    { user: this },
+    process.env.SECRET,
+    { expiresIn: '24h' }
+  );
+};
+
+/**
  * Database indexes for query performance optimization
  */
 userSchema.index({ email: 1 });  // For login and search queries
@@ -280,6 +347,8 @@ userSchema.index({ role: 1 });  // For admin queries
 userSchema.index({ provider: 1 });  // For OAuth queries
 userSchema.index({ resetPasswordToken: 1, resetPasswordExpires: 1 });  // For password reset lookups
 userSchema.index({ emailConfirmationToken: 1, emailConfirmationExpires: 1 });  // For email confirmation
+userSchema.index({ currentSessionId: 1 });  // For session validation lookups
+userSchema.index({ sessionExpiresAt: 1 });  // For session expiry queries
 userSchema.index({ createdAt: -1 });  // For sorting in getAllUsers
 
 module.exports = mongoose.model("User", userSchema);

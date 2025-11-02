@@ -5,11 +5,11 @@ const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { requireEmailVerification } = require('../../utilities/email-verification-middleware');
 const { collaboratorLimiter, modificationLimiter } = require('../../config/rateLimiters');
 
-router.get('/', ensureLoggedIn, destinationsCtrl.index);
+router.get('/', destinationsCtrl.index);
 router.post('/', ensureLoggedIn, requireEmailVerification, modificationLimiter, destinationsCtrl.create);
 router.delete('/:id', ensureLoggedIn, modificationLimiter, destinationsCtrl.delete);
 router.put('/:id', ensureLoggedIn, requireEmailVerification, modificationLimiter, destinationsCtrl.update);
-router.get('/:id', ensureLoggedIn, destinationsCtrl.show);
+router.get('/:id', destinationsCtrl.show);
 router.post('/:destinationId/user/:userId', ensureLoggedIn, destinationsCtrl.toggleUserFavoriteDestination);
 
 // Photo management routes

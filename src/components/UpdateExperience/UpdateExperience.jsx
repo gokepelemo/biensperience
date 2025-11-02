@@ -238,6 +238,12 @@ export default function UpdateExperience() {
     setShowDestinationModal(true);
   }
 
+  // Get current destination display value for prefilling modal
+  const getCurrentDestinationValue = () => {
+    const dest = destinations.find(d => d._id === experience.destination);
+    return dest ? dest.name : ''; // Just the city name, not the full "City, Country" format
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -512,7 +518,7 @@ export default function UpdateExperience() {
         show={showDestinationModal}
         onClose={() => setShowDestinationModal(false)}
         onDestinationCreated={handleDestinationCreated}
-        prefillName=""
+        prefillName={getCurrentDestinationValue()}
       />
     </>
   );

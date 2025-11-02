@@ -560,50 +560,29 @@ describe('PermissionEnforcer Security Suite', () => {
       // Store original permission count
       const originalCount = testExperience.permissions.length;
       
-      // Try to add same permission twice concurrently with immediate saves
+      // Try to add same permission twice concurrently
+      // No manual save needed - enforcer.addPermission uses atomic findOneAndUpdate
       const promises = [
-        (async () => {
-          const result = await enforcer.addPermission({
-            resource: testExperience,
-            permission: {
-              _id: collaboratorUser._id,
-              entity: 'user',
-              type: 'collaborator'
-            },
-            actorId: ownerUser._id,
-            reason: 'Race condition test 1'
-          });
-          if (result.success) {
-            try {
-              await testExperience.save();
-            } catch (err) {
-              // Save failed - treat as failure
-              return { success: false, error: err.message };
-            }
-          }
-          return result;
-        })(),
-        (async () => {
-          const result = await enforcer.addPermission({
-            resource: testExperience,
-            permission: {
-              _id: collaboratorUser._id,
-              entity: 'user',
-              type: 'collaborator'
-            },
-            actorId: ownerUser._id,
-            reason: 'Race condition test 2'
-          });
-          if (result.success) {
-            try {
-              await testExperience.save();
-            } catch (err) {
-              // Save failed - treat as failure
-              return { success: false, error: err.message };
-            }
-          }
-          return result;
-        })()
+        enforcer.addPermission({
+          resource: testExperience,
+          permission: {
+            _id: collaboratorUser._id,
+            entity: 'user',
+            type: 'collaborator'
+          },
+          actorId: ownerUser._id,
+          reason: 'Race condition test 1'
+        }),
+        enforcer.addPermission({
+          resource: testExperience,
+          permission: {
+            _id: collaboratorUser._id,
+            entity: 'user',
+            type: 'collaborator'
+          },
+          actorId: ownerUser._id,
+          reason: 'Race condition test 2'
+        })
       ];
 
       const results = await Promise.all(promises);
@@ -629,6 +608,9 @@ describe('PermissionEnforcer Security Suite', () => {
   });
 
   describe('6. Pressure Testing', () => {
+    // Increase timeout for heavy load tests
+    jest.setTimeout(60000);
+
     test('Should handle rapid sequential mutations', async () => {
       const iterations = 50;
       const users = [];

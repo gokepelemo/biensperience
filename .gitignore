@@ -3,6 +3,9 @@
 /uploads/images/
 /documentation/
 
+# issue management
+/.beads
+
 # visual regression test screenshots (current/diff only, keep baseline)
 /tests/visual-regression/screenshots/current/
 /tests/visual-regression/screenshots/diff/

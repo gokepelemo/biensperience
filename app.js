@@ -199,8 +199,10 @@ try {
 const apiLogger = require('./utilities/api-logger-middleware');
 app.use('/api', apiLogger);
 
-// Register auth routes BEFORE CSRF protection (csrf-token endpoint needs to be unprotected)
-app.use("/api/auth", require("./routes/api/auth"));
+// Trace ID middleware - attach trace ID to all API requests
+const { attachTraceId, addTraceIdToResponse } = require('./utilities/trace-middleware');
+app.use('/api', attachTraceId);
+app.use('/api', addTraceIdToResponse);
 
 // Passport configuration for OAuth
 const { passport } = require('./config/passport');
@@ -211,6 +213,13 @@ app.use(require("./utilities/api-token-middleware"));
 
 // JWT token checking (populate req.user) - needs to be before CSRF to check super admin status
 app.use(require("./config/checkToken"));
+
+// Register auth routes AFTER JWT/token middleware (so logout can access req.user)
+app.use("/api/auth", require("./routes/api/auth"));
+
+// Session ID middleware - manage session IDs for authenticated requests (after auth)
+const { attachSessionId } = require('./utilities/session-middleware');
+app.use('/api', attachSessionId);
 
 // Apply CSRF protection to state-changing API routes (after auth routes)
 // Skip CSRF for safe methods and login endpoint
@@ -267,6 +276,7 @@ app.use("/api/search", require("./routes/api/search"));
 app.use("/api/tokens", require("./routes/api/tokens"));
 app.use("/api/invites", require("./routes/api/invites"));
 app.use("/api/invite-tracking", require("./routes/api/invite-tracking"));
+app.use("/api/activities", require("./routes/api/activities"));
 app.use("/health-check", (req, res) => {
   res.send("OK");
 });

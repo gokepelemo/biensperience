@@ -6,6 +6,7 @@ const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 const permissions = require("../../utilities/permissions");
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require("../../utilities/backend-logger");
+const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activity-tracker');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -84,6 +85,16 @@ async function createDestination(req, res) {
     }
 
     const destination = await Destination.create(destinationData);
+    
+    // Track creation (non-blocking)
+    trackCreate({
+      resource: destination,
+      resourceType: 'Destination',
+      actor: req.user,
+      req,
+      reason: `Destination "${destination.name}" created`
+    });
+    
     res.json(destination);
   } catch (err) {
     backendLogger.error('Error creating destination', { error: err.message, userId: req.user._id, name: req.body.name, country: req.body.country });
@@ -171,8 +182,23 @@ async function updateDestination(req, res) {
       }
     }
 
+    // Capture previous state for activity tracking
+    const previousState = destination.toObject();
+    
     destination = Object.assign(destination, req.body);
     await destination.save();
+    
+    // Track update (non-blocking)
+    trackUpdate({
+      resource: destination,
+      previousState,
+      resourceType: 'Destination',
+      actor: req.user,
+      req,
+      fieldsToTrack: Object.keys(req.body),
+      reason: `Destination "${destination.name}" updated`
+    });
+    
     res.status(200).json(destination);
   } catch (err) {
     backendLogger.error('Error updating destination', { error: err.message, userId: req.user._id, destinationId: req.params.id });
@@ -206,6 +232,15 @@ async function deleteDestination(req, res) {
         message: permCheck.reason || 'You must be the owner to delete this destination.'
       });
     }
+    
+    // Track deletion (non-blocking) - must happen before deleteOne()
+    trackDelete({
+      resource: destination,
+      resourceType: 'Destination',
+      actor: req.user,
+      req,
+      reason: `Destination "${destination.name}" deleted`
+    });
     
     await destination.deleteOne();
     res.status(200).json({ message: 'Destination deleted successfully', destination });

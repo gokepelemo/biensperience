@@ -95,7 +95,24 @@ function formatLogEntry(level, message, meta = {}, error = null) {
       ip: req.ip || req.connection?.remoteAddress,
       userId: req.user?._id?.toString()
     };
+    
+    // Add session and trace IDs from request
+    if (req.sessionId) {
+      entry.sessionId = req.sessionId;
+    }
+    if (req.traceId) {
+      entry.traceId = req.traceId;
+    }
+    
     delete meta.req; // Remove from meta to avoid duplication
+  }
+  
+  // Add session and trace IDs from meta if not from request
+  if (!entry.sessionId && meta.sessionId) {
+    entry.sessionId = meta.sessionId;
+  }
+  if (!entry.traceId && meta.traceId) {
+    entry.traceId = meta.traceId;
   }
 
   if (error) {
