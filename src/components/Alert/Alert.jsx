@@ -1,5 +1,6 @@
 import React from "react";
 import { lang } from "../../lang.constants";
+import { getComponentStyles } from "../../utilities/design-system";
 import "./Alert.css";
 
 /**
@@ -19,6 +20,7 @@ import "./Alert.css";
  * @param {string} props.size - Alert size: 'sm', 'md', 'lg' (default: 'md')
  * @param {boolean} props.bordered - Whether to show border (default: false)
  * @param {Object} props.closeButtonStyle - Custom styles for close button
+ * @param {React.ReactNode} props.actions - Action buttons to display at bottom of alert
  */
 const Alert = ({
   type = "info",
@@ -34,6 +36,7 @@ const Alert = ({
   size = "md",
   bordered = false,
   closeButtonStyle = {},
+  actions,
 }) => {
   const alertClasses = [
     "alert",
@@ -72,6 +75,12 @@ const Alert = ({
           {children || (message && <div className="alert-message">{message}</div>)}
         </div>
       </div>
+
+      {actions && (
+        <div className="alert-actions" style={{ cssText: getComponentStyles('alertActions') }}>
+          {actions}
+        </div>
+      )}
     </div>
   );
 };

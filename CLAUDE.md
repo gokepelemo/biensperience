@@ -40,29 +40,34 @@ bd show <issue_id>    # View issue details with context
 **2. Create New Tasks**:
 ```bash
 # Simple task
-bd new "Fix failing API token tests"
+bd create "Fix failing API token tests"
 
 # With dependencies
-bd new "Create monitoring dashboard" --depends-on bd-123
+bd create "Create monitoring dashboard" --deps bd-123
 
-# With tags
-bd new "Optimize permission checks" --tag performance --tag security
+# With labels
+bd create "Optimize permission checks" -l performance,security
 
 # With description
-bd new "Implement rate limiting" -m "Add rate limiting to permission mutations to prevent abuse. Consider using express-rate-limit with Redis backend."
+bd create "Implement rate limiting" -d "Add rate limiting to permission mutations to prevent abuse. Consider using express-rate-limit with Redis backend."
+
+# With priority (0=highest, 4=lowest, default=2)
+bd create "Critical bug fix" -p 0
 ```
 
 **3. Work on Tasks**:
 ```bash
-bd start <issue_id>   # Mark as started (shows in bd status)
-bd edit <issue_id>    # Add context, notes, decisions
-bd finish <issue_id>  # Mark as complete
+bd update <issue_id> --status in-progress   # Mark as started
+bd update <issue_id> --notes "Added context"  # Add context/notes
+bd close <issue_id> --reason "Completed with tests passing"  # Mark complete
 ```
 
-**4. Track Blockers**:
+**4. View and Filter**:
 ```bash
-bd block <issue_id> "Waiting for user feedback on permission model"
-bd unblock <issue_id>
+bd ready              # Show ready issues (no blockers)
+bd list               # List all issues
+bd list -l bug        # Filter by label
+bd show <issue_id>    # Show full issue details
 ```
 
 ### Context Storage Best Practices
@@ -86,8 +91,8 @@ bd unblock <issue_id>
 **GOOD (Beads Approach)**:
 ```bash
 # Create issue with full context
-bd new "Fix permission enforcer race condition test" \
-  -m "Test calls resource.save() after enforcer already saved atomically.
+bd create "Fix permission enforcer race condition test" \
+  -d "Test calls resource.save() after enforcer already saved atomically.
 Remove redundant save() calls and let enforcer handle atomic operations.
 
 File: tests/api/permission-enforcer-security.test.js:559-586
@@ -104,7 +109,7 @@ git commit -m "fix: Remove double-save in race condition test
 Refs: bd-123"
 
 # Mark complete with summary
-bd finish bd-123 -m "Test now passes. Removed manual save() calls on lines 577-583 and 598-604. Enforcer's atomic findOneAndUpdate handles all persistence."
+bd close bd-123 --reason "Test now passes. Removed manual save() calls on lines 577-583 and 598-604. Enforcer's atomic findOneAndUpdate handles all persistence."
 ```
 
 ### Documentation Storage
@@ -125,12 +130,12 @@ bd finish bd-123 -m "Test now passes. Removed manual save() calls on lines 577-5
 **Example Workflow**:
 ```bash
 # During feature implementation
-bd new "Implement permission monitoring dashboard"
-bd start bd-456
-bd edit bd-456  # Add implementation notes, decisions, code references
+bd create "Implement permission monitoring dashboard"
+bd update biensperience-456 --status in_progress
+bd edit biensperience-456  # Add implementation notes, decisions, code references
 
 # After feature complete
-bd finish bd-456 -m "Dashboard complete. See controllers/api/monitoring.js"
+bd close biensperience-456 --reason "Dashboard complete. See controllers/api/monitoring.js"
 
 # Then document in CLAUDE.md for posterity
 # (Add to "Recent Major Changes" section with date, problem, solution)
@@ -156,16 +161,16 @@ bd edit <issue_id>
 # - Dependencies discovered
 
 # Create sub-tasks if issue is complex
-bd new "Sub-task description" --depends-on <parent_id>
+bd create "Sub-task description" --deps <parent_id>
 ```
 
 **After Completing Work**:
 ```bash
-# Finish with summary
-bd finish <issue_id> -m "Summary of what was done, files changed, and any follow-up needed"
+# Close with summary
+bd close <issue_id> --reason "Summary of what was done, files changed, and any follow-up needed"
 
 # Create follow-up issues if needed
-bd new "Follow-up task" --depends-on <completed_id>
+bd create "Follow-up task" --deps <completed_id>
 
 # Update documentation if needed
 # (CLAUDE.md for major changes, README for setup, etc.)
@@ -173,8 +178,9 @@ bd new "Follow-up task" --depends-on <completed_id>
 
 **When Blocked**:
 ```bash
-bd block <issue_id> "Clear description of what's blocking"
-bd new "Unblock task" --tag unblocking --depends-on <blocked_id>
+bd update <issue_id> --status blocked
+bd update <issue_id> --notes "Clear description of what's blocking"
+bd create "Unblock task" -l unblocking --deps <blocked_id>
 ```
 
 ### Common bd Commands Reference
@@ -182,28 +188,33 @@ bd new "Unblock task" --tag unblocking --depends-on <blocked_id>
 ```bash
 # Viewing
 bd ready              # Show next available tasks
-bd status             # Show all active issues
-bd show <id>          # Show issue details
 bd list               # List all issues
-bd list --tag <tag>   # Filter by tag
+bd list -l <label>    # Filter by label
+bd show <id>          # Show issue details
+bd blocked            # Show blocked issues
 
 # Creating
-bd new "description"                    # Create issue
-bd new "desc" --depends-on <id>        # With dependency
-bd new "desc" --tag <tag>              # With tag
-bd new "desc" -m "long description"    # With body
+bd create "description"                 # Create issue
+bd create "desc" --deps <id>           # With dependency
+bd create "desc" -l label1,label2      # With labels
+bd create "desc" -d "long description" # With description
+bd create "desc" -p 0                  # With priority (0=highest, 4=lowest)
 
 # Updating
-bd start <id>         # Mark as started
-bd finish <id>        # Mark as finished
-bd block <id> "why"   # Mark as blocked
-bd unblock <id>       # Unblock
-bd edit <id>          # Edit description/body
+bd update <id> --status in-progress    # Mark as started
+bd update <id> --status open           # Reopen
+bd update <id> --notes "context"       # Add notes
+bd update <id> -p 1                    # Change priority
+bd edit <id>                           # Edit in $EDITOR
+
+# Completing
+bd close <id> --reason "Done"          # Close with reason
+bd reopen <id>                         # Reopen closed issue
 
 # Organizing
-bd depends <id> <dependency_id>        # Add dependency
-bd tag <id> <tag>                      # Add tag
-bd priority <id> <high|medium|low>     # Set priority
+bd dep add <id> --deps <dependency_id> # Add dependency
+bd label <id> <label>                  # Add label
+bd comments <id>                       # View/manage comments
 
 # Help
 bd help               # Show all commands
@@ -227,8 +238,8 @@ bd show bd-123  # Shows linked commits
 ### Integration with CLAUDE.md
 
 **After completing major work**:
-1. ✅ Mark issue as finished in bd
-2. ✅ Add summary to bd with `bd finish <id> -m "summary"`
+1. ✅ Mark issue as closed in bd
+2. ✅ Add summary to bd with `bd close <id> --reason "summary"`
 3. ✅ Update CLAUDE.md "Recent Major Changes" section
 4. ✅ Create follow-up issues if needed
 
@@ -247,8 +258,8 @@ bd show bd-123  # Shows linked commits
 ```bash
 # 1. User requests feature
 # AI creates bd issue
-bd new "Implement permission monitoring dashboard" \
-  -m "User requested real-time dashboard for permission changes.
+bd create "Implement permission monitoring dashboard" \
+  -d "User requested real-time dashboard for permission changes.
 
 Requirements:
 - WebSocket for real-time updates
@@ -257,38 +268,38 @@ Requirements:
 - Admin-only access
 
 Dependencies:
-- Activity model (bd-45) - Complete
-- Permission enforcer (bd-50) - Complete"
+- Activity model (biensperience-45) - Complete
+- Permission enforcer (biensperience-50) - Complete"
 
 # 2. AI breaks down into sub-tasks
-bd new "Create monitoring API endpoints" --depends-on bd-456
-bd new "Create WebSocket event system" --depends-on bd-456
-bd new "Create dashboard React component" --depends-on bd-457 --depends-on bd-458
-bd new "Add admin authorization check" --depends-on bd-456
+bd create "Create monitoring API endpoints" --deps biensperience-456
+bd create "Create WebSocket event system" --deps biensperience-456
+bd create "Create dashboard React component" --deps biensperience-457,biensperience-458
+bd create "Add admin authorization check" --deps biensperience-456
 
 # 3. AI works on first ready task
-bd ready  # Shows bd-457 is ready
-bd start bd-457
+bd ready  # Shows biensperience-457 is ready
+bd update biensperience-457 --status in_progress
 
 # 4. AI implements and stores context
-bd edit bd-457  # Add implementation notes as work progresses
+bd edit biensperience-457  # Add implementation notes as work progresses
 
 # 5. AI completes task
-bd finish bd-457 -m "Created GET /api/monitoring/permissions endpoint.
+bd close biensperience-457 --reason "Created GET /api/monitoring/permissions endpoint.
 Returns paginated permission changes with filters.
 File: controllers/api/monitoring.js
 Tests: tests/api/monitoring.test.js"
 
 git commit -m "feat: Add permission monitoring endpoints
 
-Refs: bd-457"
+Refs: biensperience-457"
 
 # 6. AI continues with next ready tasks
-bd ready  # Shows bd-458 is now ready
+bd ready  # Shows biensperience-458 is now ready
 # ... repeat ...
 
 # 7. After all sub-tasks complete
-bd finish bd-456 -m "Dashboard complete and tested.
+bd close biensperience-456 --reason "Dashboard complete and tested.
 - Real-time updates via WebSocket
 - CSV export working
 - Admin-only access enforced
@@ -309,10 +320,10 @@ Files:
 
 ```bash
 # TodoWrite: "Fix API token tests"
-bd new "Fix API token authentication tests" -m "Tests pass alone but fail in suite. Likely test isolation issue."
+bd create "Fix API token authentication tests" -d "Tests pass alone but fail in suite. Likely test isolation issue."
 
 # TodoWrite: "Create security report"
-bd new "Create permissions security verification report" -m "Document all security controls, test coverage, and compliance verification."
+bd create "Create permissions security verification report" -d "Document all security controls, test coverage, and compliance verification."
 
 # Then clear TodoWrite
 # (No need to maintain two systems)
@@ -321,6 +332,61 @@ bd new "Create permissions security verification report" -m "Document all securi
 **Note to Agent:** You interact with Beads exclusively through the `bd` command-line tool as part of your execution loop. This replaces TodoWrite for persistent task tracking. Use shared identifiers (e.g., `bd-123`) in commits, documentation, and code comments to link everything together.
 
 ## Recent Major Changes (November 2025)
+
+### Icon System Implementation (Nov 2, 2025)
+
+**Status**: Complete
+
+**Problem**:
+- Inconsistent favicon and app icon usage across the platform
+- Old favicon.ico and logo192.png/logo512.png files not using the designed icon set
+- Missing proper favicon sizes for different devices and contexts
+- No unified icon system using the available icons in `src/icons/`
+
+**Solution**: Implemented comprehensive icon system using `src/icons/` directory
+
+**Icon Assets Used**:
+- `icon_16.png` → `favicon-16x16.png` (browser tab favicon)
+- `icon_32.png` → `favicon-32x32.png` (browser tab favicon, primary)
+- `icon_256.png` → `icon-192x192.png` (app icon, scaled for 192x192)
+- `icon_512.png` → `icon-512x512.png` (app icon, native size)
+
+**Files Updated**:
+
+1. **HTML Favicon Configuration** (`index.html`)
+   - Added modern favicon links with proper sizes
+   - Updated theme color to brand purple (`#6f42c1`)
+   - Added comprehensive Apple touch icon support
+   - Removed old single favicon.ico reference
+
+2. **Web App Manifest** (`public/manifest.json`)
+   - Replaced old favicon.ico and logo192.png/logo512.png references
+   - Added proper PNG icons with correct sizes
+   - Added `purpose: "any maskable"` for PWA compatibility
+   - Updated theme color to match brand
+
+3. **Backend Favicon Serving** (`app.js`)
+   - Updated Express favicon middleware to serve `favicon-32x32.png`
+   - Maintains compatibility with existing favicon serving logic
+
+4. **Build Process**
+   - Icons automatically copied to `public/` directory during build
+   - Build output includes updated `index.html` and `manifest.json`
+   - All icon sizes available in production build
+
+**Icon Coverage**:
+- ✅ Browser tabs (16x16, 32x32 PNG favicons)
+- ✅ Bookmarks (shortcut icon fallback)
+- ✅ Apple devices (180x180, 192x192, 512x512 touch icons)
+- ✅ PWA installation (192x192, 512x512 with maskable support)
+- ✅ Windows tiles (32x32 primary favicon)
+
+**Benefits**:
+- Consistent branding across all platforms and devices
+- Modern favicon standards compliance
+- Improved PWA installation experience
+- Better visual consistency with designed icon set
+- Future-proof icon system for new device types
 
 ### Vite Migration (Nov 2, 2025)
 
@@ -417,6 +483,60 @@ bd new "Create permissions security verification report" -m "Document all securi
 
 **Build Warnings** (informational only, no impact):
 - Dynamic imports mixed with static imports - Vite optimizes automatically
+
+---
+
+### CSS Cascade Fix and !important Removal (Nov 2, 2025)
+
+**Issue**: biensperience-c883 (Phase 1)
+**Status**: Complete
+
+**Problem**:
+- Bootstrap CSS loading AFTER custom styles in App.jsx
+- Required 51 `!important` declarations in theme.css to override Bootstrap
+- Button padding not applying correctly (btn-link had no padding)
+- CSS specificity issues preventing design system overrides
+
+**Solution**: Proper CSS Cascade Order
+
+**Changes Made**:
+1. **Moved Bootstrap imports to index.jsx** - Now loads BEFORE custom styles
+   - Bootstrap CSS imported before `./index.css`
+   - Removed duplicate imports from App.jsx
+   - Proper CSS cascade: Bootstrap → Design Tokens → Theme → Components
+
+2. **Removed all !important declarations** from theme.css (51 total)
+   - Button styles now apply without !important
+   - Form control styles work correctly
+   - Link styles override Bootstrap properly
+   - Design system tokens take precedence
+
+3. **Fixed button padding**
+   - All buttons (.btn) get responsive padding
+   - .btn-link properly shows padding
+   - No more "tight" appearance on link buttons
+
+**CSS Load Order** (index.jsx):
+```javascript
+import 'bootstrap/dist/css/bootstrap.min.css';  // 1. Bootstrap base
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';  // 2. Bootstrap JS
+import './index.css';  // 3. Our custom styles (loads design-tokens, theme, etc.)
+```
+
+**Benefits**:
+- ✅ Cleaner CSS without !important
+- ✅ Proper CSS specificity
+- ✅ Design system overrides work correctly
+- ✅ Easier to maintain and debug
+- ✅ Better performance (no specificity wars)
+- ✅ All buttons have consistent padding
+
+**Files Modified**:
+- [src/index.jsx](src/index.jsx) - Added Bootstrap CSS import before custom styles
+- [src/views/App/App.jsx](src/views/App/App.jsx) - Removed duplicate Bootstrap imports
+- [src/styles/theme.css](src/styles/theme.css) - Removed all 51 !important declarations
+
+**Build Status**: ✅ Successful (3.77s)
 
 ---
 

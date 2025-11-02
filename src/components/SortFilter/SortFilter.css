@@ -1,14 +1,14 @@
 .sort-filter-container {
-    margin: 2rem 0;
-    padding: 1.5rem;
-    background: var(--color-background, #f8f9fa);
-    border-radius: var(--radius-lg, 1rem);
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+    margin: var(--space-8) 0;
+    padding: var(--space-6);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
 }
 
 .sort-filter-controls {
     display: flex;
-    gap: 2rem;
+    gap: var(--space-8);
     align-items: flex-end;
     flex-wrap: wrap;
 }
@@ -16,42 +16,42 @@
 .sort-control,
 .filter-control {
     flex: 1;
-    min-width: 250px;
+    min-width: 250px; /* Fixed minimum for form usability */
 }
 
 .sort-control label,
 .filter-control label {
-    margin-bottom: 0.5rem;
-    color: var(--color-text, #333);
+    margin-bottom: var(--space-2);
+    color: var(--color-text-secondary);
     display: block;
 }
 
 .sort-control .form-select,
 .filter-control .form-select {
-    border-radius: var(--radius-md, 0.75rem);
-    border: 2px solid rgba(102, 126, 234, 0.2);
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
-    transition: all 0.3s ease;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--color-border-primary);
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--font-size-base);
+    transition: all var(--transition-normal) ease;
     background-color: white;
 }
 
 .sort-control .form-select:hover,
 .filter-control .form-select:hover {
-    border-color: var(--color-primary, #667eea);
+    border-color: var(--color-primary);
 }
 
 .sort-control .form-select:focus,
 .filter-control .form-select:focus {
-    border-color: var(--color-primary, #667eea);
-    box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0.25rem var(--color-primary-light); /* Component-specific focus ring */
     outline: none;
 }
 
 @media (max-width: 768px) {
     .sort-filter-controls {
         flex-direction: column;
-        gap: 1rem;
+        gap: var(--space-4);
     }
 
     .sort-control,

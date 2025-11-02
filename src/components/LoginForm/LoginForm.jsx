@@ -148,7 +148,7 @@ export default function LoginForm({ setUser }) {
                             onClick={() => setShowForgotPassword(true)}
                             style={{ fontSize: '0.9rem', textDecoration: 'underline' }}
                         >
-                            Forgot Password?
+                            {lang.en.button.forgotPassword}
                         </button>
                     </div>
                 )}

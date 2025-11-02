@@ -62,7 +62,7 @@ export default function UpdateExperience() {
         const canEdit = isOwner(user, experienceData) || isSuperAdmin(user);
 
         if (!canEdit) {
-          setError("You are not authorized to update this experience.");
+          setError(lang.en.alert.notAuthorizedToUpdateExperience);
           setLoading(false);
           return;
         }
@@ -93,7 +93,7 @@ export default function UpdateExperience() {
         setLoading(false);
       } catch (err) {
         const errorMessage = handleError(err, { context: 'Loading experience for update' });
-        setError(errorMessage || "Failed to load experience. Please try again.");
+        setError(errorMessage || lang.en.alert.failedToLoadResource);
         setLoading(false);
       }
     }
@@ -249,7 +249,7 @@ export default function UpdateExperience() {
     setError("");
 
     if (Object.keys(changes).length === 0) {
-      setError("No changes detected.");
+      setError(lang.en.alert.noChangesDetected);
       return;
     }
 
@@ -295,18 +295,18 @@ export default function UpdateExperience() {
               type="danger"
               title={lang.en.modal.unableToUpdateExperience}
             >
-              <p>{error || "Experience not found or you don't have permission to update it."}</p>
+              <p>{error || lang.en.modal.experienceNotFoundOrNoPermission}</p>
               <hr />
               <p className="mb-0">Please check that you have the correct permissions and try again.</p>
             </Alert>
             <div className="text-center mt-3">
               {experienceId && !error.includes('not authorized') && (
                 <Link to={`/experiences/${experienceId}`} className="btn btn-primary me-2">
-                  Back to Experience
+                  {lang.en.button.backToExperience}
                 </Link>
               )}
               <Link to="/experiences" className="btn btn-secondary">
-                View All Experiences
+                {lang.en.button.viewAllExperiences}
               </Link>
             </div>
           </div>

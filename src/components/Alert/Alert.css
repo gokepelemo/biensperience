@@ -2,9 +2,9 @@
 
 .alert {
   position: relative;
-  padding: 1rem 1.25rem;
-  margin-bottom: 1rem;
-  border-radius: 0.5rem;
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
 }
 
@@ -12,7 +12,7 @@
 .alert-content {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .alert-icon {
@@ -28,7 +28,7 @@
 
 .alert-title {
   font-weight: 600;
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--space-1);
 }
 
 .alert-message {
@@ -37,17 +37,17 @@
 
 /* Alert Sizes */
 .alert-sm {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
 }
 
 .alert-sm .alert-icon {
-  font-size: 1rem;
+  font-size: var(--font-size-base);
 }
 
 .alert-lg {
-  padding: 1.5rem 2rem;
-  font-size: 1.125rem;
+  padding: var(--space-6) var(--space-8);
+  font-size: var(--font-size-lg);
 }
 
 .alert-lg .alert-icon {
@@ -61,9 +61,9 @@
 
 .alert-dismissible .btn-close {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  padding: 0.5rem;
+  top: var(--space-3);
+  right: var(--space-3);
+  padding: var(--space-2);
   z-index: 2;
 }
 
@@ -98,6 +98,24 @@
   background-color: #d1e7dd;
   border-color: #badbcc;
   color: #0f5132;
+}
+
+/* Alert Actions - Centered Button Layout */
+.alert-actions {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+/* Dark mode support for alert actions */
+@media (prefers-color-scheme: dark) {
+  .alert-actions {
+    border-top-color: var(--color-border-dark);
+  }
 }
 
 .alert-bordered.alert-success {
@@ -165,12 +183,12 @@
   }
 
   .alert-dismissible .btn-close {
-    top: 0.5rem;
-    right: 0.5rem;
+    top: var(--space-2);
+    right: var(--space-2);
   }
 
   .alert-content {
-    gap: 0.5rem;
+    gap: var(--space-2);
   }
 
   .alert-icon {

@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Table, Badge, Tabs, Tab, Spinner } from 'react-bootstrap';
 import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar } from 'react-icons/fa';
+import { lang } from '../../lang.constants';
 import { getMyInvites, getInviteDetails, getInviteAnalytics } from '../../utilities/invite-tracking-service';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
@@ -233,7 +234,7 @@ export default function InviteTracking() {
           className="btn btn-outline-secondary mb-3"
           onClick={() => setActiveTab('overview')}
         >
-          ← Back to Overview
+          {lang.en.button.backToOverview}
         </button>
 
         <Row>

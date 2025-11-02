@@ -2,7 +2,6 @@ import "./ExperiencesByTag.css";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
-import { useApp } from "../../contexts/AppContext";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import Alert from "../../components/Alert/Alert";
 import PageMeta from "../../components/PageMeta/PageMeta";
@@ -14,16 +13,7 @@ import * as experiencesAPI from "../../utilities/experiences-api";
 export default function ExperiencesByTag() {
   const { tagName } = useParams();
   const { experiences, plans, loading } = useData();
-  const { registerH1, clearActionButtons } = useApp();
   const [actualTagName, setActualTagName] = useState("");
-
-  // Register h1 for navbar integration
-  useEffect(() => {
-    const h1 = document.querySelector('h1');
-    if (h1) registerH1(h1);
-
-    return () => clearActionButtons();
-  }, [registerH1, clearActionButtons]);
 
   // Filter experiences by tag
   const filteredExperiences = useMemo(() => {

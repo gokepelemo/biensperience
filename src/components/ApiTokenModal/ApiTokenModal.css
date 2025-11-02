@@ -4,15 +4,15 @@
 
 .api-access-toggle {
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  transition: all 0.3s ease;
+  transition: var(--transition-normal);
 }
 
 .api-access-toggle:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 form {
-    margin: 2.5rem 0;
+    margin: var(--space-10) 0;
     padding: 0;
 }
 
@@ -34,43 +34,43 @@ button.generate-token {
 }
 
 .api-access-toggle .form-check-input:checked {
-  background-color: #28a745;
-  border-color: #28a745;
+  background-color: var(--color-success);
+  border-color: var(--color-success);
 }
 
 .api-access-toggle .form-check-input:focus {
-  box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.25);
-  border-color: #28a745;
+  box-shadow: 0 0 0 0.25rem var(--color-success-light);
+  border-color: var(--color-success);
 }
 
 /* Token display */
 .user-select-all {
   user-select: all;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   word-break: break-all;
 }
 
 /* List group items */
 .list-group-item {
-  transition: background-color 0.2s ease;
+  transition: var(--transition-fast);
 }
 
 .list-group-item:hover {
-  background-color: #f8f9fa;
+  background-color: var(--color-bg-secondary);
 }
 
 /* Code blocks */
 pre {
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 code {
-  background-color: #f8f9fa;
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
+  background-color: var(--color-bg-secondary);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
   font-family: 'Courier New', Courier, monospace;
 }
 
@@ -78,24 +78,24 @@ code {
 @media (max-width: 576px) {
   .modal-xl {
     max-width: 100%;
-    margin: 0.5rem;
+    margin: var(--space-3);
   }
 
   .modal-lg {
     max-width: 100%;
-    margin: 0.5rem;
+    margin: var(--space-3);
   }
 
   .api-access-toggle h5 {
-    font-size: 1rem;
+    font-size: var(--font-size-base);
   }
 
   .api-access-toggle .small {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
   }
 
   pre {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
   }
 }
 

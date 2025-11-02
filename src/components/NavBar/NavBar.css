@@ -4,9 +4,9 @@
     top: 0;
     left: 0;
     right: 0;
-    z-index: 1030;
+    z-index: var(--z-index-fixed);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    animation: slideDown 0.3s ease-out;
+    animation: slideDown var(--transition-normal) ease-out;
 }
 
 @keyframes slideDown {
@@ -22,34 +22,34 @@
 
 /* Add padding to body when navbar is sticky to prevent content jump */
 body:has(.navbar.sticky) {
-    padding-top: 70px;
+    padding-top: 70px; /* Fixed value for layout stability */
 }
 
 button.logo {
-    margin: 0 0.25rem;
-    font-size: 2rem; /* Match experience card buttons */
-    font-weight: 400; /* Lighter weight for better centering */
+    margin: 0 var(--space-1);
+    font-size: var(--font-size-2xl); /* Match experience card buttons */
+    font-weight: var(--font-weight-regular); /* Lighter weight for better centering */
     padding: 0;
-    line-height: 1;
+    line-height: var(--line-height-tight);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    width: 44px; /* WCAG minimum touch target */
+    height: 44px; /* WCAG minimum touch target */
+    background: var(--gradient-primary);
     color: white;
     border: none;
-    transition: all 0.3s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: all var(--transition-normal) ease;
+    font-family: var(--font-family-base);
 }
 
 button.logo:hover {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%); /* Component-specific success gradient */
     transform: scale(1.1);
 }
 
 nav {
-    font-weight: bold;
+    font-weight: var(--font-weight-bold);
 }
 
 /* Navbar brand wrapper for dynamic text */
@@ -59,34 +59,34 @@ nav {
 }
 
 .brand-text {
-    transition: all 0.3s ease;
+    transition: all var(--transition-normal) ease;
     display: inline-block;
 }
 
 /* Nav link styling with theme colors and padding */
 .navbar .nav-link {
-    padding: 0.75rem 1rem;
-    margin: 0 0.125rem;
-    transition: all 0.3s ease;
+    padding: var(--space-3) var(--space-4);
+    margin: 0 var(--space-1);
+    transition: all var(--transition-normal) ease;
     position: relative;
 }
 
 .navbar .nav-link:hover,
 .navbar .nav-link:focus {
-    color: #667eea !important;
-    background: rgba(102, 126, 234, 0.1);
-    border-radius: 0.5rem;
+    color: var(--color-primary) !important;
+    background: var(--color-primary-light);
+    border-radius: var(--radius-md);
 }
 
 .navbar .nav-link:focus-visible {
-    outline: 2px solid #667eea;
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
 }
 
 /* Dropdown items */
 .dropdown-menu {
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
     padding: 0; /* Remove default padding */
     overflow: hidden; /* Ensure rounded corners are maintained */
     /* Custom animation handled via JavaScript for better control */
@@ -96,17 +96,17 @@ nav {
 
 /* Dropdown toggle button styling */
 .navbar .dropdown-toggle {
-    padding: 0.75rem 1rem;
-    margin: 0 0.125rem;
-    color: rgba(255, 255, 255, 0.75) !important;
+    padding: var(--space-3) var(--space-4);
+    margin: 0 var(--space-1);
+    color: rgba(255, 255, 255, 0.75) !important; /* Semi-transparent for contrast */
     text-decoration: none !important;
     border: none;
     background: transparent;
-    font-weight: bold;
+    font-weight: var(--font-weight-bold);
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    transition: all 0.3s ease;
+    gap: var(--space-2);
+    transition: all var(--transition-normal) ease;
 }
 
 /* Ensure dropdown arrow is properly positioned */
@@ -124,42 +124,42 @@ nav {
 .navbar .dropdown-toggle:hover,
 .navbar .dropdown-toggle:focus,
 .navbar .dropdown-toggle[aria-expanded="true"] {
-    color: #667eea !important;
-    background: rgba(102, 126, 234, 0.1);
-    border-radius: 0.5rem;
+    color: var(--color-primary) !important;
+    background: var(--color-primary-light);
+    border-radius: var(--radius-md);
 }
 
 .navbar .dropdown-toggle:focus-visible {
-    outline: 2px solid #667eea;
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
 }
 
 .dropdown-item {
-    padding: 0.75rem 1.25rem;
-    transition: all 0.3s ease;
+    padding: var(--space-3) var(--space-5);
+    transition: all var(--transition-normal) ease;
 }
 
 /* First item should have rounded top corners */
 .dropdown-item:first-child {
-    border-top-left-radius: 0.5rem;
-    border-top-right-radius: 0.5rem;
+    border-top-left-radius: var(--radius-md);
+    border-top-right-radius: var(--radius-md);
 }
 
 /* Last item should have rounded bottom corners */
 .dropdown-item:last-child {
-    border-bottom-left-radius: 0.5rem;
-    border-bottom-right-radius: 0.5rem;
+    border-bottom-left-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
 }
 
 /* Dropdown divider styling */
 .dropdown-menu .dropdown-divider {
     margin: 0;
-    opacity: 0.2;
+    opacity: 0.2; /* Custom opacity for subtle divider */
 }
 
 .dropdown-item:hover,
 .dropdown-item:focus {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     color: white !important;
 }
 
@@ -179,19 +179,19 @@ nav {
 
 .dropdown-item.active,
 .dropdown-item:active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: var(--gradient-primary) !important;
     color: white !important;
 }
 
 .dropdown-item:focus-visible {
-    outline: 2px solid #667eea;
+    outline: 2px solid var(--color-primary);
     outline-offset: -2px;
 }
 
 /* Navbar brand */
 .navbar-brand {
-    padding: 0.5rem 1rem;
-    transition: all 0.3s ease;
+    padding: var(--space-2) var(--space-4);
+    transition: all var(--transition-normal) ease;
     color: white !important;
 }
 
@@ -201,16 +201,16 @@ nav {
 }
 
 .navbar-brand:focus-visible {
-    outline: 2px solid #667eea;
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
 }
 
 /* Custom collapse transitions for mobile menu */
 .navbar-collapse.collapsing {
     height: 0;
     overflow: hidden;
-    transition: height 0.35s ease;
+    transition: height 0.35s ease; /* Custom timing for collapse animation */
 }
 
 .navbar-collapse.collapse:not(.show) {
@@ -225,15 +225,15 @@ nav {
 .navbar-search {
     flex: 0 1 400px;
     max-width: 400px;
-    margin-left: 1rem;
-    margin-right: 1rem;
+    margin-left: var(--space-4);
+    margin-right: var(--space-4);
 }
 
 @media (max-width: 992px) {
     .navbar-search {
         flex: 1 1 100%;
         max-width: 100%;
-        margin: 0.5rem 0;
+        margin: var(--space-2) 0;
     }
 }
 
@@ -246,6 +246,6 @@ nav {
 @media (max-width: 992px) {
     .navbar-actions {
         width: 100%;
-        margin-top: 0.5rem;
+        margin-top: var(--space-2);
     }
 }

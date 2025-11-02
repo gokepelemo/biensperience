@@ -1,6 +1,7 @@
 import * as usersAPI from "./users-api.js"
 import { debug } from "./debug.js"
 import { logger } from "./logger"
+import { clearSession } from "./session-utils.js"
 
 /**
  * Signs up a new user and stores their authentication token.
@@ -87,9 +88,6 @@ export function getUser() {
  * Handles Safari private browsing mode where localStorage may not be available.
  */
 export async function logout() {
-    // Import session utilities
-    const { clearSession } = await import('./session-utils.js');
-    
     try {
         // Clear session on backend if user is authenticated
         const token = getToken();

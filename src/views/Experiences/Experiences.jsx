@@ -1,8 +1,7 @@
 import "./Experiences.css";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
-import { useApp } from "../../contexts/AppContext";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import SortFilter from "../../components/SortFilter/SortFilter";
 import PageMeta from "../../components/PageMeta/PageMeta";
@@ -14,17 +13,8 @@ import { sortItems, filterExperiences } from "../../utilities/sort-filter";
 export default function Experiences() {
   const { user } = useUser();
   const { experiences, plans, loading } = useData();
-  const { registerH1, clearActionButtons } = useApp();
   const [sortBy, setSortBy] = useState("alphabetical");
   const [filterBy, setFilterBy] = useState("all");
-
-  // Register h1 for navbar integration
-  useEffect(() => {
-    const h1 = document.querySelector('h1');
-    if (h1) registerH1(h1);
-
-    return () => clearActionButtons();
-  }, [registerH1, clearActionButtons]);
 
   // Deduplicate, filter, and sort experiences
   const processedExperiences = useMemo(() => {

@@ -133,7 +133,7 @@ export default function ResetPassword() {
 
                     <div className="text-center mt-4">
                       <Link to="/login" className="text-muted">
-                        Back to Login
+                        {lang.en.button.backToLogin}
                       </Link>
                     </div>
                   </form>

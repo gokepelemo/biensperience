@@ -156,7 +156,7 @@ app.get('/', (req, res, next) => {
     return res.json({
       message: 'Biensperience API Server',
       status: 'running',
-      version: '0.2.0',
+      version: '0.3.1',
       frontend: {
         url: clientOrigin,
         message: `Please visit ${clientOrigin} to use the application`
@@ -188,7 +188,7 @@ app.get('/', (req, res, next) => {
 const buildPath = path.join(__dirname, "build");
 try {
   if (process.env.NODE_ENV !== 'test') {
-    app.use(favicon(path.join(buildPath, "favicon.ico")));
+    app.use(favicon(path.join(buildPath, "icon.svg")));
     app.use(express.static(buildPath));
   }
 } catch (err) {

@@ -1,8 +1,7 @@
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
-import { useApp } from "../../contexts/AppContext";
 import { useUser } from "../../contexts/UserContext";
+import { lang } from "../../lang.constants";
 import HeroBanner from "../../components/HeroBanner/HeroBanner";
 import DestinationCard from "../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
@@ -12,21 +11,11 @@ import Alert from "../../components/Alert/Alert";
 
 export default function AppHome() {
   const { experiences, destinations, plans, loading } = useData();
-  const { registerH1, clearActionButtons } = useApp();
   const { user } = useUser();
   const navigate = useNavigate();
 
-  // Register h1 for navbar integration
-  useEffect(() => {
-    const h1 = document.querySelector('h2'); // Using h2 as main heading on home
-    if (h1) registerH1(h1);
-
-    return () => clearActionButtons();
-  }, [registerH1, clearActionButtons]);
-
   // Check if this is a new user with no content
   const isEmptyState = !loading && destinations.length === 0 && experiences.length === 0;
-  const hasNothingPlanned = !loading && plans.length === 0;
 
   return (
     <PageWrapper title="Biensperience">
@@ -50,24 +39,24 @@ export default function AppHome() {
           <div className="col-12 col-md-8 col-lg-6">
             <Alert
               type="info"
-              title={`Welcome${user?.name ? `, ${user.name}` : ''}!`}
+              title={lang.en.alert.welcomeTitle.replace('{name}', user?.name ? `, ${user.name}` : '')}
               dismissible={false}
             >
               <p className="mb-3">
-                It looks like this is a fresh start! Get started by creating your first destination or experience.
+                {lang.en.alert.welcomeFreshStart}
               </p>
               <div className="d-grid gap-2 d-md-flex justify-content-md-center">
                 <button
                   className="btn btn-primary"
                   onClick={() => navigate('/destinations/new')}
                 >
-                  ✚ Create Your First Destination
+                  {lang.en.button.createDestination}
                 </button>
                 <button
                   className="btn btn-outline-primary"
                   onClick={() => navigate('/experiences/new')}
                 >
-                  ✚ Create Your First Experience
+                  {lang.en.button.createExperience}
                 </button>
               </div>
             </Alert>
@@ -76,7 +65,7 @@ export default function AppHome() {
       ) : (
         <>
           <div className="row d-flex justify-content-center align-items-center fade-in">
-            <h2 className="my-4 fade-in">Popular Destinations</h2>
+            <h2 className="my-4 fade-in">{lang.en.heading.popularDestinations}</h2>
             {destinations && destinations.length > 0 ? (
               destinations
                 .filter((destination, index) => index <= 9)
@@ -90,12 +79,12 @@ export default function AppHome() {
             ) : (
               <div className="col-12">
                 <Alert type="info" dismissible={false}>
-                  <p className="mb-2">No destinations yet. Be the first to add one!</p>
+                  <p className="mb-2">{lang.en.alert.noDestinationsYet}</p>
                   <button
                     className="btn btn-sm btn-primary"
                     onClick={() => navigate('/destinations/new')}
                   >
-                    ✚ Add Destination
+                    {lang.en.button.createDestination}
                   </button>
                 </Alert>
               </div>
@@ -103,7 +92,7 @@ export default function AppHome() {
           </div>
 
           <div className="row d-flex justify-content-center align-items-center fade-in">
-            <h2 className="my-4 fade-in">Curated Experiences</h2>
+            <h2 className="my-4 fade-in">{lang.en.heading.curatedExperiences}</h2>
             {experiences && experiences.length > 0 ? (
               experiences
                 .filter((experience, index) => index <= 11)
@@ -118,12 +107,12 @@ export default function AppHome() {
             ) : (
               <div className="col-12">
                 <Alert type="info" dismissible={false}>
-                  <p className="mb-2">No experiences yet. Create the first one!</p>
+                  <p className="mb-2">{lang.en.alert.noExperiencesYet}</p>
                   <button
                     className="btn btn-sm btn-primary"
                     onClick={() => navigate('/experiences/new')}
                   >
-                    ✚ Add Experience
+                    {lang.en.button.createExperience}
                   </button>
                 </Alert>
               </div>

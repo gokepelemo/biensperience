@@ -13,18 +13,18 @@ form.update-experience-form .form-control,
 form.update-experience-form .form-select,
 form.new-experience-form .form-control,
 form.new-experience-form .form-select {
-    border-radius: 2rem;
-    line-height: 1.5;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    border-radius: var(--radius-2xl);
+    line-height: var(--line-height-normal);
+    transition: var(--transition-fast);
 }
 
 /* InputGroup container styling - responsive sizing in shared/forms.css */
 form.update-experience-form .input-group,
 form.new-experience-form .input-group {
-    border-radius: 2rem;
-    border: 1px solid #ced4da;
-    background-color: #fff;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    border-radius: var(--radius-2xl);
+    border: 1px solid var(--color-border-medium);
+    background-color: var(--color-bg-primary);
+    transition: var(--transition-fast);
 }
 
 /* InputGroup internal controls - remove border and padding since container has it */
@@ -32,7 +32,7 @@ form.update-experience-form .input-group .form-control,
 form.new-experience-form .input-group .form-control {
     border: none;
     padding: 0;
-    line-height: 1.5;
+    line-height: var(--line-height-normal);
 }
 
 form.update-experience-form .input-group-text,

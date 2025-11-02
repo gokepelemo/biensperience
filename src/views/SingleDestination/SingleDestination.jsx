@@ -68,7 +68,7 @@ export default function SingleDestination() {
     if (user && destination && isOwner(user, destination)) {
       setPageActionButtons([
         {
-          label: 'Edit',
+          label: lang.en.button.edit,
           onClick: () => navigate(`/destinations/${destination._id}/update`),
           variant: 'outline-primary',
           icon: '✏️',
@@ -212,7 +212,7 @@ export default function SingleDestination() {
 
             <div className="row my-2 p-3 d-flex align-items-center justify-content-center">
               <h2 className="experiencesHeading mb-5">
-                {lang.en.heading.experiencesIn} {destination.name}
+                {lang.en.heading.experiencesIn.replace('{destinationName}', destination.name)}
               </h2>
               {destinationExperiences.length > 0 ? (
                 destinationExperiences.map((experience, index) => (

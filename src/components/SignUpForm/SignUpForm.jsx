@@ -215,7 +215,7 @@ function SignUpForm(props) {
         </form>
         <p className="error-message">{state.error ? state.error : ""}</p>
         
-        <SocialLoginButtons buttonText="Sign up with" />
+        <SocialLoginButtons actionType="signup" />
         
         <div className="login-signup center-login">
           <span>{lang.en.message.alreadyHaveAccount}</span> <button type="button" className="signup-link link-btn" onClick={handleLoginClick}>{lang.en.button.signIn}</button>

@@ -65,3 +65,23 @@
     max-width: 90%;
   }
 }
+
+/* Modal Footer - Centered Button Layout */
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--color-border-medium);
+  background-color: var(--color-bg-secondary);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+/* Dark mode support for modal footer */
+@media (prefers-color-scheme: dark) {
+  .modal-footer {
+    background-color: var(--color-bg-tertiary);
+    border-top-color: var(--color-border-dark);
+  }
+}

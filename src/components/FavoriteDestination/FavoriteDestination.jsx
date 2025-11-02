@@ -58,7 +58,7 @@ export default function FavoriteDestination({ destination, user, getData }) {
         show={showAlertModal}
         onClose={() => setShowAlertModal(false)}
         title={lang.en.modal.updateFailed}
-        message="Failed to update favorite. Please try again."
+        message={lang.en.modal.updateFailedMessage}
         variant="danger"
       />
     </>

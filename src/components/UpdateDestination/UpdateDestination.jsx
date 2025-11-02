@@ -83,7 +83,7 @@ export default function UpdateDestination() {
         const canEdit = isOwner(user, destinationData) || isSuperAdmin(user);
 
         if (!canEdit) {
-          setError("You are not authorized to update this destination.");
+          setError(lang.en.alert.notAuthorizedToUpdateDestination);
           setLoading(false);
           return;
         }
@@ -94,7 +94,7 @@ export default function UpdateDestination() {
         setLoading(false);
       } catch (err) {
         const errorMessage = handleError(err, { context: 'Loading destination for update' });
-        setError(errorMessage || "Failed to load destination. Please try again.");
+        setError(errorMessage || lang.en.alert.failedToLoadResource);
         setLoading(false);
       }
     }

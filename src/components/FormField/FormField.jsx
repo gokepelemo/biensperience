@@ -89,7 +89,7 @@ export default function FormField({
   );
 
   return (
-    <Form.Group className="mb-3" controlId={name}>
+    <Form.Group className="mb-3">
       {label && (
         <Form.Label>
           {label}

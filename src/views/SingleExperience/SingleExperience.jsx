@@ -23,6 +23,7 @@ import {
   addPlanItem as addExperiencePlanItem,
   updatePlanItem as updateExperiencePlanItem,
   addExperienceCollaborator,
+  removeExperienceCollaborator,
 } from "../../utilities/experiences-api";
 import {
   getUserPlans,
@@ -33,6 +34,8 @@ import {
   updatePlanItem,
   addPlanItem as addPlanItemToInstance,
   deletePlanItem as deletePlanItemFromInstance,
+  removeCollaborator,
+  addCollaborator,
 } from "../../utilities/plans-api";
 import {
   formatDateShort,
@@ -45,6 +48,7 @@ import { handleError } from "../../utilities/error-handler";
 import { createExpirableStorage } from "../../utilities/cookie-utils";
 import { formatCurrency } from "../../utilities/currency-utils";
 import { sendEmailInvite } from "../../utilities/invites-api";
+import { searchUsers } from "../../utilities/users-api";
 import debug from "../../utilities/debug";
 
 // Constants for sync alert cookie management
@@ -900,10 +904,9 @@ export default function SingleExperience() {
         for (const collaborator of removedCollaborators) {
           try {
             if (isExperienceContext) {
-              const { removeExperienceCollaborator } = await import("../../utilities/experiences-api");
+              // Dynamic import removed - using static import
               await removeExperienceCollaborator(experienceId, collaborator._id);
             } else {
-              const { removeCollaborator } = await import("../../utilities/plans-api");
               await removeCollaborator(selectedPlanId, collaborator._id);
             }
           } catch (err) {
@@ -921,7 +924,6 @@ export default function SingleExperience() {
             if (isExperienceContext) {
               await addExperienceCollaborator(experienceId, collaborator._id);
             } else {
-              const { addCollaborator } = await import("../../utilities/plans-api");
               await addCollaborator(selectedPlanId, collaborator._id);
             }
           } catch (err) {
@@ -1055,7 +1057,6 @@ export default function SingleExperience() {
     }
 
     try {
-      const { searchUsers } = await import("../../utilities/users-api");
       const results = await searchUsers(query);
       
       // Filter out users that are already selected or are the current user (owner)
@@ -2726,7 +2727,7 @@ export default function SingleExperience() {
           dialogClassName="responsive-modal-dialog"
           scrollable={true}
           submitText="Confirm Sync"
-          cancelText="Cancel"
+          cancelText={lang.en.button.cancel}
           onSubmit={confirmSyncPlan}
           loading={loading}
           disableSubmit={
@@ -3099,7 +3100,7 @@ export default function SingleExperience() {
             ? "Add Item"
             : "Update Item"
         }
-        cancelText="Cancel"
+        cancelText={lang.en.button.cancel}
         loading={loading}
         disableSubmit={!editingPlanItem.text}
       >

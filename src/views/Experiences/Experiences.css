@@ -1,9 +1,9 @@
 button, .btn {
-    transition: box-shadow 0.2s, transform 0.2s;
-    padding: 0.5rem 1rem;
+    transition: box-shadow var(--transition-base), transform var(--transition-base);
+    padding: var(--space-2) var(--space-4);
 }
 button:hover, .btn:hover {
-    box-shadow: 0 4px 16px rgba(79,91,213,0.18);
+    box-shadow: var(--shadow-md);
     transform: translateY(-2px);
 }
 
@@ -17,15 +17,15 @@ button:hover, .btn:hover {
 .experiences-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 2rem;
+    gap: var(--space-8);
     justify-content: center;
     align-items: stretch;
-    margin-bottom: 2rem;
+    margin-bottom: var(--space-8);
 }
 h1.h {
     text-align: center;
-    font-weight: bold;
-    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: var(--font-weight-bold);
+    font-size: clamp(var(--font-size-2xl), 5vw, var(--font-size-4xl));
 }
 
 @media (min-width: 768px) {

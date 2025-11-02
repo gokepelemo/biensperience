@@ -1,11 +1,11 @@
 .login-signup {
-	margin-top: 1.2rem;
+	margin-top: var(--space-5);
 }
 .signup-link {
-	font-size: 1rem;
-	padding: 0 0.25rem;
+	font-size: var(--font-size-base);
+	padding: 0 var(--space-1);
 	text-transform: none;
-	font-weight: 500;
+	font-weight: var(--font-weight-medium);
 	vertical-align: baseline;
 }
 /* Center the login form and make it small */
@@ -14,14 +14,14 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: #f7f8fa;
+	background: var(--color-bg-secondary);
 }
 
 .login-form-wrapper {
-	background: #fff;
-	padding: 2.5rem 2rem;
-	border-radius: 1.25rem;
-	box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+	background: var(--color-bg-primary);
+	padding: var(--space-10) var(--space-8);
+	border-radius: var(--radius-xl);
+	box-shadow: var(--shadow-lg);
 	width: 100%;
 	max-width: 370px;
 	display: flex;
@@ -33,25 +33,25 @@
 	width: 100%;
 	display: flex;
 	flex-direction: column;
-	gap: 1.1rem;
+	gap: var(--space-4);
 }
 
 .login-input {
 	display: block;
 	width: 100%;
-	margin: 0.2rem 0 0.2rem 0;
-	padding: 0.7rem 1rem;
-	font-size: 1rem;
-	border-radius: 0.5rem;
-	border: 1px solid #e0e3ea;
-	background: #f7f8fa;
+	margin: var(--space-1) 0 var(--space-1) 0;
+	padding: var(--space-3) var(--space-4);
+	font-size: var(--font-size-base);
+	border-radius: var(--radius-md);
+	border: 1px solid var(--color-border-medium);
+	background: var(--color-bg-secondary);
 }
 
 .login-title {
 	text-align: center;
-	font-size: 1.6rem;
-	font-weight: 700;
-	margin-bottom: 1.2rem;
+	font-size: var(--font-size-2xl);
+	font-weight: var(--font-weight-bold);
+	margin-bottom: var(--space-5);
 }
 
 .login-options {
@@ -59,7 +59,7 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 0.5rem;
+	margin-bottom: var(--space-2);
 }
 
 .login-btn {
@@ -74,20 +74,20 @@
 .login-signup {
 	width: 100%;
 	text-align: center;
-	margin: 1.2rem 0 0.7rem 0;
+	margin: var(--space-5) 0 var(--space-3) 0;
 }
 
 .divider {
 	width: 100%;
 	text-align: center;
-	margin: 1.2rem 0 0.7rem 0;
+	margin: var(--space-5) 0 var(--space-3) 0;
 }
 
 .error-message {
-	color: #d32f2f;
+	color: var(--color-danger);
 	text-align: center;
-	margin-top: 0.7rem;
-	min-height: 1.2rem;
+	margin-top: var(--space-3);
+	min-height: var(--space-5);
 }
 /* Make Sign In button fit its content */
 .login-btn {
@@ -100,9 +100,9 @@
 }
 /* Link-style buttons: pointer cursor, no underline */
 .link-btn, .forgot-password, .signup-link {
-	color: #5F4BFF;
-	font-weight: 500;
-	font-size: 1rem;
+	color: var(--color-primary);
+	font-weight: var(--font-weight-medium);
+	font-size: var(--font-size-base);
 	text-decoration: none;
 	cursor: pointer;
 	background: none;
@@ -114,14 +114,14 @@
 /* Button styles */
 .login-btn {
 	text-transform: none;
-	font-size: 1rem;
+	font-size: var(--font-size-base);
 }
 
 .login-signup span {
-	font-size: 1rem;
+	font-size: var(--font-size-base);
 }
 
 .signup-link {
 	text-transform: none;
-	font-size: 1rem;
+	font-size: var(--font-size-base);
 }

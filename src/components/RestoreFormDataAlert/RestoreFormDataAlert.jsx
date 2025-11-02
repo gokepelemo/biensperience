@@ -66,15 +66,8 @@ export default function RestoreFormDataAlert({ formId, onRestore, onDiscard, sho
       type="info"
       dismissible={false}
       className="mb-3"
-    >
-      <div className="d-flex justify-content-between align-items-start">
-        <div>
-          <strong>Unsaved changes found</strong>
-          <p className="mb-2">
-            You have unsaved form data from {formatDuration(age)}. Would you like to restore it?
-          </p>
-        </div>
-        <div className="d-flex gap-2">
+      actions={
+        <>
           <button
             className="btn btn-sm btn-primary"
             onClick={handleRestore}
@@ -89,7 +82,14 @@ export default function RestoreFormDataAlert({ formId, onRestore, onDiscard, sho
           >
             Discard
           </button>
-        </div>
+        </>
+      }
+    >
+      <div>
+        <strong>Unsaved changes found</strong>
+        <p className="mb-0">
+          You have unsaved form data from {formatDuration(age)}. Would you like to restore it?
+        </p>
       </div>
     </Alert>
   );

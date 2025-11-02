@@ -21,6 +21,12 @@ export default defineConfig({
     loader: 'jsx',
     include: /src\/.*\.jsx?$/,
     exclude: [],
+    // Enable tree shaking
+    treeShaking: true,
+    // Minify identifiers
+    minifyIdentifiers: true,
+    // Minify syntax
+    minifySyntax: true,
   },
 
   // Set the root directory for the app
@@ -35,6 +41,10 @@ export default defineConfig({
     sourcemap: true,
     // Optimize chunk size
     chunkSizeWarningLimit: 1000,
+    // Enable CSS code splitting
+    cssCodeSplit: true,
+    // Minification options
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -42,24 +52,32 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'bootstrap-vendor': ['react-bootstrap', 'bootstrap'],
           'icons': ['react-icons'],
-        }
+          // Split large utility libraries
+          'utils-vendor': ['js-cookie', 'dompurify', 'store2'],
+          // AWS SDK is large, split it
+          'aws-vendor': ['@aws-sdk/client-s3'],
+        },
+        // Optimize chunk file names for caching
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     }
   },
 
   // Dev server configuration
   server: {
-    port: 3000,
+    port: 3001,
     open: true,
     // Proxy API requests to backend
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
       },
       '/auth': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
       }
@@ -68,7 +86,7 @@ export default defineConfig({
 
   // Preview server (for production build preview)
   preview: {
-    port: 3000,
+    port: 3001,
     open: true,
   },
 
@@ -101,6 +119,10 @@ export default defineConfig({
       'react-icons',
       'js-cookie',
       'dompurify',
+      'store2',
+      '@aws-sdk/client-s3',
     ],
+    // Exclude large dependencies from pre-bundling if they're not used immediately
+    exclude: ['@aws-sdk/client-s3']
   },
 });

@@ -11,7 +11,7 @@ import { lang } from "../../lang.constants";
  * @param {boolean} props.show - Controls modal visibility
  * @param {Function} props.onClose - Callback when modal is closed
  * @param {Function} [props.onSubmit] - Optional callback when submit button is clicked
- * @param {string} props.title - Modal title
+ * @param {string|React.ReactNode} props.title - Modal title
  * @param {React.ReactNode} props.children - Modal body content
  * @param {string} [props.submitText="Submit"] - Text for submit button
  * @param {string} [props.submitVariant="primary"] - Bootstrap variant for submit button (primary, danger, success, etc.)
@@ -146,7 +146,7 @@ Modal.propTypes = {
   show: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onSubmit: PropTypes.func,
-  title: PropTypes.string.isRequired,
+  title: PropTypes.node.isRequired,
   children: PropTypes.node.isRequired,
   submitText: PropTypes.string,
   submitVariant: PropTypes.oneOf(['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark']),

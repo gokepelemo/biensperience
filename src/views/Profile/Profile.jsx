@@ -238,7 +238,7 @@ export default function Profile() {
               <p>{profileError}</p>
               <hr />
               <p className="mb-0">
-                <button onClick={getProfile} className="btn btn-primary">Try Again</button>
+                <button onClick={getProfile} className="btn btn-primary">{lang.en.button.tryAgain}</button>
               </p>
             </Alert>
           </div>
@@ -351,7 +351,7 @@ export default function Profile() {
               <PhotoCard photo={currentProfile?.photo} title={currentProfile?.name} />
               {!currentProfile?.photo && isOwner && (
                 <small className="d-flex justify-content-center align-items-center noPhoto fade-in">
-                  <span>{lang.en.message.noPhotoMessage} <Link to="/profile/update">{lang.en.message.uploadPhotoNow}</Link>.</span>
+                  <span>{lang.en.message.noPhotoMessage} <Link to="/profile/update">{lang.en.message.uploadPhotoNow}</Link></span>
                 </small>
               )}
             </>
@@ -372,20 +372,20 @@ export default function Profile() {
                     </Link>
                   ))
                 ) : (
-                  <p className="noFavoriteDestinations fade-in">
+                  <div className="noFavoriteDestinations fade-in">
                     {isOwner ? (
                       <>
-                        {lang.en.message.noFavoriteDestinations}{' '}
-                        <Link to="/destinations" className="fw-bold">
+                        <p className="mb-3">{lang.en.message.noFavoriteDestinations}</p>
+                        <Link to="/destinations" className="btn btn-primary btn-sm">
                           {lang.en.message.addFavoriteDestinations}
                         </Link>
                       </>
                     ) : isLoadingProfile ? (
                       <span className="loading-skeleton loading-skeleton-text"></span>
                     ) : (
-                      `${currentProfile?.name || 'This user'} hasn't added any favorite destinations yet.`
+                      <p className="mb-0">{`${currentProfile?.name || 'This user'} hasn't added any favorite destinations yet.`}</p>
                     )}
-                  </p>
+                  </div>
                 )}
               </div>
             </div>
@@ -402,21 +402,20 @@ export default function Profile() {
                     </Link>
                   ))
                 ) : (
-                  <p className="fade-in">
+                  <div className="fade-in">
                     {isOwner ? (
                       <>
-                        {lang.en.message.noExperiencesYet}
-                        <Link to="/experiences" className="fw-bold">
+                        <p className="mb-3">{lang.en.message.noExperiencesYet}</p>
+                        <Link to="/experiences" className="btn btn-primary btn-sm">
                           {lang.en.message.addExperiences}
                         </Link>
-                        .
                       </>
                     ) : isLoadingProfile ? (
                       <span className="loading-skeleton loading-skeleton-text"></span>
                     ) : (
-                      `${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`
+                      <p className="mb-0">{`${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`}</p>
                     )}
-                  </p>
+                  </div>
                 )}
               </div>
             </div>
@@ -483,18 +482,30 @@ export default function Profile() {
           </div>
         </>
       ) : (
-        <Alert 
+        <Alert
           type="info"
           className="fade-in"
-          message={
-            lang.en.alert.noExperiencesOrDestinations.replace('{type}', 
-              uiState.experiences ? 'experiences' : 
-              uiState.created ? 'created experiences' : 
+        >
+          <p className="mb-3">
+            {lang.en.alert.noExperiencesOrDestinations.replace('{type}',
+              uiState.experiences ? 'experiences' :
+              uiState.created ? 'created experiences' :
               'destinations'
-            ).replace(' Start by adding your first one', isOwner ? ' Start by adding your first one' : '') +
-            (isOwner ? ` ${lang.en.message.addOneNow}` : '')
-          }
-        />
+            ).replace(' Start by adding your first one', isOwner ? ' Start by adding your first one' : '')}
+          </p>
+          {isOwner && (
+            <Link
+              to={
+                uiState.experiences ? '/experiences' :
+                uiState.created ? '/new-experience' :
+                '/destinations'
+              }
+              className="btn btn-primary"
+            >
+              {lang.en.message.addOneNowButton}
+            </Link>
+          )}
+        </Alert>
       )}
 
       {/* Super Admin Permissions Section */}

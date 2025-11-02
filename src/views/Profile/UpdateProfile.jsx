@@ -174,7 +174,7 @@ export default function UpdateProfile() {
     setPasswordError("");
 
     if (Object.keys(changes).length === 0 && !formData.photos) {
-      setError("No changes detected.");
+      setError(lang.en.alert.noChangesDetected);
       return;
     }
 
@@ -307,7 +307,7 @@ export default function UpdateProfile() {
 
       {isAdminMode && !isSuperAdmin(user) ? (
         <div className="container mt-4">
-          <Alert type="danger" message="Access denied. Super admin privileges required." />
+          <Alert type="danger" message={lang.en.alert.accessDeniedAction} />
         </div>
       ) : loading ? (
         <div className="text-center my-5">

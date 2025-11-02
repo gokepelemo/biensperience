@@ -46,7 +46,14 @@ export function AppProvider({ children }) {
    * Example: [{ label: 'Edit', onClick: handleEdit, variant: 'primary', icon: 'pencil' }]
    */
   const setPageActionButtons = useCallback((buttons) => {
-    setActionButtons(buttons || []);
+    setActionButtons(prevButtons => {
+      const newButtons = buttons || [];
+      // Only update if buttons actually changed
+      if (JSON.stringify(prevButtons) !== JSON.stringify(newButtons)) {
+        return newButtons;
+      }
+      return prevButtons;
+    });
   }, []);
 
   /**

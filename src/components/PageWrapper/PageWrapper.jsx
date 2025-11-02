@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContext';
 
 /**
@@ -15,9 +15,11 @@ import { useApp } from '../../contexts/AppContext';
 export default function PageWrapper({
   children,
   title,
-  actionButtons = [],
+  actionButtons,
   h1Selector = 'h1'
 }) {
+  // Use empty array as default if actionButtons is not provided
+  const stableActionButtons = useMemo(() => actionButtons || [], [actionButtons]);
   const {
     registerH1,
     updatePageTitle,
@@ -44,16 +46,14 @@ export default function PageWrapper({
     }
 
     // Set action buttons
-    if (actionButtons.length > 0) {
-      setPageActionButtons(actionButtons);
-    }
+    setPageActionButtons(stableActionButtons);
 
     // Cleanup on unmount
     return () => {
       clearActionButtons();
       updatePageTitle('Biensperience');
     };
-  }, [title, actionButtons, h1Selector, registerH1, updatePageTitle, setPageActionButtons, clearActionButtons]);
+  }, [title, stableActionButtons, h1Selector, registerH1, updatePageTitle, setPageActionButtons, clearActionButtons]);
 
   return <>{children}</>;
 }

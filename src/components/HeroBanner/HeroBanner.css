@@ -11,9 +11,9 @@
     width: 50%;
     height: 100%;
     display: flex;
-    color: #ffffff;
+    color: white;
     padding: 0 var(--space-5);
-    font-size: clamp(1.25rem, 3.5vw, 2.5rem);
+    font-size: clamp(var(--font-size-xl), 3.5vw, var(--font-size-3xl));
     font-weight: var(--font-weight-semibold);
     line-height: var(--line-height-snug);
     letter-spacing: var(--letter-spacing-tight);
@@ -24,9 +24,9 @@
     contain: layout style;
 }
 .hero-banner-title {
-  font-size: clamp(2rem, 7vw, 4rem);
-  font-weight: 800;
-  color: #fff;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.18);
-  margin-bottom: 1rem;
+  font-size: clamp(var(--font-size-2xl), 7vw, var(--font-size-4xl));
+  font-weight: var(--font-weight-extrabold);
+  color: white;
+  text-shadow: var(--shadow-text-sm);
+  margin-bottom: var(--space-4);
 }

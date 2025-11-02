@@ -11,16 +11,23 @@ import PropTypes from 'prop-types';
  * @param {Object} props
  * @param {boolean} [props.isLinking=false] - If true, buttons link accounts instead of logging in
  * @param {Function} [props.onError] - Error callback
- * @param {string} [props.buttonText='Sign in with'] - Button text prefix
+ * @param {string} [props.actionType='signin'] - Action type: 'signin' or 'signup'
  * @param {boolean} [props.showDivider=true] - Show "OR" divider
  */
 export default function SocialLoginButtons({ 
   isLinking = false, 
   onError, 
-  buttonText = 'Sign in with',
+  actionType = 'signin',
   showDivider = true 
 }) {
   const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  
+  // Determine button text based on action type
+  const getButtonText = () => {
+    return actionType === 'signup' ? 'Sign up with' : 'Sign in with';
+  };
+
+  const buttonPrefix = getButtonText();
   
   const handleSocialLogin = (provider) => {
     const endpoint = isLinking ? `/api/auth/link/${provider}` : `/api/auth/${provider}`;
@@ -40,30 +47,30 @@ export default function SocialLoginButtons({
           type="button"
           className="social-btn facebook-btn"
           onClick={() => handleSocialLogin('facebook')}
-          aria-label={`${buttonText} Facebook`}
+          aria-label={`${buttonPrefix} Facebook`}
         >
           <FaFacebook className="social-icon" />
-          <span>{buttonText} Facebook</span>
+          <span>{buttonPrefix} Facebook</span>
         </button>
 
         <button
           type="button"
           className="social-btn google-btn"
           onClick={() => handleSocialLogin('google')}
-          aria-label={`${buttonText} Google`}
+          aria-label={`${buttonPrefix} Google`}
         >
           <FaGoogle className="social-icon" />
-          <span>{buttonText} Google</span>
+          <span>{buttonPrefix} Google</span>
         </button>
 
         <button
           type="button"
           className="social-btn twitter-btn"
           onClick={() => handleSocialLogin('twitter')}
-          aria-label={`${buttonText} X`}
+          aria-label={`${buttonPrefix} X`}
         >
           <FaXTwitter className="social-icon" />
-          <span>{buttonText} X</span>
+          <span>{buttonPrefix} X</span>
         </button>
       </div>
     </div>
@@ -73,6 +80,6 @@ export default function SocialLoginButtons({
 SocialLoginButtons.propTypes = {
   isLinking: PropTypes.bool,
   onError: PropTypes.func,
-  buttonText: PropTypes.string,
+  actionType: PropTypes.oneOf(['signin', 'signup']),
   showDivider: PropTypes.bool,
 };
