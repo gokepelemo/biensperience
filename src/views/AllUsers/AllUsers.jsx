@@ -272,7 +272,7 @@ export default function AllUsers() {
           {error && <Alert type="danger" message={error} dismissible className="mb-4" />}
 
           {/* Filters and Search */}
-          <div className="card mb-4">
+          <div className="all-users-card card mb-4">
             <div className="card-body">
               <div className="row g-3">
                 <div className="col-md-6">

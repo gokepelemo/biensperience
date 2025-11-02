@@ -169,17 +169,7 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):focus {
    CARDS
    ============================================ */
 
-.card {
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-sm);
-    transition: all var(--transition-normal);
-    border: 1px solid var(--color-border-light);
-}
-
-.card:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
-}
+/* Card styles moved to utilities.css for consistency */
 
 /* ============================================
    ALERTS

@@ -110,34 +110,34 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-/* Card Styling */
-.card {
+/* AllUsers-specific card overrides */
+.all-users-card {
   border-radius: 12px;
   border: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
 
-.card-header {
+.all-users-card .card-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-bottom: none;
   color: white;
   padding: 1.25rem 1.5rem;
 }
 
-.card-header h5 {
+.all-users-card .card-header h5 {
   color: white;
   font-weight: 600;
   margin: 0;
 }
 
-.card-body .form-select {
+.all-users-card .card-body .form-select {
   border-radius: 8px;
   border: 1px solid #e2e8f0;
   transition: all 0.2s ease;
 }
 
-.card-body .form-select:focus {
+.all-users-card .card-body .form-select:focus {
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }

@@ -26,26 +26,19 @@
   margin-bottom: var(--space-8);
 }
 
-.card {
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
-  padding: var(--space-6);
+/* AppHome-specific card overrides */
+.cards-wrapper .card {
   min-width: 280px; /* Fixed minimum for card usability */
   max-width: 340px; /* Fixed maximum for optimal reading */
   margin: var(--space-2);
-  transition: box-shadow var(--transition-base);
-}
-
-.card:hover {
-  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
 }
 
 @media (max-width: 900px) {
   .cards-wrapper {
     gap: var(--space-4);
   }
-  .card {
+  .cards-wrapper .card {
     min-width: 220px; /* Smaller minimum for tablets */
     max-width: 100%;
   }

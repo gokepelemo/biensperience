@@ -52,33 +52,24 @@
     z-index: 1070;
 }
 
-/* Pills */
-.pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: #fff;
-    font-weight: 600;
-    font-size: 1rem;
-    border-radius: 2rem;
-    padding: 0.75rem 1.5rem;
-    text-decoration: none;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
-    border: none;
-    transition: all 0.3s ease;
+/* Pills - Using unified design system utility class */
+/* .pill styles are now defined in src/styles/utilities.css for consistency */
+
+/* Profile-specific pill overrides */
+.profile-detail-section:first-child .pill {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
 }
 
-.pill:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    color: #fff;
+.profile-detail-section:first-child .pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  color: #fff;
 }
 
-.pill .icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+.profile-detail-section:first-child .pill .icon,
+.profile-detail-section:first-child .pill svg {
+  color: #fff;
 }
 
 .profile-pill {

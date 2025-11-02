@@ -5,25 +5,22 @@ button:hover, .btn:hover {
     box-shadow: var(--shadow-md);
     transform: translateY(-2px);
 }
+
+/* Pills - Using unified design system utility class */
+/* .pill styles are now defined in src/styles/utilities.css for consistency */
+
+/* FavoriteDestination-specific pill overrides */
 .pill {
-    display: inline-flex;
-    align-items: center;
-    padding: var(--space-2) var(--space-4);
-    border-radius: var(--radius-full);
-    font-weight: var(--font-weight-medium);
-    font-size: var(--font-size-base);
     background: linear-gradient(90deg, #4f5bd5 0%, #5f4fd5 100%);
-    color: #fff !important;
-    box-shadow: var(--shadow-xs);
     margin: var(--space-1);
-    transition: var(--transition-base);
-    text-decoration: none;
 }
+
 .pill.inactive {
     background: var(--color-bg-tertiary);
     color: var(--color-text-muted);
     box-shadow: none;
 }
+
 .pill .icon {
     margin-right: var(--space-2);
     font-size: var(--font-size-lg);
