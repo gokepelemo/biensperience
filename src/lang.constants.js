@@ -137,6 +137,36 @@ const en = {
     multipleCollaboratorsAddedMessage: "{count} collaborators have been added to your {context} and can now view and edit it.",
     syncPlanTitle: "Sync Plan with Experience",
     removeExperienceTitle: "Remove Experience from Your Plans",
+    
+    // Additional modal titles
+    addNewDestination: "Add New Destination",
+    resetPassword: "Reset Password",
+    activityDetails: "Activity Details",
+    deletePhoto: "Delete Photo",
+    photoUrlRequired: "Photo URL Required",
+    unableToUpdateExperience: "Unable to Update Experience",
+    updateFailed: "Update Failed",
+    
+    // Error titles
+    pageError: "Page Error",
+    formError: "Form Error",
+    experienceError: "Experience Error",
+    destinationError: "Destination Error",
+    accessDenied: "Access Denied",
+    userNotFound: "User Not Found",
+    unableToLoadProfile: "Unable to Load Profile",
+    
+    // Error messages
+    errorLoadingPage: "We encountered an error loading this page. Please try again or return home.",
+    errorLoadingForm: "Error loading the form. Please try again.",
+    errorLoadingExperience: "Error loading experience details.",
+    errorLoadingDestination: "Error loading destination details.",
+    photoUrlRequiredMessage: "Please enter a valid photo URL to continue.",
+    
+    // Confirmation messages
+    deletePhotoConfirm: "Are you sure you want to permanently delete this photo? This action cannot be undone.",
+    removeExperienceConfirm: "Are you sure you want to remove this experience from your plans?",
+    unsavedChangesMessage: "You have unsaved changes. Are you sure you want to leave?",
   },
 
   heading: {

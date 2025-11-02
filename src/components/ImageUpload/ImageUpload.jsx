@@ -470,7 +470,7 @@ export default function ImageUpload({ data, setData }) {
       <AlertModal
         show={showAlertModal}
         onClose={() => setShowAlertModal(false)}
-        title="Photo URL Required"
+        title={lang.en.modal.photoUrlRequired}
         message={alertMessage}
         variant="warning"
       />
@@ -488,8 +488,8 @@ export default function ImageUpload({ data, setData }) {
             setPhotoToDeleteIndex(null);
           }
         }}
-        title="Delete Photo"
-        message="Are you sure you want to permanently delete this photo? This action cannot be undone."
+        title={lang.en.modal.deletePhoto}
+        message={lang.en.modal.deletePhotoConfirm}
         confirmText="Delete Photo"
         confirmVariant="danger"
       />

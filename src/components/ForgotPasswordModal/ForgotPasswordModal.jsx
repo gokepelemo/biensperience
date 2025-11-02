@@ -46,7 +46,7 @@ export default function ForgotPasswordModal({ show, onClose }) {
       show={show}
       onClose={handleClose}
       onSubmit={success ? undefined : handleSubmit}
-      title="Reset Password"
+      title={lang.en.modal.resetPassword}
       size="md"
       submitText="Send Reset Link"
       cancelText={lang.en.button.cancel}

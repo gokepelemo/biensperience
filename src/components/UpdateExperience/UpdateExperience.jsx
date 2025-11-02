@@ -293,7 +293,7 @@ export default function UpdateExperience() {
           <div className="col-md-8">
             <Alert
               type="danger"
-              title="Unable to Update Experience"
+              title={lang.en.modal.unableToUpdateExperience}
             >
               <p>{error || "Experience not found or you don't have permission to update it."}</p>
               <hr />

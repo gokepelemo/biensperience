@@ -424,7 +424,7 @@ export default function ActivityMonitor({ show, onHide }) {
       <Modal 
         show={showDetails} 
         onClose={() => setShowDetails(false)} 
-        title="Activity Details"
+        title={lang.en.modal.activityDetails}
         size="lg"
         showSubmitButton={false}
         showCancelButton={false}

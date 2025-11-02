@@ -105,7 +105,7 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
     <Modal
       show={show}
       onClose={handleCancel}
-      title="Add New Destination"
+      title={lang.en.modal.addNewDestination}
       size="md"
       footer={
         <>
