@@ -966,7 +966,7 @@ export default function SingleExperience() {
 
       // Validation
       if (!emailInviteData.email.trim() || !emailInviteData.name.trim()) {
-        setEmailInviteError('Email and name are required');
+        setEmailInviteError(lang.en.label.emailAndNameRequired);
         return;
       }
 
@@ -2574,7 +2574,7 @@ export default function SingleExperience() {
             {/* Selected Collaborators Display */}
             {selectedCollaborators.length > 0 && (
               <div className="mb-3">
-                <label className="form-label">Selected Collaborators</label>
+                <label className="form-label">{lang.en.label.selectedCollaborators}</label>
                 <div className="d-flex flex-wrap gap-2">
                   {selectedCollaborators.map((collaborator) => (
                     <div
@@ -2614,7 +2614,7 @@ export default function SingleExperience() {
                 id="collaboratorSearch"
                 value={collaboratorSearch}
                 onChange={(e) => handleSearchUsers(e.target.value)}
-                placeholder="Type name or email..."
+                placeholder={lang.en.placeholder.searchNameOrEmail}
                 autoComplete="off"
               />
               {searchResults.length > 0 && (
@@ -2676,7 +2676,7 @@ export default function SingleExperience() {
                     id="inviteEmail"
                     value={emailInviteData.email}
                     onChange={(e) => setEmailInviteData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="collaborator@example.com"
+                    placeholder={lang.en.placeholder.collaboratorEmail}
                   />
                 </div>
 

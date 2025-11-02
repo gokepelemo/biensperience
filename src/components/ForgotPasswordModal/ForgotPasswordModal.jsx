@@ -79,7 +79,7 @@ export default function ForgotPasswordModal({ show, onClose }) {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="your.email@example.com"
+            placeholder={lang.en.placeholder.forgotPasswordEmail}
             required
             autoComplete="email"
             autoFocus

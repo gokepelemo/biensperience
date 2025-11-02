@@ -309,7 +309,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                 <div className="col">
                   <Form.Control
                     type="text"
-                    placeholder="Token name (optional)"
+                    placeholder={lang.en.placeholder.tokenNameOptional}
                     value={newTokenName}
                     onChange={(e) => setNewTokenName(e.target.value)}
                     disabled={isCreating}

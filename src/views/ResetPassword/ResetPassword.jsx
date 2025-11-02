@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { resetPassword } from '../../utilities/users-api';
 import { handleError } from '../../utilities/error-handler';
+import { lang } from '../../lang.constants';
 import FormField from '../../components/FormField/FormField';
 import Alert from '../../components/Alert/Alert';
 import PageMeta from '../../components/PageMeta/PageMeta';
@@ -102,7 +103,7 @@ export default function ResetPassword() {
                       type="password"
                       value={formData.password}
                       onChange={handleChange}
-                      placeholder="Enter new password"
+                      placeholder={lang.en.placeholder.enterNewPassword}
                       required
                       autoComplete="new-password"
                       autoFocus
@@ -116,7 +117,7 @@ export default function ResetPassword() {
                       type="password"
                       value={formData.confirmPassword}
                       onChange={handleChange}
-                      placeholder="Re-enter new password"
+                      placeholder={lang.en.placeholder.reEnterNewPassword}
                       required
                       autoComplete="new-password"
                       minLength={3}

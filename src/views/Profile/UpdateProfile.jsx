@@ -382,7 +382,7 @@ export default function UpdateProfile() {
                   type="password"
                   value={passwordData.oldPassword}
                   onChange={handlePasswordChange}
-                  placeholder="Enter your current password"
+                  placeholder={lang.en.placeholder.enterCurrentPassword}
                   autoComplete="current-password"
                   tooltip={lang.en.helper.currentPassword}
                   tooltipPlacement="top"
@@ -410,7 +410,7 @@ export default function UpdateProfile() {
                 type="password"
                 value={passwordData.confirmPassword}
                 onChange={handlePasswordChange}
-                placeholder="Confirm your new password"
+                placeholder={lang.en.placeholder.confirmNewPassword}
                 autoComplete="new-password"
                 tooltip={lang.en.helper.confirmPassword}
                 tooltipPlacement="top"

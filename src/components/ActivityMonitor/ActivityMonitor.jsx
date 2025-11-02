@@ -11,6 +11,7 @@ import Modal from '../Modal/Modal';
 import { getAllActivities, restoreResourceState } from '../../utilities/activities-api';
 import { formatDateTime } from '../../utilities/date-utils';
 import { handleError } from '../../utilities/error-handler';
+import { lang } from '../../lang.constants';
 import { useToast } from '../../contexts/ToastContext';
 import './ActivityMonitor.css';
 
@@ -259,7 +260,7 @@ export default function ActivityMonitor({ show, onHide }) {
                   <InputGroup>
                     <Form.Control
                       type="text"
-                      placeholder="Search activities..."
+                      placeholder={lang.en.placeholder.searchActivities}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
