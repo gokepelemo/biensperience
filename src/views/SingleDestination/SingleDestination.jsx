@@ -130,8 +130,8 @@ export default function SingleDestination() {
                   <button
                     className="btn btn-icon"
                     onClick={() => navigate(`/destinations/${destination._id}/update`)}
-                    aria-label="Edit Destination"
-                    title="Edit Destination"
+                    aria-label={lang.en.aria.editDestination}
+                    title={lang.en.aria.editDestination}
                   >
                     ✏️
                   </button>

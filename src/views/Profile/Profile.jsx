@@ -272,8 +272,8 @@ export default function Profile() {
                   <FaCheckCircle
                     className="text-success ms-2"
                     style={{ fontSize: '0.6em' }}
-                    title="Email confirmed"
-                    aria-label="Email confirmed"
+                    title={lang.en.aria.emailConfirmed}
+                    aria-label={lang.en.aria.emailConfirmed}
                   />
                 )}
               </>
@@ -289,7 +289,7 @@ export default function Profile() {
                   type="button"
                   data-bs-toggle="dropdown"
                   aria-expanded="false"
-                  aria-label="Profile Actions"
+                  aria-label={lang.en.aria.profileActions}
                 >
                   ⋯
                 </button>
