@@ -5,7 +5,7 @@
   left: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
-  z-index: 1050 !important;
+  z-index: 1100 !important;
 }
 
 .modal.show {
@@ -18,18 +18,18 @@
   left: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
-  z-index: 1051 !important;
+  z-index: 1101 !important;
 }
 
 .modal-dialog-centered {
   margin: 0 auto;
   position: relative;
-  z-index: 1052;
+  z-index: 1102;
 }
 
 .modal-content {
   opacity: 1;
   transform: none;
   position: relative;
-  z-index: 1053;
+  z-index: 1103;
 }
