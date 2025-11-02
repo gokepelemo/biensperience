@@ -256,7 +256,7 @@ export default function UpdateExperience() {
     try {
       const updated = await updateExpAPI(experienceId, experience);
       updateExperience(updated); // Instant UI update!
-      success('Experience updated!');
+      success(lang.en.success.experienceUpdated);
       navigate(`/experiences/${experienceId}`);
     } catch (err) {
       handleFormError(err, { context: 'Update experience' });

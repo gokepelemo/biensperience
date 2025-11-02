@@ -1300,7 +1300,7 @@ export default function SingleExperience() {
     try {
       removeExperience(experience._id); // Instant UI update!
       await deleteExperience(experience._id);
-      success('Experience deleted!');
+      success(lang.en.success.experienceDeleted);
       navigate("/experiences");
     } catch (err) {
       const errorMsg = handleError(err, { context: "Delete experience" });
@@ -1319,7 +1319,7 @@ export default function SingleExperience() {
         await fetchExperience();
         await fetchExperiences();
         setShowPlanDeleteModal(false);
-        success('Plan item deleted!');
+        success(lang.en.success.planItemDeleted);
       } catch (err) {
         const errorMsg = handleError(err, { context: "Delete plan item" });
         showError(errorMsg);
@@ -2389,7 +2389,7 @@ export default function SingleExperience() {
         onConfirm={confirmRemoveExperience}
         title={lang.en.modal.removeExperienceTitle}
         message="Are you sure you want to remove this experience? Your plan and all progress tracked will be permanently deleted."
-        confirmText="Remove Experience"
+        confirmText={lang.en.button.removeExperience}
         confirmVariant="danger"
       />
       <ConfirmModal
@@ -2499,7 +2499,7 @@ export default function SingleExperience() {
                 className="btn btn-primary"
                 disabled={loading}
               >
-                {loading ? "Saving..." : "Save Changes"}
+                {loading ? lang.en.button.saving : lang.en.button.saveChanges}
               </button>
             </div>
           )

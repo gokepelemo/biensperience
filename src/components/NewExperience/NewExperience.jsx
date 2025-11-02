@@ -139,7 +139,7 @@ export default function NewExperience() {
       // Clear saved form data on success
       persistence.clear();
 
-      success('Experience created!');
+      success(lang.en.success.experienceCreated);
       navigate(`/experiences/${experience._id}`);
     } catch (err) {
       handleFormError(err, { context: 'Create experience' });

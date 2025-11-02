@@ -187,7 +187,7 @@ export default function UpdateDestination() {
 
       const updated = await updateDestAPI(destinationId, dataToUpdate);
       updateDestination(updated); // Instant UI update!
-      success('Destination updated!');
+      success(lang.en.success.destinationUpdated);
       navigate(`/destinations/${destinationId}`);
     } catch (err) {
       handleFormError(err, { context: 'Update destination' });

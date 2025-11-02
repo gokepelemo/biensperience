@@ -15,6 +15,7 @@ import { FaCopy, FaTrash, FaKey } from 'react-icons/fa';
 import { getApiTokens, createApiToken, deleteApiToken, toggleApiAccess } from '../../utilities/api-tokens-service';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
+import { lang } from '../../lang.constants';
 import './ApiTokenModal.css';
 
 export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
@@ -137,7 +138,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       setNewToken(result.token); // Store plain token for display
       setTokens([...tokens, result.tokenData]);
       setNewTokenName('');
-      success('API token created successfully. Make sure to copy it now!');
+      success(lang.en.success.apiTokenCreated);
       logger.info('API token created', { tokenId: result.tokenData._id });
     } catch (err) {
       if (!isMountedRef.current) return;

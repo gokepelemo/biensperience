@@ -122,7 +122,7 @@ export default function NewDestination() {
       );
       addDestination(destination);
       persistence.clear();
-      success('Destination created!');
+      success(lang.en.success.destinationCreated);
       navigate(`/experiences/new`);
     } catch (err) {
       handleFormError(err, { context: 'Create destination' });

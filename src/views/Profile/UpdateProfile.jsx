@@ -219,7 +219,7 @@ export default function UpdateProfile() {
       if (isAdminMode) {
         // Admin mode: use admin API
         response = await updateUserAsAdmin(userId, dataToUpdate);
-        success('User profile updated successfully!');
+        success(lang.en.success.userProfileUpdated);
         navigate(`/profile/${userId}`);
       } else {
         // Self mode: use regular API
@@ -235,7 +235,7 @@ export default function UpdateProfile() {
         }
 
         updateUserContext(updatedUser); // Instant UI update!
-        success('Profile updated!');
+        success(lang.en.success.profileUpdated);
         navigate('/profile');
       }
     } catch (err) {

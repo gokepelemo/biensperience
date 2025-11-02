@@ -52,6 +52,10 @@ const en = {
     quickTip: "💡 Quick Tip",
     details: "📋 Detailed Tip",
     addTip: "Add Tip",
+    saveChanges: "Save Changes",
+    saving: "Saving...",
+    removeExperience: "Remove Experience",
+    confirmSync: "Confirm Sync",
   },
 
   alert: {
@@ -62,10 +66,10 @@ const en = {
     notEnoughTimeWarning:
       "Warning: You may not have enough time to plan this experience adequately.",
     noExperiencesOrDestinations:
-      "No {type} found on this profile yet. Start by adding your first one!",
+      "No {type} found on this profile yet. Start by adding your first one",
     noExperiencesInDestination:
-      "No experiences in this destination yet. Be the first to add one!",
-    noTravelTips: "No travel tips shared yet. Add the first one!",
+      "No experiences in this destination yet. Be the first to add one",
+    noTravelTips: "No travel tips shared yet. Add the first one",
     planOutOfSync: "Plan Out of Sync",
     planOutOfSyncMessage:
       "The experience plan has changed since you created this plan. Click \"Sync Now\" to update your plan with the latest items.",
@@ -76,7 +80,7 @@ const en = {
     selectChangesToApply: "Select the changes you want to apply to your plan:",
     planNotFound: "Plan not found.",
     noPlanItems: "No plan items yet.",
-    changesSavedSuccessfully: "Changes Saved Successfully!",
+    changesSavedSuccessfully: "Changes saved successfully",
     addedCollaborators: "Added {count} collaborator{plural}:",
     removedCollaborators: "Removed {count} collaborator{plural}:",
     noChangesMade: "No changes were made.",
@@ -103,6 +107,19 @@ const en = {
     loadingProfile: "Loading your profile...",
   },
 
+  success: {
+    experienceCreated: "Experience created",
+    experienceUpdated: "Experience updated",
+    experienceDeleted: "Experience deleted",
+    destinationCreated: "Destination created",
+    destinationUpdated: "Destination updated",
+    planItemDeleted: "Plan item deleted",
+    profileUpdated: "Profile updated",
+    userProfileUpdated: "User profile updated successfully",
+    apiTokenCreated: "API token created successfully. Make sure to copy it now",
+    changesSaved: "Changes saved successfully",
+  },
+
   modal: {
     confirmDelete: "Delete Experience",
     confirmDeleteMessage:
@@ -115,7 +132,7 @@ const en = {
     confirmUpdateReview: "Please review the changes before updating:",
     addCollaboratorToExperience: "Manage Experience Collaborators",
     addCollaboratorToPlan: "Manage Plan Collaborators",
-    collaboratorAddedSuccess: "Collaborator{plural} Added Successfully!",
+    collaboratorAddedSuccess: "Collaborator{plural} added successfully",
     collaboratorAddedMessage: "{name} has been added as a collaborator to your {context} and can now view and edit it.",
     multipleCollaboratorsAddedMessage: "{count} collaborators have been added to your {context} and can now view and edit it.",
     syncPlanTitle: "Sync Plan with Experience",
