@@ -252,11 +252,11 @@ export default function ActivityMonitor({ show, onHide }) {
           {/* Search and Filters */}
           <div className="filters-section mb-4">
             <Form onSubmit={handleSearch}>
-              <div className="row g-2 align-items-end">
+              <div className="row align-items-end">
                 {/* Search */}
                 <div className="col-lg-3 col-md-6">
-                  <Form.Label className="small">Search</Form.Label>
-                  <InputGroup size="sm">
+                  <Form.Label>Search</Form.Label>
+                  <InputGroup>
                     <Form.Control
                       type="text"
                       placeholder="Search activities..."
@@ -271,10 +271,9 @@ export default function ActivityMonitor({ show, onHide }) {
 
                 {/* Action Filter */}
                 <div className="col-lg-2 col-md-6">
-                  <Form.Label className="small">Action</Form.Label>
-                  <Form.Select 
-                    size="sm"
-                    value={filters.action} 
+                  <Form.Label>Action</Form.Label>
+                  <Form.Select
+                    value={filters.action}
                     onChange={(e) => handleFilterChange('action', e.target.value)}
                   >
                     <option value="">All Actions</option>
@@ -288,10 +287,9 @@ export default function ActivityMonitor({ show, onHide }) {
 
                 {/* Resource Type Filter */}
                 <div className="col-lg-2 col-md-6">
-                  <Form.Label className="small">Resource</Form.Label>
-                  <Form.Select 
-                    size="sm"
-                    value={filters.resourceType} 
+                  <Form.Label>Resource</Form.Label>
+                  <Form.Select
+                    value={filters.resourceType}
                     onChange={(e) => handleFilterChange('resourceType', e.target.value)}
                   >
                     <option value="">All Resources</option>
@@ -303,18 +301,16 @@ export default function ActivityMonitor({ show, onHide }) {
 
                 {/* Date Range */}
                 <div className="col-lg-2 col-md-6">
-                  <Form.Label className="small">Start Date</Form.Label>
+                  <Form.Label>Start Date</Form.Label>
                   <Form.Control
-                    size="sm"
                     type="date"
                     value={filters.startDate}
                     onChange={(e) => handleFilterChange('startDate', e.target.value)}
                   />
                 </div>
                 <div className="col-lg-2 col-md-6">
-                  <Form.Label className="small">End Date</Form.Label>
+                  <Form.Label>End Date</Form.Label>
                   <Form.Control
-                    size="sm"
                     type="date"
                     value={filters.endDate}
                     onChange={(e) => handleFilterChange('endDate', e.target.value)}
@@ -323,12 +319,12 @@ export default function ActivityMonitor({ show, onHide }) {
 
                 {/* Actions */}
                 <div className="col-12">
-                  <div className="d-flex gap-2 mt-2">
-                    <Button variant="primary" size="sm" type="submit" disabled={loading}>
+                  <div className="filter-actions d-flex gap-2">
+                    <Button variant="primary" type="submit" disabled={loading}>
                       <FaFilter className="me-1" />
                       Apply Filters
                     </Button>
-                    <Button variant="outline-secondary" size="sm" onClick={clearFilters} disabled={loading}>
+                    <Button variant="outline-secondary" onClick={clearFilters} disabled={loading}>
                       <FaTimes className="me-1" />
                       Clear Filters
                     </Button>
