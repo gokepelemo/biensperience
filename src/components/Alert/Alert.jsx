@@ -1,4 +1,5 @@
 import React from "react";
+import { lang } from "../../lang.constants";
 import "./Alert.css";
 
 /**
@@ -57,7 +58,7 @@ const Alert = ({
         <button
           type="button"
           className="btn-close"
-          aria-label="Dismiss alert"
+          aria-label={lang.en.aria.dismissAlert}
           onClick={handleDismiss}
           style={closeButtonStyle}
         />

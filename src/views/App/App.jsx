@@ -10,6 +10,7 @@ import { ToastProvider, useToast } from "../../contexts/ToastContext";
 import { UserProvider, useUser } from "../../contexts/UserContext";
 import { DataProvider } from "../../contexts/DataContext";
 import { AppProvider, useApp } from "../../contexts/AppContext";
+import { lang } from "../../lang.constants";
 import AuthPage from "../AuthPage/AuthPage";
 import AppHome from "../AppHome/AppHome";
 import NavBar from "../../components/NavBar/NavBar";
@@ -136,7 +137,7 @@ function AppContent() {
           {isAuthenticated ? (
             <>
               <NavBar />
-              <main id="main-content" className="container" role="main" aria-label="Main content">
+              <main id="main-content" className="container" role="main" aria-label={lang.en.aria.mainContent}>
                 <ErrorBoundary
                   title="Page Error"
                   message="We encountered an error loading this page. Please try again or return home."
@@ -189,7 +190,7 @@ function AppContent() {
               </main>
             </>
           ) : (
-            <main id="main-content" className="container" role="main" aria-label="Authentication">
+            <main id="main-content" className="container" role="main" aria-label={lang.en.aria.authentication}>
               <Routes>
                 <Route path="/signup" element={<AuthPage />} />
                 <Route path="/reset-password/:token" element={<ResetPassword />} />

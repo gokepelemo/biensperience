@@ -205,6 +205,64 @@ const en = {
     emailAndNameRequired: "Email and name are required",
   },
 
+  aria: {
+    // Modal and overlay accessibility
+    close: "Close",
+    closePhotoViewer: "Close photo viewer",
+    dismissAlert: "Dismiss alert",
+    
+    // Navigation
+    mainNavigation: "Main navigation",
+    mainContent: "Main content",
+    authentication: "Authentication",
+    biensperienceHome: "Biensperience home",
+    toggleNavigationMenu: "Toggle navigation menu",
+    browseDestinations: "Browse destinations",
+    browseExperiences: "Browse experiences",
+    userAccountOptions: "User account options",
+    viewYourProfile: "View your profile",
+    trackYourInviteCodes: "Track your invite codes",
+    adminPanelManageUsers: "Admin panel - manage all users",
+    createNewDestination: "Create a new destination",
+    createNewExperience: "Create a new experience",
+    logOutOfAccount: "Log out of your account",
+    
+    // Profile actions
+    emailConfirmed: "Email confirmed",
+    profileActions: "Profile Actions",
+    editDestination: "Edit Destination",
+    
+    // Photos and images
+    photoUpload: "Photo upload",
+    uploadedPhotos: "Uploaded photos",
+    photoCreditName: "Photo credit name",
+    photoCreditUrl: "Photo credit URL",
+    chooseImageFiles: "Choose image files to upload",
+    photoUrl: "Photo URL",
+    photoViewer: "Photo viewer",
+    previousPhoto: "Previous photo",
+    nextPhoto: "Next photo",
+    clickToViewFullSize: "Click to view full size photo",
+    defaultPhoto: "Default photo",
+    switchToFileUpload: "Switch to file upload",
+    useUrlInstead: "Use a URL instead",
+    
+    // Search and filters
+    globalSearch: "Global search",
+    searchResults: "Search results",
+    sortAndFilterOptions: "Sort and filter options",
+    sortExperiences: "Sort experiences",
+    
+    // Form actions
+    restoreSavedFormData: "Restore saved form data",
+    discardSavedFormData: "Discard saved form data",
+    createDestinationContinue: "Create destination and continue to experience",
+    
+    // Tips and help
+    deleteTip: "Delete tip",
+    moreInformation: "More information",
+  },
+
   placeholder: {
     email: "Email Address",
     password: "Password",

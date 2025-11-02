@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchAll } from '../../utilities/search-api';
 import { logger } from '../../utilities/logger';
+import { lang } from '../../lang.constants';
 import './SearchBar.css';
 
 /**
@@ -206,7 +207,7 @@ export default function SearchBar({ placeholder = 'Search destinations, experien
           onKeyDown={handleKeyDown}
           onFocus={() => query.length >= 2 && setShowResults(true)}
           role="combobox"
-          aria-label="Global search"
+          aria-label={lang.en.aria.globalSearch}
           aria-autocomplete="list"
           aria-controls="search-results"
           aria-expanded={showResults}
@@ -225,7 +226,7 @@ export default function SearchBar({ placeholder = 'Search destinations, experien
           id="search-results"
           className="search-results"
           role="listbox"
-          aria-label="Search results"
+          aria-label={lang.en.aria.searchResults}
         >
           {results.length === 0 ? (
             <div className="search-result-item no-results">

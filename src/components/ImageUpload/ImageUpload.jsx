@@ -287,7 +287,7 @@ export default function ImageUpload({ data, setData }) {
   }
 
   return (
-    <div className="uploadPhoto" role="region" aria-label="Photo upload">
+    <div className="uploadPhoto" role="region" aria-label={lang.en.aria.photoUpload}>
       {/* Upload Form */}
       <div className="upload-form-section">
         {/* Photo Credit Fields - One Per Line */}
@@ -303,7 +303,7 @@ export default function ImageUpload({ data, setData }) {
             value={uploadForm.photo_credit || ''}
             className="form-control"
             placeholder={lang.en.placeholder.photoCredit}
-            aria-label="Photo credit name"
+            aria-label={lang.en.aria.photoCreditName}
           />
         </div>
         
@@ -319,7 +319,7 @@ export default function ImageUpload({ data, setData }) {
             value={uploadForm.photo_credit_url || ''}
             className="form-control"
             placeholder={lang.en.placeholder.photoCreditUrl}
-            aria-label="Photo credit URL"
+            aria-label={lang.en.aria.photoCreditUrl}
           />
         </div>
 
@@ -336,7 +336,7 @@ export default function ImageUpload({ data, setData }) {
               className="form-control"
               accept="image/*"
               multiple
-              aria-label="Choose image files to upload"
+              aria-label={lang.en.aria.chooseImageFiles}
               aria-describedby="image-upload-help"
             />
             <span id="image-upload-help" className="visually-hidden">
@@ -356,7 +356,7 @@ export default function ImageUpload({ data, setData }) {
               value={uploadForm.photo_url || ''}
               className="form-control"
               placeholder="Enter direct image URL (e.g., https://example.com/image.jpg)"
-              aria-label="Photo URL"
+              aria-label={lang.en.aria.photoUrl}
             />
           </>
         )}
@@ -378,7 +378,7 @@ export default function ImageUpload({ data, setData }) {
               setUploadForm({ photo_credit: "", photo_credit_url: "", photo_url: "" });
             }}
             type="button"
-            aria-label={useUrl ? "Switch to file upload" : "Use a URL instead"}
+            aria-label={useUrl ? lang.en.aria.switchToFileUpload : lang.en.aria.useUrlInstead}
           >
             {useUrl ? "Upload a file instead" : "Add a URL instead"}
           </button>
@@ -387,7 +387,7 @@ export default function ImageUpload({ data, setData }) {
 
       {/* Uploaded Photos List */}
       {photos.length > 0 && (
-        <div className="uploaded-photos-list" role="region" aria-label="Uploaded photos">
+        <div className="uploaded-photos-list" role="region" aria-label={lang.en.aria.uploadedPhotos}>
           <h5 className="mt-4 mb-3">
             Photos ({photos.filter((_, idx) => !disabledPhotos.has(idx)).length} active, {disabledPhotos.size} disabled)
           </h5>

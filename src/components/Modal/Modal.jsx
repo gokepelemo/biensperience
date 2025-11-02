@@ -1,6 +1,7 @@
 import "./Modal.css";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
+import { lang } from "../../lang.constants";
 
 /**
  * Modal component
@@ -91,7 +92,7 @@ export default function Modal({
               type="button"
               className="btn-close"
               onClick={onClose}
-              aria-label="Close"
+              aria-label={lang.en.aria.close}
               disabled={loading}
             ></button>
           </div>

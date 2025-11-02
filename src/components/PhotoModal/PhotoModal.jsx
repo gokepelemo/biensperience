@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { sanitizeText, sanitizeUrl } from '../../utilities/sanitize';
+import { lang } from '../../lang.constants';
 
 export default function PhotoModal({ photo, photos = [], onClose, initialIndex = 0 }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -70,7 +71,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Photo viewer"
+      aria-label={lang.en.aria.photoViewer}
     >
       <div
         className="photo-modal-content"
@@ -79,7 +80,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
         <button
           className="photo-modal-close"
           onClick={onClose}
-          aria-label="Close photo viewer"
+          aria-label={lang.en.aria.closePhotoViewer}
         >
           ✕
         </button>
@@ -93,7 +94,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
                 e.stopPropagation();
                 goToPrevious();
               }}
-              aria-label="Previous photo"
+              aria-label={lang.en.aria.previousPhoto}
             >
               <FaChevronLeft />
             </button>
@@ -103,7 +104,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
                 e.stopPropagation();
                 goToNext();
               }}
-              aria-label="Next photo"
+              aria-label={lang.en.aria.nextPhoto}
             >
               <FaChevronRight />
             </button>
