@@ -203,7 +203,7 @@ export default function SingleDestination() {
             {destination.travel_tips?.length > 0 && (
               <div className="row my-4">
                 <div className="col-12 p-3">
-                  <div className="destination-detail-card">
+                  <div className="destination-detail-card travel-tips-card">
                     <TravelTipsList tips={destination.travel_tips} />
                   </div>
                 </div>

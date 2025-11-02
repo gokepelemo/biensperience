@@ -8,6 +8,9 @@
   box-shadow: none;
 }
 
+.text-muted {
+      color: var(--color-text-muted) !important;
+}
 .travel-tips-heading {
   display: flex;
   align-items: center;

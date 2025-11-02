@@ -28,6 +28,10 @@
     border-bottom: none;
 }
 
+.travel-tips-card {
+    padding: 0 var(--space-6);
+}
+
 .destination-detail-country {
     margin: 0;
     font-weight: 700;
