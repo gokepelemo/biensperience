@@ -8,6 +8,8 @@ const Destination = require('./models/destination');
 const Experience = require('./models/experience');
 const Photo = require('./models/photo');
 const Plan = require('./models/plan');
+const InviteCode = require('./models/inviteCode');
+const Activity = require('./models/activity');
 const backendLogger = require('./utilities/backend-logger');
 
 /**
@@ -54,12 +56,19 @@ Options:
 
 Description:
   Generates comprehensive sample data for Biensperience including:
-  - 1 super admin user (interactive or via flags)
-  - 50+ regular users with varied profiles
-  - 30+ destinations worldwide
+  - 1 super admin user (interactive or via flags) with API access and active session
+  - 60 regular users with varied profiles:
+    * 80% email verified, 20% unverified (email verification flow)
+    * 60% with active sessions (session tracking)
+    * 30% with invite codes (invite system)
+    * 10% with API access enabled (API token system)
+    * 70% public, 30% private profiles
+  - 30+ destinations worldwide with structured travel tips
   - 90+ experiences with collaborators and plan items
   - 200+ photos from Unsplash
   - 150+ user plans with varying completion levels
+  - 20 invite codes with various configurations (redeemed, expired, multi-use, etc.)
+  - 100 activity log entries (last 30 days) with metadata including session IDs and trace IDs
 
   If --admin-name and --admin-email are not provided, the script will prompt
   you interactively for these details.
@@ -460,6 +469,33 @@ class DataGenerator {
   }
 
   /**
+   * Generate invite codes (short alphanumeric format: XXX-XXX-XXX)
+   */
+  generateInviteCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const segments = 3;
+    const segmentLength = 3;
+    const code = [];
+
+    for (let i = 0; i < segments; i++) {
+      let segment = '';
+      for (let j = 0; j < segmentLength; j++) {
+        segment += chars[Math.floor(Math.random() * chars.length)];
+      }
+      code.push(segment);
+    }
+
+    return code.join('-');
+  }
+
+  /**
+   * Generate session ID (UUID-like format)
+   */
+  generateSessionId() {
+    return `sess_${generateRandomString(32)}`;
+  }
+
+  /**
    * Generate users with varied profiles (no duplicates)
    * @param {number} count - Total number of users to generate
    * @param {Object} adminDetails - Custom super admin details (optional)
@@ -474,12 +510,22 @@ class DataGenerator {
     const superAdminEmail = adminDetails?.email || `superadmin_${generateRandomString(8).toLowerCase()}@biensperience.demo`;
     const superAdminPassword = generateRandomString(12);
 
+    const sessionId = this.generateSessionId();
+    const now = Date.now();
+    const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours
+
     const superAdmin = {
       name: superAdminName,
       email: superAdminEmail,
       password: superAdminPassword,
       role: 'super_admin',
       isSuperAdmin: true,
+      emailConfirmed: true, // Super admin always verified
+      apiEnabled: true, // Enable API access for super admin
+      visibility: 'public',
+      currentSessionId: sessionId,
+      sessionCreatedAt: now,
+      sessionExpiresAt: expiresAt,
       credentials: { name: superAdminName, email: superAdminEmail, password: superAdminPassword }
     };
     users.push(superAdmin);
@@ -491,12 +537,47 @@ class DataGenerator {
       const { firstName, lastName, name } = this.generateUniqueName();
       const email = this.generateUniqueEmail(firstName, lastName);
 
-      users.push({
+      // Varied user configurations:
+      // - 80% have confirmed emails
+      // - 20% have unconfirmed emails (demonstrate email verification flow)
+      // - 30% have invite codes (demonstrate invite system)
+      // - 10% have API enabled (demonstrate API token system)
+      // - 70% public visibility, 30% private
+      // - 60% have active sessions (demonstrate session tracking)
+
+      const emailConfirmed = Math.random() < 0.8;
+      const hasInviteCode = Math.random() < 0.3;
+      const apiEnabled = Math.random() < 0.1;
+      const visibility = Math.random() < 0.7 ? 'public' : 'private';
+      const hasActiveSession = Math.random() < 0.6;
+
+      const user = {
         name,
         email,
         password: 'demo123',
-        role: 'regular_user'
-      });
+        role: 'regular_user',
+        emailConfirmed,
+        apiEnabled,
+        visibility
+      };
+
+      // Add invite code if applicable
+      if (hasInviteCode) {
+        user.inviteCode = this.generateInviteCode();
+      }
+
+      // Add session data if user has active session
+      if (hasActiveSession) {
+        const sessionId = this.generateSessionId();
+        const sessionStart = now - randomBetween(0, 20 * 60 * 60 * 1000); // Started 0-20 hours ago
+        const sessionExpiry = sessionStart + (24 * 60 * 60 * 1000); // 24-hour session
+
+        user.currentSessionId = sessionId;
+        user.sessionCreatedAt = sessionStart;
+        user.sessionExpiresAt = sessionExpiry;
+      }
+
+      users.push(user);
     }
 
     return users;
@@ -779,6 +860,229 @@ class DataGenerator {
 
     return plans;
   }
+
+  /**
+   * Generate invite codes
+   */
+  generateInviteCodes(count = 20, users = [], experiences = [], destinations = []) {
+    const invites = [];
+    const now = new Date();
+
+    for (let i = 0; i < count; i++) {
+      const creator = getRandomElement(users.filter(u => !u.isSuperAdmin));
+
+      // Varied invite configurations:
+      // - 40% have specific email restrictions
+      // - 60% include experiences
+      // - 40% include destinations
+      // - 20% are multi-use (max 5 uses)
+      // - 30% have expiration dates
+      // - 20% have custom messages
+      // - 50% have been redeemed at least once
+
+      const hasEmailRestriction = Math.random() < 0.4;
+      const includeExperiences = Math.random() < 0.6;
+      const includeDestinations = Math.random() < 0.4;
+      const isMultiUse = Math.random() < 0.2;
+      const hasExpiration = Math.random() < 0.3;
+      const hasCustomMessage = Math.random() < 0.2;
+      const isRedeemed = Math.random() < 0.5;
+
+      const invite = {
+        code: this.generateInviteCode(),
+        createdBy: creator._id,
+        experiences: includeExperiences ? getRandomElements(experiences, randomBetween(1, 3)).map(e => e._id) : [],
+        destinations: includeDestinations ? getRandomElements(destinations, randomBetween(1, 2)).map(d => d._id) : [],
+        maxUses: isMultiUse ? randomBetween(2, 5) : 1,
+        usedCount: 0,
+        redeemedBy: [],
+        isActive: true
+      };
+
+      if (hasEmailRestriction) {
+        const { firstName, lastName } = this.generateUniqueName();
+        const email = this.generateUniqueEmail(firstName, lastName);
+        invite.email = email;
+        invite.inviteeName = `${firstName} ${lastName}`;
+      }
+
+      if (hasExpiration) {
+        const daysUntilExpiry = randomBetween(7, 90);
+        invite.expiresAt = new Date(now.getTime() + (daysUntilExpiry * 24 * 60 * 60 * 1000));
+      }
+
+      if (hasCustomMessage) {
+        const messages = [
+          'Join me for an amazing travel experience!',
+          'I thought you might enjoy these destinations.',
+          'Let\'s plan our next adventure together!',
+          'Check out these cool experiences I found.',
+          'You have to see these travel ideas!'
+        ];
+        invite.customMessage = getRandomElement(messages);
+      }
+
+      // Mark invite as used if applicable
+      if (isRedeemed && !hasExpiration) {
+        const redeemer = getRandomElement(users.filter(u => !u.isSuperAdmin && u._id !== creator._id));
+        invite.usedCount = 1;
+        invite.redeemedBy = [redeemer._id];
+        invite.inviteMetadata = {
+          sentAt: new Date(now.getTime() - randomBetween(1, 30) * 24 * 60 * 60 * 1000),
+          sentFrom: `192.168.${randomBetween(1, 255)}.${randomBetween(1, 255)}`,
+          emailSent: true
+        };
+      }
+
+      invites.push(invite);
+    }
+
+    return invites;
+  }
+
+  /**
+   * Generate activity log entries
+   */
+  generateActivities(count = 100, users = [], experiences = [], destinations = [], plans = []) {
+    const activities = [];
+    const now = new Date();
+
+    // Activity types with their resource types
+    const activityTypes = [
+      { action: 'resource_created', resourceTypes: ['Experience', 'Destination', 'Plan'], weight: 20 },
+      { action: 'resource_updated', resourceTypes: ['Experience', 'Destination', 'User'], weight: 30 },
+      { action: 'permission_added', resourceTypes: ['Experience', 'Destination'], weight: 15 },
+      { action: 'plan_created', resourceTypes: ['Plan'], weight: 10 },
+      { action: 'plan_item_completed', resourceTypes: ['Plan'], weight: 15 },
+      { action: 'favorite_added', resourceTypes: ['Destination'], weight: 5 },
+      { action: 'collaborator_added', resourceTypes: ['Experience'], weight: 5 }
+    ];
+
+    for (let i = 0; i < count; i++) {
+      // Pick random activity type based on weights
+      const totalWeight = activityTypes.reduce((sum, type) => sum + type.weight, 0);
+      let random = Math.random() * totalWeight;
+      let activityType;
+
+      for (const type of activityTypes) {
+        random -= type.weight;
+        if (random <= 0) {
+          activityType = type;
+          break;
+        }
+      }
+
+      const actor = getRandomElement(users);
+      const resourceType = getRandomElement(activityType.resourceTypes);
+
+      let resource, resourceName;
+      if (resourceType === 'Experience') {
+        resource = getRandomElement(experiences);
+        resourceName = resource.experience_name;
+      } else if (resourceType === 'Destination') {
+        resource = getRandomElement(destinations);
+        resourceName = resource.name;
+      } else if (resourceType === 'Plan') {
+        resource = getRandomElement(plans);
+        const exp = experiences.find(e => e._id.equals(resource.experience));
+        resourceName = exp ? `Plan for ${exp.experience_name}` : 'Unnamed Plan';
+      } else {
+        resource = actor;
+        resourceName = actor.name;
+      }
+
+      // Generate session ID for metadata
+      const sessionId = this.generateSessionId();
+
+      const activity = {
+        timestamp: new Date(now.getTime() - randomBetween(0, 30 * 24 * 60 * 60 * 1000)), // Last 30 days
+        action: activityType.action,
+        actor: {
+          _id: actor._id,
+          email: actor.email,
+          name: actor.name,
+          role: actor.role
+        },
+        resource: {
+          id: resource._id,
+          type: resourceType,
+          name: resourceName
+        },
+        reason: this.generateActivityReason(activityType.action, actor.name, resourceName),
+        metadata: {
+          ipAddress: `192.168.${randomBetween(1, 255)}.${randomBetween(1, 255)}`,
+          userAgent: getRandomElement([
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'
+          ]),
+          requestPath: this.getRequestPath(activityType.action, resourceType),
+          requestMethod: activityType.action.includes('created') ? 'POST' : 'PUT',
+          sessionId
+        },
+        status: Math.random() < 0.95 ? 'success' : 'partial',
+        tags: this.getActivityTags(activityType.action, resourceType)
+      };
+
+      // Add target for permission/collaborator actions
+      if (activityType.action.includes('permission') || activityType.action.includes('collaborator')) {
+        const target = getRandomElement(users.filter(u => u._id !== actor._id));
+        activity.target = {
+          id: target._id,
+          type: 'User',
+          name: target.name
+        };
+      }
+
+      activities.push(activity);
+    }
+
+    return activities;
+  }
+
+  /**
+   * Generate activity reason text
+   */
+  generateActivityReason(action, actorName, resourceName) {
+    const reasons = {
+      resource_created: `${actorName} created ${resourceName}`,
+      resource_updated: `${actorName} updated ${resourceName}`,
+      permission_added: `${actorName} granted permissions for ${resourceName}`,
+      plan_created: `User created plan for experience`,
+      plan_item_completed: `User completed plan item`,
+      favorite_added: `${actorName} added ${resourceName} to favorites`,
+      collaborator_added: `${actorName} added collaborator to ${resourceName}`
+    };
+
+    return reasons[action] || `${actorName} performed ${action} on ${resourceName}`;
+  }
+
+  /**
+   * Get request path for activity
+   */
+  getRequestPath(action, resourceType) {
+    const basePath = resourceType === 'Experience' ? '/api/experiences' :
+                     resourceType === 'Destination' ? '/api/destinations' :
+                     resourceType === 'Plan' ? '/api/plans' : '/api/users';
+
+    if (action.includes('created')) return basePath;
+    return `${basePath}/${new mongoose.Types.ObjectId()}`;
+  }
+
+  /**
+   * Get activity tags
+   */
+  getActivityTags(action, resourceType) {
+    const tags = [resourceType.toLowerCase()];
+
+    if (action.includes('permission')) tags.push('permissions');
+    if (action.includes('plan')) tags.push('planning');
+    if (action.includes('collaborator')) tags.push('collaboration');
+    if (action.includes('favorite')) tags.push('favorites');
+
+    return tags;
+  }
 }
 
 /**
@@ -951,6 +1255,30 @@ async function createSampleData() {
     }
     output.log(`✅ Created ${createdPlans.length} user plans with varying completion levels`);
 
+    // Generate and create invite codes
+    output.log('🎟️  Generating invite codes...');
+    const inviteData = generator.generateInviteCodes(20, createdUsers, createdExperiences, createdDestinations);
+    const createdInvites = [];
+
+    for (const inviteInfo of inviteData) {
+      const invite = new InviteCode(inviteInfo);
+      await invite.save();
+      createdInvites.push(invite);
+    }
+    output.log(`✅ Created ${createdInvites.length} invite codes with varied configurations`);
+
+    // Generate and create activity logs
+    output.log('📝 Generating activity logs...');
+    const activityData = generator.generateActivities(100, createdUsers, createdExperiences, createdDestinations, createdPlans);
+    const createdActivities = [];
+
+    for (const activityInfo of activityData) {
+      const activity = new Activity(activityInfo);
+      await activity.save();
+      createdActivities.push(activity);
+    }
+    output.log(`✅ Created ${createdActivities.length} activity log entries`);
+
     // Display super admin credentials
     const superAdmin = createdUsers.find(u => u.isSuperAdmin);
     if (superAdmin && superAdmin.credentials) {
@@ -966,27 +1294,79 @@ async function createSampleData() {
 
     output.log('\n🎉 Sample data generation complete!');
     output.log('📊 Summary:');
-    output.log(`   👑 Super Admin: 1 user (custom credentials)`);
+    output.log(`   👑 Super Admin: 1 user (custom credentials, API enabled, active session)`);
     output.log(`   👥 Regular Users: ${createdUsers.length - 1} users`);
     output.log(`   📍 Destinations: ${createdDestinations.length}`);
     output.log(`   🎯 Experiences: ${createdExperiences.length} (with varied collaborators and plan items)`);
     output.log(`   📸 Photos: ${createdPhotos.length}`);
     output.log(`   📋 Plans: ${createdPlans.length} (with completion tracking)`);
+    output.log(`   🎟️  Invite Codes: ${createdInvites.length} (various configurations)`);
+    output.log(`   📝 Activity Logs: ${createdActivities.length} (last 30 days)`);
 
     output.log('\n👥 DEMO USER ACCOUNTS:');
     output.log('All regular users have password: demo123');
+    const usersWithSessions = createdUsers.filter(u => !u.isSuperAdmin && u.currentSessionId);
+    const usersWithInvites = createdUsers.filter(u => !u.isSuperAdmin && u.inviteCode);
+    const usersWithAPI = createdUsers.filter(u => !u.isSuperAdmin && u.apiEnabled);
+    const unverifiedUsers = createdUsers.filter(u => !u.isSuperAdmin && !u.emailConfirmed);
+
     createdUsers.filter(u => !u.isSuperAdmin).slice(0, 10).forEach(user => {
-      output.log(`   ${user.name} - ${user.email}`);
+      const badges = [];
+      if (user.currentSessionId) badges.push('📱 Active Session');
+      if (user.inviteCode) badges.push(`🎟️  Invite: ${user.inviteCode}`);
+      if (user.apiEnabled) badges.push('🔑 API');
+      if (!user.emailConfirmed) badges.push('✉️  Unverified');
+      if (user.visibility === 'private') badges.push('🔒 Private');
+
+      output.log(`   ${user.name} - ${user.email}${badges.length ? ' [' + badges.join(', ') + ']' : ''}`);
     });
     if (createdUsers.filter(u => !u.isSuperAdmin).length > 10) {
       output.log(`   ... and ${createdUsers.filter(u => !u.isSuperAdmin).length - 10} more users`);
     }
 
+    output.log('\n📊 USER FEATURE BREAKDOWN:');
+    output.log(`   📱 Active Sessions: ${usersWithSessions.length} users (~60%)`);
+    output.log(`   🎟️  Used Invite Codes: ${usersWithInvites.length} users (~30%)`);
+    output.log(`   🔑 API Access Enabled: ${usersWithAPI.length} users (~10%)`);
+    output.log(`   ✅ Email Verified: ${createdUsers.filter(u => !u.isSuperAdmin && u.emailConfirmed).length} users (~80%)`);
+    output.log(`   ✉️  Email Unverified: ${unverifiedUsers.length} users (~20%)`);
+    output.log(`   👁️  Public Profiles: ${createdUsers.filter(u => !u.isSuperAdmin && u.visibility === 'public').length} users (~70%)`);
+    output.log(`   🔒 Private Profiles: ${createdUsers.filter(u => !u.isSuperAdmin && u.visibility === 'private').length} users (~30%)`);
+
+    output.log('\n🎟️  INVITE CODE BREAKDOWN:');
+    const activeInvites = createdInvites.filter(i => i.isActive && (!i.expiresAt || i.expiresAt > new Date()));
+    const redeemedInvites = createdInvites.filter(i => i.usedCount > 0);
+    const multiUseInvites = createdInvites.filter(i => i.maxUses > 1);
+    const emailRestrictedInvites = createdInvites.filter(i => i.email);
+
+    output.log(`   ✅ Active Invites: ${activeInvites.length}`);
+    output.log(`   🎫 Redeemed Invites: ${redeemedInvites.length} (~50%)`);
+    output.log(`   🔄 Multi-Use Invites: ${multiUseInvites.length} (~20%)`);
+    output.log(`   📧 Email-Restricted: ${emailRestrictedInvites.length} (~40%)`);
+    output.log(`   🎁 With Experiences: ${createdInvites.filter(i => i.experiences.length > 0).length} (~60%)`);
+    output.log(`   📍 With Destinations: ${createdInvites.filter(i => i.destinations.length > 0).length} (~40%)`);
+
+    output.log('\n📝 ACTIVITY LOG BREAKDOWN:');
+    const activityByType = activityData.reduce((acc, activity) => {
+      acc[activity.action] = (acc[activity.action] || 0) + 1;
+      return acc;
+    }, {});
+
+    Object.entries(activityByType).forEach(([action, count]) => {
+      const percentage = Math.round((count / activityData.length) * 100);
+      output.log(`   ${action}: ${count} (${percentage}%)`);
+    });
+
     output.log('\n🔍 SAMPLE SCENARIOS TO EXPLORE:');
+    output.log('   • Session tracking: Check user sessions in Activity Monitor');
+    output.log('   • Email verification: Test signup flow with unverified users');
+    output.log('   • Invite codes: View and redeem invite codes');
+    output.log('   • API tokens: Test API access with enabled users');
+    output.log('   • Activity logs: Super admin can view all activities');
     output.log('   • Experiences with multiple collaborators and contributors');
     output.log('   • Plans with different completion percentages');
     output.log('   • Destinations with varied travel tips');
-    output.log('   • Super admin access to all resources');
+    output.log('   • User profile visibility (public vs private)');
     output.log('   • User plans with realistic cost variations');
 
     // Write output to file
