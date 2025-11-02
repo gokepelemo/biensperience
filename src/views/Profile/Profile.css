@@ -13,8 +13,30 @@
 }
 
 .dropdown-menu {
-    z-index: 1061 !important;
+    z-index: 1070 !important;
     position: absolute !important;
+}
+
+/* Override Bootstrap's default dropdown z-index */
+.dropdown-menu.show {
+    z-index: 1070 !important;
+}
+
+/* Profile header row to ensure proper stacking context */
+.profile-header-row {
+    position: relative;
+    z-index: 100;
+}
+
+/* Ensure dropdown container has higher z-index than content below */
+.profile-header-row .col-md-6:last-child {
+    position: relative;
+    z-index: 1065;
+}
+
+.profile-header-row .col-md-6:last-child .d-flex {
+    position: relative;
+    z-index: 1070;
 }
 
 /* Pills */
@@ -66,6 +88,8 @@
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     animation: fadeInUp 0.5s forwards;
+    position: relative;
+    z-index: 1;
 }
 
 .profile-detail-section {
