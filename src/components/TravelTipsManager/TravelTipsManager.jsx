@@ -114,7 +114,7 @@ export default function TravelTipsManager({
   return (
     <div className={className}>
       <Form.Group className="mb-3">
-        <div className="d-flex justify-content-between align-items-start mb-2">
+        <div className="d-flex justify-content-between align-items-center mb-2">
           <div className="flex-grow-1">
             <Form.Label className="mb-1">{label}</Form.Label>
             <div className="travel-tips-helper">

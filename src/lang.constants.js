@@ -50,7 +50,7 @@ const en = {
     syncing: "Syncing...",
     edit: "Edit",
     quickTip: "💡 Quick Tip",
-    details: "📋 Details",
+    details: "📋 Detailed Tip",
     addTip: "Add Tip",
   },
 
