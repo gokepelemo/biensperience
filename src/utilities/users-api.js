@@ -5,8 +5,10 @@ export function signUp(userData) {
   return sendRequest(`${BASE_URL}`, "POST", userData);
 }
 
-export function login(credentials) {
-  return sendRequest(`${BASE_URL}login`, "POST", credentials);
+export async function login(credentials) {
+  const response = await sendRequest(`${BASE_URL}login`, "POST", credentials);
+  // Backend now returns { success: true, token, user } - extract token
+  return response.token || response;
 }
 
 export function checkToken() {

@@ -1,4 +1,4 @@
-import { FaUser, FaPassport, FaCheckCircle, FaKey } from "react-icons/fa";
+import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye } from "react-icons/fa";
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import "./Profile.css";
@@ -10,6 +10,7 @@ import DestinationCard from "./../../components/DestinationCard/DestinationCard"
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import Alert from "../../components/Alert/Alert";
 import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
+import ActivityMonitor from "../../components/ActivityMonitor/ActivityMonitor";
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
 import { getUserData, updateUserRole, updateUser as updateUserApi } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
@@ -45,6 +46,7 @@ export default function Profile() {
   const [createdExperiences, setCreatedExperiences] = useState([]);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [showApiTokenModal, setShowApiTokenModal] = useState(false);
+  const [showActivityMonitor, setShowActivityMonitor] = useState(false);
 
   // Deduplicate user experiences by ID
   const uniqueUserExperiences = useMemo(() => {
@@ -173,6 +175,14 @@ export default function Profile() {
     setShowApiTokenModal(false);
   }, []);
 
+  const handleOpenActivityMonitor = useCallback(() => {
+    setShowActivityMonitor(true);
+  }, []);
+
+  const handleCloseActivityMonitor = useCallback(() => {
+    setShowActivityMonitor(false);
+  }, []);
+
   useEffect(() => {
     getProfile();
   }, [getProfile]);
@@ -274,48 +284,62 @@ export default function Profile() {
         </div>
         <div className="col-md-6 fade-in">
           <div className="d-flex align-items-center justify-content-end gap-2 my-4 flex-wrap">
-            {isSuperAdmin(user) && !isLoadingProfile && (
-              <>
+            {!isLoadingProfile && (
+              <div className="dropdown">
                 <button
-                  onClick={handleOpenApiModal}
                   className="btn btn-outline-secondary"
-                  aria-label="API Tokens"
-                  title="Manage API Tokens"
                   type="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                  aria-label="Profile Actions"
                 >
-                  <FaKey className="me-1" /> API Key
+                  ⋯
                 </button>
-                {isOwner && (
-                  <Link
-                    to="/profile/update"
-                    className="btn btn-primary"
-                    aria-label="Update Profile"
-                    title="Update Profile"
-                  >
-                    ✏️ Update Profile
-                  </Link>
-                )}
-              </>
-            )}
-            {!isSuperAdmin(user) && isOwner && !isLoadingProfile && (
-              <Link
-                to="/profile/update"
-                className="btn btn-primary"
-                aria-label="Update Profile"
-                title="Update Profile"
-              >
-                ✏️ Update Profile
-              </Link>
-            )}
-            {isSuperAdmin(user) && !isLoadingProfile && profileId && profileId !== user._id && (
-              <Link
-                to={`/profile/${profileId}/update`}
-                className="btn btn-warning"
-                aria-label="Admin: Update User Profile"
-                title="Admin: Update User Profile"
-              >
-                👑 Admin Update
-              </Link>
+                <ul className="dropdown-menu dropdown-menu-end">
+                  {isSuperAdmin(user) && (
+                    <>
+                      <li>
+                        <button
+                          className="dropdown-item"
+                          onClick={handleOpenApiModal}
+                          type="button"
+                        >
+                          <FaKey className="me-2" /> API Key
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          className="dropdown-item"
+                          onClick={handleOpenActivityMonitor}
+                          type="button"
+                        >
+                          <FaEye className="me-2" /> Activity Monitor
+                        </button>
+                      </li>
+                    </>
+                  )}
+                  {isOwner && (
+                    <li>
+                      <Link
+                        to="/profile/update"
+                        className="dropdown-item"
+                      >
+                        ✏️ Update Profile
+                      </Link>
+                    </li>
+                  )}
+                  {isSuperAdmin(user) && profileId && profileId !== user._id && (
+                    <li>
+                      <Link
+                        to={`/profile/${profileId}/update`}
+                        className="dropdown-item"
+                      >
+                        👑 Admin Update
+                      </Link>
+                    </li>
+                  )}
+                </ul>
+              </div>
             )}
           </div>
         </div>
@@ -562,6 +586,14 @@ export default function Profile() {
           onHide={handleCloseApiModal}
           user={currentProfile}
           onUserUpdate={handleUserUpdate}
+        />
+      )}
+
+      {/* Activity Monitor Modal */}
+      {isSuperAdmin(user) && (
+        <ActivityMonitor
+          show={showActivityMonitor}
+          onHide={handleCloseActivityMonitor}
         />
       )}
     </>
