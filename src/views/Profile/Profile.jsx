@@ -262,28 +262,26 @@ export default function Profile() {
       )}
       <div className="row fade-in profile-header-row">
         <div className="col-md-6 fade-in">
-          <div className="d-flex align-items-center gap-3 my-4">
-            <h1 className="h fade-in mb-0">
-              {isLoadingProfile ? (
-                <span className="loading-skeleton loading-skeleton-text"></span>
-              ) : (
-                <>
-                  {currentProfile?.name}
-                  {currentProfile?.emailConfirmed && (
-                    <FaCheckCircle
-                      className="text-success ms-2"
-                      style={{ fontSize: '0.6em' }}
-                      title="Email confirmed"
-                      aria-label="Email confirmed"
-                    />
-                  )}
-                </>
-              )}
-            </h1>
-          </div>
+          <h1 className="h fade-in mb-0">
+            {isLoadingProfile ? (
+              <span className="loading-skeleton loading-skeleton-text"></span>
+            ) : (
+              <>
+                {currentProfile?.name}
+                {currentProfile?.emailConfirmed && (
+                  <FaCheckCircle
+                    className="text-success ms-2"
+                    style={{ fontSize: '0.6em' }}
+                    title="Email confirmed"
+                    aria-label="Email confirmed"
+                  />
+                )}
+              </>
+            )}
+          </h1>
         </div>
         <div className="col-md-6 fade-in">
-          <div className="d-flex align-items-center justify-content-end gap-2 my-4 flex-wrap">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
             {!isLoadingProfile && (
               <div className="dropdown">
                 <button

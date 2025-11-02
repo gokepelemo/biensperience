@@ -26,12 +26,24 @@
 .profile-header-row {
     position: relative;
     z-index: 100;
+    display: flex;
+    align-items: center;
 }
 
-/* Ensure dropdown container has higher z-index than content below */
+/* Ensure both columns have equal height and align their children */
+.profile-header-row .col-md-6 {
+    display: flex;
+    align-items: center;
+}
+
+.profile-header-row .col-md-6:first-child {
+    justify-content: flex-start;
+}
+
 .profile-header-row .col-md-6:last-child {
     position: relative;
     z-index: 1065;
+    justify-content: flex-end;
 }
 
 .profile-header-row .col-md-6:last-child .d-flex {
@@ -276,16 +288,23 @@
 
 /* Responsive: Center h1 and buttons on mobile/tablet */
 @media (max-width: 991px) {
-    /* Center the h1 container on tablet and below */
-    .profile-header-row .col-md-6:first-child .d-flex {
-        justify-content: center !important;
-        text-align: center;
+    /* Stack columns vertically and center content */
+    .profile-header-row {
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
     }
 
-    /* Center the buttons container on tablet and below */
+    /* Center both columns */
+    .profile-header-row .col-md-6:first-child,
+    .profile-header-row .col-md-6:last-child {
+        justify-content: center !important;
+        width: 100%;
+    }
+
+    /* Center the buttons container */
     .profile-header-row .col-md-6:last-child .d-flex {
         justify-content: center !important;
-        margin-top: 1rem;
     }
 
     /* Make h1 center-aligned text */
