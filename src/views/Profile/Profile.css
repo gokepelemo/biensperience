@@ -5,6 +5,18 @@
         transform: translateY(0) scale(1);
     }
 }
+
+/* Dropdown z-index fix */
+.dropdown {
+    position: relative;
+    z-index: 1060;
+}
+
+.dropdown-menu {
+    z-index: 1061 !important;
+    position: absolute !important;
+}
+
 /* Pills */
 .pill {
     display: inline-flex;
