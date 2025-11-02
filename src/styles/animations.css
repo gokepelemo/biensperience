@@ -1,38 +1,16 @@
-/* ===========================================
-   SMOOTH ANIMATIONS & TRANSITIONS
-   =========================================== */
+/**
+ * Animations - Consolidated & Minimal
+ *
+ * Essential animations only. Uses design tokens where possible.
+ */
 
-/* Base transition for interactive elements (more selective than *) */
-/* Exclude Bootstrap collapse elements from our custom transitions */
-a:not(.navbar-collapse *),
-button:not(.dropdown-toggle):not(.navbar-toggler),
-input,
-textarea,
-select,
-.card,
-.btn:not(.navbar-toggler),
-.form-control,
-.nav-link:not(.dropdown-toggle) {
-  transition: all 0.2s ease-in-out;
-}
-
-/* Disable transitions for elements with no-transition class */
-.no-transition,
-.no-transition * {
-  transition: none !important;
-}
-
-/* ===========================================
-   FADE ANIMATIONS
-   =========================================== */
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes fadeInUp {
@@ -68,72 +46,31 @@ select,
   }
 }
 
-/* Apply fade-in classes */
-.fade-in {
-  animation: fadeIn 0.4s ease-in-out;
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
-.fade-in-up {
-  animation: fadeInUp 0.5s ease-out;
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
-.fade-in-down {
-  animation: fadeInDown 0.5s ease-out;
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
-.fade-in-scale {
-  animation: fadeInScale 0.3s ease-out;
-}
-
-/* Staggered animations for lists */
-.fade-in-stagger > * {
-  animation: fadeInUp 0.4s ease-out;
-  animation-fill-mode: both;
-}
-
-.fade-in-stagger > *:nth-child(1) { animation-delay: 0.05s; }
-.fade-in-stagger > *:nth-child(2) { animation-delay: 0.1s; }
-.fade-in-stagger > *:nth-child(3) { animation-delay: 0.15s; }
-.fade-in-stagger > *:nth-child(4) { animation-delay: 0.2s; }
-.fade-in-stagger > *:nth-child(5) { animation-delay: 0.25s; }
-.fade-in-stagger > *:nth-child(6) { animation-delay: 0.3s; }
-
-/* ===========================================
-   FORM FIELD ANIMATIONS
-   =========================================== */
-
-.form-control,
-.form-select {
-  transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.2s ease;
-}
-
-.form-control:focus,
-.form-select:focus {
-  border-color: #0d6efd;
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 252, 0.15);
-  transform: translateY(-1px);
-}
-
-/* Validation states with smooth transitions */
-.form-control.is-valid,
-.form-select.is-valid {
-  border-color: #198754;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right calc(0.375em + 0.1875rem) center;
-  background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
-  animation: successPulse 0.5s ease;
-}
-
-.form-control.is-invalid,
-.form-select.is-invalid {
-  border-color: #dc3545;
-  animation: shake 0.4s ease;
-}
-
-@keyframes successPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
-  50% { box-shadow: 0 0 0 0.5rem rgba(25, 135, 84, 0.2); }
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 @keyframes shake {
@@ -142,232 +79,32 @@ select,
   75% { transform: translateX(10px); }
 }
 
-/* Feedback messages */
-.valid-feedback,
-.invalid-feedback {
-  animation: fadeInUp 0.3s ease-out;
+/* ============================================
+   UTILITY ANIMATION CLASSES
+   ============================================ */
+
+.fade-in { animation: fadeIn 0.3s ease-out; }
+.fade-in-up { animation: fadeInUp 0.4s ease-out; }
+.fade-in-down { animation: fadeInDown 0.4s ease-out; }
+.fade-in-scale { animation: fadeInScale 0.3s ease-out; }
+.slide-in { animation: slideIn 0.3s ease-out; }
+.pulse { animation: pulse 1.5s ease-in-out infinite; }
+.spinner { animation: spin 1s linear infinite; }
+
+/* ============================================
+   GRADIENT ANIMATIONS
+   ============================================ */
+
+.gradient-animated {
+  background: var(--gradient-primary-animated);
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease infinite;
+  will-change: background-position;
 }
 
-/* ===========================================
-   BUTTON ANIMATIONS
-   =========================================== */
-
-.btn {
-  transition: all 0.25s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.btn:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
-}
-
-/* Ripple effect for buttons */
-.btn::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
-}
-
-.btn:active::after {
-  width: 300px;
-  height: 300px;
-}
-
-/* ===========================================
-   MODAL ANIMATIONS
-   =========================================== */
-
-.modal {
-  animation: fadeIn 0.3s ease-out;
-}
-
-.modal-dialog {
-  animation: fadeInScale 0.3s ease-out;
-}
-
-.modal.fade .modal-dialog {
-  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
-}
-
-/* ===========================================
-   CARD ANIMATIONS
-   =========================================== */
-
-.card {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-}
-
-/* ===========================================
-   LOADING STATES
-   =========================================== */
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.loading {
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.spinner {
-  animation: spin 1s linear infinite;
-}
-
-/* Skeleton loading */
-.loading-skeleton {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s ease-in-out infinite;
-}
-
-@keyframes loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* ===========================================
-   TOOLTIP ANIMATIONS
-   =========================================== */
-
-.tooltip {
-  animation: fadeIn 0.2s ease-out;
-}
-
-[data-bs-toggle="tooltip"] {
-  transition: color 0.2s ease;
-}
-
-[data-bs-toggle="tooltip"]:hover {
-  color: #0d6efd !important;
-}
-
-/* ===========================================
-   ALERT ANIMATIONS
-   =========================================== */
-
-.alert {
-  animation: fadeInDown 0.4s ease-out;
-}
-
-.alert.fade-out {
-  animation: fadeOut 0.4s ease-out forwards;
-}
-
-@keyframes fadeOut {
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(-20px); }
-}
-
-/* ===========================================
-   IMAGE ANIMATIONS
-   =========================================== */
-
-img {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-img.loading {
-  opacity: 0.5;
-}
-
-img.loaded {
-  opacity: 1;
-}
-
-/* ===========================================
-   DROPDOWN ANIMATIONS
-   =========================================== */
-
-.dropdown-menu {
-  animation: fadeInDown 0.2s ease-out;
-}
-
-/* ===========================================
-   COLLAPSE ANIMATIONS
-   =========================================== */
-
-/* Let Bootstrap handle collapse animations natively */
-/* Removed custom .collapse and .collapsing styles to prevent conflicts */
-
-/* ===========================================
-   BADGE ANIMATIONS
-   =========================================== */
-
-.badge {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.badge:hover {
-  transform: scale(1.05);
-}
-
-/* ===========================================
-   NAV ANIMATIONS
-   =========================================== */
-
-.nav-link {
-  transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
-}
-
-.nav-link:hover {
-  transform: translateY(-2px);
-}
-
-/* ===========================================
-   SMOOTH SCROLL
-   =========================================== */
-
-html {
-  scroll-behavior: smooth;
-}
-
-/* ===========================================
-   FOCUS STATES
-   =========================================== */
-
-*:focus {
-  outline: none;
-}
-
-*:focus-visible {
-  outline: 2px solid #0d6efd;
-  outline-offset: 2px;
-  transition: outline-offset 0.2s ease;
-}
-
-/* ===========================================
-   RESPONSIVE MOTION
-   =========================================== */
+/* ============================================
+   REDUCED MOTION
+   ============================================ */
 
 @media (prefers-reduced-motion: reduce) {
   *,

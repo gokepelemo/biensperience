@@ -1,5 +1,5 @@
 import { useSEO } from '../../utilities/useSEO';
-import { SEOMeta, getEntityImage } from '../../utilities/seo-meta';
+import { SEOMeta, getEntityImage } from '../../utilities/seo-meta.jsx';
 
 /**
  * PageMeta component for managing document title and meta tags

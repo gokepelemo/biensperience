@@ -11,14 +11,17 @@
     width: 50%;
     height: 100%;
     display: flex;
-    color: white;
-    padding: 0 20px; 
-    font-size: clamp(1.5rem, 4vw, 2.8rem);
+    color: #ffffff;
+    padding: 0 var(--space-5);
+    font-size: clamp(1.25rem, 3.5vw, 2.5rem);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-snug);
+    letter-spacing: var(--letter-spacing-tight);
     min-width: 250px;
     align-items: center;
     justify-content: flex-start;
-    -webkit-text-stroke-color: black;
-    -webkit-text-stroke-width: 0.5px;
+    text-shadow: var(--shadow-text-md);
+    contain: layout style;
 }
 .hero-banner-title {
   font-size: clamp(2rem, 7vw, 4rem);

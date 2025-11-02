@@ -2645,7 +2645,7 @@ export default function SingleExperience() {
             <div className="mb-3">
               <button
                 type="button"
-                className="btn btn-link p-0 text-decoration-none"
+                className="btn btn-link text-decoration-none"
                 onClick={() => {
                   setShowEmailInviteForm(!showEmailInviteForm);
                   setEmailInviteError('');

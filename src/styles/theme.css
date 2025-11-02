@@ -1,80 +1,69 @@
-/* Global Purple Theme Styles */
+/**
+ * Theme Styles - Purple Brand Theme
+ *
+ * Theme-specific overrides and Bootstrap customizations.
+ * Design tokens are defined in design-tokens.css
+ */
 
-:root {
-    /* Primary Purple Theme Colors */
-    --color-primary: #667eea;
-    --color-primary-dark: #764ba2;
-    --color-primary-light: rgba(102, 126, 234, 0.1);
-    --color-primary-hover: #5a67d8;
+/* ============================================
+   BUTTON SYSTEM - Using Design Tokens
+   ============================================ */
 
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --gradient-primary-reverse: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+/* Base button styles - All buttons get consistent styling */
+.btn {
+    padding: clamp(0.5rem, 1.5vw, 0.75rem) clamp(1rem, 3vw, 1.5rem) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    font-size: var(--font-size-sm) !important;
+    border-radius: var(--radius-md) !important;
+    transition: all var(--transition-normal) !important;
+    line-height: var(--line-height-normal) !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: var(--space-2) !important;
+    cursor: pointer !important;
+}
 
-    /* Semantic Colors */
-    --color-success: #28a745;
-    --color-danger: #dc3545;
-    --color-warning: #ffc107;
-    --color-info: #17a2b8;
+/* Button sizes */
+.btn-sm {
+    padding: clamp(0.375rem, 1vw, 0.5rem) clamp(0.75rem, 2vw, 1rem) !important;
+    font-size: var(--font-size-xs) !important;
+}
 
-    /* Neutral Colors */
-    --color-text: #333;
-    --color-text-muted: #6c757d;
-    --color-background: #f8f9fa;
-    --color-white: #ffffff;
-
-    /* Shadows */
-    --shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.1);
-    --shadow-md: 0 4px 12px rgba(102, 126, 234, 0.15);
-    --shadow-lg: 0 10px 30px rgba(102, 126, 234, 0.2);
-
-    /* Border Radius */
-    --radius-sm: 0.5rem;
-    --radius-md: 0.75rem;
-    --radius-lg: 1rem;
-    --radius-pill: 2rem;
-
-    /* Transitions */
-    --transition-fast: 0.2s ease;
-    --transition-normal: 0.3s ease;
-    --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+.btn-lg {
+    padding: clamp(0.625rem, 2vw, 0.875rem) clamp(1.25rem, 4vw, 2rem) !important;
+    font-size: var(--font-size-lg) !important;
 }
 
 /* Primary Buttons - Purple Theme with Animated Gradient */
 .btn-primary {
-    background: linear-gradient(
-        -45deg,
-        #667eea,
-        #764ba2,
-        #667eea,
-        #764ba2
-    ) !important;
+    background: var(--gradient-primary-animated) !important;
     background-size: 400% 400%;
     animation: gradientShift 8s ease infinite;
     border: none !important;
     color: white !important;
-    transition: all var(--transition-normal);
     box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover,
 .btn-primary:focus {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    transform: translateY(-2px) !important;
+    box-shadow: var(--shadow-md) !important;
     filter: brightness(1.05);
     animation: gradientShift 4s ease infinite;
 }
 
 .btn-primary:active {
-    transform: translateY(0);
+    transform: translateY(0) !important;
 }
 
 /* Secondary Buttons */
 .btn-secondary {
-    background: var(--color-background) !important;
+    background: var(--color-bg-secondary) !important;
     border: 2px solid var(--color-primary) !important;
     color: var(--color-primary) !important;
-    transition: all var(--transition-normal);
 }
 
 .btn-secondary:hover,
@@ -88,35 +77,62 @@
 .btn-outline-primary {
     border-color: var(--color-primary) !important;
     color: var(--color-primary) !important;
-    transition: all var(--transition-normal);
 }
 
 .btn-outline-primary:hover,
 .btn-outline-primary:focus {
-    background: linear-gradient(
-        -45deg,
-        #667eea,
-        #764ba2,
-        #667eea,
-        #764ba2
-    ) !important;
+    background: var(--gradient-primary-animated) !important;
     background-size: 400% 400%;
     animation: gradientShift 4s ease infinite;
     color: white !important;
     border-color: transparent !important;
 }
 
-/* Global Button Hover Effect - Raised Effect for All Buttons */
-.btn:hover,
-.btn:focus {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+.btn-outline-secondary,
+.btn-outline-danger,
+.btn-outline-success,
+.btn-outline-warning,
+.btn-outline-info {
+    border-width: 2px !important;
 }
 
-/* Links - Purple Theme */
+/* Global Button Hover Effect */
+.btn:hover,
+.btn:focus {
+    transform: translateY(-2px) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+/* Link Buttons - Styled as text links but maintain button padding */
+.btn-link {
+    background: none !important;
+    border: none !important;
+    color: var(--color-primary) !important;
+    text-decoration: none !important;
+    padding: clamp(0.375rem, 1vw, 0.5rem) clamp(0.75rem, 2vw, 1rem) !important;
+    box-shadow: none !important;
+}
+
+.btn-link:hover,
+.btn-link:focus {
+    color: var(--color-primary-dark) !important;
+    text-decoration: underline !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Link buttons that explicitly need no padding (expand toggles, etc) */
+.btn-link.p-0 {
+    padding: 0 !important;
+}
+
+/* ============================================
+   LINKS
+   ============================================ */
+
 a:not(.btn):not(.nav-link):not(.dropdown-item) {
     color: var(--color-primary);
-    transition: color var(--transition-fast);
+    transition: color var(--transition-base);
 }
 
 a:not(.btn):not(.nav-link):not(.dropdown-item):hover,
@@ -125,36 +141,39 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):focus {
     text-decoration: underline;
 }
 
-/* Form Controls - Purple Theme */
+/* ============================================
+   FORM CONTROLS
+   ============================================ */
+
 .form-control:focus,
 .form-select:focus {
     border-color: var(--color-primary) !important;
-    box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25) !important;
+    box-shadow: 0 0 0 0.25rem var(--color-primary-light) !important;
 }
 
-/* Badges - Purple Theme with Animated Gradient */
+/* ============================================
+   BADGES
+   ============================================ */
+
 .badge {
-    background: linear-gradient(
-        -45deg,
-        #667eea,
-        #764ba2,
-        #667eea,
-        #764ba2
-    );
+    background: var(--gradient-primary-animated);
     background-size: 400% 400%;
     animation: gradientShift 8s ease infinite;
     color: white;
-    font-weight: 600;
-    padding: 0.5rem 1rem;
-    border-radius: var(--radius-pill);
+    font-weight: var(--font-weight-semibold);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-full);
 }
 
-/* Cards - Enhanced with Theme */
+/* ============================================
+   CARDS
+   ============================================ */
+
 .card {
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
     transition: all var(--transition-normal);
-    border: 1px solid rgba(102, 126, 234, 0.1);
+    border: 1px solid var(--color-border-light);
 }
 
 .card:hover {
@@ -162,50 +181,53 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):focus {
     transform: translateY(-2px);
 }
 
-/* Alerts - Purple Theme */
+/* ============================================
+   ALERTS
+   ============================================ */
+
 .alert-primary {
     background: var(--color-primary-light);
     border-left: 4px solid var(--color-primary);
-    color: var(--color-text);
+    color: var(--color-text-secondary);
 }
 
-/* Loading Spinner - Purple Theme */
+/* ============================================
+   SPINNER
+   ============================================ */
+
 .spinner-border {
     color: var(--color-primary) !important;
 }
 
-/* Progress Bars - Purple Theme with Animated Gradient */
+/* ============================================
+   PROGRESS BARS
+   ============================================ */
+
 .progress-bar {
-    background: linear-gradient(
-        -45deg,
-        #667eea,
-        #764ba2,
-        #667eea,
-        #764ba2
-    );
+    background: var(--gradient-primary-animated);
     background-size: 400% 400%;
     animation: gradientShift 8s ease infinite;
 }
 
-/* Pagination - Purple Theme */
+/* ============================================
+   PAGINATION
+   ============================================ */
+
 .pagination .page-link {
     color: var(--color-primary);
 }
 
 .pagination .page-item.active .page-link {
-    background: linear-gradient(
-        -45deg,
-        #667eea,
-        #764ba2,
-        #667eea,
-        #764ba2
-    );
+    background: var(--gradient-primary-animated);
     background-size: 400% 400%;
     animation: gradientShift 8s ease infinite;
     border-color: var(--color-primary);
 }
 
-/* Tooltips - Purple Theme */
+/* ============================================
+   TOOLTIPS
+   ============================================ */
+
 .tooltip-inner {
     background: var(--color-primary);
 }
@@ -215,10 +237,13 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):focus {
     border-top-color: var(--color-primary);
 }
 
-/* Modals - Enhanced */
+/* ============================================
+   MODALS
+   ============================================ */
+
 .modal-content {
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
     border: none;
 }
 
@@ -230,24 +255,21 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):focus {
     border-top: 2px solid var(--color-primary-light);
 }
 
-/* Custom Scrollbar - Purple Theme with Animated Gradient */
+/* ============================================
+   SCROLLBAR - Purple Theme
+   ============================================ */
+
 ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--color-background);
+    background: var(--color-bg-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: linear-gradient(
-        -45deg,
-        #667eea,
-        #764ba2,
-        #667eea,
-        #764ba2
-    );
+    background: var(--gradient-primary-animated);
     background-size: 400% 400%;
     animation: gradientShift 15s ease infinite;
     border-radius: var(--radius-sm);
@@ -258,7 +280,10 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):focus {
     animation: none;
 }
 
-/* Selection - Purple Theme */
+/* ============================================
+   TEXT SELECTION
+   ============================================ */
+
 ::selection {
     background: var(--color-primary);
     color: white;

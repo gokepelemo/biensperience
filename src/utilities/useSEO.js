@@ -7,7 +7,7 @@
 
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getEntityImage } from './seo-meta';
+import { getEntityImage } from './seo-meta.jsx';
 
 /**
  * Hook for managing page SEO data

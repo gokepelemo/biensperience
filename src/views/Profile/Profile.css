@@ -28,6 +28,7 @@
     z-index: 100;
     display: flex;
     align-items: center;
+    margin: 2rem 0;
 }
 
 /* Ensure both columns have equal height and align their children */

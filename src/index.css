@@ -1,13 +1,26 @@
 /* ============================================
-   GLOBAL IMPORTS
-   ============================================ */
+   GLOBAL IMPORTS - Design System Order
+   ============================================
+   Import order matters:
+   1. Design tokens (variables)
+   2. Headings (base styles)
+   3. Utilities (atomic classes)
+   4. Theme-specific overrides
+   5. Component-specific styles
+*/
+
+/* 1. Design System Foundation */
+@import './styles/design-tokens.css';
+@import './styles/headings.css';
+@import './styles/utilities.css';
+
+/* 2. Legacy Global Styles (being consolidated) */
 @import './styles/accessibility.css';
 @import './styles/theme.css';
 @import './styles/alerts.css';
 @import './styles/animations.css';
 @import './styles/shared/modal.css';
 @import './styles/shared/typography.css';
-@import './styles/shared/animations.css';
 @import './styles/shared/forms.css';
 
 /* ============================================

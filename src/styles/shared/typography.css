@@ -1,44 +1,64 @@
-/* ============================================
-   SHARED TYPOGRAPHY STYLES
-   ============================================
-   Consistent heading styles across views
-*/
+/**
+ * LEGACY: Shared Typography Styles
+ *
+ * This file is being deprecated in favor of the new design system.
+ * New code should use:
+ * - src/styles/design-tokens.css for variables
+ * - src/styles/headings.css for heading styles
+ * - src/styles/utilities.css for utility classes
+ *
+ * Keeping minimal styles here for backwards compatibility only.
+ */
 
-/* View-level main heading */
-.view-heading,
-h1.h {
-    text-align: left;
-    font-weight: bold;
-    font-size: clamp(2rem, 5vw, 3.5rem);
+/* View-level main heading - Use .heading-page instead */
+.view-heading {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-extrabold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--color-text-primary);
+  text-shadow: var(--shadow-text-sm);
+  margin-bottom: var(--space-6);
+  contain: layout style;
 }
 
-/* Section headings (used in cards, sections) */
+/* Section headings - Use .heading-section instead */
 .section-heading {
-    font-weight: 700;
-    font-size: clamp(1rem, 2.5vw, 1.25rem);
-    margin: 0 0 1.25rem 0;
-    color: #333;
-    text-align: center;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--color-text-secondary);
+  text-align: center;
+  margin-bottom: var(--space-5);
+  contain: layout style;
 }
 
-/* Base font size with responsive clamp */
+/* Base body styles */
 body {
-    font-size: clamp(0.875rem, 1.5vw, 1rem);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-secondary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Responsive text sizes */
-.text-base {
-    font-size: clamp(0.875rem, 1.5vw, 1rem);
+/* Paragraphs */
+p {
+  margin-bottom: var(--space-4);
+  line-height: var(--line-height-loose);
 }
 
-.text-lg {
-    font-size: clamp(1rem, 2vw, 1.25rem);
+/* Links */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-base);
 }
 
-.text-xl {
-    font-size: clamp(1.25rem, 2.5vw, 1.5rem);
-}
-
-.text-2xl {
-    font-size: clamp(1.5rem, 3vw, 1.8rem);
+a:hover {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
 }

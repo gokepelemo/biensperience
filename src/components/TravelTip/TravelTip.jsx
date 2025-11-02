@@ -1,5 +1,6 @@
 import "./TravelTip.css";
 import { Badge, Button } from 'react-bootstrap';
+import { useMemo } from 'react';
 import {
   FaLanguage, FaMoneyBillWave, FaBus, FaShieldAlt,
   FaCloudSun, FaHandshake, FaUtensils, FaHotel,
@@ -63,6 +64,30 @@ const TIP_GRADIENTS = {
 };
 
 export default function TravelTip({ tip, index, onDelete, editable = false }) {
+  // Calculate dynamic font size based on text length for simple tips
+  const getSimpleTipFontSize = useMemo(() => {
+    if (typeof tip !== 'string') return null;
+
+    const length = tip.length;
+
+    // Short tips (< 50 chars): Larger font
+    if (length < 50) {
+      return 'clamp(1.125rem, 2vw, 1.375rem)'; // 18px - 22px
+    }
+    // Medium tips (50-100 chars): Medium font
+    else if (length < 100) {
+      return 'clamp(1rem, 1.75vw, 1.25rem)'; // 16px - 20px
+    }
+    // Long tips (100-150 chars): Standard font
+    else if (length < 150) {
+      return 'clamp(0.9375rem, 1.5vw, 1.125rem)'; // 15px - 18px
+    }
+    // Very long tips (>150 chars): Smaller font
+    else {
+      return 'clamp(0.875rem, 1.25vw, 1rem)'; // 14px - 16px
+    }
+  }, [tip]);
+
   // Handle simple string tip
   if (typeof tip === 'string') {
     return (
@@ -71,7 +96,12 @@ export default function TravelTip({ tip, index, onDelete, editable = false }) {
           <FaLightbulb className="travel-tip-fa-icon" />
         </div>
         <div className="travel-tip-content-simple">
-          <span className="travel-tip-text">{tip}</span>
+          <span
+            className="travel-tip-text"
+            style={{ fontSize: getSimpleTipFontSize }}
+          >
+            {tip}
+          </span>
         </div>
         {editable && (
           <button

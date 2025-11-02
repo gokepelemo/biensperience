@@ -571,4 +571,4 @@ const lang = {
   en: languages.en,
 };
 
-module.exports = { lang, getCurrentLanguage, getLang };
+export { lang, getCurrentLanguage, getLang };
