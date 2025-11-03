@@ -69,6 +69,13 @@ const createPlan = asyncHandler(async (req, res) => {
   }));
 
   // Create plan with dual ownership
+  backendLogger.debug('Creating plan with snapshot', {
+    experienceId,
+    userId: req.user._id.toString(),
+    itemCount: planSnapshot.length,
+    plannedDate: planned_date
+  });
+
   const plan = await Plan.create({
     experience: experienceId,
     user: req.user._id,
@@ -80,6 +87,12 @@ const createPlan = asyncHandler(async (req, res) => {
       type: 'owner',
       granted_by: req.user._id
     }]
+  });
+
+  backendLogger.info('Plan created successfully', {
+    planId: plan._id.toString(),
+    experienceId,
+    userId: req.user._id.toString()
   });
 
   // Add user as contributor to experience if not already owner/collaborator
@@ -118,6 +131,16 @@ const createPlan = asyncHandler(async (req, res) => {
         select: 'url caption'
       }
     });
+
+  if (!populatedPlan) {
+    backendLogger.error('Plan was created but could not be found for population', {
+      planId: plan._id.toString(),
+      experienceId,
+      userId: req.user._id.toString()
+    });
+    // Return the unpopulated plan rather than failing
+    return res.status(201).json(plan);
+  }
 
   // Track creation (non-blocking)
   trackCreate({
