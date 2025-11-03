@@ -136,9 +136,9 @@ const createPlan = asyncHandler(async (req, res) => {
  */
 const getUserPlans = asyncHandler(async (req, res) => {
   const plans = await Plan.find({ user: req.user._id })
-    .populate('experience', 'name destination photos default_photo_id')
     .populate({
       path: 'experience',
+      select: 'name destination photos default_photo_id',
       populate: {
         path: 'destination',
         select: 'name country'
@@ -160,7 +160,6 @@ const getPlanById = asyncHandler(async (req, res) => {
   }
 
   const plan = await Plan.findById(id)
-    .populate('experience', 'name destination plan_items photos default_photo_id')
     .populate({
       path: 'user',
       select: 'name email photos default_photo_id',
@@ -171,6 +170,7 @@ const getPlanById = asyncHandler(async (req, res) => {
     })
     .populate({
       path: 'experience',
+      select: 'name destination plan_items photos default_photo_id',
       populate: {
         path: 'destination',
         select: 'name country'
@@ -418,9 +418,9 @@ const updatePlan = asyncHandler(async (req, res) => {
     .populate('experience', 'name destination photos default_photo_id')
     .populate({
       path: 'user',
-      select: 'name email photo photos default_photo_id',
+      select: 'name email photos default_photo_id',
       populate: {
-        path: 'photo',
+        path: 'photos',
         select: 'url caption'
       }
     });
@@ -596,9 +596,9 @@ const addCollaborator = asyncHandler(async (req, res) => {
     .populate('experience', 'name photos default_photo_id')
     .populate({
       path: 'user',
-      select: 'name email photo photos default_photo_id',
+      select: 'name email photos default_photo_id',
       populate: {
-        path: 'photo',
+        path: 'photos',
         select: 'url caption'
       }
     });

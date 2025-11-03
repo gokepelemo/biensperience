@@ -212,6 +212,24 @@ function formatTravelTipsChanges(change, icon) {
     }
   });
 
+  // Detect reordering if no additions/removals but arrays are different
+  if (changes.length === 0 && change.from.length === change.to.length) {
+    // Same content but different order
+    const orderChanged = change.from.some((tip, index) => {
+      const toTip = change.to[index];
+      // For structured tips, compare key properties
+      if (typeof tip === 'object' && typeof toTip === 'object') {
+        return tip.value !== toTip.value || tip.type !== toTip.type;
+      }
+      // For simple string tips, direct comparison
+      return tip !== toTip;
+    });
+
+    if (orderChanged) {
+      changes.push(`${icon} Order of Travel Tips updated`);
+    }
+  }
+
   return changes.join('\n');
 }
 
