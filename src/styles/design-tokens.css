@@ -106,6 +106,15 @@
   --color-info: #17a2b8;
   --color-info-light: rgba(23, 162, 184, 0.1);
 
+  /* Favorite Button Colors */
+  --color-favorite-add-hover-start: #28a745;    /* Green for add hover */
+  --color-favorite-add-hover-end: #218838;      /* Darker green */
+  --color-favorite-remove-hover-start: #dc3545; /* Red for remove hover */
+  --color-favorite-remove-hover-end: #c82333;   /* Darker red */
+  --color-favorite-pill-bg: #667eea;            /* Purple pill background */
+  --color-favorite-pill-bg-end: #764ba2;        /* Darker purple */
+  --color-favorite-text: #ffffff;               /* White text */
+
   /* Border Colors */
   --color-border-light: rgba(0, 0, 0, 0.05);
   --color-border-medium: rgba(0, 0, 0, 0.1);
@@ -235,6 +244,15 @@
     --color-warning-light: rgba(255, 212, 59, 0.15);
     --color-info: #339af0;              /* Brighter blue for dark bg */
     --color-info-light: rgba(51, 154, 240, 0.15);
+
+    /* Favorite Button Colors - Adjusted for dark mode */
+    --color-favorite-add-hover-start: #40c057;    /* Brighter green for dark bg */
+    --color-favorite-add-hover-end: #2f9e44;      /* Darker green */
+    --color-favorite-remove-hover-start: #fa5252; /* Brighter red for dark bg */
+    --color-favorite-remove-hover-end: #e03131;   /* Darker red */
+    --color-favorite-pill-bg: #667eea;            /* Keep purple pill */
+    --color-favorite-pill-bg-end: #764ba2;        /* Keep darker purple */
+    --color-favorite-text: #ffffff;               /* Keep white text */
 
     /* Primary Colors - Keep brand colors but adjust hover states */
     --color-primary-light: rgba(102, 126, 234, 0.15); /* More transparent on dark */
