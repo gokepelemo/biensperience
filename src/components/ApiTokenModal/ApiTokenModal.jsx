@@ -16,6 +16,7 @@ import { getApiTokens, createApiToken, deleteApiToken, toggleApiAccess } from '.
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
+import Loading from '../Loading/Loading';
 import './ApiTokenModal.css';
 
 export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
@@ -334,11 +335,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
             {/* Existing Tokens List */}
             <h5>Your Tokens</h5>
             {isLoading ? (
-              <div className="text-center py-4">
-                <div className="spinner-border text-primary" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
-              </div>
+              <Loading size="md" message="Loading tokens..." />
             ) : tokens.length === 0 ? (
               <BootstrapAlert variant="info">
                 You don't have any API tokens yet. Create one above to get started.

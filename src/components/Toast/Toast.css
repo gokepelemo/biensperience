@@ -10,6 +10,11 @@
   box-shadow: var(--shadow-md);
 }
 
+/* Compact toast body - reduce whitespace for transient elements */
+.biensperience-toast .toast-body {
+  padding: var(--space-3) var(--space-4);
+}
+
 /* Slide animation variant */
 .biensperience-toast.toast-slide {
   animation: slideIn 0.3s ease-out;
@@ -33,14 +38,20 @@
   font-size: 1.2rem;
 }
 
-/* Toast actions styling */
+/* Toast actions styling - compact and legible */
 .toast-actions {
-  margin-top: 0.75rem;
+  margin-top: var(--space-2);
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: nowrap;
 }
 
 .toast-actions .btn {
   font-size: var(--font-size-sm);
-  padding: 0.375rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  min-height: 32px;
 }
 
 /* Responsive design */
@@ -98,18 +109,47 @@
 
 /* Link style buttons in toasts */
 .toast-actions .btn-link {
-  color: var(--color-primary) !important;
-  text-decoration: underline;
-  padding: 0.25rem 0.5rem;
-  font-weight: 600;
+  color: white !important;
+  text-decoration: none;
+  padding: var(--space-2) var(--space-3);
+  font-weight: var(--font-weight-semibold);
   background: transparent !important;
   border: none !important;
 }
 
 .toast-actions .btn-link:hover {
-  color: var(--color-primary) !important;
-  text-decoration: underline;
+  color: white !important;
+  text-decoration: none;
   background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Success toast button overrides - improve contrast */
+.bg-success .toast-actions .btn-light {
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: var(--color-toast-success-btn-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  font-weight: var(--font-weight-semibold);
+}
+
+.bg-success .toast-actions .btn-light:hover {
+  background: #ffffff !important;
+  color: var(--color-toast-success-btn-hover-text) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+/* Primary toast button overrides */
+.bg-primary .toast-actions .btn-light {
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: var(--color-primary-dark) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  font-weight: var(--font-weight-semibold);
+}
+
+.bg-primary .toast-actions .btn-light:hover {
+  background: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  transform: translateY(-1px);
 }
 
 .toast-action-button:active {
@@ -133,7 +173,7 @@
   left: 0;
   height: 3px;
   width: 100%;
-  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  background: linear-gradient(90deg, var(--color-toast-progress-start), var(--color-toast-progress-end));
   animation: toast-progress linear;
   transform-origin: left;
 }
@@ -193,5 +233,30 @@
 
   .toast-message {
     font-size: var(--font-size-xs);
+  }
+}
+
+/* ============================================
+   DARK MODE TOAST ADJUSTMENTS
+   ============================================ */
+@media (prefers-color-scheme: dark) {
+  .bg-success .toast-actions .btn-light {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: var(--color-toast-success-btn-text) !important;
+  }
+
+  .bg-success .toast-actions .btn-light:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: var(--color-toast-success-btn-hover-text) !important;
+  }
+
+  .bg-primary .toast-actions .btn-light {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: var(--color-toast-primary-btn-text) !important;
+  }
+
+  .bg-primary .toast-actions .btn-light:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: var(--color-toast-primary-btn-hover-text) !important;
   }
 }

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { confirmEmail } from '../../utilities/users-api';
 import { handleError } from '../../utilities/error-handler';
 import Alert from '../../components/Alert/Alert';
+import Loading from '../../components/Loading/Loading';
 import PageMeta from '../../components/PageMeta/PageMeta';
 import './ConfirmEmail.css';
 
@@ -52,12 +53,7 @@ export default function ConfirmEmail() {
                 <h1 className="text-center mb-4">Email Confirmation</h1>
 
                 {loading ? (
-                  <div className="text-center py-5">
-                    <div className="spinner-border text-primary mb-3" role="status">
-                      <span className="visually-hidden">Loading...</span>
-                    </div>
-                    <p className="text-muted">Confirming your email address...</p>
-                  </div>
+                  <Loading variant="centered" size="lg" message="Confirming your email address..." />
                 ) : success ? (
                   <Alert type="success">
                     <h5 className="alert-heading">Email Confirmed!</h5>

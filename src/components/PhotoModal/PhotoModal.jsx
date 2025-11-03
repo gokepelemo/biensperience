@@ -8,6 +8,11 @@ import { lang } from '../../lang.constants';
 export default function PhotoModal({ photo, photos = [], onClose, initialIndex = 0 }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   
+  // Update currentIndex when initialIndex changes (e.g., when user switches photos in PhotoCard)
+  useEffect(() => {
+    setCurrentIndex(initialIndex);
+  }, [initialIndex]);
+  
   // Support both single photo and array of photos
   const photoArray = photos.length > 0 ? photos : (photo ? [photo] : []);
   const currentPhoto = photoArray[currentIndex];
@@ -33,20 +38,39 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
       }
     };
 
-    // Handle arrow key navigation for multiple photos
-    const handleArrowKeys = (e) => {
+    // Handle comprehensive keyboard navigation for multiple photos
+    const handleKeyboardNavigation = (e) => {
       if (!hasMultiplePhotos) return;
-      
+
+      // Arrow key navigation
       if (e.key === 'ArrowLeft') {
+        e.preventDefault();
         goToPrevious();
       } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
         goToNext();
+      }
+      // Home/End keys
+      else if (e.key === 'Home') {
+        e.preventDefault();
+        setCurrentIndex(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        setCurrentIndex(photoArray.length - 1);
+      }
+      // Number keys (1-9) to jump to specific photos
+      else if (e.key >= '1' && e.key <= '9') {
+        const num = parseInt(e.key) - 1; // Convert 1-9 to 0-8
+        if (num < photoArray.length) {
+          e.preventDefault();
+          setCurrentIndex(num);
+        }
       }
     };
 
     document.addEventListener('keydown', handleEscape);
     if (hasMultiplePhotos) {
-      document.addEventListener('keydown', handleArrowKeys);
+      document.addEventListener('keydown', handleKeyboardNavigation);
     }
 
     // Prevent body scroll when modal is open
@@ -54,10 +78,10 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.removeEventListener('keydown', handleArrowKeys);
+      document.removeEventListener('keydown', handleKeyboardNavigation);
       document.body.style.overflow = 'unset';
     };
-  }, [onClose, hasMultiplePhotos, goToNext, goToPrevious]);
+  }, [onClose, hasMultiplePhotos, goToNext, goToPrevious, photoArray.length]);
 
   if (!currentPhoto) return null;
 
@@ -123,6 +147,38 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
           alt={currentPhoto.photo_credit || 'Photo'}
           className="photo-modal-image"
         />
+
+        {/* Thumbnail Navigation for multiple photos */}
+        {hasMultiplePhotos && (
+          <div className="photo-modal-thumbnails">
+            {photoArray.map((photo, index) => (
+              <div
+                key={index}
+                className={`photo-modal-thumbnail ${index === currentIndex ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentIndex(index);
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setCurrentIndex(index);
+                  }
+                }}
+                aria-label={`View photo ${index + 1} of ${photoArray.length}${index === currentIndex ? ' (current)' : ''}`}
+                title={photo.photo_credit || `Photo ${index + 1}`}
+              >
+                <img
+                  src={photo.url}
+                  alt={`Thumbnail ${index + 1}`}
+                  loading="lazy"
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
         {sanitizedCredit && (
           <div className="photo-modal-credits">

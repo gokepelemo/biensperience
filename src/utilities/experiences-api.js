@@ -15,6 +15,12 @@ export async function showExperience(id) {
   return await sendRequest(`${BASE_URL}${id}`, "GET");
 }
 
+// OPTIMIZATION: Fetch experience with full context (experience + userPlan + collaborativePlans)
+// Reduces 3 API calls to 1 for dramatically faster page load
+export async function showExperienceWithContext(id) {
+  return await sendRequest(`${BASE_URL}${id}/with-context`, "GET");
+}
+
 export async function deleteExperience(id) {
   return await sendRequest(`${BASE_URL}${id}`, "DELETE");
 }

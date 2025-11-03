@@ -148,7 +148,7 @@ export default function CollaboratorModal({
                   >
                     <div>
                       <strong>{collab.name}</strong>
-                      {isRemoved && <Badge bg="danger" className="ms-2">Will be removed</Badge>}
+                      {isRemoved && <Badge className="badge badge-danger ms-2">Will be removed</Badge>}
                     </div>
                     <button
                       className="btn btn-sm btn-outline-danger"

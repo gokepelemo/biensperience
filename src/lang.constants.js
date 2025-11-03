@@ -159,6 +159,7 @@ const en = {
     activityDetails: "Activity Details",
     deletePhoto: "Delete Photo",
     photoUrlRequired: "Photo URL Required",
+    photoUploadSuccess: "Photos Uploaded Successfully",
     unableToUpdateExperience: "Unable to Update Experience",
     updateFailed: "Update Failed",
     
@@ -399,7 +400,7 @@ const en = {
     destinationPhoto: "Upload photos that capture this destination's vibe.",
     experiencePhoto: "Share photos that inspire others to try this experience.",
     map: "map",
-    travelTipsHelp: "Add helpful tips for travelers. Choose simple tips for quick notes, or structured tips with detailed information and links.",
+    travelTipsHelp: "Add helpful tips for travelers. Choose quick tip for quick notes, or detailed tip for in-depth information and links.",
     travelTipsIconHelp: "Leave blank to use default icon for this type.",
     travelTipsCtaHelp: "Add a button with a link for more information.",
   },

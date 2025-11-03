@@ -9,6 +9,7 @@ import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import Alert from "../../components/Alert/Alert";
+import Loading from "../../components/Loading/Loading";
 import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
 import ActivityMonitor from "../../components/ActivityMonitor/ActivityMonitor";
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
@@ -22,7 +23,7 @@ import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles"
 import { isSuperAdmin } from "../../utilities/permissions";
 
 export default function Profile() {
-  const { user, updateUser: updateUserContext } = useUser();
+    const { user, profile, updateUser: updateUserContext } = useUser();
   const { destinations, plans } = useData();
   const { registerH1, clearActionButtons } = useApp();
   let { profileId } = useParams();
@@ -34,8 +35,10 @@ export default function Profile() {
 
   let userId = profileId ? profileId : user._id;
   const isOwner = !profileId || profileId === user._id || isSuperAdmin(user);
-  const [currentProfile, setCurrentProfile] = useState(isOwner ? user : null);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(!isOwner);
+  
+  // NEVER initialize with profile from context to prevent showing wrong user's data
+  const [currentProfile, setCurrentProfile] = useState(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState(null);
   const [uiState, setUiState] = useState({
     experiences: true,
@@ -119,6 +122,19 @@ export default function Profile() {
       setIsLoadingProfile(false);
     }
   }, [userId, isOwner]);
+
+  // Load profile from context for owner, or fetch for other users
+  useEffect(() => {
+    if (isOwner && profile && profile._id === userId) {
+      // Owner viewing their own profile - use context
+      setCurrentProfile(profile);
+      setIsLoadingProfile(false);
+    } else if (!isOwner || !profile) {
+      // Viewing another user or profile not loaded yet
+      setCurrentProfile(null);
+      setIsLoadingProfile(true);
+    }
+  }, [profileId, isOwner, profile, userId]);
 
   const handleRoleUpdate = async (newRole) => {
     if (!isSuperAdmin(user)) {
@@ -260,96 +276,106 @@ export default function Profile() {
           entityType="user"
         />
       )}
-      <div className="row fade-in profile-header-row">
-        <div className="col-md-6 fade-in">
-          <h1 className="h fade-in mb-0">
-            {isLoadingProfile ? (
-              <span className="loading-skeleton loading-skeleton-text"></span>
-            ) : (
-              <>
-                {currentProfile?.name}
-                {currentProfile?.emailConfirmed && (
-                  <FaCheckCircle
-                    className="text-success ms-2"
-                    style={{ fontSize: '0.6em' }}
-                    title={lang.en.aria.emailConfirmed}
-                    aria-label={lang.en.aria.emailConfirmed}
-                  />
-                )}
-              </>
-            )}
-          </h1>
-        </div>
-        <div className="col-md-6 fade-in">
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            {!isLoadingProfile && (
-              <div className="dropdown">
-                <button
-                  className="btn btn-outline-secondary"
-                  type="button"
-                  data-bs-toggle="dropdown"
-                  aria-expanded="false"
-                  aria-label={lang.en.aria.profileActions}
-                >
-                  ⋯
-                </button>
-                <ul className="dropdown-menu dropdown-menu-end">
-                  {isSuperAdmin(user) && (
+      <div className="profile-dropdown-view">
+        <div className="container-fluid">
+          <div className="view-header">
+            <div className="row">
+              <div className="col-md-6">
+                <h1 className="mb-0">
+                  {isLoadingProfile ? (
+                    <span className="loading-skeleton loading-skeleton-text"></span>
+                  ) : (
                     <>
-                      <li>
-                        <button
-                          className="dropdown-item"
-                          onClick={handleOpenApiModal}
-                          type="button"
-                        >
-                          <FaKey className="me-2" /> API Key
-                        </button>
-                      </li>
-                      <li>
-                        <button
-                          className="dropdown-item"
-                          onClick={handleOpenActivityMonitor}
-                          type="button"
-                        >
-                          <FaEye className="me-2" /> Activity Monitor
-                        </button>
-                      </li>
+                      {currentProfile?.name}
+                      {currentProfile?.emailConfirmed && (
+                        <FaCheckCircle
+                          className="text-success ms-2"
+                          style={{ fontSize: '0.6em' }}
+                          title={lang.en.aria.emailConfirmed}
+                          aria-label={lang.en.aria.emailConfirmed}
+                        />
+                      )}
                     </>
                   )}
-                  {isOwner && (
-                    <li>
-                      <Link
-                        to="/profile/update"
-                        className="dropdown-item"
-                      >
-                        ✏️ Update Profile
-                      </Link>
-                    </li>
-                  )}
-                  {isSuperAdmin(user) && profileId && profileId !== user._id && (
-                    <li>
-                      <Link
-                        to={`/profile/${profileId}/update`}
-                        className="dropdown-item"
-                      >
-                        👑 Admin Update
-                      </Link>
-                    </li>
-                  )}
-                </ul>
+                </h1>
               </div>
-            )}
+              <div className="col-md-6">
+                <div className="header-actions">
+                  {!isLoadingProfile && (
+                    <div className="dropdown">
+                      <button
+                        className="btn btn-outline-secondary"
+                        type="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                        aria-label={lang.en.aria.profileActions}
+                      >
+                        ⋯
+                      </button>
+                      <ul className="dropdown-menu dropdown-menu-end">
+                        {isSuperAdmin(user) && (
+                          <>
+                            <li>
+                              <button
+                                className="dropdown-item"
+                                onClick={handleOpenApiModal}
+                                type="button"
+                              >
+                                <FaKey className="me-2" /> API Key
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                className="dropdown-item"
+                                onClick={handleOpenActivityMonitor}
+                                type="button"
+                              >
+                                <FaEye className="me-2" /> Activity Monitor
+                              </button>
+                            </li>
+                          </>
+                        )}
+                        {isOwner && (
+                          <li>
+                            <Link
+                              to="/profile/update"
+                              className="dropdown-item"
+                            >
+                              ✏️ Update Profile
+                            </Link>
+                          </li>
+                        )}
+                        {isSuperAdmin(user) && profileId && profileId !== user._id && (
+                          <li>
+                            <Link
+                              to={`/profile/${profileId}/update`}
+                              className="dropdown-item"
+                            >
+                              👑 Admin Update
+                            </Link>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
       <div className="row mb-4 fade-in">
         <div className="col-md-6 p-3 fade-in">
           {isLoadingProfile ? (
-            <div className="photoCard loading-skeleton loading-skeleton-photo"></div>
+            <div className="photoCard d-flex align-items-center justify-content-center" style={{ minHeight: '400px' }}>
+              <Loading size="lg" message="Loading profile photos..." />
+            </div>
           ) : (
             <>
-              <PhotoCard photo={currentProfile?.photo} title={currentProfile?.name} />
-              {!currentProfile?.photo && isOwner && (
+              <PhotoCard 
+                photos={currentProfile?.photos} 
+                defaultPhotoId={currentProfile?.default_photo_id} 
+                title={currentProfile?.name} 
+              />
+              {!currentProfile?.photos?.length && isOwner && (
                 <small className="d-flex justify-content-center align-items-center noPhoto fade-in">
                   <span>{lang.en.message.noPhotoMessage} <Link to="/profile/update">{lang.en.message.uploadPhotoNow}</Link></span>
                 </small>
@@ -383,7 +409,12 @@ export default function Profile() {
                     ) : isLoadingProfile ? (
                       <span className="loading-skeleton loading-skeleton-text"></span>
                     ) : (
-                      <p className="mb-0">{`${currentProfile?.name || 'This user'} hasn't added any favorite destinations yet.`}</p>
+                      <>
+                        <p className="mb-3">{`${currentProfile?.name || 'This user'} hasn't added any favorite destinations yet.`}</p>
+                        <Link to="/destinations" className="btn btn-primary btn-sm">
+                          Explore Destinations
+                        </Link>
+                      </>
                     )}
                   </div>
                 )}
@@ -413,7 +444,12 @@ export default function Profile() {
                     ) : isLoadingProfile ? (
                       <span className="loading-skeleton loading-skeleton-text"></span>
                     ) : (
-                      <p className="mb-0">{`${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`}</p>
+                      <>
+                        <p className="mb-3">{`${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`}</p>
+                        <Link to="/experiences" className="btn btn-primary btn-sm">
+                          Discover Experiences
+                        </Link>
+                      </>
                     )}
                   </div>
                 )}
@@ -423,7 +459,7 @@ export default function Profile() {
         </div>
       </div>
       <div className="row my-4 fade-in">
-        <h4 className="badge rounded-pill text-bg-light badge-nav my-4 fade-in">
+        <h4 className="badge rounded-pill badge-nav my-4 fade-in">
           <span
             className={uiState.experiences ? "fw-bold fade-in active-tab" : "fade-in"}
             onClick={() => handleExpNav('experiences')}
@@ -444,69 +480,107 @@ export default function Profile() {
           </span>
         </h4>
       </div>
-      {(uniqueUserExperiences.length > 0 || uniqueCreatedExperiences.length > 0) ? (
-        <>
-          <div className="row my-4 justify-content-center fade-in">
-            {uiState.destinations &&
-              Array.from(
-                new Set(
-                  uniqueUserExperiences.map(
-                    (experience) => experience.destination._id
-                  )
+      </div>
+      <div className="row my-4 justify-content-center fade-in">
+        {uiState.destinations && (
+          Array.from(
+            new Set(
+              uniqueUserExperiences.map(
+                (experience) => experience.destination._id
+              )
+            )
+          ).length > 0 ? (
+            Array.from(
+              new Set(
+                uniqueUserExperiences.map(
+                  (experience) => experience.destination._id
                 )
-              ).map((destinationId, index) => {
-                const destination = destinations.filter((dest) => dest._id === destinationId)[0];
-                return destination ? (
-                  <DestinationCard
-                    key={destination._id || index}
-                    destination={destination}
-                  />
-                ) : null;
-              })}
-            {uiState.experiences &&
-              uniqueUserExperiences.map((experience, index) => (
-                <ExperienceCard
-                  experience={experience}
-                  key={experience._id || index}
-                  userPlans={plans}
+              )
+            ).map((destinationId, index) => {
+              const destination = destinations.filter((dest) => dest._id === destinationId)[0];
+              return destination ? (
+                <DestinationCard
+                  key={destination._id || index}
+                  destination={destination}
                 />
-              ))}
-            {uiState.created &&
-              uniqueCreatedExperiences.map((experience, index) => (
-                <ExperienceCard
-                  experience={experience}
-                  key={experience._id || index}
-                  userPlans={plans}
-                />
-              ))}
-          </div>
-        </>
-      ) : (
-        <Alert
-          type="info"
-          className="fade-in"
-        >
-          <p className="mb-3">
-            {lang.en.alert.noExperiencesOrDestinations.replace('{type}',
-              uiState.experiences ? 'experiences' :
-              uiState.created ? 'created experiences' :
-              'destinations'
-            ).replace(' Start by adding your first one', isOwner ? ' Start by adding your first one' : '')}
-          </p>
-          {isOwner && (
-            <Link
-              to={
-                uiState.experiences ? '/experiences' :
-                uiState.created ? '/new-experience' :
-                '/destinations'
-              }
-              className="btn btn-primary"
+              ) : null;
+            })
+          ) : (
+            <Alert
+              type="info"
+              className="fade-in text-center"
             >
-              {lang.en.message.addOneNowButton}
-            </Link>
-          )}
-        </Alert>
-      )}
+              <p className="mb-3">
+                {isOwner
+                  ? "You haven't visited any destinations through your experiences yet. Plan some experiences to see destinations here."
+                  : `${currentProfile?.name || 'This user'} hasn't visited any destinations through their experiences yet.`
+                }
+              </p>
+              {isOwner && (
+                <Link to="/experiences" className="btn btn-primary">
+                  {lang.en.message.addExperiences}
+                </Link>
+              )}
+            </Alert>
+          )
+        )}
+        {uiState.experiences && (
+          uniqueUserExperiences.length > 0 ? (
+            uniqueUserExperiences.map((experience, index) => (
+              <ExperienceCard
+                experience={experience}
+                key={experience._id || index}
+                userPlans={plans}
+              />
+            ))
+          ) : (
+            <Alert
+              type="info"
+              className="fade-in text-center"
+            >
+              <p className="mb-3">
+                {isOwner
+                  ? lang.en.message.noExperiencesYet
+                  : `${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`
+                }
+              </p>
+              {isOwner && (
+                <Link to="/experiences" className="btn btn-primary">
+                  {lang.en.message.addExperiences}
+                </Link>
+              )}
+            </Alert>
+          )
+        )}
+        {uiState.created && (
+          uniqueCreatedExperiences.length > 0 ? (
+            uniqueCreatedExperiences.map((experience, index) => (
+              <ExperienceCard
+                experience={experience}
+                key={experience._id || index}
+                userPlans={plans}
+              />
+            ))
+          ) : (
+            <Alert
+              type="info"
+              className="fade-in text-center"
+            >
+              <p className="mb-3">
+                {isOwner
+                  ? "You haven't created any experiences yet. Share your travel knowledge with the community."
+                  : `${currentProfile?.name || 'This user'} hasn't created any experiences yet.`
+                }
+              </p>
+              {isOwner && (
+                <Link to="/experiences/new" className="btn btn-primary">
+                  {lang.en.message.addOneNowButton}
+                </Link>
+              )}
+            </Alert>
+          )
+        )}
+      </div>
 
       {/* Super Admin Permissions Section */}
       {isSuperAdmin(user) && !isOwner && currentProfile && (
@@ -605,6 +679,7 @@ export default function Profile() {
           onHide={handleCloseActivityMonitor}
         />
       )}
+      </div>
     </>
   );
 }

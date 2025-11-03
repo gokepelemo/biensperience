@@ -1,13 +1,9 @@
 /**
- * Responsive Form Styles with clamp() for Accessibility
- *
- * This stylesheet ensures all form fields remain accessible and visible
- * at any viewport size using CSS clamp() for responsive sizing.
+ * Responsive Form Styles - Accessibility & Dark Mode
+ * Uses clamp() for responsive sizing at any viewport
  */
 
-/* ========================================
-   Form Container Responsive Width
-   ======================================== */
+/* Form Container */
 
 /* Form containers - responsive width that never gets too small */
 form,
@@ -32,9 +28,7 @@ form.update-profile-form,
     margin: 0 auto;
 }
 
-/* ========================================
-   Form Labels - Responsive Font Size
-   ======================================== */
+/* Form Labels */
 
 /* All form labels with clamp to prevent tiny or huge text */
 .form-label,
@@ -44,15 +38,13 @@ form label,
 .update-experience-form label,
 .update-experience-form .form-label {
     font-size: clamp(0.875rem, 2vw, 1.25rem);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     margin-bottom: clamp(0.25rem, 1vw, 0.5rem);
-    color: var(--color-text, #333);
-    line-height: 1.4;
+    color: var(--color-text-primary);
+    line-height: var(--line-height-snug);
 }
 
-/* ========================================
-   Form Controls - Responsive Sizing
-   ======================================== */
+/* Form Controls */
 
 /* All input types, selects, and textareas */
 .form-control,
@@ -68,10 +60,10 @@ select {
     font-size: clamp(0.875rem, 1.5vw, 1.1rem) !important;
     padding: clamp(0.5rem, 1.5vw, 0.875rem) clamp(0.75rem, 2vw, 1.25rem);
     min-height: clamp(2.5rem, 6vw, 3.5rem);
-    line-height: 1.5;
+    line-height: var(--line-height-normal);
     border-radius: clamp(0.5rem, 1vw, 0.75rem);
-    border: 2px solid #dee2e6;
-    transition: all 0.3s ease;
+    border: 2px solid var(--color-border-medium);
+    transition: all var(--transition-normal);
     width: 100%;
     box-sizing: border-box;
 }
@@ -92,9 +84,7 @@ textarea.form-control {
     resize: vertical;
 }
 
-/* ========================================
-   Input Groups - Responsive Sizing
-   ======================================== */
+/* Input Groups */
 
 /* Input group containers */
 .input-group {
@@ -132,9 +122,7 @@ textarea.form-control {
     margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
 }
 
-/* ========================================
-   Buttons - Responsive Sizing
-   ======================================== */
+/* Buttons */
 
 /* Form buttons */
 form button,
@@ -157,9 +145,7 @@ form .btn-primary {
     min-width: clamp(80px, 20%, 120px);
 }
 
-/* ========================================
-   Helper Text & Validation Messages
-   ======================================== */
+/* Helper Text & Validation */
 
 /* Form text helper */
 .form-text,
@@ -178,9 +164,7 @@ small.form-text {
     display: block;
 }
 
-/* ========================================
-   Form Groups & Spacing
-   ======================================== */
+/* Form Groups & Spacing */
 
 /* Form groups/rows */
 .form-group,
@@ -194,9 +178,7 @@ small.form-text {
     row-gap: clamp(0.75rem, 2vw, 1rem);
 }
 
-/* ========================================
-   Mobile-Specific Overrides (< 576px)
-   ======================================== */
+/* Mobile Overrides (< 576px) */
 
 @media (max-width: 575.98px) {
     /* Ensure forms take most of the screen on mobile */
@@ -235,9 +217,7 @@ small.form-text {
     }
 }
 
-/* ========================================
-   Tablet Overrides (576px - 991px)
-   ======================================== */
+/* Tablet Overrides (576px - 991px) */
 
 @media (min-width: 576px) and (max-width: 991.98px) {
     form,
@@ -246,9 +226,7 @@ small.form-text {
     }
 }
 
-/* ========================================
-   Desktop Overrides (>= 992px)
-   ======================================== */
+/* Desktop Overrides (>= 992px) */
 
 @media (min-width: 992px) {
     form,
@@ -263,15 +241,13 @@ small.form-text {
     }
 }
 
-/* ========================================
-   Focus States - Enhanced Accessibility
-   ======================================== */
+/* Focus States */
 
 .form-control:focus,
 .form-select:focus,
 .input-group:focus-within {
-    border-color: var(--color-primary, #667eea);
-    box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
     outline: none;
 }
 
@@ -284,9 +260,7 @@ small.form-text {
     }
 }
 
-/* ========================================
-   Checkbox and Radio Button Styles
-   ======================================== */
+/* Checkbox and Radio Buttons */
 
 /* Fix spacing between checkbox/radio and label */
 .form-check {
@@ -312,9 +286,7 @@ small.form-text {
     padding-left: 0.5rem;
 }
 
-/* ========================================
-   Reduced Motion Support
-   ======================================== */
+/* Reduced Motion Support */
 
 @media (prefers-reduced-motion: reduce) {
     .form-control,

@@ -161,7 +161,7 @@
 
 .travel-tip-exchange-rate {
   font-size: var(--font-size-xs);
-  color: #28a745;
+  color: var(--color-travel-tip-exchange-rate);
   margin-bottom: var(--space-2);
 }
 
@@ -184,8 +184,8 @@
 /* Delete Button */
 .travel-tip-delete {
   border: none;
-  background: rgba(220, 53, 69, 0.1);
-  color: #dc3545;
+  background: var(--color-travel-tip-delete-bg);
+  color: var(--color-travel-tip-delete-text);
   border-radius: var(--radius-full);
   width: 24px;
   height: 24px;
@@ -208,43 +208,43 @@
 
 /* Type-Specific Styles */
 .travel-tip-language {
-  border-left: 4px solid #0dcaf0;
+  border-left: 4px solid var(--color-travel-tip-border-info);
 }
 
 .travel-tip-currency {
-  border-left: 4px solid #198754;
+  border-left: 4px solid var(--color-travel-tip-border-success);
 }
 
 .travel-tip-transportation {
-  border-left: 4px solid #0d6efd;
+  border-left: 4px solid var(--color-travel-tip-border-primary);
 }
 
 .travel-tip-safety {
-  border-left: 4px solid #ffc107;
+  border-left: 4px solid var(--color-travel-tip-border-warning);
 }
 
 .travel-tip-weather {
-  border-left: 4px solid #0dcaf0;
+  border-left: 4px solid var(--color-travel-tip-border-info);
 }
 
 .travel-tip-customs {
-  border-left: 4px solid #6c757d;
+  border-left: 4px solid var(--color-travel-tip-border-secondary);
 }
 
 .travel-tip-food {
-  border-left: 4px solid #dc3545;
+  border-left: 4px solid var(--color-travel-tip-border-danger);
 }
 
 .travel-tip-accommodation {
-  border-left: 4px solid #212529;
+  border-left: 4px solid var(--color-travel-tip-border-dark);
 }
 
 .travel-tip-emergency {
-  border-left: 4px solid #dc3545;
+  border-left: 4px solid var(--color-travel-tip-border-danger);
 }
 
 .travel-tip-custom {
-  border-left: 4px solid #667eea;
+  border-left: 4px solid var(--color-travel-tip-border-purple);
 }
 
 /* Responsive Styles */
@@ -276,11 +276,11 @@
 
   .travel-tip-simple .travel-tip-text,
   .travel-tip-value {
-    color: #f8f9fa;
+    color: var(--color-travel-tip-text-light);
   }
 
   .travel-tip-note {
-    color: #adb5bd;
+    color: var(--color-travel-tip-text-muted);
   }
 }
 

@@ -3,6 +3,30 @@
 ## Overview
 This design system provides a comprehensive, consistent foundation for all UI development in the Biensperience application. It prevents layout shifts, ensures visual consistency, and optimizes CSS performance.
 
+## Core Principles
+
+### 🚨 Loading States - Use the Loading Component
+**IMPORTANT**: All loading states MUST use the `Loading` component. Never create custom loading spinners, animations, or indicators.
+
+```jsx
+import Loading from '../components/Loading/Loading';
+
+// ✅ CORRECT: Use Loading component with appropriate variant
+<Loading variant="centered" size="lg" message="Loading data..." />
+
+// ❌ WRONG: Don't create custom spinners
+<div className="spinner-border"></div>
+<div className="custom-loading-circle"></div>
+```
+
+**Loading Component Variants:**
+- **Large centered loading**: `<Loading variant="centered" size="lg" message="Loading..." />`
+- **Medium centered loading**: `<Loading variant="centered" size="md" message="Loading..." />`
+- **Small inline loading**: `<Loading size="sm" showMessage={false} />`
+- **Fullscreen overlay**: `<Loading variant="fullscreen" size="lg" overlay="light" message="Processing..." />`
+
+See [Loading Component Documentation](../components/Loading/Loading.jsx) for full API.
+
 ## Architecture
 
 ### File Structure

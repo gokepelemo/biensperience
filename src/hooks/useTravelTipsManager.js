@@ -98,6 +98,13 @@ export function useTravelTipsManager(initialTips = []) {
   }, []);
 
   /**
+   * Reorder travel tips
+   */
+  const reorderTravelTips = useCallback((newOrder) => {
+    setTravelTips(newOrder);
+  }, []);
+
+  /**
    * Handle new tip input change
    */
   const handleNewTipChange = useCallback((e) => {
@@ -156,6 +163,7 @@ export function useTravelTipsManager(initialTips = []) {
     handleNewTipChange,
     handleNewTipKeyPress,
     resetTravelTips,
+    reorderTravelTips,
 
     // Structured tip management
     tipMode,

@@ -13,7 +13,7 @@
 }
 
 .destination-card-title {
-    background-color: rgba(0, 0, 0, 0.8); /* Fallback for browsers without backdrop-filter */
+    background-color: var(--color-bg-overlay); /* Fallback for browsers without backdrop-filter */
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px); /* Safari support */
     border-radius: var(--radius-md);

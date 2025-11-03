@@ -142,6 +142,16 @@ const inviteCodeSchema = new Schema(
     },
 
     /**
+     * Permission type to grant when redeeming the invite
+     * @type {string}
+     */
+    permissionType: {
+      type: String,
+      enum: ['owner', 'collaborator', 'contributor'],
+      default: 'owner'
+    },
+
+    /**
      * Metadata about where this invite was sent
      * @type {Object}
      */
@@ -216,6 +226,7 @@ inviteCodeSchema.statics.createInvite = async function(options) {
     inviteeName: options.inviteeName,
     experiences: options.experiences || [],
     destinations: options.destinations || [],
+    permissionType: options.permissionType || 'owner',
     maxUses: options.maxUses !== undefined ? options.maxUses : 1,
     expiresAt: options.expiresAt,
     customMessage: options.customMessage

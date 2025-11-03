@@ -21,6 +21,7 @@
 @import './styles/animations.css';
 @import './styles/shared/modal.css';
 @import './styles/shared/forms.css';
+@import './styles/shared/profile-dropdown-views.css';
 
 /* ============================================
    GLOBAL BASE STYLES

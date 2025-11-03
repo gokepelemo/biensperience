@@ -148,7 +148,7 @@ export default function Toast({
         </BootstrapToast.Header>
       )}
       <BootstrapToast.Body className={textClass}>
-        <div className="d-flex align-items-start">
+        <div className="d-flex align-items-start" style={{ gap: 'var(--space-2)' }}>
           {!header && (
             <div className="toast-icon-wrapper">
               {getIcon()}
@@ -157,12 +157,12 @@ export default function Toast({
           <div className="flex-grow-1">
             {message}
             {actions && (
-              <div className="toast-actions mt-2 d-flex gap-2">
-                {Array.isArray(actions) 
+              <div className="toast-actions">
+                {Array.isArray(actions)
                   ? actions.map((action, idx) => (
                       <button
                         key={idx}
-                        className={`btn btn-sm ${action.variant ? `btn-${action.variant}` : 'btn-light'}`}
+                        className={`btn ${action.variant ? `btn-${action.variant}` : 'btn-light'}`}
                         onClick={() => {
                           action.onClick();
                           handleClose();
@@ -179,7 +179,7 @@ export default function Toast({
           {!header && showCloseButton && (
             <button
               type="button"
-              className="btn-close btn-close-white ms-2"
+              className="btn-close btn-close-white"
               aria-label="Close"
               onClick={handleClose}
             />

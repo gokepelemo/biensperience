@@ -1,12 +1,6 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const photoObjectSchema = new Schema({
-  url: { type: String, required: true },
-  photo_credit: { type: String, default: 'Unknown' },
-  photo_credit_url: { type: String }
-}, { _id: false });
-
 const permissionSchema = new Schema({
   _id: { type: Schema.Types.ObjectId, required: true },
   entity: { 
@@ -53,15 +47,15 @@ const experienceSchema = new Schema(
     },
     experience_type: [String],
     plan_items: [planItemSchema],
-    photo: { 
-      type: Schema.Types.ObjectId, 
-      ref: "Photo",
-    },
     photos: {
-      type: [photoObjectSchema],
+      type: [Schema.Types.ObjectId],
+      ref: "Photo",
       default: []
     },
-    default_photo_index: { type: Number, default: 0 },
+    default_photo_id: { 
+      type: Schema.Types.ObjectId, 
+      ref: "Photo" 
+    },
     visibility: {
       type: String,
       enum: ['private', 'contributors', 'public'],
@@ -141,17 +135,15 @@ experienceSchema.virtual("completion_percentage").get(function () {
 
 /**
  * Additional database indexes for query performance optimization
- * Note: experienceSchema.index({ destination: 1 }) already exists on line 88
  */
-experienceSchema.index({ name: 1 });  // For duplicate checking and name searches
-experienceSchema.index({ 'permissions._id': 1, 'permissions.type': 1 });  // For permission queries
-experienceSchema.index({ 'permissions._id': 1 });  // For owner checks
-experienceSchema.index({ experience_type: 1 });  // For tag filtering
-experienceSchema.index({ destination: 1, createdAt: -1 });  // Compound index for common query patterns
-experienceSchema.index({ createdAt: -1 });  // For sorting by creation date
-
-// OPTIMIZATION: Compound index for duplicate checking queries (Phase 2.3)
-// Supports queries that filter by permissions and check for duplicate names
-experienceSchema.index({ 'permissions._id': 1, 'permissions.type': 1, name: 1 });  // For owner duplicate checks
+experienceSchema.index({ name: 1 });
+experienceSchema.index({ 'permissions._id': 1, 'permissions.type': 1 });
+experienceSchema.index({ 'permissions._id': 1 });
+experienceSchema.index({ experience_type: 1 });
+experienceSchema.index({ destination: 1, createdAt: -1 });
+experienceSchema.index({ createdAt: -1 });
+experienceSchema.index({ 'permissions._id': 1, 'permissions.type': 1, name: 1 });
+experienceSchema.index({ photos: 1 });
+experienceSchema.index({ default_photo_id: 1 });
 
 module.exports = mongoose.model("Experience", experienceSchema);

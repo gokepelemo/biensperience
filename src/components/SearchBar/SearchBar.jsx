@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { searchAll } from '../../utilities/search-api';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
+import Loading from '../Loading/Loading';
 import './SearchBar.css';
 
 /**
@@ -214,9 +215,7 @@ export default function SearchBar({ placeholder = 'Search destinations, experien
         />
         {loading && (
           <div className="search-spinner">
-            <div className="spinner-border spinner-border-sm" role="status">
-              <span className="visually-hidden">Searching...</span>
-            </div>
+            <Loading size="sm" showMessage={false} />
           </div>
         )}
       </div>

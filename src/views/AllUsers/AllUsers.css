@@ -2,8 +2,8 @@
 
 .all-users-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  color: #2d3748;
+  background: var(--gradient-primary);
+  color: var(--color-text-primary);
 }
 
 /* Ensure all headings are visible */
@@ -13,24 +13,24 @@
 .all-users-container h4,
 .all-users-container h5,
 .all-users-container h6 {
-  color: #2d3748 !important;
+  color: var(--color-text-primary) !important;
 }
 
 .all-users-container p {
-  color: #4a5568;
+  color: var(--color-text-secondary);
 }
 
 .all-users-container .text-muted {
-  color: #718096 !important;
+  color: var(--color-text-muted) !important;
 }
 
 /* Stats Cards */
 .stat-card {
-  background: white;
-  border-radius: 12px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-normal);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -38,13 +38,13 @@
 
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-card-icon {
   width: 60px;
   height: 60px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -53,17 +53,17 @@
 }
 
 .stat-card-primary .stat-card-icon {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   color: white;
 }
 
 .stat-card-success .stat-card-icon {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: linear-gradient(135deg, var(--color-success) 0%, #22863a 100%);
   color: white;
 }
 
 .stat-card-info .stat-card-icon {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  background: linear-gradient(135deg, var(--color-info) 0%, #117a8b 100%);
   color: white;
 }
 
@@ -74,13 +74,13 @@
 .stat-card-value {
   font-size: 2rem;
   font-weight: 700;
-  color: #2d3748;
+  color: var(--color-text-primary);
   line-height: 1;
 }
 
 .stat-card-label {
   font-size: 0.875rem;
-  color: #718096;
+  color: var(--color-text-muted);
   margin-top: 0.25rem;
 }
 
@@ -94,32 +94,35 @@
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #a0aec0;
+  color: var(--color-text-disabled);
   z-index: 1;
 }
 
 .search-box .form-control {
   padding-left: 2.5rem;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-medium);
+  background: var(--color-bg-input);
+  color: var(--color-text-primary);
+  transition: var(--transition-base);
 }
 
 .search-box .form-control:focus {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
 /* AllUsers-specific card overrides */
 .all-users-card {
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
+  background: var(--color-bg-primary);
 }
 
 .all-users-card .card-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   border-bottom: none;
   color: white;
   padding: 1.25rem 1.5rem;
@@ -132,31 +135,73 @@
 }
 
 .all-users-card .card-body .form-select {
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-medium);
+  background: var(--color-bg-input);
+  color: var(--color-text-primary);
+  transition: var(--transition-base);
 }
 
 .all-users-card .card-body .form-select:focus {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+/* Generic card styling for dark mode */
+.all-users-container .card {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.all-users-container .card-header {
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-primary);
+}
+
+.all-users-container .card-body {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* Override Bootstrap table defaults */
+.all-users-container .table {
+  --bs-table-bg: transparent !important;
+  --bs-table-hover-bg: var(--color-bg-hover) !important;
+  --bs-table-hover-color: var(--color-text-primary) !important;
+  --bs-table-striped-bg: transparent !important;
+  --bs-table-active-bg: transparent !important;
+  --bs-table-border-color: var(--color-border-light) !important;
+  color: var(--color-text-primary) !important;
+  background-color: transparent !important;
 }
 
 /* Users Table */
 .users-table {
   font-size: 0.9375rem;
-  color: #2d3748;
+  color: var(--color-text-primary) !important;
+  background-color: transparent !important;
+  border-color: var(--color-border-light) !important;
 }
 
 .users-table thead {
-  background: #f7fafc;
-  border-bottom: 2px solid #e2e8f0;
+  background: var(--color-bg-secondary) !important;
+  border-bottom: 2px solid var(--color-border-medium) !important;
+}
+
+.users-table thead tr {
+  background: var(--color-bg-secondary) !important;
+  border-color: var(--color-border-medium) !important;
 }
 
 .users-table th {
   font-weight: 600;
-  color: #2d3748 !important;
-  border: none;
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-secondary) !important;
+  border: none !important;
+  border-bottom: 2px solid var(--color-border-medium) !important;
   padding: 1rem 1.25rem;
   text-transform: uppercase;
   font-size: 0.75rem;
@@ -166,46 +211,55 @@
 .users-table th.sortable {
   cursor: pointer;
   user-select: none;
-  transition: background 0.2s ease;
+  transition: var(--transition-fast);
 }
 
 .users-table th.sortable:hover {
-  background: #edf2f7;
+  background: var(--color-bg-tertiary) !important;
+}
+
+.users-table tbody {
+  background-color: transparent !important;
+}
+
+.users-table tbody tr {
+  background-color: transparent !important;
+  border-color: var(--color-border-light) !important;
+  transition: var(--transition-fast);
+}
+
+.users-table tbody tr:hover {
+  background: var(--color-bg-hover) !important;
+}
+
+.users-table tbody tr.current-user {
+  background: var(--color-primary-light) !important;
+}
+
+.users-table tbody tr.current-user:hover {
+  background: var(--color-primary-light) !important;
+  opacity: 0.9;
 }
 
 .users-table td {
   vertical-align: middle;
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid #f7fafc;
-  color: #2d3748 !important;
-}
-
-.users-table tbody tr {
-  transition: background 0.15s ease;
-}
-
-.users-table tbody tr:hover {
-  background: #f7fafc;
-}
-
-.users-table tbody tr.current-user {
-  background: #ebf8ff !important;
-}
-
-.users-table tbody tr.current-user:hover {
-  background: #e0f5ff !important;
+  border-bottom: 1px solid var(--color-border-light) !important;
+  border-top: none !important;
+  color: var(--color-text-primary) !important;
+  background-color: transparent !important;
 }
 
 /* User Name Link */
 .user-name-link {
   font-weight: 600;
-  color: #2d3748;
+  color: var(--color-text-primary);
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: var(--transition-base);
 }
 
 .user-name-link:hover {
-  color: #667eea;
+  color: var(--color-primary);
 }
 
 /* Role Badges */
@@ -213,29 +267,29 @@
   display: inline-flex;
   align-items: center;
   padding: 0.375rem 0.75rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.813rem;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .role-badge-admin {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: linear-gradient(135deg, var(--color-success) 0%, #22863a 100%);
   color: white;
 }
 
 .role-badge-user {
-  background: #e2e8f0;
-  color: #4a5568;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
 }
 
 /* Role Buttons */
 .role-btn {
   padding: 0.5rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-weight: 600;
   font-size: 0.813rem;
-  transition: all 0.2s ease;
+  transition: var(--transition-base);
   border: 2px solid transparent;
   display: flex;
   align-items: center;
@@ -243,31 +297,31 @@
 }
 
 .role-btn-inactive {
-  background: white;
-  border-color: #e2e8f0;
-  color: #718096;
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-medium);
+  color: var(--color-text-muted);
 }
 
 .role-btn-inactive:hover:not(:disabled) {
-  background: #f7fafc;
-  border-color: #cbd5e0;
-  color: #2d3748;
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-dark);
+  color: var(--color-text-primary);
   transform: translateY(-1px);
 }
 
 .role-btn-active {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .role-btn-admin.role-btn-active {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  border-color: #f5576c;
+  background: linear-gradient(135deg, var(--color-success) 0%, #22863a 100%);
+  border-color: var(--color-success);
   color: white;
 }
 
 .role-btn-user.role-btn-active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: #667eea;
+  background: var(--gradient-primary);
+  border-color: var(--color-primary);
   color: white;
 }
 
@@ -309,7 +363,7 @@
 
 @media (max-width: 576px) {
   .all-users-container {
-    background: white;
+    background: var(--color-bg-primary);
   }
 
   .stat-card {
@@ -357,5 +411,5 @@
 
 .card,
 .stat-card {
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn var(--transition-normal);
 }

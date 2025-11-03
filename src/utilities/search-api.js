@@ -70,7 +70,5 @@ export async function searchUsers(query, limit = 10) {
  * This is a placeholder for future integration
  */
 export async function searchWithExternalService(query, options = {}) {
-  // TODO: Implement Algolia or other search service integration
-  // For now, fall back to MongoDB search
   return searchAll(query, options);
 }

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import Alert from "../../components/Alert/Alert";
+import Loading from "../../components/Loading/Loading";
 import { updateUser as updateUserAPI, updateUserAsAdmin, getUserData } from "../../utilities/users-api";
 import { updateToken } from "../../utilities/users-service";
 import { useUser } from "../../contexts/UserContext";
@@ -17,7 +18,7 @@ import { Form } from "react-bootstrap";
 import { isSuperAdmin } from "../../utilities/permissions";
 
 export default function UpdateProfile() {
-  const { user, updateUser: updateUserContext, fetchProfile } = useUser();
+  const { user, profile, updateUser: updateUserContext, fetchProfile } = useUser();
   const { success, error: showError } = useToast();
   const [targetUser, setTargetUser] = useState(null);
   const [formData, setFormData] = useState({});
@@ -58,13 +59,16 @@ export default function UpdateProfile() {
           userData = await getUserData(userId);
           setTargetUser(userData);
         } else {
-          // Self mode: fetch current user data
-          await fetchProfile();
-          userData = user;
+          // Self mode: use profile data if available, otherwise fetch it
+          if (!profile) {
+            await fetchProfile();
+          }
+          userData = profile || user;
         }
 
-        setOriginalUser(userData);
-        setFormData(userData);
+        // Deep clone to ensure originalUser and formData are independent
+        setOriginalUser(JSON.parse(JSON.stringify(userData)));
+        setFormData(JSON.parse(JSON.stringify(userData)));
         setLoading(false);
       } catch (err) {
         const errorMsg = handleError(err, { context: isAdminMode ? 'Load user data' : 'Load profile data' });
@@ -76,7 +80,7 @@ export default function UpdateProfile() {
     if (user) {
       fetchUserData();
     }
-  }, [user, userId, isAdminMode, fetchProfile]);
+  }, [user, profile, userId, isAdminMode, fetchProfile]);
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
@@ -134,7 +138,19 @@ export default function UpdateProfile() {
     const originalPhotos = originalUser.photos || [];
     const currentPhotos = formData.photos || [];
     
-    const photosChanged = JSON.stringify(originalPhotos) !== JSON.stringify(currentPhotos);
+    // Normalize for comparison: extract _ids from objects, keep ObjectIds as strings
+    const normalizePhotos = (photos) => {
+      return photos.map(photo => {
+        if (typeof photo === 'string') return photo;
+        if (photo._id) return photo._id.toString();
+        return photo.toString();
+      }).sort();
+    };
+    
+    const originalPhotoIds = normalizePhotos(originalPhotos);
+    const currentPhotoIds = normalizePhotos(currentPhotos);
+    
+    const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
     
     if (photosChanged) {
       const fromText = originalPhotos.length === 0 ? 'No photos' : `${originalPhotos.length} photo${originalPhotos.length > 1 ? 's' : ''}`;
@@ -148,17 +164,43 @@ export default function UpdateProfile() {
       delete newChanges.photos;
     }
     
-    // Check if default photo index changed
-    const originalIndex = originalUser.default_photo_index || 0;
-    const currentIndex = formData.default_photo_index || 0;
+    // Check if default photo changed
+    const originalDefaultId = originalUser.default_photo_id;
+    const currentDefaultId = formData.default_photo_id;
     
-    if (originalIndex !== currentIndex && currentPhotos.length > 0) {
-      newChanges.default_photo_index = {
-        from: `Photo #${originalIndex + 1}`,
-        to: `Photo #${currentIndex + 1}`
+    // Normalize default photo IDs for comparison
+    const normalizeId = (id) => {
+      if (!id) return null;
+      if (typeof id === 'string') return id;
+      if (id._id) return id._id.toString();
+      return id.toString();
+    };
+    
+    // If original had no default_photo_id but had photos, treat first photo as the implicit default
+    let normalizedOriginalDefault = normalizeId(originalDefaultId);
+    if (!normalizedOriginalDefault && originalPhotos.length > 0) {
+      normalizedOriginalDefault = normalizeId(originalPhotos[0]);
+    }
+    
+    const normalizedCurrentDefault = normalizeId(currentDefaultId);
+    
+    if (normalizedOriginalDefault !== normalizedCurrentDefault && currentPhotos.length > 0) {
+      // Find the index of the default photo for description
+      const getPhotoIndex = (photoId, photoArray) => {
+        if (!photoId) return -1;
+        const normalizedId = normalizeId(photoId);
+        return photoArray.findIndex(p => normalizeId(p) === normalizedId);
+      };
+      
+      const originalIndex = getPhotoIndex(originalDefaultId, originalPhotos);
+      const currentIndex = getPhotoIndex(currentDefaultId, currentPhotos);
+      
+      newChanges.default_photo = {
+        from: originalIndex >= 0 ? `Photo ${originalIndex + 1}` : 'None',
+        to: currentIndex >= 0 ? `Photo ${currentIndex + 1}` : 'None'
       };
     } else {
-      delete newChanges.default_photo_index;
+      delete newChanges.default_photo;
     }
     
     // Only update if changes actually differ
@@ -203,7 +245,17 @@ export default function UpdateProfile() {
     }
 
     try {
-      const dataToUpdate = { ...formData };
+      // Only include fields that have actually changed
+      const dataToUpdate = {};
+
+      // Add changed form fields (excluding password which is handled separately)
+      Object.keys(changes).forEach(field => {
+        if (field !== 'password' && changes[field]) {
+          // Map display key to actual model field name
+          const actualFieldName = field === 'default_photo' ? 'default_photo_id' : field;
+          dataToUpdate[actualFieldName] = formData[actualFieldName] || formData[field];
+        }
+      });
 
       // Add password data
       if (passwordData.newPassword) {
@@ -310,12 +362,7 @@ export default function UpdateProfile() {
           <Alert type="danger" message={lang.en.alert.accessDeniedAction} />
         </div>
       ) : loading ? (
-        <div className="text-center my-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading user data...</span>
-          </div>
-          <p className="mt-3">Loading {isAdminMode ? 'user' : 'your'} profile...</p>
-        </div>
+        <Loading variant="centered" size="lg" message={`Loading ${isAdminMode ? 'user' : 'your'} profile...`} />
       ) : (
         <div className="row my-4 fade-in justify-content-center">
           <div className="col-md-8 col-lg-6">

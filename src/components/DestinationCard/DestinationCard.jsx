@@ -25,8 +25,15 @@ function DestinationCard({ destination }) {
     
     // If photos array exists and has items, use the default one
     if (destination.photos && destination.photos.length > 0) {
-      const index = destination.default_photo_index || 0;
-      return `url(${destination.photos[index].url})`;
+      let defaultPhoto;
+      if (destination.default_photo_id) {
+        defaultPhoto = destination.photos.find(photo => photo._id === destination.default_photo_id);
+      }
+      // Fallback to first photo if default not found or not set
+      if (!defaultPhoto) {
+        defaultPhoto = destination.photos[0];
+      }
+      return `url(${defaultPhoto.url})`;
     }
     
     // If single photo exists

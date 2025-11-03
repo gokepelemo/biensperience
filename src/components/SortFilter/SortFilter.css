@@ -33,7 +33,7 @@
     padding: var(--space-3) var(--space-4);
     font-size: var(--font-size-base);
     transition: all var(--transition-normal) ease;
-    background-color: white;
+    background-color: var(--color-bg-input);
 }
 
 .sort-control .form-select:hover,

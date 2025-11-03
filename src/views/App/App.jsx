@@ -7,11 +7,14 @@ import { DataProvider } from "../../contexts/DataContext";
 import { AppProvider, useApp } from "../../contexts/AppContext";
 import { lang } from "../../lang.constants";
 import NavBar from "../../components/NavBar/NavBar";
+import Loading from "../../components/Loading/Loading";
+import ScrollToTop from "../../components/ScrollToTop/ScrollToTop";
 import { handleOAuthCallback } from "../../utilities/oauth-service";
 import { logger } from "../../utilities/logger";
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import { Helmet } from 'react-helmet-async';
+import "./App.css";
 
 // Lazy load components for better performance
 const AuthPage = lazy(() => import("../AuthPage/AuthPage"));
@@ -104,6 +107,39 @@ function AppContent() {
   const { success, error: showError } = useToast();
   logger.debug('useToast completed');
 
+  // Set Bootstrap dark mode based on system preference
+  useEffect(() => {
+    const setBootstrapTheme = () => {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = prefersDark ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-bs-theme', theme);
+      logger.debug('Bootstrap theme set to:', theme);
+    };
+
+    // Set initial theme
+    setBootstrapTheme();
+
+    // Listen for changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => setBootstrapTheme();
+    
+    // Modern API
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleChange);
+    } else {
+      // Fallback for older browsers
+      mediaQuery.addListener(handleChange);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleChange);
+      } else {
+        mediaQuery.removeListener(handleChange);
+      }
+    };
+  }, []);
+
     // Handle OAuth callback on mount
     useEffect(() => {
       const processOAuth = async () => {
@@ -140,7 +176,8 @@ function AppContent() {
                   message="We encountered an error loading this page. Please try again or return home."
                   showHomeButton={true}
                 >
-                  <Suspense fallback={<div className="text-center p-4">Loading...</div>}>
+                  <ScrollToTop />
+                  <Suspense fallback={<Loading variant="centered" size="lg" message="Loading page..." />}>
                     <Routes>
                       <Route path="/" element={<AppHome />} />
                       <Route path="/experiences/new" element={

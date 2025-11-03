@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Destination = require("../../models/destination");
 const User = require("../../models/user");
 const Experience = require("../../models/experience");
+const Photo = require("../../models/photo");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 const permissions = require("../../utilities/permissions");
 const { getEnforcer } = require('../../utilities/permission-enforcer');
@@ -15,7 +16,10 @@ function escapeRegex(string) {
 
 async function index(req, res) {
   try {
-    const destinations = await Destination.find({}).populate("photo");
+    const destinations = await Destination.find({})
+      .populate("photos", "url caption photo_credit photo_credit_url width height")
+      .lean()
+      .exec();
     res.status(200).json(destinations);
   } catch (err) {
     backendLogger.error('Error fetching destinations', { error: err.message });
@@ -26,7 +30,7 @@ async function index(req, res) {
 async function createDestination(req, res) {
   try {
     // Whitelist allowed fields to prevent mass assignment
-    const allowedFields = ['name', 'country', 'state', 'description', 'photo', 'travel_tips', 'tags'];
+    const allowedFields = ['name', 'country', 'state', 'description', 'photos', 'default_photo_id', 'travel_tips', 'tags'];
     const destinationData = {};
     
     allowedFields.forEach(field => {
@@ -105,7 +109,7 @@ async function createDestination(req, res) {
 async function showDestination(req, res) {
   try {
     const destination = await Destination.findById(req.params.id).populate(
-      "photo"
+      "photos"
     );
     res.status(200).json(destination);
   } catch (err) {
@@ -199,6 +203,8 @@ async function updateDestination(req, res) {
       reason: `Destination "${destination.name}" updated`
     });
     
+    // Populate photos field for response (consistent with showDestination)
+    await destination.populate('photos');
     res.status(200).json(destination);
   } catch (err) {
     backendLogger.error('Error updating destination', { error: err.message, userId: req.user._id, destinationId: req.params.id });
@@ -418,11 +424,12 @@ async function removePhoto(req, res) {
     }
 
     // Remove photo from array
+    const removedPhoto = destination.photos[photoIndex];
     destination.photos.splice(photoIndex, 1);
 
-    // Adjust default_photo_index if necessary
-    if (destination.default_photo_index >= destination.photos.length) {
-      destination.default_photo_index = Math.max(0, destination.photos.length - 1);
+    // Clear default_photo_id if the removed photo was the default
+    if (destination.default_photo_id && removedPhoto && destination.default_photo_id.toString() === removedPhoto._id.toString()) {
+      destination.default_photo_id = null;
     }
 
     await destination.save();
@@ -462,7 +469,7 @@ async function setDefaultPhoto(req, res) {
       return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    destination.default_photo_index = photoIndex;
+    destination.default_photo_id = destination.photos[photoIndex]._id;
     await destination.save();
 
     res.status(200).json(destination);

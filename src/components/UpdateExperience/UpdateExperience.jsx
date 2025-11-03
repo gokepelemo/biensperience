@@ -9,6 +9,7 @@ import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import TagInput from "../../components/TagInput/TagInput";
 import Alert from "../Alert/Alert";
+import Loading from "../Loading/Loading";
 import { handleError } from "../../utilities/error-handler";
 import { formatChanges } from "../../utilities/change-formatter";
 import Modal from "../Modal/Modal";
@@ -254,7 +255,28 @@ export default function UpdateExperience() {
     }
 
     try {
-      const updated = await updateExpAPI(experienceId, experience);
+      // Extract only the fields that should be updated
+      // Convert populated references to ObjectIds
+      const photosToSend = experience.photos.map(photo =>
+        typeof photo === 'object' && photo._id ? photo._id : photo
+      );
+
+      const destinationToSend = typeof experience.destination === 'object' && experience.destination._id
+        ? experience.destination._id
+        : experience.destination;
+
+      const dataToUpdate = {
+        name: experience.name,
+        destination: destinationToSend,
+        map_location: experience.map_location,
+        experience_type: experience.experience_type,
+        plan_items: experience.plan_items,
+        photos: photosToSend,
+        default_photo_id: experience.default_photo_id,
+        visibility: experience.visibility
+      };
+
+      const updated = await updateExpAPI(experienceId, dataToUpdate);
       updateExperience(updated); // Instant UI update!
       success(lang.en.success.experienceUpdated);
       navigate(`/experiences/${experienceId}`);
@@ -275,13 +297,7 @@ export default function UpdateExperience() {
   if (loading) {
     return (
       <div className="container mt-5">
-        <div className="row justify-content-center">
-          <div className="col-md-6 text-center">
-            <div className="spinner-border" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </div>
-          </div>
-        </div>
+        <Loading variant="centered" size="lg" message="Loading experience..." />
       </div>
     );
   }

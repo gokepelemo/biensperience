@@ -22,7 +22,7 @@ export function getFieldIcon(fieldName, entityType = '') {
     city: '🏙️',
     travel_tips: '💡',
     photos: '📸',
-    default_photo_index: '🖼️',
+    default_photo_id: '🖼️',
 
     // Experience fields
     experience_name: '🎯',

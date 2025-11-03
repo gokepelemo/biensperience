@@ -221,7 +221,7 @@
 
 /* Table hover effects */
 .activity-monitor .table-hover tbody tr:hover {
-  background-color: rgba(0, 123, 255, 0.05);
+  background-color: var(--color-primary-hover-bg);
 }
 
 /* Action buttons */
@@ -233,13 +233,13 @@
 }
 
 .activity-monitor .btn-outline-info:hover {
-  background-color: #0dcaf0;
-  border-color: #0dcaf0;
+  background-color: var(--color-info-hover);
+  border-color: var(--color-info-hover);
 }
 
 .activity-monitor .btn-outline-warning:hover {
-  background-color: #ffc107;
-  border-color: #ffc107;
+  background-color: var(--color-warning-hover);
+  border-color: var(--color-warning-hover);
 }
 
 /* Alert styling in details modal */
@@ -253,39 +253,42 @@
 
 /* Improved table readability */
 .activity-monitor .table thead th {
-  background-color: #f8f9fa;
-  border-bottom: 2px solid #dee2e6;
+  background-color: var(--color-table-header);
+  border-bottom: 2px solid var(--color-table-border);
   font-weight: 600;
   font-size: 0.875rem;
-  color: #495057;
+  color: var(--color-table-text);
 }
 
 /* Resource type badges */
 .activity-monitor .badge.bg-light {
-  background-color: #e9ecef !important;
-  color: #495057 !important;
+  background-color: var(--color-light-bg) !important;
+  color: var(--color-table-text) !important;
   font-weight: 500;
 }
 
-/* Action badges color coding */
-.badge.bg-success {
-  background-color: #198754 !important;
+/* Action badges color coding - using unified badge utilities */
+.activity-badge-success {
+  background-color: var(--color-success-badge);
+  color: white;
 }
 
-.badge.bg-danger {
-  background-color: #dc3545 !important;
+.activity-badge-danger {
+  background-color: var(--color-danger-badge);
+  color: white;
 }
 
-.badge.bg-warning {
-  background-color: #ffc107 !important;
-  color: #000 !important;
+.activity-badge-warning {
+  background-color: #ffc107;
+  color: #000;
 }
 
-.badge.bg-info {
-  background-color: #0dcaf0 !important;
-  color: #000 !important;
+.activity-badge-info {
+  background-color: #0dcaf0;
+  color: #000;
 }
 
-.badge.bg-secondary {
-  background-color: #6c757d !important;
+.activity-badge-secondary {
+  background-color: #6c757d;
+  color: white;
 }

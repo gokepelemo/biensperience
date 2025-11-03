@@ -359,7 +359,7 @@ router.post('/redeem', requireAuth, async (req, res) => {
             plan: planSnapshot,  // Correct field name with snapshot data
             permissions: [{
               entity: 'user',
-              type: 'owner',
+              type: invite.permissionType || 'owner',
               _id: req.user._id
             }]
           });
@@ -475,7 +475,8 @@ router.post('/email', requireAuth, async (req, res) => {
       resourceType,
       resourceId,
       resourceName,
-      customMessage
+      customMessage,
+      permissionType
     } = req.body;
 
     if (!email || !name || !resourceType || !resourceId) {
@@ -503,6 +504,7 @@ router.post('/email', requireAuth, async (req, res) => {
       inviteeName: name,
       experiences,
       destinations,
+      permissionType: permissionType || 'collaborator', // Default to collaborator for email invites
       maxUses: 1,
       customMessage: customMessage || `${req.user.name} has invited you to collaborate on "${resourceName}"`
     });

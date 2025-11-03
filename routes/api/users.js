@@ -5,6 +5,7 @@ const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { authLimiter, modificationLimiter } = require('../../config/rateLimiters');
 
 router.post('/', authLimiter, usersCtrl.create); // Rate limit signup
+router.get('/bulk', ensureLoggedIn, usersCtrl.getBulkUsers); // Bulk fetch users
 router.get('/search', ensureLoggedIn, usersCtrl.searchUsers);
 router.get('/all', ensureLoggedIn, usersCtrl.getAllUsers);
 router.get('/profile', ensureLoggedIn, usersCtrl.getProfile); // Get current user's profile

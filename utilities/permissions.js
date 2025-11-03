@@ -66,31 +66,26 @@ function validatePermission(permission) {
     return { valid: false, error: 'Permission must be an object' };
   }
 
-  // Check required _id field
   if (!permission._id) {
     return { valid: false, error: 'Permission must have an _id field' };
   }
 
-  // Validate _id is a valid ObjectId
   if (!mongoose.Types.ObjectId.isValid(permission._id)) {
     return { valid: false, error: 'Permission _id must be a valid ObjectId' };
   }
 
-  // Check required entity field
   if (!permission.entity) {
     return { valid: false, error: 'Permission must have an entity field' };
   }
 
-  // Validate entity type
   const validEntityTypes = Object.values(ENTITY_TYPES);
   if (!validEntityTypes.includes(permission.entity)) {
-    return { 
-      valid: false, 
-      error: `Permission entity must be one of: ${validEntityTypes.join(', ')}` 
+    return {
+      valid: false,
+      error: `Permission entity must be one of: ${validEntityTypes.join(', ')}`
     };
   }
 
-  // Validate type field if present (only required for user entities)
   if (permission.entity === ENTITY_TYPES.USER && !permission.type) {
     return { valid: false, error: 'User permission must have a type field' };
   }
@@ -98,9 +93,9 @@ function validatePermission(permission) {
   if (permission.type) {
     const validRoles = Object.values(ROLES);
     if (!validRoles.includes(permission.type)) {
-      return { 
-        valid: false, 
-        error: `Permission type must be one of: ${validRoles.join(', ')}` 
+      return {
+        valid: false,
+        error: `Permission type must be one of: ${validRoles.join(', ')}`
       };
     }
   }
@@ -123,16 +118,15 @@ function validatePermissions(permissions) {
 
   for (let i = 0; i < permissions.length; i++) {
     const validation = validatePermission(permissions[i]);
-    
+
     if (!validation.valid) {
-      return { 
-        valid: false, 
+      return {
+        valid: false,
         error: `Permission at index ${i}: ${validation.error}`,
         validPermissions: []
       };
     }
 
-    // Check for duplicate permissions
     const key = `${permissions[i].entity}:${permissions[i]._id}`;
     if (seenIds.has(key)) {
       return {
@@ -274,12 +268,11 @@ function getRolePriority(role) {
  * @returns {Promise<boolean>} - True if user has required role or higher
  */
 async function hasRole(userId, resource, requiredRole, models) {
-  // Check if user is super admin - they have owner-level permissions on everything
   if (models && models.User) {
     try {
       const user = await models.User.findById(userId);
       if (user && user.isSuperAdmin) {
-        return true; // Super admins have all permissions
+        return true;
       }
     } catch (error) {
       backendLogger.error('Error checking super admin status in hasRole', { error: error.message, userId });
@@ -304,7 +297,6 @@ async function hasRole(userId, resource, requiredRole, models) {
  * @returns {Promise<boolean>} - True if user can view the resource
  */
 async function canView(userId, resource, models) {
-  // Super admins can view everything
   if (userId && models && models.User) {
     try {
       const user = await models.User.findById(userId);
@@ -316,26 +308,21 @@ async function canView(userId, resource, models) {
     }
   }
 
-  // If no visibility field, default to public (backward compatibility)
   const visibility = resource.visibility || 'public';
 
   switch (visibility) {
     case 'public':
-      // Anyone can view public resources
       return true;
 
     case 'contributors':
-      // Only contributors and higher can view
       if (!userId) return false;
       return await hasRole(userId, resource, ROLES.CONTRIBUTOR, models);
 
     case 'private':
-      // Only the owner can view private resources
       if (!userId) return false;
       return await hasRole(userId, resource, ROLES.OWNER, models);
 
     default:
-      // Unknown visibility, default to private for security
       backendLogger.warn('Unknown visibility setting, defaulting to private', { visibility, resourceId: resource._id });
       return false;
   }
@@ -398,35 +385,32 @@ async function canEdit(userId, resource, models) {
  * @returns {boolean} - True if user is owner or super admin
  */
 function isOwner(userId, resource) {
-  // Check if user is super admin - they have full access
   if (typeof userId === 'object' && isSuperAdmin(userId)) {
     return true;
   }
-  
+
   if (!userId || !resource) {
     return false;
   }
-  
+
   const userIdStr = (typeof userId === 'object' ? userId._id : userId).toString();
-  
-  // Check permissions array for owner role
+
   if (resource.permissions && Array.isArray(resource.permissions)) {
-    const ownerPermission = resource.permissions.find(p => 
-      p.entity === ENTITY_TYPES.USER && 
+    const ownerPermission = resource.permissions.find(p =>
+      p.entity === ENTITY_TYPES.USER &&
       p.type === ROLES.OWNER &&
       p._id.toString() === userIdStr
     );
-    
+
     if (ownerPermission) {
       return true;
     }
   }
-  
-    // Check user field
+
   if (resource.user && resource.user.toString() === userIdStr) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -440,17 +424,15 @@ function isOwner(userId, resource) {
  * @returns {Promise<boolean>} - True if user is collaborator or super admin
  */
 async function isCollaborator(userId, resource, models) {
-  // Check if user is super admin - they have full access including collaborator permissions
   if (typeof userId === 'object' && userId.isSuperAdmin) {
     return true;
   }
-  
+
   const userIdStr = (typeof userId === 'object' ? userId._id : userId).toString();
-  
-  // Check direct permissions for collaborator role
+
   if (resource.permissions && Array.isArray(resource.permissions)) {
-    const collaboratorPermission = resource.permissions.find(p => 
-      p.entity === ENTITY_TYPES.USER && 
+    const collaboratorPermission = resource.permissions.find(p =>
+      p.entity === ENTITY_TYPES.USER &&
       p.type === ROLES.COLLABORATOR &&
       p._id.toString() === userIdStr
     );

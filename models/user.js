@@ -17,12 +17,6 @@ const { USER_ROLES } = require("../utilities/user-roles");
  */
 const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || 12);
 
-const photoObjectSchema = new Schema({
-  url: { type: String, required: true },
-  photo_credit: { type: String, default: 'Unknown' },
-  photo_credit_url: { type: String }
-}, { _id: false });
-
 /**
  * Mongoose schema for User model
  * @type {mongoose.Schema}
@@ -134,29 +128,18 @@ const userSchema = new Schema(
     }],
 
     /**
-     * Reference to user's profile photo
-     * @type {mongoose.Schema.Types.ObjectId}
-     * @ref Photo
-     */
-    photo: {
-      type: Schema.Types.ObjectId,
-      ref: "Photo",
-    },
-
-    /**
      * Array of photo objects for user profile
      * @type {Array}
      */
     photos: {
-      type: [photoObjectSchema],
+      type: [Schema.Types.ObjectId],
+      ref: "Photo",
       default: []
     },
-
-    /**
-     * Index of the default photo in photos array
-     * @type {number}
-     */
-    default_photo_index: { type: Number, default: 0 },
+    default_photo_id: { 
+      type: Schema.Types.ObjectId, 
+      ref: "Photo" 
+    },
 
     /**
      * Super admin flag - grants full permissions across the entire site
@@ -342,13 +325,15 @@ userSchema.methods.generateToken = function() {
 /**
  * Database indexes for query performance optimization
  */
-userSchema.index({ email: 1 });  // For login and search queries
-userSchema.index({ role: 1 });  // For admin queries
-userSchema.index({ provider: 1 });  // For OAuth queries
-userSchema.index({ resetPasswordToken: 1, resetPasswordExpires: 1 });  // For password reset lookups
-userSchema.index({ emailConfirmationToken: 1, emailConfirmationExpires: 1 });  // For email confirmation
-userSchema.index({ currentSessionId: 1 });  // For session validation lookups
-userSchema.index({ sessionExpiresAt: 1 });  // For session expiry queries
-userSchema.index({ createdAt: -1 });  // For sorting in getAllUsers
+userSchema.index({ email: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ provider: 1 });
+userSchema.index({ resetPasswordToken: 1, resetPasswordExpires: 1 });
+userSchema.index({ emailConfirmationToken: 1, emailConfirmationExpires: 1 });
+userSchema.index({ currentSessionId: 1 });
+userSchema.index({ sessionExpiresAt: 1 });
+userSchema.index({ createdAt: -1 });
+userSchema.index({ photos: 1 });
+userSchema.index({ default_photo_id: 1 });
 
 module.exports = mongoose.model("User", userSchema);

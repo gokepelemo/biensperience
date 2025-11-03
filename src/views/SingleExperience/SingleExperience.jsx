@@ -2,7 +2,7 @@ import "./SingleExperience.css";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { FaUserPlus, FaTimes } from "react-icons/fa";
+import { FaUserPlus, FaTimes, FaUser } from "react-icons/fa";
 import { BsPlusCircle, BsPersonPlus, BsCheckCircleFill } from "react-icons/bs";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
@@ -14,10 +14,12 @@ import Modal from "../../components/Modal/Modal";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
+import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
 import { isOwner } from "../../utilities/permissions";
 import {
   showExperience,
+  showExperienceWithContext,
   deleteExperience,
   deletePlanItem,
   addPlanItem as addExperiencePlanItem,
@@ -47,6 +49,7 @@ import {
 import { handleError } from "../../utilities/error-handler";
 import { createExpirableStorage } from "../../utilities/cookie-utils";
 import { formatCurrency } from "../../utilities/currency-utils";
+import { createUrlSlug } from "../../utilities/url-utils";
 import { sendEmailInvite } from "../../utilities/invites-api";
 import { searchUsers } from "../../utilities/users-api";
 import debug from "../../utilities/debug";
@@ -55,7 +58,10 @@ import debug from "../../utilities/debug";
 const SYNC_ALERT_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days (1 week) in milliseconds
 
 // Create expirable storage for sync alert dismissals
-const syncAlertStorage = createExpirableStorage('planSyncAlertDismissed', SYNC_ALERT_DURATION);
+const syncAlertStorage = createExpirableStorage(
+  "planSyncAlertDismissed",
+  SYNC_ALERT_DURATION
+);
 
 /**
  * Checks if sync alert was dismissed for a specific plan and if it's still valid
@@ -78,7 +84,12 @@ function setSyncAlertCookie(planId) {
 export default function SingleExperience() {
   const { user } = useUser();
   const { removeExperience, fetchExperiences } = useData();
-  const { registerH1, setPageActionButtons, clearActionButtons, updateShowH1InNavbar } = useApp();
+  const {
+    registerH1,
+    setPageActionButtons,
+    clearActionButtons,
+    updateShowH1InNavbar,
+  } = useApp();
   const { success, error: showError } = useToast();
   const { experienceId } = useParams();
   const navigate = useNavigate();
@@ -125,82 +136,104 @@ export default function SingleExperience() {
   const [removedCollaborators, setRemovedCollaborators] = useState([]); // Collaborators marked for removal
   const [collaboratorAddSuccess, setCollaboratorAddSuccess] = useState(false);
   const [addedCollaborators, setAddedCollaborators] = useState([]); // Track multiple additions
-  const [actuallyRemovedCollaborators, setActuallyRemovedCollaborators] = useState([]); // Track actually removed for success message
+  const [actuallyRemovedCollaborators, setActuallyRemovedCollaborators] =
+    useState([]); // Track actually removed for success message
   const [showEmailInviteForm, setShowEmailInviteForm] = useState(false); // Toggle email invite form
-  const [emailInviteData, setEmailInviteData] = useState({ email: '', name: '' }); // Email invite form data
+  const [emailInviteData, setEmailInviteData] = useState({
+    email: "",
+    name: "",
+  }); // Email invite form data
   const [emailInviteSending, setEmailInviteSending] = useState(false); // Email sending state
-  const [emailInviteError, setEmailInviteError] = useState(''); // Email invite errors
+  const [emailInviteError, setEmailInviteError] = useState(""); // Email invite errors
   const [showPlanItemModal, setShowPlanItemModal] = useState(false);
   const [planItemFormState, setPlanItemFormState] = useState(1); // 1 = add, 0 = edit
   const [editingPlanItem, setEditingPlanItem] = useState({});
-  
+
   // Ref for dynamic font sizing on planned date metric
   const plannedDateRef = useRef(null);
 
   // Get owner and collaborator user IDs for experience
-  const experienceOwnerPermission = useMemo(() =>
-    experience?.permissions?.find(p => p.entity === "user" && p.type === "owner"),
+  const experienceOwnerPermission = useMemo(
+    () =>
+      experience?.permissions?.find(
+        (p) => p.entity === "user" && p.type === "owner"
+      ),
     [experience?.permissions]
   );
 
-  const experienceOwnerId = useMemo(() =>
-    experienceOwnerPermission?._id,
+  const experienceOwnerId = useMemo(
+    () => experienceOwnerPermission?._id,
     [experienceOwnerPermission]
   );
 
-  const experienceCollaboratorIds = useMemo(() =>
-    experience?.permissions
-      ?.filter(p => p.entity === "user" && p.type === "collaborator")
-      .map(p => p._id) || [],
+  const experienceCollaboratorIds = useMemo(
+    () =>
+      experience?.permissions
+        ?.filter((p) => p.entity === "user" && p.type === "collaborator")
+        .map((p) => p._id) || [],
     [experience?.permissions]
   );
 
   // Get current plan for collaborator IDs - MUST be memoized to prevent infinite re-renders
-  const currentPlan = useMemo(() =>
-    activeTab === "experience" ? null :
-    selectedPlanId ? collaborativePlans.find(p => p._id === selectedPlanId) : userPlan,
+  const currentPlan = useMemo(
+    () =>
+      activeTab === "experience"
+        ? null
+        : selectedPlanId
+        ? collaborativePlans.find((p) => p._id === selectedPlanId)
+        : userPlan,
     [activeTab, selectedPlanId, collaborativePlans, userPlan]
   );
 
   // Get plan owner and collaborator user IDs
-  const planOwnerPermission = useMemo(() =>
-    currentPlan?.permissions?.find(p => p.entity === "user" && p.type === "owner"),
+  const planOwnerPermission = useMemo(
+    () =>
+      currentPlan?.permissions?.find(
+        (p) => p.entity === "user" && p.type === "owner"
+      ),
     [currentPlan?.permissions]
   );
 
-  const planOwnerId = useMemo(() =>
-    planOwnerPermission?._id,
+  const planOwnerId = useMemo(
+    () => planOwnerPermission?._id,
     [planOwnerPermission]
   );
 
-  const planCollaboratorIds = useMemo(() =>
-    currentPlan?.permissions
-      ?.filter(p => p.entity === "user" && p.type === "collaborator")
-      .map(p => p._id) || [],
+  const planCollaboratorIds = useMemo(
+    () =>
+      currentPlan?.permissions
+        ?.filter((p) => p.entity === "user" && p.type === "collaborator")
+        .map((p) => p._id) || [],
     [currentPlan?.permissions]
   );
 
   // Memoize owner ID arrays to prevent infinite re-renders from hook
-  const experienceOwnerIds = useMemo(() =>
-    experienceOwnerId ? [experienceOwnerId] : [],
+  const experienceOwnerIds = useMemo(
+    () => (experienceOwnerId ? [experienceOwnerId] : []),
     [experienceOwnerId]
   );
 
-  const planOwnerIds = useMemo(() =>
-    planOwnerId ? [planOwnerId] : [],
+  const planOwnerIds = useMemo(
+    () => (planOwnerId ? [planOwnerId] : []),
     [planOwnerId]
   );
 
   // Fetch fresh user data for owners and collaborators
-  const { users: experienceOwnerData, loading: experienceOwnerLoading } = useCollaboratorUsers(experienceOwnerIds);
+  const { users: experienceOwnerData, loading: experienceOwnerLoading } =
+    useCollaboratorUsers(experienceOwnerIds);
   const experienceOwner = experienceOwnerData?.[0];
 
-  const { users: experienceCollaborators, loading: experienceCollaboratorsLoading } = useCollaboratorUsers(experienceCollaboratorIds);
+  const {
+    users: experienceCollaborators,
+    loading: experienceCollaboratorsLoading,
+  } = useCollaboratorUsers(experienceCollaboratorIds);
 
-  const { users: planOwnerData, loading: planOwnerLoading } = useCollaboratorUsers(planOwnerIds);
+  const { users: planOwnerData, loading: planOwnerLoading } =
+    useCollaboratorUsers(planOwnerIds);
   const planOwner = planOwnerData?.[0];
 
-  const { users: planCollaborators, loading: planCollaboratorsLoading } = useCollaboratorUsers(planCollaboratorIds);
+  const { users: planCollaborators, loading: planCollaboratorsLoading } =
+    useCollaboratorUsers(planCollaboratorIds);
 
   const toggleExpanded = useCallback((parentId) => {
     setExpandedParents((prev) => {
@@ -224,6 +257,90 @@ export default function SingleExperience() {
     });
   }, []);
 
+  // OPTIMIZATION: Combined fetch function - fetches all data in one API call
+  // Reduces 3 API calls to 1 for dramatically faster page load
+  const fetchAllData = useCallback(async () => {
+    try {
+      const { experience: experienceData, userPlan: fetchedUserPlan, collaborativePlans: fetchedCollaborativePlans } = await showExperienceWithContext(experienceId);
+
+      debug.log("Experience data:", experienceData);
+      debug.log("User plan:", fetchedUserPlan);
+      debug.log("Collaborative plans:", fetchedCollaborativePlans);
+
+      // Set experience data
+      setExperience(experienceData);
+      setTravelTips(experienceData.travel_tips || []);
+
+      // Set expanded parents (all parents expanded by default)
+      const parentIds = experienceData.plan_items
+        .filter((item) => !item.parent)
+        .map((item) => item._id);
+      setExpandedParents(new Set(parentIds));
+
+      // Set user plan data
+      setUserPlan(fetchedUserPlan || null);
+      setUserHasExperience(!!fetchedUserPlan);
+      setUserPlannedDate(fetchedUserPlan?.planned_date || null);
+
+      // Set selectedPlanId if not already set and user has a plan
+      if (fetchedUserPlan && !selectedPlanId) {
+        setSelectedPlanId(fetchedUserPlan._id);
+      }
+
+      // Set collaborative plans data
+      // Filter to only show plans where user is owner or collaborator
+      const accessiblePlans = fetchedCollaborativePlans.filter((plan) => {
+        // Check if user owns this plan
+        const isUserPlan =
+          plan.user &&
+          (plan.user._id?.toString() === user._id?.toString() ||
+            plan.user.toString() === user._id?.toString());
+
+        // Check if user is a collaborator or owner via permissions
+        const hasPermission = plan.permissions?.some(
+          (p) =>
+            p.entity === "user" &&
+            p._id?.toString() === user._id?.toString() &&
+            (p.type === "owner" || p.type === "collaborator")
+        );
+
+        return isUserPlan || hasPermission;
+      });
+
+      // Sort plans: user's own plan first, then others
+      const sortedPlans = accessiblePlans.sort((a, b) => {
+        const aIsUserPlan =
+          a.user &&
+          (a.user._id?.toString() === user._id?.toString() ||
+            a.user.toString() === user._id?.toString());
+        const bIsUserPlan =
+          b.user &&
+          (b.user._id?.toString() === user._id?.toString() ||
+            b.user.toString() === user._id?.toString());
+
+        if (aIsUserPlan && !bIsUserPlan) return -1;
+        if (!aIsUserPlan && bIsUserPlan) return 1;
+        return 0;
+      });
+
+      debug.log("Accessible plans after filtering and sorting:", sortedPlans);
+      setCollaborativePlans(sortedPlans);
+
+      // Set selectedPlanId if not already set and plans exist
+      if (sortedPlans.length > 0 && !selectedPlanId) {
+        const newSelectedId = sortedPlans[0]._id;
+        debug.log("Setting selectedPlanId to:", newSelectedId);
+        setSelectedPlanId(newSelectedId);
+      }
+    } catch (err) {
+      debug.error("Error fetching all data:", err);
+      setExperience(null);
+      setUserPlan(null);
+      setCollaborativePlans([]);
+    }
+  }, [experienceId, user._id, selectedPlanId]);
+
+  // Legacy individual fetch functions - kept for compatibility with existing code that calls them
   const fetchExperience = useCallback(async () => {
     try {
       const experienceData = await showExperience(experienceId);
@@ -378,41 +495,47 @@ export default function SingleExperience() {
     return false;
   }, []);
 
+  // OPTIMIZATION: Use combined fetch on initial load for 3x faster page load
   useEffect(() => {
-    fetchExperience();
-    fetchUserPlan();
-    fetchCollaborativePlans();
-  }, [fetchExperience, fetchUserPlan, fetchCollaborativePlans]);
+    fetchAllData();
+  }, [fetchAllData]);
 
   // Register h1 and action buttons for navbar
   useEffect(() => {
-    const h1 = document.querySelector('h1');
+    const h1 = document.querySelector("h1");
     if (h1) registerH1(h1);
 
     // Set up action buttons if user is owner or super admin
     if (user && experience && isOwner(user, experience)) {
       setPageActionButtons([
         {
-          label: 'Edit',
+          label: "Edit",
           onClick: () => navigate(`/experiences/${experience._id}/update`),
-          variant: 'outline-primary',
-          icon: '✏️',
-          tooltip: 'Edit Experience',
-          compact: true
+          variant: "outline-primary",
+          icon: "✏️",
+          tooltip: "Edit Experience",
+          compact: true,
         },
         {
-          label: 'Delete',
+          label: "Delete",
           onClick: () => setShowDeleteModal(true),
-          variant: 'outline-danger',
-          icon: '🗑️',
-          tooltip: 'Delete Experience',
-          compact: true
-        }
+          variant: "outline-danger",
+          icon: "🗑️",
+          tooltip: "Delete Experience",
+          compact: true,
+        },
       ]);
     }
 
     return () => clearActionButtons();
-  }, [registerH1, setPageActionButtons, clearActionButtons, user, experience, navigate]);
+  }, [
+    registerH1,
+    setPageActionButtons,
+    clearActionButtons,
+    user,
+    experience,
+    navigate,
+  ]);
 
   // Check for divergence when plan or experience changes
   useEffect(() => {
@@ -459,7 +582,7 @@ export default function SingleExperience() {
       if (!element) return;
 
       // Reset to default size first
-      element.style.fontSize = '';
+      element.style.fontSize = "";
 
       // Get the computed style to find the current font size
       let fontSize = parseFloat(window.getComputedStyle(element).fontSize);
@@ -467,7 +590,10 @@ export default function SingleExperience() {
 
       // Check if text is overflowing horizontally
       // Reduce more aggressively (2px instead of 1px per iteration)
-      while (element.scrollWidth > element.clientWidth && fontSize > minFontSize * 16) {
+      while (
+        element.scrollWidth > element.clientWidth &&
+        fontSize > minFontSize * 16
+      ) {
         fontSize -= 2; // More aggressive reduction
         element.style.fontSize = `${fontSize}px`;
       }
@@ -479,10 +605,10 @@ export default function SingleExperience() {
     }, 0);
 
     // Adjust on window resize
-    window.addEventListener('resize', adjustPlannedDateFontSize);
+    window.addEventListener("resize", adjustPlannedDateFontSize);
     return () => {
       clearTimeout(timeoutId);
-      window.removeEventListener('resize', adjustPlannedDateFontSize);
+      window.removeEventListener("resize", adjustPlannedDateFontSize);
     };
   }, [displayedPlannedDate]);
 
@@ -893,7 +1019,7 @@ export default function SingleExperience() {
   const handleAddCollaborator = useCallback(
     async (e) => {
       e.preventDefault();
-      
+
       setLoading(true);
       try {
         // Determine which entity to add/remove collaborators
@@ -905,18 +1031,27 @@ export default function SingleExperience() {
           try {
             if (isExperienceContext) {
               // Dynamic import removed - using static import
-              await removeExperienceCollaborator(experienceId, collaborator._id);
+              await removeExperienceCollaborator(
+                experienceId,
+                collaborator._id
+              );
             } else {
               await removeCollaborator(selectedPlanId, collaborator._id);
             }
           } catch (err) {
-            debug.error(`Error removing collaborator ${collaborator.name}:`, err);
+            debug.error(
+              `Error removing collaborator ${collaborator.name}:`,
+              err
+            );
           }
         }
 
         // Process additions
         const collaboratorsToAdd = selectedCollaborators.filter(
-          (selected) => !existingCollaborators.some((existing) => existing._id === selected._id)
+          (selected) =>
+            !existingCollaborators.some(
+              (existing) => existing._id === selected._id
+            )
         );
 
         for (const collaborator of collaboratorsToAdd) {
@@ -974,31 +1109,34 @@ export default function SingleExperience() {
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(emailInviteData.email)) {
-        setEmailInviteError('Please enter a valid email address');
+        setEmailInviteError("Please enter a valid email address");
         return;
       }
 
       setEmailInviteSending(true);
-      setEmailInviteError('');
+      setEmailInviteError("");
 
       try {
         await sendEmailInvite({
           email: emailInviteData.email,
           name: emailInviteData.name,
-          resourceType: 'experience',
+          resourceType: "experience",
           resourceId: experienceId,
-          resourceName: experience?.title || 'this experience',
-          customMessage: `Join me in planning ${experience?.title || 'this experience'}!`
+          resourceName: experience?.title || "this experience",
+          customMessage: `Join me in planning ${
+            experience?.title || "this experience"
+          }!`,
+          permissionType: "collaborator",
         });
 
         // Show success
         success(`Email invite sent successfully to ${emailInviteData.email}!`);
 
         // Reset form
-        setEmailInviteData({ email: '', name: '' });
+        setEmailInviteData({ email: "", name: "" });
         setShowEmailInviteForm(false);
       } catch (error) {
-        setEmailInviteError(error.message || 'Failed to send email invite');
+        setEmailInviteError(error.message || "Failed to send email invite");
       } finally {
         setEmailInviteSending(false);
       }
@@ -1014,70 +1152,81 @@ export default function SingleExperience() {
       }
       return [...prev, user];
     });
-    
+
     // Clear search
     setCollaboratorSearch("");
     setSearchResults([]);
   }, []);
 
-  const handleRemoveSelectedCollaborator = useCallback((userId) => {
-    setSelectedCollaborators((prev) => prev.filter((u) => u._id !== userId));
-    
-    // If this was an existing collaborator, add to removed list
-    const wasExisting = existingCollaborators.some((u) => u._id === userId);
-    if (wasExisting) {
-      const collaborator = existingCollaborators.find((u) => u._id === userId);
-      setRemovedCollaborators((prev) => [...prev, collaborator]);
-    }
-  }, [existingCollaborators]);
+  const handleRemoveSelectedCollaborator = useCallback(
+    (userId) => {
+      setSelectedCollaborators((prev) => prev.filter((u) => u._id !== userId));
 
-  const openCollaboratorModal = useCallback((context) => {
-    setCollaboratorContext(context);
-
-    // Get existing collaborators based on context - use the fetched user data
-    let existing = [];
-    if (context === "experience") {
-      existing = experienceCollaborators || [];
-    } else {
-      existing = planCollaborators || [];
-    }
-
-    setExistingCollaborators(existing);
-    setSelectedCollaborators(existing);
-    setRemovedCollaborators([]);
-    setShowCollaboratorModal(true);
-  }, [experienceCollaborators, planCollaborators]);
-
-  const handleSearchUsers = useCallback(async (query) => {
-    setCollaboratorSearch(query);
-
-    if (query.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    try {
-      const results = await searchUsers(query);
-      
-      // Filter out users that are already selected or are the current user (owner)
-      const filteredResults = results.filter((result) => {
-        // Don't show current user
-        if (result._id === user._id) return false;
-        
-        // Don't show users that are already selected
-        const alreadySelected = selectedCollaborators.some(
-          (collab) => collab._id === result._id
+      // If this was an existing collaborator, add to removed list
+      const wasExisting = existingCollaborators.some((u) => u._id === userId);
+      if (wasExisting) {
+        const collaborator = existingCollaborators.find(
+          (u) => u._id === userId
         );
-        
-        return !alreadySelected;
-      });
-      
-      setSearchResults(filteredResults);
-    } catch (err) {
-      debug.error("Error searching users:", err);
-      setSearchResults([]);
-    }
-  }, [selectedCollaborators, user]);
+        setRemovedCollaborators((prev) => [...prev, collaborator]);
+      }
+    },
+    [existingCollaborators]
+  );
+
+  const openCollaboratorModal = useCallback(
+    (context) => {
+      setCollaboratorContext(context);
+
+      // Get existing collaborators based on context - use the fetched user data
+      let existing = [];
+      if (context === "experience") {
+        existing = experienceCollaborators || [];
+      } else {
+        existing = planCollaborators || [];
+      }
+
+      setExistingCollaborators(existing);
+      setSelectedCollaborators(existing);
+      setRemovedCollaborators([]);
+      setShowCollaboratorModal(true);
+    },
+    [experienceCollaborators, planCollaborators]
+  );
+
+  const handleSearchUsers = useCallback(
+    async (query) => {
+      setCollaboratorSearch(query);
+
+      if (query.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+
+      try {
+        const results = await searchUsers(query);
+
+        // Filter out users that are already selected or are the current user (owner)
+        const filteredResults = results.filter((result) => {
+          // Don't show current user
+          if (result._id === user._id) return false;
+
+          // Don't show users that are already selected
+          const alreadySelected = selectedCollaborators.some(
+            (collab) => collab._id === result._id
+          );
+
+          return !alreadySelected;
+        });
+
+        setSearchResults(filteredResults);
+      } catch (err) {
+        debug.error("Error searching users:", err);
+        setSearchResults([]);
+      }
+    },
+    [selectedCollaborators, user]
+  );
 
   // Memoized dollarSigns function for cost display
   const dollarSigns = useCallback((n) => {
@@ -1309,7 +1458,15 @@ export default function SingleExperience() {
       // Rollback on error
       await fetchExperiences();
     }
-  }, [experience, user, navigate, removeExperience, success, showError, fetchExperiences]);
+  }, [
+    experience,
+    user,
+    navigate,
+    removeExperience,
+    success,
+    showError,
+    fetchExperiences,
+  ]);
 
   const handlePlanDelete = useCallback(
     async (planItemId) => {
@@ -1331,7 +1488,7 @@ export default function SingleExperience() {
 
   // Set up navbar for single experience view
   useEffect(() => {
-    const h1 = document.querySelector('h1');
+    const h1 = document.querySelector("h1");
     if (h1) registerH1(h1);
 
     // Enable h1 text in navbar for this view
@@ -1387,7 +1544,7 @@ export default function SingleExperience() {
           <div className="row experience-detail fade-in">
             <div className="col-md-6 fade-in text-center text-md-start">
               <h1 className="mt-4 h fade-in">{experience.name}</h1>
-              <div className="my-2">
+              <div className="experience-header-grid my-2">
                 {experience.cost_estimate > 0 && (
                   <h2 className="h5 fade-in">
                     {lang.en.heading.estimatedCost}{" "}
@@ -1522,6 +1679,7 @@ export default function SingleExperience() {
                         )}
                       />
                       {plannedDate &&
+                        experience.max_planning_days > 0 &&
                         !isValidPlannedDate(
                           plannedDate,
                           experience.max_planning_days
@@ -1590,34 +1748,58 @@ export default function SingleExperience() {
               </div>
             </div>
             <div className="col-md-6 p-3 fade-in">
-
-              <div className="travel-tips-box fade-in mb-4">
-                {experience.destination && (
-                  <div className="fw-bold text-center h5 fade-in">
-                    <Link to={`/destinations/${experience.destination._id}`}>
-                      {lang.en.label.destinationLabel}: {experience.destination.name}
-                    </Link>
-                  </div>
-                )}
-                <div className="d-flex gap-3 flex-wrap mt-3">
-                  {travelTips.map((tip, index) => (
-                    <div key={index} className="travel-tip-card fade-in">
-                      {tip}
-                    </div>
-                  ))}
-                </div>
+              <div className="col-md-12 fade-in">
+                <InfoCard
+                  title={
+                    experience.destination
+                      ? `${lang.en.label.destinationLabel}: ${experience.destination.name}`
+                      : null
+                  }
+                  titleLink={
+                    experience.destination
+                      ? `/destinations/${experience.destination._id}`
+                      : null
+                  }
+                  sections={[
+                    experience.experience_type && experience.experience_type.length > 0
+                      ? {
+                          title: lang.en.label.experienceType,
+                          content: (
+                            <div>
+                              {experience.experience_type.map((type) => (
+                                <Link key={type} className="pill" to={`/experience-types/${createUrlSlug(type)}`}>
+                                  <span className="icon"><FaUser /></span>
+                                  {type}
+                                </Link>
+                              ))}
+                            </div>
+                          ),
+                        }
+                      : null,
+                    experience.description
+                      ? {
+                          title: lang.en.label.description,
+                          content: <p>{experience.description}</p>,
+                        }
+                      : null,
+                  ].filter(Boolean)}
+                  map={
+                    experience.destination ? (
+                      <iframe
+                        width="100%"
+                        title={lang.en.helper.map}
+                        height="300"
+                        style={{
+                          border: "0",
+                          borderRadius: "var(--radius-md)",
+                        }}
+                        loading="lazy"
+                        src={`https://www.google.com/maps/embed/v1/place?q=${experience.destination.name}+${experience.destination.country}&key=AIzaSyDqWtvNnjYES1pd6ssnZ7gvddUVHrlNaR0`}
+                      />
+                    ) : null
+                  }
+                />
               </div>
-
-              {experience.destination && (
-                <iframe
-                  width="100%"
-                  title={lang.en.helper.map}
-                  height="450"
-                  style={{ border: "0" }}
-                  loading="lazy"
-                  src={`https://www.google.com/maps/embed/v1/place?q=${experience.destination.name}+${experience.destination.country}&key=AIzaSyDqWtvNnjYES1pd6ssnZ7gvddUVHrlNaR0`}
-                ></iframe>
-              )}
             </div>
           </div>
           <div className="row my-2 p-3 fade-in">
@@ -1697,7 +1879,10 @@ export default function SingleExperience() {
                         owner={experienceOwner}
                         users={experienceCollaborators}
                         messageKey="CreatingPlan"
-                        loading={experienceOwnerLoading || experienceCollaboratorsLoading}
+                        loading={
+                          experienceOwnerLoading ||
+                          experienceCollaboratorsLoading
+                        }
                         reserveSpace={true}
                       />
 
@@ -1917,7 +2102,9 @@ export default function SingleExperience() {
                             owner={planOwner}
                             users={planCollaborators}
                             messageKey="PlanningExperience"
-                            loading={planOwnerLoading || planCollaboratorsLoading}
+                            loading={
+                              planOwnerLoading || planCollaboratorsLoading
+                            }
                             reserveSpace={true}
                           />
 
@@ -1948,7 +2135,9 @@ export default function SingleExperience() {
                                 disabled={loading}
                                 title={lang.en.tooltip.syncPlan}
                               >
-                                {loading ? lang.en.button.syncing : lang.en.button.syncNow}
+                                {loading
+                                  ? lang.en.button.syncing
+                                  : lang.en.button.syncNow}
                               </button>
                             )}
                           </div>
@@ -1979,9 +2168,14 @@ export default function SingleExperience() {
                                     {lang.en.label.plannedDate}
                                   </span>
                                 </div>
-                                <div className="metric-value" ref={plannedDateRef}>
+                                <div
+                                  className="metric-value"
+                                  ref={plannedDateRef}
+                                >
                                   {currentPlan.planned_date ? (
-                                    formatDateMetricCard(currentPlan.planned_date)
+                                    formatDateMetricCard(
+                                      currentPlan.planned_date
+                                    )
                                   ) : (
                                     <span
                                       className="set-date-link"
@@ -2193,17 +2387,21 @@ export default function SingleExperience() {
                                     // Get plan owner for permission checks
                                     let planOwner = currentPlan?.user;
                                     if (!planOwner) {
-                                      const ownerPermission = currentPlan?.permissions?.find(p => p.type === 'owner');
+                                      const ownerPermission =
+                                        currentPlan?.permissions?.find(
+                                          (p) => p.type === "owner"
+                                        );
                                       if (ownerPermission?.user) {
                                         planOwner = ownerPermission.user;
                                       }
                                       // Don't create fake user objects - leave planOwner as undefined if no valid user data
                                     }
-                                    
+
                                     // Check if user can edit this plan (owner or collaborator)
                                     const canEditPlan =
                                       currentPlan &&
-                                      ((planOwner && planOwner._id === user._id) ||
+                                      ((planOwner &&
+                                        planOwner._id === user._id) ||
                                         currentPlan.permissions?.some(
                                           (p) =>
                                             p._id.toString() ===
@@ -2521,7 +2719,10 @@ export default function SingleExperience() {
                   <strong>
                     {lang.en.alert.addedCollaborators
                       .replace("{count}", addedCollaborators.length)
-                      .replace("{plural}", addedCollaborators.length > 1 ? "s" : "")}
+                      .replace(
+                        "{plural}",
+                        addedCollaborators.length > 1 ? "s" : ""
+                      )}
                   </strong>
                 </p>
                 <ul className="list-unstyled">
@@ -2541,7 +2742,10 @@ export default function SingleExperience() {
                   <strong>
                     {lang.en.alert.removedCollaborators
                       .replace("{count}", actuallyRemovedCollaborators.length)
-                      .replace("{plural}", actuallyRemovedCollaborators.length > 1 ? "s" : "")}
+                      .replace(
+                        "{plural}",
+                        actuallyRemovedCollaborators.length > 1 ? "s" : ""
+                      )}
                   </strong>
                 </p>
                 <ul className="list-unstyled">
@@ -2554,9 +2758,10 @@ export default function SingleExperience() {
               </div>
             )}
 
-            {addedCollaborators.length === 0 && actuallyRemovedCollaborators.length === 0 && (
-              <p className="text-muted">{lang.en.alert.noChangesMade}</p>
-            )}
+            {addedCollaborators.length === 0 &&
+              actuallyRemovedCollaborators.length === 0 && (
+                <p className="text-muted">{lang.en.alert.noChangesMade}</p>
+              )}
           </div>
         ) : (
           // Form view
@@ -2575,7 +2780,9 @@ export default function SingleExperience() {
             {/* Selected Collaborators Display */}
             {selectedCollaborators.length > 0 && (
               <div className="mb-3">
-                <label className="form-label">{lang.en.label.selectedCollaborators}</label>
+                <label className="form-label">
+                  {lang.en.label.selectedCollaborators}
+                </label>
                 <div className="d-flex flex-wrap gap-2">
                   {selectedCollaborators.map((collaborator) => (
                     <div
@@ -2649,10 +2856,12 @@ export default function SingleExperience() {
                 className="btn btn-link text-decoration-none"
                 onClick={() => {
                   setShowEmailInviteForm(!showEmailInviteForm);
-                  setEmailInviteError('');
+                  setEmailInviteError("");
                 }}
               >
-                {showEmailInviteForm ? '← Back to search' : '✉ Invite via email (for non-users)'}
+                {showEmailInviteForm
+                  ? "← Back to search"
+                  : "✉ Invite via email (for non-users)"}
               </button>
             </div>
 
@@ -2662,7 +2871,11 @@ export default function SingleExperience() {
                 <h6 className="mb-3">Send Email Invite</h6>
 
                 {emailInviteError && (
-                  <Alert type="danger" dismissible onClose={() => setEmailInviteError('')}>
+                  <Alert
+                    type="danger"
+                    dismissible
+                    onClose={() => setEmailInviteError("")}
+                  >
                     {emailInviteError}
                   </Alert>
                 )}
@@ -2676,7 +2889,12 @@ export default function SingleExperience() {
                     className="form-control"
                     id="inviteEmail"
                     value={emailInviteData.email}
-                    onChange={(e) => setEmailInviteData(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) =>
+                      setEmailInviteData((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
                     placeholder={lang.en.placeholder.collaboratorEmail}
                   />
                 </div>
@@ -2690,14 +2908,22 @@ export default function SingleExperience() {
                     className="form-control"
                     id="inviteName"
                     value={emailInviteData.name}
-                    onChange={(e) => setEmailInviteData(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) =>
+                      setEmailInviteData((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
                     placeholder="Collaborator's name"
                   />
                 </div>
 
                 <div className="alert alert-info mb-3">
                   <small>
-                    We'll send an email to <strong>{emailInviteData.email || 'this address'}</strong> inviting them to join Biensperience and collaborate on <strong>{experience?.title || 'this experience'}</strong>.
+                    We'll send an email to{" "}
+                    <strong>{emailInviteData.email || "this address"}</strong>{" "}
+                    inviting them to join Biensperience and collaborate on{" "}
+                    <strong>{experience?.title || "this experience"}</strong>.
                   </small>
                 </div>
 
@@ -2705,9 +2931,13 @@ export default function SingleExperience() {
                   type="button"
                   className="btn btn-primary w-100"
                   onClick={handleSendEmailInvite}
-                  disabled={emailInviteSending || !emailInviteData.email.trim() || !emailInviteData.name.trim()}
+                  disabled={
+                    emailInviteSending ||
+                    !emailInviteData.email.trim() ||
+                    !emailInviteData.name.trim()
+                  }
                 >
-                  {emailInviteSending ? 'Sending...' : 'Send Email Invite'}
+                  {emailInviteSending ? "Sending..." : "Send Email Invite"}
                 </button>
               </div>
             )}
@@ -2741,334 +2971,325 @@ export default function SingleExperience() {
               {lang.en.alert.selectChangesToApply}
             </p>
 
-                {/* Added Items */}
-                {syncChanges.added.length > 0 && (
-                  <div className="mb-4">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <h6 className="text-success mb-0">
-                        <strong>
-                          {lang.en.label.addedItems.replace("{count}", syncChanges.added.length)}
-                        </strong>
-                      </h6>
-                      <div className="form-check sync-modal-select-all">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          id="selectAllAdded"
-                          checked={
-                            selectedSyncItems.added.length ===
-                            syncChanges.added.length
-                          }
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedSyncItems((prev) => ({
-                                ...prev,
-                                added: syncChanges.added.map((_, idx) => idx),
-                              }));
-                            } else {
-                              setSelectedSyncItems((prev) => ({
-                                ...prev,
-                                added: [],
-                              }));
-                            }
-                          }}
-                        />
-                        <label
-                          className="form-check-label"
-                          htmlFor="selectAllAdded"
-                        >
-                          {lang.en.label.selectAll}
-                        </label>
-                      </div>
-                    </div>
-                    <div className="list-group">
-                      {syncChanges.added.map((item, idx) => (
-                        <div key={idx} className="list-group-item">
-                          <div className="d-flex align-items-start">
-                            <div className="form-check me-3 mt-1">
-                              <input
-                                className="form-check-input"
-                                type="checkbox"
-                                id={`add-${idx}`}
-                                checked={selectedSyncItems.added.includes(idx)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedSyncItems((prev) => ({
-                                      ...prev,
-                                      added: [...prev.added, idx],
-                                    }));
-                                  } else {
-                                    setSelectedSyncItems((prev) => ({
-                                      ...prev,
-                                      added: prev.added.filter(
-                                        (i) => i !== idx
-                                      ),
-                                    }));
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div className="flex-grow-1">
-                              <strong>{item.text}</strong>
-                              {item.url && (
-                                <div className="small text-muted">
-                                  URL:{" "}
-                                  <a
-                                    href={item.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    {item.url}
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-end ms-2">
-                              {item.cost > 0 && (
-                                <div className="badge bg-secondary">
-                                  {formatCurrency(item.cost)}
-                                </div>
-                              )}
-                              {item.planning_days > 0 && (
-                                <div className="badge bg-info ms-1">
-                                  {item.planning_days}{" "}
-                                  {item.planning_days === 1 ? "day" : "days"}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Removed Items */}
-                {syncChanges.removed.length > 0 && (
-                  <div className="mb-4">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <h6 className="text-danger mb-0">
-                        <strong>
-                          {lang.en.label.removedItems.replace("{count}", syncChanges.removed.length)}
-                        </strong>
-                      </h6>
-                      <div className="form-check sync-modal-select-all">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          id="selectAllRemoved"
-                          checked={
-                            selectedSyncItems.removed.length ===
-                            syncChanges.removed.length
-                          }
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedSyncItems((prev) => ({
-                                ...prev,
-                                removed: syncChanges.removed.map(
-                                  (_, idx) => idx
-                                ),
-                              }));
-                            } else {
-                              setSelectedSyncItems((prev) => ({
-                                ...prev,
-                                removed: [],
-                              }));
-                            }
-                          }}
-                        />
-                        <label
-                          className="form-check-label"
-                          htmlFor="selectAllRemoved"
-                        >
-                          {lang.en.label.selectAll}
-                        </label>
-                      </div>
-                    </div>
-                    <div className="list-group">
-                      {syncChanges.removed.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="list-group-item list-group-item-danger"
-                        >
-                          <div className="d-flex align-items-start">
-                            <div className="form-check me-3 mt-1">
-                              <input
-                                className="form-check-input"
-                                type="checkbox"
-                                id={`remove-${idx}`}
-                                checked={selectedSyncItems.removed.includes(
-                                  idx
-                                )}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedSyncItems((prev) => ({
-                                      ...prev,
-                                      removed: [...prev.removed, idx],
-                                    }));
-                                  } else {
-                                    setSelectedSyncItems((prev) => ({
-                                      ...prev,
-                                      removed: prev.removed.filter(
-                                        (i) => i !== idx
-                                      ),
-                                    }));
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div className="flex-grow-1">
-                              <strong>{item.text}</strong>
-                              {item.url && (
-                                <div className="small text-muted">
-                                  URL: {item.url}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Modified Items */}
-                {syncChanges.modified.length > 0 && (
-                  <div className="mb-4">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <h6 className="text-warning mb-0">
-                        <strong>
-                          {lang.en.label.modifiedItems.replace("{count}", syncChanges.modified.length)}
-                        </strong>
-                      </h6>
-                      <div className="form-check sync-modal-select-all">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          id="selectAllModified"
-                          checked={
-                            selectedSyncItems.modified.length ===
-                            syncChanges.modified.length
-                          }
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedSyncItems((prev) => ({
-                                ...prev,
-                                modified: syncChanges.modified.map(
-                                  (_, idx) => idx
-                                ),
-                              }));
-                            } else {
-                              setSelectedSyncItems((prev) => ({
-                                ...prev,
-                                modified: [],
-                              }));
-                            }
-                          }}
-                        />
-                        <label
-                          className="form-check-label"
-                          htmlFor="selectAllModified"
-                        >
-                          {lang.en.label.selectAll}
-                        </label>
-                      </div>
-                    </div>
-                    <div className="list-group">
-                      {syncChanges.modified.map((item, idx) => (
-                        <div key={idx} className="list-group-item">
-                          <div className="d-flex align-items-start">
-                            <div className="form-check me-3 mt-1">
-                              <input
-                                className="form-check-input"
-                                type="checkbox"
-                                id={`modify-${idx}`}
-                                checked={selectedSyncItems.modified.includes(
-                                  idx
-                                )}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedSyncItems((prev) => ({
-                                      ...prev,
-                                      modified: [...prev.modified, idx],
-                                    }));
-                                  } else {
-                                    setSelectedSyncItems((prev) => ({
-                                      ...prev,
-                                      modified: prev.modified.filter(
-                                        (i) => i !== idx
-                                      ),
-                                    }));
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div className="flex-grow-1">
-                              <strong className="d-block mb-2">
-                                {item.text}
-                              </strong>
-                              {item.modifications.map((mod, modIdx) => (
-                                <div key={modIdx} className="small mb-1">
-                                  <span className="badge bg-warning text-dark me-2">
-                                    {mod.field}
-                                  </span>
-                                  <span className="text-decoration-line-through text-muted me-2">
-                                    {mod.field === "cost"
-                                      ? `$${(mod.old || 0).toLocaleString(
-                                          "en-US",
-                                          {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          }
-                                        )}`
-                                      : mod.field === "days"
-                                      ? `${mod.old || 0} ${
-                                          (mod.old || 0) === 1 ? "day" : "days"
-                                        }`
-                                      : mod.old || "(empty)"}
-                                  </span>
-                                  →
-                                  <span className="text-success ms-2">
-                                    {mod.field === "cost"
-                                      ? `$${(mod.new || 0).toLocaleString(
-                                          "en-US",
-                                          {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          }
-                                        )}`
-                                      : mod.field === "days"
-                                      ? `${mod.new || 0} ${
-                                          (mod.new || 0) === 1 ? "day" : "days"
-                                        }`
-                                      : mod.new || "(empty)"}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {syncChanges.added.length === 0 &&
-                  syncChanges.removed.length === 0 &&
-                  syncChanges.modified.length === 0 && (
-                    <Alert
-                      type="info"
-                      title={lang.en.alert.noChangesDetected}
-                      message={lang.en.alert.planAlreadyInSync}
+            {/* Added Items */}
+            {syncChanges.added.length > 0 && (
+              <div className="mb-4">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <h6 className="text-success mb-0">
+                    <strong>
+                      {lang.en.label.addedItems.replace(
+                        "{count}",
+                        syncChanges.added.length
+                      )}
+                    </strong>
+                  </h6>
+                  <div className="form-check sync-modal-select-all">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="selectAllAdded"
+                      checked={
+                        selectedSyncItems.added.length ===
+                        syncChanges.added.length
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedSyncItems((prev) => ({
+                            ...prev,
+                            added: syncChanges.added.map((_, idx) => idx),
+                          }));
+                        } else {
+                          setSelectedSyncItems((prev) => ({
+                            ...prev,
+                            added: [],
+                          }));
+                        }
+                      }}
                     />
-                  )}
+                    <label
+                      className="form-check-label"
+                      htmlFor="selectAllAdded"
+                    >
+                      {lang.en.label.selectAll}
+                    </label>
+                  </div>
+                </div>
+                <div className="list-group">
+                  {syncChanges.added.map((item, idx) => (
+                    <div key={idx} className="list-group-item">
+                      <div className="d-flex align-items-start">
+                        <div className="form-check me-3 mt-1">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id={`add-${idx}`}
+                            checked={selectedSyncItems.added.includes(idx)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedSyncItems((prev) => ({
+                                  ...prev,
+                                  added: [...prev.added, idx],
+                                }));
+                              } else {
+                                setSelectedSyncItems((prev) => ({
+                                  ...prev,
+                                  added: prev.added.filter((i) => i !== idx),
+                                }));
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="flex-grow-1">
+                          <strong>{item.text}</strong>
+                          {item.url && (
+                            <div className="small text-muted">
+                              URL:{" "}
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {item.url}
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-end ms-2">
+                          {item.cost > 0 && (
+                            <div className="badge bg-secondary">
+                              {formatCurrency(item.cost)}
+                            </div>
+                          )}
+                          {item.planning_days > 0 && (
+                            <div className="badge bg-info ms-1">
+                              {item.planning_days}{" "}
+                              {item.planning_days === 1 ? "day" : "days"}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
+            {/* Removed Items */}
+            {syncChanges.removed.length > 0 && (
+              <div className="mb-4">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <h6 className="text-danger mb-0">
+                    <strong>
+                      {lang.en.label.removedItems.replace(
+                        "{count}",
+                        syncChanges.removed.length
+                      )}
+                    </strong>
+                  </h6>
+                  <div className="form-check sync-modal-select-all">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="selectAllRemoved"
+                      checked={
+                        selectedSyncItems.removed.length ===
+                        syncChanges.removed.length
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedSyncItems((prev) => ({
+                            ...prev,
+                            removed: syncChanges.removed.map((_, idx) => idx),
+                          }));
+                        } else {
+                          setSelectedSyncItems((prev) => ({
+                            ...prev,
+                            removed: [],
+                          }));
+                        }
+                      }}
+                    />
+                    <label
+                      className="form-check-label"
+                      htmlFor="selectAllRemoved"
+                    >
+                      {lang.en.label.selectAll}
+                    </label>
+                  </div>
+                </div>
+                <div className="list-group">
+                  {syncChanges.removed.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="list-group-item list-group-item-danger"
+                    >
+                      <div className="d-flex align-items-start">
+                        <div className="form-check me-3 mt-1">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id={`remove-${idx}`}
+                            checked={selectedSyncItems.removed.includes(idx)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedSyncItems((prev) => ({
+                                  ...prev,
+                                  removed: [...prev.removed, idx],
+                                }));
+                              } else {
+                                setSelectedSyncItems((prev) => ({
+                                  ...prev,
+                                  removed: prev.removed.filter(
+                                    (i) => i !== idx
+                                  ),
+                                }));
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="flex-grow-1">
+                          <strong>{item.text}</strong>
+                          {item.url && (
+                            <div className="small text-muted">
+                              URL: {item.url}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Modified Items */}
+            {syncChanges.modified.length > 0 && (
+              <div className="mb-4">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <h6 className="text-warning mb-0">
+                    <strong>
+                      {lang.en.label.modifiedItems.replace(
+                        "{count}",
+                        syncChanges.modified.length
+                      )}
+                    </strong>
+                  </h6>
+                  <div className="form-check sync-modal-select-all">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="selectAllModified"
+                      checked={
+                        selectedSyncItems.modified.length ===
+                        syncChanges.modified.length
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedSyncItems((prev) => ({
+                            ...prev,
+                            modified: syncChanges.modified.map((_, idx) => idx),
+                          }));
+                        } else {
+                          setSelectedSyncItems((prev) => ({
+                            ...prev,
+                            modified: [],
+                          }));
+                        }
+                      }}
+                    />
+                    <label
+                      className="form-check-label"
+                      htmlFor="selectAllModified"
+                    >
+                      {lang.en.label.selectAll}
+                    </label>
+                  </div>
+                </div>
+                <div className="list-group">
+                  {syncChanges.modified.map((item, idx) => (
+                    <div key={idx} className="list-group-item">
+                      <div className="d-flex align-items-start">
+                        <div className="form-check me-3 mt-1">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id={`modify-${idx}`}
+                            checked={selectedSyncItems.modified.includes(idx)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedSyncItems((prev) => ({
+                                  ...prev,
+                                  modified: [...prev.modified, idx],
+                                }));
+                              } else {
+                                setSelectedSyncItems((prev) => ({
+                                  ...prev,
+                                  modified: prev.modified.filter(
+                                    (i) => i !== idx
+                                  ),
+                                }));
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="flex-grow-1">
+                          <strong className="d-block mb-2">{item.text}</strong>
+                          {item.modifications.map((mod, modIdx) => (
+                            <div key={modIdx} className="small mb-1">
+                              <span className="badge bg-warning text-dark me-2">
+                                {mod.field}
+                              </span>
+                              <span className="text-decoration-line-through text-muted me-2">
+                                {mod.field === "cost"
+                                  ? `$${(mod.old || 0).toLocaleString("en-US", {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}`
+                                  : mod.field === "days"
+                                  ? `${mod.old || 0} ${
+                                      (mod.old || 0) === 1 ? "day" : "days"
+                                    }`
+                                  : mod.old || "(empty)"}
+                              </span>
+                              →
+                              <span className="text-success ms-2">
+                                {mod.field === "cost"
+                                  ? `$${(mod.new || 0).toLocaleString("en-US", {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}`
+                                  : mod.field === "days"
+                                  ? `${mod.new || 0} ${
+                                      (mod.new || 0) === 1 ? "day" : "days"
+                                    }`
+                                  : mod.new || "(empty)"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {syncChanges.added.length === 0 &&
+              syncChanges.removed.length === 0 &&
+              syncChanges.modified.length === 0 && (
                 <Alert
-                  type="warning"
-                  className="mt-3"
-                  title="Note:"
-                  message={lang.en.alert.syncPreserveNote}
+                  type="info"
+                  title={lang.en.alert.noChangesDetected}
+                  message={lang.en.alert.planAlreadyInSync}
                 />
+              )}
+
+            <Alert
+              type="warning"
+              className="mt-3"
+              title="Note:"
+              message={lang.en.alert.syncPreserveNote}
+            />
           </>
         </Modal>
       )}
@@ -3107,123 +3328,124 @@ export default function SingleExperience() {
         <form className="plan-item-modal-form">
           <div className="mb-3">
             <label htmlFor="planItemText" className="form-label">
-              {lang.en.label.itemDescription} <span className="text-danger">*</span>
+              {lang.en.label.itemDescription}{" "}
+              <span className="text-danger">*</span>
             </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      id="planItemText"
-                      value={editingPlanItem.text || ""}
-                      onChange={(e) =>
-                        setEditingPlanItem({
-                          ...editingPlanItem,
-                          text: e.target.value,
-                        })
-                      }
-                      placeholder={lang.en.placeholder.itemDescription}
-                      required
-                    />
-                  </div>
+            <input
+              type="text"
+              className="form-control"
+              id="planItemText"
+              value={editingPlanItem.text || ""}
+              onChange={(e) =>
+                setEditingPlanItem({
+                  ...editingPlanItem,
+                  text: e.target.value,
+                })
+              }
+              placeholder={lang.en.placeholder.itemDescription}
+              required
+            />
+          </div>
 
-                  <div className="mb-3">
-                    <label htmlFor="planItemUrl" className="form-label">
-                      {lang.en.label.urlOptional}
-                    </label>
-                    <input
-                      type="url"
-                      className="form-control"
-                      id="planItemUrl"
-                      value={editingPlanItem.url || ""}
-                      onChange={(e) =>
-                        setEditingPlanItem({
-                          ...editingPlanItem,
-                          url: e.target.value,
-                        })
-                      }
-                      placeholder={lang.en.placeholder.urlPlaceholder}
-                    />
-                  </div>
+          <div className="mb-3">
+            <label htmlFor="planItemUrl" className="form-label">
+              {lang.en.label.urlOptional}
+            </label>
+            <input
+              type="url"
+              className="form-control"
+              id="planItemUrl"
+              value={editingPlanItem.url || ""}
+              onChange={(e) =>
+                setEditingPlanItem({
+                  ...editingPlanItem,
+                  url: e.target.value,
+                })
+              }
+              placeholder={lang.en.placeholder.urlPlaceholder}
+            />
+          </div>
 
-                  <div className="mb-3">
-                    <label htmlFor="planItemCost" className="form-label">
-                      {lang.en.label.cost}
-                    </label>
-                    <div className="input-group">
-                      <span className="input-group-text">$</span>
-                      <input
-                        type="number"
-                        className="form-control"
-                        id="planItemCost"
-                        value={editingPlanItem.cost || ""}
-                        onChange={(e) =>
-                          setEditingPlanItem({
-                            ...editingPlanItem,
-                            cost: parseFloat(e.target.value) || 0,
-                          })
-                        }
-                        onFocus={(e) => {
-                          if (e.target.value === "0" || e.target.value === 0) {
-                            setEditingPlanItem({
-                              ...editingPlanItem,
-                              cost: "",
-                            });
-                          }
-                        }}
-                        onBlur={(e) => {
-                          if (e.target.value === "") {
-                            setEditingPlanItem({
-                              ...editingPlanItem,
-                              cost: 0,
-                            });
-                          }
-                        }}
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
+          <div className="mb-3">
+            <label htmlFor="planItemCost" className="form-label">
+              {lang.en.label.cost}
+            </label>
+            <div className="input-group">
+              <span className="input-group-text">$</span>
+              <input
+                type="number"
+                className="form-control"
+                id="planItemCost"
+                value={editingPlanItem.cost || ""}
+                onChange={(e) =>
+                  setEditingPlanItem({
+                    ...editingPlanItem,
+                    cost: parseFloat(e.target.value) || 0,
+                  })
+                }
+                onFocus={(e) => {
+                  if (e.target.value === "0" || e.target.value === 0) {
+                    setEditingPlanItem({
+                      ...editingPlanItem,
+                      cost: "",
+                    });
+                  }
+                }}
+                onBlur={(e) => {
+                  if (e.target.value === "") {
+                    setEditingPlanItem({
+                      ...editingPlanItem,
+                      cost: 0,
+                    });
+                  }
+                }}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
 
-                  <div className="mb-3">
-                    <label htmlFor="planItemDays" className="form-label">
-                      {lang.en.label.planningTimeLabel}
-                    </label>
-                    <div className="input-group">
-                      <input
-                        type="number"
-                        className="form-control"
-                        id="planItemDays"
-                        value={editingPlanItem.planning_days || ""}
-                        onChange={(e) =>
-                          setEditingPlanItem({
-                            ...editingPlanItem,
-                            planning_days: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        onFocus={(e) => {
-                          if (e.target.value === "0" || e.target.value === 0) {
-                            setEditingPlanItem({
-                              ...editingPlanItem,
-                              planning_days: "",
-                            });
-                          }
-                        }}
-                        onBlur={(e) => {
-                          if (e.target.value === "") {
-                            setEditingPlanItem({
-                              ...editingPlanItem,
-                              planning_days: 0,
-                            });
-                          }
-                        }}
-                        min="0"
-                        placeholder="0"
-                      />
-                      <span className="input-group-text">days</span>
-                    </div>
-                  </div>
-            </form>
-          </Modal>
+          <div className="mb-3">
+            <label htmlFor="planItemDays" className="form-label">
+              {lang.en.label.planningTimeLabel}
+            </label>
+            <div className="input-group">
+              <input
+                type="number"
+                className="form-control"
+                id="planItemDays"
+                value={editingPlanItem.planning_days || ""}
+                onChange={(e) =>
+                  setEditingPlanItem({
+                    ...editingPlanItem,
+                    planning_days: parseInt(e.target.value) || 0,
+                  })
+                }
+                onFocus={(e) => {
+                  if (e.target.value === "0" || e.target.value === 0) {
+                    setEditingPlanItem({
+                      ...editingPlanItem,
+                      planning_days: "",
+                    });
+                  }
+                }}
+                onBlur={(e) => {
+                  if (e.target.value === "") {
+                    setEditingPlanItem({
+                      ...editingPlanItem,
+                      planning_days: 0,
+                    });
+                  }
+                }}
+                min="0"
+                placeholder="0"
+              />
+              <span className="input-group-text">days</span>
+            </div>
+          </div>
+        </form>
+      </Modal>
     </>
   );
 }

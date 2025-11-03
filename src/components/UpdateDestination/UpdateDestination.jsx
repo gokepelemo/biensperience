@@ -8,6 +8,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import Alert from "../Alert/Alert";
+import Loading from "../Loading/Loading";
 import { handleError } from "../../utilities/error-handler";
 import { formatChanges } from "../../utilities/change-formatter";
 import Modal from "../Modal/Modal";
@@ -52,6 +53,7 @@ export default function UpdateDestination() {
     deleteTravelTip,
     handleNewTipChange,
     handleNewTipKeyPress,
+    reorderTravelTips,
     // Structured tip management
     tipMode,
     setTipMode,
@@ -180,9 +182,21 @@ export default function UpdateDestination() {
     setError("");
 
     try {
+      // Extract only the fields that should be updated
+      // Convert populated photos to ObjectIds if needed
+      const photosToSend = destination.photos.map(photo =>
+        typeof photo === 'object' && photo._id ? photo._id : photo
+      );
+
       const dataToUpdate = {
-        ...destination,
-        travel_tips: travelTips
+        name: destination.name,
+        country: destination.country,
+        state: destination.state,
+        description: destination.description,
+        photos: photosToSend,
+        default_photo_id: destination.default_photo_id,
+        travel_tips: travelTips,
+        tags: destination.tags
       };
 
       const updated = await updateDestAPI(destinationId, dataToUpdate);
@@ -206,11 +220,7 @@ export default function UpdateDestination() {
   if (loading) {
     return (
       <div className="container my-5">
-        <div className="text-center">
-          <div className="spinner-border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-        </div>
+        <Loading size="lg" message="Loading destination..." />
       </div>
     );
   }
@@ -313,6 +323,7 @@ export default function UpdateDestination() {
               onNewTipKeyPress={handleNewTipKeyPress}
               onAddTip={handleAddTravelTip}
               onDeleteTip={deleteTravelTip}
+              onReorder={reorderTravelTips}
               label={lang.en.heading.travelTips}
               placeholder="Share an insider tip..."
               addButtonText="Add Tip"

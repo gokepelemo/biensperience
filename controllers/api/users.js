@@ -1,4 +1,5 @@
 const User = require("../../models/user");
+const Photo = require("../../models/photo");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
@@ -89,9 +90,8 @@ async function login(req, res) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    // OPTIMIZATION: Use .lean() but need mutable document for session creation
     const user = await User.findOne({ email: email })
-      .populate("photo");
+      .populate("photos", "url caption photo_credit photo_credit_url width height");
 
     // Check if user exists before attempting password comparison
     if (!user) {
@@ -121,7 +121,7 @@ async function login(req, res) {
         name: user.name,
         email: user.email,
         role: user.role,
-        photo: user.photo
+        photos: user.photos
       }
     });
   } catch (err) {
@@ -142,9 +142,8 @@ async function getUser(req, res) {
     }
     const userId = new mongoose.Types.ObjectId(req.params.id);
 
-    // OPTIMIZATION: Use .lean() for read-only query (Phase 3.2)
     const user = await User.findOne({ _id: userId })
-      .populate("photo")
+      .populate("photos", "url caption photo_credit photo_credit_url width height")
       .lean();
 
     // Return 404 if user doesn't exist
@@ -159,11 +158,42 @@ async function getUser(req, res) {
   }
 }
 
+// OPTIMIZATION: Bulk fetch multiple users in one query
+async function getBulkUsers(req, res) {
+  try {
+    const idsParam = req.query.ids;
+    
+    if (!idsParam) {
+      return res.status(400).json({ error: 'ids query parameter is required' });
+    }
+
+    // Parse comma-separated IDs
+    const ids = idsParam.split(',').map(id => id.trim()).filter(id => id);
+    
+    // Validate all IDs
+    const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));
+    
+    if (validIds.length === 0) {
+      return res.json([]); // Return empty array if no valid IDs
+    }
+
+    // Fetch all users in one query
+    const users = await User.find({ _id: { $in: validIds } })
+      .select('name email photos default_photo_id createdAt')
+      .populate("photos", "url caption")
+      .lean();
+
+    res.status(200).json(users);
+  } catch (err) {
+    backendLogger.error('Error fetching bulk users', { error: err.message, ids: req.query.ids });
+    res.status(400).json({ error: 'Failed to fetch users' });
+  }
+}
+
 async function getProfile(req, res) {
   try {
-    // Get current user's profile
     const user = await User.findOne({ _id: req.user._id })
-      .populate("photo")
+      .populate("photos", "url caption photo_credit photo_credit_url width height")
       .lean();
 
     if (!user) {
@@ -192,7 +222,13 @@ async function updateUser(req, res, next) {
     }
 
     // Whitelist allowed fields to prevent mass assignment vulnerabilities
-    const allowedFields = ['name', 'email', 'photos', 'default_photo_index', 'password', 'oldPassword'];
+    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'oldPassword'];
+    
+    // Super admins can also update their email confirmation status
+    if (isSuperAdmin(req.user)) {
+      allowedFields.push('emailConfirmed');
+    }
+    
     const updateData = {};
 
     for (const field of allowedFields) {
@@ -218,7 +254,7 @@ async function updateUser(req, res, next) {
     }
 
     // Handle password update if provided
-    if (updateData.password) {
+    if (updateData.password !== undefined && updateData.password !== null && updateData.password !== '') {
       if (!updateData.oldPassword) {
         return res.status(400).json({ error: 'Old password is required to change password' });
       }
@@ -251,26 +287,29 @@ async function updateUser(req, res, next) {
       validatedUpdateData.email = updateData.email.trim();
     }
     
+    // Validate emailConfirmed field if provided (super admin only)
+    if (updateData.emailConfirmed !== undefined) {
+      if (typeof updateData.emailConfirmed !== 'boolean') {
+        return res.status(400).json({ error: 'emailConfirmed must be a boolean' });
+      }
+      validatedUpdateData.emailConfirmed = updateData.emailConfirmed;
+    }
+    
     // Validate photos array if provided
     if (updateData.photos !== undefined) {
       if (Array.isArray(updateData.photos)) {
-        // Validate each photo object
-        const validPhotos = updateData.photos.filter(photo => {
-          return photo && 
-                 typeof photo === 'object' && 
-                 typeof photo.url === 'string' && 
-                 photo.url.length > 0 &&
-                 photo.url.length <= 2048; // Reasonable URL length limit
+        // Validate each photo ID (should be ObjectId references to Photo documents)
+        const validPhotoIds = updateData.photos.filter(photoId => {
+          return photoId === null || mongoose.Types.ObjectId.isValid(photoId);
         });
-        validatedUpdateData.photos = validPhotos;
+        validatedUpdateData.photos = validPhotoIds;
       }
     }
     
-    // Validate default_photo_index if provided
-    if (updateData.default_photo_index !== undefined) {
-      const index = parseInt(updateData.default_photo_index);
-      if (!isNaN(index) && index >= 0 && index < 1000) { // Reasonable max photos limit
-        validatedUpdateData.default_photo_index = index;
+    // Validate default_photo_id if provided
+    if (updateData.default_photo_id !== undefined) {
+      if (updateData.default_photo_id === null || mongoose.Types.ObjectId.isValid(updateData.default_photo_id)) {
+        validatedUpdateData.default_photo_id = updateData.default_photo_id;
       }
     }
 
@@ -279,7 +318,8 @@ async function updateUser(req, res, next) {
       validatedUpdateData.password = updateData.password;
     }
 
-    user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true }).populate("photo");
+    user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true })
+      .populate("photos", "url caption photo_credit photo_credit_url width height");
 
     // Generate new JWT token with updated user data
     const token = createJWT(user);
@@ -304,7 +344,7 @@ async function updateUserAsAdmin(req, res) {
     const userId = new mongoose.Types.ObjectId(req.params.id);
 
     // Whitelist allowed fields for admin updates (includes emailConfirmed)
-    const allowedFields = ['name', 'email', 'photos', 'default_photo_index', 'password', 'emailConfirmed'];
+    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'emailConfirmed'];
     const updateData = {};
 
     for (const field of allowedFields) {
@@ -368,15 +408,14 @@ async function updateUserAsAdmin(req, res) {
       }
     }
 
-    // Validate default_photo_index if provided
-    if (updateData.default_photo_index !== undefined) {
-      const index = parseInt(updateData.default_photo_index);
-      if (!isNaN(index) && index >= 0 && index < 1000) { // Reasonable max photos limit
-        validatedUpdateData.default_photo_index = index;
+    // Validate default_photo_id if provided
+    if (updateData.default_photo_id !== undefined) {
+      if (updateData.default_photo_id === null || mongoose.Types.ObjectId.isValid(updateData.default_photo_id)) {
+        validatedUpdateData.default_photo_id = updateData.default_photo_id;
       }
     }
 
-    // Add password to validated data if it passed validation
+    // Add password to validated data if provided
     if (updateData.password) {
       validatedUpdateData.password = updateData.password;
     }
@@ -386,7 +425,8 @@ async function updateUserAsAdmin(req, res) {
       validatedUpdateData.emailConfirmed = updateData.emailConfirmed;
     }
 
-    const user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true }).populate("photo");
+    const user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true })
+      .populate("photos", "url caption photo_credit photo_credit_url width height");
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -470,11 +510,12 @@ async function removePhoto(req, res) {
     }
 
     // Remove photo from array
+    const removedPhoto = user.photos[photoIndex];
     user.photos.splice(photoIndex, 1);
 
-    // Adjust default_photo_index if necessary
-    if (user.default_photo_index >= user.photos.length) {
-      user.default_photo_index = Math.max(0, user.photos.length - 1);
+    // Clear default_photo_id if the removed photo was the default
+    if (user.default_photo_id && removedPhoto && user.default_photo_id.toString() === removedPhoto._id.toString()) {
+      user.default_photo_id = null;
     }
 
     await user.save();
@@ -510,7 +551,7 @@ async function setDefaultPhoto(req, res) {
       return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    user.default_photo_index = photoIndex;
+    user.default_photo_id = user.photos[photoIndex]._id;
     await user.save();
 
     // Generate new JWT token with updated user data
@@ -824,6 +865,7 @@ module.exports = {
   login,
   checkToken,
   getUser,
+  getBulkUsers,
   getProfile,
   updateUser,
   updateUserAsAdmin,

@@ -204,10 +204,10 @@ export default function NavBar() {
             to="/"
             aria-label={lang.en.aria.biensperienceHome}
           >
+            <button className="btn btn-light btn-sm logo" aria-hidden="true">✚</button>
             <span className="brand-text">
               {getBrandText()}
             </span>
-            <button className="btn btn-light btn-sm logo" aria-hidden="true">✚</button>
           </NavLink>
         </div>
 

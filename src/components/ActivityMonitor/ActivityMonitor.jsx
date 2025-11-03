@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button, Form, Table, Badge, Alert, Pagination, InputGroup, Spinner } from 'react-bootstrap';
 import { FaSearch, FaFilter, FaUndo, FaEye, FaTimes } from 'react-icons/fa';
 import Modal from '../Modal/Modal';
+import Loading from '../Loading/Loading';
 import { getAllActivities, restoreResourceState } from '../../utilities/activities-api';
 import { formatDateTime } from '../../utilities/date-utils';
 import { handleError } from '../../utilities/error-handler';
@@ -51,7 +52,6 @@ export default function ActivityMonitor({ show, onHide }) {
   const [showDetails, setShowDetails] = useState(false);
   const [rollbackLoading, setRollbackLoading] = useState(false);
 
-  // Fetch activities with current filters and pagination
   const fetchActivities = useCallback(async () => {
     try {
       setLoading(true);
@@ -61,15 +61,12 @@ export default function ActivityMonitor({ show, onHide }) {
         ...filters
       };
 
-      // Add search term to actor or resource name filter
       if (searchTerm.trim()) {
-        // This is a simple implementation - the API would need to be enhanced
-        // to support full-text search across multiple fields
         params.search = searchTerm.trim();
       }
 
       const response = await getAllActivities(params);
-      
+
       setActivities(response.activities || []);
       setPagination(prev => ({
         ...prev,
@@ -84,27 +81,23 @@ export default function ActivityMonitor({ show, onHide }) {
     }
   }, [pagination.page, pagination.limit, filters, searchTerm, error]);
 
-  // Fetch activities when component mounts or dependencies change
   useEffect(() => {
     if (show) {
       fetchActivities();
     }
   }, [show, fetchActivities]);
 
-  // Handle filter changes
   const handleFilterChange = (field, value) => {
     setFilters(prev => ({ ...prev, [field]: value }));
-    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
 
-  // Handle search
   const handleSearch = (e) => {
     e.preventDefault();
     setPagination(prev => ({ ...prev, page: 1 }));
     fetchActivities();
   };
 
-  // Clear all filters
   const clearFilters = () => {
     setFilters({
       action: '',
@@ -118,18 +111,15 @@ export default function ActivityMonitor({ show, onHide }) {
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
-  // Handle pagination
   const handlePageChange = (page) => {
     setPagination(prev => ({ ...prev, page }));
   };
 
-  // Show activity details
   const showActivityDetails = (activity) => {
     setSelectedActivity(activity);
     setShowDetails(true);
   };
 
-  // Handle rollback
   const handleRollback = async (activity) => {
     if (!activity.rollbackToken) {
       error('No rollback token available for this activity');
@@ -144,7 +134,7 @@ export default function ActivityMonitor({ show, onHide }) {
       setRollbackLoading(true);
       await restoreResourceState(activity.rollbackToken);
       success('State restored successfully');
-      fetchActivities(); // Refresh the list
+      fetchActivities();
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Rollback state' });
       error(errorMsg);
@@ -153,24 +143,21 @@ export default function ActivityMonitor({ show, onHide }) {
     }
   };
 
-  // Get action badge variant
   const getActionBadgeVariant = (action) => {
-    if (action.includes('created')) return 'success';
-    if (action.includes('deleted')) return 'danger';
-    if (action.includes('updated')) return 'warning';
-    if (action.includes('permission')) return 'info';
-    return 'secondary';
+    if (action.includes('created')) return 'activity-badge-success';
+    if (action.includes('deleted')) return 'activity-badge-danger';
+    if (action.includes('updated')) return 'activity-badge-warning';
+    if (action.includes('permission')) return 'activity-badge-info';
+    return 'activity-badge-secondary';
   };
 
-  // Render pagination
   const renderPagination = () => {
     if (pagination.totalPages <= 1) return null;
 
     const items = [];
     const current = pagination.page;
     const total = pagination.totalPages;
-    
-    // Always show first page
+
     if (current > 3) {
       items.push(
         <Pagination.Item key={1} onClick={() => handlePageChange(1)}>
@@ -236,7 +223,7 @@ export default function ActivityMonitor({ show, onHide }) {
           <>
             <FaEye className="me-2" />
             Activity Monitor
-            <Badge bg="secondary" className="ms-2">Super Admin</Badge>
+            <Badge className="badge badge-secondary ms-2">Super Admin</Badge>
           </>
         }
         size="xl"
@@ -338,11 +325,7 @@ export default function ActivityMonitor({ show, onHide }) {
           {/* Activities Table */}
           <div className="table-responsive">
             {loading ? (
-              <div className="text-center py-4">
-                <Spinner animation="border" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </Spinner>
-              </div>
+              <Loading variant="centered" size="md" message="Loading activities..." />
             ) : activities.length === 0 ? (
               <Alert variant="info">
                 No activities found with the current filters.
@@ -366,7 +349,7 @@ export default function ActivityMonitor({ show, onHide }) {
                         <small>{formatDateTime(activity.timestamp)}</small>
                       </td>
                       <td>
-                        <Badge bg={getActionBadgeVariant(activity.action)}>
+                        <Badge className={`badge ${getActionBadgeVariant(activity.action)}`}>
                           {activity.action.replace(/_/g, ' ')}
                         </Badge>
                       </td>
@@ -379,7 +362,7 @@ export default function ActivityMonitor({ show, onHide }) {
                       </td>
                       <td>
                         <div>
-                          <Badge bg="light" text="dark">{activity.resource.type}</Badge>
+                          <Badge className="badge badge-light text-dark">{activity.resource.type}</Badge>
                           <br />
                           <small>{activity.resource.name || 'Unnamed'}</small>
                         </div>
@@ -421,15 +404,21 @@ export default function ActivityMonitor({ show, onHide }) {
       </Modal>
 
       {/* Activity Details Modal */}
-      <Modal 
-        show={showDetails} 
-        onClose={() => setShowDetails(false)} 
+      <Modal
+        show={showDetails && selectedActivity}
+        onClose={() => {
+          setShowDetails(false);
+          setSelectedActivity(null);
+        }}
         title={lang.en.modal.activityDetails}
         size="lg"
         showSubmitButton={false}
         showCancelButton={false}
         footer={
-          <Button variant="secondary" onClick={() => setShowDetails(false)}>
+          <Button variant="secondary" onClick={() => {
+            setShowDetails(false);
+            setSelectedActivity(null);
+          }}>
             Close
           </Button>
         }
@@ -448,7 +437,7 @@ export default function ActivityMonitor({ show, onHide }) {
                       <tr>
                         <td><strong>Action:</strong></td>
                         <td>
-                          <Badge bg={getActionBadgeVariant(selectedActivity.action)}>
+                          <Badge className={`badge ${getActionBadgeVariant(selectedActivity.action)}`}>
                             {selectedActivity.action.replace(/_/g, ' ')}
                           </Badge>
                         </td>

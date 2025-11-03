@@ -1,19 +1,21 @@
 /**
  * TravelTipsManager Component Styles
+ * Using design tokens for dark mode support
  */
 
 /* Helper text override for better contrast */
 .travel-tips-helper {
-  color: #495057 !important; /* Darker gray for WCAG AAA compliance */
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
   line-height: 1.4;
 }
 
 .structured-tip-form {
-  border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-md);
   padding: 1rem;
-  background-color: #ffffff;
+  background-color: var(--color-bg-secondary);
+  transition: background-color var(--transition-base), border-color var(--transition-base);
 }
 
 .structured-tip-preview {
@@ -27,11 +29,12 @@
 
 .structured-tip-preview strong {
   font-size: 1rem;
-  color: #212529;
+  color: var(--color-text-primary);
 }
 
 .structured-tip-preview .text-muted {
   font-size: 0.875rem;
+  color: var(--color-text-muted);
 }
 
 /* Mode toggle buttons */
@@ -47,5 +50,47 @@
 
   .structured-tip-preview {
     padding: 0.75rem;
+  }
+}
+
+/* Drag and drop styles */
+.drag-handle {
+  cursor: grab;
+  color: var(--color-text-muted);
+  font-size: 1.2rem;
+  margin-right: 0.5rem;
+  user-select: none;
+  transition: color var(--transition-fast);
+}
+
+.drag-handle:hover {
+  color: var(--color-text-secondary);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.dragging {
+  opacity: 0.5;
+  transform: rotate(5deg);
+  box-shadow: var(--shadow-md);
+}
+
+.drag-over {
+  border-top: 2px solid var(--color-primary);
+  background-color: var(--color-bg-tertiary);
+  transition: background-color var(--transition-fast);
+}
+
+/* Dark mode specific adjustments */
+@media (prefers-color-scheme: dark) {
+  .structured-tip-form {
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border-light);
+  }
+
+  .drag-over {
+    background-color: var(--color-bg-secondary);
   }
 }

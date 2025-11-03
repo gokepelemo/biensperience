@@ -36,6 +36,8 @@ const photoSchema = new Schema(
     photo_credit: { type: String },
     photo_credit_url: { type: String },
     caption: { type: String },
+    width: { type: Number }, // Image width in pixels for layout shift prevention
+    height: { type: Number }, // Image height in pixels for layout shift prevention
     permissions: {
       type: [permissionSchema],
       default: [],

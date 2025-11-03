@@ -1,3 +1,16 @@
+/* ============================================
+   NAVBAR BACKGROUND - Always Dark Exception
+   ============================================
+   The navbar is ALWAYS dark with light text, regardless of 
+   light/dark mode. This is the only exception to the theme system.
+   ============================================ */
+
+/* Always dark navbar background (both light and dark mode) */
+.navbar {
+    background: #1e1e1e !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 /* Sticky navbar */
 .navbar.sticky {
     position: fixed;
@@ -5,7 +18,7 @@
     left: 0;
     right: 0;
     z-index: var(--z-index-fixed);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-sm);
     animation: slideDown var(--transition-normal) ease-out;
 }
 
@@ -26,7 +39,7 @@ body:has(.navbar.sticky) {
 }
 
 button.logo {
-    margin: 0 var(--space-1);
+    margin: 0 var(--space-4) 0 0;
     font-size: var(--font-size-2xl); /* Match experience card buttons */
     font-weight: var(--font-weight-regular); /* Lighter weight for better centering */
     padding: 0;
@@ -44,7 +57,7 @@ button.logo {
 }
 
 button.logo:hover {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%); /* Component-specific success gradient */
+    background: var(--gradient-primary);
     transform: scale(1.1);
 }
 
@@ -61,6 +74,8 @@ nav {
 .brand-text {
     transition: all var(--transition-normal) ease;
     display: inline-block;
+    color: white !important;
+    font-weight: var(--font-weight-bold);
 }
 
 /* Nav link styling with theme colors and padding */
@@ -69,6 +84,8 @@ nav {
     margin: 0 var(--space-1);
     transition: all var(--transition-normal) ease;
     position: relative;
+    color: white !important;
+    opacity: 0.75;
 }
 
 .navbar .nav-link:hover,
@@ -76,6 +93,7 @@ nav {
     color: var(--color-primary) !important;
     background: var(--color-primary-light);
     border-radius: var(--radius-md);
+    opacity: 1;
 }
 
 .navbar .nav-link:focus-visible {
@@ -98,7 +116,8 @@ nav {
 .navbar .dropdown-toggle {
     padding: var(--space-3) var(--space-4);
     margin: 0 var(--space-1);
-    color: rgba(255, 255, 255, 0.75) !important; /* Semi-transparent for contrast */
+    color: white !important;
+    opacity: 0.75;
     text-decoration: none !important;
     border: none;
     background: transparent;
@@ -248,4 +267,18 @@ nav {
         width: 100%;
         margin-top: var(--space-2);
     }
+}
+
+/* Mobile menu toggle button - always visible on dark navbar */
+.navbar-toggler {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    padding: var(--space-2);
+}
+
+.navbar-toggler:focus {
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.5);
+}
+
+.navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.85)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
 }

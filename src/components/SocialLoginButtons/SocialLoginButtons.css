@@ -4,7 +4,6 @@
  */
 
 .social-login-container {
-  width: 100%;
   margin: 0;
 }
 
@@ -68,28 +67,28 @@
 
 /* Facebook Brand Colors */
 .facebook-btn {
-  background-color: #1877F2;
+  background-color: var(--color-social-facebook);
   color: white;
 }
 
 .facebook-btn:hover {
-  background-color: #166FE5;
+  background-color: var(--color-social-facebook-hover);
 }
 
 /* Google Brand Colors */
 .google-btn {
-  background-color: white;
-  color: #3c4043;
-  border: 1px solid #dadce0;
+  background-color: var(--color-social-google-bg);
+  color: var(--color-social-google-text);
+  border: 1px solid var(--color-social-google-border);
 }
 
 .google-btn:hover {
-  background-color: #f8f9fa;
-  border-color: #c1c4c8;
+  background-color: var(--color-social-google-bg-hover);
+  border-color: var(--color-social-google-border-hover);
 }
 
 .google-btn .social-icon {
-  background: linear-gradient(90deg, #4285F4, #34A853, #FBBC05, #EA4335);
+  background: var(--color-social-google-icon-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -97,12 +96,12 @@
 
 /* X (formerly Twitter) Brand Colors */
 .twitter-btn {
-  background-color: #000000;
+  background-color: var(--color-social-twitter);
   color: white;
 }
 
 .twitter-btn:hover {
-  background-color: #1a1a1a;
+  background-color: var(--color-social-twitter-hover);
 }
 
 /* Responsive Design */

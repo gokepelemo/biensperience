@@ -152,13 +152,12 @@ export function DataProvider({ children }) {
 
   /**
    * Update a single destination in state (optimistic update)
-   * @param {string} destinationId - Destination ID
-   * @param {Object} updates - Updated destination data
+   * @param {Object} updatedDestination - Full updated destination object
    */
-  const updateDestination = useCallback((destinationId, updates) => {
+  const updateDestination = useCallback((updatedDestination) => {
     setDestinations(prev =>
       prev.map(dest =>
-        dest._id === destinationId ? { ...dest, ...updates } : dest
+        dest._id === updatedDestination._id ? { ...dest, ...updatedDestination } : dest
       )
     );
   }, []);
@@ -183,13 +182,12 @@ export function DataProvider({ children }) {
 
   /**
    * Update a single experience in state (optimistic update)
-   * @param {string} experienceId - Experience ID
-   * @param {Object} updates - Updated experience data
+   * @param {Object} updatedExperience - Full updated experience object
    */
-  const updateExperience = useCallback((experienceId, updates) => {
+  const updateExperience = useCallback((updatedExperience) => {
     setExperiences(prev =>
       prev.map(exp =>
-        exp._id === experienceId ? { ...exp, ...updates } : exp
+        exp._id === updatedExperience._id ? { ...exp, ...updatedExperience } : exp
       )
     );
   }, []);

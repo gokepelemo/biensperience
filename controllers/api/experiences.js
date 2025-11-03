@@ -3,6 +3,7 @@ const Experience = require('../../models/experience');
 const Destination = require('../../models/destination');
 const User = require('../../models/user');
 const Plan = require('../../models/plan');
+const Photo = require('../../models/photo');
 const permissions = require('../../utilities/permissions');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require('../../utilities/backend-logger');
@@ -18,6 +19,7 @@ async function index(req, res) {
   try {
     let experiences = await Experience.find({})
       .populate("destination")
+      .populate("photos", "url caption photo_credit photo_credit_url width height")
       .exec();
     res.status(200).json(experiences);
   } catch (err) {
@@ -99,29 +101,99 @@ async function createExperience(req, res) {
 
 async function showExperience(req, res) {
   try {
-    // OPTIMIZATION: Use nested populate to fetch all photos in a single query
-    // This eliminates N+1 queries for photo population
+    // OPTIMIZATION: Use lean() for read-only queries and select only needed fields
     let experience = await Experience.findById(req.params.id)
       .populate("destination")
+      .populate("photos", "url caption photo_credit photo_credit_url width height")
       .populate({
         path: "permissions._id",
-        select: "name photo photos default_photo_index",
-        populate: [
-          {
-            path: 'photo',
-            select: 'url caption'
-          },
-          {
-            path: 'photos',
-            select: 'url caption'
-          }
-        ]
-      });
+        populate: {
+          path: "photos",
+          model: "Photo",
+          select: 'url caption'
+        },
+        select: "name photos default_photo_id"
+      })
+      .lean()
+      .exec();
 
     res.status(200).json(experience);
   } catch (err) {
     backendLogger.error('Error fetching experience', { error: err.message, experienceId: req.params.id });
     res.status(400).json({ error: 'Failed to fetch experience' });
+  }
+}
+
+// OPTIMIZATION: Combined endpoint for SingleExperience page
+// Fetches experience + user plan + collaborative plans in ONE optimized query
+// Reduces 3 separate API calls to 1, dramatically improving page load time
+async function showExperienceWithContext(req, res) {
+  try {
+    const { id: experienceId } = req.params;
+    const userId = req.user._id;
+
+    backendLogger.debug('Fetching experience with full context', { experienceId, userId });
+
+    // OPTIMIZATION: Simplified queries with minimal population and select fields
+    // Remove nested population to reduce query complexity
+    const experiencePromise = Experience.findById(experienceId)
+      .populate("destination", "name city country slug")
+      .populate("photos", "url caption photo_credit photo_credit_url width height")
+      .select('-__v')  // Exclude version field
+      .lean()
+      .exec();
+
+    // Fetch user's plan for this experience with minimal data
+    const userPlanPromise = Plan.findOne({
+      experience: experienceId,
+      user: userId
+    })
+      .select('experience user planned_date plan permissions notes createdAt updatedAt')
+      .lean()
+      .exec();
+
+    // Fetch all collaborative plans for this experience (where user is a collaborator)
+    // Only fetch essential fields to reduce data transfer
+    const collaborativePlansPromise = Plan.find({
+      experience: experienceId,
+      'permissions._id': userId,
+      user: { $ne: userId } // Exclude user's own plan
+    })
+      .select('experience user planned_date plan permissions notes createdAt updatedAt')
+      .lean()
+      .exec();
+
+    // Execute all queries in parallel for maximum performance
+    const [experience, userPlan, collaborativePlans] = await Promise.all([
+      experiencePromise,
+      userPlanPromise,
+      collaborativePlansPromise
+    ]);
+
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    backendLogger.debug('Experience context fetched successfully', {
+      experienceId,
+      userId,
+      hasUserPlan: !!userPlan,
+      collaborativePlansCount: collaborativePlans.length
+    });
+
+    // Return combined data structure
+    res.status(200).json({
+      experience,
+      userPlan,
+      collaborativePlans
+    });
+  } catch (err) {
+    backendLogger.error('Error fetching experience with context', {
+      error: err.message,
+      experienceId: req.params.id,
+      userId: req.user?._id
+    });
+    res.status(400).json({ error: 'Failed to fetch experience data' });
   }
 }
 
@@ -204,7 +276,7 @@ async function updateExperience(req, res) {
     // Filter out fields that shouldn't be updated
     const allowedFields = [
       'name', 'destination', 'map_location', 'experience_type', 
-      'plan_items', 'photo', 'photos', 'default_photo_index', 'permissions'
+      'plan_items', 'photos', 'default_photo_id', 'permissions'
     ];
     
     const updateData = {};
@@ -331,7 +403,16 @@ async function deleteExperience(req, res) {
     
     // Check if any other users have plans for this experience
     const existingPlans = await Plan.find({ experience: req.params.id })
-      .populate('user', '_id name email photo photos default_photo_index');
+      .populate({
+        path: 'user',
+        select: '_id name email photos default_photo_id',
+        populate: [
+          {
+            path: 'photos',
+            model: 'Photo'
+          }
+        ]
+      });
     
     if (existingPlans.length > 0) {
       // Check if any plan belongs to someone other than the owner
@@ -345,19 +426,18 @@ async function deleteExperience(req, res) {
           userId: plan.user._id,
           name: plan.user.name,
           email: plan.user.email,
-          photo: plan.user.photo,
           photos: plan.user.photos,
-          default_photo_index: plan.user.default_photo_index,
+          default_photo_id: plan.user.default_photo_id,
           planId: plan._id,
           plannedDate: plan.planned_date
-        }));
+      }));
         
         return res.status(409).json({ 
           error: 'Cannot delete experience',
           message: 'This experience cannot be deleted because other users have created plans for it. You can transfer ownership to one of these users instead.',
           planCount: otherUserPlans.length,
           usersWithPlans: usersWithPlans
-        });
+      });
       }
     }
     
@@ -389,15 +469,31 @@ async function createPlanItem(req, res) {
       .populate("destination")
       .populate({
         path: "user",
-        select: "name email photo photos default_photo_index",
-        populate: {
-          path: "photo",
-          model: "Photo"
-        }
+        select: "name email photo photos default_photo_id",
+        populate: [
+          {
+            path: "photo",
+            model: "Photo"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ]
       })
       .populate({
         path: "permissions._id",
-        select: "name photo photos default_photo_index"
+        populate: [
+          {
+            path: "photo",
+            select: "url caption"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ],
+        select: "name photo photos default_photo_id"
       });
     
     if (!experience) {
@@ -429,15 +525,31 @@ async function createPlanItem(req, res) {
       .populate("destination")
       .populate({
         path: "user",
-        select: "name email photo photos default_photo_index",
-        populate: {
-          path: "photo",
-          model: "Photo"
-        }
+        select: "name email photo photos default_photo_id",
+        populate: [
+          {
+            path: "photo",
+            model: "Photo"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ]
       })
       .populate({
         path: "permissions._id",
-        select: "name photo photos default_photo_index"
+        populate: [
+          {
+            path: "photo",
+            select: "url caption"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ],
+        select: "name photo photos default_photo_id"
       });
 
     res.status(201).json(experience);
@@ -461,15 +573,31 @@ async function updatePlanItem(req, res) {
       .populate("destination")
       .populate({
         path: "user",
-        select: "name email photo photos default_photo_index",
-        populate: {
-          path: "photo",
-          model: "Photo"
-        }
+        select: "name email photo photos default_photo_id",
+        populate: [
+          {
+            path: "photo",
+            model: "Photo"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ]
       })
       .populate({
         path: "permissions._id",
-        select: "name photo photos default_photo_index"
+        populate: [
+          {
+            path: "photo",
+            select: "url caption"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ],
+        select: "name photo photos default_photo_id"
       });
     
     if (!experience) {
@@ -506,15 +634,31 @@ async function updatePlanItem(req, res) {
       .populate("destination")
       .populate({
         path: "user",
-        select: "name email photo photos default_photo_index",
-        populate: {
-          path: "photo",
-          model: "Photo"
-        }
+        select: "name email photo photos default_photo_id",
+        populate: [
+          {
+            path: "photo",
+            model: "Photo"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ]
       })
       .populate({
         path: "permissions._id",
-        select: "name photo photos default_photo_index"
+        populate: [
+          {
+            path: "photo",
+            select: "url caption"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ],
+        select: "name photo photos default_photo_id"
       });
 
     res.status(200).json(experience);
@@ -538,15 +682,31 @@ async function deletePlanItem(req, res) {
       .populate("destination")
       .populate({
         path: "user",
-        select: "name email photo photos default_photo_index",
-        populate: {
-          path: "photo",
-          model: "Photo"
-        }
+        select: "name email photo photos default_photo_id",
+        populate: [
+          {
+            path: "photo",
+            model: "Photo"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ]
       })
       .populate({
         path: "permissions._id",
-        select: "name photo photos default_photo_index"
+        populate: [
+          {
+            path: "photo",
+            select: "url caption"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ],
+        select: "name photo photos default_photo_id"
       });
     
     if (!experience) {
@@ -580,15 +740,31 @@ async function deletePlanItem(req, res) {
       .populate("destination")
       .populate({
         path: "user",
-        select: "name email photo photos default_photo_index",
-        populate: {
-          path: "photo",
-          model: "Photo"
-        }
+        select: "name email photo photos default_photo_id",
+        populate: [
+          {
+            path: "photo",
+            model: "Photo"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ]
       })
       .populate({
         path: "permissions._id",
-        select: "name photo photos default_photo_index"
+        populate: [
+          {
+            path: "photo",
+            select: "url caption"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ],
+        select: "name photo photos default_photo_id"
       });
     
     res.status(200).json(experience);
@@ -615,10 +791,16 @@ async function showUserExperiences(req, res) {
     const plans = await Plan.find({ user: req.params.userId })
       .populate({
         path: 'experience',
-        populate: {
-          path: 'destination',
-          select: 'name country'
-        }
+        populate: [
+          {
+            path: 'destination',
+            select: 'name country'
+          },
+          {
+            path: 'photos',
+            select: 'url caption'
+          }
+        ]
       })
       .exec();
 
@@ -652,6 +834,10 @@ async function showUserCreatedExperiences(req, res) {
       }
     })
       .populate("destination")
+      .populate({
+        path: 'photos',
+        select: 'url caption'
+      })
       .exec();
     res.status(200).json(experiences);
   } catch (err) {
@@ -787,9 +973,9 @@ async function removePhoto(req, res) {
     // Remove photo from array
     experience.photos.splice(photoIndex, 1);
 
-    // Adjust default_photo_index if necessary
-    if (experience.default_photo_index >= experience.photos.length) {
-      experience.default_photo_index = Math.max(0, experience.photos.length - 1);
+    // Adjust default_photo_id if necessary
+    if (experience.default_photo_id && !experience.photos.includes(experience.default_photo_id)) {
+      experience.default_photo_id = experience.photos.length > 0 ? experience.photos[0] : null;
     }
 
     await experience.save();
@@ -829,7 +1015,7 @@ async function setDefaultPhoto(req, res) {
       return res.status(400).json({ error: 'Invalid photo index' });
     }
 
-    experience.default_photo_index = photoIndex;
+    experience.default_photo_id = experience.photos[photoIndex];
     await experience.save();
 
     res.status(200).json(experience);
@@ -913,7 +1099,7 @@ async function addExperiencePermission(req, res) {
       if (wouldBeCircular) {
         return res.status(400).json({ 
           error: 'Cannot add permission: would create circular dependency' 
-        });
+      });
       }
     } else if (entity === permissions.ENTITY_TYPES.EXPERIENCE) {
       const targetExp = await Experience.findById(_id);
@@ -933,7 +1119,7 @@ async function addExperiencePermission(req, res) {
       if (wouldBeCircular) {
         return res.status(400).json({ 
           error: 'Cannot add permission: would create circular dependency' 
-        });
+      });
       }
     }
 
@@ -1266,6 +1452,7 @@ async function transferOwnership(req, res) {
 module.exports = {
   create: createExperience,
   show: showExperience,
+  showWithContext: showExperienceWithContext,
   update: updateExperience,
   delete: deleteExperience,
   transferOwnership,

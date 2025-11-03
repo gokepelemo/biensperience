@@ -8,6 +8,7 @@ import { useApp } from "../../contexts/AppContext";
 import { useToast } from "../../contexts/ToastContext";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import Alert from "../../components/Alert/Alert";
+import Loading from "../../components/Loading/Loading";
 import InviteCodeModal from "../../components/InviteCodeModal/InviteCodeModal";
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
@@ -201,20 +202,19 @@ export default function AllUsers() {
         keywords="admin panel, user management, super admin, user roles"
       />
 
-      <div className="all-users-container">
-        <div className="container-fluid px-4 py-4">
-          {/* Header */}
-          <div className="row mb-4">
-            <div className="col-12">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <h1 className="mb-2">
-                    <FaUserShield className="me-2 text-success" />
-                    {lang.en.admin.userManagement}
-                  </h1>
-                  <p className="text-muted mb-0">{lang.en.admin.superAdminPanel}</p>
-                </div>
-                <div className="d-flex gap-2">
+      <div className="profile-dropdown-view">
+        <div className="container-fluid">
+          <div className="view-header">
+            <div className="row">
+              <div className="col-md-6">
+                <h1 className="mb-2">
+                  <FaUserShield className="me-2 text-success" />
+                  {lang.en.admin.userManagement}
+                </h1>
+                <p className="header-description">{lang.en.admin.superAdminPanel}</p>
+              </div>
+              <div className="col-md-6">
+                <div className="header-actions">
                   <button
                     className="btn btn-primary"
                     onClick={() => setShowInviteModal(true)}
@@ -304,18 +304,18 @@ export default function AllUsers() {
 
           {/* Users Table */}
           {loading ? (
-            <div className="text-center py-5">
-              <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
-              <p className="mt-3 text-muted">Loading users...</p>
-            </div>
+            <Loading
+              variant="centered"
+              size="lg"
+              message="Loading users..."
+            />
           ) : (
             <div className="card">
               <div className="card-header">
-                <h5 className="mb-0">
+                <h2>
+                  <FaUser className="me-2" />
                   Users ({filteredUsers.length}{filteredUsers.length !== users.length ? ` of ${users.length}` : ''})
-                </h5>
+                </h2>
               </div>
               <div className="card-body p-0">
                 {filteredUsers.length === 0 ? (
@@ -361,7 +361,7 @@ export default function AllUsers() {
                                     {userData.name}
                                   </Link>
                                   {isCurrentUser && (
-                                    <Badge bg="info">You</Badge>
+                                    <Badge className="badge badge-info">You</Badge>
                                   )}
                                 </div>
                               </td>
@@ -414,7 +414,7 @@ export default function AllUsers() {
                                     title={isCurrentUser ? "You cannot change your own role" : "Make Super Admin"}
                                   >
                                     {updatingUser === userData._id ? (
-                                      <span className="spinner-border spinner-border-sm"></span>
+                                      <Loading size="sm" showMessage={false} />
                                     ) : (
                                       <>
                                         <FaUserShield className="me-1" />
@@ -438,7 +438,7 @@ export default function AllUsers() {
                                     title={isCurrentUser ? "You cannot change your own role" : "Make Regular User"}
                                   >
                                     {updatingUser === userData._id ? (
-                                      <span className="spinner-border spinner-border-sm"></span>
+                                      <Loading size="sm" showMessage={false} />
                                     ) : (
                                       <>
                                         <FaUser className="me-1" />

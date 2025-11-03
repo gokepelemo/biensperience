@@ -135,8 +135,15 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
     
     // If photos array exists and has items, use the default one
     if (experience.photos && experience.photos.length > 0) {
-      const index = experience.default_photo_index || 0;
-      return `url(${experience.photos[index].url})`;
+      let defaultPhoto;
+      if (experience.default_photo_id) {
+        defaultPhoto = experience.photos.find(photo => photo._id === experience.default_photo_id);
+      }
+      // Fallback to first photo if default not found or not set
+      if (!defaultPhoto) {
+        defaultPhoto = experience.photos[0];
+      }
+      return `url(${defaultPhoto.url})`;
     }
     
     // Fallback to placeholder

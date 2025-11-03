@@ -2,6 +2,7 @@ const Plan = require("../../models/plan");
 const Experience = require("../../models/experience");
 const Destination = require("../../models/destination");
 const User = require("../../models/user");
+const Photo = require("../../models/photo");
 const permissions = require("../../utilities/permissions");
 const { getEnforcer } = require("../../utilities/permission-enforcer");
 const { asyncHandler } = require("../../utilities/controller-helpers");
@@ -108,12 +109,12 @@ const createPlan = asyncHandler(async (req, res) => {
   }
 
   const populatedPlan = await Plan.findById(plan._id)
-    .populate('experience', 'name destination')
+    .populate('experience', 'name destination photos default_photo_id')
     .populate({
       path: 'user',
-      select: 'name email photo photos default_photo_index',
+      select: 'name email photos default_photo_id',
       populate: {
-        path: 'photo',
+        path: 'photos',
         select: 'url caption'
       }
     });
@@ -135,7 +136,7 @@ const createPlan = asyncHandler(async (req, res) => {
  */
 const getUserPlans = asyncHandler(async (req, res) => {
   const plans = await Plan.find({ user: req.user._id })
-    .populate('experience', 'name destination photo photos default_photo_index')
+    .populate('experience', 'name destination photos default_photo_id')
     .populate({
       path: 'experience',
       populate: {
@@ -159,12 +160,12 @@ const getPlanById = asyncHandler(async (req, res) => {
   }
 
   const plan = await Plan.findById(id)
-    .populate('experience', 'name destination plan_items')
+    .populate('experience', 'name destination plan_items photos default_photo_id')
     .populate({
       path: 'user',
-      select: 'name email photo photos default_photo_index',
+      select: 'name email photos default_photo_id',
       populate: {
-        path: 'photo',
+        path: 'photos',
         select: 'url caption'
       }
     })
@@ -226,9 +227,9 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
   })
   .populate({
     path: 'user',
-    select: 'name email photo photos default_photo_index',
+    select: 'name email photos default_photo_id',
     populate: {
-      path: 'photo',
+      path: 'photos',
       select: 'url caption'
     }
   })
@@ -255,8 +256,9 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
 
   // Single batch query for all users with .lean() for performance
   const allUsers = await User.find({ _id: { $in: Array.from(allUserIds) } })
-    .select('name email photo photos default_photo_index')
-    .populate('photo', 'url caption')
+    .select('name email photos default_photo_id')
+    .populate('photos', 'url caption')
+    .populate('default_photo_id', 'url caption')
     .lean()
     .exec();
 
@@ -267,9 +269,8 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
       name: u.name,
       email: u.email,
       _id: u._id,
-      photo: u.photo,
       photos: u.photos,
-      default_photo_index: u.default_photo_index
+      default_photo_id: u.default_photo_id
     };
   });
 
@@ -414,10 +415,10 @@ const updatePlan = asyncHandler(async (req, res) => {
   await plan.save();
 
   const updatedPlan = await Plan.findById(plan._id)
-    .populate('experience', 'name destination')
+    .populate('experience', 'name destination photos default_photo_id')
     .populate({
       path: 'user',
-      select: 'name email photo photos default_photo_index',
+      select: 'name email photo photos default_photo_id',
       populate: {
         path: 'photo',
         select: 'url caption'
@@ -592,10 +593,10 @@ const addCollaborator = asyncHandler(async (req, res) => {
   // Permission saved by enforcer, no need to save again
 
   const updatedPlan = await Plan.findById(plan._id)
-    .populate('experience', 'name')
+    .populate('experience', 'name photos default_photo_id')
     .populate({
       path: 'user',
-      select: 'name email photo photos default_photo_index',
+      select: 'name email photo photos default_photo_id',
       populate: {
         path: 'photo',
         select: 'url caption'
@@ -766,7 +767,7 @@ const getCollaborators = asyncHandler(async (req, res) => {
   // Fetch user details
   const collaborators = await User.find({ 
     _id: { $in: collaboratorIds } 
-  }).select('_id name email photo photos default_photo_index');
+  }).select('_id name email photo photos default_photo_id');
 
   res.json(collaborators);
 });

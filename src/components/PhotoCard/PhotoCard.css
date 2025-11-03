@@ -10,12 +10,28 @@
     align-items: center;
     justify-content: center;
     width: 100%;
-    height: max(600px, 40vh); /* Fixed height: 600px or 40% viewport, whichever is more */
     margin: 0 auto;
     background: var(--color-bg-secondary);
     position: relative;
     border-radius: var(--radius-xl);
     overflow: hidden;
+    /* Layout shift prevention - reserve space before image loads */
+    contain: layout style;
+    min-height: 300px; /* Fallback for browsers without aspect-ratio support */
+}
+
+.photoThumbnail {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 div.photoFrame {
@@ -36,7 +52,7 @@ div.photoFrame {
     padding: var(--space-2);
 }
 
-/* Photo Loading Animation */
+/* Photo Loading Animation - uses Loading component */
 .photo-loader {
     position: absolute;
     display: flex;
@@ -45,76 +61,19 @@ div.photoFrame {
     z-index: 1;
 }
 
-.photo-loader-circle {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: var(--gradient-primary);
-    animation: photoPulse 1.5s ease-in-out infinite;
-}
-
-@keyframes photoPulse {
-    0%, 100% {
-        transform: scale(1);
-        opacity: 0.7;
-    }
-    50% {
-        transform: scale(1.2);
-        opacity: 0.4;
-    }
-}
-
-/* Photo Thumbnails */
+/* Photo Thumbnails - Container styles only (individual thumbnails now in PhotoThumbnail.css) */
 .photo-thumbnails {
     display: flex;
-    gap: var(--space-3);
-    margin-top: var(--space-4);
+    gap: var(--space-2);
+    margin-top: var(--space-3);
     padding: var(--space-2);
     overflow-x: auto;
     justify-content: center;
     flex-wrap: wrap;
-}
-
-.photo-thumbnail {
-    position: relative;
-    width: 80px;
-    height: 80px;
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    cursor: pointer;
-    border: 3px solid transparent;
-    transition: all var(--transition-normal);
-    flex-shrink: 0;
-}
-
-.photo-thumbnail img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-.photo-thumbnail:hover {
-    transform: scale(1.05);
-    box-shadow: var(--shadow-md);
-}
-
-.photo-thumbnail.active {
-    border-color: var(--color-primary);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.default-badge {
-    position: absolute;
-    top: var(--space-1);
-    right: var(--space-1);
-    background: var(--gradient-primary);
-    color: white;
-    font-size: var(--font-size-xs);
-    padding: var(--space-1);
-    border-radius: var(--radius-sm);
-    font-weight: var(--font-weight-bold);
-    box-shadow: var(--shadow-sm);
+    /* Different background from main photo */
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border-light);
 }
 
 @media (max-width: 768px) {
@@ -126,12 +85,9 @@ div.photoFrame {
         height: max(400px, 35vh); /* Match parent */
     }
 
-    .photo-thumbnail {
-        width: 60px;
-        height: 60px;
-    }
-
     .photo-thumbnails {
-        gap: var(--space-2);
+        gap: var(--space-1);
+        margin-top: var(--space-2);
+        padding: var(--space-1);
     }
 }

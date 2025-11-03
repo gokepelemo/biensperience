@@ -8,6 +8,7 @@ import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Alert from "../../components/Alert/Alert";
+import Loading from "../../components/Loading/Loading";
 
 export default function AppHome() {
   const { experiences, destinations, plans, loading } = useData();
@@ -29,11 +30,7 @@ export default function AppHome() {
       <HeroBanner className="fade-in" />
 
       {loading ? (
-        <div className="text-center my-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-        </div>
+        <Loading variant="centered" size="lg" message="Loading..." />
       ) : isEmptyState ? (
         <div className="row justify-content-center my-5">
           <div className="col-12 col-md-8 col-lg-6">

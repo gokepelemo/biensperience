@@ -1,12 +1,6 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const photoObjectSchema = new Schema({
-  url: { type: String, required: true },
-  photo_credit: { type: String, default: 'Unknown' },
-  photo_credit_url: { type: String }
-}, { _id: false });
-
 const permissionSchema = new Schema({
   _id: { type: Schema.Types.ObjectId, required: true },
   entity: { 
@@ -43,15 +37,15 @@ const destinationSchema = new Schema(
     },
     map_location: { type: String },
     users_favorite: [{ type: Schema.Types.ObjectId, ref: "User" }],
-    photo: { 
-      type: Schema.Types.ObjectId, 
-      ref: "Photo",
-    },
     photos: {
-      type: [photoObjectSchema],
+      type: [Schema.Types.ObjectId],
+      ref: "Photo",
       default: []
     },
-    default_photo_index: { type: Number, default: 0 },
+    default_photo_id: { 
+      type: Schema.Types.ObjectId, 
+      ref: "Photo" 
+    },
     travel_tips: {
       type: [Schema.Types.Mixed],
       default: [],
@@ -102,10 +96,12 @@ const destinationSchema = new Schema(
 /**
  * Database indexes for query performance optimization
  */
-destinationSchema.index({ name: 1, country: 1 });  // For duplicate checking
-destinationSchema.index({ country: 1 });  // For filtering by country
-destinationSchema.index({ 'permissions._id': 1 });  // For permission queries
-destinationSchema.index({ users_favorite: 1 });  // For favorite queries
-destinationSchema.index({ createdAt: -1 });  // For sorting
+destinationSchema.index({ name: 1, country: 1 });
+destinationSchema.index({ country: 1 });
+destinationSchema.index({ 'permissions._id': 1 });
+destinationSchema.index({ users_favorite: 1 });
+destinationSchema.index({ createdAt: -1 });
+destinationSchema.index({ photos: 1 });
+destinationSchema.index({ default_photo_id: 1 });
 
 module.exports = mongoose.model("Destination", destinationSchema);

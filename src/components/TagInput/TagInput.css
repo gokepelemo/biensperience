@@ -8,9 +8,9 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-medium);
   border-radius: var(--radius-full);
-  background: white;
+  background: var(--color-bg-primary);
   cursor: text;
   transition: border-color var(--transition-fast) ease-in-out, box-shadow var(--transition-fast) ease-in-out;
 }
@@ -75,6 +75,7 @@
   font-size: var(--font-size-base);
   min-width: 150px; /* Fixed minimum for usability */
   background: transparent;
+  color: var(--color-text-primary);
 }
 
 .tag-input::placeholder {
@@ -87,8 +88,8 @@
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
-  border: 2px solid var(--color-bg-tertiary);
+  background: var(--color-bg-primary);
+  border: 2px solid var(--color-border-medium);
   border-radius: var(--radius-xl);
   margin-top: var(--space-2);
   max-height: 200px; /* Fixed height for usability */

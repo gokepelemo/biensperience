@@ -7,6 +7,7 @@
 import { Form, Button, ListGroup, Badge, ButtonGroup, Row, Col } from 'react-bootstrap';
 import { lang } from '../../lang.constants';
 import './TravelTipsManager.css';
+import { useState } from 'react';
 
 const TIP_TYPES = [
   { value: 'Language', icon: '🗣️', label: 'Language' },
@@ -39,21 +40,74 @@ export default function TravelTipsManager({
   structuredTip,
   onStructuredTipFieldChange,
   onCallToActionChange,
-  onAddStructuredTip
+  onAddStructuredTip,
+  // New prop for reordering
+  onReorder
 }) {
   const isSimpleMode = mode === 'simple';
   const canAddSimpleTip = newTip?.trim();
   const canAddStructuredTip = structuredTip?.value?.trim();
 
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+
+  // Drag and drop handlers
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      return;
+    }
+
+    // Reorder the tips array
+    const newTips = [...tips];
+    const [draggedItem] = newTips.splice(draggedIndex, 1);
+    newTips.splice(dropIndex, 0, draggedItem);
+
+    // Call the onReorder callback if provided
+    if (onReorder) {
+      onReorder(newTips);
+    }
+
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   const renderTipPreview = (tip, index) => {
+    const isDragging = draggedIndex === index;
+    const isDragOver = dragOverIndex === index;
+    
     // Simple string tip
     if (typeof tip === 'string') {
       return (
         <ListGroup.Item
           key={index}
-          className="d-flex justify-content-between align-items-center"
+          className={`d-flex justify-content-between align-items-center ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
+          draggable={!!onReorder}
+          onDragStart={(e) => handleDragStart(e, index)}
+          onDragOver={(e) => handleDragOver(e, index)}
+          onDrop={(e) => handleDrop(e, index)}
+          onDragEnd={handleDragEnd}
         >
           <div className="d-flex align-items-center gap-2">
+            {onReorder && <span className="drag-handle" title="Drag to reorder travel tips">⋮⋮</span>}
             <span>💡</span>
             <span>{tip}</span>
           </div>
@@ -74,12 +128,21 @@ export default function TravelTipsManager({
     const displayIcon = icon || tipType.icon;
 
     return (
-      <ListGroup.Item key={index} className="structured-tip-preview">
+      <ListGroup.Item 
+        key={index} 
+        className={`structured-tip-preview ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
+        draggable={!!onReorder}
+        onDragStart={(e) => handleDragStart(e, index)}
+        onDragOver={(e) => handleDragOver(e, index)}
+        onDrop={(e) => handleDrop(e, index)}
+        onDragEnd={handleDragEnd}
+      >
         <div className="d-flex justify-content-between align-items-start">
           <div className="flex-grow-1">
             <div className="d-flex align-items-center gap-2 mb-2">
+              {onReorder && <span className="drag-handle" title="Drag to reorder travel tips">⋮⋮</span>}
               <span>{displayIcon}</span>
-              <Badge bg="primary">{category || type}</Badge>
+              <Badge className="badge badge-primary">{category || type}</Badge>
             </div>
             <div className="mb-1"><strong>{value}</strong></div>
             {note && <div className="text-muted small mb-1">{note}</div>}

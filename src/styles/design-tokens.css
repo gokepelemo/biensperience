@@ -92,7 +92,9 @@
   --color-bg-primary: #ffffff;
   --color-bg-secondary: #f8f9fa;
   --color-bg-tertiary: #e9ecef;
+  --color-bg-hover: rgba(102, 126, 234, 0.05);
   --color-bg-overlay: rgba(0, 0, 0, 0.5);
+  --color-bg-input: #ffffff;
 
   /* Semantic Colors */
   --color-success: #28a745;
@@ -188,15 +190,54 @@
 }
 
 /* ============================================
-   DARK MODE TOKENS (if needed in future)
+   DARK MODE TOKENS - Complete Dark Theme
    ============================================ */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-text-primary: #f8f9fa;
-    --color-text-secondary: #e9ecef;
-    --color-text-tertiary: #dee2e6;
-    --color-bg-primary: #1a202c;
-    --color-bg-secondary: #2d3748;
-    --color-bg-tertiary: #4a5568;
+    /* Text Colors - Light on dark backgrounds */
+    --color-text-primary: #f8f9fa;      /* Light gray */
+    --color-text-secondary: #e9ecef;    /* Lighter gray */
+    --color-text-tertiary: #dee2e6;     /* Even lighter gray */
+    --color-text-muted: #adb5bd;        /* Muted gray */
+    --color-text-disabled: #6c757d;     /* Disabled gray */
+
+    /* Background Colors - Dark theme */
+    --color-bg-primary: #121212;        /* Very dark gray (near black) */
+    --color-bg-secondary: #1e1e1e;      /* Dark gray */
+    --color-bg-tertiary: #2d2d2d;       /* Medium dark gray */
+    --color-bg-hover: rgba(255, 255, 255, 0.05);
+    --color-bg-overlay: rgba(0, 0, 0, 0.7); /* Darker overlay */
+    --color-bg-input: #2d2d2d;          /* Dark input background */
+
+    /* Border Colors - Subtle on dark backgrounds */
+    --color-border-light: rgba(255, 255, 255, 0.1);
+    --color-border-medium: rgba(255, 255, 255, 0.2);
+    --color-border-dark: rgba(255, 255, 255, 0.3);
+    --color-border-primary: rgba(102, 126, 234, 0.3);
+
+    /* Shadow Colors - Adjusted for dark theme */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.15);
+    --shadow-md: 0 4px 12px rgba(102, 126, 234, 0.2);
+    --shadow-lg: 0 10px 30px rgba(102, 126, 234, 0.3);
+    --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.5);
+
+    /* Text Shadows - Subtle on dark backgrounds */
+    --shadow-text-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-text-md: 0 2px 4px rgba(0, 0, 0, 0.7);
+
+    /* Semantic Colors - Slightly adjusted for dark theme */
+    --color-success: #40c057;           /* Brighter green for dark bg */
+    --color-success-light: rgba(64, 192, 87, 0.15);
+    --color-danger: #fa5252;            /* Brighter red for dark bg */
+    --color-danger-light: rgba(250, 82, 82, 0.15);
+    --color-warning: #ffd43b;           /* Brighter yellow for dark bg */
+    --color-warning-light: rgba(255, 212, 59, 0.15);
+    --color-info: #339af0;              /* Brighter blue for dark bg */
+    --color-info-light: rgba(51, 154, 240, 0.15);
+
+    /* Primary Colors - Keep brand colors but adjust hover states */
+    --color-primary-light: rgba(102, 126, 234, 0.15); /* More transparent on dark */
+    --color-primary-hover: #7c8ff0;      /* Lighter hover for dark bg */
   }
 }

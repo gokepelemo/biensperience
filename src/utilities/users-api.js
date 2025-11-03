@@ -19,6 +19,12 @@ export async function getUserData(id) {
   return await sendRequest(`${BASE_URL}${id}`, "GET");
 }
 
+// OPTIMIZATION: Bulk fetch multiple users in one request
+export async function getBulkUserData(ids) {
+  if (!ids || ids.length === 0) return [];
+  return await sendRequest(`${BASE_URL}bulk?ids=${ids.join(',')}`, "GET");
+}
+
 export async function updateUser(id, userData) {
   return await sendRequest(`${BASE_URL}${id}`, "PUT", userData);
 }

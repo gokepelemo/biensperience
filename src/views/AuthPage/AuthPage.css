@@ -1,3 +1,7 @@
+h1 {
+	text-align: center;
+}
+
 .authPage p {
   text-align: center;
   font-size: clamp(1rem, 2.5vw, 1.5rem);

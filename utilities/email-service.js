@@ -32,8 +32,8 @@ const APP_NAME = 'Biensperience';
 function stripHtml(html) {
   // Remove HTML tags
   let text = html.replace(/<[^>]*>/g, '');
-  // Remove HTML entities
-  text = text.replace(/&[^;]+;/g, '');
+  // Remove HTML entities - use safer approach to avoid polynomial regex
+  text = text.replace(/&[a-zA-Z0-9#]+;/g, '');
   // Remove extra whitespace
   text = text.replace(/\s+/g, ' ').trim();
   return text;

@@ -596,7 +596,7 @@ class DataGenerator {
       map_location: dest.map_location,
       travel_tips: this.generateTravelTips(dest.name),
       permissions: [], // Will be set after users are created
-      photo: null // Will be set after photos are created
+      photos: [] // Will be set after photos are created
     }));
   }
 
@@ -798,7 +798,8 @@ class DataGenerator {
         destination: destination._id,
         experience_type: experienceTypes,
         permissions,
-        photo: getRandomElement(photos)._id,
+        photos: [getRandomElement(photos)._id],
+        default_photo_id: getRandomElement(photos)._id,
         plan_items: planItems
       });
     }
@@ -1227,7 +1228,8 @@ async function createSampleData() {
     output.log('🔗 Assigning photos to destinations...');
     for (const destination of createdDestinations) {
       const randomPhoto = getRandomElement(createdPhotos);
-      destination.photo = randomPhoto._id;
+      destination.photos = [randomPhoto._id];
+      destination.default_photo_id = randomPhoto._id;
       await destination.save();
     }
 

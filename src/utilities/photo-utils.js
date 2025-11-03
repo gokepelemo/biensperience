@@ -15,25 +15,19 @@ export function getDefaultPhoto(resource) {
     return null;
   }
 
-  // Try ID-based selection first
+  // Use ID-based selection
   if (resource.default_photo_id) {
     const photo = resource.photos.find(p => p._id && p._id.toString() === resource.default_photo_id.toString());
     if (photo) {
       return photo;
     }
-    logger.warn('Default photo ID not found in photos array, falling back to index', {
+    logger.warn('Default photo ID not found in photos array', {
       resourceId: resource._id,
       default_photo_id: resource.default_photo_id
     });
   }
 
-  // Fall back to index-based selection
-  const index = resource.default_photo_index || 0;
-  if (index >= 0 && index < resource.photos.length) {
-    return resource.photos[index];
-  }
-
-  // If index is out of bounds, return first photo
+  // Return first photo as fallback
   return resource.photos[0];
 }
 
@@ -47,7 +41,7 @@ export function getDefaultPhotoIndex(resource) {
     return 0;
   }
 
-  // Try ID-based lookup first
+  // Use ID-based lookup
   if (resource.default_photo_id) {
     const index = resource.photos.findIndex(p => p._id && p._id.toString() === resource.default_photo_id.toString());
     if (index !== -1) {
@@ -55,9 +49,8 @@ export function getDefaultPhotoIndex(resource) {
     }
   }
 
-  // Fall back to stored index
-  const index = resource.default_photo_index || 0;
-  return Math.min(Math.max(0, index), resource.photos.length - 1);
+  // Return 0 as fallback
+  return 0;
 }
 
 /**
@@ -120,8 +113,7 @@ export function setDefaultPhotoById(resource, photoId) {
 
   return {
     ...resource,
-    default_photo_id: photoId,
-    default_photo_index: index
+    default_photo_id: photoId
   };
 }
 
@@ -149,8 +141,7 @@ export function setDefaultPhotoByIndex(resource, index) {
   const photo = resource.photos[index];
   return {
     ...resource,
-    default_photo_id: photo._id,
-    default_photo_index: index
+    default_photo_id: photo._id
   };
 }
 
@@ -168,30 +159,22 @@ export function ensureDefaultPhotoConsistency(resource) {
   if (!resource.photos || resource.photos.length === 0) {
     return {
       ...resource,
-      default_photo_id: null,
-      default_photo_index: 0
+      default_photo_id: null
     };
   }
 
-  // If default_photo_id exists and is valid, ensure index matches
+  // If default_photo_id exists and is valid, keep it
   if (resource.default_photo_id) {
     const index = getPhotoIndexById(resource.photos, resource.default_photo_id);
     if (index !== -1) {
-      return {
-        ...resource,
-        default_photo_index: index
-      };
+      return resource;
     }
-    // ID not found, clear it and fall through to index-based
+    // ID not found, clear it
   }
 
-  // Use index to set ID
-  const index = Math.min(Math.max(0, resource.default_photo_index || 0), resource.photos.length - 1);
-  const photoId = resource.photos[index]?._id || null;
-
+  // Set to first photo's ID
   return {
     ...resource,
-    default_photo_index: index,
-    default_photo_id: photoId
+    default_photo_id: resource.photos[0]._id
   };
 }

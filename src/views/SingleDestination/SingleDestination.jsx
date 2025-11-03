@@ -9,6 +9,7 @@ import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
 import TravelTipsList from "../../components/TravelTipsList/TravelTipsList";
+import InfoCard from "../../components/InfoCard/InfoCard";
 import { logger } from "../../utilities/logger";
 import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
@@ -83,19 +84,7 @@ export default function SingleDestination() {
     };
   }, [registerH1, setPageActionButtons, clearActionButtons, updateShowH1InNavbar, user, destination, navigate]);
 
-  // Get the default photo to display
-  const getDefaultPhoto = () => {
-    if (!destination) return null;
-    
-    // If photos array exists and has items
-    if (destination.photos && destination.photos.length > 0) {
-      const defaultIndex = destination.default_photo_index || 0;
-      return destination.photos[defaultIndex] || destination.photos[0];
-    }
-    
-    // Fallback to photo field
-    return destination.photo;
-  };
+
 
   return (
     <>
@@ -140,62 +129,33 @@ export default function SingleDestination() {
             </div>
             <div className="row my-4">
               <div className="col-md-6 p-3">
-                {/* Display default photo with click to enlarge (or placeholder if none available) */}
-                {/* PhotoCard handles its own modal, no wrapper click needed */}
-                <PhotoCard photo={getDefaultPhoto()} title={destination.name} />
-                
-                {/* Display additional photos in a grid */}
-                {destination.photos && destination.photos.length > 1 && (
-                  <div className="mt-3">
-                    <h5 className="mb-3">More Photos</h5>
-                    <div className="row g-2">
-                      {destination.photos.map((photo, index) => {
-                        // Skip the default photo since it's already shown above
-                        if (index === (destination.default_photo_index || 0)) return null;
-                        
-                        return (
-                          <div key={index} className="col-4">
-                            <PhotoCard 
-                              photo={photo} 
-                              title={`${destination.name} - Photo ${index + 1}`}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                {/* Display all photos with PhotoCard - it handles thumbnails automatically */}
+                <PhotoCard 
+                  photos={destination.photos} 
+                  defaultPhotoId={destination.default_photo_id}
+                  altText={destination.name}
+                />
               </div>
               <div className="col-md-6 p-3">
-                <div className="destination-detail-card">
-                  {destination.country && (
-                    <div className="destination-detail-header">
-                      <h4 className="destination-detail-country">
-                        {`${lang.en.label.country}: ${destination.country}`}
-                      </h4>
-                    </div>
-                  )}
-                  {destinationExperiences.length > 0 && (
-                    <div className="destination-detail-section">
-                      <h5 className="destination-detail-section-title">
-                        {lang.en.heading.popularExperiences}
-                      </h5>
-                      <div className="destination-detail-content">
-                        {destinationExperiences
-                          .filter((experience, index) => index < 3)
-                          .map((experience, index) => (
-                            <Link
-                              to={`/experiences/${experience._id}`}
-                              className="destination-detail-link"
-                              key={index}
-                            >
-                              {experience.name}
-                            </Link>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <InfoCard
+                  title={destination.country ? `${lang.en.label.country}: ${destination.country}` : null}
+                  sections={[
+                    destinationExperiences.length > 0 ? {
+                      title: lang.en.heading.popularExperiences,
+                      content: destinationExperiences
+                        .filter((experience, index) => index < 3)
+                        .map((experience, index) => (
+                          <Link
+                            to={`/experiences/${experience._id}`}
+                            className="info-card-link"
+                            key={index}
+                          >
+                            {experience.name}
+                          </Link>
+                        ))
+                    } : null
+                  ].filter(Boolean)}
+                />
               </div>
             </div>
 

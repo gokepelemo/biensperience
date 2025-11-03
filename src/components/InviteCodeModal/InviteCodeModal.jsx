@@ -21,6 +21,7 @@ import {
 } from '../../utilities/invite-codes-service';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
+import Loading from '../Loading/Loading';
 import './InviteCodeModal.css';
 
 export default function InviteCodeModal({ show, onHide, experiences = [], destinations = [] }) {
@@ -263,11 +264,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
           {/* List Tab */}
           <Tab eventKey="list" title={`All Invites (${invites.length})`}>
             {isLoading ? (
-              <div className="text-center py-4">
-                <div className="spinner-border text-primary" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
-              </div>
+              <Loading variant="centered" size="md" message="Loading invite codes..." />
             ) : invites.length === 0 ? (
               <BootstrapAlert variant="info">
                 No invite codes found. Create one in the "Create Single" or "Bulk Upload" tabs.
@@ -283,9 +280,9 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                       <div className="d-flex align-items-center gap-2 mb-1">
                         <strong className="code-display">{invite.code}</strong>
                         {invite.isActive ? (
-                          <Badge bg="success">Active</Badge>
+                          <Badge className="badge badge-success">Active</Badge>
                         ) : (
-                          <Badge bg="secondary">Inactive</Badge>
+                          <Badge className="badge badge-secondary">Inactive</Badge>
                         )}
                         {invite.usedCount > 0 && (
                           <Badge bg="info">Used {invite.usedCount}/{invite.maxUses || '∞'}</Badge>

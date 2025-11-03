@@ -160,7 +160,7 @@ export default function TravelTip({ tip, index, onDelete, editable = false }) {
           <FAIcon className="travel-tip-fa-icon" />
         </div>
         <div className="travel-tip-header-content">
-          <Badge bg={badgeColor} className="travel-tip-badge">
+          <Badge className={`travel-tip-badge`} bg={`${badgeColor}`}>
             <FAIcon className="me-1" size="0.8em" />
             {displayCategory}
           </Badge>

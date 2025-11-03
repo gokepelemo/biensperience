@@ -2,21 +2,27 @@ import "./PhotoCard.css";
 import { useMemo, useState, useEffect } from "react";
 import { lang } from "../../lang.constants";
 import PhotoModal from "../PhotoModal/PhotoModal";
+import Loading from "../Loading/Loading";
+import PhotoThumbnail from "./PhotoThumbnail";
 import { sanitizeText, sanitizeUrl } from "../../utilities/sanitize";
+import { calculateAspectRatio } from "../../utilities/image-utils";
 
-export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, title }) {
+export default function PhotoCard({ photos, defaultPhotoId, altText, title }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const imageAlt = altText || title || lang.en.image.alt.photo;
 
-  // Determine photos array
   const photoArray = useMemo(() => {
-    if (photos && photos.length > 0) {
-      return photos;
-    }
-    return [];
+    return photos && photos.length > 0 ? photos : [];
   }, [photos]);
 
-  const defaultIndex = defaultPhotoIndex || 0;
+  // Find default photo index by ID
+  const defaultIndex = useMemo(() => {
+    if (defaultPhotoId && photoArray.length > 0) {
+      const index = photoArray.findIndex(p => p._id?.toString() === defaultPhotoId?.toString());
+      return index >= 0 ? index : 0;
+    }
+    return 0;
+  }, [photoArray, defaultPhotoId]);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(defaultIndex);
   const [showModal, setShowModal] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
@@ -30,12 +36,39 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
   const placeholderPhoto = useMemo(() => ({
     url: `https://picsum.photos/600?rand=${rand}`,
     photo_credit: null,
-    photo_credit_url: null
+    photo_credit_url: null,
+    width: 600, // Placeholder dimensions for layout shift prevention
+    height: 400
   }), [rand]);
 
   // Use actual photo or placeholder
   const displayPhoto = photoArray.length > 0 ? currentPhoto : placeholderPhoto;
   const hasRealPhotos = photoArray.length > 0;
+
+  // Calculate the container height based on the tallest image
+  // This ensures all images in the array can fit without cropping
+  const containerAspectRatio = useMemo(() => {
+    if (photoArray.length === 0) {
+      // Use placeholder aspect ratio
+      return calculateAspectRatio(placeholderPhoto.width, placeholderPhoto.height);
+    }
+    
+    // Find the tallest aspect ratio (smallest ratio value = tallest relative height)
+    // For example: 4/3 = 1.33 (landscape), 3/4 = 0.75 (portrait, taller)
+    const tallestAspectRatio = photoArray.reduce((minRatio, photo) => {
+      if (!photo.width || !photo.height) return minRatio;
+      const ratio = calculateAspectRatio(photo.width, photo.height);
+      // Smaller ratio = taller image
+      return ratio < minRatio ? ratio : minRatio;
+    }, Infinity);
+    
+    // If no valid dimensions found, use placeholder or current photo
+    if (tallestAspectRatio === Infinity) {
+      return calculateAspectRatio(displayPhoto.width, displayPhoto.height);
+    }
+    
+    return tallestAspectRatio;
+  }, [photoArray, placeholderPhoto, displayPhoto]);
 
   // Reset loading state when photo changes
   useEffect(() => {
@@ -86,7 +119,10 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
       <div
         className="photoCard d-flex align-items-center justify-content-center"
         onClick={() => setShowModal(true)}
-        style={{ cursor: 'pointer' }}
+        style={{
+          cursor: 'pointer',
+          aspectRatio: containerAspectRatio
+        }}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
@@ -98,12 +134,12 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
       >
         {imageLoading && (
           <div className="photo-loader">
-            <div className="photo-loader-circle"></div>
+            <Loading size="md" showMessage={false} />
           </div>
         )}
         <img
           src={displayPhoto.url}
-          className="rounded img-fluid"
+          className="img-fluid"
           alt={hasRealPhotos ? imageAlt : `${imageAlt} placeholder`}
           title={hasRealPhotos ? (sanitizedCredit || title) : undefined}
           loading="lazy"
@@ -119,32 +155,20 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
         />
       </div>
 
-      {/* Thumbnails - only show for real photos with multiple items */}
+      {/* Thumbnails - only show when there's more than 1 photo */}
       {hasRealPhotos && photoArray.length > 1 && (
         <div className="photo-thumbnails">
           {photoArray.map((photo, index) => (
-            <div
+            <PhotoThumbnail
               key={index}
-              className={`photo-thumbnail ${index === currentIndex ? 'active' : ''}`}
-              onClick={() => setSelectedPhotoIndex(index)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  setSelectedPhotoIndex(index);
-                }
-              }}
-              aria-label={`View photo ${index + 1}${index === defaultIndex ? ' (default)' : ''}`}
-            >
-              <img
-                src={photo.url}
-                alt={`${imageAlt} thumbnail ${index + 1}`}
-                loading="lazy"
-              />
-              {index === defaultIndex && (
-                <span className="default-badge" aria-label="Default photo">★</span>
-              )}
-            </div>
+              photo={photo}
+              altText={imageAlt}
+              title={title}
+              selectedIndex={currentIndex}
+              photoIndex={index}
+              onSelect={setSelectedPhotoIndex}
+              showDefaultBadge={index === defaultIndex}
+            />
           ))}
         </div>
       )}
@@ -174,6 +198,8 @@ export default function PhotoCard({ photo, photos, defaultPhotoIndex, altText, t
       {showModal && (
         <PhotoModal
           photo={displayPhoto}
+          photos={photoArray}
+          initialIndex={currentIndex}
           onClose={() => setShowModal(false)}
         />
       )}

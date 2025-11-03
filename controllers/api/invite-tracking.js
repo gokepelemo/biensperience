@@ -8,7 +8,7 @@
 const InviteCode = require('../../models/inviteCode');
 const User = require('../../models/user');
 const backendLogger = require('../../utilities/backend-logger');
-const { sendError, sendSuccess } = require('../../utilities/controller-helpers');
+const { sendError } = require('../../utilities/controller-helpers');
 
 /**
  * Get all invite codes created by the current user
@@ -20,19 +20,31 @@ const { sendError, sendSuccess } = require('../../utilities/controller-helpers')
 async function getMyInvites(req, res) {
   try {
     const userId = req.user._id;
+    const isSuperAdmin = req.user.role === 'super_admin';
 
-    const invites = await InviteCode.find({ createdBy: userId })
+    // Super admins can see all invites, regular users only see their own
+    const query = isSuperAdmin ? {} : { createdBy: userId };
+
+    const invites = await InviteCode.find(query)
       .populate({
         path: 'redeemedBy',
-        select: 'name email photo createdAt'
+        select: 'name email photos default_photo_id oauthProfilePhoto createdAt',
+        populate: {
+          path: 'photos',
+          select: 'url caption'
+        }
       })
       .populate({
         path: 'experiences',
-        select: 'title destination'
+        select: 'name destination'
       })
       .populate({
         path: 'destinations',
         select: 'name country'
+      })
+      .populate({
+        path: 'createdBy',
+        select: 'name email'
       })
       .sort({ createdAt: -1 })
       .lean();
@@ -69,19 +81,27 @@ async function getInviteDetails(req, res) {
   try {
     const { code } = req.params;
     const userId = req.user._id;
+    const isSuperAdmin = req.user.role === 'super_admin';
 
-    const invite = await InviteCode.findOne({
+    // Super admins can view any invite, regular users only their own
+    const query = isSuperAdmin ? { code: code.toUpperCase() } : {
       code: code.toUpperCase(),
-      createdBy: userId // Only show invites created by current user
-    })
+      createdBy: userId
+    };
+
+    const invite = await InviteCode.findOne(query)
       .populate({
         path: 'redeemedBy',
-        select: 'name email photo createdAt lastLogin inviteCode',
-        options: { sort: { createdAt: -1 } }
+        select: 'name email photos default_photo_id oauthProfilePhoto createdAt lastLogin inviteCode',
+        options: { sort: { createdAt: -1 } },
+        populate: {
+          path: 'photos',
+          select: 'url caption'
+        }
       })
       .populate({
         path: 'experiences',
-        select: 'title destination photos cost_estimate'
+        select: 'name destination photos cost_estimate'
       })
       .populate({
         path: 'destinations',

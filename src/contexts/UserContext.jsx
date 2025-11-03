@@ -362,13 +362,7 @@ export function UserProvider({ children }) {
  * @returns {string} Data URL for avatar image or placeholder service URL
  */
 function getDefaultAvatar(name) {
-  // Using UI Avatars service (free, no API key needed)
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=667eea&color=fff&size=200&bold=true`;
-
-  // Option 2: Generate a simple SVG avatar locally (no external dependency)
-  // const initials = name.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2);
-  // const svgAvatar = generateSVGAvatar(initials);
-  // return svgAvatar;
 }
 
 /**

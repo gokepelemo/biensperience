@@ -121,7 +121,7 @@ async function setup() {
     console.log('\nTest user setup complete!');
     console.log('Email:', user.email);
     console.log('Password:', user.password);
-    console.log('JWT Token:', token);
+    console.log('JWT Token:', token ? '[REDACTED]' : 'Not available');
 
     return {
       user,

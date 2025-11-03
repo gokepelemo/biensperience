@@ -10,11 +10,9 @@
 }
 /* Center the login form and make it small */
 .login-bg {
-	min-height: 100vh;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-bg-secondary);
 }
 
 .login-form-wrapper {
@@ -23,7 +21,6 @@
 	border-radius: var(--radius-xl);
 	box-shadow: var(--shadow-lg);
 	width: 100%;
-	max-width: 370px;
 	display: flex;
 	flex-direction: column;
 	align-items: center;

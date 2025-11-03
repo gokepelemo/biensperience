@@ -7,6 +7,7 @@ import SortFilter from "../../components/SortFilter/SortFilter";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import Alert from "../../components/Alert/Alert";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
+import Loading from "../../components/Loading/Loading";
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { sortItems, filterExperiences } from "../../utilities/sort-filter";
 
@@ -51,11 +52,11 @@ export default function Experiences() {
       />
 
       {loading ? (
-        <div className="text-center my-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading experiences...</span>
-          </div>
-        </div>
+        <Loading
+          variant="centered"
+          size="lg"
+          message="Loading experiences..."
+        />
       ) : (
         <div className="row my-4 fade-in">
           <div className="experiences-list fade-in">

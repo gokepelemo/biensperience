@@ -13,7 +13,10 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <StrictMode>
     <ToastProvider>
-      <Router><App /></Router>
+      <Router future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}><App /></Router>
     </ToastProvider>
   </StrictMode>
 );

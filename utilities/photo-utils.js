@@ -1,6 +1,5 @@
 /**
  * Photo utility functions for handling photo arrays with ID-based operations
- * Provides backwards compatibility with index-based operations
  * @module photo-utils
  */
 
@@ -17,26 +16,19 @@ function getDefaultPhoto(resource) {
     return null;
   }
 
-  // Try ID-based selection first (new method)
+  // Use ID-based selection
   if (resource.default_photo_id) {
     const photo = resource.photos.find(p => p._id && p._id.toString() === resource.default_photo_id.toString());
     if (photo) {
       return photo;
     }
-    // If ID not found, fall through to index-based
-    backendLogger.warn('Default photo ID not found in photos array, falling back to index', {
+    backendLogger.warn('Default photo ID not found in photos array', {
       resourceId: resource._id,
       default_photo_id: resource.default_photo_id
     });
   }
 
-  // Fall back to index-based selection (legacy method)
-  const index = resource.default_photo_index || 0;
-  if (index >= 0 && index < resource.photos.length) {
-    return resource.photos[index];
-  }
-
-  // If index is out of bounds, return first photo
+  // Return first photo as fallback
   return resource.photos[0];
 }
 
@@ -50,7 +42,7 @@ function getDefaultPhotoIndex(resource) {
     return 0;
   }
 
-  // Try ID-based lookup first
+  // Use ID-based lookup
   if (resource.default_photo_id) {
     const index = resource.photos.findIndex(p => p._id && p._id.toString() === resource.default_photo_id.toString());
     if (index !== -1) {
@@ -58,14 +50,12 @@ function getDefaultPhotoIndex(resource) {
     }
   }
 
-  // Fall back to stored index
-  const index = resource.default_photo_index || 0;
-  return Math.min(Math.max(0, index), resource.photos.length - 1);
+  // Return 0 as fallback
+  return 0;
 }
 
 /**
  * Set the default photo by ID
- * Updates both default_photo_id and default_photo_index for backwards compatibility
  * @param {Object} resource - The resource to update
  * @param {string} photoId - The ID of the photo to set as default
  * @returns {boolean} True if successful, false if photo not found
@@ -86,14 +76,12 @@ function setDefaultPhotoById(resource, photoId) {
   }
 
   resource.default_photo_id = photoId;
-  resource.default_photo_index = index; // Keep in sync for backwards compatibility
 
   return true;
 }
 
 /**
  * Set the default photo by index
- * Updates both default_photo_id and default_photo_index
  * @param {Object} resource - The resource to update
  * @param {number} index - The index of the photo to set as default
  * @returns {boolean} True if successful, false if index out of bounds
@@ -114,7 +102,6 @@ function setDefaultPhotoByIndex(resource, index) {
 
   const photo = resource.photos[index];
   resource.default_photo_id = photo._id;
-  resource.default_photo_index = index; // Keep in sync for backwards compatibility
 
   return true;
 }
@@ -127,25 +114,21 @@ function setDefaultPhotoByIndex(resource, index) {
 function ensureDefaultPhotoConsistency(resource) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     resource.default_photo_id = null;
-    resource.default_photo_index = 0;
     return;
   }
 
-  // If default_photo_id exists and is valid, ensure index matches
+  // If default_photo_id exists and is valid, keep it
   if (resource.default_photo_id) {
     const index = resource.photos.findIndex(p => p._id && p._id.toString() === resource.default_photo_id.toString());
     if (index !== -1) {
-      resource.default_photo_index = index;
       return;
     }
-    // ID not found, clear it and fall through to index-based
+    // ID not found, clear it
     resource.default_photo_id = null;
   }
 
-  // Use index to set ID
-  const index = Math.min(Math.max(0, resource.default_photo_index || 0), resource.photos.length - 1);
-  resource.default_photo_index = index;
-  resource.default_photo_id = resource.photos[index]._id;
+  // Set to first photo's ID
+  resource.default_photo_id = resource.photos[0]._id;
 }
 
 /**
@@ -173,7 +156,6 @@ function removePhoto(resource, photoId) {
     ensureDefaultPhotoConsistency(resource);
   } else {
     resource.default_photo_id = null;
-    resource.default_photo_index = 0;
   }
 
   return true;

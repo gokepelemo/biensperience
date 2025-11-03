@@ -86,7 +86,7 @@ router.get('/facebook/callback',
           
           // Add session ID to cookie for frontend
           res.cookie('bien_session_id', sessionId, {
-            httpOnly: false, // Frontend needs to read this
+            httpOnly: true, // Keep secure - frontend doesn't need to read this
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
@@ -175,7 +175,7 @@ router.get('/google/callback',
 
       // Set session ID cookie for frontend access
       res.cookie('bien_session_id', user.currentSessionId, {
-        httpOnly: false, // Frontend needs to read this
+        httpOnly: true, // Keep secure - frontend doesn't need to read this
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
@@ -273,7 +273,7 @@ router.get('/twitter/callback',
 
       // Set session ID cookie for frontend access
       res.cookie('bien_session_id', user.currentSessionId, {
-        httpOnly: false, // Frontend needs to read this
+        httpOnly: true, // Keep secure - frontend doesn't need to read this
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
@@ -494,7 +494,7 @@ router.post('/logout', ensureLoggedIn, async (req, res) => {
     
     // Clear session cookie
     res.clearCookie('bien_session_id', {
-      httpOnly: false,
+      httpOnly: true, // Match the setting used when cookie was created
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax'
     });

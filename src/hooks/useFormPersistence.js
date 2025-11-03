@@ -120,6 +120,29 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
     if (savedData) {
       const age = getFormDataAge(formId, userId);
 
+      // Check if saved data has substantial content
+      // Filter out empty strings, empty arrays, null, undefined, and empty objects
+      const hasSubstantialContent = Object.keys(savedData).some(key => {
+        const value = savedData[key];
+        
+        // Check for meaningful values
+        if (value === null || value === undefined || value === '') {
+          return false;
+        }
+        
+        // Empty arrays don't count as substantial
+        if (Array.isArray(value) && value.length === 0) {
+          return false;
+        }
+        
+        // Empty objects don't count as substantial
+        if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
+          return false;
+        }
+        
+        return true;
+      });
+
       // Log with actual values for debugging
       const dataPreview = Object.keys(savedData).reduce((acc, key) => {
         const value = savedData[key];
@@ -132,7 +155,8 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
         userId: userId ? 'provided' : 'none',
         encrypted: !!userId,
         ageMs: age,
-        fields: dataPreview
+        fields: dataPreview,
+        hasSubstantialContent
       });
 
       // Call setFormData directly with the saved data
@@ -141,8 +165,8 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
 
       hasRestoredRef.current = true;
 
-      // Call onRestore callback if provided
-      if (onRestore) {
+      // Only call onRestore callback if there's substantial content
+      if (onRestore && hasSubstantialContent) {
         onRestore(savedData, age);
       }
 

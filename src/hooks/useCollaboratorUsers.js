@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getUserData } from '../utilities/users-api';
-import { debug } from '../utilities/debug';
+import { getBulkUserData } from '../utilities/users-api';
 import { logger } from '../utilities/logger';
 
 /**
  * Custom hook to fetch and manage collaborator user data
  * Ensures fresh user data is available for UsersListDisplay components
+ * OPTIMIZATION: Uses bulk fetch API to get all users in a single request
  *
  * @param {Array} userIds - Array of user IDs to fetch
  * @returns {Object} { users: Array, loading: boolean, error: string|null, refetch: function }
@@ -28,22 +28,13 @@ export function useCollaboratorUsers(userIds = []) {
     setError(null);
 
     try {
-      // Fetch user data for each ID
-      const userPromises = ids.map(async (id) => {
-        try {
-          return await getUserData(id);
-        } catch (err) {
-          logger.warn('Failed to fetch user', { userId: id, error: err.message });
-          return null; // Return null for failed fetches
-        }
-      });
-
-      const userData = await Promise.all(userPromises);
-      // Filter out null results and set users
-      setUsers(userData.filter(user => user !== null));
+      // OPTIMIZATION: Fetch all users in a single bulk request instead of N individual requests
+      const userData = await getBulkUserData(ids);
+      setUsers(userData || []);
     } catch (err) {
       setError('Failed to fetch collaborator data');
-      debug.error('Error fetching collaborators:', err);
+      logger.error('Error fetching collaborators', { userIds: ids, error: err.message });
+      setUsers([]);
     } finally {
       setLoading(false);
     }

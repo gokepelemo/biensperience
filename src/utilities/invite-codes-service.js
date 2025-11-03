@@ -131,6 +131,7 @@ export async function deactivateInviteCode(inviteId) {
  * @param {string} inviteData.resourceId - Resource ID
  * @param {string} inviteData.resourceName - Resource name
  * @param {string} inviteData.customMessage - Custom message (optional)
+ * @param {string} inviteData.permissionType - Permission type ('owner' | 'collaborator' | 'contributor')
  * @returns {Promise<Object>} - { success, invite, emailSent }
  */
 export async function sendEmailInvite(inviteData) {

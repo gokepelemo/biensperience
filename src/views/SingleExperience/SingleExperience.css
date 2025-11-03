@@ -70,13 +70,28 @@
     content: "🔗 ";
 }
 
+/* Experience Header Grid */
+.experience-header-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+@media (max-width: 768px) {
+    .experience-header-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-2);
+    }
+}
+
 /* Cost Estimate Colors */
 .green {
-    color: #28a745; /* Bootstrap success green */
+    color: var(--color-single-experience-success);
 }
 
 .grey {
-    color: #6c757d; /* Bootstrap secondary grey */
+    color: var(--color-single-experience-secondary);
 }
 
 /* Collapse Animation */
@@ -89,9 +104,9 @@
 
 /* Date Picker Modal */
 .date-picker-modal .alert-info {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 1rem;
-    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    background: var(--gradient-primary);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
 }
 
 .date-picker-modal .alert-info h3,
@@ -102,67 +117,69 @@
 }
 
 .date-picker-modal .form-control {
-    border-radius: 0.75rem;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.95);
-    transition: all 0.3s ease;
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--color-border-light);
+    background: var(--color-bg-input);
+    color: var(--color-text-primary);
+    transition: var(--transition-normal);
 }
 
 .date-picker-modal .form-control:focus {
-    border-color: white;
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
     transform: translateY(-2px);
 }
 
 .date-picker-modal .alert-warning {
-    background: rgba(255, 193, 7, 0.2);
-    border: 2px solid rgba(255, 193, 7, 0.6);
-    border-radius: 0.75rem;
-    color: white;
+    background: var(--color-warning-light);
+    border: 2px solid var(--color-warning);
+    border-radius: var(--radius-lg);
+    color: var(--color-text-primary);
 }
 
 .date-picker-modal .btn {
-    border-radius: 0.75rem;
-    transition: all 0.3s ease;
+    border-radius: var(--radius-lg);
+    transition: var(--transition-normal);
 }
 
 .date-picker-modal .btn-primary {
     background: white;
-    color: #667eea;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
 }
 
 .date-picker-modal .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-    background: #f8f9fa;
+    box-shadow: var(--shadow-md);
+    background: var(--color-bg-secondary);
 }
 
 .date-picker-modal .btn-outline-secondary {
-    border: 2px solid rgba(255, 255, 255, 0.6);
+    border: 2px solid var(--color-border-medium);
+    color: var(--color-text-primary);
 }
 
 .date-picker-modal .btn-outline-secondary:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: white;
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-dark);
     transform: translateY(-2px);
 }
 
 .date-picker-modal .btn-secondary {
-    background: rgba(0, 0, 0, 0.2);
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: var(--color-bg-tertiary);
+    border: 2px solid var(--color-border-medium);
+    color: var(--color-text-primary);
 }
 
 .date-picker-modal .btn-secondary:hover {
-    background: rgba(0, 0, 0, 0.3);
-    border-color: white;
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-dark);
     transform: translateY(-2px);
-    color: white !important;
 }
 
 /* Travel Tips Section */
 .travel-tips-box {
-    background: #f8f9fa;
+    background: var(--color-single-experience-bg-secondary);
     border-radius: 1rem;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     padding: 1.5rem 1.75rem;
@@ -176,7 +193,7 @@
     padding: 1rem 1.25rem;
     margin-bottom: 1rem;
     font-size: 1rem;
-    color: #333;
+    color: var(--color-single-experience-text-dark);
     transition: box-shadow 0.2s, transform 0.2s;
     display: flex;
     align-items: flex-start;
@@ -202,7 +219,7 @@
 }
 
 .experience-detail .list-group-item.fw-bold {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     box-shadow: 0 2px 10px rgba(102, 126, 234, 0.2);
     padding: 0;
     overflow: hidden;
@@ -230,13 +247,13 @@
 }
 
 .experience-detail .list-group-item:hover:not(.fw-bold) {
-    background: #e9ecef;
+    background: var(--color-single-experience-bg-tertiary);
     transform: translateX(4px);
 }
 
 /* Plan Items Container */
 .plan-items-container {
-    background: #f8f9fa;
+    background: var(--color-single-experience-bg-secondary);
     border-radius: 1rem;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
@@ -261,6 +278,76 @@
 
 .plan-action-buttons .btn {
     white-space: nowrap;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition-normal);
+    font-weight: 500;
+}
+
+.plan-action-buttons .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Override Bootstrap styles with design system tokens */
+.plan-action-buttons .btn-primary {
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+    color: white !important;
+}
+
+.plan-action-buttons .btn-primary:hover {
+    background: var(--color-primary-dark) !important;
+    border-color: var(--color-primary-dark) !important;
+}
+
+.plan-action-buttons .btn-outline-primary {
+    background: transparent !important;
+    border: 2px solid var(--color-primary) !important;
+    color: var(--color-primary) !important;
+}
+
+.plan-action-buttons .btn-outline-primary:hover {
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+    color: white !important;
+}
+
+.plan-action-buttons .btn-outline-secondary {
+    background: transparent !important;
+    border: 2px solid var(--color-border-medium) !important;
+    color: var(--color-text-primary) !important;
+}
+
+.plan-action-buttons .btn-outline-secondary:hover {
+    background: var(--color-bg-secondary) !important;
+    border-color: var(--color-text-secondary) !important;
+    color: var(--color-text-primary) !important;
+}
+
+.plan-action-buttons .btn-outline-danger {
+    background: transparent !important;
+    border: 2px solid var(--color-danger) !important;
+    color: var(--color-danger) !important;
+}
+
+.plan-action-buttons .btn-outline-danger:hover {
+    background: var(--color-danger) !important;
+    border-color: var(--color-danger) !important;
+    color: white !important;
+}
+
+.plan-action-buttons .btn-outline-success,
+.plan-action-buttons .btn-success {
+    background: var(--color-success) !important;
+    border-color: var(--color-success) !important;
+    color: white !important;
+}
+
+.plan-action-buttons .btn-outline-success:hover,
+.plan-action-buttons .btn-success:hover {
+    background: var(--color-success-dark) !important;
+    border-color: var(--color-success-dark) !important;
 }
 
 /* Mobile/Tablet: Stack layout */
@@ -311,17 +398,17 @@
 .metric-title {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #64748b;
+    color: var(--color-single-experience-text-muted);
     text-transform: capitalize;
 }
 
 .metric-value {
     font-size: 1.8rem; /* Default size, will be dynamically adjusted by JavaScript */
     font-weight: 700;
-    color: #1e293b;
+    color: var(--color-single-experience-text-primary);
     line-height: 1.2;
     white-space: nowrap; /* Prevent wrapping */
-    padding-right: 1rem; /* Prevent text from touching right edge */
+    padding-right: 1rem; /* Prevent text from right edge */
 }
 
 /* Responsive metric cards */
@@ -369,14 +456,14 @@
     font-size: 18px;
     line-height: 1;
     text-decoration: none !important;
-    color: #666 !important;
+    color: var(--color-single-experience-text-grey) !important;
     background: none !important;
     border: none !important;
     transition: color 0.3s ease;
 }
 
 .expand-toggle:hover {
-    color: #667eea !important;
+    color: var(--color-single-experience-primary) !important;
 }
 
 .expand-toggle:focus {
@@ -385,23 +472,23 @@
 
 .child-arrow {
     font-size: 20px;
-    color: #667eea;
+    color: var(--color-single-experience-primary);
     margin-right: 0.25rem;
 }
 
 .no-child-arrow {
     font-size: 18px;
-    color: #999;
+    color: var(--color-single-experience-text-grey-light);
 }
 
 .plan-item-title a {
-    color: #333;
+    color: var(--color-single-experience-text-dark);
     text-decoration: none;
     transition: color 0.3s ease;
 }
 
 .plan-item-title a:hover {
-    color: #667eea;
+    color: var(--color-single-experience-primary);
 }
 
 /* Experience Actions Container */
@@ -425,16 +512,67 @@
     }
 }
 
+/* Experience Actions Buttons - Design System Integration */
 .experience-actions .btn {
     opacity: 1 !important;
     visibility: visible !important;
-    transition: all 0.3s ease;
-    white-space: nowrap; /* Prevent button text from wrapping */
+    transition: var(--transition-normal);
+    white-space: nowrap;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    font-weight: 500;
 }
 
 .experience-actions .btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(79, 91, 213, 0.18);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Override Bootstrap button styles with design system tokens */
+.experience-actions .btn-primary {
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+    color: white !important;
+}
+
+.experience-actions .btn-primary:hover {
+    background: var(--color-primary-dark) !important;
+    border-color: var(--color-primary-dark) !important;
+}
+
+.experience-actions .btn-secondary {
+    background: var(--color-text-secondary) !important;
+    border-color: var(--color-text-secondary) !important;
+    color: white !important;
+}
+
+.experience-actions .btn-secondary:hover {
+    background: var(--color-text-primary) !important;
+    border-color: var(--color-text-primary) !important;
+}
+
+.experience-actions .btn-outline-primary {
+    background: transparent !important;
+    border: 2px solid var(--color-primary) !important;
+    color: var(--color-primary) !important;
+}
+
+.experience-actions .btn-outline-primary:hover {
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+    color: white !important;
+}
+
+.experience-actions .btn-outline-secondary {
+    background: transparent !important;
+    border: 2px solid var(--color-border-medium) !important;
+    color: var(--color-text-primary) !important;
+}
+
+.experience-actions .btn-outline-secondary:hover {
+    background: var(--color-bg-secondary) !important;
+    border-color: var(--color-text-secondary) !important;
+    color: var(--color-text-primary) !important;
 }
 
 .plan-item-actions {
@@ -457,28 +595,29 @@
 }
 
 .plan-item-details {
-    border-top: 1px solid #e9ecef;
-    background: #f8f9fa;
+    border-top: 1px solid var(--color-single-experience-bg-tertiary);
+    background: var(--color-single-experience-bg-secondary);
 }
 
 .plan-item-meta {
     display: flex;
     gap: 2rem;
     font-size: 0.9rem;
-    color: #666;
+    color: var(--color-single-experience-text-grey);
 }
 
-/* Custom Button Classes - Extend Bootstrap without overriding */
+/* Custom Button Classes - Design System Integration */
 .btn-plan-add,
 .btn-plan-remove {
-    /* Clone btn-icon properties - purple gradient base */
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--gradient-primary);
+    color: white !important;
     border: none;
+    border-radius: var(--radius-md);
     font-weight: 600;
-    font-size: 1.25rem;
+    font-size: var(--font-size-lg);
     padding: 0.75rem 1.25rem;
-    transition: all 0.3s ease;
+    transition: var(--transition-normal);
+    box-shadow: var(--shadow-sm);
     /* Fixed width to accommodate longest text with comfortable padding */
     min-width: 200px;
     max-width: 320px;
@@ -512,18 +651,18 @@
 
 /* Turn green when hovering on add state */
 .btn-plan-add:hover {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-    color: white;
+    box-shadow: var(--shadow-lg) !important;
+    color: white !important;
 }
 
 /* Turn red when hovering on remove state */
 .btn-plan-remove:hover {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    background: linear-gradient(135deg, #dc3545 0%, #bd2130 100%) !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-    color: white;
+    box-shadow: var(--shadow-lg) !important;
+    color: white !important;
 }
 
 /* Loading pulse animation for plan button */
@@ -545,7 +684,7 @@
 
 /* Undo Complete Button */
 .btn-success:hover {
-    background: linear-gradient(90deg, #dc3545 0%, #c82333 100%) !important;
+    background: linear-gradient(90deg, var(--color-single-experience-plan-remove-hover-start) 0%, var(--color-single-experience-plan-remove-hover-end) 100%) !important;
     color: white !important;
 }
 
@@ -553,7 +692,7 @@
 .plan-tabs-nav {
     display: flex;
     gap: 0.5rem;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 2px solid var(--color-single-experience-border-light);
     padding-bottom: 0;
     margin-bottom: 1.5rem;
 }
@@ -565,7 +704,7 @@
     padding: 0.75rem 1.5rem;
     font-size: 1rem;
     font-weight: 600;
-    color: #6c757d;
+    color: var(--color-single-experience-text-secondary);
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
@@ -573,18 +712,18 @@
 }
 
 .plan-tab-button:hover {
-    color: #495057;
+    color: var(--color-single-experience-text-dark-secondary);
     background: rgba(0, 0, 0, 0.02);
 }
 
 .plan-tab-button.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
+    color: var(--color-single-experience-primary);
+    border-bottom-color: var(--color-single-experience-primary);
     background: rgba(102, 126, 234, 0.05);
 }
 
 .plan-tab-button:focus {
-    outline: 2px solid #667eea;
+    outline: 2px solid var(--color-single-experience-primary);
     outline-offset: 2px;
 }
 
@@ -604,7 +743,7 @@
         flex-direction: row;
         flex-wrap: wrap;
         gap: 0.5rem;
-        border-bottom: 2px solid #e0e0e0;
+        border-bottom: 2px solid var(--color-single-experience-border-light);
         padding-bottom: 0;
     }
 
@@ -621,7 +760,7 @@
 
     .plan-tab-button.active {
         border-left-color: transparent;
-        border-bottom-color: #667eea;
+        border-bottom-color: var(--color-single-experience-primary);
     }
 
     .plan-tab-dropdown-container {
@@ -648,7 +787,7 @@
 
 .plan-dropdown {
     padding: 0.5rem 0.75rem;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--color-single-experience-border-input);
     border-radius: 0.375rem;
     background: white;
     font-size: 0.9rem;
@@ -657,7 +796,7 @@
 }
 
 .plan-dropdown:hover {
-    border-color: #667eea;
+    border-color: var(--color-single-experience-primary);
 }
 
 .plan-dropdown:focus {
@@ -721,8 +860,8 @@
 }
 
 .my-plan-view .form-check-input:checked {
-    background-color: #28a745;
-    border-color: #28a745;
+    background-color: var(--color-success);
+    border-color: var(--color-success);
 }
 
 /* Select All checkboxes in sync modal - smaller and more refined */
@@ -757,5 +896,154 @@
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+/* ============================================
+   DARK MODE SUPPORT
+   ============================================ */
+@media (prefers-color-scheme: dark) {
+    /* Plan Items Container */
+    .plan-items-container {
+        background: var(--color-bg-secondary);
+    }
+
+    /* Metric Cards */
+    .metric-card {
+        background: var(--color-bg-tertiary);
+    }
+
+    .metric-title {
+        color: var(--color-text-muted);
+    }
+
+    .metric-value {
+        color: var(--color-text-primary);
+    }
+
+    /* Plan Item Cards */
+    .plan-item-card {
+        background: var(--color-bg-tertiary);
+        border: 1px solid var(--color-border-light);
+    }
+
+    .plan-item-card:hover {
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+    }
+
+    .plan-item-title a {
+        color: var(--color-text-primary);
+    }
+
+    .plan-item-title a:hover {
+        color: #8b9cff;
+    }
+
+    .plan-item-details {
+        border-top: 1px solid var(--color-border-medium);
+        background: var(--color-bg-secondary);
+    }
+
+    .plan-item-meta {
+        color: var(--color-text-muted);
+    }
+
+    /* Tree Controls */
+    .expand-toggle {
+        color: var(--color-text-muted) !important;
+    }
+
+    .expand-toggle:hover {
+        color: #8b9cff !important;
+    }
+
+    .child-arrow {
+        color: #8b9cff;
+    }
+
+    .no-child-arrow {
+        color: var(--color-text-disabled);
+    }
+
+    /* Travel Tips */
+    .travel-tips-box {
+        background: var(--color-bg-secondary);
+    }
+
+    .travel-tip-card {
+        background: var(--color-bg-tertiary);
+        color: var(--color-text-primary);
+    }
+
+    .travel-tip-card:hover {
+        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
+    }
+
+    /* Experience Detail List */
+    .experience-detail .list-group-item:hover:not(.fw-bold) {
+        background: var(--color-bg-tertiary);
+    }
+
+    /* Plan Tabs */
+    .plan-tabs-nav {
+        border-bottom: 2px solid var(--color-border-medium);
+    }
+
+    .plan-tab-button {
+        color: var(--color-text-muted);
+    }
+
+    .plan-tab-button:hover {
+        color: var(--color-text-secondary);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .plan-tab-button.active {
+        color: #8b9cff;
+        border-bottom-color: #8b9cff;
+        background: rgba(102, 126, 234, 0.1);
+    }
+
+    /* Plan Dropdown */
+    .plan-dropdown {
+        background: var(--color-bg-tertiary);
+        border: 1px solid var(--color-border-medium);
+        color: var(--color-text-primary);
+    }
+
+    .plan-dropdown:hover {
+        border-color: #8b9cff;
+    }
+
+    .plan-dropdown:focus {
+        outline: 2px solid #8b9cff;
+        border-color: #8b9cff;
+    }
+
+    /* My Plan View */
+    .my-plan-view .plan-item-card {
+        background: var(--color-bg-tertiary);
+        border: 1px solid var(--color-border-medium);
+    }
+
+    .my-plan-view .plan-item-card:hover {
+        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+    }
+
+    .my-plan-view .plan-item-header {
+        border-bottom: 1px solid var(--color-border-medium);
+    }
+
+    .my-plan-view .plan-item-details {
+        background: var(--color-bg-secondary);
+    }
+
+    /* Cost Estimate Colors */
+    .green {
+        color: #51cf66;
+    }
+
+    .grey {
+        color: #adb5bd;
     }
 }

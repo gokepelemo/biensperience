@@ -172,8 +172,12 @@ async function getAllActivities(req, res) {
 
     if (action) query.action = action;
     if (resourceType) query['resource.type'] = resourceType;
-    if (actorId) query['actor._id'] = mongoose.Types.ObjectId(actorId);
-    if (resourceId) query['resource.id'] = mongoose.Types.ObjectId(resourceId);
+    if (actorId && mongoose.Types.ObjectId.isValid(actorId)) {
+      query['actor._id'] = actorId; // Let Mongoose handle ObjectId conversion
+    }
+    if (resourceId && mongoose.Types.ObjectId.isValid(resourceId)) {
+      query['resource.id'] = resourceId; // Let Mongoose handle ObjectId conversion
+    }
     if (status) query.status = status;
     if (tag) query.tags = tag;
 

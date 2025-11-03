@@ -6,6 +6,7 @@ import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import Alert from "../../components/Alert/Alert";
 import PageMeta from "../../components/PageMeta/PageMeta";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
+import Loading from "../../components/Loading/Loading";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { logger } from "../../utilities/logger";
 import * as experiencesAPI from "../../utilities/experiences-api";
@@ -61,20 +62,21 @@ export default function ExperiencesByTag() {
 
   // Derived value - no need for state
   const displayTagName = actualTagName || tagName;
+  const capitalizedTagName = displayTagName.charAt(0).toUpperCase() + displayTagName.slice(1);
 
   return (
-    <PageWrapper title={`${displayTagName} Experiences`}>
+    <PageWrapper title={`${capitalizedTagName} Experiences`}>
       <PageMeta
-        title={`Experiences tagged ${displayTagName}`}
-        description={`Discover ${filteredExperiences.length > 0 ? filteredExperiences.length : ''} travel experiences tagged as ${displayTagName}. Find unique ${displayTagName} adventures and activities around the world.`}
-        keywords={`${displayTagName}, travel experiences, ${displayTagName} activities, ${displayTagName} adventures, travel planning, tourism`}
-        ogTitle={`${displayTagName} Travel Experiences`}
-        ogDescription={`Browse our collection of ${displayTagName} experiences${filteredExperiences.length > 0 ? `. ${filteredExperiences.length} curated experiences available` : ' from around the world'}.`}
+        title={`Experiences tagged ${capitalizedTagName}`}
+        description={`Discover ${filteredExperiences.length > 0 ? filteredExperiences.length : ''} travel experiences tagged as ${capitalizedTagName}. Find unique ${capitalizedTagName} adventures and activities around the world.`}
+        keywords={`${capitalizedTagName}, travel experiences, ${capitalizedTagName} activities, ${capitalizedTagName} adventures, travel planning, tourism`}
+        ogTitle={`${capitalizedTagName} Travel Experiences`}
+        ogDescription={`Browse our collection of ${capitalizedTagName} experiences${filteredExperiences.length > 0 ? `. ${filteredExperiences.length} curated experiences available` : ' from around the world'}.`}
       />
 
       <div className="row fade-in">
         <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">Experiences tagged {displayTagName}</h1>
+          <h1 className="my-4 h fade-in">Experiences tagged {capitalizedTagName}</h1>
         </div>
         <div className="col-md-6 fade-in d-flex align-items-center justify-content-md-end">
           <Link to="/experiences" className="btn btn-light">
@@ -84,11 +86,11 @@ export default function ExperiencesByTag() {
       </div>
 
       {loading ? (
-        <div className="text-center my-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading experiences...</span>
-          </div>
-        </div>
+        <Loading
+          variant="centered"
+          size="lg"
+          message={`Loading ${capitalizedTagName} experiences...`}
+        />
       ) : filteredExperiences.length > 0 ? (
         <div className="row my-4 fade-in">
           <div className="experiences-list fade-in">
@@ -106,7 +108,7 @@ export default function ExperiencesByTag() {
         <div className="row my-4 fade-in">
           <div className="col-12">
             <Alert type="info">
-              <h5>No experiences found with tag "{displayTagName}"</h5>
+              <h5>No experiences found with tag "{capitalizedTagName}"</h5>
               <p>Try browsing all experiences or search for a different tag.</p>
               <Link to="/experiences" className="btn btn-primary mt-2">
                 Browse All Experiences

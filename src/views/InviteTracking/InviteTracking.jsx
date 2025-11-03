@@ -3,15 +3,19 @@
  *
  * Displays invite codes created by the user and their usage statistics.
  * Shows who has redeemed invite codes and detailed analytics.
+ *
+ * Loading Pattern: Uses progressive loading to avoid code duplication.
+ * Header content loads immediately, dynamic content loads after API call.
  */
 
 import { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Table, Badge, Tabs, Tab, Spinner } from 'react-bootstrap';
+import { Row, Col, Card, Table, Badge, Tabs, Tab, Spinner } from 'react-bootstrap';
 import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 import { getMyInvites, getInviteDetails, getInviteAnalytics } from '../../utilities/invite-tracking-service';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
+import { getDefaultPhoto } from '../../utilities/photo-utils';
 import Alert from '../../components/Alert/Alert';
 import './InviteTracking.css';
 
@@ -77,18 +81,18 @@ export default function InviteTracking() {
     const isFullyUsed = invite.maxUses && invite.usedCount >= invite.maxUses;
 
     if (!invite.isActive) {
-      return <Badge bg="secondary"><FaTimesCircle /> Inactive</Badge>;
+      return <Badge className="badge badge-secondary"><FaTimesCircle /> Inactive</Badge>;
     }
     if (isExpired) {
-      return <Badge bg="danger"><FaClock /> Expired</Badge>;
+      return <Badge className="badge badge-danger"><FaClock /> Expired</Badge>;
     }
     if (isFullyUsed) {
-      return <Badge bg="warning"><FaCheckCircle /> Fully Used</Badge>;
+      return <Badge className="badge badge-warning"><FaCheckCircle /> Fully Used</Badge>;
     }
     if (invite.usedCount > 0) {
-      return <Badge bg="info"><FaUsers /> In Use</Badge>;
+      return <Badge className="badge badge-info"><FaUsers /> In Use</Badge>;
     }
-    return <Badge bg="success"><FaCheckCircle /> Available</Badge>;
+    return <Badge className="badge badge-success"><FaCheckCircle /> Available</Badge>;
   };
 
   const formatDate = (date) => {
@@ -111,7 +115,7 @@ export default function InviteTracking() {
                 <div className="stat-icon">
                   <FaQrcode />
                 </div>
-                <h3>{stats.totalInvites}</h3>
+                <h2 className="stat-value">{stats.totalInvites}</h2>
                 <p className="text-muted">Total Invites</p>
               </Card.Body>
             </Card>
@@ -122,7 +126,7 @@ export default function InviteTracking() {
                 <div className="stat-icon text-success">
                   <FaCheckCircle />
                 </div>
-                <h3>{stats.activeInvites}</h3>
+                <h2 className="stat-value">{stats.activeInvites}</h2>
                 <p className="text-muted">Active</p>
               </Card.Body>
             </Card>
@@ -133,7 +137,7 @@ export default function InviteTracking() {
                 <div className="stat-icon text-info">
                   <FaUsers />
                 </div>
-                <h3>{stats.totalRedemptions}</h3>
+                <h2 className="stat-value">{stats.totalRedemptions}</h2>
                 <p className="text-muted">Redemptions</p>
               </Card.Body>
             </Card>
@@ -144,7 +148,7 @@ export default function InviteTracking() {
                 <div className="stat-icon text-danger">
                   <FaClock />
                 </div>
-                <h3>{stats.expiredInvites}</h3>
+                <h2 className="stat-value">{stats.expiredInvites}</h2>
                 <p className="text-muted">Expired</p>
               </Card.Body>
             </Card>
@@ -155,7 +159,7 @@ export default function InviteTracking() {
       {/* Invites Table */}
       <Card>
         <Card.Header>
-          <h5><FaQrcode /> My Invite Codes</h5>
+          <h2><FaQrcode /> My Invite Codes</h2>
         </Card.Header>
         <Card.Body>
           {invites.length === 0 ? (
@@ -192,7 +196,7 @@ export default function InviteTracking() {
                         )}
                       </td>
                       <td>
-                        <Badge bg="secondary">
+                        <Badge className="badge badge-secondary">
                           {invite.usedCount}/{invite.maxUses || '∞'}
                         </Badge>
                       </td>
@@ -225,7 +229,7 @@ export default function InviteTracking() {
 
   const renderDetails = () => {
     if (!selectedInvite) {
-      return <Alert type="info" message="Select an invite code to view details" />;
+      return <Alert type="info" message="Select an invite code to view details." />;
     }
 
     return (
@@ -255,7 +259,7 @@ export default function InviteTracking() {
                 <div className="invite-detail-item">
                   <strong>Usage:</strong>
                   <div>
-                    <Badge bg="secondary">
+                    <Badge className="badge badge-secondary">
                       {selectedInvite.usedCount}/{selectedInvite.maxUses || '∞'}
                     </Badge>
                     {selectedInvite.usagePercentage && (
@@ -305,7 +309,7 @@ export default function InviteTracking() {
                       <strong>Experiences ({selectedInvite.experiences.length}):</strong>
                       <ul className="resource-list">
                         {selectedInvite.experiences.map((exp) => (
-                          <li key={exp._id}>{exp.title}</li>
+                          <li key={exp._id}>{exp.name}</li>
                         ))}
                       </ul>
                     </div>
@@ -346,24 +350,29 @@ export default function InviteTracking() {
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedInvite.redeemedBy.map((user) => (
-                          <tr key={user._id}>
-                            <td>
-                              <div className="d-flex align-items-center">
-                                {user.photo && (
-                                  <img
-                                    src={user.photo}
-                                    alt={user.name}
-                                    className="user-avatar-small me-2"
-                                  />
-                                )}
-                                <span>{user.name}</span>
-                              </div>
-                            </td>
-                            <td>{user.email}</td>
-                            <td>{formatDate(user.createdAt)}</td>
-                          </tr>
-                        ))}
+                        {selectedInvite.redeemedBy.map((user) => {
+                          const defaultPhoto = getDefaultPhoto(user);
+                          const photoUrl = defaultPhoto?.url || user.oauthProfilePhoto;
+                          
+                          return (
+                            <tr key={user._id}>
+                              <td>
+                                <div className="d-flex align-items-center">
+                                  {photoUrl && (
+                                    <img
+                                      src={photoUrl}
+                                      alt={user.name}
+                                      className="user-avatar-small me-2"
+                                    />
+                                  )}
+                                  <span>{user.name}</span>
+                                </div>
+                              </td>
+                              <td>{user.email}</td>
+                              <td>{formatDate(user.createdAt)}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </Table>
                   </div>
@@ -390,7 +399,7 @@ export default function InviteTracking() {
       <div>
         <Row className="mb-4">
           <Col md={12}>
-            <h5><FaChartLine /> Invite Analytics</h5>
+            <h2><FaChartLine /> Invite Analytics</h2>
           </Col>
         </Row>
 
@@ -399,7 +408,7 @@ export default function InviteTracking() {
             <Card className="analytics-card">
               <Card.Body>
                 <h6>Total Invites Created</h6>
-                <h2>{analytics.totalInvites}</h2>
+                <div className="analytics-value">{analytics.totalInvites}</div>
               </Card.Body>
             </Card>
           </Col>
@@ -407,7 +416,7 @@ export default function InviteTracking() {
             <Card className="analytics-card">
               <Card.Body>
                 <h6>Total Redemptions</h6>
-                <h2>{analytics.totalRedemptions}</h2>
+                <div className="analytics-value">{analytics.totalRedemptions}</div>
               </Card.Body>
             </Card>
           </Col>
@@ -415,7 +424,7 @@ export default function InviteTracking() {
             <Card className="analytics-card">
               <Card.Body>
                 <h6>Redemption Rate</h6>
-                <h2>{analytics.redemptionRate}%</h2>
+                <div className="analytics-value">{analytics.redemptionRate}%</div>
               </Card.Body>
             </Card>
           </Col>
@@ -423,7 +432,7 @@ export default function InviteTracking() {
             <Card className="analytics-card">
               <Card.Body>
                 <h6>Avg Redemptions/Invite</h6>
-                <h2>{analytics.averageRedemptionsPerInvite}</h2>
+                <div className="analytics-value">{analytics.averageRedemptionsPerInvite}</div>
               </Card.Body>
             </Card>
           </Col>
@@ -431,7 +440,7 @@ export default function InviteTracking() {
             <Card className="analytics-card">
               <Card.Body>
                 <h6>Active Invites</h6>
-                <h2>{analytics.activeInvites}</h2>
+                <div className="analytics-value">{analytics.activeInvites}</div>
               </Card.Body>
             </Card>
           </Col>
@@ -439,7 +448,7 @@ export default function InviteTracking() {
             <Card className="analytics-card">
               <Card.Body>
                 <h6>Unused Invites</h6>
-                <h2>{analytics.unusedInvites}</h2>
+                <div className="analytics-value">{analytics.unusedInvites}</div>
               </Card.Body>
             </Card>
           </Col>
@@ -455,8 +464,8 @@ export default function InviteTracking() {
                 <div className="analytics-item">
                   <strong>Last 7 Days:</strong>
                   <span className="float-end">
-                    <Badge bg="info">{analytics.redemptionsLast7Days} redemptions</Badge>
-                    <Badge bg="secondary" className="ms-2">
+                    <Badge className="badge badge-info">{analytics.redemptionsLast7Days} redemptions</Badge>
+                    <Badge className="badge badge-secondary ms-2">
                       {analytics.invitesCreatedLast7Days} created
                     </Badge>
                   </span>
@@ -464,8 +473,8 @@ export default function InviteTracking() {
                 <div className="analytics-item">
                   <strong>Last 30 Days:</strong>
                   <span className="float-end">
-                    <Badge bg="info">{analytics.redemptionsLast30Days} redemptions</Badge>
-                    <Badge bg="secondary" className="ms-2">
+                    <Badge className="badge badge-info">{analytics.redemptionsLast30Days} redemptions</Badge>
+                    <Badge className="badge badge-secondary ms-2">
                       {analytics.invitesCreatedLast30Days} created
                     </Badge>
                   </span>
@@ -481,15 +490,15 @@ export default function InviteTracking() {
               <Card.Body>
                 <div className="analytics-item">
                   <strong>Expired:</strong>
-                  <Badge bg="danger" className="float-end">{analytics.expiredInvites}</Badge>
+                  <Badge className="badge badge-danger float-end">{analytics.expiredInvites}</Badge>
                 </div>
                 <div className="analytics-item">
                   <strong>Fully Used:</strong>
-                  <Badge bg="warning" className="float-end">{analytics.fullyUsedInvites}</Badge>
+                  <Badge className="badge badge-warning float-end">{analytics.fullyUsedInvites}</Badge>
                 </div>
                 <div className="analytics-item">
                   <strong>Email Restricted:</strong>
-                  <Badge bg="secondary" className="float-end">
+                  <Badge className="badge badge-secondary float-end">
                     {analytics.emailRestrictedInvites}
                   </Badge>
                 </div>
@@ -507,13 +516,13 @@ export default function InviteTracking() {
               <Card.Body>
                 <div className="analytics-item">
                   <strong>With Experiences:</strong>
-                  <Badge bg="info" className="float-end">
+                  <Badge className="badge badge-info float-end">
                     {analytics.invitesWithExperiences}
                   </Badge>
                 </div>
                 <div className="analytics-item">
                   <strong>With Destinations:</strong>
-                  <Badge bg="success" className="float-end">
+                  <Badge className="badge badge-success float-end">
                     {analytics.invitesWithDestinations}
                   </Badge>
                 </div>
@@ -525,47 +534,47 @@ export default function InviteTracking() {
     );
   };
 
-  if (isLoading) {
-    return (
-      <Container className="invite-tracking-container py-5">
-        <div className="text-center">
-          <Spinner animation="border" />
-          <p className="mt-3">Loading invite tracking data...</p>
-        </div>
-      </Container>
-    );
-  }
-
   return (
-    <Container className="invite-tracking-container py-4">
-      <Row className="mb-4">
-        <Col>
-          <h2><FaQrcode /> Invite Tracking</h2>
-          <p className="text-muted">
-            Track your invite codes and see who has joined using them
-          </p>
-        </Col>
-      </Row>
+    <div className="profile-dropdown-view">
+      <div className="container-fluid">
+        <div className="view-header">
+          <div className="row">
+            <div className="col-12">
+              <h1><FaQrcode /> Invite Tracking</h1>
+              <p className="header-description">
+                Track your invite codes and see who has joined using them
+              </p>
+            </div>
+          </div>
+        </div>
 
-      {error && (
-        <Alert type="danger" message={error} dismissible onClose={() => setError(null)} />
-      )}
+        {error && (
+          <Alert type="danger" message={error} dismissible onClose={() => setError(null)} />
+        )}
 
-      <Tabs
-        activeKey={activeTab}
-        onSelect={(k) => setActiveTab(k)}
-        className="mb-3"
-      >
-        <Tab eventKey="overview" title="Overview">
-          {renderOverview()}
-        </Tab>
-        <Tab eventKey="details" title="Invite Details">
-          {renderDetails()}
-        </Tab>
-        <Tab eventKey="analytics" title="Analytics">
-          {renderAnalytics()}
-        </Tab>
-      </Tabs>
-    </Container>
+        {isLoading ? (
+          <div className="text-center py-5">
+            <Spinner animation="border" />
+            <p className="mt-3">Loading invite tracking data...</p>
+          </div>
+        ) : (
+          <Tabs
+            activeKey={activeTab}
+            onSelect={(k) => setActiveTab(k)}
+            className="mb-3"
+          >
+            <Tab eventKey="overview" title="Overview">
+              {renderOverview()}
+            </Tab>
+            <Tab eventKey="details" title="Invite Details">
+              {renderDetails()}
+            </Tab>
+            <Tab eventKey="analytics" title="Analytics">
+              {renderAnalytics()}
+            </Tab>
+          </Tabs>
+        )}
+      </div>
+    </div>
   );
 }

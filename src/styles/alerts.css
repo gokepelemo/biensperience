@@ -12,54 +12,48 @@
 
 /* Info Alert - Purple/Blue theme */
 .alert-custom-info {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-    border: 2px solid var(--color-primary, #667eea);
-    color: var(--color-text, #333);
+    background: var(--color-primary-light);
+    border: 2px solid var(--color-primary);
+    color: var(--color-text-primary);
 }
 
 /* Success Alert - Green theme */
 .alert-custom-success {
-    background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(32, 201, 151, 0.1) 100%);
-    border: 2px solid #28a745;
-    color: #155724;
+    background: var(--color-success-light);
+    border: 2px solid var(--color-success);
+    color: var(--color-text-primary);
 }
 
 /* Danger Alert - Red theme */
 .alert-custom-danger {
-    background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(200, 35, 51, 0.1) 100%);
-    border: 2px solid #dc3545;
-    color: #721c24;
+    background: var(--color-danger-light);
+    border: 2px solid var(--color-danger);
+    color: var(--color-text-primary);
 }
 
 /* Warning Alert - Yellow/Orange theme */
 .alert-custom-warning {
-    background: linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 152, 0, 0.1) 100%);
-    border: 2px solid #ffc107;
-    color: #856404;
+    background: var(--color-warning-light);
+    border: 2px solid var(--color-warning);
+    color: var(--color-text-primary);
 }
 
 /* Primary Alert - Purple gradient theme */
 .alert-custom-primary {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-    border: 2px solid var(--color-primary, #667eea);
-    color: var(--color-text, #333);
+    background: var(--color-primary-light);
+    border: 2px solid var(--color-primary);
+    color: var(--color-text-primary);
 }
 
 /* Solid Info Alert for modals - White text on purple gradient with animation */
 .alert-custom-info-solid {
-    background: linear-gradient(
-        -45deg,
-        #667eea,
-        #764ba2,
-        #667eea,
-        #764ba2
-    );
+    background: var(--gradient-primary-animated);
     background-size: 400% 400%;
     animation: gradientShift 8s ease infinite;
     border: none;
-    border-radius: 1rem;
+    border-radius: var(--radius-lg);
     color: white;
-    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    box-shadow: var(--shadow-lg);
 }
 
 .alert-custom-info-solid h3,
@@ -70,20 +64,20 @@
 
 /* Solid Success Alert */
 .alert-custom-success-solid {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    background: var(--gradient-primary);
     border: none;
-    border-radius: 1rem;
+    border-radius: var(--radius-lg);
     color: white;
-    box-shadow: 0 10px 30px rgba(40, 167, 69, 0.3);
+    box-shadow: var(--shadow-lg);
 }
 
 /* Solid Danger Alert */
 .alert-custom-danger-solid {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    background: var(--gradient-primary);
     border: none;
-    border-radius: 1rem;
+    border-radius: var(--radius-lg);
     color: white;
-    box-shadow: 0 10px 30px rgba(220, 53, 69, 0.3);
+    box-shadow: var(--shadow-lg);
 }
 
 /* Alert headings */
@@ -102,19 +96,19 @@
 }
 
 .alert-custom-info a {
-    color: var(--color-primary, #667eea);
+    color: var(--color-primary);
 }
 
 .alert-custom-success a {
-    color: #155724;
+    color: var(--color-success);
 }
 
 .alert-custom-danger a {
-    color: #721c24;
+    color: var(--color-danger);
 }
 
 .alert-custom-warning a {
-    color: #856404;
+    color: var(--color-warning);
 }
 
 /* Dismissible alerts */

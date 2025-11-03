@@ -40,6 +40,7 @@ export default function ActionButtons({
           tooltip,
           type = 'button',
           className: buttonClassName = '',
+          compact: buttonCompact, // Extract compact to avoid passing to DOM
           ...restProps
         } = button;
 
