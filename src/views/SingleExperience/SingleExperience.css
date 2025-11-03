@@ -609,7 +609,7 @@
 /* Custom Button Classes - Design System Integration */
 .btn-plan-add,
 .btn-plan-remove {
-    background: var(--gradient-primary);
+    background: var(--gradient-primary) !important;
     color: white !important;
     border: none;
     border-radius: var(--radius-md);
@@ -618,7 +618,6 @@
     padding: 0.75rem 1.25rem;
     transition: var(--transition-normal);
     box-shadow: var(--shadow-sm);
-    /* Fixed width to accommodate longest text with comfortable padding */
     min-width: 200px;
     max-width: 320px;
     width: 320px;
