@@ -36,8 +36,8 @@ button:hover, .btn:hover {
 .btn-favorite-add,
 .btn-favorite-remove {
     /* Clone btn-icon properties - purple gradient base */
-    background: var(--gradient-primary);
-    color: white;
+    background: var(--gradient-primary) !important;
+    color: white !important;
     border: none;
     font-weight: var(--font-weight-semibold);
     font-size: var(--font-size-lg);
@@ -53,18 +53,18 @@ button:hover, .btn:hover {
 
 /* Turn green when hovering on add state */
 .btn-favorite-add:hover {
-    background: linear-gradient(135deg, var(--color-favorite-add-hover-start) 0%, var(--color-favorite-add-hover-end) 100%);
+    background: linear-gradient(135deg, var(--color-favorite-add-hover-start) 0%, var(--color-favorite-add-hover-end) 100%) !important;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-    color: white;
+    color: white !important;
 }
 
 /* Turn red when hovering on remove state */
 .btn-favorite-remove:hover {
-    background: linear-gradient(135deg, var(--color-favorite-remove-hover-start) 0%, var(--color-favorite-remove-hover-end) 100%);
+    background: linear-gradient(135deg, var(--color-favorite-remove-hover-start) 0%, var(--color-favorite-remove-hover-end) 100%) !important;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-    color: white;
+    color: white !important;
 }
 
 /* Loading pulse animation for favorite button */
