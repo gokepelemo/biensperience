@@ -24,6 +24,14 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <!-- Set Bootstrap theme BEFORE React renders to prevent flash -->
+    <script>
+      (function() {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = prefersDark ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-bs-theme', theme);
+      })();
+    </script>
     <!-- Vite entry point -->
     <script type="module" src="/src/index.jsx"></script>
   </body>

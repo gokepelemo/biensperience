@@ -39,10 +39,8 @@ export default defineConfig({
   build: {
     outDir: 'build',
     sourcemap: true,
-    // Optimize chunk size
     chunkSizeWarningLimit: 1000,
-    // Enable CSS code splitting
-    cssCodeSplit: true,
+    cssCodeSplit: false,
     // Minification options
     minify: 'esbuild',
     rollupOptions: {

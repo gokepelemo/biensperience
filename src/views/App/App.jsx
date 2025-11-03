@@ -107,27 +107,20 @@ function AppContent() {
   const { success, error: showError } = useToast();
   logger.debug('useToast completed');
 
-  // Set Bootstrap dark mode based on system preference
   useEffect(() => {
     const setBootstrapTheme = () => {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const theme = prefersDark ? 'dark' : 'light';
       document.documentElement.setAttribute('data-bs-theme', theme);
-      logger.debug('Bootstrap theme set to:', theme);
+      logger.debug('Bootstrap theme updated to:', theme);
     };
 
-    // Set initial theme
-    setBootstrapTheme();
-
-    // Listen for changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => setBootstrapTheme();
-    
-    // Modern API
+
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handleChange);
     } else {
-      // Fallback for older browsers
       mediaQuery.addListener(handleChange);
     }
 
