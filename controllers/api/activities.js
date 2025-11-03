@@ -167,19 +167,74 @@ async function getAllActivities(req, res) {
       limit = 50
     } = req.query;
 
-    // Build query
+    // Build query with input validation to prevent NoSQL injection
     const query = {};
 
-    if (action) query.action = action;
-    if (resourceType) query['resource.type'] = resourceType;
-    if (actorId && mongoose.Types.ObjectId.isValid(actorId)) {
-      query['actor._id'] = actorId; // Let Mongoose handle ObjectId conversion
+    // Validate and sanitize string inputs - only allow alphanumeric, dash, underscore
+    const SAFE_STRING_PATTERN = /^[a-zA-Z0-9_-]+$/;
+    const VALID_ACTIONS = ['create', 'update', 'delete', 'restore', 'permission_change', 'completion'];
+    const VALID_RESOURCE_TYPES = ['Plan', 'Experience', 'Destination', 'User', 'Photo'];
+    const VALID_STATUSES = ['success', 'failure', 'pending'];
+
+    if (action) {
+      if (!VALID_ACTIONS.includes(action)) {
+        return res.status(400).json({
+          error: 'Invalid action parameter',
+          message: 'Action must be one of: ' + VALID_ACTIONS.join(', ')
+        });
+      }
+      query.action = action;
     }
-    if (resourceId && mongoose.Types.ObjectId.isValid(resourceId)) {
-      query['resource.id'] = resourceId; // Let Mongoose handle ObjectId conversion
+
+    if (resourceType) {
+      if (!VALID_RESOURCE_TYPES.includes(resourceType)) {
+        return res.status(400).json({
+          error: 'Invalid resourceType parameter',
+          message: 'Resource type must be one of: ' + VALID_RESOURCE_TYPES.join(', ')
+        });
+      }
+      query['resource.type'] = resourceType;
     }
-    if (status) query.status = status;
-    if (tag) query.tags = tag;
+
+    if (actorId) {
+      if (!mongoose.Types.ObjectId.isValid(actorId)) {
+        return res.status(400).json({
+          error: 'Invalid actorId parameter',
+          message: 'Actor ID must be a valid MongoDB ObjectId'
+        });
+      }
+      query['actor._id'] = new mongoose.Types.ObjectId(actorId);
+    }
+
+    if (resourceId) {
+      if (!mongoose.Types.ObjectId.isValid(resourceId)) {
+        return res.status(400).json({
+          error: 'Invalid resourceId parameter',
+          message: 'Resource ID must be a valid MongoDB ObjectId'
+        });
+      }
+      query['resource.id'] = new mongoose.Types.ObjectId(resourceId);
+    }
+
+    if (status) {
+      if (!VALID_STATUSES.includes(status)) {
+        return res.status(400).json({
+          error: 'Invalid status parameter',
+          message: 'Status must be one of: ' + VALID_STATUSES.join(', ')
+        });
+      }
+      query.status = status;
+    }
+
+    if (tag) {
+      if (!SAFE_STRING_PATTERN.test(tag)) {
+        return res.status(400).json({
+          error: 'Invalid tag parameter',
+          message: 'Tag must contain only alphanumeric characters, dashes, and underscores'
+        });
+      }
+      query.tags = tag;
+    }
 
     if (startDate || endDate) {
       query.timestamp = {};

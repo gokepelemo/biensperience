@@ -30,13 +30,64 @@ const APP_NAME = 'Biensperience';
  * @returns {string} Plain text content
  */
 function stripHtml(html) {
-  // Remove HTML tags
-  let text = html.replace(/<[^>]*>/g, '');
-  // Remove HTML entities - use safer approach to avoid polynomial regex
-  text = text.replace(/&[a-zA-Z0-9#]+;/g, '');
+  // Security: Character-by-character parsing to avoid ReDoS vulnerabilities
+  // Avoids polynomial regex patterns like /<[^>]*>/g that can cause denial of service
+  let text = '';
+  let inTag = false;
+  let inEntity = false;
+  let entity = '';
+
+  for (let i = 0; i < html.length; i++) {
+    const char = html[i];
+
+    if (char === '<') {
+      inTag = true;
+      continue;
+    }
+    if (char === '>') {
+      inTag = false;
+      continue;
+    }
+    if (inTag) {
+      continue;
+    }
+
+    if (char === '&') {
+      inEntity = true;
+      entity = '';
+      continue;
+    }
+    if (inEntity) {
+      if (char === ';') {
+        inEntity = false;
+        // Convert common HTML entities
+        const entities = {
+          'lt': '<', 'gt': '>', 'amp': '&', 'quot': '"', 'apos': "'",
+          'nbsp': ' ', 'ndash': '–', 'mdash': '—'
+        };
+        text += entities[entity] || '';
+        entity = '';
+      } else if (char.match(/[a-zA-Z0-9#]/)) {
+        entity += char;
+      } else {
+        // Invalid entity, output as-is
+        text += '&' + entity + char;
+        inEntity = false;
+        entity = '';
+      }
+      continue;
+    }
+
+    text += char;
+  }
+
+  // Handle unclosed entity
+  if (inEntity) {
+    text += '&' + entity;
+  }
+
   // Remove extra whitespace
-  text = text.replace(/\s+/g, ' ').trim();
-  return text;
+  return text.replace(/\s+/g, ' ').trim();
 }
 
 /**
