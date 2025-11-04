@@ -1,8 +1,11 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../src/index.css';
 import '../src/styles/theme.css';
+import '../src/styles/design-tokens.css';
+import '../src/styles/utilities.css';
 import '../src/styles/accessibility.css';
 import '../src/styles/alerts.css';
+import '../src/styles/animations.css';
 
 /** @type { import('@storybook/react-webpack5').Preview } */
 const preview = {

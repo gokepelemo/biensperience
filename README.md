@@ -1,6 +1,6 @@
 # Biensperience
 
-_This was a General Assembly bootcamp project that is being developed for open source. Contact me with any questions about it. Find bugs? Create an issue. By all means create a PR with contributions._
+_This was a General Assembly bootcamp final project that is being developed with AI agents for open source. Contact me with any questions about it. Find bugs? Create an issue. By all means create a PR with contributions._
 
 A collaborative travel planning application for creating and sharing travel experiences.
 
@@ -20,14 +20,15 @@ React • MongoDB • Node.js • Express • AWS S3 • Bootstrap
 
 ### Prerequisites
 - Node.js (v16+)
-- MongoDB database
-- AWS S3 bucket (for photos)
+- MongoDB Atlas account (recommended - free tier available at [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas))
+- AWS S3 bucket (for photo storage)
+- PM2 (`npm install -g pm2`)
 
 ### Quick Start
 
 1. **Clone and install**
    ```bash
-   git clone https://github.com/yourusername/biensperience.git
+   git clone https://github.com/gokepelemo/biensperience.git
    cd biensperience
    npm install
    ```
@@ -42,23 +43,38 @@ React • MongoDB • Node.js • Express • AWS S3 • Bootstrap
    S3_BUCKET_NAME=your-bucket
    ```
 
-3. **Generate sample data**
+3. **Generate sample data** (optional)
    ```bash
    node sampleData.js
    # Creates 180 users, 90 destinations, 270 experiences, 450 plans, 600 photos
-
-   # Custom counts:
-   node sampleData.js --users 50 --destinations 20 --experiences 100
    ```
 
-4. **Start development**
+4. **Start with PM2**
    ```bash
-   npm start  # Frontend: http://localhost:3000
-              # Backend: http://localhost:3001
+   pm2 start ecosystem.config.js
+   # API: http://localhost:3000
+   # Frontend: http://localhost:3001
+   ```
+
+   **Development mode** (without PM2):
+   ```bash
+   npm start
+   # Frontend: http://localhost:3001
+   # API: http://localhost:3000
    ```
 
 ## Development
 
+**PM2 Commands**:
+```bash
+pm2 start ecosystem.config.js    # Start application
+pm2 logs                          # View logs
+pm2 stop all                      # Stop application
+pm2 restart all                   # Restart application
+pm2 delete all                    # Remove from PM2
+```
+
+**Testing**:
 ```bash
 npm test                    # Frontend tests
 npm run test:api            # Backend tests
