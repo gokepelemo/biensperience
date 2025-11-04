@@ -1,6 +1,6 @@
 import "./UpdateDestination.css";
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { updateDestination as updateDestAPI, showDestination } from "../../utilities/destinations-api";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
@@ -239,8 +239,8 @@ export default function UpdateDestination() {
   return (
     <>
       <div className="row fade-in">
-        <div className="col-md-12 fade-in">
-          <h1 className="my-4 h fade-in text-center">{lang.en.heading.updateDestination || 'Update Destination'}</h1>
+        <div className="col-12">
+          <h1 className="form-title">{lang.en.heading.updateDestination || 'Update Destination'}</h1>
         </div>
       </div>
 
@@ -270,7 +270,7 @@ export default function UpdateDestination() {
 
       <div className="row my-4 fade-in">
         <div className="col-12">
-          <Form onSubmit={handleSubmit} className="new-experience-form">
+          <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
               name="name"
               label="City Name"
@@ -337,16 +337,25 @@ export default function UpdateDestination() {
               onAddStructuredTip={addStructuredTip}
             />
 
-            <button
-              type="button"
-              className="btn btn-primary btn-lg"
-              onClick={handleConfirmUpdate}
-              disabled={Object.keys(changes).length === 0}
-              aria-label={lang.en.button.confirmUpdate || 'Confirm Update'}
-              aria-disabled={Object.keys(changes).length === 0}
-            >
-              {lang.en.button.confirmUpdate || 'Confirm Update'}
-            </button>
+            <div className="d-flex justify-content-between mt-4">
+              <Link
+                to={`/destinations/${destination._id}`}
+                className="btn btn-secondary btn-lg"
+                aria-label={lang.en.button.cancel}
+              >
+                {lang.en.button.cancel}
+              </Link>
+              <button
+                type="button"
+                className="btn btn-primary btn-lg"
+                onClick={handleConfirmUpdate}
+                disabled={Object.keys(changes).length === 0}
+                aria-label={lang.en.button.confirmUpdate || 'Confirm Update'}
+                aria-disabled={Object.keys(changes).length === 0}
+              >
+                {lang.en.button.confirmUpdate || 'Confirm Update'}
+              </button>
+            </div>
           </Form>
         </div>
       </div>

@@ -38,9 +38,9 @@ export default function Experiences() {
         ogDescription={`Explore ${processedExperiences?.length || 'hundreds of'} curated travel experiences worldwide. Start planning your next adventure today.`}
       />
 
-      <div className="row fade-in">
-        <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">Experiences</h1>
+      <div className="row">
+        <div className="col-md-6">
+          <h1 className="my-4">Experiences</h1>
         </div>
       </div>
 

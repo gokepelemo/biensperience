@@ -21,7 +21,14 @@ function parseArgs() {
     clear: args.includes('--clear') || args.includes('-c'),
     help: args.includes('--help') || args.includes('-h'),
     adminName: null,
-    adminEmail: null
+    adminEmail: null,
+    users: null,
+    destinations: null,
+    experiences: null,
+    plans: null,
+    photos: null,
+    invites: null,
+    activities: null
   };
 
   // Parse --admin-name flag
@@ -35,6 +42,24 @@ function parseArgs() {
   if (emailIndex !== -1 && args[emailIndex + 1]) {
     parsed.adminEmail = args[emailIndex + 1];
   }
+
+  // Parse resource count flags
+  const parseNumberFlag = (flagName) => {
+    const index = args.findIndex(arg => arg === flagName);
+    if (index !== -1 && args[index + 1]) {
+      const num = parseInt(args[index + 1], 10);
+      return isNaN(num) ? null : num;
+    }
+    return null;
+  };
+
+  parsed.users = parseNumberFlag('--users');
+  parsed.destinations = parseNumberFlag('--destinations');
+  parsed.experiences = parseNumberFlag('--experiences');
+  parsed.plans = parseNumberFlag('--plans');
+  parsed.photos = parseNumberFlag('--photos');
+  parsed.invites = parseNumberFlag('--invites');
+  parsed.activities = parseNumberFlag('--activities');
 
   return parsed;
 }
@@ -52,23 +77,30 @@ Options:
   --clear, -c                     Clear all existing data before generating new sample data
   --admin-name "Full Name"        Set the super admin's full name
   --admin-email "email@domain"    Set the super admin's email address
+  --users <number>                Number of regular users to create (default: 180)
+  --destinations <number>         Number of destinations to create (default: 90)
+  --experiences <number>          Number of experiences to create (default: 270)
+  --plans <number>                Number of user plans to create (default: 450)
+  --photos <number>               Number of photos to create (default: 600)
+  --invites <number>              Number of invite codes to create (default: 60)
+  --activities <number>           Number of activity log entries to create (default: 300)
   --help, -h                      Show this help message
 
 Description:
   Generates comprehensive sample data for Biensperience including:
   - 1 super admin user (interactive or via flags) with API access and active session
-  - 60 regular users with varied profiles:
+  - 180 regular users with varied profiles (configurable with --users):
     * 80% email verified, 20% unverified (email verification flow)
     * 60% with active sessions (session tracking)
     * 30% with invite codes (invite system)
     * 10% with API access enabled (API token system)
     * 70% public, 30% private profiles
-  - 30+ destinations worldwide with structured travel tips
-  - 90+ experiences with collaborators and plan items
-  - 200+ photos from Unsplash
-  - 150+ user plans with varying completion levels
-  - 20 invite codes with various configurations (redeemed, expired, multi-use, etc.)
-  - 100 activity log entries (last 30 days) with metadata including session IDs and trace IDs
+  - 90 destinations worldwide with structured travel tips (configurable with --destinations)
+  - 270 experiences with collaborators and plan items (configurable with --experiences)
+  - 600 photos from Unsplash (configurable with --photos)
+  - 450 user plans with varying completion levels (configurable with --plans)
+  - 60 invite codes with various configurations (configurable with --invites)
+  - 300 activity log entries (last 30 days) with metadata (configurable with --activities)
 
   If --admin-name and --admin-email are not provided, the script will prompt
   you interactively for these details.
@@ -78,16 +110,19 @@ Description:
 
 Examples:
   node sampleData.js
-    # Generate sample data with interactive super admin setup
+    # Generate sample data with default counts (3x original)
 
   node sampleData.js --clear
-    # Clear database and generate fresh sample data (interactive)
+    # Clear database and generate fresh sample data
 
   node sampleData.js --admin-name "John Doe" --admin-email "john@example.com"
     # Generate with specific super admin credentials
 
-  node sampleData.js --clear --admin-name "Admin User" --admin-email "admin@company.com"
-    # Clear database and generate with specific super admin
+  node sampleData.js --users 50 --destinations 20 --experiences 100
+    # Generate with custom resource counts
+
+  node sampleData.js --clear --admin-name "Admin" --admin-email "admin@test.com" --users 200
+    # Clear database and generate with custom super admin and 200 users
 
   node sampleData.js --help
     # Show this help message
@@ -502,7 +537,7 @@ class DataGenerator {
    * @param {string} adminDetails.name - Super admin full name
    * @param {string} adminDetails.email - Super admin email address
    */
-  generateUsers(count = 60, adminDetails = null) {
+  generateUsers(count = 180, adminDetails = null) {
     const users = [];
 
     // Create super admin first
@@ -586,18 +621,28 @@ class DataGenerator {
   /**
    * Generate destinations
    */
-  generateDestinations(count = 30) {
-    const selectedDestinations = getRandomElements(this.destinations, count);
+  generateDestinations(count = 90) {
+    // If count is larger than available destinations, cycle through them
+    const destinations = [];
+    const shuffled = shuffleArray(this.destinations);
 
-    return selectedDestinations.map((dest) => ({
-      name: dest.name,
-      country: dest.country,
-      state: dest.state,
-      map_location: dest.map_location,
-      travel_tips: this.generateTravelTips(dest.name),
-      permissions: [], // Will be set after users are created
-      photos: [] // Will be set after photos are created
-    }));
+    for (let i = 0; i < count; i++) {
+      const dest = shuffled[i % shuffled.length];
+      // Add variation to name if we're cycling through
+      const suffix = i >= shuffled.length ? ` (${Math.floor(i / shuffled.length) + 1})` : '';
+
+      destinations.push({
+        name: dest.name + suffix,
+        country: dest.country,
+        state: dest.state,
+        map_location: dest.map_location,
+        travel_tips: this.generateTravelTips(dest.name),
+        permissions: [], // Will be set after users are created
+        photos: [] // Will be set after photos are created
+      });
+    }
+
+    return destinations;
   }
 
   /**
@@ -728,7 +773,7 @@ class DataGenerator {
   /**
    * Generate photos
    */
-  generatePhotos(count = 200) {
+  generatePhotos(count = 600) {
     const photos = [];
 
     for (let i = 0; i < count; i++) {
@@ -746,7 +791,7 @@ class DataGenerator {
   /**
    * Generate experiences
    */
-  generateExperiences(count = 90, users = [], destinations = [], photos = []) {
+  generateExperiences(count = 270, users = [], destinations = [], photos = []) {
     const experiences = [];
 
     for (let i = 0; i < count; i++) {
@@ -827,7 +872,7 @@ class DataGenerator {
   /**
    * Generate plans
    */
-  generatePlans(count = 150, experiences = [], users = []) {
+  generatePlans(count = 450, experiences = [], users = []) {
     const plans = [];
 
     for (let i = 0; i < count; i++) {
@@ -865,7 +910,7 @@ class DataGenerator {
   /**
    * Generate invite codes
    */
-  generateInviteCodes(count = 20, users = [], experiences = [], destinations = []) {
+  generateInviteCodes(count = 60, users = [], experiences = [], destinations = []) {
     const invites = [];
     const now = new Date();
 
@@ -944,7 +989,7 @@ class DataGenerator {
   /**
    * Generate activity log entries
    */
-  generateActivities(count = 100, users = [], experiences = [], destinations = [], plans = []) {
+  generateActivities(count = 300, users = [], experiences = [], destinations = [], plans = []) {
     const activities = [];
     const now = new Date();
 
@@ -1172,9 +1217,30 @@ async function createSampleData() {
 
     const generator = new DataGenerator();
 
+    // Set resource counts from args or defaults (3x original counts)
+    const resourceCounts = {
+      users: args.users || 180,
+      destinations: args.destinations || 90,
+      experiences: args.experiences || 270,
+      plans: args.plans || 450,
+      photos: args.photos || 600,
+      invites: args.invites || 60,
+      activities: args.activities || 300
+    };
+
+    output.log('📊 Resource Counts:');
+    output.log(`   👥 Users: ${resourceCounts.users} (1 super admin + ${resourceCounts.users - 1} regular)`);
+    output.log(`   📍 Destinations: ${resourceCounts.destinations}`);
+    output.log(`   🎯 Experiences: ${resourceCounts.experiences}`);
+    output.log(`   📋 Plans: ${resourceCounts.plans}`);
+    output.log(`   📸 Photos: ${resourceCounts.photos}`);
+    output.log(`   🎟️  Invite Codes: ${resourceCounts.invites}`);
+    output.log(`   📝 Activity Logs: ${resourceCounts.activities}`);
+    output.log('');
+
     // Generate and create users with custom super admin details
     output.log('👥 Generating users...');
-    const userData = generator.generateUsers(60, { name: adminName, email: adminEmail });
+    const userData = generator.generateUsers(resourceCounts.users, { name: adminName, email: adminEmail });
     const createdUsers = [];
 
     for (const userInfo of userData) {
@@ -1192,7 +1258,7 @@ async function createSampleData() {
 
     // Generate and create destinations
     output.log('📍 Generating destinations...');
-    const destinationData = generator.generateDestinations(30);
+    const destinationData = generator.generateDestinations(resourceCounts.destinations);
     const createdDestinations = [];
 
     for (let i = 0; i < destinationData.length; i++) {
@@ -1210,7 +1276,7 @@ async function createSampleData() {
 
     // Generate and create photos
     output.log('📸 Generating photos...');
-    const photoData = generator.generatePhotos(200);
+    const photoData = generator.generatePhotos(resourceCounts.photos);
     const createdPhotos = [];
 
     for (const photoInfo of photoData) {
@@ -1235,7 +1301,7 @@ async function createSampleData() {
 
     // Generate and create experiences
     output.log('🎯 Generating experiences...');
-    const experienceData = generator.generateExperiences(90, createdUsers, createdDestinations, createdPhotos);
+    const experienceData = generator.generateExperiences(resourceCounts.experiences, createdUsers, createdDestinations, createdPhotos);
     const createdExperiences = [];
 
     for (const expData of experienceData) {
@@ -1247,7 +1313,7 @@ async function createSampleData() {
 
     // Generate and create plans
     output.log('📋 Generating user plans...');
-    const planData = generator.generatePlans(150, createdExperiences, createdUsers);
+    const planData = generator.generatePlans(resourceCounts.plans, createdExperiences, createdUsers);
     const createdPlans = [];
 
     for (const planInfo of planData) {
@@ -1259,7 +1325,7 @@ async function createSampleData() {
 
     // Generate and create invite codes
     output.log('🎟️  Generating invite codes...');
-    const inviteData = generator.generateInviteCodes(20, createdUsers, createdExperiences, createdDestinations);
+    const inviteData = generator.generateInviteCodes(resourceCounts.invites, createdUsers, createdExperiences, createdDestinations);
     const createdInvites = [];
 
     for (const inviteInfo of inviteData) {
@@ -1271,7 +1337,7 @@ async function createSampleData() {
 
     // Generate and create activity logs
     output.log('📝 Generating activity logs...');
-    const activityData = generator.generateActivities(100, createdUsers, createdExperiences, createdDestinations, createdPlans);
+    const activityData = generator.generateActivities(resourceCounts.activities, createdUsers, createdExperiences, createdDestinations, createdPlans);
     const createdActivities = [];
 
     for (const activityInfo of activityData) {

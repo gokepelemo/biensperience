@@ -2,7 +2,7 @@
 
 .all-users-container {
   min-height: 100vh;
-  background: var(--gradient-primary);
+  background: var(--color-bg-primary);
   color: var(--color-text-primary);
 }
 
@@ -53,17 +53,17 @@
 }
 
 .stat-card-primary .stat-card-icon {
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   color: white;
 }
 
 .stat-card-success .stat-card-icon {
-  background: linear-gradient(135deg, var(--color-success) 0%, #22863a 100%);
+  background: var(--color-success);
   color: white;
 }
 
 .stat-card-info .stat-card-icon {
-  background: linear-gradient(135deg, var(--color-info) 0%, #117a8b 100%);
+  background: var(--color-info);
   color: white;
 }
 
@@ -112,41 +112,6 @@
   box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
-/* AllUsers-specific card overrides */
-.all-users-card {
-  border-radius: var(--radius-lg);
-  border: none;
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  background: var(--color-bg-primary);
-}
-
-.all-users-card .card-header {
-  background: var(--gradient-primary);
-  border-bottom: none;
-  color: white;
-  padding: 1.25rem 1.5rem;
-}
-
-.all-users-card .card-header h5 {
-  color: white;
-  font-weight: 600;
-  margin: 0;
-}
-
-.all-users-card .card-body .form-select {
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-medium);
-  background: var(--color-bg-input);
-  color: var(--color-text-primary);
-  transition: var(--transition-base);
-}
-
-.all-users-card .card-body .form-select:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
-}
-
 /* Generic card styling for dark mode */
 .all-users-container .card {
   background: var(--color-bg-primary);
@@ -166,89 +131,9 @@
   color: var(--color-text-primary);
 }
 
-/* Override Bootstrap table defaults */
-.all-users-container .table {
-  --bs-table-bg: transparent !important;
-  --bs-table-hover-bg: var(--color-bg-hover) !important;
-  --bs-table-hover-color: var(--color-text-primary) !important;
-  --bs-table-striped-bg: transparent !important;
-  --bs-table-active-bg: transparent !important;
-  --bs-table-border-color: var(--color-border-light) !important;
-  color: var(--color-text-primary) !important;
-  background-color: transparent !important;
-}
-
-/* Users Table */
-.users-table {
-  font-size: 0.9375rem;
-  color: var(--color-text-primary) !important;
-  background-color: transparent !important;
-  border-color: var(--color-border-light) !important;
-}
-
-.users-table thead {
-  background: var(--color-bg-secondary) !important;
-  border-bottom: 2px solid var(--color-border-medium) !important;
-}
-
-.users-table thead tr {
-  background: var(--color-bg-secondary) !important;
-  border-color: var(--color-border-medium) !important;
-}
-
-.users-table th {
-  font-weight: 600;
-  color: var(--color-text-primary) !important;
-  background: var(--color-bg-secondary) !important;
-  border: none !important;
-  border-bottom: 2px solid var(--color-border-medium) !important;
-  padding: 1rem 1.25rem;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-}
-
-.users-table th.sortable {
-  cursor: pointer;
-  user-select: none;
-  transition: var(--transition-fast);
-}
-
-.users-table th.sortable:hover {
-  background: var(--color-bg-tertiary) !important;
-}
-
-.users-table tbody {
-  background-color: transparent !important;
-}
-
-.users-table tbody tr {
-  background-color: transparent !important;
-  border-color: var(--color-border-light) !important;
-  transition: var(--transition-fast);
-}
-
-.users-table tbody tr:hover {
-  background: var(--color-bg-hover) !important;
-}
-
-.users-table tbody tr.current-user {
-  background: var(--color-primary-light) !important;
-}
-
-.users-table tbody tr.current-user:hover {
-  background: var(--color-primary-light) !important;
-  opacity: 0.9;
-}
-
-.users-table td {
-  vertical-align: middle;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--color-border-light) !important;
-  border-top: none !important;
-  color: var(--color-text-primary) !important;
-  background-color: transparent !important;
-}
+/* Tables use unified design system */
+/* Apply .table-unified class to tables */
+/* Use .highlight class for current-user row */
 
 /* User Name Link */
 .user-name-link {
@@ -274,7 +159,7 @@
 }
 
 .role-badge-admin {
-  background: linear-gradient(135deg, var(--color-success) 0%, #22863a 100%);
+  background: var(--color-success);
   color: white;
 }
 
@@ -314,13 +199,13 @@
 }
 
 .role-btn-admin.role-btn-active {
-  background: linear-gradient(135deg, var(--color-success) 0%, #22863a 100%);
+  background: var(--color-success);
   border-color: var(--color-success);
   color: white;
 }
 
 .role-btn-user.role-btn-active {
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   border-color: var(--color-primary);
   color: white;
 }
@@ -346,14 +231,7 @@
     font-size: 1.5rem;
   }
 
-  .users-table {
-    font-size: 0.875rem;
-  }
-
-  .users-table th,
-  .users-table td {
-    padding: 0.75rem 0.5rem;
-  }
+  /* Table responsive styles handled by .table-unified */
 
   .role-btn {
     padding: 0.375rem 0.625rem;
@@ -380,9 +258,7 @@
     font-size: 1.375rem;
   }
 
-  .users-table {
-    font-size: 0.813rem;
-  }
+  /* Table responsive styles handled by .table-unified */
 
   .role-badge {
     padding: 0.25rem 0.5rem;
@@ -395,21 +271,4 @@
   width: 1rem;
   height: 1rem;
   border-width: 0.15em;
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.card,
-.stat-card {
-  animation: fadeIn var(--transition-normal);
 }

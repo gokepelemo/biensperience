@@ -137,45 +137,7 @@
     color: var(--color-text-primary);
 }
 
-.date-picker-modal .btn {
-    border-radius: var(--radius-lg);
-    transition: var(--transition-normal);
-}
-
-.date-picker-modal .btn-primary {
-    background: white;
-    color: var(--color-primary);
-    box-shadow: var(--shadow-sm);
-}
-
-.date-picker-modal .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-    background: var(--color-bg-secondary);
-}
-
-.date-picker-modal .btn-outline-secondary {
-    border: 2px solid var(--color-border-medium);
-    color: var(--color-text-primary);
-}
-
-.date-picker-modal .btn-outline-secondary:hover {
-    background: var(--color-bg-hover);
-    border-color: var(--color-border-dark);
-    transform: translateY(-2px);
-}
-
-.date-picker-modal .btn-secondary {
-    background: var(--color-bg-tertiary);
-    border: 2px solid var(--color-border-medium);
-    color: var(--color-text-primary);
-}
-
-.date-picker-modal .btn-secondary:hover {
-    background: var(--color-bg-hover);
-    border-color: var(--color-border-dark);
-    transform: translateY(-2px);
-}
+/* Buttons use design system - no overrides needed */
 
 /* Travel Tips Section */
 .travel-tips-box {
@@ -278,76 +240,6 @@
 
 .plan-action-buttons .btn {
     white-space: nowrap;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-sm);
-    transition: var(--transition-normal);
-    font-weight: 500;
-}
-
-.plan-action-buttons .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-/* Override Bootstrap styles with design system tokens */
-.plan-action-buttons .btn-primary {
-    background: var(--color-primary) !important;
-    border-color: var(--color-primary) !important;
-    color: white !important;
-}
-
-.plan-action-buttons .btn-primary:hover {
-    background: var(--color-primary-dark) !important;
-    border-color: var(--color-primary-dark) !important;
-}
-
-.plan-action-buttons .btn-outline-primary {
-    background: transparent !important;
-    border: 2px solid var(--color-primary) !important;
-    color: var(--color-primary) !important;
-}
-
-.plan-action-buttons .btn-outline-primary:hover {
-    background: var(--color-primary) !important;
-    border-color: var(--color-primary) !important;
-    color: white !important;
-}
-
-.plan-action-buttons .btn-outline-secondary {
-    background: transparent !important;
-    border: 2px solid var(--color-border-medium) !important;
-    color: var(--color-text-primary) !important;
-}
-
-.plan-action-buttons .btn-outline-secondary:hover {
-    background: var(--color-bg-secondary) !important;
-    border-color: var(--color-text-secondary) !important;
-    color: var(--color-text-primary) !important;
-}
-
-.plan-action-buttons .btn-outline-danger {
-    background: transparent !important;
-    border: 2px solid var(--color-danger) !important;
-    color: var(--color-danger) !important;
-}
-
-.plan-action-buttons .btn-outline-danger:hover {
-    background: var(--color-danger) !important;
-    border-color: var(--color-danger) !important;
-    color: white !important;
-}
-
-.plan-action-buttons .btn-outline-success,
-.plan-action-buttons .btn-success {
-    background: var(--color-success) !important;
-    border-color: var(--color-success) !important;
-    color: white !important;
-}
-
-.plan-action-buttons .btn-outline-success:hover,
-.plan-action-buttons .btn-success:hover {
-    background: var(--color-success-dark) !important;
-    border-color: var(--color-success-dark) !important;
 }
 
 /* Mobile/Tablet: Stack layout */
@@ -512,67 +404,11 @@
     }
 }
 
-/* Experience Actions Buttons - Design System Integration */
+/* Experience Actions Buttons - Layout only (styles from design system) */
 .experience-actions .btn {
     opacity: 1 !important;
     visibility: visible !important;
-    transition: var(--transition-normal);
     white-space: nowrap;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-sm);
-    font-weight: 500;
-}
-
-.experience-actions .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-}
-
-/* Override Bootstrap button styles with design system tokens */
-.experience-actions .btn-primary {
-    background: var(--color-primary) !important;
-    border-color: var(--color-primary) !important;
-    color: white !important;
-}
-
-.experience-actions .btn-primary:hover {
-    background: var(--color-primary-dark) !important;
-    border-color: var(--color-primary-dark) !important;
-}
-
-.experience-actions .btn-secondary {
-    background: var(--color-text-secondary) !important;
-    border-color: var(--color-text-secondary) !important;
-    color: white !important;
-}
-
-.experience-actions .btn-secondary:hover {
-    background: var(--color-text-primary) !important;
-    border-color: var(--color-text-primary) !important;
-}
-
-.experience-actions .btn-outline-primary {
-    background: transparent !important;
-    border: 2px solid var(--color-primary) !important;
-    color: var(--color-primary) !important;
-}
-
-.experience-actions .btn-outline-primary:hover {
-    background: var(--color-primary) !important;
-    border-color: var(--color-primary) !important;
-    color: white !important;
-}
-
-.experience-actions .btn-outline-secondary {
-    background: transparent !important;
-    border: 2px solid var(--color-border-medium) !important;
-    color: var(--color-text-primary) !important;
-}
-
-.experience-actions .btn-outline-secondary:hover {
-    background: var(--color-bg-secondary) !important;
-    border-color: var(--color-text-secondary) !important;
-    color: var(--color-text-primary) !important;
 }
 
 .plan-item-actions {
@@ -681,11 +517,7 @@
     pointer-events: none;
 }
 
-/* Undo Complete Button */
-.btn-success:hover {
-    background: linear-gradient(90deg, var(--color-single-experience-plan-remove-hover-start) 0%, var(--color-single-experience-plan-remove-hover-end) 100%) !important;
-    color: white !important;
-}
+/* Undo Complete Button - Uses design system */
 
 /* Plan Tabs Navigation */
 .plan-tabs-nav {

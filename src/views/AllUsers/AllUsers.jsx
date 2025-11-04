@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Badge } from "react-bootstrap";
+import { Badge, Card } from "react-bootstrap";
 import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
@@ -272,8 +272,8 @@ export default function AllUsers() {
           {error && <Alert type="danger" message={error} dismissible className="mb-4" />}
 
           {/* Filters and Search */}
-          <div className="all-users-card card mb-4">
-            <div className="card-body">
+          <Card className="mb-4">
+            <Card.Body>
               <div className="row g-3">
                 <div className="col-md-6">
                   <div className="search-box">
@@ -299,8 +299,8 @@ export default function AllUsers() {
                   </select>
                 </div>
               </div>
-            </div>
-          </div>
+            </Card.Body>
+          </Card>
 
           {/* Users Table */}
           {loading ? (
@@ -310,14 +310,14 @@ export default function AllUsers() {
               message="Loading users..."
             />
           ) : (
-            <div className="card">
-              <div className="card-header">
+            <Card>
+              <Card.Header>
                 <h2>
                   <FaUser className="me-2" />
                   Users ({filteredUsers.length}{filteredUsers.length !== users.length ? ` of ${users.length}` : ''})
                 </h2>
-              </div>
-              <div className="card-body p-0">
+              </Card.Header>
+              <Card.Body className="p-0">
                 {filteredUsers.length === 0 ? (
                   <div className="p-5 text-center text-muted">
                     <FaUser size={48} className="mb-3 opacity-50" />
@@ -329,7 +329,7 @@ export default function AllUsers() {
                   </div>
                 ) : (
                   <div className="table-responsive">
-                    <table className="table table-hover users-table mb-0">
+                    <table className="table table-hover table-unified table-gradient-header mb-0">
                       <thead>
                         <tr>
                           <th onClick={() => handleSort('name')} className="sortable">
@@ -351,7 +351,7 @@ export default function AllUsers() {
                         {filteredUsers.map((userData) => {
                           const isCurrentUser = userData._id === user._id;
                           return (
-                            <tr key={userData._id} className={isCurrentUser ? 'current-user' : ''}>
+                            <tr key={userData._id} className={isCurrentUser ? 'highlight' : ''}>
                               <td>
                                 <div className="d-flex align-items-center gap-2">
                                   <Link
@@ -456,8 +456,8 @@ export default function AllUsers() {
                     </table>
                   </div>
                 )}
-              </div>
-            </div>
+              </Card.Body>
+            </Card>
           )}
         </div>
       </div>

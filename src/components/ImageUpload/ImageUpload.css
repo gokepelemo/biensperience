@@ -1,141 +1,212 @@
-form.imageUpload {
-    display: grid;
-    margin: var(--space-4) 0;
-    width: 100%;
-}
+/**
+ * ImageUpload Component Styles
+ * Strictly using design tokens for consistent styling across all views
+ */
 
-form.imageUpload label {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-semibold);
-}
-
-/* Make photo upload inputs consistent with other form fields */
-.uploadPhoto input[type="text"] {
-    font-size: var(--font-size-lg);
-    padding: var(--space-3) var(--space-5);
-    border-radius: var(--radius-lg);
-    border: 2px solid var(--color-border-medium);
-    min-height: 3.5rem;
-    margin: var(--space-1) 0;
-    width: 100%;
-}
-
-.uploadPhoto input[type="text"]:focus {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
-}
-
-.uploadPhoto input[type="file"] {
-    font-size: var(--font-size-base);
-    padding: var(--space-3) var(--space-5);
-    border: 2px solid var(--color-border-medium);
-    min-height: 3.5rem;
-    margin: var(--space-1) 0;
-    width: 100%;
-    background: var(--color-bg-input);
-}
-
-/* Style the file input wrapper to match profile buttons */
-.uploadPhoto input[type="file"]::file-selector-button {
-    background: var(--gradient-primary);
-    color: white;
-    border: none;
-    padding: var(--space-3) var(--space-6);
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-    cursor: pointer;
-    margin-right: var(--space-4);
-    margin-left: 0;
-    border-radius: var(--radius-full) 0 0 var(--radius-full);
-    transition: all var(--transition-base);
-    height: 100%;
-}
-
-.uploadPhoto input[type="file"]::file-selector-button:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-/* Align the file input container */
-.uploadPhoto input[type="file"] {
-    border-radius: 2rem;
-    display: flex;
-    align-items: center;
-    padding: 0;
-    padding-right: 1.25rem;
-    overflow: hidden;
-    border: 2px solid var(--color-image-upload-border);
-    background: var(--color-bg-input);
-}
-
-button.upload-btn,
-button.upload-toggle-btn {
-    min-height: 3.5rem;
-    padding: var(--space-3) var(--space-6);
-    font-size: var(--font-size-base);
-    margin: var(--space-2) 0 !important;
-}
-
+/* Main Container */
 .uploadPhoto {
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: var(--space-4);
 }
 
-.previewImg {
-    height: 150px;
+/* Upload Form Section */
+.upload-form-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
 }
 
-.removeImg {
-    margin: 0 var(--space-4);
+/* Text Inputs - Design System Compliant */
+.uploadPhoto input[type="text"],
+.uploadPhoto input[type="url"] {
+    font-size: var(--font-size-base);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    border: 2px solid var(--color-border-medium);
+    background: var(--color-bg-input);
+    color: var(--color-text-primary);
+    width: 100%;
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
+
+.uploadPhoto input[type="text"]:focus,
+.uploadPhoto input[type="url"]:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0.2rem var(--color-primary-alpha);
+    outline: none;
+}
+
+.uploadPhoto input[type="text"]::placeholder,
+.uploadPhoto input[type="url"]::placeholder {
+    color: var(--color-text-placeholder);
+}
+
+/* File Input - Consistent Styling */
+.uploadPhoto input[type="file"] {
+    font-size: var(--btn-file-input-font-size);
+    padding: 0;
+    border: var(--input-file-border);
+    border-radius: var(--input-file-border-radius);
+    background: var(--input-file-bg);
+    color: var(--input-file-color);
+    width: 100%;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color var(--transition-base);
+    /* Layout stability */
+    contain: layout;
+    /* Vertical alignment */
+    display: flex;
+    align-items: center;
+    min-height: var(--input-file-min-height);
+}
+
+.uploadPhoto input[type="file"]:focus {
+    border-color: var(--input-file-focus-border);
+    outline: none;
+    background: var(--input-file-bg);
+}
+
+/* Ensure text is readable in both light and dark modes */
+.uploadPhoto input[type="file"]::after {
+    color: var(--input-file-color);
+}
+
+/* File Selector Button - Design System Gradient */
+.uploadPhoto input[type="file"]::file-selector-button {
+    background: var(--btn-file-input-bg);
+    color: var(--btn-file-input-color);
+    border: none;
+    padding: var(--btn-file-input-padding-y) var(--btn-file-input-padding-x);
+    font-size: var(--btn-file-input-font-size);
+    font-weight: var(--btn-file-input-font-weight);
+    cursor: pointer;
+    margin-right: var(--btn-file-input-margin-right);
+    border-radius: var(--btn-file-input-border-radius-left) 0 0 var(--btn-file-input-border-radius-left);
+    transition: all var(--transition-base);
+    /* Prevent layout shifts */
+    transform: none !important;
+    /* Proper height matching */
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    margin: -2px var(--btn-file-input-margin-right) -2px -2px;
+}
+
+.uploadPhoto input[type="file"]::file-selector-button:hover {
+    filter: brightness(var(--btn-file-input-hover-brightness));
+}
+
+.uploadPhoto input[type="file"]::file-selector-button:active {
+    filter: brightness(var(--btn-file-input-active-brightness));
+}
+
+/* Upload Buttons - Design System Compliant */
+.upload-btn,
+.upload-toggle-btn {
+    padding: var(--btn-gradient-padding-y) var(--btn-gradient-padding-x);
+    font-size: var(--btn-gradient-font-size);
+    font-weight: var(--btn-gradient-font-weight);
+    border-radius: var(--btn-gradient-border-radius);
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    min-height: var(--btn-gradient-min-height);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Prevent layout shifts */
+    transform: none !important;
+    contain: layout;
+}
+
+.upload-btn {
+    background: var(--btn-gradient-bg);
+    color: var(--btn-gradient-color);
+    border-color: var(--color-primary);
+}
+
+.upload-btn:hover:not(:disabled) {
+    filter: brightness(var(--btn-gradient-hover-brightness));
+}
+
+.upload-btn:active:not(:disabled) {
+    filter: brightness(var(--btn-gradient-active-brightness));
+}
+
+.upload-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.upload-toggle-btn {
+    background: var(--btn-secondary-bg);
+    color: var(--btn-secondary-color);
+    border: var(--btn-secondary-border);
+    padding: var(--btn-secondary-padding-y) var(--btn-secondary-padding-x);
+    font-size: var(--btn-secondary-font-size);
+    font-weight: var(--btn-secondary-font-weight);
+    border-radius: var(--btn-secondary-border-radius);
+}
+
+.upload-toggle-btn:hover {
+    background: var(--btn-secondary-hover-bg);
+    border: var(--btn-secondary-hover-border);
+}
+
+.upload-toggle-btn:active {
+    background: var(--color-bg-input);
+}
+
 
 /* Uploaded Photos List */
 .uploaded-photos-list {
-    margin-top: var(--space-8);
-    padding-top: var(--space-8);
+    margin-top: var(--space-6);
+    padding-top: var(--space-6);
     border-top: 2px solid var(--color-border-medium);
 }
 
 .uploaded-photos-list h5 {
     color: var(--color-text-primary);
+    font-size: var(--font-size-lg);
     font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--space-4);
 }
 
 .photos-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: var(--space-6);
-    margin-top: var(--space-4);
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--space-4);
     /* Layout shift prevention */
     contain: layout;
 }
 
 .photo-item {
+    position: relative;
     border: 2px solid var(--color-border-medium);
     border-radius: var(--radius-lg);
-    padding: var(--space-4);
+    padding: var(--space-3);
     background: var(--color-bg-secondary);
     transition: all var(--transition-base);
     display: flex;
     flex-direction: column;
+    gap: var(--space-3);
     /* Layout shift prevention */
-    contain: layout style;
+    contain: layout;
+    transform: none !important;
 }
 
 .photo-item:hover {
     box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
+    border-color: var(--color-primary);
 }
 
 .photo-item-disabled {
     border-color: var(--color-error);
-    background: var(--color-error-light);
-}
-
-.photo-item-disabled .photo-item-preview {
-    filter: grayscale(100%);
+    background: var(--color-bg-tertiary);
+    opacity: 0.7;
 }
 
 .photo-item-disabled::before {
@@ -144,25 +215,26 @@ button.upload-toggle-btn {
     top: var(--space-2);
     right: var(--space-2);
     background: var(--color-error);
-    color: white;
-    width: 30px;
-    height: 30px;
+    color: var(--color-text-inverse);
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-full);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: var(--font-size-xl);
-    font-weight: bold;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
     z-index: 1;
+    box-shadow: var(--shadow-sm);
 }
 
 .photo-item-preview {
     width: 100%;
-    height: 150px;
+    height: 160px;
     object-fit: cover;
     border-radius: var(--radius-md);
     /* Layout shift prevention */
-    aspect-ratio: 4/3; /* Standard photo aspect ratio */
+    aspect-ratio: 4/3;
     contain: layout style;
 }
 
@@ -170,6 +242,7 @@ button.upload-toggle-btn {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+    align-items: flex-start;
 }
 
 .photo-item-credit {
@@ -178,20 +251,46 @@ button.upload-toggle-btn {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    width: 100%;
+}
+
+.photo-item-info .badge {
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) var(--space-2);
+    font-weight: var(--font-weight-medium);
+}
+
+/* Badge color overrides for proper contrast */
+.photo-item-info .badge.bg-primary {
+    background: var(--color-primary) !important;
+    color: #ffffff !important;
+}
+
+.photo-item-info .badge.bg-danger {
+    background: var(--color-danger) !important;
+    color: #ffffff !important;
 }
 
 .photo-item-actions {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+    width: 100%;
 }
 
 .photo-item-actions .btn {
     width: 100%;
     font-size: var(--font-size-sm);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    font-weight: var(--font-weight-medium);
+    border-width: 2px;
+    transition: all var(--transition-base);
+    /* Prevent layout shifts */
+    transform: none !important;
 }
 
-/* URL Queue Styles */
+/* URL Queue Styles - Design System Compliant */
 .url-queue {
     border: 2px solid var(--color-border-medium);
     border-radius: var(--radius-lg);
@@ -205,6 +304,27 @@ button.upload-toggle-btn {
     gap: var(--space-2);
     max-height: 300px;
     overflow-y: auto;
+    /* Custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-medium) var(--color-bg-secondary);
+}
+
+.url-queue-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.url-queue-list::-webkit-scrollbar-track {
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+}
+
+.url-queue-list::-webkit-scrollbar-thumb {
+    background: var(--color-border-medium);
+    border-radius: var(--radius-md);
+}
+
+.url-queue-list::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-dark);
 }
 
 .url-queue-item {
@@ -212,23 +332,24 @@ button.upload-toggle-btn {
     align-items: center;
     justify-content: space-between;
     padding: var(--space-3);
-    background: var(--color-bg-secondary);
+    background: var(--color-bg-input);
     border: 2px solid var(--color-border-light);
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all var(--transition-base);
     gap: var(--space-3);
+    /* Prevent layout shifts */
+    transform: none !important;
 }
 
 .url-queue-item:hover {
     border-color: var(--color-primary);
     box-shadow: var(--shadow-sm);
-    transform: translateX(4px);
 }
 
 .url-queue-item.editing {
     border-color: var(--color-primary);
-    background: rgba(102, 126, 234, 0.1);
+    background: var(--color-primary-alpha);
     box-shadow: var(--shadow-md);
 }
 
@@ -255,10 +376,14 @@ button.upload-toggle-btn {
     white-space: nowrap;
 }
 
+.url-queue-item-credit .text-muted {
+    color: var(--color-text-muted);
+}
+
 .url-queue-item-remove {
     flex-shrink: 0;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     padding: 0;
     display: flex;
     align-items: center;
@@ -266,50 +391,129 @@ button.upload-toggle-btn {
     border-radius: var(--radius-full);
     font-size: var(--font-size-xl);
     line-height: 1;
+    border-width: 2px;
+    transition: all var(--transition-base);
+    /* Prevent layout shifts */
+    transform: none !important;
 }
 
 .url-queue-item-remove:hover {
     background: var(--color-error);
-    color: white;
+    color: var(--color-text-inverse);
     border-color: var(--color-error);
-    transform: scale(1.1);
+    filter: brightness(1.1);
 }
 
 /* Input group styling for URL input with add button */
+.input-group {
+    display: flex;
+    width: 100%;
+}
+
 .input-group .form-control {
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
     border-right: none;
+    flex: 1;
+}
+
+.input-group .form-control:focus {
+    border-right: none;
+    z-index: 1;
 }
 
 .input-group .btn-outline-primary {
-    border-left: none;
-    font-size: var(--font-size-xl);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    border-left: 2px solid var(--color-border-medium);
+    font-size: var(--font-size-lg);
     font-weight: var(--font-weight-bold);
     padding: var(--space-2) var(--space-4);
+    background: var(--color-bg-secondary);
+    color: var(--color-primary);
+    border-color: var(--color-border-medium);
+    transition: all var(--transition-base);
+    /* Prevent layout shifts */
+    transform: none !important;
 }
 
 .input-group .btn-outline-primary:hover {
     background: var(--color-primary);
-    color: white;
-    transform: scale(1.05);
+    color: var(--color-text-inverse);
+    border-color: var(--color-primary);
 }
 
-/* Responsive */
+.input-group .btn-outline-primary:active {
+    filter: brightness(0.9);
+}
+
+/* Button spacing container */
+.d-flex.gap-2 {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
     .photos-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: var(--space-4);
+        gap: var(--space-3);
+    }
+
+    .photo-item {
+        padding: var(--space-2);
     }
 
     .photo-item-preview {
         height: 120px;
     }
 
+    .url-queue {
+        padding: var(--space-3);
+    }
+
     .url-queue-item {
         flex-direction: column;
         align-items: flex-start;
+        padding: var(--space-2);
     }
 
     .url-queue-item-remove {
         align-self: flex-end;
+        width: 32px;
+        height: 32px;
+    }
+
+    .upload-btn,
+    .upload-toggle-btn {
+        width: 100%;
+    }
+
+    .d-flex.gap-2 {
+        flex-direction: column;
+        width: 100%;
+    }
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+    .photo-item {
+        background: var(--color-bg-tertiary);
+    }
+
+    .photo-item:hover {
+        background: var(--color-bg-secondary);
+    }
+
+    .url-queue {
+        background: var(--color-bg-tertiary);
+    }
+
+    .url-queue-item {
+        background: var(--color-bg-secondary);
+    }
+
+    .url-queue-item.editing {
+        background: rgba(102, 126, 234, 0.15);
     }
 }

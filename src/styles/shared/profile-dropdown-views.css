@@ -7,14 +7,9 @@
 
 .profile-dropdown-view {
   /* Consistent container spacing */
+  /* No horizontal padding - parent .container handles it */
   padding-top: var(--space-6);
   padding-bottom: var(--space-6);
-}
-
-.profile-dropdown-view .container-fluid {
-  /* Consistent horizontal padding */
-  padding-left: var(--space-4);
-  padding-right: var(--space-4);
 }
 
 .profile-dropdown-view .view-header {
@@ -54,11 +49,6 @@
   .profile-dropdown-view {
     padding-top: var(--space-4);
     padding-bottom: var(--space-4);
-  }
-
-  .profile-dropdown-view .container-fluid {
-    padding-left: var(--space-3);
-    padding-right: var(--space-3);
   }
 
   .profile-dropdown-view .view-header .header-actions {

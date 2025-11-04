@@ -9,7 +9,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Row, Col, Card, Table, Badge, Tabs, Tab, Spinner } from 'react-bootstrap';
+import { Row, Col, Card, Table, Badge, Tabs, Tab } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 import { getMyInvites, getInviteDetails, getInviteAnalytics } from '../../utilities/invite-tracking-service';
@@ -17,6 +18,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 import { getDefaultPhoto } from '../../utilities/photo-utils';
 import Alert from '../../components/Alert/Alert';
+import Loading from '../../components/Loading/Loading';
 import './InviteTracking.css';
 
 export default function InviteTracking() {
@@ -161,12 +163,14 @@ export default function InviteTracking() {
         <Card.Header>
           <h2><FaQrcode /> My Invite Codes</h2>
         </Card.Header>
-        <Card.Body>
+        <Card.Body className="p-0">
           {invites.length === 0 ? (
-            <Alert type="info" message="You haven't created any invite codes yet." />
+            <div className="p-5 text-center">
+              <Alert type="info" message="You haven't created any invite codes yet." />
+            </div>
           ) : (
             <div className="table-responsive">
-              <Table hover>
+              <table className="table table-hover table-unified table-gradient-header mb-0">
                 <thead>
                   <tr>
                     <th>Code</th>
@@ -219,7 +223,7 @@ export default function InviteTracking() {
                     </tr>
                   ))}
                 </tbody>
-              </Table>
+              </table>
             </div>
           )}
         </Card.Body>
@@ -309,7 +313,9 @@ export default function InviteTracking() {
                       <strong>Experiences ({selectedInvite.experiences.length}):</strong>
                       <ul className="resource-list">
                         {selectedInvite.experiences.map((exp) => (
-                          <li key={exp._id}>{exp.name}</li>
+                          <li key={exp._id}>
+                            <Link to={`/experiences/${exp._id}`}>{exp.name}</Link>
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -320,7 +326,9 @@ export default function InviteTracking() {
                       <ul className="resource-list">
                         {selectedInvite.destinations.map((dest) => (
                           <li key={dest._id}>
-                            {dest.name}, {dest.country}
+                            <Link to={`/destinations/${dest._id}`}>
+                              {dest.name}, {dest.country}
+                            </Link>
                           </li>
                         ))}
                       </ul>
@@ -336,12 +344,14 @@ export default function InviteTracking() {
               <Card.Header>
                 <h6><FaUsers /> Redeemed By ({selectedInvite.redeemedBy?.length || 0})</h6>
               </Card.Header>
-              <Card.Body>
+              <Card.Body className="p-0">
                 {!selectedInvite.redeemedBy || selectedInvite.redeemedBy.length === 0 ? (
-                  <Alert type="info" message="No one has redeemed this invite code yet" />
+                  <div className="p-5 text-center">
+                    <Alert type="info" message="No one has redeemed this invite code yet" />
+                  </div>
                 ) : (
                   <div className="table-responsive">
-                    <Table hover>
+                    <table className="table table-hover table-unified table-gradient-header mb-0">
                       <thead>
                         <tr>
                           <th>User</th>
@@ -353,7 +363,7 @@ export default function InviteTracking() {
                         {selectedInvite.redeemedBy.map((user) => {
                           const defaultPhoto = getDefaultPhoto(user);
                           const photoUrl = defaultPhoto?.url || user.oauthProfilePhoto;
-                          
+
                           return (
                             <tr key={user._id}>
                               <td>
@@ -374,7 +384,7 @@ export default function InviteTracking() {
                           );
                         })}
                       </tbody>
-                    </Table>
+                    </table>
                   </div>
                 )}
               </Card.Body>
@@ -387,12 +397,7 @@ export default function InviteTracking() {
 
   const renderAnalytics = () => {
     if (!analytics) {
-      return (
-        <div className="text-center py-5">
-          <Spinner animation="border" />
-          <p className="mt-3">Loading analytics...</p>
-        </div>
-      );
+      return <Loading size="lg" message="Loading analytics..." />;
     }
 
     return (
@@ -553,10 +558,7 @@ export default function InviteTracking() {
         )}
 
         {isLoading ? (
-          <div className="text-center py-5">
-            <Spinner animation="border" />
-            <p className="mt-3">Loading invite tracking data...</p>
-          </div>
+          <Loading size="lg" message="Loading invite tracking data..." />
         ) : (
           <Tabs
             activeKey={activeTab}

@@ -155,8 +155,8 @@ export default function NewExperience() {
   return (
     <>
       <div className="row fade-in">
-        <div className="col-md-12 fade-in">
-          <h1 className="my-4 h fade-in text-center">{lang.en.heading.createExperience}</h1>
+        <div className="col-12">
+          <h1 className="form-title">{lang.en.heading.createExperience}</h1>
         </div>
       </div>
 
@@ -178,9 +178,9 @@ export default function NewExperience() {
         </Alert>
       )}
 
-      <div className="row my-4 fade-in">
+      <div className="row my-4 fade-in justify-content-center">
         <div className="col-12">
-          <Form onSubmit={handleSubmit} className="new-experience-form">
+          <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
               name="name"
               label={lang.en.label.title}

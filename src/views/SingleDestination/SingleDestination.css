@@ -18,7 +18,6 @@
     border-radius: var(--radius-xl);
     overflow: hidden;
     box-shadow: var(--shadow-md);
-    animation: fadeIn var(--transition-slow) ease-out;
 }
 
 .destination-detail-header {
@@ -105,15 +104,4 @@
 .destination-detail-tip .tip-value {
     color: var(--color-text-secondary);
     font-weight: var(--font-weight-normal);
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }

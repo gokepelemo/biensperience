@@ -1,5 +1,5 @@
 import "./PhotoCard.css";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { lang } from "../../lang.constants";
 import PhotoModal from "../PhotoModal/PhotoModal";
 import Loading from "../Loading/Loading";
@@ -27,6 +27,8 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title }) {
   const [showModal, setShowModal] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageStyle, setImageStyle] = useState({});
+  const [showScrollButtons, setShowScrollButtons] = useState(false);
+  const thumbnailsRef = useRef(null);
 
   // Ensure selected index is valid
   const currentIndex = selectedPhotoIndex < photoArray.length ? selectedPhotoIndex : defaultIndex;
@@ -62,26 +64,55 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title }) {
       return ratio < minRatio ? ratio : minRatio;
     }, Infinity);
     
-    // If no valid dimensions found, use placeholder or current photo
+    // If no valid dimensions found, use placeholder dimensions
     if (tallestAspectRatio === Infinity) {
-      return calculateAspectRatio(displayPhoto.width, displayPhoto.height);
+      return calculateAspectRatio(placeholderPhoto.width, placeholderPhoto.height);
     }
     
     return tallestAspectRatio;
-  }, [photoArray, placeholderPhoto, displayPhoto]);
+  }, [photoArray, placeholderPhoto.width, placeholderPhoto.height]);
 
   // Reset loading state when photo changes
   useEffect(() => {
     setImageLoading(true);
     setImageStyle({});
-    
+
     // Fallback timeout to prevent infinite loading
     const timeout = setTimeout(() => {
       setImageLoading(false);
     }, 5000); // 5 second timeout
-    
+
     return () => clearTimeout(timeout);
   }, [displayPhoto.url]);
+
+  // Check if thumbnails overflow and need scroll buttons
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (thumbnailsRef.current) {
+        const { scrollWidth, clientWidth } = thumbnailsRef.current;
+        setShowScrollButtons(scrollWidth > clientWidth);
+      }
+    };
+
+    checkOverflow();
+    window.addEventListener('resize', checkOverflow);
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [photoArray.length]);
+
+  // Scroll thumbnails left or right
+  const scrollThumbnails = (direction) => {
+    if (thumbnailsRef.current) {
+      const scrollAmount = 200; // Scroll 200px at a time
+      const newScrollLeft = direction === 'left'
+        ? thumbnailsRef.current.scrollLeft - scrollAmount
+        : thumbnailsRef.current.scrollLeft + scrollAmount;
+
+      thumbnailsRef.current.scrollTo({
+        left: newScrollLeft,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   /**
    * Handle image load and resize if needed
@@ -121,7 +152,13 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title }) {
         onClick={() => setShowModal(true)}
         style={{
           cursor: 'pointer',
-          aspectRatio: containerAspectRatio
+          aspectRatio: containerAspectRatio,
+          // Ensure width adapts to maintain aspect ratio with max-height constraint
+          width: '100%',
+          maxWidth: '100%',
+          // Force GPU rendering for smooth transitions without layout shifts
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden'
         }}
         role="button"
         tabIndex={0}
@@ -150,26 +187,51 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title }) {
           style={{ 
             ...imageStyle,
             opacity: imageLoading ? 0 : 1, 
-            transition: 'opacity 0.3s ease-in' 
+            // Smooth fade without layout shift
+            transition: 'opacity 0.3s ease-in',
+            // Prevent layout shift during image swap
+            transform: 'translateZ(0)'
           }}
         />
       </div>
 
       {/* Thumbnails - only show when there's more than 1 photo */}
       {hasRealPhotos && photoArray.length > 1 && (
-        <div className="photo-thumbnails">
-          {photoArray.map((photo, index) => (
-            <PhotoThumbnail
-              key={index}
-              photo={photo}
-              altText={imageAlt}
-              title={title}
-              selectedIndex={currentIndex}
-              photoIndex={index}
-              onSelect={setSelectedPhotoIndex}
-              showDefaultBadge={index === defaultIndex}
-            />
-          ))}
+        <div className="photo-thumbnails-container">
+          {showScrollButtons && (
+            <button
+              className="thumbnail-scroll-button thumbnail-scroll-left"
+              onClick={() => scrollThumbnails('left')}
+              aria-label="Scroll thumbnails left"
+              type="button"
+            >
+              ‹
+            </button>
+          )}
+          <div className="photo-thumbnails" ref={thumbnailsRef}>
+            {photoArray.map((photo, index) => (
+              <PhotoThumbnail
+                key={index}
+                photo={photo}
+                altText={imageAlt}
+                title={title}
+                selectedIndex={currentIndex}
+                photoIndex={index}
+                onSelect={setSelectedPhotoIndex}
+                showDefaultBadge={index === defaultIndex}
+              />
+            ))}
+          </div>
+          {showScrollButtons && (
+            <button
+              className="thumbnail-scroll-button thumbnail-scroll-right"
+              onClick={() => scrollThumbnails('right')}
+              aria-label="Scroll thumbnails right"
+              type="button"
+            >
+              ›
+            </button>
+          )}
         </div>
       )}
 

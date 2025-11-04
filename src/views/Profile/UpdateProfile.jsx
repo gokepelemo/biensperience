@@ -323,11 +323,11 @@ export default function UpdateProfile() {
       />
 
       <div className="row fade-in">
-        <div className="col-md-12 fade-in">
-          <h1 className="my-4 h fade-in text-center">
+        <div className="col-12">
+          <h1 className="form-title">
             {isAdminMode ?
               `Edit User Profile: ${currentUser?.name} (${currentUser?.email})` :
-              `Update Your Profile: ${user.name}`
+              "Update Your Profile"
             }
           </h1>
         </div>
@@ -365,8 +365,8 @@ export default function UpdateProfile() {
         <Loading variant="centered" size="lg" message={`Loading ${isAdminMode ? 'user' : 'your'} profile...`} />
       ) : (
         <div className="row my-4 fade-in justify-content-center">
-          <div className="col-md-8 col-lg-6">
-            <Form className="update-profile-form" autoComplete="off" onSubmit={handleSubmit} style={{ display: 'block' }}>
+          <div className="col-12">
+            <Form className="form-unified" autoComplete="off" onSubmit={handleSubmit} style={{ display: 'block' }}>
             <FormField
               name="name"
               label="Name"
@@ -394,7 +394,7 @@ export default function UpdateProfile() {
             />
 
             {isSuperAdmin(user) && (
-              <Form.Group className="mb-4" controlId="emailConfirmed">
+              <Form.Group className="mb-3">
                 <Form.Check
                   type="checkbox"
                   id="emailConfirmed"
@@ -414,7 +414,7 @@ export default function UpdateProfile() {
             )}
 
             <div className="mb-4">
-              <h5 className="mb-3">Change Password (Optional)</h5>
+              <h5 className="form-section-header">Change Password (Optional)</h5>
               {passwordError && (
                 <Alert
                   type="danger"
@@ -466,13 +466,13 @@ export default function UpdateProfile() {
             </div>
 
             <div className="mb-4">
-              <Form.Label>
+              <h5 className="form-section-header">
                 Profile Photo
                 <FormTooltip 
                   content={lang.en.helper.profilePhoto}
                   placement="top"
                 />
-              </Form.Label>
+              </h5>
               <ImageUpload data={formData} setData={setFormData} />
             </div>
 

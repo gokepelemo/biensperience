@@ -1,20 +1,29 @@
-form.newExperience {
-    width: 75%;
-    min-width: 350px;
-    margin: 0 auto;
+/* New Experience Form - Uses design system .form-unified class */
+
+.modal.fade.show {
+  animation: modalFadeIn 0.3s ease-out;
 }
 
-form.newExperience span {
-    grid-column: 1 / span 2;
+.modal-dialog-centered {
+  animation: modalSlideUp 0.3s ease-out;
 }
 
-form.newExperience button {
-    grid-column: 1 / span 2;
-    width: 25%;
-    min-width: 50px;
-    margin: var(--space-8) auto;
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-form.newExperience label {
-    font-size: var(--font-size-lg);
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

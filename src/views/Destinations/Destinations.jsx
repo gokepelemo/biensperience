@@ -38,9 +38,9 @@ export default function Destinations() {
         ogDescription={`Browse ${processedDestinations?.length || 'hundreds of'} incredible travel destinations worldwide. Plan your perfect trip today.`}
       />
 
-      <div className="row fade-in">
-        <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">Destinations</h1>
+      <div className="row">
+        <div className="col-md-6">
+          <h1 className="my-4">Destinations</h1>
         </div>
       </div>
 
@@ -59,7 +59,7 @@ export default function Destinations() {
         />
       ) : (
         <div className="row my-4 fade-in">
-          <div className="col-md-12 p-3 d-flex flex-wrap justify-content-center align-items-center fade-in">
+          <div className="destinations-list fade-in">
             {processedDestinations.length > 0 ? (
               processedDestinations.map((destination, index) => (
                 <DestinationCard

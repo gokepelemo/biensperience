@@ -299,7 +299,7 @@ export default function TravelTipsManager({
               </Form.Text>
             </Form.Group>
 
-            <div className="border rounded p-3 mb-3" style={{ backgroundColor: '#f8f9fa' }}>
+            <div className="call-to-action-section">
               <Form.Label>{lang.en.label.travelTipsCallToAction}</Form.Label>
               <Row>
                 <Col md={6}>

@@ -1,18 +1,5 @@
-button, .btn {
-    transition: box-shadow var(--transition-base), transform var(--transition-base);
-    padding: var(--space-2) var(--space-4);
-}
-button:hover, .btn:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
-}
+/* Experiences view styles - Uses design system for headings and buttons */
 
-@media (max-width: 576px) {
-    button, .btn {
-        width: fit-content;
-        height: fit-content;
-    }
-}
 /* Add spacing and flex layout for experience cards */
 .experiences-list {
     display: flex;
@@ -22,14 +9,4 @@ button:hover, .btn:hover {
     align-items: stretch;
     margin-bottom: var(--space-8);
 }
-h1.h {
-    text-align: center;
-    font-weight: var(--font-weight-bold);
-    font-size: clamp(var(--font-size-2xl), 5vw, var(--font-size-4xl));
-}
 
-@media (min-width: 768px) {
-    h1.h {
-        text-align: left;
-    }
-}

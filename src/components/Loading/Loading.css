@@ -75,9 +75,14 @@
 
 /* SVG animation */
 .loading-svg {
-  animation: pulse-logo 2s ease-in-out infinite;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
   will-change: transform, opacity;
+}
+
+/* Default: No animation class means pulse */
+.loading-logo:not([class*="loading-animation-"]) .loading-svg,
+.loading-animation-pulse .loading-svg {
+  animation: pulse-logo 2s ease-in-out infinite;
 }
 
 /* Size variants */
@@ -130,6 +135,169 @@
   50% {
     transform: scale(0.85);
     opacity: 0.6;
+  }
+}
+
+/* ============================================
+   ANIMATION VARIATIONS
+   ============================================ */
+
+/* Spin Animation - Entire logo rotates continuously */
+.loading-animation-spin .loading-svg {
+  animation: spin-logo 2s linear infinite;
+}
+
+@keyframes spin-logo {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fan Animation - Plus sign rotates like a starting fan (slow to fast) */
+.loading-animation-fan .loading-plus {
+  transform-origin: center;
+  animation: fan-spin 3s ease-in-out infinite;
+}
+
+@keyframes fan-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(90deg);
+  }
+  40% {
+    transform: rotate(180deg);
+  }
+  60% {
+    transform: rotate(360deg);
+  }
+  75% {
+    transform: rotate(540deg);
+  }
+  85% {
+    transform: rotate(720deg);
+  }
+  95% {
+    transform: rotate(900deg);
+  }
+  100% {
+    transform: rotate(1080deg);
+  }
+}
+
+/* Orbit Animation - Gradient trails orbit around the icon */
+.loading-animation-orbit .loading-orbit-trail {
+  stroke-dasharray: 50 314;
+  stroke-linecap: round;
+}
+
+.loading-animation-orbit .loading-svg {
+  animation: orbit-pulse 2s ease-in-out infinite;
+}
+
+@keyframes orbit-pulse {
+  0%, 100% {
+    transform: scale(0.95);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Breathe Animation - Gentle breathing effect with scale and glow */
+.loading-animation-breathe .loading-svg {
+  animation: breathe-logo 4s ease-in-out infinite;
+}
+
+.loading-animation-breathe .loading-bg {
+  filter: url(#glow-md-inline);
+  animation: breathe-glow 4s ease-in-out infinite;
+}
+
+@keyframes breathe-logo {
+  0%, 100% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes breathe-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px rgba(125, 136, 242, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(125, 136, 242, 0.6));
+  }
+}
+
+/* Bounce Animation - Playful bouncing animation */
+.loading-animation-bounce .loading-svg {
+  animation: bounce-logo 1.5s cubic-bezier(0.28, 0.84, 0.42, 1) infinite;
+}
+
+@keyframes bounce-logo {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  25% {
+    transform: translateY(-20px) scale(1.05, 0.95);
+  }
+  50% {
+    transform: translateY(0) scale(1);
+  }
+  60% {
+    transform: translateY(-10px) scale(1.02, 0.98);
+  }
+  75% {
+    transform: translateY(0) scale(1);
+  }
+  85% {
+    transform: translateY(-5px) scale(1.01, 0.99);
+  }
+}
+
+/* Shake Animation - Subtle shake for error/attention states */
+.loading-animation-shake .loading-svg {
+  animation: shake-logo 0.5s ease-in-out infinite;
+}
+
+@keyframes shake-logo {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-5px) rotate(-2deg);
+  }
+  75% {
+    transform: translateX(5px) rotate(2deg);
+  }
+}
+
+/* Wave Animation - Smooth wave-like motion */
+.loading-animation-wave .loading-svg {
+  animation: wave-logo 2s ease-in-out infinite;
+}
+
+@keyframes wave-logo {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-10px) rotate(5deg);
+  }
+  50% {
+    transform: translateY(0) rotate(0deg);
+  }
+  75% {
+    transform: translateY(10px) rotate(-5deg);
   }
 }
 
@@ -187,6 +355,64 @@
   }
 }
 
+/* Engine Animation - Plus morphing into airplane engine with spinning fan */
+.loading-animation-engine .loading-plus-engine,
+.loading-animation-engine .loading-engine {
+  transform-origin: 128px 128px;
+}
+
+.loading-animation-engine .loading-plus-engine {
+  animation: engine-plus-cycle 6s ease-in-out infinite;
+}
+
+.loading-animation-engine .loading-engine {
+  animation: engine-cycle 6s ease-in-out infinite;
+}
+
+.loading-animation-engine .loading-engine-fan {
+  transform-origin: 128px 128px;
+  animation: engine-fan-spin 0.7s linear infinite;
+}
+
+@keyframes engine-plus-cycle {
+  0%, 25% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  35%, 90% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes engine-cycle {
+  0%, 25% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  35%, 85% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@keyframes engine-fan-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   .loading-svg {
@@ -208,8 +434,14 @@
 
 /* Reduced motion support - accessibility */
 @media (prefers-reduced-motion: reduce) {
-  .loading-svg {
-    animation: none;
+  .loading-svg,
+  .loading-plus,
+  .loading-bg,
+  .loading-orbit-trail,
+  .loading-plus-engine,
+  .loading-engine,
+  .loading-engine-fan {
+    animation: none !important;
   }
 
   .loading-message {
@@ -219,6 +451,22 @@
   /* Show a simple fade instead */
   .loading-svg {
     opacity: 0.9;
+  }
+  
+  /* For orbit animation, show static circle */
+  .loading-orbit-trail {
+    stroke-dasharray: none;
+    opacity: 0.3;
+  }
+
+  /* For engine animation, show only plus (no morphing) */
+  .loading-plus-engine {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+  }
+
+  .loading-engine {
+    opacity: 0 !important;
   }
 }
 

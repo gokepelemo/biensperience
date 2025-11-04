@@ -17,7 +17,11 @@
     overflow: hidden;
     /* Layout shift prevention - reserve space before image loads */
     contain: layout style;
-    min-height: 300px; /* Fallback for browsers without aspect-ratio support */
+    /* Max height with responsive units: never exceed 600px (37.5rem) */
+    max-height: clamp(18.75rem, 50vh, 37.5rem); /* min 300px, max 600px, scales with viewport */
+    min-height: 18.75rem; /* 300px fallback for browsers without aspect-ratio support */
+    /* Prevent layout shifts when switching photos */
+    will-change: auto; /* Optimize for stable layout, not for animation */
 }
 
 .photoThumbnail {
@@ -35,12 +39,15 @@
 }
 
 div.photoFrame {
-    height: max(600px, 40vh); /* Fixed height matching parent */
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    /* Allow aspect-ratio to control height, but respect max-height from photoCard */
+    height: auto;
+    /* Prevent layout shift when aspect-ratio changes */
+    contain: layout;
 }
 
 .photoCard img {
@@ -61,33 +68,99 @@ div.photoFrame {
     z-index: 1;
 }
 
-/* Photo Thumbnails - Container styles only (individual thumbnails now in PhotoThumbnail.css) */
+/* Photo Thumbnails - Container with scroll buttons */
+.photo-thumbnails-container {
+    position: relative;
+    margin-top: var(--space-3);
+}
+
 .photo-thumbnails {
     display: flex;
     gap: var(--space-2);
-    margin-top: var(--space-3);
     padding: var(--space-2);
     overflow-x: auto;
-    justify-content: center;
-    flex-wrap: wrap;
+    scroll-behavior: smooth;
     /* Different background from main photo */
     background: var(--color-bg-primary);
     border-radius: var(--radius-lg);
     border: 1px solid var(--color-border-light);
+    /* Hide scrollbar but keep functionality */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.photo-thumbnails::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+/* Scroll buttons */
+.thumbnail-scroll-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--gradient-primary);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-fast);
+    opacity: 0.9;
+}
+
+.thumbnail-scroll-button:hover {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: var(--shadow-lg);
+}
+
+.thumbnail-scroll-button:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+.thumbnail-scroll-left {
+    left: -1rem;
+}
+
+.thumbnail-scroll-right {
+    right: -1rem;
 }
 
 @media (max-width: 768px) {
     .photoCard {
-        height: max(400px, 35vh); /* Smaller fixed height for mobile */
+        /* Smaller max height for mobile: never exceed 400px (25rem) */
+        max-height: clamp(15rem, 45vh, 25rem); /* min 240px, max 400px, scales with viewport */
+        min-height: 15rem; /* 240px */
     }
 
-    div.photoFrame {
-        height: max(400px, 35vh); /* Match parent */
+    .photo-thumbnails-container {
+        margin-top: var(--space-2);
     }
 
     .photo-thumbnails {
         gap: var(--space-1);
-        margin-top: var(--space-2);
         padding: var(--space-1);
+    }
+
+    .thumbnail-scroll-button {
+        width: 2rem;
+        height: 2rem;
+        font-size: 1.25rem;
+    }
+
+    .thumbnail-scroll-left {
+        left: -0.5rem;
+    }
+
+    .thumbnail-scroll-right {
+        right: -0.5rem;
     }
 }

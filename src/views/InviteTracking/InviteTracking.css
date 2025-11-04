@@ -47,7 +47,7 @@
   font-size: 1rem;
   font-weight: bold;
   padding: 0.25rem 0.5rem;
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   color: white;
   border-radius: var(--radius-sm);
   letter-spacing: 1px;
@@ -58,7 +58,7 @@
   font-size: 1.5rem;
   font-weight: bold;
   padding: 0.5rem 1rem;
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   color: white;
   border-radius: var(--radius-md);
   letter-spacing: 2px;
@@ -98,14 +98,15 @@
   color: var(--color-text-secondary);
 }
 
-.resource-list li::before {
-  content: '•';
+.resource-list li a {
   color: var(--color-primary);
-  font-weight: bold;
-  display: inline-block;
-  width: 1em;
-  margin-left: -1em;
-  margin-right: 0.5em;
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+
+.resource-list li a:hover {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
 }
 
 /* User Avatars */
@@ -151,63 +152,8 @@
   border-bottom: none;
 }
 
-/* Table Customization */
-.invite-tracking-container .table {
-  --bs-table-bg: transparent !important;
-  --bs-table-hover-bg: var(--color-bg-hover) !important;
-  --bs-table-hover-color: var(--color-text-primary) !important;
-  --bs-table-striped-bg: transparent !important;
-  --bs-table-active-bg: transparent !important;
-  --bs-table-border-color: var(--color-border-light) !important;
-  margin-bottom: 0;
-  color: var(--color-text-primary) !important;
-  background-color: transparent !important;
-  border-color: var(--color-border-light) !important;
-}
-
-.invite-tracking-container .table thead {
-  background: var(--gradient-primary) !important;
-  border-bottom: 2px solid var(--color-border-medium) !important;
-}
-
-.invite-tracking-container .table thead tr {
-  background: var(--gradient-primary) !important;
-  border-color: var(--color-border-medium) !important;
-}
-
-.invite-tracking-container .table thead th {
-  background: var(--gradient-primary) !important;
-  color: white !important;
-  border: none !important;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.85rem;
-  letter-spacing: 0.5px;
-  padding: 1rem;
-}
-
-.invite-tracking-container .table tbody {
-  background-color: transparent !important;
-}
-
-.invite-tracking-container .table tbody tr {
-  background-color: transparent !important;
-  border-color: var(--color-border-light) !important;
-  transition: var(--transition-standard);
-}
-
-.invite-tracking-container .table tbody tr:hover {
-  background-color: var(--color-bg-hover) !important;
-}
-
-.invite-tracking-container .table tbody td {
-  color: var(--color-text-primary) !important;
-  background-color: transparent !important;
-  border-bottom: 1px solid var(--color-border-light) !important;
-  border-top: none !important;
-  padding: 1rem;
-  vertical-align: middle;
-}
+/* Tables use unified design system with gradient headers */
+/* Apply .table-unified and .table-gradient-header classes to tables */
 
 /* Tabs */
 .nav-tabs {
@@ -253,13 +199,7 @@
     letter-spacing: 1px;
   }
 
-  .table {
-    font-size: 0.9rem;
-  }
-
-  .table thead th {
-    font-size: 0.75rem;
-  }
+  /* Table responsive styles handled by .table-unified */
 }
 
 /* Loading State */
@@ -291,73 +231,4 @@
   color: white;
 }
 
-/* Buttons - Design System Integration */
-.invite-tracking-container .btn {
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  transition: var(--transition-standard);
-  font-weight: 500;
-}
-
-.invite-tracking-container .btn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.invite-tracking-container .btn-primary {
-  background: var(--color-primary) !important;
-  border-color: var(--color-primary) !important;
-  color: white !important;
-}
-
-.invite-tracking-container .btn-primary:hover {
-  background: var(--color-primary-dark) !important;
-  border-color: var(--color-primary-dark) !important;
-}
-
-.invite-tracking-container .btn-outline-primary {
-  background: transparent !important;
-  border: 2px solid var(--color-primary) !important;
-  color: var(--color-primary) !important;
-}
-
-.invite-tracking-container .btn-outline-primary:hover {
-  background: var(--color-primary) !important;
-  border-color: var(--color-primary) !important;
-  color: white !important;
-}
-
-.invite-tracking-container .btn-outline-secondary {
-  background: transparent !important;
-  border: 2px solid var(--color-border-medium) !important;
-  color: var(--color-text-primary) !important;
-  transition: var(--transition-standard);
-}
-
-.invite-tracking-container .btn-outline-secondary:hover {
-  background: var(--color-bg-secondary) !important;
-  border-color: var(--color-text-secondary) !important;
-  color: var(--color-text-primary) !important;
-}
-
-.invite-tracking-container .btn-success {
-  background: var(--color-success) !important;
-  border-color: var(--color-success) !important;
-  color: white !important;
-}
-
-.invite-tracking-container .btn-success:hover {
-  background: var(--color-success-dark) !important;
-  border-color: var(--color-success-dark) !important;
-}
-
-.invite-tracking-container .btn-danger {
-  background: var(--color-danger) !important;
-  border-color: var(--color-danger) !important;
-  color: white !important;
-}
-
-.invite-tracking-container .btn-danger:hover {
-  background: var(--color-danger-dark) !important;
-  border-color: var(--color-danger-dark) !important;
-}
+/* Buttons use global design system - no overrides needed */

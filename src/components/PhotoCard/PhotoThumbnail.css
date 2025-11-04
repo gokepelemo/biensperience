@@ -85,17 +85,16 @@
   outline-offset: 2px;
 }
 
-/* Default badge for thumbnails - centered star */
+/* Default badge for thumbnails - top right corner star */
 .thumbnail-default-badge {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0.25rem;
+  right: 0.25rem;
   background: var(--gradient-primary);
   color: white;
-  font-size: clamp(1rem, 2vw, 1.25rem); /* Larger, more visible star */
-  width: 2rem;
-  height: 2rem;
+  font-size: clamp(0.5rem, 1vw, 0.625rem); /* Half the previous size */
+  width: 1rem;
+  height: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -103,7 +102,7 @@
   font-weight: var(--font-weight-bold);
   box-shadow: var(--shadow-md);
   z-index: 2;
-  border: 2px solid white;
+  border: 1px solid white;
 }
 
 /* Responsive design */

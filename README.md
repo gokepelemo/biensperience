@@ -1,65 +1,94 @@
 # Biensperience
-_This was a General Assembly bootcamp project and is not actively being maintained. Contact me with any questions about it._
 
-An application that enables you to plan your experiences and share experience plans with other users. When you plan a trip, vacation, or adventure with your loved ones, you get to create a plan in that experience and mark items done as you finalize the plan. The same plan becomes available for others to plan similar experiences.
+_This was a General Assembly bootcamp project that is being developed for open source. Contact me with any questions about it. Find bugs? Create an issue. By all means create a PR with contributions._
 
-## Technologies Used
-1. HTML
-2. CSS
-3. React
-4. MongoDB
-5. Node.js (Express)
+A collaborative travel planning application for creating and sharing travel experiences.
 
-## Screenshots & Captures
-### Personal travel profile
-<img src="https://biensperience.s3.us-west-2.amazonaws.com/screenshots/personal-travel-profile.png" alt="Personal Travel Profile" width="500" />
+## Technologies
 
-### Add a new destination
-<img src="https://biensperience.s3.us-west-2.amazonaws.com/screenshots/add-new-destination.png" alt="Add a new destination" width="500" />
+React • MongoDB • Node.js • Express • AWS S3 • Bootstrap
 
-### Create an experience
-<img src="https://biensperience.s3.us-west-2.amazonaws.com/screenshots/create-experience.png" alt="Create an expereince" width="500" />
+## Features
 
-### Add plan items and mark them done
-<img src="https://biensperience.s3.us-west-2.amazonaws.com/screenshots/mark-plan-items-done.png" alt="Add plan items and mark them done" width="500" />
+- **Collaborative Planning** - Work with others on shared travel experiences
+- **Destination Management** - Add and favorite destinations worldwide
+- **Plan Tracking** - Mark tasks complete as you finalize plans
+- **Photo Uploads** - Add photos to destinations and experiences
+- **Social Authentication** - Sign in with Facebook, Google, or X (Twitter)
 
-### Add experiences to your profile
-<img src="./screenshots/add-experiences.gif" alt="Add experiences to your profile" width="500" />
+## Installation
 
-### Favorite a destination
-<img src="./screenshots/favorite-destinations.gif" alt="Favorite a destination" width="500" />
-
-## Getting Started
-Deployed on the [DigitalOcean App Platform](https://www.digitalocean.com/products/app-platform).
-1. Sign up for an account.
-2. Add a few experiences and favorite a few destinations by hitting the **+** button.
-3. Start looking through plans and marking items done as you work through them.
-4. Enjoy your experiences in real life!
-4. Create your own experiences and add plan items to them so others can enjoy.
-
-## Development Setup
 ### Prerequisites
-- Node.js
+- Node.js (v16+)
 - MongoDB database
-- Environment variables: `DATABASE_URL` and `SECRET`
+- AWS S3 bucket (for photos)
 
-### Adding Sample Data
-To populate the database with sample users, destinations, experiences, and photos, run:
+### Quick Start
+
+1. **Clone and install**
+   ```bash
+   git clone https://github.com/yourusername/biensperience.git
+   cd biensperience
+   npm install
+   ```
+
+2. **Configure environment** - Create `.env` file:
+   ```bash
+   DATABASE_URL=mongodb+srv://user:pass@cluster.mongodb.net/db
+   SECRET=your-jwt-secret
+   AWS_REGION=us-east-1
+   AWS_ACCESS_KEY_ID=your-key
+   AWS_SECRET_ACCESS_KEY=your-secret
+   S3_BUCKET_NAME=your-bucket
+   ```
+
+3. **Generate sample data**
+   ```bash
+   node sampleData.js
+   # Creates 180 users, 90 destinations, 270 experiences, 450 plans, 600 photos
+
+   # Custom counts:
+   node sampleData.js --users 50 --destinations 20 --experiences 100
+   ```
+
+4. **Start development**
+   ```bash
+   npm start  # Frontend: http://localhost:3000
+              # Backend: http://localhost:3001
+   ```
+
+## Development
+
 ```bash
-node sampleData.js
+npm test                    # Frontend tests
+npm run test:api            # Backend tests
+npm run build               # Production build
 ```
 
-This will create:
-- 10 diverse users with different profiles
-- 30+ destinations across major cities worldwide
-- 30+ detailed experiences with planning items
-- 30+ sample photos
+## Documentation
 
-The script will provide CLI feedback and exit with an error if required environment variables are missing.
+See `documentation/` for detailed guides on OAuth setup, permissions framework, security, and API reference.
 
-## Other Features
-1. Add links to plan items so that other users can shop for items, tickets, or see more detailed descriptions on other apps.
-2. Upload a photo to your destination or experience.
+## Contributing
 
-## Trello Board
-[Trello](https://trello.com/b/bXKpKCky/biensperience) - request access
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes
+4. Push and open a Pull Request
+
+Report bugs via [Issues](https://github.com/gokepelemo/biensperience/issues).
+
+## License
+
+AGPL-3.0 © 2025 Goke Pelemo - See [LICENSE](LICENSE) for details.
+
+Network use requires source code disclosure. See [LICENSE](LICENSE) for full terms.
+
+## Trademark
+
+"Biensperience" is a trademark of Goke Pelemo. See [TRADEMARK.md](TRADEMARK.md) for usage policy.
+
+---
+
+© 2025 Goke Pelemo. All rights reserved.

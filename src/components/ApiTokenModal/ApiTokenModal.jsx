@@ -281,7 +281,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                   Make sure to copy your token now. You won't be able to see it again!
                 </p>
                 <div className="d-flex align-items-center gap-2">
-                  <code className="flex-grow-1 p-2 bg-light rounded border user-select-all">
+                  <code className="flex-grow-1 p-2 rounded border user-select-all token-display">
                     {newToken}
                   </code>
                   <Button
@@ -304,7 +304,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
             )}
 
             {/* Create New Token Form */}
-            <Form onSubmit={handleCreateToken} className="mb-4">
+            <Form onSubmit={handleCreateToken} className="token-creation-form">
               <h5>Create New Token</h5>
               <div className="row g-2 align-items-end">
                 <div className="col">
@@ -333,7 +333,8 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
             </Form>
 
             {/* Existing Tokens List */}
-            <h5>Your Tokens</h5>
+            <div className="token-list-section">
+              <h5>Your Tokens</h5>
             {isLoading ? (
               <Loading size="md" message="Loading tokens..." />
             ) : tokens.length === 0 ? (
@@ -380,9 +381,10 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                 ))}
               </ListGroup>
             )}
+            </div>
 
             {/* Usage Instructions */}
-            <div className="mt-4 p-3 bg-light rounded">
+            <div className="usage-instructions">
               <h6>How to use your API token:</h6>
               <ol className="mb-0 small">
                 <li>Include the token in the <code>Authorization</code> header</li>
@@ -392,7 +394,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
               </ol>
               <div className="mt-2">
                 <strong>Example:</strong>
-                <pre className="bg-white p-2 rounded border mt-1 mb-0">
+                <pre className="p-2 rounded border mt-1 mb-0 code-example">
 {`curl -H "Authorization: Bearer YOUR_TOKEN" \\
   ${window.location.origin}/api/experiences`}
                 </pre>

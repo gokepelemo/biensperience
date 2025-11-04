@@ -277,11 +277,10 @@ export default function Profile() {
         />
       )}
       <div className="profile-dropdown-view">
-        <div className="container-fluid">
-          <div className="view-header">
-            <div className="row">
-              <div className="col-md-6">
-                <h1 className="mb-0">
+        <div className="view-header">
+          <div className="row">
+            <div className="col-md-6">
+              <h1 className="mb-0">
                   {isLoadingProfile ? (
                     <span className="loading-skeleton loading-skeleton-text"></span>
                   ) : (
@@ -390,7 +389,9 @@ export default function Profile() {
                 {lang.en.heading.favoriteDestinations}
               </h5>
               <div className="profile-detail-content profileDestinations">
-                {favoriteDestinations.length > 0 ? (
+                {isLoadingProfile ? (
+                  <Loading size="md" message="Loading favorite destinations..." />
+                ) : favoriteDestinations.length > 0 ? (
                   favoriteDestinations.map((destination) => (
                     <Link className="pill" key={destination._id} to={`/destinations/${destination._id}`}>
                       <span className="icon"><FaPassport /></span>
@@ -406,8 +407,6 @@ export default function Profile() {
                           {lang.en.message.addFavoriteDestinations}
                         </Link>
                       </>
-                    ) : isLoadingProfile ? (
-                      <span className="loading-skeleton loading-skeleton-text"></span>
                     ) : (
                       <>
                         <p className="mb-3">{`${currentProfile?.name || 'This user'} hasn't added any favorite destinations yet.`}</p>
@@ -425,7 +424,9 @@ export default function Profile() {
                 {lang.en.heading.preferredExperienceTypes}
               </h5>
               <div className="profile-detail-content">
-                {userExperienceTypes.length > 0 ? (
+                {isLoadingProfile ? (
+                  <Loading size="md" message="Loading preferred experience types..." />
+                ) : userExperienceTypes.length > 0 ? (
                   userExperienceTypes.map((type) => (
                     <Link className="pill" key={type} to={`/experience-types/${createUrlSlug(type)}`}>
                       <span className="icon"><FaUser /></span>
@@ -441,8 +442,6 @@ export default function Profile() {
                           {lang.en.message.addExperiences}
                         </Link>
                       </>
-                    ) : isLoadingProfile ? (
-                      <span className="loading-skeleton loading-skeleton-text"></span>
                     ) : (
                       <>
                         <p className="mb-3">{`${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`}</p>
@@ -479,7 +478,6 @@ export default function Profile() {
             {lang.en.heading.experienceDestinations}
           </span>
         </h4>
-      </div>
       </div>
       <div className="row my-4 justify-content-center fade-in">
         {uiState.destinations && (
@@ -661,6 +659,7 @@ export default function Profile() {
           </div>
         </div>
       )}
+      </div>
 
       {/* API Token Modal */}
       {isSuperAdmin(user) && (
@@ -679,7 +678,6 @@ export default function Profile() {
           onHide={handleCloseActivityMonitor}
         />
       )}
-      </div>
     </>
   );
 }
