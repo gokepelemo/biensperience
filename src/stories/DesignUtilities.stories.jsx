@@ -1,5 +1,5 @@
-import '../../../styles/utilities.css';
-import '../../../styles/design-tokens.css';
+import '../styles/utilities.css';
+import '../styles/design-tokens.css';
 
 export default {
   title: 'Design System/Utilities',

@@ -1,5 +1,5 @@
 import { BrowserRouter } from 'react-router-dom';
-import ExperienceCard from '../../components/ExperienceCard/ExperienceCard';
+import ExperienceCard from '../components/ExperienceCard/ExperienceCard';
 
 export default {
   title: 'Components/ExperienceCard',

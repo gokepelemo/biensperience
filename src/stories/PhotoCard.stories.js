@@ -1,4 +1,4 @@
-import PhotoCard from '../../components/PhotoCard/PhotoCard';
+import PhotoCard from '../components/PhotoCard/PhotoCard';
 
 export default {
   title: 'Components/PhotoCard',

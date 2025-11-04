@@ -1,5 +1,5 @@
 import { BrowserRouter } from 'react-router-dom';
-import DestinationCard from '../../components/DestinationCard/DestinationCard';
+import DestinationCard from '../components/DestinationCard/DestinationCard';
 
 export default {
   title: 'Components/DestinationCard',
