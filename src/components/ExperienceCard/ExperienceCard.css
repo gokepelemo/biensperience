@@ -29,9 +29,9 @@
 }
 
 .experience-card-title {
-    background-color: var(--color-bg-overlay); /* Fallback for browsers without backdrop-filter */
+    background-color: var(--color-bg-overlay);
     backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px); /* Safari support */
+    -webkit-backdrop-filter: blur(4px);
     border-radius: var(--radius-md);
     min-height: 4rem;
     padding: var(--space-3) var(--space-4) !important;
@@ -40,6 +40,7 @@
     transition: all var(--transition-slow);
     font-size: var(--font-size-lg);
     overflow: hidden;
+    color: white;
 }
 
 /* Truncation only applies to non-hovered/non-expanded state */

@@ -1,0 +1,558 @@
+/**
+ * Autocomplete Component Styles
+ * Unified styling for all entity types with light/dark mode support
+ */
+
+/* ============================================
+   WRAPPER & CONTAINER
+   ============================================ */
+
+.autocomplete-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* Size variants */
+.autocomplete-size-sm .autocomplete-input {
+  padding: var(--space-2) var(--space-3);
+  padding-left: var(--space-8);
+  font-size: var(--font-size-sm);
+}
+
+.autocomplete-size-md .autocomplete-input {
+  padding: var(--space-3) var(--space-4);
+  padding-left: var(--space-10);
+  font-size: var(--font-size-base);
+}
+
+.autocomplete-size-lg .autocomplete-input {
+  padding: var(--space-4) var(--space-5);
+  padding-left: var(--space-12);
+  font-size: var(--font-size-lg);
+}
+
+/* ============================================
+   INPUT
+   ============================================ */
+
+.autocomplete-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.autocomplete-search-icon {
+  position: absolute;
+  left: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.autocomplete-size-lg .autocomplete-search-icon {
+  left: var(--space-4);
+  font-size: var(--font-size-lg);
+}
+
+.autocomplete-input {
+  width: 100%;
+  border: 2px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: var(--transition-normal);
+}
+
+.autocomplete-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  outline: none;
+}
+
+.autocomplete-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* ============================================
+   DROPDOWN
+   ============================================ */
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+  animation: fadeInDown 0.2s ease;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom scrollbar */
+.autocomplete-dropdown::-webkit-scrollbar {
+  width: 8px;
+}
+
+.autocomplete-dropdown::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.autocomplete-dropdown::-webkit-scrollbar-thumb {
+  background: var(--color-border-medium);
+  border-radius: var(--radius-md);
+}
+
+.autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ============================================
+   ITEMS CONTAINER
+   ============================================ */
+
+.autocomplete-items {
+  padding: var(--space-2);
+}
+
+.autocomplete-item {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  margin-bottom: var(--space-1);
+  position: relative; /* Required for absolute positioning of type badge */
+}
+
+.autocomplete-item:last-child {
+  margin-bottom: 0;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.highlighted {
+  background-color: var(--color-bg-hover);
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* Mixed type indicators - show entity type badge ONLY for plan type */
+/* Don't show type badges for common types (experience, user, destination) */
+/* since they already have their own visual identifiers */
+.autocomplete-item[data-entity-type="plan"]:before {
+  content: "Plan";
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-medium);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.autocomplete-item.highlighted {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* ============================================
+   LOADING & EMPTY STATES
+   ============================================ */
+
+.autocomplete-loading,
+.autocomplete-empty {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.autocomplete-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 120px;
+}
+
+/* Remove old spinner styles - now using unified Loading component */
+
+/* ============================================
+   USER ITEM
+   ============================================ */
+
+.autocomplete-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.user-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.user-avatar,
+.user-avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+}
+
+.user-avatar-placeholder {
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: var(--font-size-lg);
+}
+
+.user-status-indicator {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-bg-primary);
+}
+
+.user-status-indicator.online {
+  background-color: var(--color-success);
+}
+
+.user-status-indicator.offline {
+  background-color: var(--color-text-disabled);
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-badge {
+  flex-shrink: 0;
+}
+
+.user-badge .badge {
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  text-transform: capitalize;
+}
+
+.user-badge .badge-owner {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.user-badge .badge-collaborator {
+  background-color: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.user-badge .badge-contributor {
+  background-color: var(--color-info-light);
+  color: var(--color-info);
+}
+
+.user-badge .badge-admin {
+  background-color: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+/* ============================================
+   DESTINATION ITEM
+   ============================================ */
+
+.autocomplete-destination {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.destination-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  font-size: var(--font-size-lg);
+  flex-shrink: 0;
+}
+
+.destination-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.destination-name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.destination-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.destination-flag {
+  font-size: var(--font-size-base);
+}
+
+.destination-count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   EXPERIENCE ITEM
+   ============================================ */
+
+.autocomplete-experience {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%; /* Ensure full width */
+  min-width: 0; /* Allow flex children to shrink */
+}
+
+.experience-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: var(--font-size-lg);
+  flex-shrink: 0;
+}
+
+.experience-info {
+  flex: 1;
+  min-width: 0; /* Allow text truncation */
+  overflow: hidden; /* Prevent overflow */
+}
+
+.experience-name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.experience-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.experience-location,
+.experience-rating {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.experience-badge {
+  flex-shrink: 0;
+  margin-left: var(--space-2); /* Add spacing from content */
+}
+
+.experience-badge .badge {
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap; /* Prevent badge text wrapping */
+}
+
+/* ============================================
+   COUNTRY ITEM
+   ============================================ */
+
+.autocomplete-country {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.country-flag {
+  font-size: var(--font-size-2xl);
+  flex-shrink: 0;
+}
+
+.country-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.country-name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+}
+
+.country-code {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+/* ============================================
+   CATEGORY ITEM
+   ============================================ */
+
+.autocomplete-category {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.category-icon {
+  font-size: var(--font-size-xl);
+  flex-shrink: 0;
+}
+
+.category-name {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+}
+
+/* ============================================
+   DEFAULT ITEM
+   ============================================ */
+
+.autocomplete-default {
+  padding: var(--space-1) 0;
+}
+
+.default-name {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 576px) {
+  .autocomplete-dropdown {
+    max-height: 300px;
+  }
+
+  .user-avatar,
+  .user-avatar-placeholder,
+  .destination-icon,
+  .experience-icon {
+    width: 32px;
+    height: 32px;
+    font-size: var(--font-size-base);
+  }
+
+  .user-name,
+  .destination-name,
+  .experience-name,
+  .country-name,
+  .category-name {
+    font-size: var(--font-size-sm);
+  }
+
+  .user-meta,
+  .destination-meta,
+  .experience-meta,
+  .country-code {
+    font-size: var(--font-size-xs);
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+.autocomplete-item:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .autocomplete-dropdown,
+  .autocomplete-item {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .autocomplete-input {
+    border-width: 3px;
+  }
+
+  .autocomplete-item.highlighted {
+    outline-width: 3px;
+  }
+}

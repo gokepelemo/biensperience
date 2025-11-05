@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import svgr from 'vite-plugin-svgr';
 import envCompatible from 'vite-plugin-env-compatible';
 import path from 'path';
 
@@ -9,6 +10,14 @@ export default defineConfig({
     react({
       // Enable JSX in .js files
       include: '**/*.{jsx,js}',
+    }),
+    // Enable importing SVG files as React components
+    svgr({
+      svgrOptions: {
+        // SVGR options
+        icon: true,
+        dimensions: false,
+      },
     }),
     // Support REACT_APP_ environment variables for backward compatibility
     envCompatible({

@@ -1,5 +1,5 @@
 import "./NewDestinationModal.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Form } from "react-bootstrap";
 import Modal from "../Modal/Modal";
 import FormField from "../FormField/FormField";
@@ -32,11 +32,11 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
   const [error, setError] = useState("");
 
   // Update prefilled name when prop changes
-  useState(() => {
+  useEffect(() => {
     if (prefillName && prefillName !== formData.name) {
       setFormData(prev => ({ ...prev, name: prefillName }));
     }
-  });
+  }, [prefillName, formData.name]);
 
   function handleChange(e) {
     setFormData({

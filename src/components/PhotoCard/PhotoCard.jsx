@@ -150,16 +150,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title }) {
       <div
         className="photoCard d-flex align-items-center justify-content-center"
         onClick={() => setShowModal(true)}
-        style={{
-          cursor: 'pointer',
-          aspectRatio: containerAspectRatio,
-          // Ensure width adapts to maintain aspect ratio with max-height constraint
-          width: '100%',
-          maxWidth: '100%',
-          // Force GPU rendering for smooth transitions without layout shifts
-          transform: 'translateZ(0)',
-          backfaceVisibility: 'hidden'
-        }}
+        style={{ aspectRatio: containerAspectRatio }}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
@@ -176,7 +167,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title }) {
         )}
         <img
           src={displayPhoto.url}
-          className="img-fluid"
+          className={`img-fluid ${imageLoading ? 'loading' : 'loaded'}`}
           alt={hasRealPhotos ? imageAlt : `${imageAlt} placeholder`}
           title={hasRealPhotos ? (sanitizedCredit || title) : undefined}
           loading="lazy"
@@ -184,14 +175,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title }) {
           role={hasRealPhotos ? undefined : "presentation"}
           onLoad={handleImageLoad}
           onError={() => setImageLoading(false)}
-          style={{ 
-            ...imageStyle,
-            opacity: imageLoading ? 0 : 1, 
-            // Smooth fade without layout shift
-            transition: 'opacity 0.3s ease-in',
-            // Prevent layout shift during image swap
-            transform: 'translateZ(0)'
-          }}
+          style={imageStyle}
         />
       </div>
 

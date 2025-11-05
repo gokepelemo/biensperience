@@ -108,11 +108,10 @@ export function useDestinationManagement(destinations, formData, setFormData, se
    */
   const handleCreateDestinationClick = useCallback((e) => {
     e.preventDefault();
-    // Use the current destination field value from formData, not destinationInput
-    const currentDestinationValue = formData.destination || '';
-    setPrefillName(currentDestinationValue);
+    // Use destinationInput which tracks the autocomplete search query
+    setPrefillName(destinationInput);
     setShowDestinationModal(true);
-  }, [formData.destination]);
+  }, [destinationInput]);
 
   /**
    * Close destination modal
@@ -131,7 +130,8 @@ export function useDestinationManagement(destinations, formData, setFormData, se
     handleDestinationCreated,
     handleCreateDestinationClick,
     closeDestinationModal,
-    setShowDestinationModal
+    setShowDestinationModal,
+    setDestinationInput
   };
 }
 

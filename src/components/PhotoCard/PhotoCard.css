@@ -10,18 +10,22 @@
     align-items: center;
     justify-content: center;
     width: 100%;
+    max-width: 100%;
     margin: 0 auto;
     background: var(--color-bg-secondary);
     position: relative;
     border-radius: var(--radius-xl);
     overflow: hidden;
-    /* Layout shift prevention - reserve space before image loads */
+    cursor: pointer;
+    /* Layout shift prevention */
     contain: layout style;
-    /* Max height with responsive units: never exceed 600px (37.5rem) */
-    max-height: clamp(18.75rem, 50vh, 37.5rem); /* min 300px, max 600px, scales with viewport */
-    min-height: 18.75rem; /* 300px fallback for browsers without aspect-ratio support */
-    /* Prevent layout shifts when switching photos */
-    will-change: auto; /* Optimize for stable layout, not for animation */
+    /* GPU rendering for smooth transitions without layout shifts */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    /* Max height with responsive units */
+    max-height: clamp(18.75rem, 50vh, 37.5rem);
+    min-height: 18.75rem;
+    will-change: auto;
 }
 
 .photoThumbnail {
@@ -52,11 +56,23 @@ div.photoFrame {
 
 .photoCard img {
     max-width: 100%;
-    height: 100%; /* Fill the container height */
+    height: 100%;
     object-fit: contain;
     border-radius: var(--radius-xl);
     display: block;
     padding: var(--space-2);
+    /* Smooth fade in when loaded */
+    transition: opacity var(--transition-normal) ease-in;
+    /* Prevent layout shift during image swap */
+    transform: translateZ(0);
+}
+
+.photoCard img.loading {
+    opacity: 0;
+}
+
+.photoCard img.loaded {
+    opacity: 1;
 }
 
 /* Photo Loading Animation - uses Loading component */

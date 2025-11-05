@@ -1,0 +1,96 @@
+/* CollaboratorModal - Design token compatible styles */
+
+/* Button styles */
+.collaborator-modal-content .btn {
+  transition: all var(--transition-normal);
+}
+
+.collaborator-modal-content .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.collaborator-modal-content .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Form input styles */
+.collaborator-modal-content .form-control:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.2rem var(--color-primary-alpha-20);
+  background-color: var(--color-bg-primary);
+}
+
+.collaborator-modal-content .form-control::placeholder {
+  color: var(--color-text-placeholder);
+  opacity: 0.6;
+}
+
+/* List group styles */
+.collaborator-modal-content .list-group-item {
+  transition: all var(--transition-fast);
+}
+
+.collaborator-modal-content .list-group-item:hover {
+  background-color: var(--color-bg-tertiary);
+  transform: translateX(2px);
+}
+
+/* Badge hover effects */
+.collaborator-modal-content .badge {
+  transition: all var(--transition-fast);
+}
+
+.collaborator-modal-content .badge:hover {
+  filter: brightness(1.1);
+}
+
+/* Button group active state */
+.collaborator-modal-content .btn-group .btn.active {
+  box-shadow: 0 2px 8px var(--color-primary-alpha-30);
+}
+
+/* Info alert styling (overrides Bootstrap) */
+.collaborator-modal-content .alert-info {
+  background-color: var(--color-info-bg);
+  border-color: var(--color-info-border);
+  color: var(--color-info-text);
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .collaborator-modal-content {
+    padding: var(--space-3) !important;
+  }
+  
+  .collaborator-modal-content .btn-group {
+    flex-direction: column;
+  }
+  
+  .collaborator-modal-content .btn-group .btn {
+    width: 100%;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: var(--space-2);
+  }
+}
+
+/* Accessibility enhancements */
+@media (prefers-reduced-motion: reduce) {
+  .collaborator-modal-content * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .collaborator-modal-content .btn {
+    border-width: 2px;
+  }
+  
+  .collaborator-modal-content .form-control {
+    border-width: 2px;
+  }
+}

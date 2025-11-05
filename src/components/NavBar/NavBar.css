@@ -105,11 +105,11 @@ nav {
 .dropdown-menu {
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
-    padding: 0; /* Remove default padding */
-    overflow: hidden; /* Ensure rounded corners are maintained */
-    /* Custom animation handled via JavaScript for better control */
+    padding: 0;
+    overflow: hidden;
     transform-origin: top;
     will-change: opacity, transform;
+    display: none;
 }
 
 /* Dropdown toggle button styling */

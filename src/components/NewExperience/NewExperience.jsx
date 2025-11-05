@@ -8,6 +8,7 @@ import { createExperience } from "../../utilities/experiences-api";
 import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import TagInput from "../../components/TagInput/TagInput";
+import Autocomplete from "../../components/Autocomplete/Autocomplete";
 import Alert from "../Alert/Alert";
 import { handleError } from "../../utilities/error-handler";
 import { isDuplicateName } from "../../utilities/deduplication";
@@ -30,6 +31,7 @@ export default function NewExperience() {
   const [newExperience, setNewExperience] = useState({});
   const [destinations, setDestinations] = useState([]);
   const [experiences, setExperiences] = useState([]);
+  const [destinationSearchTerm, setDestinationSearchTerm] = useState('');
   const [tags, setTags] = useState([]);
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -194,50 +196,93 @@ export default function NewExperience() {
             />
 
             <div className="mb-4">
-              <FormField
-                name="destination"
-                label={lang.en.label.destinationLabel}
-                type="text"
-                value={newExperience.destination || ''}
-                onChange={handleDestinationChange}
-                placeholder={lang.en.placeholder.destination}
-                required
-                tooltip={`${lang.en.helper.destinationRequired}${lang.en.helper.createNewDestination}`}
-                tooltipPlacement="top"
-                autoComplete="off"
-                list="destination_list"
-                className="mb-2"
-              />
-              <datalist type="text" id="destination_list">
-                {getDestinationOptions().map((destination, index) => {
-                  // Handle create option differently
-                  if (destination.isCreateOption) {
-                    const value = destination.country
-                      ? `${destination.name}: ${destination.country}`
-                      : destination.name;
-                    return (
-                      <option key={destination._id} value={value}>
-                        {value}
-                      </option>
-                    );
-                  }
-                  // Regular destination option
-                  return (
-                    <option key={destination._id || index} value={`${destination.name}, ${destination.country}`} />
-                  );
-                })}
-              </datalist>
-              <small className="form-text text-muted">
-                {lang.en.helper.destinationRequired}
-                <button
-                  type="button"
-                  onClick={handleCreateDestinationClick}
-                  className="btn btn-link p-0 ms-1 align-baseline"
-                  style={{ textDecoration: 'none' }}
-                >
-                  {lang.en.helper.createNewDestination}
-                </button>
-              </small>
+              <Form.Group>
+                <Form.Label>
+                  {lang.en.label.destinationLabel}
+                  {' '}
+                  <span className="text-danger">*</span>
+                  {' '}
+                  <FormTooltip
+                    text={`${lang.en.helper.destinationRequired}${lang.en.helper.createNewDestination}`}
+                    placement="top"
+                  />
+                </Form.Label>
+                <Autocomplete
+                  placeholder={lang.en.placeholder.destination}
+                  entityType="destination"
+                  items={(() => {
+                    // First, map all destinations to the format we need
+                    const allDestItems = destinations.map(dest => ({
+                      id: dest._id,
+                      name: dest.name,
+                      country: dest.country,
+                      flag: dest.flag,
+                      // Calculate experience count from experiences array
+                      experienceCount: expData.filter(exp => 
+                        (typeof exp.destination === 'object' ? exp.destination._id : exp.destination) === dest._id
+                      ).length
+                    }));
+                    
+                    // If there's a search term, filter destinations
+                    let filteredDestItems = allDestItems;
+                    if (destinationSearchTerm && destinationSearchTerm.trim()) {
+                      const searchLower = destinationSearchTerm.toLowerCase();
+                      filteredDestItems = allDestItems.filter(dest => {
+                        const searchableText = [
+                          dest.name,
+                          dest.country
+                        ].filter(Boolean).join(' ').toLowerCase();
+                        return searchableText.includes(searchLower);
+                      });
+                    }
+                    
+                    // If search term exists (2+ chars) and no matching destinations, add "Create New" option
+                    if (destinationSearchTerm && destinationSearchTerm.length >= 2 && filteredDestItems.length === 0) {
+                      return [{
+                        id: 'create-new',
+                        name: `✚ Create "${destinationSearchTerm}"`,
+                        country: 'New Destination',
+                        flag: '🌍',
+                        experienceCount: 0,
+                        isCreateOption: true
+                      }];
+                    }
+                    
+                    return filteredDestItems;
+                  })()}
+                  onSelect={(destination) => {
+                    // Check if it's the "Create New" option
+                    if (destination.isCreateOption) {
+                      handleCreateDestinationClick(new Event('click'));
+                      return;
+                    }
+                    
+                    setNewExperience({
+                      ...newExperience,
+                      destination: destination._id || destination.id
+                    });
+                  }}
+                  onSearch={(query) => {
+                    // Update search term for filtering and "Create New Destination" button
+                    setDestinationSearchTerm(query);
+                    setDestinationInput(query);
+                  }}
+                  size="md"
+                  emptyMessage="Type to search for destinations..."
+                  disableFilter={true}
+                />
+                <small className="form-text text-muted mt-2 d-block">
+                  {lang.en.helper.destinationRequired}
+                  <button
+                    type="button"
+                    onClick={handleCreateDestinationClick}
+                    className="btn btn-link p-0 ms-1 align-baseline"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    {lang.en.helper.createNewDestination}
+                  </button>
+                </small>
+              </Form.Group>
             </div>
 
             <FormField

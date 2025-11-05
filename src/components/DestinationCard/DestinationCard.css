@@ -13,9 +13,9 @@
 }
 
 .destination-card-title {
-    background-color: var(--color-bg-overlay); /* Fallback for browsers without backdrop-filter */
+    background-color: var(--color-bg-overlay);
     backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px); /* Safari support */
+    -webkit-backdrop-filter: blur(4px);
     border-radius: var(--radius-md);
     padding: var(--space-2);
     overflow: hidden;
@@ -24,11 +24,11 @@
     hyphens: none;
     max-height: 100%;
     line-height: var(--line-height-snug);
-    /* Match experience card font size - automatically reduces for longer text */
     font-size: var(--font-size-lg);
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
-    line-clamp: 3; /* Standard property */
+    line-clamp: 3;
     text-overflow: ellipsis;
+    color: white;
 }

@@ -18,26 +18,49 @@ const createPlan = asyncHandler(async (req, res) => {
   const { experienceId } = req.params;
   const { planned_date } = req.body;
 
+  backendLogger.debug('Plan creation request received', {
+    experienceId,
+    planned_date,
+    userId: req.user?._id?.toString(),
+    hasUser: !!req.user,
+    requestMethod: req.method,
+    requestPath: req.path
+  });
+
   // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(experienceId)) {
+    backendLogger.warn('Invalid experience ID format', { experienceId });
     return res.status(400).json({ error: "Invalid experience ID" });
   }
 
   if (!req.user || !req.user._id) {
+    backendLogger.warn('Plan creation attempted without authentication', {
+      hasUser: !!req.user,
+      hasUserId: !!(req.user?._id)
+    });
     return res.status(401).json({ error: "Authentication required" });
   }
 
   if (!mongoose.Types.ObjectId.isValid(req.user._id)) {
+    backendLogger.warn('Invalid user ID format', { userId: req.user._id });
     return res.status(400).json({ error: "Invalid user ID" });
   }
 
   // Check if experience exists
+  backendLogger.debug('Looking up experience', { experienceId });
   const experience = await Experience.findById(experienceId);
   if (!experience) {
+    backendLogger.warn('Experience not found', { experienceId });
     return res.status(404).json({ error: "Experience not found" });
   }
+  backendLogger.debug('Experience found', { 
+    experienceId, 
+    experienceName: experience.name,
+    planItemsCount: experience.plan_items?.length || 0
+  });
 
   // Check if user already has a plan for this experience
+  backendLogger.debug('Checking for existing plan', { experienceId, userId: req.user._id.toString() });
   const existingPlan = await Plan.findOne({
     experience: experienceId,
     user: req.user._id
@@ -55,6 +78,7 @@ const createPlan = asyncHandler(async (req, res) => {
       planId: existingPlan._id
     });
   }
+  backendLogger.debug('No existing plan found, proceeding with creation');
 
   // Create snapshot of current plan items
   const planSnapshot = experience.plan_items.map(item => ({
@@ -79,7 +103,7 @@ const createPlan = asyncHandler(async (req, res) => {
   const plan = await Plan.create({
     experience: experienceId,
     user: req.user._id,
-    planned_date: planned_date || null, // Allow null - user can set date later
+    planned_date: planned_date || null,
     plan: planSnapshot,
     permissions: [{
       _id: req.user._id,
@@ -91,7 +115,7 @@ const createPlan = asyncHandler(async (req, res) => {
 
   backendLogger.info('Plan created successfully', {
     planId: plan._id.toString(),
-    experienceId,
+    experienceId: experienceId.toString(),
     userId: req.user._id.toString()
   });
 

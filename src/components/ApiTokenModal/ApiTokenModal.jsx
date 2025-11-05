@@ -236,12 +236,14 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
           <FaKey className="me-2" />
           API Tokens
         </Modal.Title>
-        <button 
-          type="button" 
-          className="btn-close" 
-          onClick={handleClose} 
+        <button
+          type="button"
+          className="btn-close"
+          onClick={handleClose}
           aria-label="Close"
-        ></button>
+        >
+          <span aria-hidden="true">&times;</span>
+        </button>
       </Modal.Header>
       <Modal.Body>
         {/* API Access Toggle */}

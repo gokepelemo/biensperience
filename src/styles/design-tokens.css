@@ -38,6 +38,13 @@
   --font-size-3xl: clamp(1.875rem, 4vw, 2.25rem);       /* 30px - 36px */
   --font-size-4xl: clamp(2.25rem, 5vw, 3rem);           /* 36px - 48px */
 
+  /* Mobile-specific font sizes */
+  --font-size-mobile-sm: 0.875rem;    /* 14px */
+  --font-size-mobile-base: 1rem;      /* 16px */
+  --font-size-mobile-lg: 1.125rem;    /* 18px */
+  --font-size-mobile-xl: 1.5rem;      /* 24px */
+  --font-size-mobile-2xl: 2rem;       /* 32px */
+
   /* Line Heights - Prevent layout shifts */
   --line-height-tight: 1.2;
   --line-height-snug: 1.3;
@@ -71,6 +78,17 @@
   --space-20: 5rem;     /* 80px */
   --space-24: 6rem;     /* 96px */
 
+  /* Mobile-optimized spacing */
+  --space-mobile-xs: 0.5rem;   /* 8px */
+  --space-mobile-sm: 0.75rem;  /* 12px */
+  --space-mobile-md: 1rem;     /* 16px */
+  --space-mobile-lg: 1.5rem;   /* 24px */
+  --space-mobile-xl: 2rem;     /* 32px */
+
+  /* Container padding */
+  --container-padding: 1rem;
+  --container-padding-mobile: 0.75rem;
+
   /* ============================================
      COLORS - Semantic System
      ============================================ */
@@ -82,11 +100,11 @@
   --color-primary-hover: #5a67d8;
 
   /* Text Colors */
-  --color-text-primary: #1a202c;
-  --color-text-secondary: #2d3748;
-  --color-text-tertiary: #4a5568;
-  --color-text-muted: #718096;
-  --color-text-disabled: #a0aec0;
+  --color-text-primary: #1a202c;      /* Very dark gray - primary text */
+  --color-text-secondary: #2d3748;    /* Dark gray - secondary text */
+  --color-text-tertiary: #4a5568;     /* Medium-dark gray - tertiary text */
+  --color-text-muted: #5a6370;        /* Darker muted gray - improved contrast (was #718096) */
+  --color-text-disabled: #9ca3af;     /* Lighter gray for disabled state (was #a0aec0) */
 
   /* Background Colors */
   --color-bg-primary: #ffffff;
@@ -99,12 +117,40 @@
   /* Semantic Colors */
   --color-success: #28a745;
   --color-success-light: rgba(40, 167, 69, 0.1);
+  --color-success-dark: #218838;
   --color-danger: #dc3545;
   --color-danger-light: rgba(220, 53, 69, 0.1);
+  --color-danger-dark: #c82333;
   --color-warning: #ffc107;
   --color-warning-light: rgba(255, 193, 7, 0.1);
+  --color-warning-dark: #e0a800;
   --color-info: #17a2b8;
   --color-info-light: rgba(23, 162, 184, 0.1);
+  --color-info-dark: #138496;
+  
+  /* Semantic Color States - For alerts, badges, etc. */
+  --color-info-bg: rgba(23, 162, 184, 0.1);
+  --color-info-border: rgba(23, 162, 184, 0.3);
+  --color-info-text: #0c5460;
+  --color-success-bg: rgba(40, 167, 69, 0.1);
+  --color-success-border: rgba(40, 167, 69, 0.3);
+  --color-success-text: #155724;
+  --color-danger-bg: rgba(220, 53, 69, 0.1);
+  --color-danger-border: rgba(220, 53, 69, 0.3);
+  --color-danger-text: #721c24;
+  --color-warning-bg: rgba(255, 193, 7, 0.1);
+  --color-warning-border: rgba(255, 193, 7, 0.3);
+  --color-warning-text: #856404;
+  
+  /* Alpha Variants - For transparency effects */
+  --color-primary-alpha-10: rgba(102, 126, 234, 0.1);
+  --color-primary-alpha-20: rgba(102, 126, 234, 0.2);
+  --color-primary-alpha-30: rgba(102, 126, 234, 0.3);
+  --color-primary-alpha-40: rgba(102, 126, 234, 0.4);
+  --color-primary-alpha-50: rgba(102, 126, 234, 0.5);
+  
+  /* Text Placeholder */
+  --color-text-placeholder: #a0aec0;
 
   /* Favorite Button Colors */
   --color-favorite-add-hover-start: #28a745;    /* Green for add hover */
@@ -241,6 +287,60 @@
   --form-group-margin-bottom: var(--space-4);
 
   /* ============================================
+     BADGE COLORS
+     ============================================ */
+
+  /* Badge Colors - Semantic */
+  --badge-primary-bg: #667eea;
+  --badge-primary-text: #ffffff;
+  
+  --badge-success-bg: #28a745;
+  --badge-success-text: #ffffff;
+  
+  --badge-danger-bg: #dc3545;
+  --badge-danger-text: #ffffff;
+  
+  --badge-warning-bg: #ffc107;
+  --badge-warning-text: #000000;
+  
+  --badge-info-bg: #17a2b8;
+  --badge-info-text: #ffffff;
+  
+  --badge-neutral-bg: #6c757d;
+  --badge-neutral-text: #ffffff;
+  
+  /* Badge Colors - Category Specific */
+  --badge-nature-bg: #28a745;
+  --badge-nature-text: #ffffff;
+  
+  --badge-culture-bg: #764ba2;
+  --badge-culture-text: #ffffff;
+  
+  --badge-food-bg: #fd7e14;
+  --badge-food-text: #ffffff;
+  
+  --badge-adventure-bg: #dc3545;
+  --badge-adventure-text: #ffffff;
+  
+  --badge-relaxation-bg: #17a2b8;
+  --badge-relaxation-text: #ffffff;
+  
+  --badge-photography-bg: #e83e8c;
+  --badge-photography-text: #ffffff;
+  
+  --badge-seasonal-bg: #ffc107;
+  --badge-seasonal-text: #000000;
+  
+  --badge-nightlife-bg: #6610f2;
+  --badge-nightlife-text: #ffffff;
+  
+  --badge-shopping-bg: #20c997;
+  --badge-shopping-text: #ffffff;
+  
+  --badge-historical-bg: #6c757d;
+  --badge-historical-text: #ffffff;
+
+  /* ============================================
      Z-INDEX SCALE
      ============================================ */
 
@@ -275,9 +375,7 @@
   --container-xxl: 1320px;
 }
 
-/* ============================================
-   DARK MODE TOKENS - Complete Dark Theme
-   ============================================ */
+/* DARK MODE - System preference and data-theme attribute */
 @media (prefers-color-scheme: dark) {
   :root {
     /* Text Colors - Light on dark backgrounds */
@@ -315,12 +413,40 @@
     /* Semantic Colors - Slightly adjusted for dark theme */
     --color-success: #40c057;           /* Brighter green for dark bg */
     --color-success-light: rgba(64, 192, 87, 0.15);
+    --color-success-dark: #2f9e44;
     --color-danger: #fa5252;            /* Brighter red for dark bg */
     --color-danger-light: rgba(250, 82, 82, 0.15);
+    --color-danger-dark: #e03131;
     --color-warning: #ffd43b;           /* Brighter yellow for dark bg */
     --color-warning-light: rgba(255, 212, 59, 0.15);
+    --color-warning-dark: #fab005;
     --color-info: #339af0;              /* Brighter blue for dark bg */
     --color-info-light: rgba(51, 154, 240, 0.15);
+    --color-info-dark: #1c7ed6;
+    
+    /* Semantic Color States - Dark mode versions */
+    --color-info-bg: rgba(51, 154, 240, 0.15);
+    --color-info-border: rgba(51, 154, 240, 0.3);
+    --color-info-text: #74c0fc;
+    --color-success-bg: rgba(64, 192, 87, 0.15);
+    --color-success-border: rgba(64, 192, 87, 0.3);
+    --color-success-text: #8ce99a;
+    --color-danger-bg: rgba(250, 82, 82, 0.15);
+    --color-danger-border: rgba(250, 82, 82, 0.3);
+    --color-danger-text: #ffa8a8;
+    --color-warning-bg: rgba(255, 212, 59, 0.15);
+    --color-warning-border: rgba(255, 212, 59, 0.3);
+    --color-warning-text: #ffe066;
+    
+    /* Alpha Variants - Keep same for consistency */
+    --color-primary-alpha-10: rgba(102, 126, 234, 0.1);
+    --color-primary-alpha-20: rgba(102, 126, 234, 0.2);
+    --color-primary-alpha-30: rgba(102, 126, 234, 0.3);
+    --color-primary-alpha-40: rgba(102, 126, 234, 0.4);
+    --color-primary-alpha-50: rgba(102, 126, 234, 0.5);
+    
+    /* Text Placeholder */
+    --color-text-placeholder: #6c757d;
 
     /* Favorite Button Colors - Adjusted for dark mode */
     --color-favorite-add-hover-start: #40c057;    /* Brighter green for dark bg */
@@ -341,5 +467,223 @@
     --btn-secondary-border: 2px solid var(--color-border-medium);
     --btn-secondary-hover-bg: rgba(255, 255, 255, 0.1);
     --btn-secondary-hover-border: 2px solid var(--color-border-dark);
+
+    /* Badge Colors - Dark Mode Overrides */
+    --badge-primary-bg: #7c93f7;
+    --badge-primary-text: #000000;
+    
+    --badge-success-bg: #40c057;
+    --badge-success-text: #000000;
+    
+    --badge-danger-bg: #fa5252;
+    --badge-danger-text: #000000;
+    
+    --badge-warning-bg: #ffd43b;
+    --badge-warning-text: #000000;
+    
+    --badge-info-bg: #4dabf7;
+    --badge-info-text: #000000;
+    
+    --badge-neutral-bg: #adb5bd;
+    --badge-neutral-text: #000000;
+    
+    /* Category badges - Lighter for dark backgrounds */
+    --badge-nature-bg: #51cf66;
+    --badge-nature-text: #000000;
+    
+    --badge-culture-bg: #9775fa;
+    --badge-culture-text: #000000;
+    
+    --badge-food-bg: #ff922b;
+    --badge-food-text: #000000;
+    
+    --badge-adventure-bg: #ff6b6b;
+    --badge-adventure-text: #000000;
+    
+    --badge-relaxation-bg: #4dabf7;
+    --badge-relaxation-text: #000000;
+    
+    --badge-photography-bg: #ff6b9d;
+    --badge-photography-text: #000000;
+    
+    --badge-seasonal-bg: #ffd43b;
+    --badge-seasonal-text: #000000;
+    
+    --badge-nightlife-bg: #9775fa;
+    --badge-nightlife-text: #000000;
+    
+    --badge-shopping-bg: #63e6be;
+    --badge-shopping-text: #000000;
+    
+    --badge-historical-bg: #adb5bd;
+    --badge-historical-text: #000000;
+  }
+}
+
+/* DARK MODE - data-theme attribute (for Storybook and manual toggling) */
+[data-theme="dark"] {
+  /* Text Colors */
+  --color-text-primary: #f8f9fa;
+  --color-text-secondary: #e9ecef;
+  --color-text-tertiary: #dee2e6;
+  --color-text-muted: #adb5bd;
+  --color-text-disabled: #6c757d;
+
+  /* Background Colors */
+  --color-bg-primary: #121212;
+  --color-bg-secondary: #1e1e1e;
+  --color-bg-tertiary: #2d2d2d;
+  --color-bg-hover: rgba(255, 255, 255, 0.05);
+  --color-bg-overlay: rgba(0, 0, 0, 0.85);
+  --color-bg-input: #2d2d2d;
+
+  /* Border Colors */
+  --color-border-light: rgba(255, 255, 255, 0.1);
+  --color-border-medium: rgba(255, 255, 255, 0.2);
+  --color-border-dark: rgba(255, 255, 255, 0.3);
+  --color-border-primary: rgba(102, 126, 234, 0.3);
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.15);
+  --shadow-md: 0 4px 12px rgba(102, 126, 234, 0.2);
+  --shadow-lg: 0 10px 30px rgba(102, 126, 234, 0.3);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.5);
+  --shadow-text-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-text-md: 0 2px 4px rgba(0, 0, 0, 0.7);
+
+  /* Semantic Colors */
+  --color-success: #40c057;
+  --color-success-light: rgba(64, 192, 87, 0.15);
+  --color-danger: #fa5252;
+  --color-danger-light: rgba(250, 82, 82, 0.15);
+  --color-warning: #ffd43b;
+  --color-warning-light: rgba(255, 212, 59, 0.15);
+  --color-info: #339af0;
+  --color-info-light: rgba(51, 154, 240, 0.15);
+
+  /* Favorite Button Colors */
+  --color-favorite-add-hover-start: #40c057;
+  --color-favorite-add-hover-end: #2f9e44;
+  --color-favorite-remove-hover-start: #fa5252;
+  --color-favorite-remove-hover-end: #e03131;
+  --color-favorite-pill-bg: #667eea;
+  --color-favorite-pill-bg-end: #764ba2;
+  --color-favorite-text: #ffffff;
+
+  /* Primary Colors */
+  --color-primary-light: rgba(102, 126, 234, 0.15);
+  --color-primary-hover: #7c8ff0;
+
+  /* Button Tokens */
+  --btn-secondary-bg: var(--color-bg-tertiary);
+  --btn-secondary-color: var(--color-text-primary);
+  --btn-secondary-border: 2px solid var(--color-border-medium);
+  --btn-secondary-hover-bg: rgba(255, 255, 255, 0.1);
+  --btn-secondary-hover-border: 2px solid var(--color-border-dark);
+
+  /* Badge Colors - High contrast for dark mode */
+  --badge-primary-bg: #7c93f7;
+  --badge-primary-text: #000000;
+  --badge-success-bg: #40c057;
+  --badge-success-text: #000000;
+  --badge-danger-bg: #fa5252;
+  --badge-danger-text: #000000;
+  --badge-warning-bg: #ffd43b;
+  --badge-warning-text: #000000;
+  --badge-info-bg: #4dabf7;
+  --badge-info-text: #000000;
+  --badge-neutral-bg: #adb5bd;
+  --badge-neutral-text: #000000;
+
+  /* Category Badges */
+  --badge-nature-bg: #51cf66;
+  --badge-nature-text: #000000;
+  --badge-culture-bg: #9775fa;
+  --badge-culture-text: #000000;
+  --badge-food-bg: #ff922b;
+  --badge-food-text: #000000;
+  --badge-adventure-bg: #ff6b6b;
+  --badge-adventure-text: #000000;
+  --badge-relaxation-bg: #74c0fc;
+  --badge-relaxation-text: #000000;
+  --badge-photography-bg: #ff6b9d;
+  --badge-photography-text: #000000;
+  --badge-seasonal-bg: #ffd43b;
+  --badge-seasonal-text: #000000;
+  --badge-nightlife-bg: #9775fa;
+  --badge-nightlife-text: #000000;
+  --badge-shopping-bg: #63e6be;
+  --badge-shopping-text: #000000;
+  --badge-historical-bg: #adb5bd;
+  --badge-historical-text: #000000;
+}
+
+/* ============================================
+   RESPONSIVE BREAKPOINTS
+   ============================================ */
+
+/* Use these in media queries for consistency */
+:root {
+  --breakpoint-xs: 375px;   /* Mobile portrait */
+  --breakpoint-sm: 576px;   /* Mobile landscape */
+  --breakpoint-md: 768px;   /* Tablet */
+  --breakpoint-lg: 992px;   /* Desktop */
+  --breakpoint-xl: 1200px;  /* Large desktop */
+  --breakpoint-2xl: 1400px; /* Extra large desktop */
+}
+
+/* ============================================
+   Z-INDEX SCALE
+   ============================================ */
+
+:root {
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
+}
+
+/* ============================================
+   MOBILE-SPECIFIC OVERRIDES
+   ============================================ */
+
+@media (max-width: 768px) {
+  :root {
+    /* Adjust font sizes for mobile readability */
+    --font-size-4xl: 2rem;      /* 32px max on mobile */
+    --font-size-3xl: 1.75rem;   /* 28px max on mobile */
+    --font-size-2xl: 1.5rem;    /* 24px max on mobile */
+    
+    /* Tighter spacing on mobile */
+    --space-12: 2rem;     /* Reduce from 48px to 32px */
+    --space-16: 2.5rem;   /* Reduce from 64px to 40px */
+    --space-20: 3rem;     /* Reduce from 80px to 48px */
+    --space-24: 4rem;     /* Reduce from 96px to 64px */
+    
+    /* Smaller shadows on mobile */
+    --shadow-lg: 0 8px 20px rgba(102, 126, 234, 0.15);
+    --shadow-xl: 0 12px 30px rgba(0, 0, 0, 0.2);
+    
+    /* Adjust button sizes for touch targets (min 44px) */
+    --btn-gradient-min-height: 44px;
+    --btn-secondary-min-height: 44px;
+  }
+}
+
+/* ============================================
+   TABLET-SPECIFIC OVERRIDES
+   ============================================ */
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  :root {
+    /* Tablet-optimized spacing */
+    --space-16: 3rem;     /* 48px */
+    --space-20: 4rem;     /* 64px */
+    --space-24: 5rem;     /* 80px */
   }
 }

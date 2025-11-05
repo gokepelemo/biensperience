@@ -81,10 +81,17 @@ npm run test:api            # Backend tests
 npm run build               # Production build
 ```
 
-## Documentation
+**UI Design System & Storybook**:
+```bash
+npm run storybook           # Start Storybook at http://localhost:6006
+```
 
-See `documentation/` for detailed guides on OAuth setup, permissions framework, security, and API reference.
+Storybook provides interactive documentation for all UI components, design tokens, and patterns. Browse:
+- **Components** - Reusable UI components (buttons, cards, forms, navigation)
+- **Design System** - Colors, typography, spacing, utilities, and patterns
+- **Layouts** - Common page layouts and authentication flows
 
+All components follow the design system with full dark mode support and responsive design.
 ## Contributing
 
 Contributions welcome! Please:

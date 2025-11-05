@@ -1,22 +1,36 @@
-
-
-/** @type { import('@storybook/react-webpack5').StorybookConfig } */
+/** @type { import('@storybook/react-vite').StorybookConfig } */
 const config = {
-  "stories": [
+  stories: [
     "../src/**/*.mdx",
     "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"
   ],
-  "addons": [
-    "@storybook/preset-create-react-app",
-    "@storybook/addon-docs",
-    "@storybook/addon-onboarding"
+  addons: [
+    "@storybook/addon-essentials",
   ],
-  "framework": {
-    "name": "@storybook/react-webpack5",
-    "options": {}
+  framework: {
+    name: "@storybook/react-vite",
+    options: {}
   },
-  "staticDirs": [
-    "../public"
-  ]
+  staticDirs: ["../public"],
+  docs: {
+    defaultName: 'Documentation',
+  },
+  async viteFinal(config) {
+    // Ensure MDX files are handled correctly
+    config.optimizeDeps = config.optimizeDeps || {};
+    config.optimizeDeps.include = config.optimizeDeps.include || [];
+    config.optimizeDeps.include.push('@storybook/blocks');
+    
+    // Handle JSX in .js files (for preview.js and story files)
+    config.esbuild = config.esbuild || {};
+    config.esbuild.loader = 'jsx';
+    config.esbuild.include = /\.(jsx?|tsx?)$/;
+    
+    // Exclude MDX files from esbuild processing (let Storybook's MDX plugin handle them)
+    config.esbuild.exclude = /\.mdx$/;
+    
+    return config;
+  },
 };
+
 export default config;

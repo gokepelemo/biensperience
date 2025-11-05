@@ -119,7 +119,7 @@ async function searchAll(req, res) {
       resultCount: combinedResults.length
     });
 
-    res.json(combinedResults);
+    res.json({ results: combinedResults });
   } catch (error) {
     logger.error('Search failed', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Search failed' });
@@ -138,9 +138,22 @@ async function searchDestinationsInternal(query, limit, user) {
       .select('name city country description photos')
       .lean();
 
+    // Get experience counts for each destination
+    const destinationIds = destinations.map(dest => dest._id);
+    const experienceCounts = await Experience.aggregate([
+      { $match: { destination: { $in: destinationIds } } },
+      { $group: { _id: '$destination', count: { $sum: 1 } } }
+    ]);
+
+    // Create a map of destination ID to experience count
+    const countMap = new Map(
+      experienceCounts.map(item => [item._id.toString(), item.count])
+    );
+
     return destinations.map(dest => ({
       ...dest,
-      type: 'destination'
+      type: 'destination',
+      experienceCount: countMap.get(dest._id.toString()) || 0
     }));
   } catch (error) {
     logger.error('Destination search failed', { error: error.message });

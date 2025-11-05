@@ -1,0 +1,437 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Form, Dropdown } from 'react-bootstrap';
+import { FaSearch, FaUser, FaMapMarkerAlt, FaStar, FaGlobe } from 'react-icons/fa';
+import Loading from '../Loading/Loading';
+import './Autocomplete.css';
+
+/**
+ * Unified Autocomplete Component
+ * 
+ * Supports multiple entity types with consistent styling:
+ * - Users (with avatars, usernames, status)
+ * - Destinations (with flags, location info)
+ * - Experiences (with ratings, categories)
+ * - Countries (with flags)
+ * - Categories (with icons)
+ * 
+ * @param {Object} props
+ * @param {string} props.placeholder - Input placeholder text
+ * @param {Array} props.items - Array of items to search/display
+ * @param {string} props.entityType - Type of entity ('user', 'destination', 'experience', 'country', 'category')
+ * @param {function} props.onSelect - Callback when item is selected
+ * @param {function} props.onSearch - Callback when search input changes
+ * @param {boolean} props.showAvatar - Show avatar for user type
+ * @param {boolean} props.showStatus - Show online status for user type
+ * @param {boolean} props.showMeta - Show metadata (badges, locations, etc.)
+ * @param {string} props.value - Controlled input value
+ * @param {function} props.onChange - Controlled input change handler
+ * @param {boolean} props.loading - Show loading state
+ * @param {string} props.emptyMessage - Message when no results
+ * @param {boolean} props.disableFilter - Disable client-side filtering (use for API-based search)
+ */
+export default function Autocomplete({
+  placeholder = 'Search...',
+  items = [],
+  entityType = 'user',
+  onSelect,
+  onSearch,
+  showAvatar = true,
+  showStatus = true,
+  showMeta = true,
+  value,
+  onChange,
+  loading = false,
+  emptyMessage = 'No results found',
+  disabled = false,
+  size = 'md', // 'sm', 'md', 'lg'
+  disableFilter = false, // Disable client-side filtering
+}) {
+  const [searchTerm, setSearchTerm] = useState(value || '');
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const inputRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  // Handle controlled vs uncontrolled
+  const currentValue = value !== undefined ? value : searchTerm;
+
+  // Filter items based on search term (unless filtering is disabled for API-based search)
+  const filteredItems = React.useMemo(() => {
+    if (disableFilter) {
+      // For API-based search, return items as-is without filtering
+      return items;
+    }
+    
+    if (!currentValue.trim()) return items;
+    
+    const term = currentValue.toLowerCase();
+    return items.filter(item => {
+      const searchableText = [
+        item.name,
+        item.username,
+        item.email,
+        item.location,
+        item.country,
+        item.category,
+      ].filter(Boolean).join(' ').toLowerCase();
+      
+      return searchableText.includes(term);
+    });
+  }, [items, currentValue, disableFilter]);
+
+  // Handle input change
+  const handleInputChange = (e) => {
+    const newValue = e.target.value;
+    
+    if (onChange) {
+      onChange(e);
+    } else {
+      setSearchTerm(newValue);
+    }
+    
+    if (onSearch) {
+      onSearch(newValue);
+    }
+    
+    setIsOpen(true);
+    setHighlightedIndex(-1);
+  };
+
+  // Handle item selection
+  const handleSelect = (item) => {
+    if (onSelect) {
+      onSelect(item);
+    }
+    
+    // Update input with selected item's display name
+    const displayValue = item.name || item.username || item.label || '';
+    
+    if (onChange) {
+      onChange({ target: { value: displayValue } });
+    } else {
+      setSearchTerm(displayValue);
+    }
+    
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e) => {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        setIsOpen(true);
+        return;
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex(prev => 
+          prev < filteredItems.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0 && filteredItems[highlightedIndex]) {
+          handleSelect(filteredItems[highlightedIndex]);
+        }
+        break;
+      case 'Escape':
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+        inputRef.current?.blur();
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && dropdownRef.current) {
+      const highlightedElement = dropdownRef.current.querySelector(
+        `.autocomplete-item[data-index="${highlightedIndex}"]`
+      );
+      highlightedElement?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [highlightedIndex]);
+
+  return (
+    <div className={`autocomplete-wrapper autocomplete-size-${size}`}>
+      {/* Search Input */}
+      <div className="autocomplete-input-wrapper">
+        <FaSearch className="autocomplete-search-icon" />
+        <Form.Control
+          ref={inputRef}
+          type="text"
+          placeholder={placeholder}
+          value={currentValue}
+          onChange={handleInputChange}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          className="autocomplete-input"
+          autoComplete="off"
+        />
+      </div>
+
+      {/* Dropdown Results */}
+      {isOpen && (
+        <div ref={dropdownRef} className="autocomplete-dropdown">
+          {loading ? (
+            <div className="autocomplete-loading">
+              <Loading 
+                size="sm" 
+                animation="pulse" 
+                showMessage={true}
+                message="Searching..."
+              />
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="autocomplete-empty">
+              {emptyMessage}
+            </div>
+          ) : (
+            <div className="autocomplete-items">
+              {filteredItems.map((item, index) => (
+                <AutocompleteItem
+                  key={item.id || item.username || index}
+                  item={item}
+                  entityType={entityType}
+                  isHighlighted={index === highlightedIndex}
+                  onSelect={() => handleSelect(item)}
+                  showAvatar={showAvatar}
+                  showStatus={showStatus}
+                  showMeta={showMeta}
+                  dataIndex={index}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Individual Autocomplete Item
+ * Renders different layouts based on entity type
+ */
+function AutocompleteItem({
+  item,
+  entityType,
+  isHighlighted,
+  onSelect,
+  showAvatar,
+  showStatus,
+  showMeta,
+  dataIndex,
+}) {
+  const renderContent = () => {
+    // Auto-detect entity type from item.type if available (for mixed results)
+    const detectedType = item.type || entityType;
+    
+    switch (detectedType) {
+      case 'user':
+        return (
+          <UserItem
+            item={item}
+            showAvatar={showAvatar}
+            showStatus={showStatus}
+            showMeta={showMeta}
+          />
+        );
+      case 'destination':
+        return <DestinationItem item={item} showMeta={showMeta} />;
+      case 'experience':
+        return <ExperienceItem item={item} showMeta={showMeta} />;
+      case 'plan':
+        // Render plans as experience items with special category badge
+        return <ExperienceItem item={{ ...item, category: 'Plan' }} showMeta={showMeta} />;
+      case 'country':
+        return <CountryItem item={item} />;
+      case 'category':
+        return <CategoryItem item={item} />;
+      default:
+        return <DefaultItem item={item} />;
+    }
+  };
+
+  return (
+    <div
+      className={`autocomplete-item ${isHighlighted ? 'highlighted' : ''}`}
+      onClick={onSelect}
+      data-index={dataIndex}
+      data-entity-type={item.type || ''}
+      role="option"
+      aria-selected={isHighlighted}
+    >
+      {renderContent()}
+    </div>
+  );
+}
+
+// Entity-specific renderers
+function UserItem({ item, showAvatar, showStatus, showMeta }) {
+  // Format role display - convert camelCase/snake_case to Title Case
+  const formatRole = (role) => {
+    if (!role) return '';
+    
+    // Convert snake_case or camelCase to words
+    const words = role
+      .replace(/_/g, ' ')
+      .replace(/([A-Z])/g, ' $1')
+      .trim()
+      .toLowerCase()
+      .split(' ');
+    
+    // Capitalize each word (Title Case)
+    return words.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  // Only show role badge for super_admin
+  const shouldShowRole = item.role === 'super_admin';
+  
+  return (
+    <div className="autocomplete-user">
+      {showAvatar && (
+        <div className="user-avatar-wrapper">
+          {item.avatar ? (
+            <img src={item.avatar} alt={item.name} className="user-avatar" />
+          ) : (
+            <div className="user-avatar-placeholder">
+              <FaUser />
+            </div>
+          )}
+          {showStatus && item.isOnline && (
+            <span className="user-status-indicator online" />
+          )}
+        </div>
+      )}
+      <div className="user-info">
+        <div className="user-name">{item.name}</div>
+        {showMeta && item.username && (
+          <div className="user-meta">@{item.username}</div>
+        )}
+        {showMeta && item.email && !item.username && (
+          <div className="user-meta">{item.email}</div>
+        )}
+      </div>
+      {showMeta && shouldShowRole && (
+        <div className="user-badge">
+          <span className={`badge badge-${item.role}`}>{formatRole(item.role)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DestinationItem({ item, showMeta }) {
+  return (
+    <div className="autocomplete-destination">
+      <div className="destination-icon">
+        <FaMapMarkerAlt />
+      </div>
+      <div className="destination-info">
+        <div className="destination-name">{item.name}</div>
+        {showMeta && item.country && (
+          <div className="destination-meta">
+            {item.flag && <span className="destination-flag">{item.flag}</span>}
+            {item.country}
+          </div>
+        )}
+      </div>
+      {showMeta && item.experienceCount && (
+        <div className="destination-count">
+          {item.experienceCount} experiences
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExperienceItem({ item, showMeta }) {
+  return (
+    <div className="autocomplete-experience">
+      <div className="experience-icon">
+        <FaStar />
+      </div>
+      <div className="experience-info">
+        <div className="experience-name">{item.name}</div>
+        {showMeta && (
+          <div className="experience-meta">
+            {item.destination && (
+              <span className="experience-location">
+                <FaMapMarkerAlt /> {item.destination}
+              </span>
+            )}
+            {item.rating && (
+              <span className="experience-rating">
+                <FaStar /> {item.rating}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      {showMeta && item.category && (
+        <div className="experience-badge">
+          <span className="badge">{item.category}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CountryItem({ item }) {
+  return (
+    <div className="autocomplete-country">
+      {item.flag && <span className="country-flag">{item.flag}</span>}
+      <div className="country-info">
+        <div className="country-name">{item.name}</div>
+        {item.code && <div className="country-code">{item.code}</div>}
+      </div>
+    </div>
+  );
+}
+
+function CategoryItem({ item }) {
+  return (
+    <div className="autocomplete-category">
+      {item.icon && <span className="category-icon">{item.icon}</span>}
+      <div className="category-name">{item.name || item.label}</div>
+    </div>
+  );
+}
+
+function DefaultItem({ item }) {
+  return (
+    <div className="autocomplete-default">
+      <div className="default-name">{item.name || item.label || item.value}</div>
+    </div>
+  );
+}

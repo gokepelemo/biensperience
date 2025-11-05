@@ -4,30 +4,8 @@ import PropTypes from "prop-types";
 import { lang } from "../../lang.constants";
 
 /**
- * Modal component
- * A reusable, flexible modal component with support for various configurations
- * 
- * @param {Object} props
- * @param {boolean} props.show - Controls modal visibility
- * @param {Function} props.onClose - Callback when modal is closed
- * @param {Function} [props.onSubmit] - Optional callback when submit button is clicked
- * @param {string|React.ReactNode} props.title - Modal title
- * @param {React.ReactNode} props.children - Modal body content
- * @param {string} [props.submitText="Submit"] - Text for submit button
- * @param {string} [props.submitVariant="primary"] - Bootstrap variant for submit button (primary, danger, success, etc.)
- * @param {string} [props.cancelText="Cancel"] - Text for cancel button
- * @param {boolean} [props.showCancelButton=true] - Whether to show cancel button
- * @param {boolean} [props.showSubmitButton=true] - Whether to show submit button
- * @param {boolean} [props.disableSubmit=false] - Whether submit button should be disabled
- * @param {boolean} [props.loading=false] - Whether to show loading state on submit button
- * @param {string} [props.size] - Modal size: 'sm', 'lg', 'xl' (default is medium)
- * @param {boolean} [props.scrollable=false] - Whether modal body should be scrollable
- * @param {boolean} [props.centered=true] - Whether to vertically center the modal
- * @param {React.ReactNode} [props.footer] - Custom footer content (replaces default buttons)
- * @param {string} [props.dialogClassName] - Additional classes for modal-dialog element
- * @param {string} [props.contentClassName] - Additional classes for modal-content element
- * @param {string} [props.bodyClassName] - Additional classes for modal-body element
- * @param {React.ReactNode} [props.icon] - Optional icon/emoji to display before title
+ * Flexible modal component with customizable size, buttons, and content.
+ * See PropTypes for full prop documentation.
  */
 export default function Modal({
   show,
@@ -94,7 +72,9 @@ export default function Modal({
               onClick={onClose}
               aria-label={lang.en.aria.close}
               disabled={loading}
-            ></button>
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
           </div>
 
           {/* Body */}

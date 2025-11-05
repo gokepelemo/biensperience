@@ -25,7 +25,7 @@ import { isSuperAdmin } from "../../utilities/permissions";
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
   const { destinations, plans } = useData();
-  const { registerH1, clearActionButtons } = useApp();
+  const { registerH1, clearActionButtons, updateShowH1InNavbar } = useApp();
   let { profileId } = useParams();
 
   // Validate profileId format
@@ -203,13 +203,20 @@ export default function Profile() {
     getProfile();
   }, [getProfile]);
 
-  // Register h1 for navbar integration
+  // Register h1 for navbar integration (but disable showing in navbar for Profile)
   useEffect(() => {
     const h1 = document.querySelector('h1');
     if (h1) registerH1(h1);
+    
+    // Disable showing h1 in navbar for Profile view to prevent flashing
+    updateShowH1InNavbar(false);
 
-    return () => clearActionButtons();
-  }, [registerH1, clearActionButtons]);
+    return () => {
+      clearActionButtons();
+      // Re-enable h1 in navbar for other views
+      updateShowH1InNavbar(true);
+    };
+  }, [registerH1, clearActionButtons, updateShowH1InNavbar]);
 
   const handleExpNav = useCallback((view) => {
     setUiState({

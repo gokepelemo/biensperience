@@ -511,7 +511,9 @@ export default function UpdateProfile() {
                   className="btn-close"
                   onClick={() => setShowConfirmModal(false)}
                   aria-label="Close"
-                ></button>
+                >
+                  <span aria-hidden="true">&times;</span>
+                </button>
               </div>
               <div className="modal-body">
                 <p>{lang.en.modal.confirmUpdateReview || 'Please review your changes before updating:'}</p>

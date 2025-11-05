@@ -39,4 +39,37 @@ body {
     padding-right: 0;
     padding-bottom: 3rem;
   }
+
+  /* Center top-level headings on mobile/tablet */
+  #main-content > div > h1,
+  .container > h1,
+  .container-fluid > h1 {
+    text-align: center;
+  }
+
+  /* Center action buttons on mobile/tablet */
+  .action-buttons-container,
+  .btn-group,
+  .button-group {
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+/* Tablet specific adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Center top-level headings on tablet */
+  #main-content > div > h1,
+  .container > h1,
+  .container-fluid > h1 {
+    text-align: center;
+  }
+
+  /* Center action buttons on tablet */
+  .action-buttons-container,
+  .btn-group,
+  .button-group {
+    justify-content: center;
+    text-align: center;
+  }
 }

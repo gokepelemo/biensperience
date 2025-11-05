@@ -31,6 +31,7 @@ export default function UpdateDestination() {
   const [destination, setDestination] = useState(null);
   const [originalDestination, setOriginalDestination] = useState(null);
   const [changes, setChanges] = useState({});
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -94,6 +95,8 @@ export default function UpdateDestination() {
         setOriginalDestination(destinationData);
         setTravelTips(destinationData.travel_tips || []);
         setLoading(false);
+        // Mark initial load complete after a short delay to ensure all state is set
+        setTimeout(() => setIsInitialLoad(false), 100);
       } catch (err) {
         const errorMessage = handleError(err, { context: 'Loading destination for update' });
         setError(errorMessage || lang.en.alert.failedToLoadResource);
@@ -108,7 +111,7 @@ export default function UpdateDestination() {
 
   // Track photo changes
   useEffect(() => {
-    if (!destination || !originalDestination) return;
+    if (!destination || !originalDestination || isInitialLoad) return;
 
     const newChanges = { ...changes };
 
@@ -148,11 +151,11 @@ export default function UpdateDestination() {
       setChanges(newChanges);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destination, originalDestination]);
+  }, [destination, originalDestination, isInitialLoad]);
 
   // Track travel tips changes
   useEffect(() => {
-    if (!originalDestination) return;
+    if (!originalDestination || isInitialLoad) return;
 
     const newChanges = { ...changes };
 

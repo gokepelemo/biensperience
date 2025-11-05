@@ -300,40 +300,132 @@ function shuffleArray(array) {
  */
 class DataGenerator {
   constructor() {
-    // Expanded list of realistic first names (diverse, international)
+    // Massively expanded list of realistic first names (diverse, international)
     this.firstNames = [
-      // Common English names
+      // Common English names (Classic)
       'James', 'Mary', 'Robert', 'Jennifer', 'Michael', 'Linda', 'William', 'Elizabeth',
       'David', 'Barbara', 'Richard', 'Susan', 'Joseph', 'Jessica', 'Thomas', 'Sarah',
       'Christopher', 'Karen', 'Daniel', 'Lisa', 'Matthew', 'Nancy', 'Anthony', 'Betty',
       'Mark', 'Margaret', 'Donald', 'Sandra', 'Steven', 'Ashley', 'Andrew', 'Emily',
       'Paul', 'Kimberly', 'Joshua', 'Donna', 'Kenneth', 'Michelle', 'Kevin', 'Carol',
+      'Brian', 'Amanda', 'George', 'Dorothy', 'Edward', 'Melissa', 'Ronald', 'Deborah',
+      'Timothy', 'Stephanie', 'Jason', 'Rebecca', 'Jeffrey', 'Sharon', 'Ryan', 'Cynthia',
+      'Jacob', 'Kathleen', 'Gary', 'Amy', 'Nicholas', 'Angela', 'Eric', 'Shirley',
+      'Jonathan', 'Anna', 'Stephen', 'Brenda', 'Larry', 'Pamela', 'Justin', 'Emma',
+      'Scott', 'Nicole', 'Brandon', 'Helen', 'Benjamin', 'Samantha', 'Samuel', 'Katherine',
 
-      // Modern/Popular names
-      'Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Ethan', 'Sophia', 'Mason', 'Isabella',
+      // Modern/Popular names (2000s-2020s)
+      'Liam', 'Olivia', 'Noah', 'Ava', 'Ethan', 'Sophia', 'Mason', 'Isabella',
       'Logan', 'Mia', 'Lucas', 'Charlotte', 'Jackson', 'Amelia', 'Aiden', 'Harper',
-      'Carter', 'Evelyn', 'Jayden', 'Abigail', 'Alexander', 'Emily', 'Sebastian', 'Ella',
+      'Carter', 'Evelyn', 'Jayden', 'Abigail', 'Alexander', 'Ella', 'Sebastian', 'Aria',
+      'Grayson', 'Scarlett', 'Matthew', 'Chloe', 'Jack', 'Victoria', 'Owen', 'Madison',
+      'Luke', 'Luna', 'Henry', 'Grace', 'Wyatt', 'Nora', 'Levi', 'Lily',
+      'Isaac', 'Hannah', 'Gabriel', 'Layla', 'Julian', 'Zoey', 'Mateo', 'Penelope',
+      'Anthony', 'Lillian', 'Jaxon', 'Addison', 'Lincoln', 'Aubrey', 'Joshua', 'Ellie',
 
-      // International names
-      'Wei', 'Yuki', 'Priya', 'Ahmed', 'Sofia', 'Carlos', 'Fatima', 'Luis', 'Aisha',
-      'Raj', 'Mei', 'Hassan', 'Nadia', 'Diego', 'Leila', 'Marco', 'Amara', 'Mateo',
-      'Zara', 'Jin', 'Aaliyah', 'Omar', 'Sakura', 'Ravi', 'Layla', 'Ivan', 'Lucia'
+      // International names (East Asian)
+      'Wei', 'Yuki', 'Mei', 'Jin', 'Sakura', 'Akira', 'Hana', 'Kenji', 'Sora',
+      'Ren', 'Aiko', 'Haruto', 'Yui', 'Sota', 'Hinata', 'Riku', 'Mio', 'Kaito',
+      'Ming', 'Jian', 'Liang', 'Xiao', 'Yan', 'Feng', 'Ling', 'Hui', 'Jun',
+      'Tae', 'Soo', 'Min', 'Ji', 'Hye', 'Sung', 'Eun', 'Kyung', 'Young',
+
+      // International names (South Asian)
+      'Priya', 'Raj', 'Ravi', 'Anika', 'Arjun', 'Devi', 'Rohan', 'Sanjay', 'Deepak',
+      'Kavya', 'Vikram', 'Neha', 'Amit', 'Pooja', 'Kiran', 'Maya', 'Aditya', 'Shreya',
+      'Aarav', 'Ananya', 'Vihaan', 'Ishaan', 'Vivaan', 'Sara', 'Reyansh', 'Diya',
+
+      // International names (Middle Eastern/Arabic)
+      'Ahmed', 'Fatima', 'Hassan', 'Aisha', 'Omar', 'Layla', 'Ali', 'Zahra',
+      'Muhammad', 'Noor', 'Yusuf', 'Amira', 'Karim', 'Zainab', 'Ibrahim', 'Mariam',
+      'Khalid', 'Hala', 'Tariq', 'Rania', 'Samir', 'Leila', 'Rashid', 'Yasmin',
+
+      // International names (Hispanic/Latino)
+      'Carlos', 'Sofia', 'Luis', 'Diego', 'Mateo', 'Lucia', 'Marco', 'Valentina',
+      'Santiago', 'Isabella', 'Miguel', 'Camila', 'Gabriel', 'Valeria', 'Alejandro', 'Daniela',
+      'Rafael', 'Adriana', 'Fernando', 'Natalia', 'Pablo', 'Elena', 'Javier', 'Catalina',
+      'Antonio', 'Mariana', 'Eduardo', 'Carolina', 'Ricardo', 'Gabriela', 'Andres', 'Andrea',
+
+      // International names (European)
+      'Luca', 'Emma', 'Matteo', 'Alice', 'Leonardo', 'Giulia', 'Alessandro', 'Francesca',
+      'Pierre', 'Marie', 'Jean', 'Claire', 'Antoine', 'Camille', 'Louis', 'Manon',
+      'Max', 'Anna', 'Felix', 'Lena', 'Lukas', 'Mia', 'Jonas', 'Emma',
+      'Nikita', 'Anastasia', 'Ivan', 'Natasha', 'Dmitri', 'Olga', 'Mikhail', 'Svetlana',
+      'Lars', 'Ingrid', 'Erik', 'Astrid', 'Anders', 'Freya', 'Henrik', 'Sigrid',
+
+      // International names (African)
+      'Amara', 'Kofi', 'Zuri', 'Kwame', 'Nia', 'Jabari', 'Ayana', 'Kendi',
+      'Sekou', 'Makena', 'Adama', 'Zalika', 'Themba', 'Nala', 'Mandla', 'Ife',
+
+      // Unique/Modern names
+      'Phoenix', 'River', 'Sky', 'Ocean', 'Sage', 'Rowan', 'Quinn', 'Blair',
+      'Casey', 'Jordan', 'Taylor', 'Morgan', 'Riley', 'Avery', 'Cameron', 'Dylan'
     ];
 
-    // Expanded list of realistic last names (diverse origins)
+    // Massively expanded list of realistic last names (diverse origins)
     this.lastNames = [
-      // Common surnames
+      // Common English/American surnames
       'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis',
       'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson',
       'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson',
       'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson', 'Walker',
       'Young', 'Allen', 'King', 'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores',
+      'Green', 'Adams', 'Nelson', 'Baker', 'Hall', 'Rivera', 'Campbell', 'Mitchell',
+      'Carter', 'Roberts', 'Gomez', 'Phillips', 'Evans', 'Turner', 'Diaz', 'Parker',
+      'Cruz', 'Edwards', 'Collins', 'Reyes', 'Stewart', 'Morris', 'Morales', 'Murphy',
+      'Cook', 'Rogers', 'Morgan', 'Peterson', 'Cooper', 'Reed', 'Bailey', 'Bell',
+      'Howard', 'Ward', 'Cox', 'Richardson', 'Wood', 'Watson', 'Brooks', 'Bennett',
+      'Gray', 'James', 'Reyes', 'Powell', 'Perry', 'Russell', 'Sullivan', 'Jenkins',
 
-      // International surnames
-      'Chen', 'Wang', 'Li', 'Zhang', 'Liu', 'Kumar', 'Singh', 'Patel', 'Kim', 'Park',
-      'Yamamoto', 'Tanaka', 'Suzuki', 'Ivanov', 'Petrov', 'Silva', 'Santos', 'Costa',
-      'Rossi', 'Müller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Meyer', 'Wagner',
-      'Kowalski', 'Nowak', 'Kovács', 'Nielsen', 'Hansen', "O'Brien", 'Murphy', 'Kelly'
+      // East Asian surnames
+      'Chen', 'Wang', 'Li', 'Zhang', 'Liu', 'Yang', 'Huang', 'Zhao', 'Wu', 'Zhou',
+      'Xu', 'Sun', 'Ma', 'Zhu', 'Hu', 'Guo', 'He', 'Gao', 'Lin', 'Luo',
+      'Kim', 'Park', 'Choi', 'Jung', 'Kang', 'Cho', 'Yoon', 'Jang', 'Lim', 'Han',
+      'Yamamoto', 'Tanaka', 'Suzuki', 'Watanabe', 'Ito', 'Nakamura', 'Kobayashi', 'Kato',
+      'Yoshida', 'Yamada', 'Sasaki', 'Yamaguchi', 'Matsumoto', 'Inoue', 'Kimura', 'Hayashi',
+
+      // South Asian surnames
+      'Kumar', 'Singh', 'Patel', 'Sharma', 'Gupta', 'Khan', 'Reddy', 'Rao',
+      'Agarwal', 'Jain', 'Desai', 'Mehta', 'Shah', 'Verma', 'Malhotra', 'Chopra',
+      'Kapoor', 'Bose', 'Das', 'Mukherjee', 'Banerjee', 'Chatterjee', 'Nair', 'Menon',
+
+      // European surnames (Romance languages)
+      'Silva', 'Santos', 'Costa', 'Oliveira', 'Pereira', 'Ferreira', 'Rodrigues', 'Alves',
+      'Rossi', 'Russo', 'Ferrari', 'Esposito', 'Bianchi', 'Romano', 'Colombo', 'Ricci',
+      'Moreau', 'Bernard', 'Dubois', 'Thomas', 'Robert', 'Richard', 'Petit', 'Durand',
+      'Leroy', 'Moreau', 'Simon', 'Laurent', 'Lefebvre', 'Michel', 'Garcia', 'Martinez',
+
+      // European surnames (Germanic)
+      'Müller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Meyer', 'Wagner', 'Becker',
+      'Schulz', 'Hoffmann', 'Koch', 'Richter', 'Klein', 'Wolf', 'Schröder', 'Neumann',
+      'Schwarz', 'Zimmermann', 'Braun', 'Hofmann', 'Hartmann', 'Lange', 'Schmitt', 'Werner',
+
+      // European surnames (Slavic)
+      'Ivanov', 'Petrov', 'Sidorov', 'Popov', 'Volkov', 'Sokolov', 'Lebedev', 'Kozlov',
+      'Novak', 'Kowalski', 'Nowak', 'Wojcik', 'Kowalczyk', 'Kaminski', 'Lewandowski',
+      'Zielinski', 'Szymanski', 'Wozniak', 'Dabrowski', 'Jankowski', 'Mazur', 'Kwiatkowski',
+
+      // European surnames (Nordic)
+      'Nielsen', 'Hansen', 'Andersen', 'Pedersen', 'Christensen', 'Larsen', 'Sørensen',
+      'Rasmussen', 'Jørgensen', 'Petersen', 'Madsen', 'Kristensen', 'Olsen', 'Thomsen',
+      'Johansson', 'Karlsson', 'Nilsson', 'Eriksson', 'Larsson', 'Olsson', 'Persson',
+
+      // European surnames (Celtic/British Isles)
+      "O'Brien", 'Murphy', 'Kelly', "O'Sullivan", 'Walsh', "O'Connor", 'McCarthy', 'Gallagher',
+      'Doherty', 'Kennedy', 'Lynch', 'Murray', "O'Neill", 'Quinn', 'Moore', 'McLaughlin',
+      'Davies', 'Evans', 'Thomas', 'Roberts', 'Lewis', 'Hughes', 'Morgan', 'Griffiths',
+
+      // Middle Eastern/North African surnames
+      'Hassan', 'Ali', 'Ahmed', 'Hussein', 'Ibrahim', 'Mahmoud', 'Abdullah', 'Mohammed',
+      'Omar', 'Khalil', 'Rashid', 'Farid', 'Nasser', 'Salem', 'Hamid', 'Amin',
+
+      // Hungarian surnames
+      'Kovács', 'Nagy', 'Tóth', 'Szabó', 'Horváth', 'Varga', 'Kiss', 'Molnár',
+      'Németh', 'Farkas', 'Balogh', 'Papp', 'Takács', 'Juhász', 'Lakatos', 'Mészáros',
+
+      // African surnames
+      'Diallo', 'Diop', 'Ndiaye', 'Fall', 'Sow', 'Sy', 'Ba', 'Thiam',
+      'Mensah', 'Owusu', 'Asante', 'Boateng', 'Osei', 'Agyemang', 'Ofori', 'Opoku',
+      'Okafor', 'Okonkwo', 'Nwosu', 'Eze', 'Okeke', 'Chukwu', 'Obi', 'Mbah'
     ];
 
     // Realistic email domains
@@ -347,61 +439,249 @@ class DataGenerator {
     this.usedNames = new Set();
 
     this.destinations = [
-      // Major Cities
+      // Europe - Western
       { name: 'Paris', country: 'France', state: 'Île-de-France', map_location: '48.8566,2.3522' },
-      { name: 'Tokyo', country: 'Japan', map_location: '35.6762,139.6503' },
-      { name: 'New York City', country: 'United States', state: 'New York', map_location: '40.7128,-74.0060' },
-      { name: 'Barcelona', country: 'Spain', map_location: '41.3851,2.1734' },
       { name: 'London', country: 'United Kingdom', map_location: '51.5074,-0.1278' },
       { name: 'Rome', country: 'Italy', map_location: '41.9028,12.4964' },
+      { name: 'Barcelona', country: 'Spain', map_location: '41.3851,2.1734' },
       { name: 'Amsterdam', country: 'Netherlands', map_location: '52.3676,4.9041' },
       { name: 'Berlin', country: 'Germany', map_location: '52.5200,13.4050' },
       { name: 'Vienna', country: 'Austria', map_location: '48.2082,16.3738' },
-      { name: 'Prague', country: 'Czech Republic', map_location: '50.0755,14.4378' },
-
-      // Beach Destinations
-      { name: 'Bali', country: 'Indonesia', map_location: '-8.3405,115.0920' },
-      { name: 'Cancun', country: 'Mexico', map_location: '21.1619,-86.8515' },
-      { name: 'Miami', country: 'United States', state: 'Florida', map_location: '25.7617,-80.1918' },
-      { name: 'Rio de Janeiro', country: 'Brazil', map_location: '-22.9068,-43.1729' },
-      { name: 'Sydney', country: 'Australia', state: 'New South Wales', map_location: '-33.8688,151.2093' },
-      { name: 'Honolulu', country: 'United States', state: 'Hawaii', map_location: '21.3069,-157.8583' },
-      { name: 'Phuket', country: 'Thailand', map_location: '7.8804,98.3923' },
-      { name: 'Dubai', country: 'United Arab Emirates', map_location: '25.2048,55.2708' },
-
-      // Mountain Destinations
       { name: 'Zurich', country: 'Switzerland', map_location: '47.3769,8.5417' },
-      { name: 'Vancouver', country: 'Canada', state: 'British Columbia', map_location: '49.2827,-123.1207' },
-      { name: 'Queenstown', country: 'New Zealand', map_location: '-45.0312,168.6626' },
-      { name: 'Innsbruck', country: 'Austria', map_location: '47.2692,11.4041' },
-      { name: 'Banff', country: 'Canada', state: 'Alberta', map_location: '51.1784,-115.5708' },
-
-      // Cultural/Historical
-      { name: 'Athens', country: 'Greece', map_location: '37.9838,23.7275' },
-      { name: 'Cairo', country: 'Egypt', map_location: '30.0444,31.2357' },
-      { name: 'Istanbul', country: 'Turkey', map_location: '41.0082,28.9784' },
-      { name: 'Jerusalem', country: 'Israel', map_location: '31.7683,35.2137' },
-      { name: 'Machu Picchu', country: 'Peru', map_location: '-13.1631,-72.5450' },
-
-      // Adventure/Outdoor
-      { name: 'Cape Town', country: 'South Africa', map_location: '-33.9249,18.4241' },
-      { name: 'Reykjavik', country: 'Iceland', map_location: '64.1466,-21.9426' },
-      { name: 'Cusco', country: 'Peru', map_location: '-13.5319,-71.9675' },
-      { name: 'Wellington', country: 'New Zealand', map_location: '-41.2865,174.7762' },
-      { name: 'Patagonia', country: 'Chile', map_location: '-53.1638,-70.9171' },
-
-      // Food & Wine
+      { name: 'Brussels', country: 'Belgium', map_location: '50.8503,4.3517' },
+      { name: 'Munich', country: 'Germany', map_location: '48.1351,11.5820' },
+      { name: 'Milan', country: 'Italy', map_location: '45.4642,9.1900' },
       { name: 'Florence', country: 'Italy', map_location: '43.7696,11.2558' },
-      { name: 'Bordeaux', country: 'France', map_location: '44.8378,-0.5792' },
-      { name: 'San Francisco', country: 'United States', state: 'California', map_location: '37.7749,-122.4194' },
+      { name: 'Venice', country: 'Italy', map_location: '45.4408,12.3155' },
+      { name: 'Madrid', country: 'Spain', map_location: '40.4168,-3.7038' },
       { name: 'Lisbon', country: 'Portugal', map_location: '38.7223,-9.1393' },
-      { name: 'Buenos Aires', country: 'Argentina', map_location: '-34.6118,-58.3966' }
+      { name: 'Porto', country: 'Portugal', map_location: '41.1579,-8.6291' },
+      { name: 'Edinburgh', country: 'United Kingdom', map_location: '55.9533,-3.1883' },
+      { name: 'Dublin', country: 'Ireland', map_location: '53.3498,-6.2603' },
+      { name: 'Lyon', country: 'France', map_location: '45.7640,4.8357' },
+      { name: 'Bordeaux', country: 'France', map_location: '44.8378,-0.5792' },
+      { name: 'Nice', country: 'France', map_location: '43.7102,7.2620' },
+      { name: 'Geneva', country: 'Switzerland', map_location: '46.2044,6.1432' },
+      { name: 'Copenhagen', country: 'Denmark', map_location: '55.6761,12.5683' },
+      { name: 'Stockholm', country: 'Sweden', map_location: '59.3293,18.0686' },
+      { name: 'Oslo', country: 'Norway', map_location: '59.9139,10.7522' },
+      { name: 'Helsinki', country: 'Finland', map_location: '60.1699,24.9384' },
+
+      // Europe - Eastern & Central
+      { name: 'Prague', country: 'Czech Republic', map_location: '50.0755,14.4378' },
+      { name: 'Budapest', country: 'Hungary', map_location: '47.4979,19.0402' },
+      { name: 'Krakow', country: 'Poland', map_location: '50.0647,19.9450' },
+      { name: 'Warsaw', country: 'Poland', map_location: '52.2297,21.0122' },
+      { name: 'Dubrovnik', country: 'Croatia', map_location: '42.6507,18.0944' },
+      { name: 'Split', country: 'Croatia', map_location: '43.5081,16.4402' },
+      { name: 'Athens', country: 'Greece', map_location: '37.9838,23.7275' },
+      { name: 'Santorini', country: 'Greece', map_location: '36.3932,25.4615' },
+      { name: 'Istanbul', country: 'Turkey', map_location: '41.0082,28.9784' },
+      { name: 'Antalya', country: 'Turkey', map_location: '36.8969,30.7133' },
+      { name: 'Bucharest', country: 'Romania', map_location: '44.4268,26.1025' },
+      { name: 'Sofia', country: 'Bulgaria', map_location: '42.6977,23.3219' },
+      { name: 'Tallinn', country: 'Estonia', map_location: '59.4370,24.7536' },
+      { name: 'Riga', country: 'Latvia', map_location: '56.9496,24.1052' },
+      { name: 'Vilnius', country: 'Lithuania', map_location: '54.6872,25.2797' },
+
+      // Asia - East
+      { name: 'Tokyo', country: 'Japan', map_location: '35.6762,139.6503' },
+      { name: 'Kyoto', country: 'Japan', map_location: '35.0116,135.7681' },
+      { name: 'Osaka', country: 'Japan', map_location: '34.6937,135.5023' },
+      { name: 'Seoul', country: 'South Korea', map_location: '37.5665,126.9780' },
+      { name: 'Busan', country: 'South Korea', map_location: '35.1796,129.0756' },
+      { name: 'Beijing', country: 'China', map_location: '39.9042,116.4074' },
+      { name: 'Shanghai', country: 'China', map_location: '31.2304,121.4737' },
+      { name: 'Hong Kong', country: 'China', map_location: '22.3193,114.1694' },
+      { name: 'Taipei', country: 'Taiwan', map_location: '25.0330,121.5654' },
+      { name: 'Hanoi', country: 'Vietnam', map_location: '21.0285,105.8542' },
+      { name: 'Ho Chi Minh City', country: 'Vietnam', map_location: '10.8231,106.6297' },
+
+      // Asia - Southeast
+      { name: 'Bangkok', country: 'Thailand', map_location: '13.7563,100.5018' },
+      { name: 'Phuket', country: 'Thailand', map_location: '7.8804,98.3923' },
+      { name: 'Chiang Mai', country: 'Thailand', map_location: '18.7883,98.9853' },
+      { name: 'Singapore', country: 'Singapore', map_location: '1.3521,103.8198' },
+      { name: 'Bali', country: 'Indonesia', map_location: '-8.3405,115.0920' },
+      { name: 'Jakarta', country: 'Indonesia', map_location: '-6.2088,106.8456' },
+      { name: 'Kuala Lumpur', country: 'Malaysia', map_location: '3.1390,101.6869' },
+      { name: 'Penang', country: 'Malaysia', map_location: '5.4141,100.3288' },
+      { name: 'Manila', country: 'Philippines', map_location: '14.5995,120.9842' },
+      { name: 'Cebu', country: 'Philippines', map_location: '10.3157,123.8854' },
+      { name: 'Siem Reap', country: 'Cambodia', map_location: '13.3671,103.8448' },
+      { name: 'Yangon', country: 'Myanmar', map_location: '16.8661,96.1951' },
+      { name: 'Vientiane', country: 'Laos', map_location: '17.9757,102.6331' },
+
+      // Asia - South
+      { name: 'Mumbai', country: 'India', map_location: '19.0760,72.8777' },
+      { name: 'Delhi', country: 'India', map_location: '28.7041,77.1025' },
+      { name: 'Bangalore', country: 'India', map_location: '12.9716,77.5946' },
+      { name: 'Jaipur', country: 'India', map_location: '26.9124,75.7873' },
+      { name: 'Goa', country: 'India', map_location: '15.2993,74.1240' },
+      { name: 'Kathmandu', country: 'Nepal', map_location: '27.7172,85.3240' },
+      { name: 'Colombo', country: 'Sri Lanka', map_location: '6.9271,79.8612' },
+      { name: 'Dhaka', country: 'Bangladesh', map_location: '23.8103,90.4125' },
+
+      // Middle East
+      { name: 'Dubai', country: 'United Arab Emirates', map_location: '25.2048,55.2708' },
+      { name: 'Abu Dhabi', country: 'United Arab Emirates', map_location: '24.4539,54.3773' },
+      { name: 'Doha', country: 'Qatar', map_location: '25.2854,51.5310' },
+      { name: 'Muscat', country: 'Oman', map_location: '23.5880,58.3829' },
+      { name: 'Tel Aviv', country: 'Israel', map_location: '32.0853,34.7818' },
+      { name: 'Jerusalem', country: 'Israel', map_location: '31.7683,35.2137' },
+      { name: 'Amman', country: 'Jordan', map_location: '31.9454,35.9284' },
+      { name: 'Beirut', country: 'Lebanon', map_location: '33.8886,35.4955' },
+      { name: 'Cairo', country: 'Egypt', map_location: '30.0444,31.2357' },
+      { name: 'Marrakech', country: 'Morocco', map_location: '31.6295,-7.9811' },
+      { name: 'Casablanca', country: 'Morocco', map_location: '33.5731,-7.5898' },
+
+      // North America
+      { name: 'New York City', country: 'United States', state: 'New York', map_location: '40.7128,-74.0060' },
+      { name: 'Los Angeles', country: 'United States', state: 'California', map_location: '34.0522,-118.2437' },
+      { name: 'San Francisco', country: 'United States', state: 'California', map_location: '37.7749,-122.4194' },
+      { name: 'Miami', country: 'United States', state: 'Florida', map_location: '25.7617,-80.1918' },
+      { name: 'Las Vegas', country: 'United States', state: 'Nevada', map_location: '36.1699,-115.1398' },
+      { name: 'Chicago', country: 'United States', state: 'Illinois', map_location: '41.8781,-87.6298' },
+      { name: 'Seattle', country: 'United States', state: 'Washington', map_location: '47.6062,-122.3321' },
+      { name: 'Boston', country: 'United States', state: 'Massachusetts', map_location: '42.3601,-71.0589' },
+      { name: 'Washington DC', country: 'United States', state: 'District of Columbia', map_location: '38.9072,-77.0369' },
+      { name: 'New Orleans', country: 'United States', state: 'Louisiana', map_location: '29.9511,-90.0715' },
+      { name: 'Austin', country: 'United States', state: 'Texas', map_location: '30.2672,-97.7431' },
+      { name: 'Nashville', country: 'United States', state: 'Tennessee', map_location: '36.1627,-86.7816' },
+      { name: 'Portland', country: 'United States', state: 'Oregon', map_location: '45.5152,-122.6784' },
+      { name: 'Denver', country: 'United States', state: 'Colorado', map_location: '39.7392,-104.9903' },
+      { name: 'San Diego', country: 'United States', state: 'California', map_location: '32.7157,-117.1611' },
+      { name: 'Honolulu', country: 'United States', state: 'Hawaii', map_location: '21.3069,-157.8583' },
+      { name: 'Anchorage', country: 'United States', state: 'Alaska', map_location: '61.2181,-149.9003' },
+
+      // Canada
+      { name: 'Vancouver', country: 'Canada', state: 'British Columbia', map_location: '49.2827,-123.1207' },
+      { name: 'Toronto', country: 'Canada', state: 'Ontario', map_location: '43.6532,-79.3832' },
+      { name: 'Montreal', country: 'Canada', state: 'Quebec', map_location: '45.5017,-73.5673' },
+      { name: 'Banff', country: 'Canada', state: 'Alberta', map_location: '51.1784,-115.5708' },
+      { name: 'Quebec City', country: 'Canada', state: 'Quebec', map_location: '46.8139,-71.2080' },
+      { name: 'Calgary', country: 'Canada', state: 'Alberta', map_location: '51.0447,-114.0719' },
+      { name: 'Ottawa', country: 'Canada', state: 'Ontario', map_location: '45.4215,-75.6972' },
+      { name: 'Victoria', country: 'Canada', state: 'British Columbia', map_location: '48.4284,-123.3656' },
+      { name: 'Whistler', country: 'Canada', state: 'British Columbia', map_location: '50.1163,-122.9574' },
+
+      // Mexico & Central America
+      { name: 'Cancun', country: 'Mexico', map_location: '21.1619,-86.8515' },
+      { name: 'Mexico City', country: 'Mexico', map_location: '19.4326,-99.1332' },
+      { name: 'Tulum', country: 'Mexico', map_location: '20.2114,-87.4654' },
+      { name: 'Playa del Carmen', country: 'Mexico', map_location: '20.6296,-87.0739' },
+      { name: 'Puerto Vallarta', country: 'Mexico', map_location: '20.6534,-105.2253' },
+      { name: 'Cabo San Lucas', country: 'Mexico', map_location: '22.8905,-109.9167' },
+      { name: 'San José', country: 'Costa Rica', map_location: '9.9281,-84.0907' },
+      { name: 'Panama City', country: 'Panama', map_location: '8.9824,-79.5199' },
+      { name: 'Guatemala City', country: 'Guatemala', map_location: '14.6349,-90.5069' },
+      { name: 'San Salvador', country: 'El Salvador', map_location: '13.6929,-89.2182' },
+
+      // South America
+      { name: 'Buenos Aires', country: 'Argentina', map_location: '-34.6118,-58.3966' },
+      { name: 'Rio de Janeiro', country: 'Brazil', map_location: '-22.9068,-43.1729' },
+      { name: 'São Paulo', country: 'Brazil', map_location: '-23.5505,-46.6333' },
+      { name: 'Lima', country: 'Peru', map_location: '-12.0464,-77.0428' },
+      { name: 'Cusco', country: 'Peru', map_location: '-13.5319,-71.9675' },
+      { name: 'Machu Picchu', country: 'Peru', map_location: '-13.1631,-72.5450' },
+      { name: 'Santiago', country: 'Chile', map_location: '-33.4489,-70.6693' },
+      { name: 'Valparaíso', country: 'Chile', map_location: '-33.0472,-71.6127' },
+      { name: 'Patagonia', country: 'Chile', map_location: '-53.1638,-70.9171' },
+      { name: 'Cartagena', country: 'Colombia', map_location: '10.3910,-75.4794' },
+      { name: 'Bogotá', country: 'Colombia', map_location: '4.7110,-74.0721' },
+      { name: 'Medellín', country: 'Colombia', map_location: '6.2486,-75.5742' },
+      { name: 'Quito', country: 'Ecuador', map_location: '-0.1807,-78.4678' },
+      { name: 'Galápagos Islands', country: 'Ecuador', map_location: '-0.9538,-90.9656' },
+      { name: 'La Paz', country: 'Bolivia', map_location: '-16.5000,-68.1500' },
+      { name: 'Montevideo', country: 'Uruguay', map_location: '-34.9011,-56.1645' },
+
+      // Oceania
+      { name: 'Sydney', country: 'Australia', state: 'New South Wales', map_location: '-33.8688,151.2093' },
+      { name: 'Melbourne', country: 'Australia', state: 'Victoria', map_location: '-37.8136,144.9631' },
+      { name: 'Brisbane', country: 'Australia', state: 'Queensland', map_location: '-27.4698,153.0251' },
+      { name: 'Perth', country: 'Australia', state: 'Western Australia', map_location: '-31.9505,115.8605' },
+      { name: 'Adelaide', country: 'Australia', state: 'South Australia', map_location: '-34.9285,138.6007' },
+      { name: 'Gold Coast', country: 'Australia', state: 'Queensland', map_location: '-28.0167,153.4000' },
+      { name: 'Cairns', country: 'Australia', state: 'Queensland', map_location: '-16.9186,145.7781' },
+      { name: 'Auckland', country: 'New Zealand', map_location: '-36.8485,174.7633' },
+      { name: 'Wellington', country: 'New Zealand', map_location: '-41.2865,174.7762' },
+      { name: 'Queenstown', country: 'New Zealand', map_location: '-45.0312,168.6626' },
+      { name: 'Christchurch', country: 'New Zealand', map_location: '-43.5321,172.6362' },
+      { name: 'Rotorua', country: 'New Zealand', map_location: '-38.1368,176.2497' },
+      { name: 'Fiji Islands', country: 'Fiji', map_location: '-17.7134,178.0650' },
+      { name: 'Bora Bora', country: 'French Polynesia', map_location: '-16.5004,-151.7414' },
+
+      // Africa
+      { name: 'Cape Town', country: 'South Africa', map_location: '-33.9249,18.4241' },
+      { name: 'Johannesburg', country: 'South Africa', map_location: '-26.2041,28.0473' },
+      { name: 'Nairobi', country: 'Kenya', map_location: '-1.2864,36.8172' },
+      { name: 'Lagos', country: 'Nigeria', map_location: '6.5244,3.3792' },
+      { name: 'Accra', country: 'Ghana', map_location: '5.6037,-0.1870' },
+      { name: 'Zanzibar', country: 'Tanzania', map_location: '-6.1659,39.2026' },
+      { name: 'Addis Ababa', country: 'Ethiopia', map_location: '9.0320,38.7469' },
+      { name: 'Dakar', country: 'Senegal', map_location: '14.7167,-17.4677' },
+      { name: 'Tunis', country: 'Tunisia', map_location: '36.8065,10.1815' },
+
+      // Nordics & Scandinavia
+      { name: 'Reykjavik', country: 'Iceland', map_location: '64.1466,-21.9426' },
+      { name: 'Tromsø', country: 'Norway', map_location: '69.6492,18.9553' },
+      { name: 'Bergen', country: 'Norway', map_location: '60.3913,5.3221' },
+      { name: 'Gothenburg', country: 'Sweden', map_location: '57.7089,11.9746' },
+      { name: 'Malmö', country: 'Sweden', map_location: '55.6050,13.0038' },
+      { name: 'Aarhus', country: 'Denmark', map_location: '56.1629,10.2039' },
+      { name: 'Turku', country: 'Finland', map_location: '60.4518,22.2666' },
+
+      // Island Nations & Special Regions
+      { name: 'Maldives', country: 'Maldives', map_location: '3.2028,73.2207' },
+      { name: 'Seychelles', country: 'Seychelles', map_location: '-4.6796,55.4920' },
+      { name: 'Mauritius', country: 'Mauritius', map_location: '-20.1609,57.5012' },
+      { name: 'Bermuda', country: 'Bermuda', map_location: '32.3078,-64.7505' },
+      { name: 'Bahamas', country: 'Bahamas', map_location: '25.0343,-77.3963' },
+      { name: 'Barbados', country: 'Barbados', map_location: '13.1939,-59.5432' },
+      { name: 'Jamaica', country: 'Jamaica', map_location: '18.1096,-77.2975' },
+      { name: 'Aruba', country: 'Aruba', map_location: '12.5211,-69.9683' },
+
+      // Mountain/Ski Destinations
+      { name: 'Innsbruck', country: 'Austria', map_location: '47.2692,11.4041' },
+      { name: 'Zermatt', country: 'Switzerland', map_location: '46.0207,7.7491' },
+      { name: 'Chamonix', country: 'France', map_location: '45.9237,6.8694' },
+      { name: 'Aspen', country: 'United States', state: 'Colorado', map_location: '39.1911,-106.8175' },
+      { name: 'Lake Tahoe', country: 'United States', state: 'California', map_location: '39.0968,-120.0324' }
     ];
 
     this.experienceTypes = [
+      // Travel Styles
       'Romantic', 'Cultural', 'Adventure', 'Food & Wine', 'Beach', 'Urban', 'Nature',
       'Historical', 'Shopping', 'Nightlife', 'Family', 'Luxury', 'Budget', 'Solo Travel',
-      'Group Travel', 'Photography', 'Wellness', 'Business', 'Education', 'Volunteering'
+      'Group Travel', 'Photography', 'Wellness', 'Business', 'Education', 'Volunteering',
+      
+      // Activity Types
+      'Hiking', 'Skiing', 'Surfing', 'Diving', 'Cycling', 'Kayaking', 'Rock Climbing',
+      'Safari', 'Whale Watching', 'Birdwatching', 'Snorkeling', 'Sailing', 'Fishing',
+      
+      // Experience Focus
+      'Art & Museums', 'Music & Festivals', 'Spiritual', 'Culinary Tour', 'Wine Tasting',
+      'Coffee Culture', 'Street Food', 'Fine Dining', 'Cooking Classes', 'Local Markets',
+      
+      // Special Interest
+      'Architecture', 'Design', 'Film & Cinema', 'Literature', 'Theater', 'Dance',
+      'Nightlife', 'Pub Crawl', 'Rooftop Bars', 'Beach Clubs', 'Live Music',
+      
+      // Seasonal
+      'Winter Sports', 'Summer Activities', 'Fall Foliage', 'Spring Blossoms',
+      'Cherry Blossom', 'Northern Lights', 'Midnight Sun', 'Monsoon Season',
+      
+      // Wellness & Relaxation
+      'Spa & Massage', 'Yoga Retreat', 'Meditation', 'Hot Springs', 'Thermal Baths',
+      'Detox', 'Fitness', 'Beach Relaxation', 'Mountain Retreat',
+      
+      // Adventure Levels
+      'Extreme Sports', 'Adrenaline', 'Moderate Activity', 'Leisurely Pace', 'Off-the-Grid',
+      'Backpacking', 'Glamping', 'Camping', 'RV Travel', 'Road Trip',
+      
+      // Cultural Immersion
+      'Language Learning', 'Homestay', 'Farm Stay', 'Village Visit', 'Temple Tour',
+      'Religious Sites', 'Indigenous Culture', 'Traditional Crafts', 'Local Festivals'
     ];
 
     this.unsplashUrls = [
@@ -428,21 +708,81 @@ class DataGenerator {
     ];
 
     this.planItemTemplates = [
-      { text: 'Book accommodation', cost_range: [50, 500], days_range: [1, 7] },
-      { text: 'Purchase transportation tickets', cost_range: [20, 300], days_range: [1, 3] },
-      { text: 'Reserve restaurant table', cost_range: [30, 200], days_range: [1, 2] },
-      { text: 'Book guided tour', cost_range: [15, 150], days_range: [1, 2] },
-      { text: 'Purchase museum tickets', cost_range: [10, 50], days_range: [1, 1] },
-      { text: 'Arrange activity booking', cost_range: [25, 100], days_range: [1, 3] },
-      { text: 'Book spa treatment', cost_range: [40, 250], days_range: [1, 2] },
-      { text: 'Purchase local transportation pass', cost_range: [5, 80], days_range: [1, 1] },
-      { text: 'Reserve cooking class', cost_range: [35, 120], days_range: [1, 2] },
-      { text: 'Book adventure activity', cost_range: [50, 300], days_range: [1, 5] },
-      { text: 'Purchase event tickets', cost_range: [20, 200], days_range: [1, 3] },
-      { text: 'Arrange private transfer', cost_range: [15, 100], days_range: [1, 1] },
-      { text: 'Book photography session', cost_range: [50, 200], days_range: [1, 2] },
-      { text: 'Reserve wine tasting', cost_range: [25, 150], days_range: [1, 2] },
-      { text: 'Purchase local market experience', cost_range: [10, 80], days_range: [1, 1] }
+      // Accommodation
+      { text: 'Book hotel accommodation', cost_range: [80, 500], days_range: [1, 7] },
+      { text: 'Reserve hostel bed', cost_range: [20, 80], days_range: [1, 5] },
+      { text: 'Book luxury resort', cost_range: [300, 1500], days_range: [1, 10] },
+      { text: 'Rent vacation apartment', cost_range: [100, 400], days_range: [3, 14] },
+      { text: 'Book boutique hotel', cost_range: [150, 600], days_range: [1, 5] },
+      { text: 'Reserve glamping site', cost_range: [120, 350], days_range: [1, 4] },
+      
+      // Transportation
+      { text: 'Purchase flight tickets', cost_range: [200, 1200], days_range: [1, 3] },
+      { text: 'Book train tickets', cost_range: [30, 200], days_range: [1, 2] },
+      { text: 'Rent car for duration', cost_range: [150, 800], days_range: [1, 7] },
+      { text: 'Purchase ferry tickets', cost_range: [25, 150], days_range: [1, 1] },
+      { text: 'Book airport transfer', cost_range: [30, 100], days_range: [1, 1] },
+      { text: 'Purchase metro/subway pass', cost_range: [15, 80], days_range: [1, 1] },
+      { text: 'Book intercity bus', cost_range: [20, 100], days_range: [1, 2] },
+      { text: 'Arrange private driver', cost_range: [50, 300], days_range: [1, 3] },
+      { text: 'Rent bicycle for city tour', cost_range: [10, 50], days_range: [1, 1] },
+      { text: 'Book helicopter tour', cost_range: [200, 800], days_range: [1, 2] },
+      
+      // Dining & Food
+      { text: 'Reserve fine dining restaurant', cost_range: [80, 300], days_range: [1, 2] },
+      { text: 'Book food tour', cost_range: [40, 150], days_range: [1, 1] },
+      { text: 'Reserve rooftop bar table', cost_range: [50, 200], days_range: [1, 1] },
+      { text: 'Book cooking class', cost_range: [40, 150], days_range: [1, 2] },
+      { text: 'Reserve wine tasting', cost_range: [30, 180], days_range: [1, 2] },
+      { text: 'Book brewery tour', cost_range: [25, 80], days_range: [1, 1] },
+      { text: 'Purchase street food tour', cost_range: [20, 70], days_range: [1, 1] },
+      { text: 'Book coffee tasting experience', cost_range: [25, 90], days_range: [1, 1] },
+      { text: 'Reserve chef table experience', cost_range: [150, 500], days_range: [1, 2] },
+      
+      // Activities & Tours
+      { text: 'Book guided city tour', cost_range: [20, 120], days_range: [1, 2] },
+      { text: 'Purchase museum tickets', cost_range: [15, 60], days_range: [1, 1] },
+      { text: 'Book adventure activity', cost_range: [60, 350], days_range: [1, 5] },
+      { text: 'Reserve spa treatment', cost_range: [50, 300], days_range: [1, 2] },
+      { text: 'Book scuba diving excursion', cost_range: [80, 250], days_range: [1, 3] },
+      { text: 'Purchase theme park tickets', cost_range: [40, 150], days_range: [1, 2] },
+      { text: 'Book hot air balloon ride', cost_range: [150, 400], days_range: [1, 2] },
+      { text: 'Reserve kayaking tour', cost_range: [40, 120], days_range: [1, 2] },
+      { text: 'Book zip-lining adventure', cost_range: [50, 180], days_range: [1, 1] },
+      { text: 'Purchase snorkeling equipment rental', cost_range: [20, 60], days_range: [1, 3] },
+      { text: 'Book whale watching tour', cost_range: [70, 200], days_range: [1, 2] },
+      { text: 'Reserve rock climbing session', cost_range: [40, 150], days_range: [1, 2] },
+      { text: 'Book paragliding experience', cost_range: [100, 300], days_range: [1, 2] },
+      { text: 'Purchase safari tour', cost_range: [200, 800], days_range: [2, 7] },
+      
+      // Cultural & Educational
+      { text: 'Book historical walking tour', cost_range: [25, 100], days_range: [1, 1] },
+      { text: 'Reserve traditional show tickets', cost_range: [30, 150], days_range: [1, 2] },
+      { text: 'Book language lesson', cost_range: [20, 80], days_range: [1, 5] },
+      { text: 'Purchase concert tickets', cost_range: [40, 250], days_range: [1, 3] },
+      { text: 'Book photography workshop', cost_range: [60, 250], days_range: [1, 3] },
+      { text: 'Reserve art gallery tour', cost_range: [20, 100], days_range: [1, 1] },
+      { text: 'Book theater performance', cost_range: [40, 200], days_range: [1, 2] },
+      { text: 'Purchase opera tickets', cost_range: [60, 300], days_range: [1, 2] },
+      
+      // Wellness & Relaxation
+      { text: 'Book yoga class', cost_range: [15, 60], days_range: [1, 5] },
+      { text: 'Reserve massage appointment', cost_range: [40, 180], days_range: [1, 2] },
+      { text: 'Book meditation session', cost_range: [20, 100], days_range: [1, 3] },
+      { text: 'Purchase hot springs entry', cost_range: [15, 80], days_range: [1, 2] },
+      { text: 'Book wellness retreat day', cost_range: [100, 500], days_range: [1, 3] },
+      
+      // Shopping & Souvenirs
+      { text: 'Visit local market', cost_range: [5, 50], days_range: [1, 1] },
+      { text: 'Book shopping tour', cost_range: [30, 120], days_range: [1, 2] },
+      { text: 'Purchase craft workshop', cost_range: [25, 100], days_range: [1, 2] },
+      
+      // Miscellaneous
+      { text: 'Purchase travel insurance', cost_range: [30, 150], days_range: [1, 1] },
+      { text: 'Book visa assistance', cost_range: [50, 200], days_range: [7, 14] },
+      { text: 'Reserve luggage storage', cost_range: [5, 30], days_range: [1, 1] },
+      { text: 'Purchase SIM card/eSIM', cost_range: [10, 50], days_range: [1, 1] },
+      { text: 'Book photography session', cost_range: [60, 250], days_range: [1, 2] }
     ];
   }
 
@@ -1167,9 +1507,11 @@ async function clearDatabase(output) {
     Destination.deleteMany({}),
     Experience.deleteMany({}),
     Photo.deleteMany({}),
-    Plan.deleteMany({})
+    Plan.deleteMany({}),
+    InviteCode.deleteMany({}),
+    Activity.deleteMany({})
   ]);
-  output.log('✅ Database cleared');
+  output.log('✅ Database cleared (all 7 entity types: Users, Destinations, Experiences, Photos, Plans, InviteCodes, Activities)');
 }
 
 /**

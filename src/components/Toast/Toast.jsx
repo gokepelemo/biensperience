@@ -4,22 +4,8 @@ import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaExclamationTriangle
 import './Toast.css';
 
 /**
- * Toast Notification Component - Bootstrap Version
- * 
- * @param {Object} props
- * @param {string} props.id - Unique identifier for the toast
- * @param {string} props.message - Message to display
- * @param {string} props.header - Optional header text
- * @param {string} props.type - Toast type: 'primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark'
- * @param {string} props.bg - Background variant (overrides type if provided)
- * @param {string} props.position - Position: 'top-start', 'top-center', 'top-end', 'middle-start', 'middle-center', 'middle-end', 'bottom-start', 'bottom-center', 'bottom-end'
- * @param {number} props.duration - Auto-dismiss duration in milliseconds (0 = no auto-dismiss)
- * @param {Function} props.onClose - Callback when toast is closed
- * @param {number} props.index - Stack index for positioning
- * @param {Array} props.actions - Optional action buttons [{label, onClick, variant}]
- * @param {boolean} props.showCloseButton - Show close button (default: true)
- * @param {boolean} props.autohide - Enable autohide (default: true if duration > 0)
- * @param {string} props.animation - Animation type: 'fade' or 'slide' (default: 'fade')
+ * Toast notification component with auto-dismiss and positioning support.
+ * See PropTypes for full prop documentation.
  */
 export default function Toast({
   id,
@@ -148,7 +134,7 @@ export default function Toast({
         </BootstrapToast.Header>
       )}
       <BootstrapToast.Body className={textClass}>
-        <div className="d-flex align-items-start" style={{ gap: 'var(--space-2)' }}>
+        <div className="d-flex align-items-start">
           {!header && (
             <div className="toast-icon-wrapper">
               {getIcon()}
@@ -182,7 +168,9 @@ export default function Toast({
               className="btn-close btn-close-white"
               aria-label="Close"
               onClick={handleClose}
-            />
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
           )}
         </div>
       </BootstrapToast.Body>

@@ -8,6 +8,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { lang } from "../../lang.constants";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import TagInput from "../../components/TagInput/TagInput";
+import Autocomplete from "../../components/Autocomplete/Autocomplete";
 import Alert from "../Alert/Alert";
 import Loading from "../Loading/Loading";
 import { handleError } from "../../utilities/error-handler";
@@ -25,14 +26,16 @@ import { useFormErrorHandling } from "../../hooks/useFormErrorHandling";
 
 export default function UpdateExperience() {
   const { user } = useUser();
-  const { destinations: destData, updateExperience } = useData();
+  const { destinations: destData, experiences: expData, updateExperience } = useData();
   const { success, error: showError } = useToast();
   const { experienceId } = useParams();
   const [experience, setExperience] = useState(null);
   const [destinations, setDestinations] = useState([]);
+  const [destinationSearchTerm, setDestinationSearchTerm] = useState('');
   const [tags, setTags] = useState([]);
   const [originalExperience, setOriginalExperience] = useState(null);
   const [changes, setChanges] = useState({});
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showDestinationModal, setShowDestinationModal] = useState(false);
   const [error, setError] = useState("");
@@ -92,6 +95,8 @@ export default function UpdateExperience() {
         }
 
         setLoading(false);
+        // Mark initial load complete after a short delay to ensure all state is set
+        setTimeout(() => setIsInitialLoad(false), 100);
       } catch (err) {
         const errorMessage = handleError(err, { context: 'Loading experience for update' });
         setError(errorMessage || lang.en.alert.failedToLoadResource);
@@ -106,7 +111,7 @@ export default function UpdateExperience() {
 
   // Track photo changes
   useEffect(() => {
-    if (!experience || !originalExperience) return;
+    if (!experience || !originalExperience || isInitialLoad) return;
 
     const newChanges = { ...changes };
 
@@ -146,11 +151,11 @@ export default function UpdateExperience() {
       setChanges(newChanges);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [experience, originalExperience]);
+  }, [experience, originalExperience, isInitialLoad]);
 
   // Track tags changes
   useEffect(() => {
-    if (!originalExperience) return;
+    if (!experience || !originalExperience || isInitialLoad) return;
 
     const newChanges = { ...changes };
     const originalTags = Array.isArray(originalExperience?.experience_type)
@@ -371,40 +376,109 @@ export default function UpdateExperience() {
             />
 
             <div className="mb-4">
-              <Form.Label htmlFor="destination">
-                {lang.en.label.destinationLabel}
-              </Form.Label>
-              <Form.Select
-                id="destination"
-                name="destination"
-                label={lang.en.label.destinationLabel}
-                tooltip={`${lang.en.helper.destinationRequired}${lang.en.helper.createNewDestination}`}
-                value={(() => {
-                  const dest = destinations.find(d => d._id === experience.destination);
-                  return dest ? `${dest.name}, ${dest.country}` : '';
-                })()}
-                onChange={(e) => handleDestinationChange(e.target.value)}
-                required
-              >
-                <option value="">{lang.en.placeholder.destination}</option>
-                {destinations.map(destination => (
-                  <option key={destination._id} value={`${destination.name}, ${destination.country}`}>
-                    {destination.name}, {destination.country}
-                  </option>
-                ))}
-                <option value="+ Create New Destination">+ Create New Destination</option>
-              </Form.Select>
-              <small className="form-text text-muted">
-                {lang.en.helper.destinationRequired}
-                <button
-                  type="button"
-                  onClick={handleCreateDestinationClick}
-                  className="btn btn-link p-0 ms-1 align-baseline"
-                  style={{ textDecoration: 'none' }}
-                >
-                  {lang.en.helper.createNewDestination}
-                </button>
-              </small>
+              <Form.Group>
+                <Form.Label>
+                  {lang.en.label.destinationLabel}
+                  {' '}
+                  <span className="text-danger">*</span>
+                </Form.Label>
+                <Autocomplete
+                  placeholder={lang.en.placeholder.destination}
+                  entityType="destination"
+                  items={(() => {
+                    // First, map all destinations to the format we need
+                    const allDestItems = destinations.map(dest => ({
+                      id: dest._id,
+                      name: dest.name,
+                      country: dest.country,
+                      flag: dest.flag,
+                      // Calculate experience count from experiences array
+                      experienceCount: expData.filter(exp => 
+                        (typeof exp.destination === 'object' ? exp.destination._id : exp.destination) === dest._id
+                      ).length
+                    }));
+                    
+                    // If there's a search term, filter destinations
+                    let filteredDestItems = allDestItems;
+                    if (destinationSearchTerm && destinationSearchTerm.trim()) {
+                      const searchLower = destinationSearchTerm.toLowerCase();
+                      filteredDestItems = allDestItems.filter(dest => {
+                        const searchableText = [
+                          dest.name,
+                          dest.country
+                        ].filter(Boolean).join(' ').toLowerCase();
+                        return searchableText.includes(searchLower);
+                      });
+                    }
+                    
+                    // If search term exists (2+ chars) and no matching destinations, add "Create New" option
+                    if (destinationSearchTerm && destinationSearchTerm.length >= 2 && filteredDestItems.length === 0) {
+                      return [{
+                        id: 'create-new',
+                        name: `✚ Create "${destinationSearchTerm}"`,
+                        country: 'New Destination',
+                        flag: '🌍',
+                        experienceCount: 0,
+                        isCreateOption: true
+                      }];
+                    }
+                    
+                    return filteredDestItems;
+                  })()}
+                  value={(() => {
+                    const dest = destinations.find(d => d._id === experience.destination);
+                    return dest ? `${dest.name}, ${dest.country}` : '';
+                  })()}
+                  onSelect={(destination) => {
+                    // Check if it's the "Create New" option
+                    if (destination.isCreateOption) {
+                      handleCreateDestinationClick(new Event('click'));
+                      return;
+                    }
+                    
+                    const prevDestination = destinations.find(d => d._id === experience.destination);
+                    const destId = destination._id || destination.id;
+                    
+                    // Track change
+                    setExperience({
+                      ...experience,
+                      destination: destId
+                    });
+                    
+                    // Update changes tracking
+                    const newChanges = { ...changes };
+                    if (originalExperience.destination !== destId) {
+                      const newDest = destinations.find(d => d._id === destId);
+                      newChanges.destination = {
+                        from: prevDestination ? `${prevDestination.name}, ${prevDestination.country}` : 'None',
+                        to: newDest ? `${newDest.name}, ${newDest.country}` : 'Unknown'
+                      };
+                    } else {
+                      delete newChanges.destination;
+                    }
+                    setChanges(newChanges);
+                  }}
+                  onSearch={(query) => {
+                    // Update search term for filtering and "Create New Destination" button
+                    setDestinationSearchTerm(query);
+                    setDestinationInput(query);
+                  }}
+                  size="md"
+                  emptyMessage="Type to search for destinations..."
+                  disableFilter={true}
+                />
+                <small className="form-text text-muted mt-2 d-block">
+                  {lang.en.helper.destinationRequired}
+                  <button
+                    type="button"
+                    onClick={handleCreateDestinationClick}
+                    className="btn btn-link p-0 ms-1 align-baseline"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    {lang.en.helper.createNewDestination}
+                  </button>
+                </small>
+              </Form.Group>
             </div>
 
             <div className="mb-4">

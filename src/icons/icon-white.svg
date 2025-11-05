@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="White rounded square with purple gradient plus sign">
+  <defs>
+    <linearGradient id="purpleGrad" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#667eea"/>
+      <stop offset="1" stop-color="#764ba2"/>
+    </linearGradient>
+    <filter id="shimmer" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="2" result="offsetblur"/>
+      <feFlood flood-color="#ffffff" flood-opacity="0.3"/>
+      <feComposite in2="offsetblur" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+    <radialGradient id="shimmerHighlight" cx="30%" cy="30%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Transparent background is implicit (no rect filling viewport) -->
+
+  <!-- White rounded square with shimmer effect and subtle shadow -->
+  <rect x="12" y="12" width="232" height="232" rx="46" ry="46" fill="#ffffff" filter="url(#softShadow)"/>
+  
+  <!-- Shimmer overlay -->
+  <rect x="12" y="12" width="232" height="232" rx="46" ry="46" fill="url(#shimmerHighlight)" opacity="0.6"/>
+
+  <!-- Purple gradient plus sign with rounded ends -->
+  <rect x="116" y="72" width="24" height="112" rx="12" ry="12" fill="url(#purpleGrad)" filter="url(#shimmer)"/>
+  <rect x="72" y="116" width="112" height="24" rx="12" ry="12" fill="url(#purpleGrad)" filter="url(#shimmer)"/>
+
+  <g shape-rendering="geometricPrecision" opacity="1"/>
+</svg>

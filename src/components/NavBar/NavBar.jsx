@@ -192,7 +192,7 @@ export default function NavBar() {
   return (
     <nav
       ref={navbarRef}
-      className={`navbar navbar-expand-lg bg-dark border-bottom border-body ${isScrolled ? 'sticky' : ''}`}
+      className={`navbar navbar-expand-lg border-bottom border-body ${isScrolled ? 'sticky' : ''}`}
       data-bs-theme="dark"
       role="navigation"
       aria-label={lang.en.aria.mainNavigation}
@@ -260,7 +260,6 @@ export default function NavBar() {
                 className="dropdown-menu"
                 role="menu"
                 aria-label={lang.en.aria.userAccountOptions}
-                style={{ display: 'none' }}
               >
                 <li role="none">
                   <NavLink

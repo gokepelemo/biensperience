@@ -84,7 +84,7 @@ function DestinationCard({ destination }) {
           style={{ backgroundImage: getBackgroundImage }}
         >
           <Link to={`/destinations/${destination._id}`} className="destination-card-link d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none">
-            <span ref={titleRef} className="h3 fw-bold destination-card-title d-flex align-items-center justify-content-center text-white text-center p-3 w-100">
+            <span ref={titleRef} className="h3 fw-bold destination-card-title d-flex align-items-center justify-content-center text-center p-3 w-100">
               {destination.name}
             </span>
           </Link>
@@ -95,7 +95,7 @@ function DestinationCard({ destination }) {
           style={{ backgroundImage: getBackgroundImage }}
         >
           <Link to="/" className="destination-card-link d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none">
-            <span ref={titleRef} className="h3 fw-bold destination-card-title d-flex align-items-center justify-content-center text-white text-center p-3 w-100">
+            <span ref={titleRef} className="h3 fw-bold destination-card-title d-flex align-items-center justify-content-center text-center p-3 w-100">
               New York
             </span>
           </Link>

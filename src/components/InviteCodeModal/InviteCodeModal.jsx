@@ -257,7 +257,9 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
           className="btn-close"
           onClick={handleClose}
           aria-label="Close"
-        ></button>
+        >
+          <span aria-hidden="true">&times;</span>
+        </button>
       </Modal.Header>
       <Modal.Body>
         <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">

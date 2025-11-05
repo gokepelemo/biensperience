@@ -9,9 +9,11 @@ import { handleError } from "../../utilities/error-handler";
 import { isOwner } from "../../utilities/permissions";
 import { logger } from "../../utilities/logger";
 import { useUser } from "../../contexts/UserContext";
+import { useData } from "../../contexts/DataContext";
 
 function ExperienceCard({ experience, updateData, userPlans = [] }) {
   const { user } = useUser();
+  const { fetchPlans } = useData();
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -153,6 +155,28 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
   const handleExperienceAction = useCallback(async () => {
     if (isLoading) return;
     
+    // Log user authentication status
+    logger.debug('[ExperienceCard] Plan action triggered', {
+      experienceId: experience._id,
+      experienceName: experience.name,
+      hasUser: !!user,
+      userId: user?._id,
+      isAuthenticated: !!user?._id,
+      experienceAdded,
+      isRemoving: experienceAdded
+    });
+
+    if (!user || !user._id) {
+      logger.error('[ExperienceCard] User not authenticated', {
+        hasUser: !!user,
+        hasUserId: !!(user?._id)
+      });
+      handleError(new Error('You must be logged in to plan experiences'), { 
+        context: 'Plan experience' 
+      });
+      return;
+    }
+    
     const isRemoving = experienceAdded;
     
     // OPTIMISTIC UI UPDATE: Update state immediately for instant feedback
@@ -190,22 +214,48 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
           throw new Error('Plan not found');
         }
       } else {
-        // CREATE PLAN: Keep await since we need the result
-        await createPlan(experience._id, null);
+        // Create new plan
+        logger.info('[ExperienceCard] Starting plan creation', {
+          experienceId: experience._id,
+          experienceName: experience.name,
+          userId: user?._id
+        });
+        
+        const newPlan = await createPlan(experience._id, null);
+        
+        logger.info('[ExperienceCard] Plan created successfully', {
+          planId: newPlan?._id,
+          experienceId: experience._id
+        });
       }
 
-      // OPTIMIZATION 4: Skip expensive updateData() call
-      // The optimistic update already changed the UI
-      // Parent views can refetch on their own schedule (e.g., on route change)
-      // If updateData is critical, call it but don't await
-      if (updateData && !isRemoving) {
-        // Only refresh on create (when we might need new plan data)
-        // Don't refresh on delete (we already updated UI optimistically)
-        updateData().catch(err => {
-          logger.warn('Failed to refresh data after plan creation', { error: err.message });
+      // Refresh data after plan action to update global state
+      if (updateData) {
+        try {
+          await updateData();
+        } catch (refreshErr) {
+          logger.warn('Failed to refresh parent data', { 
+            error: refreshErr.message
+          });
+        }
+      }
+
+      // Always refresh DataContext plans state
+      try {
+        await fetchPlans();
+      } catch (fetchErr) {
+        logger.warn('Failed to refresh global plans state', {
+          error: fetchErr.message
         });
       }
     } catch (err) {
+      logger.error('Plan action failed', {
+        action: isRemoving ? 'remove' : 'create',
+        experienceId: experience._id,
+        error: err.message,
+        errorStack: err.stack
+      }, err);
+      
       handleError(err, { context: isRemoving ? 'Remove plan' : 'Create plan' });
       
       // Special handling for "Plan already exists" error (409 Conflict)
@@ -221,7 +271,7 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, experienceAdded, experience._id, updateData, userPlans, setLocalPlanStateWithCache]);
+  }, [isLoading, experienceAdded, experience._id, experience.name, updateData, userPlans, user, setLocalPlanStateWithCache]);
 
   const handleDelete = useCallback(async () => {
     try {
@@ -255,7 +305,7 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
           onClick={handleCardClick}
         >
           <Link to={`/experiences/${experience._id}`} className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100 text-decoration-none">
-            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center text-white text-center p-3 w-100">
+            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center text-center p-3 w-100">
               {experience.name}
             </span>
           </Link>
@@ -300,7 +350,7 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
           style={{ backgroundImage: getBackgroundImage }}
         >
           <Link to="/" className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100 text-decoration-none">
-            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center text-white text-center p-3 w-100">
+            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center text-center p-3 w-100">
               Dinner Party with locals at the Rhodopo Mountains in Bulgaria
             </span>
           </Link>

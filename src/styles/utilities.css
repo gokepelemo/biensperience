@@ -826,3 +826,202 @@
    - Colors: .text-primary, .text-secondary, .bg-*, etc.
    - Display: .d-flex, .d-none, .d-block, etc.
 */
+
+/* ============================================
+   SKELETON LOADERS
+   ============================================ */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 0%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-tertiary) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-text {
+  height: 1em;
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-text:last-child {
+  margin-bottom: 0;
+  width: 80%;
+}
+
+.skeleton-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+}
+
+.skeleton-rectangle {
+  width: 100%;
+  height: 200px;
+  border-radius: var(--radius-lg);
+}
+
+/* ============================================
+   PILL/BADGE COLOR VARIANTS
+   ============================================ */
+
+.pill-primary {
+  background: var(--badge-primary-bg) !important;
+  color: var(--badge-primary-text) !important;
+}
+
+.pill-success {
+  background: var(--badge-success-bg) !important;
+  color: var(--badge-success-text) !important;
+}
+
+.pill-danger {
+  background: var(--badge-danger-bg) !important;
+  color: var(--badge-danger-text) !important;
+}
+
+.pill-warning {
+  background: var(--badge-warning-bg) !important;
+  color: var(--badge-warning-text) !important;
+}
+
+.pill-info {
+  background: var(--badge-info-bg) !important;
+  color: var(--badge-info-text) !important;
+}
+
+.pill-neutral {
+  background: var(--badge-neutral-bg) !important;
+  color: var(--badge-neutral-text) !important;
+}
+
+/* ============================================
+   LAYOUT HELPERS
+   ============================================ */
+
+.flex-between {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.flex-center {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* Vertical Spacing Utilities */
+.space-y-1 > * + * { margin-top: var(--space-1) !important; }
+.space-y-2 > * + * { margin-top: var(--space-2) !important; }
+.space-y-3 > * + * { margin-top: var(--space-3) !important; }
+.space-y-4 > * + * { margin-top: var(--space-4) !important; }
+.space-y-5 > * + * { margin-top: var(--space-5) !important; }
+.space-y-6 > * + * { margin-top: var(--space-6) !important; }
+
+/* ============================================
+   TEXT UTILITIES
+   ============================================ */
+
+.text-gradient {
+  background: var(--gradient-primary);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: var(--font-weight-bold);
+}
+
+.text-shadow {
+  text-shadow: var(--shadow-text-md);
+}
+
+.text-truncate-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.text-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.text-truncate-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================
+   RESPONSIVE HELPERS
+   ============================================ */
+
+.show-mobile {
+  display: none !important;
+}
+
+.hide-mobile {
+  display: block !important;
+}
+
+@media (max-width: 768px) {
+  .show-mobile {
+    display: block !important;
+  }
+
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* ============================================
+   BUTTON MODIFIERS
+   ============================================ */
+
+.btn-rounded {
+  border-radius: var(--radius-full) !important;
+}
+
+.btn-shadow {
+  box-shadow: var(--shadow-md) !important;
+}
+
+.btn-shadow:hover {
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* ============================================
+   ANIMATION UTILITIES
+   ============================================ */
+
+.scale-in {
+  animation: scaleIn var(--transition-normal) ease-out;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

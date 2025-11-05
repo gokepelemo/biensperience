@@ -15,6 +15,11 @@
   padding: var(--space-3) var(--space-4);
 }
 
+/* Toast body content layout */
+.biensperience-toast .toast-body .d-flex {
+  gap: var(--space-2);
+}
+
 /* Slide animation variant */
 .biensperience-toast.toast-slide {
   animation: slideIn 0.3s ease-out;

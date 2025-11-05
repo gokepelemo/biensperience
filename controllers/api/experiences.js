@@ -39,8 +39,7 @@ async function createExperience(req, res) {
       }
     ];
 
-    // OPTIMIZATION: Combine duplicate checks into single query with .lean() and .select()
-    // This reduces 2 separate queries to 1, and uses minimal memory
+    // Check for duplicate experiences in single optimized query
     const userExperiences = await Experience.find({
       permissions: {
         $elemMatch: {
@@ -54,7 +53,6 @@ async function createExperience(req, res) {
     .lean()
     .exec();
 
-    // Check for exact duplicate (case-insensitive) in memory
     const exactDuplicate = userExperiences.find(exp =>
       exp.name.toLowerCase() === req.body.name.toLowerCase()
     );
@@ -66,7 +64,7 @@ async function createExperience(req, res) {
       });
     }
 
-    // Check for fuzzy duplicate (already operates on in-memory array)
+    // Check for similar experience names
     const fuzzyDuplicate = findDuplicateFuzzy(
       userExperiences,
       req.body.name,
@@ -83,7 +81,6 @@ async function createExperience(req, res) {
 
     let experience = await Experience.create(req.body);
     
-    // Track creation (non-blocking)
     trackCreate({
       resource: experience,
       resourceType: 'Experience',
@@ -174,9 +171,9 @@ async function showExperienceWithContext(req, res) {
       return res.status(404).json({ error: 'Experience not found' });
     }
 
-    backendLogger.debug('Experience context fetched successfully', {
+    backendLogger.info('Experience context fetched', {
       experienceId,
-      userId,
+      userId: userId.toString(),
       hasUserPlan: !!userPlan,
       collaborativePlansCount: collaborativePlans.length
     });

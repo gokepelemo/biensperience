@@ -1,75 +1,158 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchAll } from '../../utilities/search-api';
 import { logger } from '../../utilities/logger';
-import { lang } from '../../lang.constants';
-import Loading from '../Loading/Loading';
+import Autocomplete from '../Autocomplete/Autocomplete';
 import './SearchBar.css';
 
 /**
  * SearchBar Component
- * Global search component that searches across all MongoDB collections
- * Extensible architecture ready for Algolia or other search integrations
+ * Global search component using the unified Autocomplete component
+ * Searches across destinations, experiences, users, and plans
  */
-export default function SearchBar({ placeholder = 'Search destinations, experiences, plans...', className = '' }) {
-  const [query, setQuery] = useState('');
+export default function SearchBar({ 
+  placeholder = 'Search destinations, experiences, users...', 
+  className = '',
+  size = 'md'
+}) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
-  const searchRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const debounceTimerRef = useRef(null);
   const navigate = useNavigate();
 
   /**
-   * Perform search
+   * Perform search with debouncing
    */
-  const performSearch = useCallback(async (searchQuery) => {
-    if (!searchQuery || searchQuery.trim().length < 2) {
+  const performSearch = useCallback(async (query) => {
+    if (!query || query.trim().length < 2) {
       setResults([]);
-      setShowResults(false);
       return;
     }
 
     setLoading(true);
     try {
-      const searchResults = await searchAll(searchQuery.trim());
-      setResults(searchResults);
-      setShowResults(true);
-      setSelectedIndex(-1);
+      const searchResults = await searchAll(query.trim());
+      
+      // Transform results to match Autocomplete component format
+      // Group by type to maintain visual separation
+      const transformedResults = searchResults.results.map(result => {
+        const base = {
+          id: result._id,
+          type: result.type,
+          _id: result._id
+        };
+
+        logger.debug('SearchBar result transformation', {
+          type: result.type,
+          name: result.name,
+          hasType: !!result.type
+        });
+
+        switch (result.type) {
+          case 'destination':
+            return {
+              ...base,
+              name: result.name,
+              country: result.country,
+              flag: result.flag || getCountryFlag(result.country),
+              experienceCount: result.experienceCount || result.experiences?.length || 0
+            };
+          
+          case 'experience':
+            return {
+              ...base,
+              name: result.name,
+              destination: typeof result.destination === 'object' 
+                ? result.destination?.name 
+                : result.destinationName || '',
+              rating: result.rating || 0,
+              category: result.experience_type?.[0] || result.category || 'Experience'
+            };
+          
+          case 'user':
+            return {
+              ...base,
+              name: result.name,
+              username: result.username,
+              email: result.email,
+              avatar: result.avatar,
+              isOnline: result.isOnline || false,
+              role: result.role
+            };
+          
+          case 'plan':
+            return {
+              ...base,
+              name: result.experience?.name || 'Unnamed Plan',
+              destination: `${result.items?.length || 0} items`,
+              rating: 0,
+              category: 'Plan',
+              experienceId: result.experience?._id || result.experience
+            };
+          
+          default:
+            return base;
+        }
+      });
+
+      setResults(transformedResults);
     } catch (error) {
       logger.error('Search error', { error: error.message });
       setResults([]);
-      setShowResults(false);
     } finally {
       setLoading(false);
     }
   }, []);
 
   /**
-   * Handle input change with debouncing
+   * Get country flag emoji from country name
    */
-  const handleInputChange = useCallback((e) => {
-    const value = e.target.value;
-    setQuery(value);
+  const getCountryFlag = (countryName) => {
+    const flagMap = {
+      'Japan': '🇯🇵',
+      'United States': '🇺🇸',
+      'USA': '🇺🇸',
+      'France': '🇫🇷',
+      'United Kingdom': '🇬🇧',
+      'UK': '🇬🇧',
+      'Spain': '🇪🇸',
+      'Italy': '🇮🇹',
+      'Germany': '🇩🇪',
+      'Australia': '🇦🇺',
+      'Canada': '🇨🇦',
+      'China': '🇨🇳',
+      'Brazil': '🇧🇷',
+    };
+    return flagMap[countryName] || '🌍';
+  };
 
-    // Simple debounce - wait 300ms after user stops typing
-    if (value.trim().length >= 2) {
-      const timeoutId = setTimeout(() => {
-        performSearch(value);
+  /**
+   * Handle search input with debouncing
+   */
+  const handleSearch = useCallback((query) => {
+    setSearchQuery(query);
+
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Set new timer
+    if (query.trim().length >= 2) {
+      debounceTimerRef.current = setTimeout(() => {
+        performSearch(query);
       }, 300);
-
-      return () => clearTimeout(timeoutId);
     } else {
       setResults([]);
-      setShowResults(false);
     }
   }, [performSearch]);
 
   /**
    * Handle result selection
    */
-  const handleResultClick = useCallback((result) => {
-    const { type, _id } = result;
+  const handleSelect = useCallback((result) => {
+    const { type, _id, experienceId } = result;
 
     // Navigate to the appropriate page based on result type
     switch (type) {
@@ -81,7 +164,7 @@ export default function SearchBar({ placeholder = 'Search destinations, experien
         break;
       case 'plan':
         // Navigate to the experience page for the plan
-        navigate(`/experiences/${result.experience?._id || result.experience}`);
+        navigate(`/experiences/${experienceId}`);
         break;
       case 'user':
         navigate(`/profile/${_id}`);
@@ -91,169 +174,38 @@ export default function SearchBar({ placeholder = 'Search destinations, experien
     }
 
     // Clear search
-    setQuery('');
+    setSearchQuery('');
     setResults([]);
-    setShowResults(false);
   }, [navigate]);
 
   /**
-   * Handle keyboard navigation
-   */
-  const handleKeyDown = useCallback((e) => {
-    if (!showResults || results.length === 0) return;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex(prev =>
-          prev < results.length - 1 ? prev + 1 : prev
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedIndex >= 0 && selectedIndex < results.length) {
-          handleResultClick(results[selectedIndex]);
-        }
-        break;
-      case 'Escape':
-        setShowResults(false);
-        setQuery('');
-        break;
-      default:
-        break;
-    }
-  }, [showResults, results, selectedIndex, handleResultClick]);
-
-  /**
-   * Close results when clicking outside
+   * Cleanup debounce timer on unmount
    */
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setShowResults(false);
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
       }
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  /**
-   * Get icon for result type
-   */
-  const getResultIcon = (type) => {
-    switch (type) {
-      case 'destination':
-        return '📍';
-      case 'experience':
-        return '🎯';
-      case 'plan':
-        return '📋';
-      case 'user':
-        return '👤';
-      default:
-        return '🔍';
-    }
-  };
-
-  /**
-   * Format result title
-   */
-  const getResultTitle = (result) => {
-    switch (result.type) {
-      case 'destination':
-        return result.name;
-      case 'experience':
-        return result.name;
-      case 'plan':
-        return result.experience?.name || 'Plan';
-      case 'user':
-        return result.name;
-      default:
-        return 'Unknown';
-    }
-  };
-
-  /**
-   * Format result subtitle
-   */
-  const getResultSubtitle = (result) => {
-    switch (result.type) {
-      case 'destination':
-        return result.country || '';
-      case 'experience':
-        return result.destination?.name || '';
-      case 'plan':
-        return `${result.items?.length || 0} items`;
-      case 'user':
-        return result.email || '';
-      default:
-        return '';
-    }
-  };
-
   return (
-    <div ref={searchRef} className={`search-bar ${className}`}>
-      <div className="search-input-wrapper">
-        <input
-          type="search"
-          className="form-control search-input"
-          placeholder={placeholder}
-          value={query}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onFocus={() => query.length >= 2 && setShowResults(true)}
-          role="combobox"
-          aria-label={lang.en.aria.globalSearch}
-          aria-autocomplete="list"
-          aria-controls="search-results"
-          aria-expanded={showResults}
-        />
-        {loading && (
-          <div className="search-spinner">
-            <Loading size="sm" showMessage={false} />
-          </div>
-        )}
-      </div>
-
-      {showResults && (
-        <div
-          id="search-results"
-          className="search-results"
-          role="listbox"
-          aria-label={lang.en.aria.searchResults}
-        >
-          {results.length === 0 ? (
-            <div className="search-result-item no-results">
-              No results found for "{query}"
-            </div>
-          ) : (
-            results.map((result, index) => (
-              <div
-                key={`${result.type}-${result._id}`}
-                className={`search-result-item ${selectedIndex === index ? 'selected' : ''}`}
-                onClick={() => handleResultClick(result)}
-                onMouseEnter={() => setSelectedIndex(index)}
-                role="option"
-                aria-selected={selectedIndex === index}
-              >
-                <span className="result-icon">{getResultIcon(result.type)}</span>
-                <div className="result-content">
-                  <div className="result-title">{getResultTitle(result)}</div>
-                  {getResultSubtitle(result) && (
-                    <div className="result-subtitle">{getResultSubtitle(result)}</div>
-                  )}
-                </div>
-                <span className="result-type-badge">{result.type}</span>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+    <div className={`search-bar-wrapper ${className}`}>
+      <Autocomplete
+        placeholder={placeholder}
+        items={results}
+        entityType="experience" // Use experience as base, but item.type will auto-detect
+        onSelect={handleSelect}
+        onSearch={handleSearch}
+        loading={loading}
+        value={searchQuery}
+        emptyMessage={searchQuery.length >= 2 ? `No results found for "${searchQuery}"` : 'Type at least 2 characters to search'}
+        showMeta={true}
+        showAvatar={true}
+        showStatus={true}
+        size={size}
+        disableFilter={true} // API handles filtering, don't filter client-side
+      />
     </div>
   );
 }

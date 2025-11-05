@@ -49,20 +49,6 @@ const TIP_COLORS = {
   Custom: 'secondary'
 };
 
-// Gradient backgrounds for each tip type
-const TIP_GRADIENTS = {
-  Language: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  Currency: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-  Transportation: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-  Safety: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-  Weather: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-  Customs: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-  Food: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-  Accommodation: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
-  Emergency: 'linear-gradient(135deg, #ff6a00 0%, #ee0979 100%)',
-  Custom: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)'
-};
-
 export default function TravelTip({ tip, index, onDelete, editable = false }) {
   // Calculate dynamic font size based on text length for simple tips
   const getSimpleTipFontSize = useMemo(() => {
@@ -133,7 +119,7 @@ export default function TravelTip({ tip, index, onDelete, editable = false }) {
   const FAIcon = TIP_FA_ICONS[type] || FaThumbtack;
   const displayCategory = category || type;
   const badgeColor = TIP_COLORS[type] || 'secondary';
-  const gradient = TIP_GRADIENTS[type] || TIP_GRADIENTS.Custom;
+  const gradientClass = `travel-tip-icon-${type.toLowerCase()}`;
 
   // Schema.org markup attributes
   const schemaProps = schema ? {
@@ -152,8 +138,7 @@ export default function TravelTip({ tip, index, onDelete, editable = false }) {
     >
       <div className="travel-tip-header">
         <div
-          className="travel-tip-icon-wrapper"
-          style={{ background: gradient }}
+          className={`travel-tip-icon-wrapper ${gradientClass}`}
           aria-hidden="true"
         >
           <div className="travel-tip-emoji">{displayEmoji}</div>

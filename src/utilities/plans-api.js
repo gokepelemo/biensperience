@@ -1,5 +1,6 @@
 import { sendRequest } from "./send-request";
 import { normalizeUrl } from "./url-utils.js";
+import { logger } from "./logger";
 
 const BASE_URL = "/api/plans";
 
@@ -20,10 +21,24 @@ export function getPlanById(planId) {
 /**
  * Create a new plan for an experience
  */
-export function createPlan(experienceId, plannedDate) {
-  return sendRequest(`${BASE_URL}/experience/${experienceId}`, "POST", {
-    planned_date: plannedDate,
-  });
+export async function createPlan(experienceId, plannedDate) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/experience/${experienceId}`, "POST", {
+      planned_date: plannedDate,
+    });
+    logger.info('[plans-api] Plan created', { 
+      planId: result._id, 
+      experienceId
+    });
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to create plan', { 
+      experienceId, 
+      plannedDate,
+      error: error.message
+    }, error);
+    throw error;
+  }
 }
 
 /**

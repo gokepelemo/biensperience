@@ -16,6 +16,7 @@ import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
+import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import { isOwner } from "../../utilities/permissions";
 import {
   showExperience,
@@ -52,6 +53,7 @@ import { formatCurrency } from "../../utilities/currency-utils";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { sendEmailInvite } from "../../utilities/invites-api";
 import { searchUsers } from "../../utilities/users-api";
+import { logger } from "../../utilities/logger";
 import debug from "../../utilities/debug";
 
 // Constants for sync alert cookie management
@@ -307,8 +309,14 @@ export default function SingleExperience() {
         return isUserPlan || hasPermission;
       });
 
+      // Combine user's own plan with collaborative plans for unified display
+      // Backend returns userPlan separately from collaborativePlans array
+      const allPlans = fetchedUserPlan 
+        ? [fetchedUserPlan, ...accessiblePlans] 
+        : accessiblePlans;
+
       // Sort plans: user's own plan first, then others
-      const sortedPlans = accessiblePlans.sort((a, b) => {
+      const sortedPlans = allPlans.sort((a, b) => {
         const aIsUserPlan =
           a.user &&
           (a.user._id?.toString() === user._id?.toString() ||
@@ -1306,31 +1314,38 @@ export default function SingleExperience() {
         setPlannedDate("");
         setUserPlannedDate(addData.planned_date || null);
 
-        // Create a plan for this experience (now available for both owners and non-owners)
-        // Owners can create plans to track their own completion alongside managing the template
+        // Create a plan for this experience
         try {
-          debug.log("Creating plan for experience:", experience._id);
           const newPlan = await createPlan(
             experience._id,
             addData.planned_date || null
           );
-          debug.log("Plan created successfully:", newPlan);
+          
+          logger.info("Plan created", { 
+            planId: newPlan?._id,
+            experienceId: experience._id
+          });
 
-          // Refresh user plan and collaborative plans
-          await fetchUserPlan();
-          debug.log("User plan fetched");
-
-          await fetchCollaborativePlans();
-          debug.log("Collaborative plans fetched");
-
-          // Switch to My Plan tab after creating the plan
-          setActiveTab("myplan");
           setSelectedPlanId(newPlan._id);
-
-          // Update displayed date to the new plan's date
+          setUserPlan(newPlan);
+          setUserHasExperience(true);
+          setUserPlannedDate(addData.planned_date || null);
           setDisplayedPlannedDate(addData.planned_date || null);
+          
+          setCollaborativePlans(prev => {
+            const exists = prev.some(p => p._id === newPlan._id);
+            if (exists) return prev;
+            return [newPlan, ...prev];
+          });
+
+          await fetchUserPlan();
+          await fetchCollaborativePlans();
+          setActiveTab("myplan");
         } catch (planErr) {
-          debug.error("Error creating plan:", planErr);
+          logger.error("Error creating plan", { 
+            experienceId: experience._id,
+            error: planErr.message
+          }, planErr);
           // Revert on error
           setUserHasExperience(previousState);
           setShowDatePicker(true);
@@ -1785,16 +1800,10 @@ export default function SingleExperience() {
                   ].filter(Boolean)}
                   map={
                     experience.destination ? (
-                      <iframe
-                        width="100%"
+                      <GoogleMap
+                        location={`${experience.destination.name}+${experience.destination.country}`}
+                        height={300}
                         title={lang.en.helper.map}
-                        height="300"
-                        style={{
-                          border: "0",
-                          borderRadius: "var(--radius-md)",
-                        }}
-                        loading="lazy"
-                        src={`https://www.google.com/maps/embed/v1/place?q=${experience.destination.name}+${experience.destination.country}&key=AIzaSyDqWtvNnjYES1pd6ssnZ7gvddUVHrlNaR0`}
                       />
                     ) : null
                   }

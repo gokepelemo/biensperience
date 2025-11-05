@@ -4,23 +4,8 @@ import { getComponentStyles } from "../../utilities/design-system";
 import "./Alert.css";
 
 /**
- * Reusable Alert Component
- * 
- * @param {Object} props
- * @param {string} props.type - Alert type: 'success', 'warning', 'danger', 'info', 'primary', 'secondary', 'light', 'dark'
- * @param {boolean} props.dismissible - Whether the alert can be dismissed
- * @param {function} props.onDismiss - Callback when alert is dismissed
- * @param {string} props.title - Alert title (optional)
- * @param {string|React.ReactNode} props.message - Alert message or content
- * @param {React.ReactNode} props.children - Additional content (overrides message if provided)
- * @param {string} props.className - Additional CSS classes
- * @param {Object} props.style - Inline styles
- * @param {string} props.icon - Optional icon/emoji to display
- * @param {boolean} props.showIcon - Whether to show the icon (default: true if icon provided)
- * @param {string} props.size - Alert size: 'sm', 'md', 'lg' (default: 'md')
- * @param {boolean} props.bordered - Whether to show border (default: false)
- * @param {Object} props.closeButtonStyle - Custom styles for close button
- * @param {React.ReactNode} props.actions - Action buttons to display at bottom of alert
+ * Reusable Alert Component with support for various types, sizes, and actions.
+ * See PropTypes for full prop documentation.
  */
 const Alert = ({
   type = "info",
@@ -64,7 +49,9 @@ const Alert = ({
           aria-label={lang.en.aria.dismissAlert}
           onClick={handleDismiss}
           style={closeButtonStyle}
-        />
+        >
+          <span aria-hidden="true">&times;</span>
+        </button>
       )}
       
       <div className="alert-content">
