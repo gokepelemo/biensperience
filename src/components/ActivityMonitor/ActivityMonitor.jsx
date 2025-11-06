@@ -223,13 +223,14 @@ export default function ActivityMonitor({ show, onHide }) {
           <>
             <FaEye className="me-2" />
             Activity Monitor
-            <Badge className="badge badge-secondary ms-2">Super Admin</Badge>
+            <Badge className="badge badge-secondary activity-monitor-badge">Super Admin</Badge>
           </>
         }
         size="xl"
         scrollable={true}
         showSubmitButton={false}
         showCancelButton={false}
+        contentClassName="modal-gradient-header"
         footer={
           <Button variant="secondary" onClick={onHide}>
             Close
@@ -307,7 +308,7 @@ export default function ActivityMonitor({ show, onHide }) {
 
                 {/* Actions */}
                 <div className="col-12">
-                  <div className="filter-actions d-flex gap-2">
+                  <div className="filter-actions d-flex justify-center-mobile-tablet">
                     <Button variant="primary" type="submit" disabled={loading}>
                       <FaFilter className="me-1" />
                       Apply Filters

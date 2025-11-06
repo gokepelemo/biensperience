@@ -10,3 +10,10 @@
     margin-bottom: var(--space-8);
 }
 
+/* Responsive: Center h1 on mobile/tablet */
+@media (max-width: 991px) {
+    .experiences-header h1 {
+        text-align: center;
+        width: 100%;
+    }
+}

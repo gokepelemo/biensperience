@@ -16,6 +16,20 @@ export default function ExperiencesByTag() {
   const { experiences, plans, loading } = useData();
   const [actualTagName, setActualTagName] = useState("");
 
+  // Helper: Convert slug/snake/kebab to Title Case synchronously (no state)
+  const toTitleCase = (str) => {
+    if (!str) return "";
+    // Replace underscores/hyphens with spaces, collapse multiple separators
+    const cleaned = String(str).replace(/[-_]+/g, " ").trim();
+    return cleaned
+      .split(/\s+/)
+      .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
+      .join(" ");
+  };
+
+  // Compute initial display value from URL param to avoid flicker
+  const initialTitleCaseTag = useMemo(() => toTitleCase(tagName), [tagName]);
+
   // Filter experiences by tag
   const filteredExperiences = useMemo(() => {
     if (!experiences || !tagName) return [];
@@ -47,36 +61,35 @@ export default function ExperiencesByTag() {
     async function fetchTagName() {
       try {
         const response = await experiencesAPI.getTagName(tagName);
-        setActualTagName(response.tagName || tagName);
+        setActualTagName(response.tagName || initialTitleCaseTag);
       } catch (error) {
         // If the API call fails, fall back to the URL slug
         logger.error('Error fetching tag name', { tagName, error: error.message });
-        setActualTagName(tagName);
+        setActualTagName(initialTitleCaseTag);
       }
     }
 
     if (tagName) {
       fetchTagName();
     }
-  }, [tagName]);
+  }, [tagName, initialTitleCaseTag]);
 
-  // Derived value - no need for state
-  const displayTagName = actualTagName || tagName;
-  const capitalizedTagName = displayTagName.charAt(0).toUpperCase() + displayTagName.slice(1);
+  // Derived value: prefer canonical from API, else initial Title Case from slug
+  const displayTagName = actualTagName || initialTitleCaseTag;
 
   return (
-    <PageWrapper title={`${capitalizedTagName} Experiences`}>
+    <PageWrapper title={`${displayTagName} Experiences`}>
       <PageMeta
-        title={`Experiences tagged ${capitalizedTagName}`}
-        description={`Discover ${filteredExperiences.length > 0 ? filteredExperiences.length : ''} travel experiences tagged as ${capitalizedTagName}. Find unique ${capitalizedTagName} adventures and activities around the world.`}
-        keywords={`${capitalizedTagName}, travel experiences, ${capitalizedTagName} activities, ${capitalizedTagName} adventures, travel planning, tourism`}
-        ogTitle={`${capitalizedTagName} Travel Experiences`}
-        ogDescription={`Browse our collection of ${capitalizedTagName} experiences${filteredExperiences.length > 0 ? `. ${filteredExperiences.length} curated experiences available` : ' from around the world'}.`}
+        title={`Experiences tagged ${displayTagName}`}
+        description={`Discover ${filteredExperiences.length > 0 ? filteredExperiences.length : ''} travel experiences tagged as ${displayTagName}. Find unique ${displayTagName} adventures and activities around the world.`}
+        keywords={`${displayTagName}, travel experiences, ${displayTagName} activities, ${displayTagName} adventures, travel planning, tourism`}
+        ogTitle={`${displayTagName} Travel Experiences`}
+        ogDescription={`Browse our collection of ${displayTagName} experiences${filteredExperiences.length > 0 ? `. ${filteredExperiences.length} curated experiences available` : ' from around the world'}.`}
       />
 
       <div className="row fade-in">
         <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">Experiences tagged {capitalizedTagName}</h1>
+          <h1 className="my-4 h fade-in">Experiences tagged {displayTagName}</h1>
         </div>
         <div className="col-md-6 fade-in d-flex align-items-center justify-content-md-end">
           <Link to="/experiences" className="btn btn-light">
@@ -89,7 +102,7 @@ export default function ExperiencesByTag() {
         <Loading
           variant="centered"
           size="lg"
-          message={`Loading ${capitalizedTagName} experiences...`}
+          message={`Loading ${displayTagName} experiences...`}
         />
       ) : filteredExperiences.length > 0 ? (
         <div className="row my-4 fade-in">
@@ -108,7 +121,7 @@ export default function ExperiencesByTag() {
         <div className="row my-4 fade-in">
           <div className="col-12">
             <Alert type="info">
-              <h5>No experiences found with tag "{capitalizedTagName}"</h5>
+              <h5>No experiences found with tag "{displayTagName}"</h5>
               <p>Try browsing all experiences or search for a different tag.</p>
               <Link to="/experiences" className="btn btn-primary mt-2">
                 Browse All Experiences

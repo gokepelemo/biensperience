@@ -10,16 +10,20 @@ import { isOwner } from "../../utilities/permissions";
 import { logger } from "../../utilities/logger";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
+import { useToast } from "../../contexts/ToastContext";
+import useOptimisticAction from "../../hooks/useOptimisticAction";
 
 function ExperienceCard({ experience, updateData, userPlans = [] }) {
   const { user } = useUser();
   const { fetchPlans } = useData();
+  const { error: showError } = useToast();
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isDeleted, setIsDeleted] = useState(false);
 
   // Detect mobile viewport
   useEffect(() => {
@@ -34,34 +38,53 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
   }, []);
 
   // Initialize local plan state based on userPlans if available, or sessionStorage
+  // STRATEGY: Use sessionStorage for instant rendering, verify with async query
   const [localPlanState, setLocalPlanState] = useState(() => {
+    // Priority 1: Use userPlans prop if available (most reliable)
     if (userPlans.length > 0) {
       return userPlans.some(plan => 
         plan.experience?._id === experience._id || 
         plan.experience === experience._id
       );
     }
-    try {
-      const cached = sessionStorage.getItem(`plan_${experience._id}`);
-      return cached ? JSON.parse(cached) : null;
-    } catch (err) {
-      return null;
+    
+    // Priority 2: Use sessionStorage for instant rendering (may be stale)
+    // Will be verified asynchronously below
+    if (user?._id) {
+      try {
+        const cacheKey = `plan_${user._id}_${experience._id}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        return cached ? JSON.parse(cached) : false; // Default to false instead of null
+      } catch (err) {
+        return false;
+      }
     }
+    
+    // Priority 3: No user logged in - default to false
+    return false;
   });
 
+  // Track if we're currently verifying state from database
+  const [isVerifying, setIsVerifying] = useState(false);
+
   // Custom setter that also updates sessionStorage
+  // CRITICAL: Use user-specific key to prevent cross-user contamination
   const setLocalPlanStateWithCache = useCallback((value) => {
     setLocalPlanState(value);
+    
+    if (!user?._id) return; // No caching without user
+    
     try {
+      const cacheKey = `plan_${user._id}_${experience._id}`;
       if (value !== null) {
-        sessionStorage.setItem(`plan_${experience._id}`, JSON.stringify(value));
+        sessionStorage.setItem(cacheKey, JSON.stringify(value));
       } else {
-        sessionStorage.removeItem(`plan_${experience._id}`);
+        sessionStorage.removeItem(cacheKey);
       }
     } catch (err) {
       // Silently fail if sessionStorage is not available
     }
-  }, [experience._id]);
+  }, [experience._id, user?._id]);
 
   const userIsOwner = isOwner(user, experience);
 
@@ -70,64 +93,84 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
   const experienceAdded = useMemo(() => {
     if (!experience?._id || !user?._id) return false;
     
-    // If we have local state, use it
-    if (localPlanState !== null) {
-      return localPlanState;
-    }
-    
-    // Otherwise check userPlans prop (fallback)
-    return userPlans.some(plan => plan.experience?._id === experience._id || plan.experience === experience._id);
-  }, [experience?._id, user?._id, userPlans, localPlanState]);
+    // Always use localPlanState - it's kept in sync with database
+    return localPlanState;
+  }, [experience?._id, user?._id, localPlanState]);
 
-  // Sync localPlanState with userPlans when it changes
+  // Reset local state when user changes (logout/login)
   useEffect(() => {
-    if (userPlans.length > 0) {
-      const hasPlan = userPlans.some(plan => 
-        plan.experience?._id === experience._id || 
-        plan.experience === experience._id
-      );
-      setLocalPlanStateWithCache(hasPlan);
+    if (!user?._id) {
+      // User logged out - clear local state
+      setLocalPlanState(false);
     }
-  }, [userPlans, experience._id, setLocalPlanStateWithCache]);
+  }, [user?._id]);
 
-  // Fetch plan status when component mounts if userPlans is empty
-  // OPTIMIZATION: Use lightweight checkUserPlanForExperience instead of getUserPlans
+  // ASYNC VERIFICATION: Always verify cached state with database
+  // This ensures UI accuracy while maintaining instant rendering
   useEffect(() => {
-    // Only fetch if:
-    // 1. We have a user and experience
-    // 2. userPlans is empty (not passed from parent)
-    // 3. localPlanState is null (not yet determined)
-    if (!user?._id || !experience?._id || userPlans.length > 0 || localPlanState !== null) {
+    if (!user?._id || !experience?._id) {
       return;
     }
 
     let isMounted = true;
 
-    const checkPlanStatus = async () => {
+    const verifyPlanState = async () => {
+      setIsVerifying(true);
+      
       try {
-        // OPTIMIZATION: Use lightweight endpoint - only returns plan ID, not full data
+        // Use lightweight endpoint - only returns plan ID, not full data
         const result = await checkUserPlanForExperience(experience._id);
+        const actualState = result.hasPlan;
+        
         if (isMounted) {
-          setLocalPlanStateWithCache(result.hasPlan);
+          // If cached state differs from database, smoothly transition
+          if (actualState !== localPlanState) {
+            logger.info('[ExperienceCard] State correction', {
+              experienceId: experience._id,
+              cached: localPlanState,
+              actual: actualState,
+              reason: 'Database verification corrected cached state'
+            });
+            
+            // Update both local state and cache
+            setLocalPlanStateWithCache(actualState);
+          }
         }
       } catch (err) {
-        // Silently fail - button will default to "add" state
-        logger.warn('Failed to check plan status', {
+        // On error, keep current state but log warning
+        logger.warn('[ExperienceCard] Failed to verify plan status', {
           experienceId: experience._id,
+          cachedState: localPlanState,
           error: err.message
         }, err);
+      } finally {
         if (isMounted) {
-          setLocalPlanStateWithCache(false);
+          setIsVerifying(false);
         }
       }
     };
 
-    checkPlanStatus();
+    // Verify state asynchronously
+    verifyPlanState();
 
     return () => {
       isMounted = false;
     };
-  }, [user?._id, experience?._id, userPlans.length, localPlanState, setLocalPlanStateWithCache]);
+  }, [user?._id, experience?._id, localPlanState, setLocalPlanStateWithCache]);
+
+  // Sync with userPlans prop when it changes (parent component refresh)
+  useEffect(() => {
+    // Always check userPlans, even if empty (plan might have been deleted)
+    const hasPlan = userPlans.some(plan => 
+      plan.experience?._id === experience._id || 
+      plan.experience === experience._id
+    );
+    
+    // Only update if different to avoid unnecessary re-renders
+    if (hasPlan !== localPlanState) {
+      setLocalPlanStateWithCache(hasPlan);
+    }
+  }, [userPlans, experience._id, localPlanState, setLocalPlanStateWithCache]);
 
   // Get the default photo for background
   const getBackgroundImage = useMemo(() => {
@@ -171,51 +214,51 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
         hasUser: !!user,
         hasUserId: !!(user?._id)
       });
-      handleError(new Error('You must be logged in to plan experiences'), { 
+      const errorMsg = handleError(new Error('You must be logged in to plan experiences'), { 
         context: 'Plan experience' 
       });
+      showError(errorMsg);
       return;
     }
     
     const isRemoving = experienceAdded;
     
-    // OPTIMISTIC UI UPDATE: Update state immediately for instant feedback
+    // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
+    // This will be verified by the async effect above
     setLocalPlanStateWithCache(!isRemoving);
     setIsLoading(true);
 
     try {
       if (isRemoving) {
-        // OPTIMIZATION 1: Use stored plan ID if available in local state
-        // This avoids the expensive getUserPlans() call
+        // REMOVE PLAN: Find and delete the user's plan
         let userPlan = userPlans.find(plan => 
           plan.experience?._id === experience._id || 
           plan.experience === experience._id
         );
         
-        // OPTIMIZATION 2: Lightweight plan lookup - only fetch plan ID
+        // If not in userPlans prop, query database
         if (!userPlan) {
-          // Use the new lightweight endpoint instead of getUserPlans()
           const result = await checkUserPlanForExperience(experience._id);
           if (result.hasPlan) {
             userPlan = { _id: result.planId };
           }
         }
         
-        if (userPlan) {
-          // OPTIMIZATION 3: Fire-and-forget deletion
-          // Don't await - let it complete in background
-          deletePlan(userPlan._id).catch(err => {
-            logger.error('Failed to delete plan', { planId: userPlan._id, error: err.message });
-            // Revert UI on failure
-            setLocalPlanState(true);
-            handleError(err, { context: 'Remove plan' });
-          });
-        } else {
-          throw new Error('Plan not found');
+        if (!userPlan) {
+          throw new Error('Plan not found in database');
         }
+
+        // Execute deletion
+        await deletePlan(userPlan._id);
+        
+        logger.info('[ExperienceCard] Plan deleted', {
+          planId: userPlan._id,
+          experienceId: experience._id
+        });
+
       } else {
-        // Create new plan
-        logger.info('[ExperienceCard] Starting plan creation', {
+        // CREATE PLAN: Add new plan
+        logger.info('[ExperienceCard] Creating plan', {
           experienceId: experience._id,
           experienceName: experience.name,
           userId: user?._id
@@ -223,65 +266,109 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
         
         const newPlan = await createPlan(experience._id, null);
         
-        logger.info('[ExperienceCard] Plan created successfully', {
+        logger.info('[ExperienceCard] Plan created', {
           planId: newPlan?._id,
           experienceId: experience._id
         });
       }
 
-      // Refresh data after plan action to update global state
+      // DATABASE OPERATION COMPLETE
+      // The async verification effect will confirm the new state
+      
+      // Refresh parent component data if provided
       if (updateData) {
-        try {
-          await updateData();
-        } catch (refreshErr) {
-          logger.warn('Failed to refresh parent data', { 
-            error: refreshErr.message
-          });
-        }
-      }
-
-      // Always refresh DataContext plans state
-      try {
-        await fetchPlans();
-      } catch (fetchErr) {
-        logger.warn('Failed to refresh global plans state', {
-          error: fetchErr.message
+        updateData().catch(err => {
+          logger.warn('Parent data refresh failed', { error: err.message });
         });
       }
+
+      // Refresh global plans state (non-blocking)
+      fetchPlans().catch(err => {
+        logger.warn('Global plans refresh failed', { error: err.message });
+      });
+
+      // VERIFICATION: Immediately check actual database state
+      // This ensures our optimistic update matches reality
+      try {
+        const verification = await checkUserPlanForExperience(experience._id);
+        const actualState = verification.hasPlan;
+        
+        if (actualState !== !isRemoving) {
+          // State mismatch - correct it
+          logger.warn('[ExperienceCard] State mismatch after operation', {
+            experienceId: experience._id,
+            expected: !isRemoving,
+            actual: actualState,
+            operation: isRemoving ? 'delete' : 'create'
+          });
+          
+          setLocalPlanStateWithCache(actualState);
+        }
+      } catch (verifyErr) {
+        logger.warn('[ExperienceCard] Post-operation verification failed', {
+          experienceId: experience._id,
+          error: verifyErr.message
+        });
+      }
+
     } catch (err) {
-      logger.error('Plan action failed', {
+      logger.error('[ExperienceCard] Plan action failed', {
         action: isRemoving ? 'remove' : 'create',
         experienceId: experience._id,
         error: err.message,
         errorStack: err.stack
       }, err);
       
-      handleError(err, { context: isRemoving ? 'Remove plan' : 'Create plan' });
+      const errorMsg = handleError(err, { context: isRemoving ? 'Remove plan' : 'Create plan' });
+      showError(errorMsg);
       
-      // Special handling for "Plan already exists" error (409 Conflict)
-      if (!isRemoving && err.message && (err.message.includes('Plan already exists') || err.message.includes('409'))) {
-        // The database has a plan but our local state doesn't reflect it
-        // Update local state to show plan exists
-        setLocalPlanStateWithCache(true);
-        return; // Don't revert the state since we just corrected it
-      }
-      
-      // REVERT on error: Restore previous state
+      // REVERT OPTIMISTIC UPDATE on error
       setLocalPlanStateWithCache(isRemoving);
+      
+      // Query database to get actual state
+      try {
+        const actualState = await checkUserPlanForExperience(experience._id);
+        setLocalPlanStateWithCache(actualState.hasPlan);
+      } catch (verifyErr) {
+        // If verification also fails, keep reverted state
+        logger.warn('[ExperienceCard] Error state verification failed', {
+          error: verifyErr.message
+        });
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, experienceAdded, experience._id, experience.name, updateData, userPlans, user, setLocalPlanStateWithCache]);
+  }, [isLoading, experienceAdded, experience._id, experience.name, updateData, userPlans, user, setLocalPlanStateWithCache, fetchPlans, showError]);
+
+  const runDelete = useOptimisticAction({
+    context: 'Delete experience',
+    apply: () => {
+      setIsDeleted(true); // hide card immediately
+      setShowDeleteModal(false);
+    },
+    apiCall: async () => {
+      await deleteExperience(experience._id);
+    },
+    rollback: () => {
+      setIsDeleted(false);
+    },
+    onSuccess: () => {
+      // Ask parent to refresh list (non-blocking)
+      if (updateData) {
+        Promise.resolve(updateData()).catch((err) =>
+          logger.warn('[ExperienceCard] Parent refresh failed', { error: err?.message })
+        );
+      }
+    },
+    onError: (err, defaultMsg) => {
+      const msg = handleError(err, { context: 'Delete experience' }) || defaultMsg;
+      showError(msg);
+    }
+  });
 
   const handleDelete = useCallback(async () => {
-    try {
-      await deleteExperience(experience._id);
-      setShowDeleteModal(false);
-      updateData();
-    } catch (err) {
-      handleError(err, { context: 'Delete experience' });
-    }
-  }, [experience._id, updateData]);
+    runDelete();
+  }, [runDelete]);
 
   // Toggle expansion on mobile (tap to expand/collapse)
   const handleCardClick = useCallback((e) => {
@@ -298,7 +385,7 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
 
   return (
     <div className="d-inline-block m-2" style={{ width: 'fit-content', verticalAlign: 'top' }}>
-      {experience ? (
+      {experience && !isDeleted ? (
         <div
           className={`experienceCard d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden ${isMobile ? 'mobile' : ''} ${isExpanded ? 'expanded' : ''}`}
           style={{ backgroundImage: getBackgroundImage }}

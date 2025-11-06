@@ -26,7 +26,7 @@ const en = {
     updateExperience: "Update Experience",
     setDateAndAdd: "Set Date & Add",
     addDestinationCreateExperience: "Add Destination ➡️ Create New Experience",
-    addFavoriteExp: "+ Plan this Experience",
+    addFavoriteExp: "+ Plan It",
     addFavoriteDest: "+ Add to Favorite Destinations",
     removeFavoriteExp: "- Remove",
     removeFavoriteDest: "- Remove",

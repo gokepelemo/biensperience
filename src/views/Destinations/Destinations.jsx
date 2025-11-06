@@ -38,8 +38,8 @@ export default function Destinations() {
         ogDescription={`Browse ${processedDestinations?.length || 'hundreds of'} incredible travel destinations worldwide. Plan your perfect trip today.`}
       />
 
-      <div className="row">
-        <div className="col-md-6">
+      <div className="row destinations-header">
+        <div className="col-md-6 text-center text-md-start">
           <h1 className="my-4">Destinations</h1>
         </div>
       </div>

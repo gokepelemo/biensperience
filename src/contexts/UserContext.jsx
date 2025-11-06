@@ -73,6 +73,22 @@ export function UserProvider({ children }) {
    * @param {Object} newUser - Updated user object
    */
   const updateUser = useCallback((newUser) => {
+    // Clear stale plan cache when user changes (login/logout)
+    // This prevents User A's cached plans from showing for User B
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith('plan_')) {
+          // Remove all plan cache entries
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => sessionStorage.removeItem(key));
+    } catch (err) {
+      // Silently fail if sessionStorage is not available
+    }
+    
     setUser(newUser);
 
     // Fetch fresh profile data when user changes
@@ -95,6 +111,21 @@ export function UserProvider({ children }) {
     setProfile(null);
     setFavoriteDestinations([]);
     setPlannedExperiences([]);
+    
+    // Clear user-specific plan cache from sessionStorage
+    // This prevents plan state from persisting across different user sessions
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith('plan_')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => sessionStorage.removeItem(key));
+    } catch (err) {
+      // Silently fail if sessionStorage is not available
+    }
   }, []);
 
   /**

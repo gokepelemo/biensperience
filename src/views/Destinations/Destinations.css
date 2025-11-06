@@ -9,3 +9,11 @@
     align-items: stretch;
     margin-bottom: var(--space-8);
 }
+
+/* Responsive: Center h1 on mobile/tablet */
+@media (max-width: 991px) {
+    .destinations-header h1 {
+        text-align: center;
+        width: 100%;
+    }
+}

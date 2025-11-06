@@ -220,7 +220,7 @@ function AppContent() {
             </>
           ) : (
             <main id="main-content" className="container" role="main" aria-label={lang.en.aria.authentication}>
-              <Suspense fallback={<div className="text-center p-4">Loading...</div>}>
+              <Suspense fallback={<Loading variant="centered" size="lg" /> }>
                 <Routes>
                   <Route path="/signup" element={<AuthPage />} />
                   <Route path="/reset-password/:token" element={<ResetPassword />} />

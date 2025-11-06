@@ -39,6 +39,8 @@ export function DataProvider({ children }) {
     experiences: null,
     plans: null,
   });
+  // Background refresh threshold for cached/plausible data (stale-while-revalidate)
+  const STALE_AFTER_MS = 2 * 60 * 1000; // 2 minutes
 
   /**
    * Fetch all destinations from API
@@ -295,6 +297,46 @@ export function DataProvider({ children }) {
       setPlans([]);
     }
   }, [isAuthenticated, user, refreshAll]); // Include refreshAll to satisfy linting
+
+  // Background refresh when we detect potentially stale cached data in memory
+  // Triggers non-blocking refreshes while keeping current UI responsive
+  useEffect(() => {
+    if (!user) return;
+
+    const now = Date.now();
+
+    const isStale = (d) => {
+      if (!d) return true;
+      const t = typeof d === 'number' ? d : new Date(d).getTime();
+      return now - t > STALE_AFTER_MS;
+    };
+
+    // Destinations
+    if (destinations.length > 0 && isStale(lastUpdated.destinations)) {
+      Promise.resolve(fetchDestinations()).catch(() => {});
+    }
+
+    // Experiences
+    if (experiences.length > 0 && isStale(lastUpdated.experiences)) {
+      Promise.resolve(fetchExperiences()).catch(() => {});
+    }
+
+    // Plans
+    if (plans.length > 0 && isStale(lastUpdated.plans)) {
+      Promise.resolve(fetchPlans()).catch(() => {});
+    }
+  }, [
+    user,
+    destinations.length,
+    experiences.length,
+    plans.length,
+    lastUpdated.destinations,
+    lastUpdated.experiences,
+    lastUpdated.plans,
+    fetchDestinations,
+    fetchExperiences,
+    fetchPlans,
+  ]);
 
   const value = {
     // State

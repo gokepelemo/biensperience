@@ -454,9 +454,6 @@
     padding: 0.75rem 1.25rem;
     transition: var(--transition-normal);
     box-shadow: var(--shadow-sm);
-    min-width: 200px;
-    max-width: 320px;
-    width: 320px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -466,9 +463,6 @@
 @media (max-width: 767px) {
     .btn-plan-add,
     .btn-plan-remove {
-        width: auto;
-        min-width: 180px;
-        max-width: 280px;
         font-size: 1rem;
         padding: 0.65rem 1rem;
     }
@@ -477,8 +471,6 @@
 @media (max-width: 480px) {
     .btn-plan-add,
     .btn-plan-remove {
-        min-width: 160px;
-        max-width: 240px;
         font-size: 0.95rem;
         padding: 0.6rem 0.9rem;
     }
@@ -877,4 +869,42 @@
     .grey {
         color: #adb5bd;
     }
+}
+
+/* Set Date Link */
+.set-date-link {
+    cursor: pointer;
+    color: var(--badge-primary-bg);
+    text-decoration: underline;
+}
+
+.set-date-link:hover {
+    color: var(--badge-primary-bg);
+    text-decoration: none;
+}
+
+/* Collaborator Badge */
+.collaborator-badge {
+    font-size: var(--font-size-sm);
+}
+
+/* Collaborator Remove Button */
+.collaborator-remove-btn {
+    text-decoration: none;
+    line-height: 1;
+    font-size: var(--font-size-base);
+}
+
+/* Search Results Dropdown */
+.search-results-dropdown {
+    z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Metric Badge */
+.metric-badge {
+    font-size: 16px;
+    padding: 8px 12px;
+    border-radius: var(--radius-full);
 }

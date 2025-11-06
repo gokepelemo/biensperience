@@ -44,10 +44,12 @@ export default function Loading({
   className = "",
   message = "Loading...",
   showMessage = true,
-  overlay = "none"
+  overlay = "none",
+  allowCustomMessage = false, // If false, show terse animated ellipsis instead of verbose messages
 }) {
   const containerClass = `loading-container loading-variant-${variant} ${overlay !== 'none' ? `loading-overlay-${overlay}` : ''} ${className}`;
   const animationClass = `loading-animation-${animation}`;
+  const useTerse = showMessage && !allowCustomMessage; // global preference: minimal loading message
 
   return (
     <div className={containerClass}>
@@ -162,9 +164,20 @@ export default function Loading({
             </defs>
           </svg>
         </div>
-        {showMessage && message && (
+        {showMessage && (
           <div className="loading-message">
-            {message}
+            {useTerse ? (
+              <span className="loading-terse">
+                Loading
+                <span className="loading-dots">
+                  <span className="dot dot-1">.</span>
+                  <span className="dot dot-2">.</span>
+                  <span className="dot dot-3">.</span>
+                </span>
+              </span>
+            ) : (
+              message
+            )}
           </div>
         )}
       </div>

@@ -3,7 +3,7 @@
  * Displays metrics for a plan (planned date, completion, cost)
  */
 
-import { useRef, useEffect } from 'react';
+import { Badge } from 'react-bootstrap';
 import { formatDateMetricCard } from '../../../utilities/date-utils';
 import { formatCurrency } from '../../../utilities/currency-utils';
 
@@ -14,32 +14,7 @@ export default function PlanMetricsDisplay({
   onEditDate,
   showEditButton = true
 }) {
-  const plannedDateRef = useRef(null);
-
-  // Dynamic font size adjustment for planned date
-  useEffect(() => {
-    const adjustPlannedDateFontSize = () => {
-      const element = plannedDateRef.current;
-      if (!element) return;
-
-      const container = element.parentElement;
-      if (!container) return;
-
-      let fontSize = 24;
-      element.style.fontSize = `${fontSize}px`;
-
-      while (element.scrollWidth > container.clientWidth && fontSize > 10) {
-        fontSize -= 1;
-        element.style.fontSize = `${fontSize}px`;
-      }
-    };
-
-    if (plannedDate) {
-      adjustPlannedDateFontSize();
-      window.addEventListener('resize', adjustPlannedDateFontSize);
-      return () => window.removeEventListener('resize', adjustPlannedDateFontSize);
-    }
-  }, [plannedDate]);
+  // Dynamic font size adjustment removed - badges have consistent sizing
 
   return (
     <div className="plan-metrics row g-3 my-4">
@@ -48,9 +23,21 @@ export default function PlanMetricsDisplay({
         <div className="metric-card h-100">
           <div className="metric-label">Planned Date</div>
           <div className="metric-value-container">
-            <div ref={plannedDateRef} className="metric-value">
-              {plannedDate ? formatDateMetricCard(plannedDate) : 'Not set'}
-            </div>
+            {plannedDate ? (
+              <Badge
+                className="pill-primary cursor-pointer metric-badge"
+                onClick={onEditDate}
+              >
+                {formatDateMetricCard(plannedDate)}
+              </Badge>
+            ) : (
+              <Badge
+                className="pill-neutral cursor-pointer metric-badge"
+                onClick={onEditDate}
+              >
+                Not set
+              </Badge>
+            )}
           </div>
           {showEditButton && (
             <button

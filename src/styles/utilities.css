@@ -992,6 +992,51 @@
 }
 
 /* ============================================
+   RESPONSIVE CENTERING UTILITIES
+   Mobile-first: headings and action buttons centered on mobile/tablet
+   ============================================ */
+
+/* Mobile centering (up to tablet) */
+@media (max-width: 991px) {
+  .text-center-mobile-tablet {
+    text-align: center !important;
+  }
+
+  .justify-center-mobile-tablet {
+    justify-content: center !important;
+  }
+
+  .mx-auto-mobile-tablet {
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+
+/* Mobile only centering (up to small tablet) */
+@media (max-width: 768px) {
+  .text-center-mobile {
+    text-align: center !important;
+  }
+
+  .justify-center-mobile {
+    justify-content: center !important;
+  }
+
+  .mx-auto-mobile {
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  .flex-column-mobile {
+    flex-direction: column !important;
+  }
+
+  .w-100-mobile {
+    width: 100% !important;
+  }
+}
+
+/* ============================================
    BUTTON MODIFIERS
    ============================================ */
 

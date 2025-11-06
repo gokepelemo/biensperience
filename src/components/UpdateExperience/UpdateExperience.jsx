@@ -36,6 +36,7 @@ export default function UpdateExperience() {
   const [originalExperience, setOriginalExperience] = useState(null);
   const [changes, setChanges] = useState({});
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isMediaSettled, setIsMediaSettled] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showDestinationModal, setShowDestinationModal] = useState(false);
   const [error, setError] = useState("");
@@ -80,7 +81,12 @@ export default function UpdateExperience() {
         };
 
         setExperience(normalizedExperience);
-        setOriginalExperience(experienceData);
+        setOriginalExperience({
+          ...experienceData,
+          photos: (experienceData.photos || []).map(photo => 
+            photo._id ? photo._id : photo
+          ) // Normalize original photos to IDs for consistent comparison
+        });
         if (destData) setDestinations(destData);
 
         // Set tags from experience_type
@@ -109,41 +115,97 @@ export default function UpdateExperience() {
     }
   }, [experienceId, user, navigate, destData]);
 
-  // Track photo changes
+  // Determine when photos/default are fully normalized and aligned with original
   useEffect(() => {
-    if (!experience || !originalExperience || isInitialLoad) return;
+    if (!experience || !originalExperience) return;
+
+    const getId = (p) => {
+      if (!p) return null;
+      if (typeof p === 'string') return p;
+      if (p._id) return String(p._id);
+      return String(p);
+    };
+    const normalizePhotos = (arr = []) => arr.map(getId).filter(Boolean).sort();
+
+    const originalPhotoIds = normalizePhotos(originalExperience.photos || []);
+    const currentPhotoIds = normalizePhotos(experience.photos || []);
+
+    const originalDefault = originalExperience.default_photo_id
+      ? String(getId(originalExperience.default_photo_id))
+      : (originalPhotoIds[0] || null);
+    let currentDefault = experience.default_photo_id
+      ? String(getId(experience.default_photo_id))
+      : (currentPhotoIds[0] || null);
+    if (currentPhotoIds.length === 0) currentDefault = null;
+
+    const photosEqual = JSON.stringify(originalPhotoIds) === JSON.stringify(currentPhotoIds);
+    const defaultsEqual = originalDefault === currentDefault;
+    setIsMediaSettled(photosEqual && defaultsEqual);
+  }, [experience, originalExperience]);
+
+  // Track photo changes (robust: compare by stable IDs, ignore order)
+  useEffect(() => {
+    if (!experience || !originalExperience || isInitialLoad || !isMediaSettled) return;
 
     const newChanges = { ...changes };
 
-    // Check if photos array changed
+    // Normalize photos by ID and ignore order
+    const getId = (p) => {
+      if (!p) return null;
+      if (typeof p === 'string') return p;
+      if (p._id) return String(p._id);
+      return String(p);
+    };
+    const normalizePhotos = (arr = []) => arr.map(getId).filter(Boolean).sort();
+
     const originalPhotos = originalExperience.photos || [];
     const currentPhotos = experience.photos || [];
 
-    const photosChanged = JSON.stringify(originalPhotos) !== JSON.stringify(currentPhotos);
+    const originalPhotoIds = normalizePhotos(originalPhotos);
+    const currentPhotoIds = normalizePhotos(currentPhotos);
+
+    const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
 
     if (photosChanged) {
-      const fromText = originalPhotos.length === 0 ? 'No photos' : `${originalPhotos.length} photo${originalPhotos.length > 1 ? 's' : ''}`;
-      const toText = currentPhotos.length === 0 ? 'No photos' : `${currentPhotos.length} photo${currentPhotos.length > 1 ? 's' : ''}`;
+      const fromText = originalPhotoIds.length === 0 ? 'No photos' : `${originalPhotoIds.length} photo${originalPhotoIds.length > 1 ? 's' : ''}`;
+      const toText = currentPhotoIds.length === 0 ? 'No photos' : `${currentPhotoIds.length} photo${currentPhotoIds.length > 1 ? 's' : ''}`;
 
-      newChanges.photos = {
-        from: fromText,
-        to: toText
-      };
+      newChanges.photos = { from: fromText, to: toText };
     } else {
       delete newChanges.photos;
     }
 
-    // Check if default photo index changed
-    const originalIndex = originalExperience.default_photo_index || 0;
-    const currentIndex = experience.default_photo_index || 0;
+    // Check if default photo changed by ID (fallback to first photo when unset)
+    const originalDefaultId = originalExperience.default_photo_id;
+    const currentDefaultId = experience.default_photo_id;
 
-    if (originalIndex !== currentIndex && currentPhotos.length > 0) {
-      newChanges.default_photo_index = {
-        from: `Photo #${originalIndex + 1}`,
-        to: `Photo #${currentIndex + 1}`
+    const normalizedOriginalDefault = originalDefaultId
+      ? String(getId(originalDefaultId))
+      : (originalPhotoIds[0] || null);
+    let normalizedCurrentDefault = currentDefaultId
+      ? String(getId(currentDefaultId))
+      : (currentPhotoIds[0] || null);
+
+    // If there are no current photos, treat default as null
+    if (currentPhotoIds.length === 0) normalizedCurrentDefault = null;
+
+    if (
+      normalizedOriginalDefault !== normalizedCurrentDefault &&
+      currentPhotoIds.length > 0
+    ) {
+      const originalIndex = normalizedOriginalDefault
+        ? originalPhotoIds.indexOf(normalizedOriginalDefault)
+        : -1;
+      const currentIndex = normalizedCurrentDefault
+        ? currentPhotoIds.indexOf(normalizedCurrentDefault)
+        : -1;
+
+      newChanges.default_photo = {
+        from: originalIndex >= 0 ? `Photo #${originalIndex + 1}` : 'None',
+        to: currentIndex >= 0 ? `Photo #${currentIndex + 1}` : 'None'
       };
     } else {
-      delete newChanges.default_photo_index;
+      delete newChanges.default_photo;
     }
 
     // Only update if changes actually differ
@@ -151,7 +213,7 @@ export default function UpdateExperience() {
       setChanges(newChanges);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [experience, originalExperience, isInitialLoad]);
+  }, [experience, originalExperience, isInitialLoad, isMediaSettled]);
 
   // Track tags changes
   useEffect(() => {
@@ -344,7 +406,7 @@ export default function UpdateExperience() {
         </div>
       </div>
 
-      {Object.keys(changes).length > 0 && (
+      {!isInitialLoad && isMediaSettled && Object.keys(changes).length > 0 && (
         <Alert
           type="info"
           className="mb-4 fade-in"

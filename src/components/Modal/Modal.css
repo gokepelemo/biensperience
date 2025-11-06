@@ -38,6 +38,24 @@
   max-height: 90vh;
 }
 
+/* Optional gradient header variant (opt-in via contentClassName="modal-gradient-header") */
+.modal-content.modal-gradient-header .modal-header {
+  background: linear-gradient(135deg, var(--color-primary) 0%, #5a32a0 100%);
+  color: #fff;
+  border-bottom: none;
+  padding: var(--space-4) var(--space-6);
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+
+.modal-content.modal-gradient-header .modal-title {
+  color: #fff;
+}
+
+.modal-content.modal-gradient-header .btn-close {
+  filter: invert(1) grayscale(100%);
+}
+
 .modal-dialog-scrollable .modal-body {
   overflow-y: auto;
   max-height: calc(90vh - 120px);

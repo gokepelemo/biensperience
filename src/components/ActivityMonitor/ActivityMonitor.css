@@ -8,6 +8,14 @@
   overflow-y: auto;
 }
 
+/* Modal title badge spacing */
+.activity-monitor-badge {
+  margin-left: var(--space-2);
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+
 .filters-section {
   background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-border-light) 100%);
   border-radius: var(--radius-xl);
@@ -66,6 +74,7 @@
   padding-top: var(--space-2);
   border-top: 1px solid var(--color-border-medium);
   margin-top: var(--space-2);
+  gap: var(--space-2);
 }
 
 .filters-section .btn-primary {
@@ -117,6 +126,11 @@
 
 .activity-monitor .table td {
   vertical-align: middle;
+  padding: 0.5rem 0.75rem;
+}
+
+.activity-monitor .table thead th {
+  padding: 0.5rem 0.75rem;
 }
 
 .activity-monitor .table td small {
@@ -187,12 +201,15 @@
     font-size: var(--font-size-xs);
   }
 
+  /* Mobile: Center action buttons and make full width */
   .filters-section .filter-actions {
     flex-direction: column;
+    align-items: center;
   }
 
   .filters-section .filter-actions .btn {
     width: 100%;
+    max-width: 300px;
   }
 }
 
@@ -228,8 +245,14 @@
 .activity-monitor .btn-outline-info,
 .activity-monitor .btn-outline-warning {
   border-width: 1px;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
 }
 
 .activity-monitor .btn-outline-info:hover {

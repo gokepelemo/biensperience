@@ -338,7 +338,7 @@ function UserItem({ item, showAvatar, showStatus, showMeta }) {
         {showMeta && item.username && (
           <div className="user-meta">@{item.username}</div>
         )}
-        {showMeta && item.email && !item.username && (
+        {showMeta && false && item.email && !item.username && (
           <div className="user-meta">{item.email}</div>
         )}
       </div>
@@ -366,11 +366,7 @@ function DestinationItem({ item, showMeta }) {
           </div>
         )}
       </div>
-      {showMeta && item.experienceCount && (
-        <div className="destination-count">
-          {item.experienceCount} experiences
-        </div>
-      )}
+
     </div>
   );
 }
@@ -388,11 +384,6 @@ function ExperienceItem({ item, showMeta }) {
             {item.destination && (
               <span className="experience-location">
                 <FaMapMarkerAlt /> {item.destination}
-              </span>
-            )}
-            {item.rating && (
-              <span className="experience-rating">
-                <FaStar /> {item.rating}
               </span>
             )}
           </div>

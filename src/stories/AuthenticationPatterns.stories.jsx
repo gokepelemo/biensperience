@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Container, Row, Col, Card, Button, Form, InputGroup } from 'react-bootstrap';
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaTwitter, FaUser, FaArrowRight, FaCheckCircle } from 'react-icons/fa';
 import BiensperienceLogo from '../components/BiensperienceLogo/BiensperienceLogo';
+import Checkbox from '../components/Checkbox/Checkbox';
+import Divider from '../components/Divider/Divider';
+import DesignNotes from './helpers/DesignNotes';
 
 export default {
   title: 'Design System/Authentication Patterns',
@@ -17,6 +20,13 @@ export default {
 
 // Login Page (Based on Screenshot)
 export const LoginPage = {
+  parameters: {
+    docs: {
+      description: {
+        story: 'Tokens: maxWidth 520px · control height 56px · input radius var(--radius-xl) · primary button radius var(--radius-full) with var(--gradient-primary) · spacing: card padding var(--space-8), gaps var(--space-6).',
+      },
+    },
+  },
   render: () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -32,7 +42,7 @@ export const LoginPage = {
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '480px',
+        maxWidth: '520px',
       }}>
         {/* Logo */}
         <div style={{
@@ -86,14 +96,18 @@ export const LoginPage = {
               </Form.Label>
               <InputGroup style={{
                 border: '2px solid var(--color-border-medium)',
-                borderRadius: 'var(--radius-lg)',
+                borderRadius: 'var(--radius-xl)',
                 overflow: 'hidden',
+                minHeight: '56px',
               }}>
                 <InputGroup.Text style={{
                   backgroundColor: 'var(--color-bg-secondary)',
                   border: 'none',
                   color: 'var(--color-text-muted)',
                   padding: 'var(--space-3) var(--space-4)',
+                  minHeight: '56px',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}>
                   <FaEnvelope />
                 </InputGroup.Text>
@@ -106,6 +120,7 @@ export const LoginPage = {
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
                     padding: 'var(--space-3) var(--space-4)',
+                    minHeight: '56px',
                     outline: 'none',
                     boxShadow: 'none',
                   }}
@@ -126,14 +141,18 @@ export const LoginPage = {
               </Form.Label>
               <InputGroup style={{
                 border: '2px solid var(--color-border-medium)',
-                borderRadius: 'var(--radius-lg)',
+                borderRadius: 'var(--radius-xl)',
                 overflow: 'hidden',
+                minHeight: '56px',
               }}>
                 <InputGroup.Text style={{
                   backgroundColor: 'var(--color-bg-secondary)',
                   border: 'none',
                   color: 'var(--color-text-muted)',
                   padding: 'var(--space-3) var(--space-4)',
+                  minHeight: '56px',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}>
                   <FaLock />
                 </InputGroup.Text>
@@ -146,6 +165,7 @@ export const LoginPage = {
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
                     padding: 'var(--space-3) var(--space-4)',
+                    minHeight: '56px',
                     outline: 'none',
                     boxShadow: 'none',
                   }}
@@ -158,6 +178,7 @@ export const LoginPage = {
                     border: 'none',
                     color: 'var(--color-text-muted)',
                     padding: 'var(--space-3) var(--space-4)',
+                    minHeight: '56px',
                     textDecoration: 'none',
                   }}
                 >
@@ -173,16 +194,11 @@ export const LoginPage = {
               alignItems: 'center',
               marginBottom: 'var(--space-6)',
             }}>
-              <Form.Check
-                type="checkbox"
+              <Checkbox
                 id="remember-me"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                label="Remember For 30 Days"
-                style={{
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm)',
-                }}
+                label={<span style={{ fontSize: 'var(--font-size-sm)' }}>Remember For 30 Days</span>}
               />
               <a
                 href="#"
@@ -207,6 +223,7 @@ export const LoginPage = {
                 border: 'none',
                 borderRadius: 'var(--radius-full)',
                 padding: 'var(--space-4)',
+                minHeight: '56px',
                 fontSize: 'var(--font-size-base)',
                 fontWeight: 'var(--font-weight-semibold)',
                 marginBottom: 'var(--space-6)',
@@ -214,37 +231,13 @@ export const LoginPage = {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 'var(--space-2)',
+                boxShadow: '0 8px 24px rgba(60, 64, 67, 0.35)'
               }}
             >
               Sign In <FaArrowRight />
             </Button>
 
-            {/* Divider */}
-            <div style={{
-              position: 'relative',
-              textAlign: 'center',
-              marginBottom: 'var(--space-6)',
-            }}>
-              <span style={{
-                backgroundColor: 'var(--color-bg-primary)',
-                padding: '0 var(--space-4)',
-                color: 'var(--color-text-muted)',
-                fontSize: 'var(--font-size-sm)',
-                position: 'relative',
-                zIndex: 1,
-              }}>
-                Or continue with
-              </span>
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: 0,
-                right: 0,
-                height: '1px',
-                backgroundColor: 'var(--color-border-light)',
-                zIndex: 0,
-              }} />
-            </div>
+            <Divider label="Or continue with" shadow="md" />
 
             {/* Social Login Buttons */}
             <div style={{
@@ -260,12 +253,14 @@ export const LoginPage = {
                   border: '1px solid var(--color-border-medium)',
                   borderRadius: 'var(--radius-full)',
                   padding: 'var(--space-3)',
+                  minHeight: '52px',
                   color: 'var(--color-text-primary)',
                   fontWeight: 'var(--font-weight-medium)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 'var(--space-2)',
+                  boxShadow: '0 0 0 2px rgba(255,255,255,0.12)'
                 }}
               >
                 <FaFacebook style={{ color: '#1877F2', fontSize: 'var(--font-size-lg)' }} />
@@ -280,6 +275,7 @@ export const LoginPage = {
                   border: '1px solid var(--color-border-medium)',
                   borderRadius: 'var(--radius-full)',
                   padding: 'var(--space-3)',
+                  minHeight: '52px',
                   color: 'var(--color-text-primary)',
                   fontWeight: 'var(--font-weight-medium)',
                   display: 'flex',
@@ -300,6 +296,7 @@ export const LoginPage = {
                   border: '1px solid var(--color-border-medium)',
                   borderRadius: 'var(--radius-full)',
                   padding: 'var(--space-3)',
+                  minHeight: '52px',
                   color: 'var(--color-text-primary)',
                   fontWeight: 'var(--font-weight-medium)',
                   display: 'flex',
@@ -314,6 +311,18 @@ export const LoginPage = {
             </div>
           </Form>
         </Card>
+
+        <DesignNotes
+          title="Login: token overview"
+          items={[
+            { label: 'Container', value: 'maxWidth 520px' },
+            { label: 'Control height', value: '56px (inputs & button)' },
+            { label: 'Radius', value: 'Inputs var(--radius-xl), Button var(--radius-full)' },
+            { label: 'Primary', value: 'var(--gradient-primary)' },
+            { label: 'Card padding', value: 'var(--space-8)' },
+            { label: 'Checkbox sizes', value: 'sm 20px · md 24px · lg 28px' },
+          ]}
+        />
 
         {/* Sign Up Link */}
         <div style={{
@@ -359,6 +368,13 @@ export const LoginPage = {
 
 // Sign Up Page
 export const SignUpPage = {
+  parameters: {
+    docs: {
+      description: {
+        story: 'Tokens: maxWidth 520px · control height 56px · radius-xl inputs with icon segments · full button radius · social circles 60px.',
+      },
+    },
+  },
   render: () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -374,7 +390,7 @@ export const SignUpPage = {
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '480px',
+        maxWidth: '520px',
       }}>
         {/* Logo */}
         <div style={{
@@ -425,12 +441,17 @@ export const SignUpPage = {
               }}>
                 Full Name
               </Form.Label>
-              <InputGroup>
+              <InputGroup style={{
+                borderRadius: 'var(--radius-xl)'
+              }}>
                 <InputGroup.Text style={{
                   backgroundColor: 'var(--color-bg-primary)',
                   border: '1px solid var(--color-border-medium)',
                   borderRight: 'none',
                   color: 'var(--color-text-muted)',
+                  minHeight: '56px',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}>
                   <FaUser />
                 </InputGroup.Text>
@@ -444,6 +465,7 @@ export const SignUpPage = {
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
                     padding: 'var(--space-3)',
+                    minHeight: '56px',
                   }}
                 />
               </InputGroup>
@@ -459,12 +481,17 @@ export const SignUpPage = {
               }}>
                 Email Address
               </Form.Label>
-              <InputGroup>
+              <InputGroup style={{
+                borderRadius: 'var(--radius-xl)'
+              }}>
                 <InputGroup.Text style={{
                   backgroundColor: 'var(--color-bg-primary)',
                   border: '1px solid var(--color-border-medium)',
                   borderRight: 'none',
                   color: 'var(--color-text-muted)',
+                  minHeight: '56px',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}>
                   <FaEnvelope />
                 </InputGroup.Text>
@@ -478,6 +505,7 @@ export const SignUpPage = {
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
                     padding: 'var(--space-3)',
+                    minHeight: '56px',
                   }}
                 />
               </InputGroup>
@@ -493,12 +521,17 @@ export const SignUpPage = {
               }}>
                 Password
               </Form.Label>
-              <InputGroup>
+              <InputGroup style={{
+                borderRadius: 'var(--radius-xl)'
+              }}>
                 <InputGroup.Text style={{
                   backgroundColor: 'var(--color-bg-primary)',
                   border: '1px solid var(--color-border-medium)',
                   borderRight: 'none',
                   color: 'var(--color-text-muted)',
+                  minHeight: '56px',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}>
                   <FaLock />
                 </InputGroup.Text>
@@ -513,6 +546,7 @@ export const SignUpPage = {
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
                     padding: 'var(--space-3)',
+                    minHeight: '56px',
                   }}
                 />
                 <Button
@@ -523,6 +557,7 @@ export const SignUpPage = {
                     border: '1px solid var(--color-border-medium)',
                     borderLeft: 'none',
                     color: 'var(--color-text-muted)',
+                    minHeight: '56px',
                   }}
                 >
                   {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -540,12 +575,17 @@ export const SignUpPage = {
               }}>
                 Confirm Password
               </Form.Label>
-              <InputGroup>
+              <InputGroup style={{
+                borderRadius: 'var(--radius-xl)'
+              }}>
                 <InputGroup.Text style={{
                   backgroundColor: 'var(--color-bg-primary)',
                   border: '1px solid var(--color-border-medium)',
                   borderRight: 'none',
                   color: 'var(--color-text-muted)',
+                  minHeight: '56px',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}>
                   <FaLock />
                 </InputGroup.Text>
@@ -560,6 +600,7 @@ export const SignUpPage = {
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
                     padding: 'var(--space-3)',
+                    minHeight: '56px',
                   }}
                 />
                 <Button
@@ -570,6 +611,7 @@ export const SignUpPage = {
                     border: '1px solid var(--color-border-medium)',
                     borderLeft: 'none',
                     color: 'var(--color-text-muted)',
+                    minHeight: '56px',
                   }}
                 >
                   {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
@@ -579,8 +621,7 @@ export const SignUpPage = {
 
             {/* Terms & Conditions */}
             <Form.Group className="mb-6">
-              <Form.Check
-                type="checkbox"
+              <Checkbox
                 id="terms"
                 label={
                   <span style={{ color: 'var(--color-text-primary)', fontSize: 'var(--font-size-sm)' }}>
@@ -607,6 +648,7 @@ export const SignUpPage = {
                 border: 'none',
                 borderRadius: 'var(--radius-full)',
                 padding: 'var(--space-4)',
+                minHeight: '56px',
                 fontSize: 'var(--font-size-base)',
                 fontWeight: 'var(--font-weight-semibold)',
                 marginBottom: 'var(--space-6)',
@@ -619,32 +661,7 @@ export const SignUpPage = {
               Create Account <FaArrowRight />
             </Button>
 
-            {/* Divider */}
-            <div style={{
-              position: 'relative',
-              textAlign: 'center',
-              marginBottom: 'var(--space-6)',
-            }}>
-              <span style={{
-                backgroundColor: 'var(--color-bg-primary)',
-                padding: '0 var(--space-4)',
-                color: 'var(--color-text-muted)',
-                fontSize: 'var(--font-size-sm)',
-                position: 'relative',
-                zIndex: 1,
-              }}>
-                Or sign up with
-              </span>
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: 0,
-                right: 0,
-                height: '1px',
-                backgroundColor: 'var(--color-border-light)',
-                zIndex: 0,
-              }} />
-            </div>
+            <Divider label="Or sign up with" shadow="md" />
 
             {/* Social Login Buttons */}
             <div style={{
@@ -703,6 +720,17 @@ export const SignUpPage = {
           </Form>
         </Card>
 
+        <DesignNotes
+          title="Sign Up: token overview"
+          items={[
+            { label: 'Container', value: 'maxWidth 520px' },
+            { label: 'Control height', value: '56px (inputs & button)' },
+            { label: 'Radius', value: 'Inputs var(--radius-xl), Button var(--radius-full)' },
+            { label: 'Social icon buttons', value: '60x60px radius-full' },
+            { label: 'Checkbox sizes', value: 'sm 20px · md 24px · lg 28px' },
+          ]}
+        />
+
         {/* Sign In Link */}
         <div style={{
           textAlign: 'center',
@@ -747,6 +775,13 @@ export const SignUpPage = {
 
 // Forgot Password Page
 export const ForgotPasswordPage = {
+  parameters: {
+    docs: {
+      description: {
+        story: 'Tokens: maxWidth 520px · 56px controls · radius-xl inputs · primary gradient button.',
+      },
+    },
+  },
   render: () => {
   return (
     <div style={{
@@ -759,7 +794,7 @@ export const ForgotPasswordPage = {
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '480px',
+        maxWidth: '520px',
       }}>
         {/* Logo */}
         <div style={{
@@ -811,12 +846,17 @@ export const ForgotPasswordPage = {
               }}>
                 Email Address
               </Form.Label>
-              <InputGroup>
+              <InputGroup style={{
+                borderRadius: 'var(--radius-xl)'
+              }}>
                 <InputGroup.Text style={{
                   backgroundColor: 'var(--color-bg-primary)',
                   border: '1px solid var(--color-border-medium)',
                   borderRight: 'none',
                   color: 'var(--color-text-muted)',
+                  minHeight: '56px',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}>
                   <FaEnvelope />
                 </InputGroup.Text>
@@ -830,6 +870,7 @@ export const ForgotPasswordPage = {
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
                     padding: 'var(--space-3)',
+                    minHeight: '56px',
                   }}
                 />
               </InputGroup>
@@ -845,6 +886,7 @@ export const ForgotPasswordPage = {
                 border: 'none',
                 borderRadius: 'var(--radius-full)',
                 padding: 'var(--space-4)',
+                minHeight: '56px',
                 fontSize: 'var(--font-size-base)',
                 fontWeight: 'var(--font-weight-semibold)',
                 marginBottom: 'var(--space-4)',
@@ -872,6 +914,16 @@ export const ForgotPasswordPage = {
             </div>
           </Form>
         </Card>
+
+        <DesignNotes
+          title="Forgot Password: token overview"
+          items={[
+            { label: 'Container', value: 'maxWidth 520px' },
+            { label: 'Control height', value: '56px' },
+            { label: 'Radius', value: 'var(--radius-xl) inputs' },
+            { label: 'Checkbox sizes', value: 'sm 20px · md 24px · lg 28px' },
+          ]}
+        />
 
         {/* Footer */}
         <div style={{
@@ -1177,6 +1229,94 @@ export const TwoFactorAuth = {
         </div>
       </div>
     </div>
+    );
+  },
+};
+
+// Login Split Layout (Travel-themed)
+export const LoginSplitLayout = {
+  parameters: {
+    docs: {
+      description: {
+        story: 'Split layout variant with a travel-themed sidebar. The form column reuses the same tokenized inputs/buttons to ensure consistency.',
+      },
+    },
+  },
+  render: () => {
+    const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(true);
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'var(--color-bg-secondary)',
+        display: 'grid',
+        gridTemplateColumns: '1.1fr 1fr',
+      }}>
+        {/* Travel themed panel */}
+        <div style={{
+          padding: 'clamp(2rem, 5vw, 4rem)',
+          background: 'linear-gradient(135deg, #6f42c1 0%, #4f46e5 100%)',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+        }}>
+          <div>
+            <h1 style={{ fontSize: 'var(--font-size-4xl)', marginBottom: 'var(--space-4)' }}>Plan your next adventure</h1>
+            <p style={{ opacity: 0.9, marginBottom: 'var(--space-6)' }}>
+              From Kyoto temples to Barcelona sunsets—organize itineraries, collaborate with friends, and track your plans.
+            </p>
+            <ul style={{ lineHeight: 1.9, margin: 0, padding: 0, listStyle: 'none' }}>
+              <li>• Smart checklists for every day</li>
+              <li>• Photo-rich inspiration and destinations</li>
+              <li>• Real-time collaboration with your crew</li>
+            </ul>
+          </div>
+        </div>
+        {/* Form column */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-8)' }}>
+          <div style={{ width: '100%', maxWidth: 520 }}>
+            <Card style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              border: '1px solid var(--color-border-light)',
+              borderRadius: 'var(--radius-2xl)',
+              padding: 'var(--space-8)',
+              boxShadow: 'var(--shadow-2xl)'
+            }}>
+              <h2 style={{ marginBottom: 'var(--space-2)' }}>Welcome Back.</h2>
+              <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-6)' }}>Sign in to keep exploring.</p>
+              <Form>
+                <Form.Group className="mb-4">
+                  <Form.Label>Email Address</Form.Label>
+                  <InputGroup style={{ border: '2px solid var(--color-border-medium)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', minHeight: 56 }}>
+                    <InputGroup.Text style={{ background: 'var(--color-bg-secondary)', border: 'none', minHeight: 56, display: 'flex', alignItems: 'center' }}><FaEnvelope /></InputGroup.Text>
+                    <Form.Control type="email" placeholder="traveler@example.com" style={{ background: 'var(--color-bg-primary)', border: 'none', minHeight: 56 }} />
+                  </InputGroup>
+                </Form.Group>
+                <Form.Group className="mb-4">
+                  <Form.Label>Password</Form.Label>
+                  <InputGroup style={{ border: '2px solid var(--color-border-medium)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', minHeight: 56 }}>
+                    <InputGroup.Text style={{ background: 'var(--color-bg-secondary)', border: 'none', minHeight: 56, display: 'flex', alignItems: 'center' }}><FaLock /></InputGroup.Text>
+                    <Form.Control type={showPassword ? 'text' : 'password'} placeholder="••••••••••" style={{ background: 'var(--color-bg-primary)', border: 'none', minHeight: 56 }} />
+                    <Button variant="link" style={{ background: 'var(--color-bg-secondary)', border: 'none', minHeight: 56 }} onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <FaEyeSlash /> : <FaEye />}
+                    </Button>
+                  </InputGroup>
+                </Form.Group>
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <Checkbox id="remember-split" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} label={<span style={{ fontSize: 'var(--font-size-sm)' }}>Remember For 30 Days</span>} />
+                  <a href="#" style={{ color: 'var(--color-primary)', fontSize: 'var(--font-size-sm)' }}>Forgot Password</a>
+                </div>
+                <Button style={{ width: '100%', background: 'var(--gradient-primary)', border: 'none', borderRadius: 'var(--radius-full)', minHeight: 56 }}>Sign In <FaArrowRight className="ms-2" /></Button>
+                <Divider label="Or continue with" shadow="md" />
+                <div style={{ display: 'flex', gap: 'var(--space-3)', flexDirection: 'column' }}>
+                  <Button variant="outline-secondary" style={{ minHeight: 52, borderRadius: 'var(--radius-full)' }}><FaFacebook style={{ color: '#1877F2' }} className="me-2"/> Sign In With Facebook</Button>
+                  <Button variant="outline-secondary" style={{ minHeight: 52, borderRadius: 'var(--radius-full)' }}><FaGoogle style={{ color: '#DB4437' }} className="me-2"/> Sign In With Google</Button>
+                </div>
+              </Form>
+            </Card>
+          </div>
+        </div>
+      </div>
     );
   },
 };

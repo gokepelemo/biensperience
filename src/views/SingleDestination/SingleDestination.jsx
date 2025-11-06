@@ -102,8 +102,8 @@ export default function SingleDestination() {
       <>
         {destination && (
           <>
-            <div className="row align-items-center">
-              <div className="col-md-6">
+            <div className="row align-items-center single-destination-header">
+              <div className="col-md-6 text-center text-md-start">
                 <h1 className="my-4 h">
                   {destination.name},{" "}
                   {!destination.state

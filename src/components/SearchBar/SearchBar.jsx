@@ -32,15 +32,55 @@ export default function SearchBar({
 
     setLoading(true);
     try {
-      const searchResults = await searchAll(query.trim());
+      const trimmed = query.trim();
+      const searchResults = await searchAll(trimmed);
       
       // Transform results to match Autocomplete component format
       // Group by type to maintain visual separation
-      const transformedResults = searchResults.results.map(result => {
+      
+      // First, collect destination experienceCounts for use in experiences
+      const destinationCounts = {};
+      // Prefer backend-provided order; if no score, we'll compute a simple fallback below
+      const rawResults = Array.isArray(searchResults.results) ? [...searchResults.results] : [];
+
+      // If backend didn't already sort by score, sort locally by basic relevance as fallback
+      if (rawResults.length > 0 && rawResults.every(r => typeof r.score !== 'number')) {
+        const norm = (s) => (s || '').toString().trim().toLowerCase();
+        const q = norm(trimmed);
+        const textOf = (r) => [
+          r.name,
+          r.username,
+          r.email,
+          r.country,
+          r.city,
+          r.destination?.name || r.destinationName,
+          r.experience?.name || r.experience?.title,
+          r.title,
+          r.description
+        ].filter(Boolean).join(' ').toLowerCase();
+        rawResults.sort((a, b) => {
+          const ta = textOf(a);
+          const tb = textOf(b);
+          const sa = ta === q ? 3 : ta.startsWith(q) ? 2 : ta.includes(q) ? 1 : 0;
+          const sb = tb === q ? 3 : tb.startsWith(q) ? 2 : tb.includes(q) ? 1 : 0;
+          if (sa !== sb) return sb - sa;
+          // tie-breaker: shorter text slightly higher
+          return ta.length - tb.length;
+        });
+      }
+
+      rawResults.forEach(result => {
+        if (result.type === 'destination' && result.experienceCount) {
+          destinationCounts[result._id] = result.experienceCount;
+        }
+      });
+      
+      const transformedResults = rawResults.map(result => {
         const base = {
           id: result._id,
           type: result.type,
-          _id: result._id
+          _id: result._id,
+          score: typeof result.score === 'number' ? result.score : undefined
         };
 
         logger.debug('SearchBar result transformation', {
@@ -60,6 +100,10 @@ export default function SearchBar({
             };
           
           case 'experience':
+            // Get the destination ID to look up experienceCount
+            const destId = typeof result.destination === 'object' ? result.destination?._id : null;
+            const experienceCount = destId ? destinationCounts[destId] : null;
+            
             return {
               ...base,
               name: result.name,
@@ -67,7 +111,8 @@ export default function SearchBar({
                 ? result.destination?.name 
                 : result.destinationName || '',
               rating: result.rating || 0,
-              category: result.experience_type?.[0] || result.category || 'Experience'
+              category: result.experience_type?.[0] || result.category || 'Experience',
+              experienceCount: experienceCount
             };
           
           case 'user':
@@ -76,7 +121,7 @@ export default function SearchBar({
               name: result.name,
               username: result.username,
               email: result.email,
-              avatar: result.avatar,
+              avatar: result.avatar || result.profilePhoto,
               isOnline: result.isOnline || false,
               role: result.role
             };
@@ -84,7 +129,7 @@ export default function SearchBar({
           case 'plan':
             return {
               ...base,
-              name: result.experience?.name || 'Unnamed Plan',
+              name: result.experience?.name || result.experience?.title || 'Unnamed Plan',
               destination: `${result.items?.length || 0} items`,
               rating: 0,
               category: 'Plan',

@@ -18,9 +18,10 @@
 .login-form-wrapper {
 	background: var(--color-bg-primary);
 	padding: var(--space-10) var(--space-8);
-	border-radius: var(--radius-xl);
+	border-radius: var(--radius-2xl);
 	box-shadow: var(--shadow-lg);
 	width: 100%;
+	max-width: 520px;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -37,18 +38,18 @@
 	display: block;
 	width: 100%;
 	margin: var(--space-1) 0 var(--space-1) 0;
-	padding: var(--space-3) var(--space-4);
+	padding: var(--space-4) var(--space-5);
 	font-size: var(--font-size-base);
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-full);
 	border: 1px solid var(--color-border-medium);
 	background: var(--color-bg-secondary);
 }
 
 .login-title {
 	text-align: center;
-	font-size: var(--font-size-2xl);
+	font-size: var(--font-size-3xl);
 	font-weight: var(--font-weight-bold);
-	margin-bottom: var(--space-5);
+	margin-bottom: var(--space-6);
 }
 
 .login-options {
@@ -60,12 +61,14 @@
 }
 
 .login-btn {
-	width: fit-content;
-	height: fit-content;
-	min-width: 120px;
-	min-height: 40px;
-	margin: 0 auto;
+	width: 100%;
+	max-width: 360px;
+	height: 48px;
+	margin: var(--space-2) auto 0 auto;
 	display: block;
+	border-radius: var(--radius-full);
+	padding: 0 var(--space-6);
+	font-weight: var(--font-weight-semibold);
 }
 
 .login-signup {
@@ -87,14 +90,7 @@
 	min-height: var(--space-5);
 }
 /* Make Sign In button fit its content */
-.login-btn {
-	width: fit-content;
-	height: fit-content;
-	min-width: 120px;
-	min-height: 40px;
-	margin: 0 auto;
-	display: block;
-}
+/* Duplicate rule consolidated above */
 /* Link-style buttons: pointer cursor, no underline */
 .link-btn, .forgot-password, .signup-link {
 	color: var(--color-primary);
@@ -121,4 +117,25 @@
 .signup-link {
 	text-transform: none;
 	font-size: var(--font-size-base);
+}
+
+/* Focus styles for inputs to match design system */
+.login-input:focus {
+	outline: none;
+	border-color: var(--color-primary);
+	box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+}
+
+@media (max-width: 576px) {
+	.login-form-wrapper {
+		padding: var(--space-8) var(--space-5);
+		border-radius: var(--radius-xl);
+	}
+	.login-title {
+		font-size: var(--font-size-2xl);
+	}
+	.login-btn {
+		height: 44px;
+		max-width: 100%;
+	}
 }

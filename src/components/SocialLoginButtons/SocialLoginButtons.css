@@ -40,15 +40,16 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-md);
-  border: none;
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-medium);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: all var(--transition-base);
   width: 100%;
   box-shadow: var(--shadow-sm);
+  background: var(--color-bg-secondary);
 }
 
 .social-btn:hover {
@@ -66,26 +67,12 @@
 }
 
 /* Facebook Brand Colors */
-.facebook-btn {
-  background-color: var(--color-social-facebook);
-  color: white;
-}
-
-.facebook-btn:hover {
-  background-color: var(--color-social-facebook-hover);
-}
+.facebook-btn { color: white; background: #0a58ca; border-color: #0a58ca; }
+.facebook-btn:hover { filter: brightness(1.05); }
 
 /* Google Brand Colors */
-.google-btn {
-  background-color: var(--color-social-google-bg);
-  color: var(--color-social-google-text);
-  border: 1px solid var(--color-social-google-border);
-}
-
-.google-btn:hover {
-  background-color: var(--color-social-google-bg-hover);
-  border-color: var(--color-social-google-border-hover);
-}
+.google-btn { background: var(--color-bg-secondary); color: var(--color-text-primary); }
+.google-btn:hover { background: var(--color-bg-primary); }
 
 .google-btn .social-icon {
   background: var(--color-social-google-icon-gradient);
@@ -95,19 +82,13 @@
 }
 
 /* X (formerly Twitter) Brand Colors */
-.twitter-btn {
-  background-color: var(--color-social-twitter);
-  color: white;
-}
-
-.twitter-btn:hover {
-  background-color: var(--color-social-twitter-hover);
-}
+.twitter-btn { background: #000; color: #fff; border-color: #222; }
+.twitter-btn:hover { filter: brightness(1.1); }
 
 /* Responsive Design */
 @media (max-width: 640px) {
   .social-btn {
-    padding: var(--space-2) var(--space-4);
+    padding: var(--space-3) var(--space-5);
     font-size: var(--font-size-sm);
   }
 

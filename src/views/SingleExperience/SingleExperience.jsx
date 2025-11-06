@@ -17,7 +17,9 @@ import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay
 import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
+import { Badge } from "react-bootstrap";
 import { isOwner } from "../../utilities/permissions";
+import useOptimisticAction from "../../hooks/useOptimisticAction";
 import {
   showExperience,
   showExperienceWithContext,
@@ -85,7 +87,7 @@ function setSyncAlertCookie(planId) {
 
 export default function SingleExperience() {
   const { user } = useUser();
-  const { removeExperience, fetchExperiences } = useData();
+  const { removeExperience, fetchExperiences, fetchPlans } = useData();
   const {
     registerH1,
     setPageActionButtons,
@@ -116,7 +118,11 @@ export default function SingleExperience() {
     useState(false);
   const [planInstanceItemToDelete, setPlanInstanceItemToDelete] =
     useState(null);
+  // Hide planned date immediately when user clicks Remove (before confirm)
+  const [pendingUnplan, setPendingUnplan] = useState(false);
   const [activeTab, setActiveTab] = useState("experience"); // "experience" or "myplan"
+  const planButtonRef = useRef(null);
+  const [planBtnWidth, setPlanBtnWidth] = useState(null);
   const [userPlan, setUserPlan] = useState(null);
   const [collaborativePlans, setCollaborativePlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
@@ -566,8 +572,14 @@ export default function SingleExperience() {
     }
   }, [selectedPlanId, collaborativePlans, experience, checkPlanDivergence]);
 
-  // Update displayed planned date based on active tab and selected plan
+  // Update displayed planned date based on active tab and selected plan, gated by ownership state
   useEffect(() => {
+    // If the user doesn't currently have this experience planned, suppress any planned date display
+    if (!userHasExperience) {
+      setDisplayedPlannedDate(null);
+      return;
+    }
+
     if (activeTab === "myplan" && selectedPlanId) {
       // Show the selected plan's planned date
       const selectedPlan = collaborativePlans.find(
@@ -578,7 +590,7 @@ export default function SingleExperience() {
       // Show the user's experience planned date
       setDisplayedPlannedDate(userPlannedDate);
     }
-  }, [activeTab, selectedPlanId, collaborativePlans, userPlannedDate]);
+  }, [activeTab, selectedPlanId, collaborativePlans, userPlannedDate, userHasExperience]);
 
   /**
    * Dynamically adjusts the font size of the planned date metric value to fit within container.
@@ -732,7 +744,8 @@ export default function SingleExperience() {
       });
       setShowSyncModal(true);
     } catch (err) {
-      handleError(err, { context: "Calculate sync changes" });
+      const errorMsg = handleError(err, { context: "Calculate sync changes" });
+      showError(errorMsg);
     }
   }, [selectedPlanId, experience, collaborativePlans]);
 
@@ -817,6 +830,7 @@ export default function SingleExperience() {
       // Refresh plans
       await fetchCollaborativePlans();
       await fetchUserPlan();
+      await fetchPlans(); // Refresh global plans state
 
       setShowSyncButton(false);
       setShowSyncAlert(false);
@@ -829,7 +843,8 @@ export default function SingleExperience() {
 
       debug.log("Plan synced successfully");
     } catch (err) {
-      handleError(err, { context: "Sync plan" });
+      const errorMsg = handleError(err, { context: "Sync plan" });
+      showError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -876,33 +891,76 @@ export default function SingleExperience() {
       e.preventDefault();
       if (!selectedPlanId) return;
 
-      try {
-        setLoading(true);
+      // Optimistic update for plan instance items
+      const prevPlans = [...collaborativePlans];
+      const planIndex = collaborativePlans.findIndex((p) => p._id === selectedPlanId);
+      const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex], plan: [...collaborativePlans[planIndex].plan] } : null;
 
-        if (planItemFormState === 1) {
-          // Add new item
+      const isAdd = planItemFormState === 1;
+      const tempId = `temp-${Date.now()}`;
+
+      const apply = () => {
+        if (!prevPlan || planIndex < 0) return;
+        const updatedPlans = [...collaborativePlans];
+        const updatedPlan = { ...prevPlan, plan: [...prevPlan.plan] };
+        if (isAdd) {
+          updatedPlan.plan.push({
+            _id: tempId,
+            plan_item_id: editingPlanItem.plan_item_id || tempId,
+            text: editingPlanItem.text || "",
+            url: editingPlanItem.url || "",
+            cost: editingPlanItem.cost || 0,
+            planning_days: editingPlanItem.planning_days || 0,
+            parent: editingPlanItem.parent || null,
+            complete: false,
+          });
+        } else {
+          const idx = updatedPlan.plan.findIndex((i) => i._id?.toString() === editingPlanItem._id?.toString());
+          if (idx >= 0) {
+            updatedPlan.plan[idx] = {
+              ...updatedPlan.plan[idx],
+              text: editingPlanItem.text || "",
+              url: editingPlanItem.url || "",
+              cost: editingPlanItem.cost || 0,
+              planning_days: editingPlanItem.planning_days || 0,
+              parent: editingPlanItem.parent || null,
+            };
+          }
+        }
+        updatedPlans[planIndex] = updatedPlan;
+        setCollaborativePlans(updatedPlans);
+        setShowPlanItemModal(false);
+        setEditingPlanItem({});
+      };
+
+      const apiCall = async () => {
+        if (isAdd) {
           await addPlanItemToInstance(selectedPlanId, editingPlanItem);
         } else {
-          // Update existing item
           const { _id, plan_item_id, ...updates } = editingPlanItem;
           await updatePlanItem(selectedPlanId, _id, updates);
         }
+      };
 
-        // Refresh plans
-        await fetchCollaborativePlans();
-        await fetchUserPlan();
+      const rollback = () => {
+        setCollaborativePlans(prevPlans);
+        setShowPlanItemModal(true);
+        setEditingPlanItem(isAdd ? (editingPlanItem || {}) : editingPlanItem);
+      };
 
-        // Close modal
-        setShowPlanItemModal(false);
-        setEditingPlanItem({});
-      } catch (err) {
-        handleError(err, {
-          context:
-            planItemFormState === 1 ? "Add plan item" : "Update plan item",
-        });
-      } finally {
-        setLoading(false);
-      }
+      const onSuccess = async () => {
+        fetchCollaborativePlans().catch(() => {});
+        fetchUserPlan().catch(() => {});
+        fetchPlans().catch(() => {});
+      };
+
+      const onError = (err, defaultMsg) => {
+        const errorMsg = handleError(err, { context: isAdd ? "Add plan item" : "Update plan item" }) || defaultMsg;
+        showError(errorMsg);
+      };
+
+      const run = useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context: isAdd ? 'Add plan item' : 'Update plan item' });
+      await run();
     },
     [
       selectedPlanId,
@@ -910,31 +968,58 @@ export default function SingleExperience() {
       planItemFormState,
       fetchCollaborativePlans,
       fetchUserPlan,
+      collaborativePlans,
+      fetchPlans,
+      showError,
     ]
   );
 
   const handlePlanInstanceItemDelete = useCallback(async () => {
     if (!selectedPlanId || !planInstanceItemToDelete) return;
-    try {
-      setLoading(true);
-      await deletePlanItemFromInstance(
-        selectedPlanId,
-        planInstanceItemToDelete._id
-      );
-      await fetchCollaborativePlans();
-      await fetchUserPlan();
+    // Optimistic removal from selected plan snapshot
+    const prevPlans = [...collaborativePlans];
+    const planIndex = collaborativePlans.findIndex((p) => p._id === selectedPlanId);
+    const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex], plan: [...collaborativePlans[planIndex].plan] } : null;
+
+    const apply = () => {
+      if (!prevPlan || planIndex < 0) return;
+      const updatedPlans = [...collaborativePlans];
+      const updatedPlan = { ...prevPlan, plan: prevPlan.plan.filter((i) => i._id?.toString() !== planInstanceItemToDelete._id?.toString()) };
+      updatedPlans[planIndex] = updatedPlan;
+      setCollaborativePlans(updatedPlans);
       setShowPlanInstanceDeleteModal(false);
       setPlanInstanceItemToDelete(null);
-    } catch (err) {
-      handleError(err, { context: "Delete plan item" });
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    const apiCall = async () => {
+      await deletePlanItemFromInstance(selectedPlanId, planInstanceItemToDelete._id);
+    };
+
+    const rollback = () => {
+      setCollaborativePlans(prevPlans);
+    };
+
+    const onSuccess = async () => {
+      fetchCollaborativePlans().catch(() => {});
+      fetchUserPlan().catch(() => {});
+      fetchPlans().catch(() => {});
+    };
+
+    const onError = (err, defaultMsg) => {
+      const errorMsg = handleError(err, { context: "Delete plan item" }) || defaultMsg;
+      showError(errorMsg);
+    };
+
+    const run = useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context: 'Delete plan item' });
+    await run();
   }, [
     selectedPlanId,
     planInstanceItemToDelete,
+    collaborativePlans,
     fetchCollaborativePlans,
     fetchUserPlan,
+    fetchPlans,
+    showError,
   ]);
 
   // Experience Plan Item Modal Handlers
@@ -961,52 +1046,78 @@ export default function SingleExperience() {
     async (e) => {
       e.preventDefault();
 
-      try {
-        setLoading(true);
+      const isAdd = planItemFormState === 1;
+      const prevExperience = experience ? { ...experience, plan_items: [...(experience.plan_items || [])] } : null;
+      const tempId = `temp-${Date.now()}`;
 
-        if (planItemFormState === 1) {
-          // Add new item to experience
-          const updatedExperience = await addExperiencePlanItem(
-            experience._id,
-            {
-              text: editingPlanItem.text,
-              url: editingPlanItem.url,
-              cost_estimate: editingPlanItem.cost || 0,
-              planning_days: editingPlanItem.planning_days || 0,
-              parent: editingPlanItem.parent || null,
-            }
-          );
-          setExperience(updatedExperience);
+      const apply = () => {
+        if (!prevExperience) return;
+        const updated = { ...prevExperience, plan_items: [...prevExperience.plan_items] };
+        if (isAdd) {
+          updated.plan_items.push({
+            _id: tempId,
+            text: editingPlanItem.text,
+            url: editingPlanItem.url || "",
+            cost_estimate: editingPlanItem.cost || 0,
+            planning_days: editingPlanItem.planning_days || 0,
+            parent: editingPlanItem.parent || null,
+          });
         } else {
-          // Update existing item in experience
-          const updatedExperience = await updateExperiencePlanItem(
-            experience._id,
-            {
-              _id: editingPlanItem._id,
+          const idx = updated.plan_items.findIndex((i) => i._id?.toString() === editingPlanItem._id?.toString());
+          if (idx >= 0) {
+            updated.plan_items[idx] = {
+              ...updated.plan_items[idx],
               text: editingPlanItem.text,
-              url: editingPlanItem.url,
+              url: editingPlanItem.url || "",
               cost_estimate: editingPlanItem.cost || 0,
               planning_days: editingPlanItem.planning_days || 0,
               parent: editingPlanItem.parent || null,
-            }
-          );
-          setExperience(updatedExperience);
+            };
+          }
         }
-
-        // Close modal and refresh
+        setExperience(updated);
         setShowPlanItemModal(false);
         setEditingPlanItem({});
-        await fetchExperience();
-      } catch (err) {
-        handleError(err, {
-          context:
-            planItemFormState === 1
-              ? "Add experience plan item"
-              : "Update experience plan item",
-        });
-      } finally {
-        setLoading(false);
-      }
+      };
+
+      const apiCall = async () => {
+        if (isAdd) {
+          await addExperiencePlanItem(experience._id, {
+            text: editingPlanItem.text,
+            url: editingPlanItem.url,
+            cost_estimate: editingPlanItem.cost || 0,
+            planning_days: editingPlanItem.planning_days || 0,
+            parent: editingPlanItem.parent || null,
+          });
+        } else {
+          await updateExperiencePlanItem(experience._id, {
+            _id: editingPlanItem._id,
+            text: editingPlanItem.text,
+            url: editingPlanItem.url,
+            cost_estimate: editingPlanItem.cost || 0,
+            planning_days: editingPlanItem.planning_days || 0,
+            parent: editingPlanItem.parent || null,
+          });
+        }
+      };
+
+      const rollback = () => {
+        if (prevExperience) setExperience(prevExperience);
+        setShowPlanItemModal(true);
+        setEditingPlanItem(isAdd ? (editingPlanItem || {}) : editingPlanItem);
+      };
+
+      const onSuccess = async () => {
+        fetchExperience().catch(() => {});
+      };
+
+      const onError = (err, defaultMsg) => {
+        const errorMsg = handleError(err, { context: isAdd ? "Add experience plan item" : "Update experience plan item" }) || defaultMsg;
+        showError(errorMsg);
+      };
+
+      const run = useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context: isAdd ? 'Add experience plan item' : 'Update experience plan item' });
+      await run();
     },
     [experience, editingPlanItem, planItemFormState, fetchExperience]
   );
@@ -1027,40 +1138,99 @@ export default function SingleExperience() {
   const handleAddCollaborator = useCallback(
     async (e) => {
       e.preventDefault();
-
       setLoading(true);
-      try {
-        // Determine which entity to add/remove collaborators
-        const isExperienceContext = collaboratorContext === "experience";
-        if (!isExperienceContext && !selectedPlanId) return;
+      // Determine which entity to add/remove collaborators
+      const isExperienceContext = collaboratorContext === "experience";
+      if (!isExperienceContext && !selectedPlanId) {
+        setLoading(false);
+        return;
+      }
 
-        // Process removals first
+      // Compute additions vs existing
+      const collaboratorsToAdd = selectedCollaborators.filter(
+        (selected) =>
+          !existingCollaborators.some((existing) => existing._id === selected._id)
+      );
+
+      // Snapshot previous state for rollback
+      const prevExperience = experience ? { ...experience } : null;
+      const prevUserPlan = userPlan ? { ...userPlan } : null;
+      const prevCollaborativePlans = collaborativePlans
+        ? collaborativePlans.map((p) => ({ ...p }))
+        : [];
+
+      const apply = () => {
+        // Optimistically update permissions arrays so collaborator chips update immediately
+        if (isExperienceContext) {
+          setExperience((prev) => {
+            if (!prev) return prev;
+            const toRemoveIds = new Set(removedCollaborators.map((c) => c._id));
+            const withoutRemoved = (prev.permissions || []).filter(
+              (p) => !(p.entity === "user" && p.type === "collaborator" && toRemoveIds.has(p._id))
+            );
+            const addedPerms = collaboratorsToAdd.map((c) => ({
+              _id: c._id,
+              entity: "user",
+              type: "collaborator",
+              granted_at: new Date().toISOString(),
+            }));
+            return { ...prev, permissions: [...withoutRemoved, ...addedPerms] };
+          });
+        } else {
+          // Update selected plan's permissions (could be userPlan or a collaborative plan)
+          const applyToPlan = (plan) => {
+            if (!plan) return plan;
+            const toRemoveIds = new Set(removedCollaborators.map((c) => c._id));
+            const withoutRemoved = (plan.permissions || []).filter(
+              (p) => !(p.entity === "user" && p.type === "collaborator" && toRemoveIds.has(p._id))
+            );
+            const addedPerms = collaboratorsToAdd.map((c) => ({
+              _id: c._id,
+              entity: "user",
+              type: "collaborator",
+              granted_at: new Date().toISOString(),
+            }));
+            return { ...plan, permissions: [...withoutRemoved, ...addedPerms] };
+          };
+
+          if (userPlan && userPlan._id === selectedPlanId) {
+            setUserPlan((prev) => applyToPlan(prev));
+          } else {
+            setCollaborativePlans((prev) =>
+              prev.map((p) => (p._id === selectedPlanId ? applyToPlan(p) : p))
+            );
+          }
+        }
+      };
+
+      const rollback = () => {
+        if (isExperienceContext) {
+          setExperience(prevExperience);
+        } else {
+          // Restore both possible containers
+          if (prevUserPlan && prevUserPlan._id === selectedPlanId) {
+            setUserPlan(prevUserPlan);
+          }
+          if (prevCollaborativePlans?.length) {
+            setCollaborativePlans(prevCollaborativePlans);
+          }
+        }
+      };
+
+      const apiCall = async () => {
+        // Perform removals first, then additions
         for (const collaborator of removedCollaborators) {
           try {
             if (isExperienceContext) {
-              // Dynamic import removed - using static import
-              await removeExperienceCollaborator(
-                experienceId,
-                collaborator._id
-              );
+              await removeExperienceCollaborator(experienceId, collaborator._id);
             } else {
               await removeCollaborator(selectedPlanId, collaborator._id);
             }
           } catch (err) {
-            debug.error(
-              `Error removing collaborator ${collaborator.name}:`,
-              err
-            );
+            debug.error(`Error removing collaborator ${collaborator.name}:`, err);
+            throw err;
           }
         }
-
-        // Process additions
-        const collaboratorsToAdd = selectedCollaborators.filter(
-          (selected) =>
-            !existingCollaborators.some(
-              (existing) => existing._id === selected._id
-            )
-        );
 
         for (const collaborator of collaboratorsToAdd) {
           try {
@@ -1071,27 +1241,43 @@ export default function SingleExperience() {
             }
           } catch (err) {
             debug.error(`Error adding collaborator ${collaborator.name}:`, err);
+            throw err;
           }
         }
+      };
 
-        // Refresh data
-        if (isExperienceContext) {
-          await fetchExperience();
-        } else {
-          await fetchCollaborativePlans();
+      const onSuccess = async () => {
+        try {
+          if (isExperienceContext) {
+            await fetchExperience();
+          } else {
+            await fetchCollaborativePlans();
+            await fetchPlans();
+          }
+          // Track the added and removed collaborators for success message
+          setAddedCollaborators(collaboratorsToAdd);
+          setActuallyRemovedCollaborators(removedCollaborators);
+          setCollaboratorAddSuccess(true);
+        } finally {
+          setLoading(false);
         }
+      };
 
-        // Track the added and removed collaborators for success message
-        setAddedCollaborators(collaboratorsToAdd);
-        setActuallyRemovedCollaborators(removedCollaborators);
-
-        // Show success message
-        setCollaboratorAddSuccess(true);
-      } catch (err) {
-        handleError(err, { context: "Manage collaborators" });
-      } finally {
+      const onError = (err) => {
+        const errorMsg = handleError(err, { context: "Manage collaborators" });
+        showError(errorMsg);
         setLoading(false);
-      }
+      };
+
+      const run = useOptimisticAction({
+        apply,
+        apiCall,
+        rollback,
+        onSuccess,
+        onError,
+        context: "Manage collaborators",
+      });
+      await run();
     },
     [
       selectedCollaborators,
@@ -1102,6 +1288,9 @@ export default function SingleExperience() {
       experienceId,
       fetchCollaborativePlans,
       fetchExperience,
+      userPlan,
+      collaborativePlans,
+      fetchPlans,
     ]
   );
 
@@ -1250,8 +1439,47 @@ export default function SingleExperience() {
       return;
     }
     // Show confirmation modal before removing
+    setPendingUnplan(true); // Optimistically hide planned date badge immediately
     setShowRemoveModal(true);
   }, [experience, user, userHasExperience]);
+
+  // Measure the maximum width needed for the plan/unplan button based on the longest label
+  useEffect(() => {
+    // Guard for browser environment
+    if (typeof document === 'undefined') return;
+
+    const candidates = [
+      lang.en.button.addFavoriteExp,
+      lang.en.button.expPlanAdded,
+      lang.en.button.removeFavoriteExp,
+    ].filter(Boolean);
+
+    // Create a measurement element with same button classes for accurate width
+    const measure = (text) => {
+      const el = document.createElement('button');
+      el.className = 'btn btn-sm btn-icon btn-plan-add';
+      el.style.visibility = 'hidden';
+      el.style.position = 'absolute';
+      el.style.pointerEvents = 'none';
+      el.style.whiteSpace = 'nowrap';
+      el.textContent = text;
+      document.body.appendChild(el);
+      const w = Math.ceil(el.offsetWidth);
+      document.body.removeChild(el);
+      return w;
+    };
+
+    try {
+      const widths = candidates.map(measure);
+      if (widths.length) {
+        // Add a small buffer for hover state/icon jitter
+        const maxW = Math.max(...widths) + 8;
+        setPlanBtnWidth(maxW);
+      }
+    } catch (_) {
+      // Ignore measurement errors
+    }
+  }, []);
 
   const confirmRemoveExperience = useCallback(async () => {
     if (!experience || !user) return;
@@ -1266,6 +1494,7 @@ export default function SingleExperience() {
       setDisplayedPlannedDate(null);
       setUserPlan(null);
       setShowRemoveModal(false);
+      setShowDatePicker(false); // Close date picker modal when plan is removed
       setCollaborativePlans([]);
       setSelectedPlanId(null);
       setActiveTab("experience"); // Switch back to experience tab
@@ -1283,13 +1512,19 @@ export default function SingleExperience() {
       fetchCollaborativePlans().catch((err) =>
         debug.error("Error refreshing collaborative plans:", err)
       );
+      fetchPlans().catch((err) =>
+        debug.error("Error refreshing global plans:", err)
+      );
+      setPendingUnplan(false);
     } catch (err) {
       // Revert on error
       setUserHasExperience(previousState);
       setUserPlan(previousPlan);
       setDisplayedPlannedDate(previousPlannedDate);
       setShowRemoveModal(false);
-      handleError(err, { context: "Remove plan" });
+      setPendingUnplan(false);
+      const errorMsg = handleError(err, { context: "Remove plan" });
+      showError(errorMsg || "Failed to remove plan. Please try again.");
     }
   }, [
     experience,
@@ -1299,6 +1534,8 @@ export default function SingleExperience() {
     displayedPlannedDate,
     fetchExperience,
     fetchCollaborativePlans,
+    fetchPlans,
+    showError,
   ]);
 
   const handleAddExperience = useCallback(
@@ -1340,6 +1577,7 @@ export default function SingleExperience() {
 
           await fetchUserPlan();
           await fetchCollaborativePlans();
+          await fetchPlans(); // Refresh global plans state for other views
           setActiveTab("myplan");
         } catch (planErr) {
           logger.error("Error creating plan", { 
@@ -1389,6 +1627,7 @@ export default function SingleExperience() {
         // Refresh plans to get updated data
         await fetchUserPlan();
         await fetchCollaborativePlans();
+        await fetchPlans(); // Refresh global plans state
 
         // Update displayed date
         setDisplayedPlannedDate(dateToSend);
@@ -1408,6 +1647,7 @@ export default function SingleExperience() {
           await updatePlan(userPlan._id, { planned_date: dateToSend });
           await fetchUserPlan();
           await fetchCollaborativePlans();
+          await fetchPlans(); // Refresh global plans state
           setDisplayedPlannedDate(dateToSend);
           debug.log("Existing plan date updated successfully");
         } else {
@@ -1428,6 +1668,7 @@ export default function SingleExperience() {
           await updatePlan(userPlan._id, { planned_date: dateToSend });
           await fetchUserPlan();
           await fetchCollaborativePlans();
+          await fetchPlans(); // Refresh global plans state
           setDisplayedPlannedDate(dateToSend);
           debug.log("Owner's existing plan date updated successfully");
         } else {
@@ -1443,7 +1684,8 @@ export default function SingleExperience() {
       setIsEditingDate(false);
       setPlannedDate("");
     } catch (err) {
-      handleError(err, { context: "Update date" });
+      const errorMsg = handleError(err, { context: "Update date" });
+      showError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -1486,17 +1728,35 @@ export default function SingleExperience() {
   const handlePlanDelete = useCallback(
     async (planItemId) => {
       if (!experience || !planItemId) return;
-      try {
-        await deletePlanItem(experience._id, planItemId);
-        // Refetch experience to get updated virtuals
-        await fetchExperience();
-        await fetchExperiences();
+      const prevExperience = { ...experience, plan_items: [...(experience.plan_items || [])] };
+
+      const apply = () => {
+        const updated = { ...prevExperience, plan_items: prevExperience.plan_items.filter((i) => i._id?.toString() !== planItemId?.toString()) };
+        setExperience(updated);
         setShowPlanDeleteModal(false);
+      };
+
+      const apiCall = async () => {
+        await deletePlanItem(experience._id, planItemId);
+      };
+
+      const rollback = () => {
+        setExperience(prevExperience);
+      };
+
+      const onSuccess = async () => {
+        fetchExperience().catch(() => {});
+        fetchExperiences().catch(() => {});
         success(lang.en.success.planItemDeleted);
-      } catch (err) {
-        const errorMsg = handleError(err, { context: "Delete plan item" });
+      };
+
+      const onError = (err, defaultMsg) => {
+        const errorMsg = handleError(err, { context: "Delete plan item" }) || defaultMsg;
         showError(errorMsg);
-      }
+      };
+
+      const run = useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context: 'Delete experience plan item' });
+      await run();
     },
     [experience, fetchExperiences, fetchExperience, success, showError]
   );
@@ -1559,6 +1819,43 @@ export default function SingleExperience() {
           <div className="row experience-detail fade-in">
             <div className="col-md-6 fade-in text-center text-md-start">
               <h1 className="mt-4 h fade-in">{experience.name}</h1>
+              {userHasExperience && !pendingUnplan && (
+                <div className="fade-in">
+                  {displayedPlannedDate ? (
+                    <Badge
+                      className="pill-info cursor-pointer mb-2"
+                      onClick={() => {
+                        if (showDatePicker) {
+                          setShowDatePicker(false);
+                        } else {
+                          setIsEditingDate(true);
+                          setPlannedDate(formatDateForInput(displayedPlannedDate));
+                          setShowDatePicker(true);
+                        }
+                      }}
+                      title={showDatePicker ? "Click to close date picker" : "Click to edit planned date"}
+                    >
+                      Planned for {formatDateShort(displayedPlannedDate)}
+                    </Badge>
+                  ) : (
+                    <Badge
+                      className="pill-primary cursor-pointer mb-2"
+                      onClick={() => {
+                        if (showDatePicker) {
+                          setShowDatePicker(false);
+                        } else {
+                          setIsEditingDate(false);
+                          setPlannedDate("");
+                          setShowDatePicker(true);
+                        }
+                      }}
+                      title={showDatePicker ? "Click to close date picker" : "Click to set a planned date"}
+                    >
+                      {lang.en.label.plannedDate}: {lang.en.label.setOneNow}
+                    </Badge>
+                  )}
+                </div>
+              )}
               <div className="experience-header-grid my-2">
                 {experience.cost_estimate > 0 && (
                   <h2 className="h5 fade-in">
@@ -1584,9 +1881,15 @@ export default function SingleExperience() {
             </div>
             <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center flex-row experience-actions">
               <button
-                className={`btn btn-icon my-2 my-sm-4 ${
+                className={`btn btn-sm btn-icon my-1 my-sm-2 ${
                   userHasExperience ? "btn-plan-remove" : "btn-plan-add"
                 } ${loading ? "loading" : ""} fade-in`}
+                ref={planButtonRef}
+                style={planBtnWidth ? { width: `${planBtnWidth}px` } : undefined}
+                onMouseDown={() => {
+                  // Hide planned date immediately on press to avoid any flicker
+                  if (userHasExperience && !pendingUnplan) setPendingUnplan(true);
+                }}
                 onClick={async () => {
                   if (loading) return;
                   setLoading(true);
@@ -1607,21 +1910,17 @@ export default function SingleExperience() {
                 {userHasExperience
                   ? favHover
                     ? lang.en.button.removeFavoriteExp
-                    : displayedPlannedDate
-                    ? `${lang.en.button.expPlanAdded} for ${formatDateShort(
-                        displayedPlannedDate
-                      )}`
                     : lang.en.button.expPlanAdded
                   : lang.en.button.addFavoriteExp}
               </button>
               {userHasExperience && (
                 <button
-                  className="btn btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
+                  className="btn btn-sm btn-icon my-1 my-sm-2 ms-0 ms-sm-2 fade-in"
                   onClick={() => {
                     if (showDatePicker) {
                       setShowDatePicker(false);
                     } else {
-                      setIsEditingDate(true);
+                      setIsEditingDate(false);
                       setPlannedDate(
                         displayedPlannedDate
                           ? formatDateForInput(displayedPlannedDate)
@@ -1639,7 +1938,7 @@ export default function SingleExperience() {
               {isOwner(user, experience) && (
                 <>
                   <button
-                    className="btn btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
+                    className="btn btn-sm btn-icon my-1 my-sm-2 ms-0 ms-sm-2 fade-in"
                     onClick={() =>
                       navigate(`/experiences/${experienceId}/update`)
                     }
@@ -2212,11 +2511,6 @@ export default function SingleExperience() {
                                           }
                                         }, 100);
                                       }}
-                                      style={{
-                                        cursor: "pointer",
-                                        color: "#667eea",
-                                        textDecoration: "underline",
-                                      }}
                                       title={lang.en.tooltip.setPlannedDate}
                                     >
                                       {lang.en.label.setOneNow}
@@ -2489,11 +2783,13 @@ export default function SingleExperience() {
                                               );
                                               await fetchCollaborativePlans();
                                               await fetchUserPlan();
+                                              await fetchPlans(); // Refresh global plans state
                                             } catch (err) {
-                                              handleError(err, {
+                                              const errorMsg = handleError(err, {
                                                 context:
                                                   "Toggle plan item completion",
                                               });
+                                              showError(errorMsg);
                                             }
                                           }}
                                           onMouseEnter={() =>
@@ -2593,7 +2889,10 @@ export default function SingleExperience() {
       />
       <ConfirmModal
         show={showRemoveModal}
-        onClose={() => setShowRemoveModal(false)}
+        onClose={() => {
+          setShowRemoveModal(false);
+          setPendingUnplan(false);
+        }}
         onConfirm={confirmRemoveExperience}
         title={lang.en.modal.removeExperienceTitle}
         message="Are you sure you want to remove this experience? Your plan and all progress tracked will be permanently deleted."
@@ -2796,21 +3095,15 @@ export default function SingleExperience() {
                   {selectedCollaborators.map((collaborator) => (
                     <div
                       key={collaborator._id}
-                      className="badge bg-primary d-flex align-items-center gap-2 p-2"
-                      style={{ fontSize: "0.9rem" }}
+                      className="badge bg-primary d-flex align-items-center gap-2 p-2 collaborator-badge"
                     >
                       <span>{collaborator.name}</span>
                       <button
                         type="button"
-                        className="btn btn-link p-0 text-white"
+                        className="btn btn-link p-0 text-white collaborator-remove-btn"
                         onClick={() =>
                           handleRemoveSelectedCollaborator(collaborator._id)
                         }
-                        style={{
-                          textDecoration: "none",
-                          lineHeight: 1,
-                          fontSize: "1rem",
-                        }}
                         title={`Remove ${collaborator.name}`}
                       >
                         <FaTimes />
@@ -2836,12 +3129,7 @@ export default function SingleExperience() {
               />
               {searchResults.length > 0 && (
                 <div
-                  className="position-absolute w-100 mt-1 bg-white border rounded shadow-sm"
-                  style={{
-                    zIndex: 1000,
-                    maxHeight: "200px",
-                    overflowY: "auto",
-                  }}
+                  className="position-absolute w-100 mt-1 bg-white border rounded shadow-sm search-results-dropdown"
                 >
                   {searchResults.map((user) => (
                     <button

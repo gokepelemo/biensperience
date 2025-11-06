@@ -24,6 +24,8 @@ export default function UpdateProfile() {
   const [formData, setFormData] = useState({});
   const [originalUser, setOriginalUser] = useState(null);
   const [changes, setChanges] = useState({});
+  // Prevent initial-load dirty-state flicker by deferring change banners
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -67,9 +69,18 @@ export default function UpdateProfile() {
         }
 
         // Deep clone to ensure originalUser and formData are independent
-        setOriginalUser(JSON.parse(JSON.stringify(userData)));
+        const clonedUserData = JSON.parse(JSON.stringify(userData));
+        // Normalize photos to IDs for consistent comparison (if ImageUpload is used)
+        if (clonedUserData.photos) {
+          clonedUserData.photos = clonedUserData.photos.map(photo => 
+            photo._id ? photo._id : photo
+          );
+        }
+        setOriginalUser(clonedUserData);
         setFormData(JSON.parse(JSON.stringify(userData)));
-        setLoading(false);
+  setLoading(false);
+  // Mark initial load complete on next tick to allow state to settle
+  setTimeout(() => setIsInitialLoad(false), 0);
       } catch (err) {
         const errorMsg = handleError(err, { context: isAdminMode ? 'Load user data' : 'Load profile data' });
         setError(errorMsg || 'Failed to load user data');
@@ -128,9 +139,9 @@ export default function UpdateProfile() {
     }
   }
 
-  // Track photo changes
+  // Track photo/default photo changes
   useEffect(() => {
-    if (!formData || !originalUser) return;
+    if (!formData || !originalUser || isInitialLoad) return;
 
     const newChanges = { ...changes };
     
@@ -182,8 +193,12 @@ export default function UpdateProfile() {
       normalizedOriginalDefault = normalizeId(originalPhotos[0]);
     }
     
-    const normalizedCurrentDefault = normalizeId(currentDefaultId);
-    
+    let normalizedCurrentDefault = normalizeId(currentDefaultId);
+    // Treat first photo as implicit default when current default is not set but photos exist
+    if (!normalizedCurrentDefault && currentPhotos.length > 0) {
+      normalizedCurrentDefault = normalizeId(currentPhotos[0]);
+    }
+
     if (normalizedOriginalDefault !== normalizedCurrentDefault && currentPhotos.length > 0) {
       // Find the index of the default photo for description
       const getPhotoIndex = (photoId, photoArray) => {
@@ -208,7 +223,7 @@ export default function UpdateProfile() {
       setChanges(newChanges);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData, originalUser]);
+  }, [formData, originalUser, isInitialLoad]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -341,7 +356,7 @@ export default function UpdateProfile() {
         />
       )}
 
-      {Object.keys(changes).length > 0 && (
+      {!loading && !isInitialLoad && Object.keys(changes).length > 0 && (
         <Alert
           type="info"
           className="mb-4"

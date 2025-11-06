@@ -38,8 +38,8 @@ export default function Experiences() {
         ogDescription={`Explore ${processedExperiences?.length || 'hundreds of'} curated travel experiences worldwide. Start planning your next adventure today.`}
       />
 
-      <div className="row">
-        <div className="col-md-6">
+      <div className="row experiences-header">
+        <div className="col-md-6 text-center text-md-start">
           <h1 className="my-4">Experiences</h1>
         </div>
       </div>
