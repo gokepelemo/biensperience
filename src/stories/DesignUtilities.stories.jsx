@@ -155,7 +155,7 @@ export const LayoutUtilities = {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <div>
         <h4 className="mb-3">Flex Between</h4>
-        <div className="flex-between" style={{ border: '1px solid #ddd', padding: '1rem', borderRadius: '8px' }}>
+        <div className="flex-between" style={{ border: '1px solid var(--color-demo-border)', padding: '1rem', borderRadius: '8px' }}>
           <span>Left Content</span>
           <span>Right Content</span>
         </div>
@@ -163,17 +163,17 @@ export const LayoutUtilities = {
 
       <div>
         <h4 className="mb-3">Flex Center</h4>
-        <div className="flex-center" style={{ border: '1px solid #ddd', padding: '2rem', borderRadius: '8px' }}>
+        <div className="flex-center" style={{ border: '1px solid var(--color-demo-border)', padding: '2rem', borderRadius: '8px' }}>
           <span>Centered Content</span>
         </div>
       </div>
 
       <div>
         <h4 className="mb-3">Space Y (Vertical Spacing)</h4>
-        <div className="space-y-2" style={{ border: '1px solid #ddd', padding: '1rem', borderRadius: '8px' }}>
-          <div style={{ background: '#f0f0f0', padding: '0.5rem', borderRadius: '4px' }}>Item 1</div>
-          <div style={{ background: '#f0f0f0', padding: '0.5rem', borderRadius: '4px' }}>Item 2</div>
-          <div style={{ background: '#f0f0f0', padding: '0.5rem', borderRadius: '4px' }}>Item 3</div>
+        <div className="space-y-2" style={{ border: '1px solid var(--color-demo-border)', padding: '1rem', borderRadius: '8px' }}>
+          <div style={{ background: 'var(--color-demo-bg)', padding: '0.5rem', borderRadius: '4px' }}>Item 1</div>
+          <div style={{ background: 'var(--color-demo-bg)', padding: '0.5rem', borderRadius: '4px' }}>Item 2</div>
+          <div style={{ background: 'var(--color-demo-bg)', padding: '0.5rem', borderRadius: '4px' }}>Item 3</div>
         </div>
       </div>
     </div>
@@ -198,7 +198,7 @@ export const TextUtilities = {
 
       <div>
         <h4 className="mb-3">Text Shadow</h4>
-        <h2 className="text-shadow" style={{ color: '#667eea' }}>Text with Shadow</h2>
+        <h2 className="text-shadow" style={{ color: 'var(--color-primary)' }}>Text with Shadow</h2>
       </div>
 
       <div>
@@ -230,21 +230,21 @@ export const AnimationUtilities = {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <div>
         <h4 className="mb-3">Fade In</h4>
-        <div className="fade-in" style={{ background: '#667eea', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
+        <div className="fade-in" style={{ background: 'var(--color-primary)', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
           Fades in on load
         </div>
       </div>
 
       <div>
         <h4 className="mb-3">Slide Up</h4>
-        <div className="slide-up" style={{ background: '#764ba2', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
+        <div className="slide-up" style={{ background: 'var(--color-primary-dark)', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
           Slides up on load
         </div>
       </div>
 
       <div>
         <h4 className="mb-3">Scale In</h4>
-        <div className="scale-in" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
+        <div className="scale-in" style={{ background: 'var(--gradient-primary)', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
           Scales in on load
         </div>
       </div>
@@ -363,11 +363,11 @@ export const TableUnified = {
 export const ResponsiveHelpers = {
   render: () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <div style={{ border: '1px solid #ddd', padding: '1rem', borderRadius: '8px' }}>
-        <p className="show-mobile" style={{ background: '#fff3cd', padding: '0.5rem', borderRadius: '4px' }}>
+      <div style={{ border: '1px solid var(--color-demo-border)', padding: '1rem', borderRadius: '8px' }}>
+        <p className="show-mobile" style={{ background: 'var(--color-demo-warning)', padding: '0.5rem', borderRadius: '4px' }}>
           📱 This content is only visible on mobile devices (use responsive view to test)
         </p>
-        <p className="hide-mobile" style={{ background: '#d1ecf1', padding: '0.5rem', borderRadius: '4px' }}>
+        <p className="hide-mobile" style={{ background: 'var(--color-demo-info)', padding: '0.5rem', borderRadius: '4px' }}>
           💻 This content is hidden on mobile devices
         </p>
       </div>
@@ -388,7 +388,7 @@ export const CompleteExample = {
     <div style={{ maxWidth: '800px' }} className="space-y-4">
       <div className="fade-in">
         <div style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'var(--gradient-primary)',
           color: 'white',
           padding: '2rem',
           borderRadius: '12px',

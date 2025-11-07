@@ -69,9 +69,9 @@ const Banner = ({
         solid: {
           bg: 'var(--color-warning)',
           border: 'var(--color-warning)',
-          text: '#000000',
-          icon: '#000000',
-          button: '#000000',
+          text: 'var(--color-banner-text-solid)',
+          icon: 'var(--color-banner-text-solid)',
+          button: 'var(--color-banner-text-solid)',
         },
       },
       danger: {

@@ -197,31 +197,31 @@ export const AllTypes = {
     }}>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo type="clean" size="xl" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Clean
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo type="flat" size="xl" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Flat
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo type="soft" size="xl" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Soft
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo type="white" size="xl" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           White
         </div>
       </div>
-      <div style={{ textAlign: 'center', backgroundColor: '#f8f9fa', padding: '1rem', borderRadius: '8px' }}>
+      <div style={{ textAlign: 'center', backgroundColor: 'var(--color-logo-bg)', padding: '1rem', borderRadius: '8px' }}>
         <BiensperienceLogo type="engine" size="xl" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Engine (Loading)
         </div>
       </div>
@@ -249,43 +249,43 @@ export const SizeComparison = {
     }}>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="xs" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-logo-text)' }}>
           xs (16px)
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="sm" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-logo-text)' }}>
           sm (24px)
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="md" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-logo-text)' }}>
           md (32px)
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="lg" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-logo-text)' }}>
           lg (48px)
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="xl" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-logo-text)' }}>
           xl (64px)
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="2xl" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-logo-text)' }}>
           2xl (96px)
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="3xl" />
-        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#666' }}>
+        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-logo-text)' }}>
           3xl (128px)
         </div>
       </div>
@@ -309,75 +309,75 @@ export const OnBackgrounds = {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
       {/* Light backgrounds */}
       <div style={{ 
-        backgroundColor: '#ffffff', 
+        backgroundColor: 'var(--color-bg-primary)', 
         padding: '2rem', 
         borderRadius: '8px',
-        border: '1px solid #e5e7eb',
+        border: '1px solid var(--color-logo-border)',
         textAlign: 'center'
       }}>
         <BiensperienceLogo type="clean" size="xl" />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Clean on White
         </div>
       </div>
 
       <div style={{ 
-        backgroundColor: '#f9fafb', 
+        backgroundColor: 'var(--color-logo-bg-light)', 
         padding: '2rem', 
         borderRadius: '8px',
         textAlign: 'center'
       }}>
         <BiensperienceLogo type="soft" size="xl" />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Soft on Gray
         </div>
       </div>
 
       <div style={{ 
-        backgroundColor: '#e0e7ff', 
+        backgroundColor: 'var(--color-logo-bg-purple)', 
         padding: '2rem', 
         borderRadius: '8px',
         textAlign: 'center'
       }}>
         <BiensperienceLogo type="flat" size="xl" />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Flat on Purple Tint
         </div>
       </div>
 
       {/* Dark backgrounds */}
       <div style={{ 
-        backgroundColor: '#1f2937', 
+        backgroundColor: 'var(--color-logo-bg-dark)', 
         padding: '2rem', 
         borderRadius: '8px',
         textAlign: 'center'
       }}>
         <BiensperienceLogo type="white" size="xl" />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#d1d5db' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text-light)' }}>
           White on Dark
         </div>
       </div>
 
       <div style={{ 
-        backgroundColor: '#4f46e5', 
+        backgroundColor: 'var(--color-logo-bg-indigo)', 
         padding: '2rem', 
         borderRadius: '8px',
         textAlign: 'center'
       }}>
         <BiensperienceLogo type="white" size="xl" />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#e0e7ff' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text-purple)' }}>
           White on Purple
         </div>
       </div>
 
       <div style={{ 
-        backgroundColor: '#111827', 
+        backgroundColor: 'var(--color-logo-bg-darker)', 
         padding: '2rem', 
         borderRadius: '8px',
         textAlign: 'center'
       }}>
         <BiensperienceLogo type="clean" size="xl" />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#9ca3af' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text-muted)' }}>
           Clean on Black
         </div>
       </div>
@@ -406,37 +406,37 @@ export const Transformations = {
     }}>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="xl" />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Normal
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="xl" rotate={45} />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Rotated 45°
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="xl" rotate={90} />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Rotated 90°
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="xl" scale={1.5} />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Scaled 1.5x
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="xl" flipH />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Flipped Horizontal
         </div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <BiensperienceLogo size="xl" flipV />
-        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#666' }}>
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--color-logo-text)' }}>
           Flipped Vertical
         </div>
       </div>
@@ -457,8 +457,8 @@ export const Transformations = {
 export const InHeader = {
   render: () => (
     <div style={{ 
-      backgroundColor: '#ffffff',
-      borderBottom: '1px solid #e5e7eb',
+      backgroundColor: 'var(--color-bg-primary)',
+      borderBottom: '1px solid var(--color-logo-border)',
       padding: '1rem 2rem',
       display: 'flex',
       alignItems: 'center',
@@ -468,7 +468,7 @@ export const InHeader = {
       <div style={{ 
         fontSize: '1.25rem', 
         fontWeight: '600',
-        color: '#1f2937'
+        color: 'var(--color-logo-text-dark)'
       }}>
         Biensperience
       </div>
@@ -479,7 +479,7 @@ export const InHeader = {
       }}>
         <button style={{
           padding: '0.5rem 1rem',
-          border: '1px solid #d1d5db',
+          border: '1px solid var(--color-logo-border-light)',
           borderRadius: '6px',
           backgroundColor: 'transparent',
           cursor: 'pointer'
@@ -490,7 +490,7 @@ export const InHeader = {
           padding: '0.5rem 1rem',
           border: 'none',
           borderRadius: '6px',
-          backgroundColor: '#7c3aed',
+          backgroundColor: 'var(--color-logo-bg-violet)',
           color: 'white',
           cursor: 'pointer'
         }}>
@@ -520,20 +520,20 @@ export const LoadingIndicator = {
       alignItems: 'center',
       gap: '1.5rem',
       padding: '3rem',
-      backgroundColor: '#f9fafb',
+      backgroundColor: 'var(--color-logo-bg-light)',
       borderRadius: '12px'
     }}>
       <BiensperienceLogo type="engine" size="3xl" />
       <div style={{
         fontSize: '1.125rem',
-        color: '#4b5563',
+        color: 'var(--color-logo-text-gray)',
         fontWeight: '500'
       }}>
         Loading your experiences...
       </div>
       <div style={{
         fontSize: '0.875rem',
-        color: '#6b7280',
+        color: 'var(--color-logo-text-gray-light)',
         maxWidth: '300px',
         textAlign: 'center'
       }}>

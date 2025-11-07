@@ -5,10 +5,11 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Form, Table, Badge, Alert, Pagination, InputGroup, Spinner } from 'react-bootstrap';
+import { Button, Form, Table, Badge, Alert, InputGroup, Spinner } from 'react-bootstrap';
 import { FaSearch, FaFilter, FaUndo, FaEye, FaTimes } from 'react-icons/fa';
 import Modal from '../Modal/Modal';
 import Loading from '../Loading/Loading';
+import Pagination from '../Pagination/Pagination';
 import { getAllActivities, restoreResourceState } from '../../utilities/activities-api';
 import { formatDateTime } from '../../utilities/date-utils';
 import { handleError } from '../../utilities/error-handler';
@@ -154,62 +155,19 @@ export default function ActivityMonitor({ show, onHide }) {
   const renderPagination = () => {
     if (pagination.totalPages <= 1) return null;
 
-    const items = [];
-    const current = pagination.page;
-    const total = pagination.totalPages;
-
-    if (current > 3) {
-      items.push(
-        <Pagination.Item key={1} onClick={() => handlePageChange(1)}>
-          1
-        </Pagination.Item>
-      );
-      if (current > 4) {
-        items.push(<Pagination.Ellipsis key="ellipsis1" />);
-      }
-    }
-
-    // Show pages around current
-    for (let page = Math.max(1, current - 2); page <= Math.min(total, current + 2); page++) {
-      items.push(
-        <Pagination.Item 
-          key={page} 
-          active={page === current}
-          onClick={() => handlePageChange(page)}
-        >
-          {page}
-        </Pagination.Item>
-      );
-    }
-
-    // Always show last page
-    if (current < total - 2) {
-      if (current < total - 3) {
-        items.push(<Pagination.Ellipsis key="ellipsis2" />);
-      }
-      items.push(
-        <Pagination.Item key={total} onClick={() => handlePageChange(total)}>
-          {total}
-        </Pagination.Item>
-      );
-    }
-
     return (
       <div className="d-flex justify-content-between align-items-center mt-3">
         <div className="text-muted">
           Showing {activities.length} of {pagination.totalCount} activities
         </div>
-        <Pagination size="sm">
-          <Pagination.Prev 
-            disabled={current === 1}
-            onClick={() => handlePageChange(current - 1)}
-          />
-          {items}
-          <Pagination.Next 
-            disabled={current === total}
-            onClick={() => handlePageChange(current + 1)}
-          />
-        </Pagination>
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          onPageChange={handlePageChange}
+          variant="text"
+          totalResults={pagination.totalCount}
+          resultsPerPage={pagination.limit}
+        />
       </div>
     );
   };

@@ -330,17 +330,17 @@ export const AllVariants = {
 export const DarkModeComparison = {
   render: () => (
     <div style={{ display: 'grid', gap: '2rem' }}>
-      <div style={{ padding: '2rem', background: '#ffffff', borderRadius: '8px' }}>
-        <h4 style={{ marginBottom: '1rem', fontSize: '1rem', fontWeight: 600 }}>Light Mode</h4>
+      <div style={{ padding: '2rem', background: 'var(--color-bg-primary)', borderRadius: '8px' }}>
+        <h4 style={{ marginBottom: '1rem', fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>Light Mode</h4>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button className="btn-gradient">Gradient</button>
           <button className="btn-outline-custom">Outline</button>
           <button className="btn btn-secondary">Secondary</button>
         </div>
       </div>
-      
-      <div style={{ padding: '2rem', background: '#1e1e1e', borderRadius: '8px' }}>
-        <h4 style={{ marginBottom: '1rem', fontSize: '1rem', fontWeight: 600, color: '#f8f9fa' }}>Dark Mode</h4>
+
+      <div style={{ padding: '2rem', background: 'var(--color-bg-secondary)', borderRadius: '8px' }}>
+        <h4 style={{ marginBottom: '1rem', fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>Dark Mode</h4>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button className="btn-gradient">Gradient</button>
           <button className="btn-outline-custom">Outline</button>

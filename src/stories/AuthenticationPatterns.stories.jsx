@@ -263,7 +263,7 @@ export const LoginPage = {
                   boxShadow: '0 0 0 2px rgba(255,255,255,0.12)'
                 }}
               >
-                <FaFacebook style={{ color: '#1877F2', fontSize: 'var(--font-size-lg)' }} />
+                <FaFacebook style={{ color: 'var(--color-facebook)', fontSize: 'var(--font-size-lg)' }} />
                 Sign In With Facebook
               </Button>
 
@@ -284,7 +284,7 @@ export const LoginPage = {
                   gap: 'var(--space-2)',
                 }}
               >
-                <FaGoogle style={{ color: '#DB4437', fontSize: 'var(--font-size-lg)' }} />
+                <FaGoogle style={{ color: 'var(--color-google)', fontSize: 'var(--font-size-lg)' }} />
                 Sign In With Google
               </Button>
 
@@ -305,7 +305,7 @@ export const LoginPage = {
                   gap: 'var(--space-2)',
                 }}
               >
-                <FaTwitter style={{ color: '#1DA1F2', fontSize: 'var(--font-size-lg)' }} />
+                <FaTwitter style={{ color: 'var(--color-twitter)', fontSize: 'var(--font-size-lg)' }} />
                 Sign In With X
               </Button>
             </div>
@@ -438,17 +438,21 @@ export const SignUpPage = {
                 fontWeight: 'var(--font-weight-semibold)',
                 color: 'var(--color-text-primary)',
                 marginBottom: 'var(--space-2)',
+                display: 'block',
               }}>
                 Full Name
               </Form.Label>
               <InputGroup style={{
-                borderRadius: 'var(--radius-xl)'
+                border: '2px solid var(--color-border-medium)',
+                borderRadius: 'var(--radius-xl)',
+                overflow: 'hidden',
+                minHeight: '56px',
               }}>
                 <InputGroup.Text style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border-medium)',
-                  borderRight: 'none',
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  border: 'none',
                   color: 'var(--color-text-muted)',
+                  padding: 'var(--space-3) var(--space-4)',
                   minHeight: '56px',
                   display: 'flex',
                   alignItems: 'center',
@@ -460,12 +464,13 @@ export const SignUpPage = {
                   placeholder="John Doe"
                   style={{
                     backgroundColor: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-border-medium)',
-                    borderLeft: 'none',
+                    border: 'none',
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
-                    padding: 'var(--space-3)',
+                    padding: 'var(--space-3) var(--space-4)',
                     minHeight: '56px',
+                    outline: 'none',
+                    boxShadow: 'none',
                   }}
                 />
               </InputGroup>
@@ -478,17 +483,21 @@ export const SignUpPage = {
                 fontWeight: 'var(--font-weight-semibold)',
                 color: 'var(--color-text-primary)',
                 marginBottom: 'var(--space-2)',
+                display: 'block',
               }}>
                 Email Address
               </Form.Label>
               <InputGroup style={{
-                borderRadius: 'var(--radius-xl)'
+                border: '2px solid var(--color-border-medium)',
+                borderRadius: 'var(--radius-xl)',
+                overflow: 'hidden',
+                minHeight: '56px',
               }}>
                 <InputGroup.Text style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border-medium)',
-                  borderRight: 'none',
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  border: 'none',
                   color: 'var(--color-text-muted)',
+                  padding: 'var(--space-3) var(--space-4)',
                   minHeight: '56px',
                   display: 'flex',
                   alignItems: 'center',
@@ -500,12 +509,13 @@ export const SignUpPage = {
                   placeholder="john.doe@example.com"
                   style={{
                     backgroundColor: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-border-medium)',
-                    borderLeft: 'none',
+                    border: 'none',
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
-                    padding: 'var(--space-3)',
+                    padding: 'var(--space-3) var(--space-4)',
                     minHeight: '56px',
+                    outline: 'none',
+                    boxShadow: 'none',
                   }}
                 />
               </InputGroup>
@@ -518,17 +528,21 @@ export const SignUpPage = {
                 fontWeight: 'var(--font-weight-semibold)',
                 color: 'var(--color-text-primary)',
                 marginBottom: 'var(--space-2)',
+                display: 'block',
               }}>
                 Password
               </Form.Label>
               <InputGroup style={{
-                borderRadius: 'var(--radius-xl)'
+                border: '2px solid var(--color-border-medium)',
+                borderRadius: 'var(--radius-xl)',
+                overflow: 'hidden',
+                minHeight: '56px',
               }}>
                 <InputGroup.Text style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border-medium)',
-                  borderRight: 'none',
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  border: 'none',
                   color: 'var(--color-text-muted)',
+                  padding: 'var(--space-3) var(--space-4)',
                   minHeight: '56px',
                   display: 'flex',
                   alignItems: 'center',
@@ -540,24 +554,25 @@ export const SignUpPage = {
                   placeholder="••••••••••••••••"
                   style={{
                     backgroundColor: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-border-medium)',
-                    borderLeft: 'none',
-                    borderRight: 'none',
+                    border: 'none',
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
-                    padding: 'var(--space-3)',
+                    padding: 'var(--space-3) var(--space-4)',
                     minHeight: '56px',
+                    outline: 'none',
+                    boxShadow: 'none',
                   }}
                 />
                 <Button
-                  variant="outline-secondary"
+                  variant="link"
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
-                    backgroundColor: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-border-medium)',
-                    borderLeft: 'none',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    border: 'none',
                     color: 'var(--color-text-muted)',
+                    padding: 'var(--space-3) var(--space-4)',
                     minHeight: '56px',
+                    textDecoration: 'none',
                   }}
                 >
                   {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -572,17 +587,21 @@ export const SignUpPage = {
                 fontWeight: 'var(--font-weight-semibold)',
                 color: 'var(--color-text-primary)',
                 marginBottom: 'var(--space-2)',
+                display: 'block',
               }}>
                 Confirm Password
               </Form.Label>
               <InputGroup style={{
-                borderRadius: 'var(--radius-xl)'
+                border: '2px solid var(--color-border-medium)',
+                borderRadius: 'var(--radius-xl)',
+                overflow: 'hidden',
+                minHeight: '56px',
               }}>
                 <InputGroup.Text style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border-medium)',
-                  borderRight: 'none',
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  border: 'none',
                   color: 'var(--color-text-muted)',
+                  padding: 'var(--space-3) var(--space-4)',
                   minHeight: '56px',
                   display: 'flex',
                   alignItems: 'center',
@@ -594,24 +613,25 @@ export const SignUpPage = {
                   placeholder="••••••••••••••••"
                   style={{
                     backgroundColor: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-border-medium)',
-                    borderLeft: 'none',
-                    borderRight: 'none',
+                    border: 'none',
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
-                    padding: 'var(--space-3)',
+                    padding: 'var(--space-3) var(--space-4)',
                     minHeight: '56px',
+                    outline: 'none',
+                    boxShadow: 'none',
                   }}
                 />
                 <Button
-                  variant="outline-secondary"
+                  variant="link"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   style={{
-                    backgroundColor: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-border-medium)',
-                    borderLeft: 'none',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    border: 'none',
                     color: 'var(--color-text-muted)',
+                    padding: 'var(--space-3) var(--space-4)',
                     minHeight: '56px',
+                    textDecoration: 'none',
                   }}
                 >
                   {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
@@ -682,7 +702,7 @@ export const SignUpPage = {
                   justifyContent: 'center',
                 }}
               >
-                <FaGoogle style={{ color: '#DB4437', fontSize: 'var(--font-size-xl)' }} />
+                <FaGoogle style={{ color: 'var(--color-google)', fontSize: 'var(--font-size-xl)' }} />
               </Button>
 
               <Button
@@ -698,7 +718,7 @@ export const SignUpPage = {
                   justifyContent: 'center',
                 }}
               >
-                <FaFacebook style={{ color: '#1877F2', fontSize: 'var(--font-size-xl)' }} />
+                <FaFacebook style={{ color: 'var(--color-facebook)', fontSize: 'var(--font-size-xl)' }} />
               </Button>
 
               <Button
@@ -714,7 +734,7 @@ export const SignUpPage = {
                   justifyContent: 'center',
                 }}
               >
-                <FaTwitter style={{ color: '#1DA1F2', fontSize: 'var(--font-size-xl)' }} />
+                <FaTwitter style={{ color: 'var(--color-twitter)', fontSize: 'var(--font-size-xl)' }} />
               </Button>
             </div>
           </Form>
@@ -843,17 +863,21 @@ export const ForgotPasswordPage = {
                 fontWeight: 'var(--font-weight-semibold)',
                 color: 'var(--color-text-primary)',
                 marginBottom: 'var(--space-2)',
+                display: 'block',
               }}>
                 Email Address
               </Form.Label>
               <InputGroup style={{
-                borderRadius: 'var(--radius-xl)'
+                border: '2px solid var(--color-border-medium)',
+                borderRadius: 'var(--radius-xl)',
+                overflow: 'hidden',
+                minHeight: '56px',
               }}>
                 <InputGroup.Text style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border-medium)',
-                  borderRight: 'none',
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  border: 'none',
                   color: 'var(--color-text-muted)',
+                  padding: 'var(--space-3) var(--space-4)',
                   minHeight: '56px',
                   display: 'flex',
                   alignItems: 'center',
@@ -865,12 +889,13 @@ export const ForgotPasswordPage = {
                   placeholder="elementary221b@gmail.com"
                   style={{
                     backgroundColor: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-border-medium)',
-                    borderLeft: 'none',
+                    border: 'none',
                     color: 'var(--color-text-primary)',
                     fontSize: 'var(--font-size-base)',
-                    padding: 'var(--space-3)',
+                    padding: 'var(--space-3) var(--space-4)',
                     minHeight: '56px',
+                    outline: 'none',
+                    boxShadow: 'none',
                   }}
                 />
               </InputGroup>
@@ -1255,7 +1280,7 @@ export const LoginSplitLayout = {
         {/* Travel themed panel */}
         <div style={{
           padding: 'clamp(2rem, 5vw, 4rem)',
-          background: 'linear-gradient(135deg, #6f42c1 0%, #4f46e5 100%)',
+          background: 'var(--gradient-primary)',
           color: 'white',
           display: 'flex',
           alignItems: 'center',
@@ -1309,8 +1334,8 @@ export const LoginSplitLayout = {
                 <Button style={{ width: '100%', background: 'var(--gradient-primary)', border: 'none', borderRadius: 'var(--radius-full)', minHeight: 56 }}>Sign In <FaArrowRight className="ms-2" /></Button>
                 <Divider label="Or continue with" shadow="md" />
                 <div style={{ display: 'flex', gap: 'var(--space-3)', flexDirection: 'column' }}>
-                  <Button variant="outline-secondary" style={{ minHeight: 52, borderRadius: 'var(--radius-full)' }}><FaFacebook style={{ color: '#1877F2' }} className="me-2"/> Sign In With Facebook</Button>
-                  <Button variant="outline-secondary" style={{ minHeight: 52, borderRadius: 'var(--radius-full)' }}><FaGoogle style={{ color: '#DB4437' }} className="me-2"/> Sign In With Google</Button>
+                  <Button variant="outline-secondary" style={{ minHeight: 52, borderRadius: 'var(--radius-full)' }}><FaFacebook style={{ color: 'var(--color-facebook)' }} className="me-2"/> Sign In With Facebook</Button>
+                  <Button variant="outline-secondary" style={{ minHeight: 52, borderRadius: 'var(--radius-full)' }}><FaGoogle style={{ color: 'var(--color-google)' }} className="me-2"/> Sign In With Google</Button>
                 </div>
               </Form>
             </Card>

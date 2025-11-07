@@ -69,7 +69,7 @@ const MessageBubble = ({
           opacity: 0.8,
         }}>
           <span>{time}</span>
-          {isSent && <BsCheckAll size={14} style={{ color: isRead ? '#4ade80' : 'currentColor' }} />}
+          {isSent && <BsCheckAll size={14} style={{ color: isRead ? 'var(--color-read-receipt)' : 'currentColor' }} />}
         </div>
       </div>
     </div>
@@ -316,7 +316,7 @@ const MediaMessageBubble = ({
           padding: type === 'link' || type === 'image' || type === 'video' ? '0 var(--space-1)' : '0',
         }}>
           <span>{time}</span>
-          {isSent && <BsCheckAll size={14} style={{ color: isRead ? '#4ade80' : 'currentColor' }} />}
+          {isSent && <BsCheckAll size={14} style={{ color: isRead ? 'var(--color-read-receipt)' : 'currentColor' }} />}
         </div>
       </div>
     </div>

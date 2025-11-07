@@ -60,7 +60,7 @@ const ContactListItem = ({
           width: '14px',
           height: '14px',
           borderRadius: '50%',
-          backgroundColor: '#10b981',
+          backgroundColor: 'var(--color-message-sent)',
           border: '2px solid var(--color-bg-primary)',
         }} />
       )}
@@ -157,7 +157,7 @@ const MessageBubble = ({ text, time, isSent, isRead }) => (
         opacity: 0.8,
       }}>
         <span>{time}</span>
-        {isSent && <BsCheckAll size={14} style={{ color: isRead ? '#4ade80' : 'currentColor' }} />}
+        {isSent && <BsCheckAll size={14} style={{ color: isRead ? 'var(--color-read-receipt)' : 'currentColor' }} />}
       </div>
     </div>
   </div>
@@ -348,7 +348,7 @@ export const MessagingApp = {
           width: '48px',
           height: '48px',
           borderRadius: '50%',
-          backgroundColor: '#fbbf24',
+          backgroundColor: 'var(--color-message-pending)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -517,7 +517,7 @@ export const MessagingApp = {
                   width: '8px',
                   height: '8px',
                   borderRadius: '50%',
-                  backgroundColor: '#10b981',
+                  backgroundColor: 'var(--color-message-sent)',
                 }} />
                 Online
               </div>
@@ -627,7 +627,7 @@ export const MessagingApp = {
               fontSize: 'var(--font-size-xs)',
               color: 'var(--color-text-muted)',
             }}>
-              10:26 <BsCheckAll size={14} style={{ marginLeft: 'var(--space-1)', color: '#10b981' }} />
+              10:26 <BsCheckAll size={14} style={{ marginLeft: 'var(--space-1)', color: 'var(--color-message-sent)' }} />
             </div>
           </div>
 
@@ -721,7 +721,7 @@ export const MessagingApp = {
                 <span>02:12</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontSize: 'var(--font-size-xs)' }}>
                   <span>10:26</span>
-                  <BsCheckAll size={14} style={{ color: '#4ade80' }} />
+                  <BsCheckAll size={14} style={{ color: 'var(--color-read-receipt)' }} />
                 </div>
               </div>
             </div>

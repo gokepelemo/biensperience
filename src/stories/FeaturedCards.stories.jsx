@@ -584,7 +584,7 @@ export const CompactFeaturedGrid = {
                     fontSize: 'var(--font-size-sm)',
                     color: 'var(--color-text-secondary)',
                   }}>
-                    <FaStar style={{ color: '#ffc107' }} />
+                    <FaStar style={{ color: 'var(--color-star)' }} />
                     <span style={{ fontWeight: 'var(--font-weight-semibold)' }}>
                       {experience.rating}
                     </span>

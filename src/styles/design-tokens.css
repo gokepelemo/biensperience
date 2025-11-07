@@ -149,8 +149,35 @@
   --color-primary-alpha-40: rgba(102, 126, 234, 0.4);
   --color-primary-alpha-50: rgba(102, 126, 234, 0.5);
   
-  /* Text Placeholder */
-  --color-text-placeholder: #a0aec0;
+  /* Social Media Brand Colors */
+  --color-facebook: #1877F2;
+  --color-google: #DB4437;
+  --color-twitter: #1DA1F2;
+  --color-star: #ffc107;
+  --color-read-receipt: #4ade80;
+  --color-demo-border: #ddd;
+  --color-demo-bg: #f0f0f0;
+  --color-demo-warning: #fff3cd;
+  --color-demo-info: #d1ecf1;
+  --color-message-sent: #10b981;
+  --color-message-pending: #fbbf24;
+  --color-logo-text: #666;
+  --color-logo-bg: #f8f9fa;
+  --color-logo-border: #e5e7eb;
+  --color-logo-bg-light: #f9fafb;
+  --color-logo-bg-purple: #e0e7ff;
+  --color-logo-bg-dark: #1f2937;
+  --color-logo-text-light: #d1d5db;
+  --color-logo-bg-indigo: #4f46e5;
+  --color-logo-text-purple: #e0e7ff;
+  --color-logo-bg-darker: #111827;
+  --color-logo-text-muted: #9ca3af;
+  --color-logo-bg-violet: #7c3aed;
+  --color-logo-text-dark: #1f2937;
+  --color-logo-border-light: #d1d5db;
+  --color-logo-text-gray: #4b5563;
+  --color-logo-text-gray-light: #6b7280;
+  --color-banner-text-solid: #000000;
 
   /* Favorite Button Colors */
   --color-favorite-add-hover-start: #28a745;    /* Green for add hover */

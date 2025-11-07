@@ -24,7 +24,7 @@ export const Overview = {
       <h3>Semantic Colors</h3>
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '2rem' }}>
         <thead>
-          <tr style={{ borderBottom: '2px solid #e9ecef' }}>
+          <tr style={{ borderBottom: '2px solid var(--color-bg-tertiary)' }}>
             <th style={{ padding: '0.75rem', textAlign: 'left' }}>Color</th>
             <th style={{ padding: '0.75rem', textAlign: 'left' }}>Variable</th>
             <th style={{ padding: '0.75rem', textAlign: 'left' }}>Light Mode</th>
@@ -33,35 +33,35 @@ export const Overview = {
           </tr>
         </thead>
         <tbody>
-          <tr style={{ borderBottom: '1px solid #e9ecef' }}>
+          <tr style={{ borderBottom: '1px solid var(--color-bg-tertiary)' }}>
             <td style={{ padding: '0.75rem' }}><strong>Primary</strong></td>
             <td style={{ padding: '0.75rem' }}><code>--color-primary</code></td>
             <td style={{ padding: '0.75rem' }}>#667eea</td>
             <td style={{ padding: '0.75rem' }}>#667eea</td>
             <td style={{ padding: '0.75rem' }}>Brand color, primary actions, links, active states</td>
           </tr>
-          <tr style={{ borderBottom: '1px solid #e9ecef' }}>
+          <tr style={{ borderBottom: '1px solid var(--color-bg-tertiary)' }}>
             <td style={{ padding: '0.75rem' }}><strong>Success</strong></td>
             <td style={{ padding: '0.75rem' }}><code>--color-success</code></td>
             <td style={{ padding: '0.75rem' }}>#28a745</td>
             <td style={{ padding: '0.75rem' }}>#40c057</td>
             <td style={{ padding: '0.75rem' }}>Success states, confirmations, positive feedback</td>
           </tr>
-          <tr style={{ borderBottom: '1px solid #e9ecef' }}>
+          <tr style={{ borderBottom: '1px solid var(--color-bg-tertiary)' }}>
             <td style={{ padding: '0.75rem' }}><strong>Danger</strong></td>
             <td style={{ padding: '0.75rem' }}><code>--color-danger</code></td>
             <td style={{ padding: '0.75rem' }}>#dc3545</td>
             <td style={{ padding: '0.75rem' }}>#fa5252</td>
             <td style={{ padding: '0.75rem' }}>Error states, destructive actions, critical warnings</td>
           </tr>
-          <tr style={{ borderBottom: '1px solid #e9ecef' }}>
+          <tr style={{ borderBottom: '1px solid var(--color-bg-tertiary)' }}>
             <td style={{ padding: '0.75rem' }}><strong>Warning</strong></td>
             <td style={{ padding: '0.75rem' }}><code>--color-warning</code></td>
             <td style={{ padding: '0.75rem' }}>#ffc107</td>
             <td style={{ padding: '0.75rem' }}>#ffd43b</td>
             <td style={{ padding: '0.75rem' }}>Warning states, cautionary information</td>
           </tr>
-          <tr style={{ borderBottom: '1px solid #e9ecef' }}>
+          <tr style={{ borderBottom: '1px solid var(--color-bg-tertiary)' }}>
             <td style={{ padding: '0.75rem' }}><strong>Info</strong></td>
             <td style={{ padding: '0.75rem' }}><code>--color-info</code></td>
             <td style={{ padding: '0.75rem' }}>#17a2b8</td>
