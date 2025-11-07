@@ -46,9 +46,12 @@ export default function SingleDestination() {
   }, [destinations, destinationId]);
 
   useEffect(() => {
-    const filteredExperiences = experiences.filter(
-      (experience) => experience.destination._id === destinationId
-    );
+    const filteredExperiences = experiences.filter((experience) => {
+      // destination may be an ObjectId string or a populated object
+      const destRef = experience?.destination;
+      const destId = typeof destRef === 'object' && destRef !== null ? destRef._id : destRef;
+      return destId && String(destId) === String(destinationId);
+    });
     setDestinationExperiences(filteredExperiences);
   }, [experiences, destinationId]);
 

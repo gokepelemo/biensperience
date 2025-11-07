@@ -11,7 +11,7 @@ export default {
       },
     },
   },
-  tags: ['autodocs'],
+  tags: [],
   argTypes: {
     type: {
       control: 'select',

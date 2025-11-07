@@ -15,7 +15,7 @@ import useOptimisticAction from "../../hooks/useOptimisticAction";
 
 function ExperienceCard({ experience, updateData, userPlans = [] }) {
   const { user } = useUser();
-  const { fetchPlans } = useData();
+  const { fetchPlans, plans: globalPlans } = useData();
   const { error: showError } = useToast();
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,26 +42,33 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
   const [localPlanState, setLocalPlanState] = useState(() => {
     // Priority 1: Use userPlans prop if available (most reliable)
     if (userPlans.length > 0) {
-      return userPlans.some(plan => 
-        plan.experience?._id === experience._id || 
+      return userPlans.some(plan =>
+        plan.experience?._id === experience._id ||
         plan.experience === experience._id
       );
     }
-    
-    // Priority 2: Use sessionStorage for instant rendering (may be stale)
-    // Will be verified asynchronously below
+
+    // Priority 2: Use global plans from DataContext (single fetch per session)
+    if (globalPlans && globalPlans.length > 0) {
+      return globalPlans.some(plan =>
+        plan.experience?._id === experience._id ||
+        plan.experience === experience._id
+      );
+    }
+
+    // Priority 3: Use sessionStorage for instant rendering (may be stale)
     if (user?._id) {
       try {
         const cacheKey = `plan_${user._id}_${experience._id}`;
         const cached = sessionStorage.getItem(cacheKey);
-        return cached ? JSON.parse(cached) : false; // Default to false instead of null
+        if (cached !== null) return JSON.parse(cached);
       } catch (err) {
-        return false;
+        // ignore cache errors
       }
     }
-    
-    // Priority 3: No user logged in - default to false
-    return false;
+
+    // Unknown yet
+    return null;
   });
 
   // Track if we're currently verifying state from database
@@ -105,72 +112,50 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
     }
   }, [user?._id]);
 
-  // ASYNC VERIFICATION: Always verify cached state with database
-  // This ensures UI accuracy while maintaining instant rendering
+  // LAZY FETCH: Only query server if absolutely necessary
+  // Conditions: user logged in, parent didn't pass plans, global plans empty, and local state unknown
   useEffect(() => {
-    if (!user?._id || !experience?._id) {
-      return;
-    }
+    if (!user?._id || !experience?._id) return;
+    if (userPlans.length > 0) return;
+    if (globalPlans && globalPlans.length > 0) return;
+    if (localPlanState !== null) return;
 
     let isMounted = true;
-
-    const verifyPlanState = async () => {
-      setIsVerifying(true);
-      
-      try {
-        // Use lightweight endpoint - only returns plan ID, not full data
-        const result = await checkUserPlanForExperience(experience._id);
-        const actualState = result.hasPlan;
-        
-        if (isMounted) {
-          // If cached state differs from database, smoothly transition
-          if (actualState !== localPlanState) {
-            logger.info('[ExperienceCard] State correction', {
-              experienceId: experience._id,
-              cached: localPlanState,
-              actual: actualState,
-              reason: 'Database verification corrected cached state'
-            });
-            
-            // Update both local state and cache
-            setLocalPlanStateWithCache(actualState);
-          }
-        }
-      } catch (err) {
-        // On error, keep current state but log warning
-        logger.warn('[ExperienceCard] Failed to verify plan status', {
-          experienceId: experience._id,
-          cachedState: localPlanState,
-          error: err.message
-        }, err);
-      } finally {
-        if (isMounted) {
-          setIsVerifying(false);
-        }
-      }
-    };
-
-    // Verify state asynchronously
-    verifyPlanState();
+    setIsVerifying(true);
+    checkUserPlanForExperience(experience._id)
+      .then((result) => {
+        if (!isMounted) return;
+        setLocalPlanStateWithCache(!!result?.hasPlan);
+      })
+      .catch((err) => {
+        logger.warn('[ExperienceCard] Lazy plan check failed', { error: err?.message });
+      })
+      .finally(() => {
+        if (isMounted) setIsVerifying(false);
+      });
 
     return () => {
       isMounted = false;
     };
-  }, [user?._id, experience?._id, localPlanState, setLocalPlanStateWithCache]);
+  }, [user?._id, experience?._id, userPlans.length, globalPlans?.length, localPlanState, setLocalPlanStateWithCache]);
 
-  // Sync with userPlans prop when it changes (parent component refresh)
+  // Sync with parent-provided plans or global plans
   useEffect(() => {
-    // Always check userPlans, even if empty (plan might have been deleted)
-    const hasPlan = userPlans.some(plan => 
-      plan.experience?._id === experience._id || 
+    const propHasPlan = userPlans.some(plan =>
+      plan.experience?._id === experience._id ||
       plan.experience === experience._id
     );
-    
-    // Only update if different to avoid unnecessary re-renders
-    if (hasPlan !== localPlanState) {
+    const globalHasPlan = (globalPlans || []).some(plan =>
+      plan.experience?._id === experience._id ||
+      plan.experience === experience._id
+    );
+
+    const hasPlan = userPlans.length > 0 ? propHasPlan : globalHasPlan;
+
+    if (hasPlan !== localPlanState && hasPlan !== null) {
       setLocalPlanStateWithCache(hasPlan);
     }
-  }, [userPlans, experience._id, localPlanState, setLocalPlanStateWithCache]);
+  }, [userPlans, globalPlans, experience._id, localPlanState, setLocalPlanStateWithCache]);
 
   // Get the default photo for background
   const getBackgroundImage = useMemo(() => {
@@ -240,7 +225,9 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
         if (!userPlan) {
           const result = await checkUserPlanForExperience(experience._id);
           if (result.hasPlan) {
-            userPlan = { _id: result.planId };
+            // Prefer deleting the user's own plan if multiple are present
+            const own = result.ownPlanId || result.plans?.find?.(p => p.isOwn)?._id;
+            userPlan = { _id: own || result.planId };
           }
         }
         

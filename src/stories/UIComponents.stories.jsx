@@ -15,7 +15,7 @@ export default {
       },
     },
   },
-  tags: ['autodocs'],
+  tags: [],
 };
 
 // Stepper Stories

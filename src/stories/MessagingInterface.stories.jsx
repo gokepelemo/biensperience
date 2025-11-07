@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Form, InputGroup, Badge } from 'react-bootstrap';
-import { FaSearch, FaPhone, FaEllipsisV, FaPaperPlane, FaSmile, FaMicrophone, FaPaperclip, FaBell, FaCog, FaQuestionCircle, FaUsers, FaRobot, FaInbox, FaPlus, FaPlay } from 'react-icons/fa';
+import { FaSearch, FaPhone, FaEllipsisV, FaPaperPlane, FaSmile, FaMicrophone, FaPaperclip, FaBell, FaCog, FaQuestionCircle, FaUsers, FaRobot, FaInbox, FaPlus, FaPlay, FaUser, FaMapMarkedAlt, FaClipboardList } from 'react-icons/fa';
 import { BsCheckAll } from 'react-icons/bs';
 import BiensperienceLogo from '../components/BiensperienceLogo/BiensperienceLogo';
 
@@ -169,19 +169,23 @@ export const MessagingApp = {
     const [message, setMessage] = useState('');
 
     const contacts = [
-      { name: 'Gabriel Planner', message: 'Just confirmed the Kyoto temple itinerary!', time: '12:25', avatar: '👤', unreadCount: 0, isActive: true },
-      { name: 'Kelly Traveler', message: 'Found the perfect sunset spot in Santorini', time: '11:45', avatar: '👤', unreadCount: 0 },
-      { name: 'Jane Organizer', message: 'Updated the group trip spreadsheet', time: '10:30', avatar: '👤', unreadCount: 1 },
-      { name: 'Rachel Pleasure-Seeker', message: 'That spa recommendation was amazing!', time: 'Yesterday', avatar: '👤' },
-      { name: 'Flora Adrenaline-Junkie', message: 'Bungee jumping tomorrow - who\'s in?', time: 'Yesterday', avatar: '👤', unreadCount: 4 },
-      { name: 'Travel Squad', message: 'Kelly: Don\'t forget passport photos!', time: '2 days ago', avatar: '�', unreadCount: 2 },
-      { name: 'Weekend Warriors', message: 'Gabriel: Camping gear checklist attached', time: '2 days ago', avatar: '�' },
-      { name: 'Foodie Adventures', message: 'Jane: Must-try restaurants in Tokyo', time: '3 days ago', avatar: '�' },
-      { name: 'Beach Lovers', message: 'Rachel: Best beaches in Thailand guide', time: '4 days ago', avatar: '�' },
-      { name: 'Mountain Climbers', message: 'Flora: Everest base camp photos!', time: '5 days ago', avatar: '�' },
-      { name: 'City Explorers', message: 'New York walking tour recommendations', time: '1 week ago', avatar: '�', unreadCount: 2 },
-    { name: 'Oarack Babama', message: 'Enter your message description here...', time: '12:25', avatar: '👤', unreadCount: 2 },
-  ];
+      // Direct messages (humans)
+      { name: 'Gabriel Planner', message: 'Just confirmed the Kyoto temple itinerary!', time: '12:25', avatar: <FaUser />, unreadCount: 0, isActive: true, isOnline: true },
+      { name: 'Kelly Traveler', message: 'Found the perfect sunset spot in Santorini', time: '11:45', avatar: <FaUser />, unreadCount: 0, isOnline: true },
+      { name: 'Jane Organizer', message: 'Updated the group trip spreadsheet', time: '10:30', avatar: <FaUser />, unreadCount: 1 },
+      { name: 'Rachel Pleasure-Seeker', message: 'That spa recommendation was amazing!', time: 'Yesterday', avatar: <FaUser /> },
+      { name: 'Flora Adrenaline-Junkie', message: 'Bungee jumping tomorrow — who\'s in?', time: 'Yesterday', avatar: <FaUser />, unreadCount: 4 },
+
+      // Group chats: experiences
+      { name: 'Kyoto Experience (Group)', message: 'Kelly: Temple passes uploaded', time: '2 days ago', avatar: <FaMapMarkedAlt />, unreadCount: 2 },
+      { name: 'Barcelona Weekend (Experience)', message: 'Jane: Park Güell tickets booked', time: '2 days ago', avatar: <FaMapMarkedAlt /> },
+
+      // Group chats: plans (multiple collaborators)
+      { name: 'Rome Trip Plan (Group)', message: 'Marcus: Itinerary v3 ready', time: '3 days ago', avatar: <FaClipboardList /> },
+      { name: 'Thailand Island Hopping (Plan)', message: 'Rachel: Ferry times updated', time: '4 days ago', avatar: <FaClipboardList /> },
+
+      { name: 'City Explorers', message: 'New York walking tour recommendations', time: '1 week ago', avatar: <FaUsers />, unreadCount: 2 },
+    ];
 
   return (
     <div style={{
@@ -199,7 +203,7 @@ export const MessagingApp = {
         padding: 'var(--space-4) 0',
         gap: 'var(--space-4)',
       }}>
-        {/* Logo and App Name */}
+        {/* Logo */}
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -208,14 +212,6 @@ export const MessagingApp = {
           marginBottom: 'var(--space-6)',
         }}>
           <BiensperienceLogo type="clean" size="lg" />
-          <span style={{
-            fontSize: 'var(--font-size-sm)',
-            fontWeight: 'var(--font-weight-semibold)',
-            color: 'white',
-            letterSpacing: '0.5px',
-          }}>
-            Messages
-          </span>
         </div>
 
         {/* Navigation Icons */}
@@ -587,7 +583,7 @@ export const MessagingApp = {
           padding: 'var(--space-6)',
         }}>
           <MessageBubble
-            text="Hello my dear! I'm here to deliver the design requirement document for our new projects."
+            text="Hey! Just booked our Kyoto temple passes and sent over the e-tickets."
             time="10:25"
             isRead
           />
@@ -601,17 +597,16 @@ export const MessagingApp = {
             alignItems: 'center',
             gap: 'var(--space-3)',
           }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: 'var(--radius-lg)',
-              backgroundColor: 'rgba(102, 126, 234, 0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <span style={{ fontSize: '24px' }}>📄</span>
-            </div>
+            <img
+              src="https://images.unsplash.com/photo-1522383225653-ed111181a951?w=200"
+              alt="Kyoto Temple Passes"
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: 'var(--radius-lg)',
+                objectFit: 'cover'
+              }}
+            />
             <div style={{ flex: 1 }}>
               <div style={{
                 fontSize: 'var(--font-size-base)',
@@ -619,13 +614,13 @@ export const MessagingApp = {
                 color: 'var(--color-text-primary)',
                 marginBottom: 'var(--space-1)',
               }}>
-                Design_project_2025.docx
+                Kyoto_Temple_Passes.pdf
               </div>
               <div style={{
                 fontSize: 'var(--font-size-sm)',
                 color: 'var(--color-text-muted)',
               }}>
-                7.3gb • docx
+                420 KB • PDF
               </div>
             </div>
             <div style={{
@@ -650,7 +645,7 @@ export const MessagingApp = {
           </div>
 
           <MessageBubble
-            text="Do anybody truly dream of electric sheep?"
+            text="Should we start at Fushimi Inari right after sunrise and then head to Nishiki Market for breakfast?"
             time="12:25"
             isSent
             isRead
@@ -673,7 +668,7 @@ export const MessagingApp = {
           </div>
 
           <MessageBubble
-            text="Lorem ipsum dolor sit amet consectetur adipisicing elit. Mollitia dignissimos ab sed possimus minus deserunt amet, voluptatum, quasi eveniet temporibus interdum laruera ut adipem. Voluptatibus quia dolorem quae consequuntur. Aspernatur, quidem nostrum quasi ullam maxime dolor placeat mollitia et id rem enim. Fugiat fuga minima atque placeat maxime. Quisquam, velit!"
+            text="Love that plan! After the torii gates, we can take the JR line to Arashiyama for the bamboo grove. I also saved a tiny ramen spot near Gion—best shoyu broth, we have to try it."
             time="12:25"
             isSent
             isRead

@@ -14,7 +14,7 @@ export default {
       },
     },
   },
-  tags: ['autodocs'],
+  tags: [],
 };
 
 // Sample destination data with travel theme - now compatible with Autocomplete
@@ -327,8 +327,8 @@ export const InteractiveDemo = {
               onClick={() => handleSort('highest')}
               style={{
                 padding: 'var(--space-2) var(--space-4)',
-                background: sortOrder === 'highest' ? 'var(--color-primary)' : 'white',
-                color: sortOrder === 'highest' ? 'white' : 'var(--color-text-primary)',
+                background: sortOrder === 'highest' ? 'var(--color-primary)' : 'var(--color-bg-primary)',
+                color: sortOrder === 'highest' ? 'var(--btn-gradient-color)' : 'var(--color-text-primary)',
                 border: '1px solid var(--color-border-medium)',
                 borderRadius: 'var(--border-radius-md)',
                 cursor: 'pointer',
@@ -342,8 +342,8 @@ export const InteractiveDemo = {
               onClick={() => handleSort('lowest')}
               style={{
                 padding: 'var(--space-2) var(--space-4)',
-                background: sortOrder === 'lowest' ? 'var(--color-primary)' : 'white',
-                color: sortOrder === 'lowest' ? 'white' : 'var(--color-text-primary)',
+                background: sortOrder === 'lowest' ? 'var(--color-primary)' : 'var(--color-bg-primary)',
+                color: sortOrder === 'lowest' ? 'var(--btn-gradient-color)' : 'var(--color-text-primary)',
                 border: '1px solid var(--color-border-medium)',
                 borderRadius: 'var(--border-radius-md)',
                 cursor: 'pointer',
@@ -630,7 +630,7 @@ export const MobileView = {
         {/* Mobile Header with Biensperience logo */}
         <div style={{
           background: 'var(--color-primary)',
-          color: 'white',
+          color: 'var(--btn-gradient-color)',
           padding: 'var(--space-4)',
           display: 'flex',
           alignItems: 'center',
@@ -652,7 +652,7 @@ export const MobileView = {
           <button style={{
             background: 'transparent',
             border: 'none',
-            color: 'white',
+            color: 'var(--btn-gradient-color)',
             padding: 'var(--space-2)',
             cursor: 'pointer'
           }}>
@@ -773,7 +773,7 @@ export const MobileView = {
           }}>
             <span style={{
               background: 'var(--color-primary)',
-              color: 'white',
+              color: 'var(--btn-gradient-color)',
               padding: 'var(--space-1) var(--space-3)',
               borderRadius: 'var(--border-radius-full)',
               display: 'inline-flex',
@@ -859,7 +859,7 @@ export const MobileView = {
                     top: 'var(--space-3)',
                     left: 'var(--space-3)',
                     background: 'var(--color-success)',
-                    color: 'white',
+                    color: 'var(--btn-gradient-color)',
                     padding: 'var(--space-1) var(--space-3)',
                     borderRadius: 'var(--border-radius-full)',
                     fontSize: 'var(--font-size-xs)',
@@ -988,7 +988,7 @@ export const MobileView = {
             width: '100%',
             padding: 'var(--space-4)',
             background: 'var(--color-primary)',
-            color: 'white',
+            color: 'var(--btn-gradient-color)',
             border: 'none',
             borderRadius: 'var(--border-radius-lg)',
             fontSize: 'var(--font-size-base)',

@@ -142,21 +142,22 @@ export const SearchAndFilter = () => (
               <Form.Check 
                 type="checkbox"
                 label="Free"
-                style={{ marginBottom: 'var(--space-2)' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="$ - Under $50"
-                style={{ marginBottom: 'var(--space-2)' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="$$ - $50 - $100"
-                style={{ marginBottom: 'var(--space-2)' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="$$$ - Over $100"
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, whiteSpace: 'nowrap' }}
               />
             </div>
 
@@ -173,21 +174,22 @@ export const SearchAndFilter = () => (
               <Form.Check 
                 type="checkbox"
                 label="< 2 hours"
-                style={{ marginBottom: 'var(--space-2)' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="2-4 hours"
-                style={{ marginBottom: 'var(--space-2)' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="Half day"
-                style={{ marginBottom: 'var(--space-2)' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="Full day"
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, whiteSpace: 'nowrap' }}
               />
             </div>
 
@@ -206,7 +208,7 @@ export const SearchAndFilter = () => (
                   key={cat}
                   type="checkbox"
                   label={cat}
-                  style={{ marginBottom: 'var(--space-2)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
                 />
               ))}
             </div>

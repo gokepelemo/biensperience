@@ -13,7 +13,7 @@ export default {
       },
     },
   },
-  tags: ['autodocs'],
+  tags: [],
 };
 
 // Basic modal

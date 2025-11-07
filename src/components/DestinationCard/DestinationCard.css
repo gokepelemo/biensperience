@@ -30,5 +30,5 @@
     -webkit-line-clamp: 3;
     line-clamp: 3;
     text-overflow: ellipsis;
-    color: white;
+    color: var(--btn-gradient-color);
 }

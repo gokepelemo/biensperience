@@ -119,19 +119,7 @@ if (process.env.NODE_ENV !== 'test') {
  */
 app.use(express.json());
 
-/**
- * Rate limiting configuration - 1000 requests per 10 minutes per IP
- * Disabled in test environment
- */
-if (process.env.NODE_ENV !== 'test') {
-  const limiter = rateLimit({
-    windowMs: 10 * 60 * 1000, // 10 minutes
-    max: 1000, // limit each IP to 1000 requests per windowMs
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
-  app.use(limiter);
-}
+// NOTE: Global rate limiter moved below (after auth) to allow super admin skip logic
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -213,6 +201,15 @@ app.use(require("./utilities/api-token-middleware"));
 
 // JWT token checking (populate req.user) - needs to be before CSRF to check super admin status
 app.use(require("./config/checkToken"));
+
+/**
+ * Global API rate limiting (after auth so we can skip super admins)
+ * Uses config/rateLimiters apiLimiter with higher thresholds and skip for super admins
+ */
+if (process.env.NODE_ENV !== 'test') {
+  const { apiLimiter } = require('./config/rateLimiters');
+  app.use('/api', apiLimiter);
+}
 
 // Register auth routes AFTER JWT/token middleware (so logout can access req.user)
 app.use("/api/auth", require("./routes/api/auth"));

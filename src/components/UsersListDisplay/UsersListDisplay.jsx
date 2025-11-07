@@ -47,7 +47,15 @@ const UsersListDisplay = ({
           </div>
           {showMessage && (
             <div className="ms-3">
-              <p className="mb-0 text-muted small">Loading...</p>
+              <p className="mb-0 text-muted small">
+                Loading
+                <span className="animated-dots" aria-hidden="true">
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                </span>
+                <span className="visually-hidden"> Loading</span>
+              </p>
             </div>
           )}
         </div>

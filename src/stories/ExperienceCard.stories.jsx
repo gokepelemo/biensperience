@@ -1,4 +1,3 @@
-import { BrowserRouter } from 'react-router-dom';
 import ExperienceCard from '../components/ExperienceCard/ExperienceCard';
 
 export default {
@@ -6,11 +5,9 @@ export default {
   component: ExperienceCard,
   decorators: [
     (Story) => (
-      <BrowserRouter>
-        <div style={{ maxWidth: '400px' }}>
-          <Story />
-        </div>
-      </BrowserRouter>
+      <div style={{ maxWidth: '400px' }}>
+        <Story />
+      </div>
     ),
   ],
   parameters: {
@@ -21,7 +18,7 @@ export default {
       },
     },
   },
-  tags: ['autodocs'],
+  tags: [],
 };
 
 const sampleExperience = {

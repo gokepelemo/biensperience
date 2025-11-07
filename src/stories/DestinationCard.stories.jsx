@@ -1,4 +1,3 @@
-import { BrowserRouter } from 'react-router-dom';
 import DestinationCard from '../components/DestinationCard/DestinationCard';
 
 export default {
@@ -6,11 +5,9 @@ export default {
   component: DestinationCard,
   decorators: [
     (Story) => (
-      <BrowserRouter>
-        <div style={{ maxWidth: '400px' }}>
-          <Story />
-        </div>
-      </BrowserRouter>
+      <div style={{ maxWidth: '400px' }}>
+        <Story />
+      </div>
     ),
   ],
   parameters: {
@@ -21,7 +18,7 @@ export default {
       },
     },
   },
-  tags: ['autodocs'],
+  tags: [],
 };
 
 const sampleDestination = {

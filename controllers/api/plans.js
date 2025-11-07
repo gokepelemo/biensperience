@@ -380,12 +380,25 @@ const checkUserPlanForExperience = asyncHandler(async (req, res) => {
     owner: plan.user
   }));
 
+  // Ensure user's own plan is prioritized first if it exists
+  transformedPlans.sort((a, b) => {
+    if (a.isOwn && !b.isOwn) return -1;
+    if (!a.isOwn && b.isOwn) return 1;
+    // Secondary: newest first
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
+  const ownPlan = transformedPlans.find(p => p.isOwn) || null;
+  const primary = ownPlan || transformedPlans[0];
+
   res.json({ 
     hasPlan: true, 
     plans: transformedPlans,
-    // Return first plan's data
-    planId: transformedPlans[0]._id,
-    createdAt: transformedPlans[0].createdAt
+    // Prefer user's own plan when returning the primary planId
+    planId: primary._id,
+    createdAt: primary.createdAt,
+    // Explicit field for clients that prefer owner-only deletes
+    ownPlanId: ownPlan ? ownPlan._id : null
   });
 });
 

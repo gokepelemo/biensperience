@@ -1,3 +1,4 @@
+import React from 'react';
 import '../styles/utilities.css';
 import '../styles/design-tokens.css';
 
@@ -6,12 +7,47 @@ export default {
   parameters: {
     layout: 'centered',
     docs: {
+      page: () => (
+        <div style={{ maxWidth: 920, margin: '0 auto', padding: '1rem' }}>
+          <h1 style={{ marginBottom: '0.5rem' }}>Buttons</h1>
+          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+            Unified button styles and patterns, built on design tokens for consistent theming and dark mode support.
+          </p>
+          <hr style={{ margin: '1.25rem 0' }} />
+
+          <h2 style={{ marginBottom: '0.5rem' }}>Design Tokens</h2>
+          <ul>
+            <li><code>--gradient-primary</code> – Primary CTA gradient</li>
+            <li><code>--color-primary</code> – Brand color for borders/accents</li>
+            <li><code>--radius-full</code> – Fully rounded CTA buttons</li>
+            <li><code>--shadow-md</code> / <code>--shadow-lg</code> – Depth for emphasis</li>
+          </ul>
+
+          <h2 style={{ marginBottom: '0.5rem' }}>Variants</h2>
+          <ul>
+            <li><strong>Gradient</strong>: .btn-gradient – primary CTAs</li>
+            <li><strong>Outline</strong>: .btn-outline-custom – secondary actions</li>
+            <li><strong>Bootstrap</strong>: .btn, .btn-outline-* – integrated palette</li>
+          </ul>
+
+          <h2 style={{ marginBottom: '0.5rem' }}>Accessibility</h2>
+          <ul>
+            <li>Min. target size: 44×44px</li>
+            <li>Visible focus ring; no color-only state changes</li>
+            <li>ARIA labels for icon-only buttons</li>
+          </ul>
+
+          <p style={{ marginTop: '1rem', color: 'var(--color-text-muted)' }}>
+            Tip: Prefer semantic <code>&lt;button&gt;</code> elements over clickable <code>&lt;div&gt;</code>s for keyboard and screen reader support.
+          </p>
+        </div>
+      ),
       description: {
         component: 'Button utilities from the design system. Includes gradient buttons, outline buttons, and file input styling. All buttons support dark mode and are fully accessible.',
       },
     },
   },
-  tags: ['autodocs'],
+  tags: [],
 };
 
 // Gradient Button

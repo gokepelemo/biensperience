@@ -129,7 +129,7 @@ export const LoginPage = {
             </Form.Group>
 
             {/* Password Field */}
-            <Form.Group className="mb-3">
+            <Form.Group className="mb-4">
               <Form.Label style={{
                 fontSize: 'var(--font-size-sm)',
                 fontWeight: 'var(--font-weight-semibold)',
@@ -620,7 +620,7 @@ export const SignUpPage = {
             </Form.Group>
 
             {/* Terms & Conditions */}
-            <Form.Group className="mb-6">
+            <Form.Group style={{ marginBottom: 'var(--space-6)' }}>
               <Checkbox
                 id="terms"
                 label={
@@ -837,7 +837,7 @@ export const ForgotPasswordPage = {
           {/* Form */}
           <Form>
             {/* Email Field */}
-            <Form.Group className="mb-6">
+            <Form.Group style={{ marginBottom: 'var(--space-6)' }}>
               <Form.Label style={{
                 fontSize: 'var(--font-size-sm)',
                 fontWeight: 'var(--font-weight-semibold)',

@@ -5,54 +5,73 @@
 
 const rateLimit = require('express-rate-limit');
 
+// Helper: skip limiting for super admins
+function skipIfSuperAdmin(req) {
+  try {
+    const user = req.user;
+    return !!(user && (user.isSuperAdmin || user.role === 'super_admin'));
+  } catch (_) {
+    return false;
+  }
+}
+
 /**
  * General API rate limiter
- * 100 requests per 15 minutes per IP
+ * Increased: default 3000 requests per 10 minutes per IP
+ * Configurable via env: API_RATE_WINDOW_MS, API_RATE_MAX
  */
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  windowMs: parseInt(process.env.API_RATE_WINDOW_MS || '', 10) || (10 * 60 * 1000), // 10 minutes
+  max: parseInt(process.env.API_RATE_MAX || '', 10) || 3000,
   message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipIfSuperAdmin,
 });
 
 /**
  * Strict rate limiter for authentication endpoints
- * 5 attempts per 15 minutes per IP
+ * Increased: default 15 attempts per 15 minutes per IP
+ * Configurable via env: AUTH_RATE_WINDOW_MS, AUTH_RATE_MAX
  */
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
+  windowMs: parseInt(process.env.AUTH_RATE_WINDOW_MS || '', 10) || (15 * 60 * 1000),
+  max: parseInt(process.env.AUTH_RATE_MAX || '', 10) || 15,
   message: 'Too many login attempts, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful requests
+  skipSuccessfulRequests: true,
+  // Super admin skip doesn't apply pre-auth, but leaving for completeness on authenticated auth endpoints
+  skip: skipIfSuperAdmin,
 });
 
 /**
  * Rate limiter for permission/collaborator modification endpoints
- * 20 requests per 15 minutes per IP
+ * Increased: default 100 requests per 15 minutes per IP
+ * Configurable via env: COLLAB_RATE_WINDOW_MS, COLLAB_RATE_MAX
  * Prevents abuse of collaboration features
  */
 const collaboratorLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // Limit each IP to 20 requests per windowMs
+  windowMs: parseInt(process.env.COLLAB_RATE_WINDOW_MS || '', 10) || (15 * 60 * 1000),
+  max: parseInt(process.env.COLLAB_RATE_MAX || '', 10) || 100,
   message: 'Too many collaborator modification requests, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipIfSuperAdmin,
 });
 
 /**
  * Rate limiter for create/update/delete operations
- * 30 requests per 15 minutes per IP
+ * Increased: default 300 requests per 15 minutes per IP
+ * Configurable via env: MOD_RATE_WINDOW_MS, MOD_RATE_MAX
  */
 const modificationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // Limit each IP to 30 requests per windowMs
+  windowMs: parseInt(process.env.MOD_RATE_WINDOW_MS || '', 10) || (15 * 60 * 1000),
+  max: parseInt(process.env.MOD_RATE_MAX || '', 10) || 300,
   message: 'Too many modification requests, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipIfSuperAdmin,
 });
 
 module.exports = {

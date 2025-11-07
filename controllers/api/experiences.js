@@ -17,14 +17,30 @@ const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 
 async function index(req, res) {
   try {
-    let experiences = await Experience.find({})
-      .populate("destination")
-      .populate("photos", "url caption photo_credit photo_credit_url width height")
-      .exec();
-    res.status(200).json(experiences);
+      const start = Date.now();
+      // Aggressive optimization: return only minimal fields needed for card list
+      // - use lean() for plain objects
+      // - slice photos to 1 to reduce populate cost
+      // - avoid destination populate (not used in ExperienceCard list)
+      const query = Experience.find({}, null, { hint: { createdAt: -1 } })
+        // Include minimal fields for cards and client-side filters
+        // destination (as ObjectId) is required for SingleDestination filtering
+        .select('name destination photos default_photo_id permissions experience_type createdAt updatedAt')
+        .slice('photos', 1)
+        .populate({ path: 'photos', select: 'url caption width height' })
+        .lean({ virtuals: false });
+
+      const experiences = await query.exec();
+
+      backendLogger.info('Experiences index fetched', {
+        count: experiences.length,
+        durationMs: Date.now() - start,
+        userId: req.user?._id
+      });
+      res.status(200).json(experiences);
   } catch (err) {
-    backendLogger.error('Error fetching experiences', { error: err.message, userId: req.user?._id });
-    res.status(400).json({ error: 'Failed to fetch experiences' });
+      backendLogger.error('Error fetching experiences', { error: err.message, userId: req.user?._id, durationMs: Date.now() - start });
+      res.status(400).json({ error: 'Failed to fetch experiences' });
   }
 }
 

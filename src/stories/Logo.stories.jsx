@@ -1,3 +1,4 @@
+import React from 'react';
 import BiensperienceLogo from '../components/BiensperienceLogo/BiensperienceLogo';
 
 export default {
@@ -6,6 +7,49 @@ export default {
   parameters: {
     layout: 'centered',
     docs: {
+      page: () => (
+        <div style={{ maxWidth: 920, margin: '0 auto', padding: '1rem' }}>
+          <h1 style={{ marginBottom: '0.5rem' }}>Biensperience Logo</h1>
+          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+            Unified logo component with multiple visual styles, sizes, and animation for loading states.
+          </p>
+          <hr style={{ margin: '1.25rem 0' }} />
+
+          <h2>Variations</h2>
+          <ul>
+            <li><strong>clean</strong> – Gradient tile with white plus and subtle shadow</li>
+            <li><strong>flat</strong> – Flat gradient, no effects</li>
+            <li><strong>soft</strong> – Softer gradient with gentle shadow</li>
+            <li><strong>white</strong> – White tile with gradient plus and shimmer</li>
+            <li><strong>engine</strong> – Animated loading indicator</li>
+          </ul>
+
+          <h2>Sizes</h2>
+          <p>Presets: xs (16), sm (24), md (32), lg (48), xl (64), 2xl (96), 3xl (128). Use <code>width</code>/<code>height</code> for custom.</p>
+
+          <h2>Transforms</h2>
+          <ul>
+            <li>rotate: degrees (e.g. 45)</li>
+            <li>scale: multiplier (e.g. 1.5)</li>
+            <li>flipH / flipV: booleans</li>
+          </ul>
+
+          <h2>Usage</h2>
+          <pre style={{ background: 'var(--color-bg-secondary)', padding: '1rem', borderRadius: 8, overflow: 'auto' }}>
+{`// Default clean logo
+<BiensperienceLogo />
+
+// White background variant (large)
+<BiensperienceLogo type="white" size="lg" />
+
+// Loading indicator
+<BiensperienceLogo type="engine" size="xl" />
+
+// Custom size and rotation
+<BiensperienceLogo width={100} rotate={45} />`}
+          </pre>
+        </div>
+      ),
       description: {
         component: `
 # Biensperience Logo
@@ -125,7 +169,7 @@ The component supports both preset sizes and custom dimensions:
       }
     }
   },
-  tags: ['autodocs']
+  tags: []
 };
 
 /**

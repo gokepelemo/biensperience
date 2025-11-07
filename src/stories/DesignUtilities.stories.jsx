@@ -1,3 +1,4 @@
+import React from 'react';
 import '../styles/utilities.css';
 import '../styles/design-tokens.css';
 
@@ -6,12 +7,39 @@ export default {
   parameters: {
     layout: 'padded',
     docs: {
+      page: () => (
+        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '1rem' }}>
+          <h1 style={{ marginBottom: '0.5rem' }}>Utilities</h1>
+          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+            Reusable utility classes designed for fast, consistent UI construction. Utilities are token-driven and dark-mode aware.
+          </p>
+          <hr style={{ margin: '1.25rem 0' }} />
+
+          <h2>Categories</h2>
+          <ul>
+            <li><strong>Buttons</strong>: .btn-gradient, .btn-outline-custom, .btn-rounded, .btn-shadow</li>
+            <li><strong>Layout</strong>: .flex-between, .flex-center, .space-y-[1-6]</li>
+            <li><strong>Typography</strong>: .text-gradient, .text-shadow, .text-truncate-[1-3]</li>
+            <li><strong>Feedback</strong>: .skeleton-text, .skeleton-circle, .skeleton-rectangle</li>
+            <li><strong>Forms</strong>: .form-unified</li>
+            <li><strong>Tables</strong>: .table-unified</li>
+            <li><strong>Responsive</strong>: .show-mobile, .hide-mobile</li>
+          </ul>
+
+          <h2>Guidelines</h2>
+          <ul>
+            <li>Prefer utility classes for spacing and layout primitives</li>
+            <li>Use component classes for complex patterns (cards, modals)</li>
+            <li>Never hardcode colors; rely on design tokens</li>
+          </ul>
+        </div>
+      ),
       description: {
         component: 'Comprehensive utility classes from utilities.css. Includes buttons, forms, tables, layout helpers, text utilities, and more.',
       },
     },
   },
-  tags: ['autodocs'],
+  tags: [],
 };
 
 // Button utilities
@@ -372,22 +400,28 @@ export const CompleteExample = {
       </div>
 
       <div className="slide-up" style={{ animationDelay: '0.1s' }}>
-        <div style={{ background: 'white', border: '1px solid #ddd', padding: '1.5rem', borderRadius: '8px' }}>
+        <div style={{ 
+          background: 'var(--color-bg-primary)',
+          border: '1px solid var(--color-border-medium)',
+          padding: '1.5rem', 
+          borderRadius: '8px',
+          color: 'var(--color-text-primary)'
+        }}>
           <div className="flex-between mb-3">
             <h4>Features</h4>
             <span className="pill pill-primary">v0.4.0</span>
           </div>
           
           <div className="space-y-2">
-            <div className="flex-between" style={{ padding: '0.75rem', background: '#f8f9fa', borderRadius: '6px' }}>
+            <div className="flex-between" style={{ padding: '0.75rem', background: 'var(--color-bg-secondary)', borderRadius: '6px' }}>
               <span>Button Utilities</span>
               <span className="pill pill-success">✓ Complete</span>
             </div>
-            <div className="flex-between" style={{ padding: '0.75rem', background: '#f8f9fa', borderRadius: '6px' }}>
+            <div className="flex-between" style={{ padding: '0.75rem', background: 'var(--color-bg-secondary)', borderRadius: '6px' }}>
               <span>Form Utilities</span>
               <span className="pill pill-success">✓ Complete</span>
             </div>
-            <div className="flex-between" style={{ padding: '0.75rem', background: '#f8f9fa', borderRadius: '6px' }}>
+            <div className="flex-between" style={{ padding: '0.75rem', background: 'var(--color-bg-secondary)', borderRadius: '6px' }}>
               <span>Layout Helpers</span>
               <span className="pill pill-success">✓ Complete</span>
             </div>
@@ -396,7 +430,13 @@ export const CompleteExample = {
       </div>
 
       <div className="scale-in" style={{ animationDelay: '0.2s' }}>
-        <div style={{ background: 'white', border: '1px solid #ddd', padding: '1.5rem', borderRadius: '8px' }}>
+        <div style={{ 
+          background: 'var(--color-bg-primary)',
+          border: '1px solid var(--color-border-medium)',
+          padding: '1.5rem', 
+          borderRadius: '8px',
+          color: 'var(--color-text-primary)'
+        }}>
           <h4 className="mb-3">Quick Actions</h4>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button className="btn-gradient btn-rounded">Create New</button>
