@@ -101,13 +101,34 @@ export function generateSchemaData(entity, entityType) {
           name: entity.destination.name,
           address: {
             '@type': 'PostalAddress',
-            addressCountry: entity.destination.country
+            addressCountry: entity.destination.country,
+            addressRegion: entity.destination.state
           }
         } : undefined,
         offers: entity.cost_estimate ? {
           '@type': 'Offer',
           price: entity.cost_estimate,
-          priceCurrency: 'USD'
+          priceCurrency: 'USD',
+          description: `Estimated cost for ${entity.name}`
+        } : undefined,
+        duration: entity.max_planning_days ? `P${entity.max_planning_days}D` : undefined,
+        additionalProperty: [
+          entity.experience_type ? {
+            '@type': 'PropertyValue',
+            name: 'Experience Type',
+            value: entity.experience_type
+          } : undefined,
+          entity.max_planning_days ? {
+            '@type': 'PropertyValue',
+            name: 'Planning Days',
+            value: entity.max_planning_days
+          } : undefined
+        ].filter(Boolean),
+        aggregateRating: entity.average_rating ? {
+          '@type': 'AggregateRating',
+          ratingValue: entity.average_rating,
+          bestRating: 5,
+          worstRating: 1
         } : undefined
       };
 
@@ -118,12 +139,26 @@ export function generateSchemaData(entity, entityType) {
         address: {
           '@type': 'PostalAddress',
           addressCountry: entity.country,
-          addressRegion: entity.state
+          addressRegion: entity.state,
+          addressLocality: entity.name
         },
         geo: entity.map_location ? {
           '@type': 'GeoCoordinates',
-          // Parse coordinates from map_location if available
-        } : undefined
+          latitude: entity.map_location.lat,
+          longitude: entity.map_location.lng
+        } : undefined,
+        containsPlace: entity.experiences?.length > 0 ? entity.experiences.map(exp => ({
+          '@type': 'TouristTrip',
+          name: exp.name,
+          url: `${baseSchema.url}/experiences/${exp._id}`
+        })) : undefined,
+        additionalProperty: [
+          entity.travel_tips?.length > 0 ? {
+            '@type': 'PropertyValue',
+            name: 'Travel Tips',
+            value: entity.travel_tips.length
+          } : undefined
+        ].filter(Boolean)
       };
 
     case 'user':
@@ -132,7 +167,26 @@ export function generateSchemaData(entity, entityType) {
         '@type': 'Person',
         givenName: entity.name?.split(' ')[0],
         familyName: entity.name?.split(' ').slice(1).join(' '),
-        email: entity.email // Only include if public profile
+        knowsAbout: [
+          ...(entity.experiences?.map(exp => exp.name) || []),
+          ...(entity.destinations?.map(dest => dest.name) || [])
+        ],
+        hasOccupation: {
+          '@type': 'Occupation',
+          name: 'Travel Enthusiast'
+        },
+        additionalProperty: [
+          entity.experiences?.length > 0 ? {
+            '@type': 'PropertyValue',
+            name: 'Planned Experiences',
+            value: entity.experiences.length
+          } : undefined,
+          entity.destinations?.length > 0 ? {
+            '@type': 'PropertyValue',
+            name: 'Favorite Destinations',
+            value: entity.destinations.length
+          } : undefined
+        ].filter(Boolean)
       };
 
     default:

@@ -212,6 +212,17 @@ export default function TravelTipsManager({
               value={newTip}
               onChange={onNewTipChange}
               onKeyPress={onNewTipKeyPress}
+              style={{
+                backgroundColor: 'var(--form-field-control-bg)',
+                border: 'var(--form-field-border)',
+                color: 'var(--form-field-control-color)',
+                fontSize: 'var(--form-field-control-font-size)',
+                padding: 'var(--form-field-control-padding)',
+                minHeight: 'var(--form-field-min-height)',
+                outline: 'var(--form-field-control-outline)',
+                boxShadow: 'var(--form-field-control-box-shadow)',
+                borderRadius: 'var(--form-field-border-radius)',
+              }}
             />
             <Button
               variant="outline-primary"

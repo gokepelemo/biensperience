@@ -65,28 +65,49 @@ export const SearchAndFilter = () => (
       }}>
         <Row className="g-3">
           <Col lg={6}>
-            <InputGroup>
+            <InputGroup style={{
+              border: 'var(--form-field-border)',
+              borderRadius: 'var(--form-field-border-radius)',
+              overflow: 'var(--form-field-overflow)',
+              minHeight: 'var(--form-field-min-height)',
+            }}>
               <InputGroup.Text style={{
-                backgroundColor: 'var(--color-bg-secondary)',
-                border: '1px solid var(--color-border-medium)',
-                borderRight: 'none',
+                backgroundColor: 'var(--form-field-addon-bg)',
+                border: 'var(--form-field-addon-border)',
+                color: 'var(--form-field-addon-color)',
+                padding: 'var(--form-field-addon-padding)',
+                minHeight: 'var(--form-field-addon-min-height)',
+                display: 'flex',
+                alignItems: 'center',
               }}>
-                <FaSearch style={{ color: 'var(--color-text-muted)' }} />
+                <FaSearch />
               </InputGroup.Text>
               <Form.Control
                 placeholder="Search experiences..."
                 style={{
-                  border: '1px solid var(--color-border-medium)',
-                  borderLeft: 'none',
-                  fontSize: 'var(--font-size-base)',
+                  backgroundColor: 'var(--form-field-control-bg)',
+                  border: 'var(--form-field-control-border)',
+                  color: 'var(--form-field-control-color)',
+                  fontSize: 'var(--form-field-control-font-size)',
+                  padding: 'var(--form-field-control-padding)',
+                  minHeight: 'var(--form-field-control-min-height)',
+                  outline: 'var(--form-field-control-outline)',
+                  boxShadow: 'var(--form-field-control-box-shadow)',
                 }}
               />
             </InputGroup>
           </Col>
           <Col lg={3}>
             <Form.Select style={{
-              border: '1px solid var(--color-border-medium)',
-              borderRadius: 'var(--radius-md)',
+              border: 'var(--form-field-border)',
+              borderRadius: 'var(--form-field-border-radius)',
+              minHeight: 'var(--form-field-min-height)',
+              backgroundColor: 'var(--form-field-control-bg)',
+              color: 'var(--form-field-control-color)',
+              fontSize: 'var(--form-field-control-font-size)',
+              padding: 'var(--form-field-control-padding)',
+              outline: 'var(--form-field-control-outline)',
+              boxShadow: 'var(--form-field-control-box-shadow)',
             }}>
               <option>All Destinations</option>
               <option>Tokyo, Japan</option>
@@ -142,22 +163,22 @@ export const SearchAndFilter = () => (
               <Form.Check 
                 type="checkbox"
                 label="Free"
-                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'var(--space-2)', marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="$ - Under $50"
-                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'var(--space-2)', marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="$$ - $50 - $100"
-                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'var(--space-2)', marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="$$$ - Over $100"
-                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, whiteSpace: 'nowrap' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
             </div>
 
@@ -174,22 +195,22 @@ export const SearchAndFilter = () => (
               <Form.Check 
                 type="checkbox"
                 label="< 2 hours"
-                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'var(--space-2)', marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="2-4 hours"
-                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'var(--space-2)', marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="Half day"
-                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'var(--space-2)', marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
               <Form.Check 
                 type="checkbox"
                 label="Full day"
-                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, whiteSpace: 'nowrap' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'var(--space-2)', whiteSpace: 'nowrap' }}
               />
             </div>
 
@@ -208,7 +229,7 @@ export const SearchAndFilter = () => (
                   key={cat}
                   type="checkbox"
                   label={cat}
-                  style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', paddingLeft: 0, marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'var(--space-2)', marginBottom: 'var(--space-2)', whiteSpace: 'nowrap' }}
                 />
               ))}
             </div>

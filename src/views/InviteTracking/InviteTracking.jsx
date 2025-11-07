@@ -19,6 +19,7 @@ import { logger } from '../../utilities/logger';
 import { getDefaultPhoto } from '../../utilities/photo-utils';
 import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
+import PageMeta from '../../components/PageMeta/PageMeta';
 import './InviteTracking.css';
 
 export default function InviteTracking() {
@@ -540,20 +541,26 @@ export default function InviteTracking() {
   };
 
   return (
-    <div className="profile-dropdown-view">
-      <div className="container-fluid">
-        <div className="view-header">
-          <div className="row">
-            <div className="col-12">
-              <h1><FaQrcode /> Invite Tracking</h1>
-              <p className="header-description">
-                Track your invite codes and see who has joined using them
-              </p>
+    <>
+      <PageMeta
+        title="Invite Tracking - Biensperience"
+        description="Track your invite codes and see detailed analytics about who has joined Biensperience using your invitations. Monitor usage statistics and redemption data."
+        keywords="invite tracking, invite codes, analytics, user referrals, Biensperience"
+        ogTitle="Invite Tracking Dashboard - Biensperience"
+        ogDescription="Monitor your invite code performance and see who has joined the platform through your referrals."
+      />
+      <div className="profile-dropdown-view">
+        <div className="container-fluid">
+          <div className="view-header">
+            <div className="row">
+              <div className="col-12">
+                <h1><FaQrcode /> Invite Tracking</h1>
+                <p className="header-description">
+                  Track your invite codes and see who has joined using them
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
-
-        {error && (
+          </div>        {error && (
           <Alert type="danger" message={error} dismissible onClose={() => setError(null)} />
         )}
 
@@ -578,5 +585,6 @@ export default function InviteTracking() {
         )}
       </div>
     </div>
+    </>
   );
 }

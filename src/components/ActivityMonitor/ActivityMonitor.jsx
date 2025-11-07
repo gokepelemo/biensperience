@@ -203,14 +203,38 @@ export default function ActivityMonitor({ show, onHide }) {
                 {/* Search */}
                 <div className="col-lg-3 col-md-6">
                   <Form.Label>Search</Form.Label>
-                  <InputGroup>
+                  <InputGroup style={{
+                    border: 'var(--form-field-border)',
+                    borderRadius: 'var(--form-field-border-radius)',
+                    overflow: 'var(--form-field-overflow)',
+                    minHeight: 'var(--form-field-min-height)',
+                  }}>
                     <Form.Control
                       type="text"
                       placeholder={lang.en.placeholder.searchActivities}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
+                      style={{
+                        backgroundColor: 'var(--form-field-control-bg)',
+                        border: 'var(--form-field-control-border)',
+                        color: 'var(--form-field-control-color)',
+                        fontSize: 'var(--form-field-control-font-size)',
+                        padding: 'var(--form-field-control-padding)',
+                        minHeight: 'var(--form-field-control-min-height)',
+                        outline: 'var(--form-field-control-outline)',
+                        boxShadow: 'var(--form-field-control-box-shadow)',
+                        borderRadius: '0',
+                      }}
                     />
-                    <Button variant="outline-secondary" type="submit" disabled={loading}>
+                    <Button variant="outline-secondary" type="submit" disabled={loading} style={{
+                      backgroundColor: 'var(--form-field-addon-bg)',
+                      border: 'var(--form-field-addon-border)',
+                      color: 'var(--form-field-addon-color)',
+                      minHeight: 'var(--form-field-addon-min-height)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
                       <FaSearch />
                     </Button>
                   </InputGroup>
@@ -253,6 +277,17 @@ export default function ActivityMonitor({ show, onHide }) {
                     type="date"
                     value={filters.startDate}
                     onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                    style={{
+                      backgroundColor: 'var(--form-field-control-bg)',
+                      border: 'var(--form-field-border)',
+                      color: 'var(--form-field-control-color)',
+                      fontSize: 'var(--form-field-control-font-size)',
+                      padding: 'var(--form-field-control-padding)',
+                      minHeight: 'var(--form-field-min-height)',
+                      outline: 'var(--form-field-control-outline)',
+                      boxShadow: 'var(--form-field-control-box-shadow)',
+                      borderRadius: 'var(--form-field-border-radius)',
+                    }}
                   />
                 </div>
                 <div className="col-lg-2 col-md-6">
@@ -261,6 +296,17 @@ export default function ActivityMonitor({ show, onHide }) {
                     type="date"
                     value={filters.endDate}
                     onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                    style={{
+                      backgroundColor: 'var(--form-field-control-bg)',
+                      border: 'var(--form-field-border)',
+                      color: 'var(--form-field-control-color)',
+                      fontSize: 'var(--form-field-control-font-size)',
+                      padding: 'var(--form-field-control-padding)',
+                      minHeight: 'var(--form-field-min-height)',
+                      outline: 'var(--form-field-control-outline)',
+                      boxShadow: 'var(--form-field-control-box-shadow)',
+                      borderRadius: 'var(--form-field-border-radius)',
+                    }}
                   />
                 </div>
 

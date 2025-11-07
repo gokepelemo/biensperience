@@ -82,6 +82,17 @@ export default function FormField({
       className={className}
       as={as}
       rows={rows}
+      style={{
+        backgroundColor: 'var(--form-field-control-bg)',
+        border: hasInputGroup ? 'var(--form-field-control-border)' : 'var(--form-field-border)',
+        color: 'var(--form-field-control-color)',
+        fontSize: 'var(--form-field-control-font-size)',
+        padding: 'var(--form-field-control-padding)',
+        minHeight: hasInputGroup ? 'var(--form-field-control-min-height)' : 'var(--form-field-min-height)',
+        outline: 'var(--form-field-control-outline)',
+        boxShadow: 'var(--form-field-control-box-shadow)',
+        borderRadius: hasInputGroup ? '0' : 'var(--form-field-border-radius)',
+      }}
       {...rest}
     >
       {children}
@@ -99,10 +110,39 @@ export default function FormField({
       )}
       
       {hasInputGroup ? (
-        <InputGroup>
-          {prepend && <InputGroup.Text>{prepend}</InputGroup.Text>}
+        <InputGroup style={{
+          border: 'var(--form-field-border)',
+          borderRadius: 'var(--form-field-border-radius)',
+          overflow: 'var(--form-field-overflow)',
+          minHeight: 'var(--form-field-min-height)',
+        }}>
+          {prepend && (
+            <InputGroup.Text style={{
+              backgroundColor: 'var(--form-field-addon-bg)',
+              border: 'var(--form-field-addon-border)',
+              color: 'var(--form-field-addon-color)',
+              padding: 'var(--form-field-addon-padding)',
+              minHeight: 'var(--form-field-addon-min-height)',
+              display: 'flex',
+              alignItems: 'center',
+            }}>
+              {prepend}
+            </InputGroup.Text>
+          )}
           {formControl}
-          {append && <InputGroup.Text>{append}</InputGroup.Text>}
+          {append && (
+            <InputGroup.Text style={{
+              backgroundColor: 'var(--form-field-addon-bg)',
+              border: 'var(--form-field-addon-border)',
+              color: 'var(--form-field-addon-color)',
+              padding: 'var(--form-field-addon-padding)',
+              minHeight: 'var(--form-field-addon-min-height)',
+              display: 'flex',
+              alignItems: 'center',
+            }}>
+              {append}
+            </InputGroup.Text>
+          )}
         </InputGroup>
       ) : (
         formControl

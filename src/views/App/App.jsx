@@ -65,11 +65,32 @@ export default function App() {
             '@context': 'https://schema.org',
             '@type': 'WebSite',
             'name': 'Biensperience',
-            'description': 'Visual travel experience platform for planning and sharing adventures',
+            'alternateName': 'Biensperience Travel Planning Platform',
+            'description': 'Visual travel experience platform for planning and sharing adventures. Discover curated destinations, create your travel bucket list, and organize your adventures with fellow travelers.',
             'url': window.location.origin,
             'publisher': {
               '@type': 'Organization',
-              'name': 'Biensperience'
+              'name': 'Biensperience',
+              'description': 'A platform connecting travelers and adventurers worldwide',
+              'url': window.location.origin,
+              'logo': `${window.location.origin}/logo.png`,
+              'sameAs': [
+                'https://twitter.com/biensperience'
+              ]
+            },
+            'potentialAction': {
+              '@type': 'SearchAction',
+              'target': `${window.location.origin}/experiences?search={search_term_string}`,
+              'query-input': 'required name=search_term_string'
+            },
+            'about': {
+              '@type': 'Thing',
+              'name': 'Travel Planning',
+              'description': 'Planning and organizing travel experiences and adventures'
+            },
+            'audience': {
+              '@type': 'Audience',
+              'audienceType': 'Travelers and adventurers'
             }
           })}
         </script>

@@ -327,6 +327,17 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                   placeholder="user@example.com"
                   value={singleForm.email}
                   onChange={(e) => setSingleForm({ ...singleForm, email: e.target.value })}
+                  style={{
+                    backgroundColor: 'var(--form-field-control-bg)',
+                    border: 'var(--form-field-border)',
+                    color: 'var(--form-field-control-color)',
+                    fontSize: 'var(--form-field-control-font-size)',
+                    padding: 'var(--form-field-control-padding)',
+                    minHeight: 'var(--form-field-min-height)',
+                    outline: 'var(--form-field-control-outline)',
+                    boxShadow: 'var(--form-field-control-box-shadow)',
+                    borderRadius: 'var(--form-field-border-radius)',
+                  }}
                 />
                 <Form.Text>If provided, only this email can use the code</Form.Text>
               </Form.Group>
@@ -338,6 +349,17 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                   placeholder="John Doe"
                   value={singleForm.inviteeName}
                   onChange={(e) => setSingleForm({ ...singleForm, inviteeName: e.target.value })}
+                  style={{
+                    backgroundColor: 'var(--form-field-control-bg)',
+                    border: 'var(--form-field-border)',
+                    color: 'var(--form-field-control-color)',
+                    fontSize: 'var(--form-field-control-font-size)',
+                    padding: 'var(--form-field-control-padding)',
+                    minHeight: 'var(--form-field-min-height)',
+                    outline: 'var(--form-field-control-outline)',
+                    boxShadow: 'var(--form-field-control-box-shadow)',
+                    borderRadius: 'var(--form-field-border-radius)',
+                  }}
                 />
               </Form.Group>
 
@@ -390,6 +412,17 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                   min="1"
                   value={singleForm.maxUses}
                   onChange={(e) => setSingleForm({ ...singleForm, maxUses: parseInt(e.target.value) })}
+                  style={{
+                    backgroundColor: 'var(--form-field-control-bg)',
+                    border: 'var(--form-field-border)',
+                    color: 'var(--form-field-control-color)',
+                    fontSize: 'var(--form-field-control-font-size)',
+                    padding: 'var(--form-field-control-padding)',
+                    minHeight: 'var(--form-field-min-height)',
+                    outline: 'var(--form-field-control-outline)',
+                    boxShadow: 'var(--form-field-control-box-shadow)',
+                    borderRadius: 'var(--form-field-border-radius)',
+                  }}
                 />
               </Form.Group>
 
@@ -401,6 +434,16 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                   placeholder="Welcome to Biensperience!"
                   value={singleForm.customMessage}
                   onChange={(e) => setSingleForm({ ...singleForm, customMessage: e.target.value })}
+                  style={{
+                    backgroundColor: 'var(--form-field-control-bg)',
+                    border: 'var(--form-field-border)',
+                    color: 'var(--form-field-control-color)',
+                    fontSize: 'var(--form-field-control-font-size)',
+                    padding: 'var(--form-field-control-padding)',
+                    outline: 'var(--form-field-control-outline)',
+                    boxShadow: 'var(--form-field-control-box-shadow)',
+                    borderRadius: 'var(--form-field-border-radius)',
+                  }}
                 />
               </Form.Group>
 
