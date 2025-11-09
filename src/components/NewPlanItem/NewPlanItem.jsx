@@ -4,6 +4,7 @@ import { addPlanItem, updatePlanItem } from "../../utilities/experiences-api";
 import { lang } from "../../lang.constants";
 import { handleError } from "../../utilities/error-handler";
 import { createUrlSlug } from "../../utilities/url-utils";
+import { FormControl, FormLabel } from "../../components/design-system";
 
 export default function NewPlanItem({
   experience,
@@ -65,56 +66,52 @@ export default function NewPlanItem({
             {formState ? (newPlanItem.parent ? lang.en.button.addChild : lang.en.button.add) : (newPlanItem.parent ? lang.en.button.updateChild : lang.en.button.update)} {lang.en.label.title}
           </h5>
           <form onSubmit={handleSubmit} className="newPlanItem">
-            <label htmlFor="text">{lang.en.label.title}</label>
-            <input
+            <FormLabel htmlFor="text">{lang.en.label.title}</FormLabel>
+            <FormControl
               type="text"
               name="text"
               id="text"
               onChange={handleChange}
-              className="form-control"
               placeholder={lang.en.placeholder.planItem}
               value={newPlanItem.text}
             />
-            <label htmlFor="cost_estimate">{lang.en.label.costEstimate}</label>
-            <input
+            <FormLabel htmlFor="cost_estimate">{lang.en.label.costEstimate}</FormLabel>
+            <FormControl
               type="number"
               name="cost_estimate"
               id="cost_estimate"
               onChange={handleChange}
-              className="form-control"
               placeholder={lang.en.placeholder.costEstimate}
               value={newPlanItem.cost_estimate}
             />
-            <label htmlFor="planning_days">{lang.en.label.planningDays}</label>
-            <input
+            <FormLabel htmlFor="planning_days">{lang.en.label.planningDays}</FormLabel>
+            <FormControl
               type="number"
               name="planning_days"
               id="planning_days"
               onChange={handleChange}
-              className="form-control"
               placeholder={lang.en.placeholder.planningDays}
               value={newPlanItem.planning_days}
             />
-            <label htmlFor="parent">{lang.en.label.parentPlanItem}</label>
-            <select
+            <FormLabel htmlFor="parent">{lang.en.label.parentPlanItem}</FormLabel>
+            <FormControl
+              as="select"
               name="parent"
               id="parent"
               onChange={handleChange}
-              className="form-control"
               value={newPlanItem.parent || ''}
             >
               <option value="">{lang.en.helper.noneTopLevel}</option>
               {experience.plan_items.filter(item => !item.parent).map(item => (
                 <option key={item._id} value={item._id}>{item.text}</option>
               ))}
-            </select>
-            <label htmlFor="url">{lang.en.label.url}</label>
-            <input
+            </FormControl>
+            <FormLabel htmlFor="url">{lang.en.label.url}</FormLabel>
+            <FormControl
               type="text"
               name="url"
               id="url"
               onChange={handleChange}
-              className="form-control"
               placeholder={lang.en.placeholder.url}
               value={newPlanItem.url}
             />

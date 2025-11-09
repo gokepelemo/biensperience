@@ -1,6 +1,7 @@
 import "./DestinationCard.css";
 import { Link } from "react-router-dom";
 import { useMemo, memo, useRef, useEffect } from "react";
+import EntitySchema from "../OpenGraph/EntitySchema";
 
 /**
  * Destination card component that displays a destination with background image and title.
@@ -13,7 +14,7 @@ import { useMemo, memo, useRef, useEffect } from "react";
  * @param {string} [props.destination.photo] - Background image URL for the destination
  * @returns {JSX.Element} Destination card component
  */
-function DestinationCard({ destination }) {
+function DestinationCard({ destination, includeSchema = false }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const titleRef = useRef(null);
 
@@ -77,7 +78,11 @@ function DestinationCard({ destination }) {
   }, [destination]);
 
   return (
-    <div className="d-inline-block m-2" style={{ width: 'fit-content', verticalAlign: 'top' }}>
+    <>
+      {includeSchema && destination && (
+        <EntitySchema entity={destination} entityType="destination" />
+      )}
+      <div className="d-inline-block m-2 width-fit-content">
       {destination ? (
         <div
           className="destinationCard d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden"
@@ -102,6 +107,7 @@ function DestinationCard({ destination }) {
         </div>
       )}
     </div>
+    </>
   );
 }
 

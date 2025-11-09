@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import "./TagInput.css";
+import TagPill from "../Pill/TagPill";
 import { logger } from "../../utilities/logger";
-import { getExperiences } from "../../utilities/experiences-api";
+import { getExperienceTags } from "../../utilities/experiences-api";
 
 export default function TagInput({ tags = [], onChange, placeholder = "Add tags..." }) {
   const [inputValue, setInputValue] = useState("");
@@ -16,26 +17,8 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
   useEffect(() => {
     async function fetchTags() {
       try {
-        const experiences = await getExperiences();
-        const tagSet = new Set();
-
-        experiences.forEach(exp => {
-          if (exp.experience_type && Array.isArray(exp.experience_type)) {
-            // Flatten array - handle both ["Tag1", "Tag2"] and ["Tag1, Tag2"]
-            const expTags = exp.experience_type.flatMap(item =>
-              typeof item === 'string' && item.includes(',')
-                ? item.split(',').map(tag => tag.trim())
-                : item
-            );
-            expTags.forEach(tag => {
-              if (tag && typeof tag === 'string') {
-                tagSet.add(tag.trim());
-              }
-            });
-          }
-        });
-
-        setAllTags(Array.from(tagSet).sort());
+        const tags = await getExperienceTags();
+        setAllTags(tags || []);
       } catch (error) {
         logger.error('Error fetching tags', {}, error);
       }
@@ -145,17 +128,16 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
     <div className="tag-input-container" ref={wrapperRef}>
       <div className="tags-wrapper">
         {tags.map((tag, index) => (
-          <span key={index} className="tag">
+          <TagPill
+            key={index}
+            removable
+            size="sm"
+            color="neutral"
+            onRemove={() => removeTag(index)}
+            className="tag"
+          >
             {tag}
-            <button
-              type="button"
-              className="tag-remove"
-              onClick={() => removeTag(index)}
-              aria-label={`Remove ${tag}`}
-            >
-              ×
-            </button>
-          </span>
+          </TagPill>
         ))}
         <input
           type="text"

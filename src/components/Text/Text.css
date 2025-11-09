@@ -1,0 +1,177 @@
+/* Text Component Styles */
+.text-component {
+  margin: 0;
+  line-height: var(--line-height-normal);
+}
+
+/* Variants */
+.text-body {
+  color: var(--color-text-primary);
+}
+
+.text-lead {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-relaxed);
+}
+
+.text-caption {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.text-gradient {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+/* Size variants */
+.text-xs {
+  font-size: var(--font-size-xs);
+}
+
+.text-sm {
+  font-size: var(--font-size-sm);
+}
+
+.text-base {
+  font-size: var(--font-size-base);
+}
+
+.text-lg {
+  font-size: var(--font-size-lg);
+}
+
+.text-xl {
+  font-size: var(--font-size-xl);
+}
+
+.text-2xl {
+  font-size: var(--font-size-2xl);
+}
+
+.text-3xl {
+  font-size: var(--font-size-3xl);
+}
+
+/* Heading sizes */
+.text-heading-1 {
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-tight);
+}
+
+.text-heading-2 {
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+}
+
+.text-heading-3 {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+}
+
+.text-heading-4 {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+
+.text-heading-5 {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-tight);
+}
+
+.text-heading-6 {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
+}
+
+/* Weight variants */
+.weight-light {
+  font-weight: var(--font-weight-light);
+}
+
+.weight-normal {
+  font-weight: var(--font-weight-normal);
+}
+
+.weight-medium {
+  font-weight: var(--font-weight-medium);
+}
+
+.weight-semibold {
+  font-weight: var(--font-weight-semibold);
+}
+
+.weight-bold {
+  font-weight: var(--font-weight-bold);
+}
+
+/* Special effects */
+/* text-gradient-primary - DEPRECATED: Use .text-gradient-primary from utilities.css */
+/* .text-gradient-primary removed */
+
+/* text-shadow-md - DEPRECATED: Use .text-shadow-md from utilities.css */
+/* .text-shadow-md removed */
+
+/* Truncate variants - DEPRECATED: Use .text-truncate-* from utilities.css */
+/* .text-truncate-1, .text-truncate-2, .text-truncate-3 removed */
+
+/* Alignment variants */
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-justify {
+  text-align: justify;
+}
+
+/* Color variants (for overrides) - DEPRECATED: Use .text-color-* from utilities.css */
+/* .text-color-primary, .text-color-secondary, .text-color-success, .text-color-danger, .text-color-warning, .text-color-info removed */
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .text-body {
+    color: var(--color-text-primary-dark);
+  }
+
+  .text-lead {
+    color: var(--color-text-primary-dark);
+  }
+
+  .text-caption {
+    color: var(--color-text-secondary-dark);
+  }
+
+  .text-muted {
+    color: var(--color-text-muted-dark);
+  }
+
+  .text-color-secondary {
+    color: var(--color-text-secondary-dark) !important;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .text-heading-1 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .text-heading-2 {
+    font-size: var(--font-size-xl);
+  }
+
+  .text-heading-3 {
+    font-size: var(--font-size-lg);
+  }
+}

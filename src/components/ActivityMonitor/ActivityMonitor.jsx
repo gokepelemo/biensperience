@@ -5,11 +5,12 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Form, Table, Badge, Alert, InputGroup, Spinner } from 'react-bootstrap';
+import { Button, Form, Badge, Alert, InputGroup, Spinner } from 'react-bootstrap';
 import { FaSearch, FaFilter, FaUndo, FaEye, FaTimes } from 'react-icons/fa';
 import Modal from '../Modal/Modal';
 import Loading from '../Loading/Loading';
 import Pagination from '../Pagination/Pagination';
+import { Table, TableHead, TableBody, TableRow, TableCell } from '../../components/design-system';
 import { getAllActivities, restoreResourceState } from '../../utilities/activities-api';
 import { formatDateTime } from '../../utilities/date-utils';
 import { handleError } from '../../utilities/error-handler';
@@ -336,46 +337,46 @@ export default function ActivityMonitor({ show, onHide }) {
                 No activities found with the current filters.
               </Alert>
             ) : (
-              <Table striped hover size="sm">
-                <thead>
-                  <tr>
-                    <th>Timestamp</th>
-                    <th>Action</th>
-                    <th>Actor</th>
-                    <th>Resource</th>
-                    <th>Reason</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table hover striped responsive>
+                <TableHead>
+                  <TableRow>
+                    <TableCell as="th">Timestamp</TableCell>
+                    <TableCell as="th">Action</TableCell>
+                    <TableCell as="th">Actor</TableCell>
+                    <TableCell as="th">Resource</TableCell>
+                    <TableCell as="th">Reason</TableCell>
+                    <TableCell as="th">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {activities.map((activity) => (
-                    <tr key={activity._id}>
-                      <td>
+                    <TableRow key={activity._id}>
+                      <TableCell>
                         <small>{formatDateTime(activity.timestamp)}</small>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <Badge className={`badge ${getActionBadgeVariant(activity.action)}`}>
                           {activity.action.replace(/_/g, ' ')}
                         </Badge>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <div>
                           <strong>{activity.actor.name}</strong>
                           <br />
                           <small className="text-muted">{activity.actor.email}</small>
                         </div>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <div>
-                          <Badge className="badge badge-light text-dark">{activity.resource.type}</Badge>
+                          <Badge className="badge badge-surface text-color-primary">{activity.resource.type}</Badge>
                           <br />
                           <small>{activity.resource.name || 'Unnamed'}</small>
                         </div>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <small>{activity.reason}</small>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <div className="d-flex gap-1">
                           <Button
                             variant="outline-info"
@@ -395,10 +396,10 @@ export default function ActivityMonitor({ show, onHide }) {
                             </Button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
+                </TableBody>
               </Table>
             )}
           </div>
@@ -434,64 +435,64 @@ export default function ActivityMonitor({ show, onHide }) {
                 <div className="col-12">
                   <h6>Basic Information</h6>
                   <Table borderless size="sm">
-                    <tbody>
-                      <tr>
-                        <td><strong>Timestamp:</strong></td>
-                        <td>{formatDateTime(selectedActivity.timestamp)}</td>
-                      </tr>
-                      <tr>
-                        <td><strong>Action:</strong></td>
-                        <td>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell><strong>Timestamp:</strong></TableCell>
+                        <TableCell>{formatDateTime(selectedActivity.timestamp)}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell><strong>Action:</strong></TableCell>
+                        <TableCell>
                           <Badge className={`badge ${getActionBadgeVariant(selectedActivity.action)}`}>
                             {selectedActivity.action.replace(/_/g, ' ')}
                           </Badge>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td><strong>Reason:</strong></td>
-                        <td>{selectedActivity.reason}</td>
-                      </tr>
-                    </tbody>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell><strong>Reason:</strong></TableCell>
+                        <TableCell>{selectedActivity.reason}</TableCell>
+                      </TableRow>
+                    </TableBody>
                   </Table>
                 </div>
 
                 <div className="col-md-6">
                   <h6>Actor</h6>
                   <Table borderless size="sm">
-                    <tbody>
-                      <tr>
-                        <td><strong>Name:</strong></td>
-                        <td>{selectedActivity.actor.name}</td>
-                      </tr>
-                      <tr>
-                        <td><strong>Email:</strong></td>
-                        <td>{selectedActivity.actor.email}</td>
-                      </tr>
-                      <tr>
-                        <td><strong>Role:</strong></td>
-                        <td>{selectedActivity.actor.role}</td>
-                      </tr>
-                    </tbody>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell><strong>Name:</strong></TableCell>
+                        <TableCell>{selectedActivity.actor.name}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell><strong>Email:</strong></TableCell>
+                        <TableCell>{selectedActivity.actor.email}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell><strong>Role:</strong></TableCell>
+                        <TableCell>{selectedActivity.actor.role}</TableCell>
+                      </TableRow>
+                    </TableBody>
                   </Table>
                 </div>
 
                 <div className="col-md-6">
                   <h6>Resource</h6>
                   <Table borderless size="sm">
-                    <tbody>
-                      <tr>
-                        <td><strong>Type:</strong></td>
-                        <td>{selectedActivity.resource.type}</td>
-                      </tr>
-                      <tr>
-                        <td><strong>Name:</strong></td>
-                        <td>{selectedActivity.resource.name || 'Unnamed'}</td>
-                      </tr>
-                      <tr>
-                        <td><strong>ID:</strong></td>
-                        <td><code>{selectedActivity.resource.id}</code></td>
-                      </tr>
-                    </tbody>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell><strong>Type:</strong></TableCell>
+                        <TableCell>{selectedActivity.resource.type}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell><strong>Name:</strong></TableCell>
+                        <TableCell>{selectedActivity.resource.name || 'Unnamed'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell><strong>ID:</strong></TableCell>
+                        <TableCell><code>{selectedActivity.resource.id}</code></TableCell>
+                      </TableRow>
+                    </TableBody>
                   </Table>
                 </div>
 
@@ -499,26 +500,26 @@ export default function ActivityMonitor({ show, onHide }) {
                   <div className="col-12">
                     <h6>Request Metadata</h6>
                     <Table borderless size="sm">
-                      <tbody>
+                      <TableBody>
                         {selectedActivity.metadata.ipAddress && (
-                          <tr>
-                            <td><strong>IP Address:</strong></td>
-                            <td>{selectedActivity.metadata.ipAddress}</td>
-                          </tr>
+                          <TableRow>
+                            <TableCell><strong>IP Address:</strong></TableCell>
+                            <TableCell>{selectedActivity.metadata.ipAddress}</TableCell>
+                          </TableRow>
                         )}
                         {selectedActivity.metadata.userAgent && (
-                          <tr>
-                            <td><strong>User Agent:</strong></td>
-                            <td><small>{selectedActivity.metadata.userAgent}</small></td>
-                          </tr>
+                          <TableRow>
+                            <TableCell><strong>User Agent:</strong></TableCell>
+                            <TableCell><small>{selectedActivity.metadata.userAgent}</small></TableCell>
+                          </TableRow>
                         )}
                         {selectedActivity.metadata.requestPath && (
-                          <tr>
-                            <td><strong>Request Path:</strong></td>
-                            <td>{selectedActivity.metadata.requestPath}</td>
-                          </tr>
+                          <TableRow>
+                            <TableCell><strong>Request Path:</strong></TableCell>
+                            <TableCell>{selectedActivity.metadata.requestPath}</TableCell>
+                          </TableRow>
                         )}
-                      </tbody>
+                      </TableBody>
                     </Table>
                   </div>
                 )}
@@ -527,22 +528,22 @@ export default function ActivityMonitor({ show, onHide }) {
                   <div className="col-12">
                     <h6>Changes</h6>
                     <Table striped size="sm">
-                      <thead>
-                        <tr>
-                          <th>Field</th>
-                          <th>Old Value</th>
-                          <th>New Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell as="th">Field</TableCell>
+                          <TableCell as="th">Old Value</TableCell>
+                          <TableCell as="th">New Value</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
                         {selectedActivity.changes.map((change, index) => (
-                          <tr key={index}>
-                            <td><code>{change.field}</code></td>
-                            <td><code>{JSON.stringify(change.oldValue)}</code></td>
-                            <td><code>{JSON.stringify(change.newValue)}</code></td>
-                          </tr>
+                          <TableRow key={index}>
+                            <TableCell><code>{change.field}</code></TableCell>
+                            <TableCell><code>{JSON.stringify(change.oldValue)}</code></TableCell>
+                            <TableCell><code>{JSON.stringify(change.newValue)}</code></TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
+                      </TableBody>
                     </Table>
                   </div>
                 )}

@@ -5,9 +5,10 @@ const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { requireEmailVerification } = require('../../utilities/email-verification-middleware');
 const { collaboratorLimiter, modificationLimiter } = require('../../config/rateLimiters');
 
-router.get('/', ensureLoggedIn, experiencesCtrl.index);
+router.get('/', experiencesCtrl.index);
 router.post('/', ensureLoggedIn, requireEmailVerification, modificationLimiter, experiencesCtrl.create);
-router.get('/tag/:tagSlug', ensureLoggedIn, experiencesCtrl.getTagName);
+router.get('/tag/:tagSlug', experiencesCtrl.getTagName);
+router.get('/tags', experiencesCtrl.getExperienceTags);
 router.get('/user/:userId/created', ensureLoggedIn, experiencesCtrl.showUserCreatedExperiences);
 router.get('/user/:userId', ensureLoggedIn, experiencesCtrl.showUserExperiences);
 router.delete('/:id', ensureLoggedIn, modificationLimiter, experiencesCtrl.delete);
@@ -15,7 +16,7 @@ router.put('/:id/transfer-ownership', ensureLoggedIn, collaboratorLimiter, exper
 router.put('/:id', ensureLoggedIn, requireEmailVerification, modificationLimiter, experiencesCtrl.update);
 // OPTIMIZATION: Combined endpoint for SingleExperience page - must come before /:id to avoid route conflict
 router.get('/:id/with-context', ensureLoggedIn, experiencesCtrl.showWithContext);
-router.get('/:id', ensureLoggedIn, experiencesCtrl.show);
+router.get('/:id', experiencesCtrl.show);
 router.post('/:experienceId/plan-item', ensureLoggedIn, modificationLimiter, experiencesCtrl.createPlanItem);
 router.delete('/:experienceId/plan-item/:planItemId', ensureLoggedIn, modificationLimiter, experiencesCtrl.deletePlanItem);
 router.put('/:experienceId/plan-item/:planItemId', ensureLoggedIn, modificationLimiter, experiencesCtrl.updatePlanItem);

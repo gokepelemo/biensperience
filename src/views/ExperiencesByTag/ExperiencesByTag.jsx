@@ -4,17 +4,20 @@ import { useParams, Link } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import Alert from "../../components/Alert/Alert";
-import PageMeta from "../../components/PageMeta/PageMeta";
+import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { logger } from "../../utilities/logger";
 import * as experiencesAPI from "../../utilities/experiences-api";
+import { Button, Container, FlexBetween, FadeIn } from "../../components/design-system";
 
 export default function ExperiencesByTag() {
   const { tagName } = useParams();
-  const { experiences, plans, loading } = useData();
+  const { experiences: contextExperiences, plans, loading: contextLoading } = useData();
   const [actualTagName, setActualTagName] = useState("");
+  const [fetchedExperiences, setFetchedExperiences] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Helper: Convert slug/snake/kebab to Title Case synchronously (no state)
   const toTitleCase = (str) => {
@@ -30,11 +33,11 @@ export default function ExperiencesByTag() {
   // Compute initial display value from URL param to avoid flicker
   const initialTitleCaseTag = useMemo(() => toTitleCase(tagName), [tagName]);
 
-  // Filter experiences by tag
-  const filteredExperiences = useMemo(() => {
-    if (!experiences || !tagName) return [];
+  // Filter experiences from DataContext immediately (stale data)
+  const filteredContextExperiences = useMemo(() => {
+    if (!contextExperiences || !tagName) return [];
 
-    return experiences.filter(experience => {
+    return contextExperiences.filter(experience => {
       if (!experience.experience_type) return false;
 
       // Handle different formats of experience_type
@@ -54,49 +57,108 @@ export default function ExperiencesByTag() {
 
       return tags.some(tag => createUrlSlug(tag) === tagName);
     });
-  }, [experiences, tagName]);
+  }, [contextExperiences, tagName]);
 
-  // Fetch the actual tag name from the database
+  // Use fetched experiences if available, otherwise show filtered context experiences
+  const displayedExperiences = fetchedExperiences !== null ? fetchedExperiences : filteredContextExperiences;
+
+  // Show loading if:
+  // 1. Context is loading AND we don't have fetched data yet
+  // 2. OR we have no experiences in context AND we're still fetching
+  const loading = (contextLoading && fetchedExperiences === null) ||
+                  (filteredContextExperiences.length === 0 && fetchedExperiences === null && isRefreshing);
+
+  // Fetch ALL experiences with this tag from the backend (background refresh)
   useEffect(() => {
+    let mounted = true;
+
+    async function fetchExperiencesByTag() {
+      try {
+        setIsRefreshing(true);
+        logger.debug('ExperiencesByTag: Fetching all experiences for tag', { tagName });
+
+        // Fetch ALL experiences (no pagination limit) filtered by this tag
+        // The backend will filter by experience_type using regex
+        const response = await experiencesAPI.getExperiences({
+          experience_type: initialTitleCaseTag,
+          limit: 1000  // High limit to get all matching experiences
+        });
+
+        if (mounted) {
+          const experiences = response.data || response || [];
+          logger.debug('ExperiencesByTag: Background fetch complete', {
+            tagName,
+            initialCount: filteredContextExperiences.length,
+            fetchedCount: experiences.length
+          });
+          setFetchedExperiences(experiences);
+        }
+      } catch (error) {
+        logger.error('ExperiencesByTag: Error fetching experiences', {
+          tagName,
+          error: error.message
+        });
+        // Don't clear existing experiences on error - keep showing stale data
+      } finally {
+        if (mounted) {
+          setIsRefreshing(false);
+        }
+      }
+    }
+
     async function fetchTagName() {
       try {
         const response = await experiencesAPI.getTagName(tagName);
-        setActualTagName(response.tagName || initialTitleCaseTag);
+        if (mounted) {
+          setActualTagName(response.tagName || initialTitleCaseTag);
+        }
       } catch (error) {
         // If the API call fails, fall back to the URL slug
-        logger.error('Error fetching tag name', { tagName, error: error.message });
-        setActualTagName(initialTitleCaseTag);
+        logger.error('ExperiencesByTag: Error fetching tag name', {
+          tagName,
+          error: error.message
+        });
+        if (mounted) {
+          setActualTagName(initialTitleCaseTag);
+        }
       }
     }
 
     if (tagName) {
       fetchTagName();
+      fetchExperiencesByTag();
     }
-  }, [tagName, initialTitleCaseTag]);
+
+    return () => {
+      mounted = false;
+    };
+  }, [tagName, initialTitleCaseTag, filteredContextExperiences.length]);
 
   // Derived value: prefer canonical from API, else initial Title Case from slug
   const displayTagName = actualTagName || initialTitleCaseTag;
 
   return (
     <PageWrapper title={`${displayTagName} Experiences`}>
-      <PageMeta
+      <PageOpenGraph
         title={`Experiences tagged ${displayTagName}`}
-        description={`Discover ${filteredExperiences.length > 0 ? filteredExperiences.length : ''} travel experiences tagged as ${displayTagName}. Find unique ${displayTagName} adventures and activities around the world.`}
+        description={`Discover ${displayedExperiences.length > 0 ? displayedExperiences.length : ''} travel experiences tagged as ${displayTagName}. Find unique ${displayTagName} adventures and activities around the world.`}
         keywords={`${displayTagName}, travel experiences, ${displayTagName} activities, ${displayTagName} adventures, travel planning, tourism`}
         ogTitle={`${displayTagName} Travel Experiences`}
-        ogDescription={`Browse our collection of ${displayTagName} experiences${filteredExperiences.length > 0 ? `. ${filteredExperiences.length} curated experiences available` : ' from around the world'}.`}
+        ogDescription={`Browse our collection of ${displayTagName} experiences${displayedExperiences.length > 0 ? `. ${displayedExperiences.length} curated experiences available` : ' from around the world'}.`}
       />
 
-      <div className="row fade-in">
-        <div className="col-md-6 fade-in">
-          <h1 className="my-4 h fade-in">Experiences tagged {displayTagName}</h1>
-        </div>
-        <div className="col-md-6 fade-in d-flex align-items-center justify-content-md-end">
-          <Link to="/experiences" className="btn btn-light">
-            View All Experiences
-          </Link>
-        </div>
-      </div>
+      <FadeIn>
+        <FlexBetween>
+          <div className="col-md-6">
+            <h1 className="my-4 h">Experiences tagged {displayTagName}</h1>
+          </div>
+          <div>
+            <Button as={Link} to="/experiences" className="text-white">
+              View All Experiences
+            </Button>
+          </div>
+        </FlexBetween>
+      </FadeIn>
 
       {loading ? (
         <Loading
@@ -104,31 +166,35 @@ export default function ExperiencesByTag() {
           size="lg"
           message={`Loading ${displayTagName} experiences...`}
         />
-      ) : filteredExperiences.length > 0 ? (
-        <div className="row my-4 fade-in">
-          <div className="experiences-list fade-in">
-            {filteredExperiences.map((experience) => (
-              <ExperienceCard
-                experience={experience}
-                key={experience._id}
-                className="fade-in"
-                userPlans={plans}
-              />
-            ))}
-          </div>
-        </div>
+      ) : displayedExperiences.length > 0 ? (
+        <FadeIn>
+          <Container className="my-4">
+            <div className="experiences-list">
+              {displayedExperiences.map((experience) => (
+                <ExperienceCard
+                  experience={experience}
+                  key={experience._id}
+                  userPlans={plans}
+                  className="animation-fade_in"
+                />
+              ))}
+            </div>
+          </Container>
+        </FadeIn>
       ) : (
-        <div className="row my-4 fade-in">
-          <div className="col-12">
-            <Alert type="info">
-              <h5>No experiences found with tag "{displayTagName}"</h5>
-              <p>Try browsing all experiences or search for a different tag.</p>
-              <Link to="/experiences" className="btn btn-primary mt-2">
-                Browse All Experiences
-              </Link>
-            </Alert>
-          </div>
-        </div>
+        <FadeIn>
+          <Container className="my-4">
+            <div className="col-12">
+              <Alert type="info">
+                <h5>No experiences found with tag "{displayTagName}"</h5>
+                <p>Try browsing all experiences or search for a different tag.</p>
+                <Button as={Link} to="/experiences" variant="primary" className="mt-2">
+                  Browse All Experiences
+                </Button>
+              </Alert>
+            </div>
+          </Container>
+        </FadeIn>
       )}
     </PageWrapper>
   );

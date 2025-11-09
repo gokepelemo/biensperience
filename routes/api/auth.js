@@ -71,7 +71,7 @@ router.get('/facebook/callback',
       const { createSessionForUser } = require('../../utilities/session-middleware');
       User.findById(req.user._id)
         .then(async (user) => {
-          const sessionId = await createSessionForUser(user);
+          const sessionId = await createSessionForUser(user, true);
           
           // Create JWT token
           const token = createToken(req.user);
@@ -157,7 +157,7 @@ router.get('/google/callback',
       }
 
       // Create session for user
-      await createSessionForUser(user).catch(err => {
+      await createSessionForUser(user, true).catch(err => {
         backendLogger.error('Google OAuth session creation error', { error: err.message, userId: req.user?._id });
         throw err;
       });
@@ -255,7 +255,7 @@ router.get('/twitter/callback',
       }
 
       // Create session for user
-      await createSessionForUser(user).catch(err => {
+      await createSessionForUser(user, true).catch(err => {
         backendLogger.error('Twitter OAuth session creation error', { error: err.message, userId: req.user?._id });
         throw err;
       });

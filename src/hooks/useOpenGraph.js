@@ -1,30 +1,25 @@
 /**
- * Custom hook for managing SEO meta tags and structured data
- * Provides utilities for setting page-specific SEO data
+ * Custom hook for managing OpenGraph meta tags and structured data
+ * Provides utilities for setting page-specific OpenGraph data
  *
- * @module useSEO
+ * @module useOpenGraph
  */
 
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getEntityImage } from './seo-meta.jsx';
 
 /**
- * Hook for managing page SEO data
- * @param {Object} options - SEO options
+ * Hook for managing page OpenGraph data
+ * @param {Object} options - OpenGraph options
  * @param {string} options.title - Page title
  * @param {string} options.description - Page description
  * @param {string} options.image - Image URL
- * @param {Object} options.entity - Entity data for schema.org
- * @param {string} options.entityType - Type of entity
  * @param {boolean} options.noIndex - Whether to add noindex meta tag
  */
-export function useSEO({
+export function useOpenGraph({
   title,
   description,
   image,
-  entity,
-  entityType,
   noIndex = false
 }) {
   const location = useLocation();
@@ -53,7 +48,7 @@ export function useSEO({
     setMetaProperty('og:description', description);
     setMetaProperty('og:url', window.location.href);
     setMetaProperty('og:image', image);
-    setMetaProperty('og:type', entityType === 'experience' ? 'article' : 'website');
+    setMetaProperty('og:type', 'website');
 
     // Set Twitter Card tags
     setMetaName('twitter:card', 'summary_large_image');
@@ -69,11 +64,6 @@ export function useSEO({
       setMetaName('robots', 'noindex,nofollow');
     }
 
-    // Add schema.org structured data
-    if (entity && entityType) {
-      addStructuredData(entity, entityType);
-    }
-
     // Cleanup function
     return () => {
       // Remove dynamic meta tags on unmount
@@ -86,9 +76,8 @@ export function useSEO({
       removeMetaName('twitter:title');
       removeMetaName('twitter:description');
       removeMetaName('twitter:image');
-      removeStructuredData();
     };
-  }, [title, description, image, entity, entityType, noIndex, location.pathname]);
+  }, [title, description, image, noIndex, location.pathname]);
 }
 
 /**
@@ -175,7 +164,7 @@ function addStructuredData(entity, entityType) {
   const script = document.createElement('script');
   script.type = 'application/ld+json';
   script.textContent = JSON.stringify(schemaData);
-  script.setAttribute('data-seo-schema', 'true');
+  script.setAttribute('data-opengraph-schema', 'true');
   document.head.appendChild(script);
 }
 
@@ -183,7 +172,7 @@ function addStructuredData(entity, entityType) {
  * Remove schema.org structured data
  */
 function removeStructuredData() {
-  const scripts = document.querySelectorAll('script[data-seo-schema]');
+  const scripts = document.querySelectorAll('script[data-opengraph-schema]');
   scripts.forEach(script => script.remove());
 }
 

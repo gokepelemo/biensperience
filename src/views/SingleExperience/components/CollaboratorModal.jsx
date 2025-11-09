@@ -10,6 +10,8 @@ import { FaTimes, FaUserPlus, FaEnvelope } from 'react-icons/fa';
 import Modal from '../../../components/Modal/Modal';
 import Autocomplete from '../../../components/Autocomplete/Autocomplete';
 import Alert from '../../../components/Alert/Alert';
+import FormField from '../../../components/FormField/FormField';
+import { Button as DSButton } from '../../../components/design-system';
 import { logger } from '../../../utilities/logger';
 import './CollaboratorModal.css';
 
@@ -91,13 +93,10 @@ export default function CollaboratorModal({
       onHide={onHide}
       title={title}
       size="lg"
+      scrollable={true}
     >
       <div 
-        className="collaborator-modal-content"
-        style={{
-          padding: 'var(--space-4)',
-          color: 'var(--color-text-primary)',
-        }}
+        className="collaborator-modal-content modal-content-styled"
       >
         {/* Success Messages */}
         {addSuccess && addedCollaborators.length > 0 && (
@@ -141,9 +140,8 @@ export default function CollaboratorModal({
         )}
 
         {/* Existing Collaborators */}
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <h5 style={{ 
-            color: 'var(--color-text-primary)',
+        <div className="modal-section">
+          <h5 className="text-color_primary" style={{ 
             marginBottom: 'var(--space-3)',
             fontSize: 'var(--font-size-lg)',
             fontWeight: 'var(--font-weight-semibold)',
@@ -151,10 +149,7 @@ export default function CollaboratorModal({
             Current Collaborators
           </h5>
           {existingCollaborators.length === 0 ? (
-            <p style={{ 
-              color: 'var(--color-text-muted)',
-              fontSize: 'var(--font-size-sm)',
-            }}>
+            <p className="text-muted font-size-adjust-sm">
               No collaborators yet. Add some below!
             </p>
           ) : (
@@ -164,13 +159,8 @@ export default function CollaboratorModal({
                 return (
                   <ListGroup.Item
                     key={collab._id}
+                    className="list-item-styled"
                     style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      backgroundColor: 'var(--color-bg-secondary)',
-                      border: '1px solid var(--color-border-light)',
-                      color: 'var(--color-text-primary)',
                       opacity: isRemoved ? 0.5 : 1,
                       padding: 'var(--space-3)',
                       borderRadius: 'var(--radius-md)',
@@ -194,17 +184,19 @@ export default function CollaboratorModal({
                         </Badge>
                       )}
                     </div>
-                    <button
-                      className="btn btn-sm btn-outline-danger"
+                    <DSButton
+                      variant="outline"
+                      size="sm"
                       onClick={() => onRemoveCollaborator(collab._id)}
                       disabled={isRemoved}
-                      style={{
+                      style={{ 
                         borderColor: 'var(--color-danger)',
                         color: 'var(--color-danger)',
                       }}
                     >
-                      <FaTimes /> Remove
-                    </button>
+                      <FaTimes style={{ marginRight: 'var(--space-1)' }} />
+                      Remove
+                    </DSButton>
                   </ListGroup.Item>
                 );
               })}
@@ -213,9 +205,8 @@ export default function CollaboratorModal({
         </div>
 
         {/* Add Collaborators */}
-        <div style={{ marginBottom: 'var(--space-3)' }}>
-          <h5 style={{ 
-            color: 'var(--color-text-primary)',
+        <div className="modal-section">
+          <h5 className="text-color_primary" style={{ 
             marginBottom: 'var(--space-3)',
             fontSize: 'var(--font-size-lg)',
             fontWeight: 'var(--font-weight-semibold)',
@@ -224,32 +215,25 @@ export default function CollaboratorModal({
           </h5>
 
           {/* Mode Toggle */}
-          <ButtonGroup style={{ marginBottom: 'var(--space-3)', width: '100%' }}>
-            <Button
-              variant={mode === 'search' ? 'primary' : 'outline-secondary'}
+          <div className="modal-button-group" style={{ marginBottom: 'var(--space-3)' }}>
+            <DSButton
+              variant={mode === 'search' ? 'gradient' : 'outline'}
+              size="sm"
               onClick={() => setMode('search')}
-              style={{
-                backgroundColor: mode === 'search' ? 'var(--color-primary)' : 'transparent',
-                borderColor: mode === 'search' ? 'var(--color-primary)' : 'var(--color-border-medium)',
-                color: mode === 'search' ? 'white' : 'var(--color-text-secondary)',
-              }}
+              style={{ marginRight: 'var(--space-2)' }}
             >
               <FaUserPlus style={{ marginRight: 'var(--space-2)' }} />
               Search Existing Users
-            </Button>
-            <Button
-              variant={mode === 'email' ? 'primary' : 'outline-secondary'}
+            </DSButton>
+            <DSButton
+              variant={mode === 'email' ? 'gradient' : 'outline'}
+              size="sm"
               onClick={() => setMode('email')}
-              style={{
-                backgroundColor: mode === 'email' ? 'var(--color-primary)' : 'transparent',
-                borderColor: mode === 'email' ? 'var(--color-primary)' : 'var(--color-border-medium)',
-                color: mode === 'email' ? 'white' : 'var(--color-text-secondary)',
-              }}
             >
               <FaEnvelope style={{ marginRight: 'var(--space-2)' }} />
               Send Email Invite
-            </Button>
-          </ButtonGroup>
+            </DSButton>
+          </div>
 
           {/* Search Mode */}
           {mode === 'search' && (
@@ -270,21 +254,11 @@ export default function CollaboratorModal({
 
               {/* Selected Collaborators */}
               {selectedCollaborators.length > 0 && (
-                <div style={{ marginTop: 'var(--space-3)' }}>
-                  <strong style={{ 
-                    display: 'block',
-                    marginBottom: 'var(--space-2)',
-                    color: 'var(--color-text-secondary)',
-                    fontSize: 'var(--font-size-sm)',
-                    fontWeight: 'var(--font-weight-semibold)',
-                  }}>
+                <div className="mt-3">
+                  <strong className="d-block mb-2 text-secondary font-size-adjust-sm fw-semibold">
                     Selected ({selectedCollaborators.length}):
                   </strong>
-                  <div style={{ 
-                    display: 'flex', 
-                    flexWrap: 'wrap', 
-                    gap: 'var(--space-2)' 
-                  }}>
+                  <div className="flex-wrap-gap">
                     {selectedCollaborators.map(userId => {
                       const user = searchResults.find(u => u._id === userId || u.id === userId);
                       return user ? (
@@ -321,78 +295,51 @@ export default function CollaboratorModal({
           {/* Email Invite Mode */}
           {mode === 'email' && (
             <>
-              <Form.Group style={{ marginBottom: 'var(--space-3)' }}>
-                <Form.Label style={{ 
-                  color: 'var(--color-text-primary)',
-                  fontWeight: 'var(--font-weight-medium)',
-                }}>
-                  Email Address
-                </Form.Label>
-                <Form.Control
-                  type="email"
-                  placeholder="collaborator@example.com"
-                  value={emailForm.email}
-                  onChange={(e) => handleEmailChange('email', e.target.value)}
-                  isInvalid={emailError && !emailForm.email.trim()}
-                  style={{
-                    backgroundColor: 'var(--color-bg-secondary)',
-                    border: '1px solid var(--color-border-light)',
-                    color: 'var(--color-text-primary)',
-                    borderRadius: 'var(--radius-md)',
-                  }}
-                />
-              </Form.Group>
+              <FormField
+                name="email"
+                label="Email Address"
+                type="email"
+                placeholder="collaborator@example.com"
+                value={emailForm.email}
+                onChange={(e) => handleEmailChange('email', e.target.value)}
+                isInvalid={emailError && emailError.includes('email')}
+                invalidFeedback={emailError && emailError.includes('email') ? emailError : undefined}
+                required
+              />
 
-              <Form.Group style={{ marginBottom: 'var(--space-3)' }}>
-                <Form.Label style={{ 
-                  color: 'var(--color-text-primary)',
-                  fontWeight: 'var(--font-weight-medium)',
-                }}>
-                  Name
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  placeholder="Collaborator's full name"
-                  value={emailForm.name}
-                  onChange={(e) => handleEmailChange('name', e.target.value)}
-                  isInvalid={emailError && !emailForm.name.trim()}
-                  style={{
-                    backgroundColor: 'var(--color-bg-secondary)',
-                    border: '1px solid var(--color-border-light)',
-                    color: 'var(--color-text-primary)',
-                    borderRadius: 'var(--radius-md)',
-                  }}
-                />
-              </Form.Group>
+              <FormField
+                name="name"
+                label="Name"
+                type="text"
+                placeholder="Collaborator's full name"
+                value={emailForm.name}
+                onChange={(e) => handleEmailChange('name', e.target.value)}
+                isInvalid={emailError && emailError.includes('Name')}
+                invalidFeedback={emailError && emailError.includes('Name') ? emailError : undefined}
+                required
+              />
 
               <div style={{
                 padding: 'var(--space-3)',
-                backgroundColor: 'var(--color-info-bg)',
-                border: '1px solid var(--color-info-border)',
+                backgroundColor: 'var(--color-bg-tertiary)',
+                border: '1px solid var(--color-border-light)',
                 borderRadius: 'var(--radius-md)',
                 marginBottom: 'var(--space-3)',
               }}>
-                <small style={{ color: 'var(--color-info-text)' }}>
+                <small style={{ color: 'var(--color-text-secondary)' }}>
                   <strong>Note:</strong> We'll send an email to <strong>{emailForm.email || 'this address'}</strong> inviting them to join Biensperience and collaborate on <strong>{experienceName || 'this experience'}</strong> in <strong>{destinationName || 'this destination'}</strong>.
                 </small>
               </div>
 
-              <button
-                className="btn btn-primary w-100 mb-3"
+              <DSButton
+                variant="gradient"
+                size="md"
                 onClick={handleSendInvite}
                 disabled={isSendingEmail || !emailForm.email.trim() || !emailForm.name.trim()}
-                style={{
-                  backgroundColor: 'var(--color-primary)',
-                  border: 'none',
-                  color: 'white',
-                  padding: 'var(--space-3)',
-                  borderRadius: 'var(--radius-md)',
-                  width: '100%',
-                  marginBottom: 'var(--space-3)',
-                }}
+                style={{ width: '100%', marginBottom: 'var(--space-3)' }}
               >
                 {isSendingEmail ? 'Sending...' : 'Send Email Invite'}
-              </button>
+              </DSButton>
             </>
           )}
         </div>
@@ -405,37 +352,22 @@ export default function CollaboratorModal({
           paddingTop: 'var(--space-3)',
           borderTop: '1px solid var(--color-border-light)',
         }}>
-          <button
-            className="btn btn-secondary"
+          <DSButton
+            variant="outline"
+            size="md"
             onClick={onHide}
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--color-border-medium)',
-              color: 'var(--color-text-secondary)',
-              padding: 'var(--space-2) var(--space-4)',
-              borderRadius: 'var(--radius-md)',
-            }}
           >
             Close
-          </button>
-          <button
-            className="btn btn-primary"
+          </DSButton>
+          <DSButton
+            variant="gradient"
+            size="md"
             onClick={onAddCollaborators}
             disabled={selectedCollaborators.length === 0}
-            style={{
-              backgroundColor: 'var(--color-primary)',
-              border: 'none',
-              color: 'white',
-              padding: 'var(--space-2) var(--space-4)',
-              borderRadius: 'var(--radius-md)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)',
-            }}
           >
-            <FaUserPlus />
+            <FaUserPlus style={{ marginRight: 'var(--space-2)' }} />
             Add {selectedCollaborators.length > 0 ? `(${selectedCollaborators.length})` : 'Collaborators'}
-          </button>
+          </DSButton>
         </div>
       </div>
     </Modal>

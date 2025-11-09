@@ -4,7 +4,8 @@ import { confirmEmail } from '../../utilities/users-api';
 import { handleError } from '../../utilities/error-handler';
 import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
-import PageMeta from '../../components/PageMeta/PageMeta';
+import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
+import { Button, Container } from '../../components/design-system';
 import './ConfirmEmail.css';
 
 export default function ConfirmEmail() {
@@ -39,14 +40,14 @@ export default function ConfirmEmail() {
 
   return (
     <>
-      <PageMeta
+      <PageOpenGraph
         title="Confirm Email - Biensperience"
         description="Confirm your email address for your Biensperience account"
         keywords="confirm email, email verification, account activation"
       />
 
       <div className="container">
-        <div className="row justify-content-center mt-5">
+        <Container className="justify-content-center mt-5">
           <div className="col-md-6 col-lg-5">
             <div className="confirm-email-card card">
               <div className="card-body p-4 p-md-5">
@@ -66,19 +67,19 @@ export default function ConfirmEmail() {
                     <Alert type="danger" message={error} className="mb-4" />
 
                     <div className="text-center mt-4">
-                      <p className="text-muted mb-3">
+                      <p style={{ color: 'var(--bs-gray-600)' }} className="mb-3">
                         The confirmation link may have expired or is invalid.
                       </p>
-                      <Link to="/login" className="btn btn-primary">
+                      <Button as={Link} to="/login" variant="primary">
                         Go to Login
-                      </Link>
+                      </Button>
                     </div>
                   </>
                 )}
               </div>
             </div>
           </div>
-        </div>
+        </Container>
       </div>
     </>
   );

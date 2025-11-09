@@ -1,5 +1,5 @@
 import "./SingleDestination.css";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { showDestination } from "../../utilities/destinations-api";
 import { useUser } from "../../contexts/UserContext";
@@ -11,19 +11,23 @@ import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDe
 import TravelTipsList from "../../components/TravelTipsList/TravelTipsList";
 import InfoCard from "../../components/InfoCard/InfoCard";
 import { logger } from "../../utilities/logger";
+import { getExperiences } from "../../utilities/experiences-api";
 import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
-import PageMeta from "../../components/PageMeta/PageMeta";
+import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { isOwner } from "../../utilities/permissions";
+import { Container, Mobile, Desktop } from "../../components/design-system";
 
 export default function SingleDestination() {
   const { user } = useUser();
-  const { experiences, destinations, plans, fetchDestinations } = useData();
+  const { experiences, destinations, plans, fetchDestinations, setExperiencesImmediate } = useData();
   const { registerH1, setPageActionButtons, clearActionButtons, updateShowH1InNavbar } = useApp();
   const { destinationId } = useParams();
   const navigate = useNavigate();
   const [destination, setDestination] = useState(null);
   const [destinationExperiences, setDestinationExperiences] = useState([]);
+  const [directDestinationExperiences, setDirectDestinationExperiences] = useState(null);
+  const h1Ref = useRef(null);
 
   const getData = useCallback(async () => {
     try {
@@ -52,7 +56,12 @@ export default function SingleDestination() {
       const destId = typeof destRef === 'object' && destRef !== null ? destRef._id : destRef;
       return destId && String(destId) === String(destinationId);
     });
-    setDestinationExperiences(filteredExperiences);
+    // Only update the derived destinationExperiences when no direct server
+    // response is present. Direct server responses take precedence to avoid
+    // being overwritten by timing of global DataContext updates.
+    if (directDestinationExperiences === null) {
+      setDestinationExperiences(filteredExperiences);
+    }
   }, [experiences, destinationId]);
 
   // Initial data fetch when destinationId changes
@@ -60,25 +69,57 @@ export default function SingleDestination() {
     getData();
   }, [getData]);
 
+  // Ensure experiences for this destination are loaded into DataContext
+  useEffect(() => {
+    if (!destinationId) return;
+    try {
+      // Fetch experiences directly for this view (server-side filter via query params)
+      // Reset directDestinationExperiences and fetch
+      setDirectDestinationExperiences(null);
+      getExperiences({ destination: destinationId }).then((resp) => {
+        const data = resp && resp.data ? resp.data : (Array.isArray(resp) ? resp : []);
+        const meta = resp && resp.meta ? resp.meta : null;
+
+        // Set local state immediately
+        setDirectDestinationExperiences(data);
+
+        // Update DataContext with stale-while-revalidate pattern
+        // Shows destination-scoped experiences immediately, but marks them as temporary
+        // with a special filter flag so other views know this is destination-specific data
+        setExperiencesImmediate(data, {
+          meta,
+          filters: { destination: destinationId, __viewSpecific: 'SingleDestination' },
+          backgroundRefresh: false // Don't refresh - this is intentionally destination-scoped
+        });
+      }).catch((err) => {
+        logger.error('Failed to fetch experiences directly for destination', { destinationId, error: err?.message || err });
+        setDirectDestinationExperiences([]);
+      });
+    } catch (err) {
+      logger.error('Error fetching experiences for destination', { destinationId, error: err?.message || err });
+    }
+  }, [destinationId, setExperiencesImmediate]);
+
   // Register h1 and action buttons
   useEffect(() => {
-    const h1 = document.querySelector('h1');
-    if (h1) registerH1(h1);
+    if (h1Ref.current) {
+      registerH1(h1Ref.current);
 
-    // Enable h1 text in navbar for this view
-    updateShowH1InNavbar(true);
+      // Enable h1 text in navbar for this view
+      updateShowH1InNavbar(true);
 
-    // Set up action buttons if user is owner or super admin
-    if (user && destination && isOwner(user, destination)) {
-      setPageActionButtons([
-        {
-          label: lang.en.button.edit,
-          onClick: () => navigate(`/destinations/${destination._id}/update`),
-          variant: 'outline-primary',
-          icon: '✏️',
-          tooltip: 'Edit Destination'
-        }
-      ]);
+      // Set up action buttons if user is owner or super admin
+      if (user && destination && isOwner(user, destination)) {
+        setPageActionButtons([
+          {
+            label: lang.en.button.edit,
+            onClick: () => navigate(`/destinations/${destination._id}/update`),
+            variant: 'outline-primary',
+            icon: '✏️',
+            tooltip: 'Edit Destination'
+          }
+        ]);
+      }
     }
 
     return () => {
@@ -87,17 +128,29 @@ export default function SingleDestination() {
     };
   }, [registerH1, setPageActionButtons, clearActionButtons, updateShowH1InNavbar, user, destination, navigate]);
 
+  // Choose which experiences list to display: prefer direct server results when present
+  // Normalize possible shapes: legacy array, or paginated { data, meta }
+  const displayedExperiences = (() => {
+    if (directDestinationExperiences !== null) {
+      if (Array.isArray(directDestinationExperiences)) return directDestinationExperiences;
+      if (directDestinationExperiences && Array.isArray(directDestinationExperiences.data)) return directDestinationExperiences.data;
+      // unexpected shape — coerce to empty array
+      return [];
+    }
+    return Array.isArray(destinationExperiences) ? destinationExperiences : [];
+  })();
+
 
 
   return (
     <>
       {destination && (
-        <PageMeta
+        <PageOpenGraph
           title={`${destination.name}, ${!destination.state ? destination.country : destination.state === destination.name ? destination.country : destination.state}`}
-          description={`Discover ${destination.name}, ${destination.country}. Explore popular experiences, travel tips, and plan your perfect visit to this amazing destination.${destinationExperiences.length > 0 ? ` Find ${destinationExperiences.length} curated experiences.` : ''}`}
+          description={`Discover ${destination.name}, ${destination.country}. Explore popular experiences, travel tips, and plan your perfect visit to this amazing destination.${displayedExperiences.length > 0 ? ` Find ${displayedExperiences.length} curated experiences.` : ''}`}
           keywords={`${destination.name}, ${destination.country}, travel destination, tourism${destination.state ? `, ${destination.state}` : ''}, experiences, travel tips`}
           ogTitle={`${destination.name}, ${destination.country}`}
-          ogDescription={`${destinationExperiences.length > 0 ? `Explore ${destinationExperiences.length} unique experiences in ${destination.name}. ` : ''}${destination.travel_tips?.length > 0 && typeof destination.travel_tips[0] === 'string' ? destination.travel_tips[0] : destination.travel_tips?.length > 0 && destination.travel_tips[0]?.value ? destination.travel_tips[0].value : `Plan your trip to ${destination.name} today.`}`}
+          ogDescription={`${displayedExperiences.length > 0 ? `Explore ${displayedExperiences.length} unique experiences in ${destination.name}. ` : ''}${destination.travel_tips?.length > 0 && typeof destination.travel_tips[0] === 'string' ? destination.travel_tips[0] : destination.travel_tips?.length > 0 && destination.travel_tips[0]?.value ? destination.travel_tips[0].value : `Plan your trip to ${destination.name} today.`}`}
           entity={destination}
           entityType="destination"
         />
@@ -106,21 +159,37 @@ export default function SingleDestination() {
         {destination && (
           <>
             <div className="row align-items-center single-destination-header">
-              <div className="col-md-6 text-center text-md-start">
-                <h1 className="my-4 h">
-                  {destination.name},{" "}
-                  {!destination.state
-                    ? destination.country
-                    : destination.state === destination.name
-                    ? destination.country
-                    : destination.state}
-                </h1>
+              <div className="col-md-6">
+                <Mobile>
+                  <div style={{ textAlign: 'center' }}>
+                    <h1 ref={h1Ref} className="my-4 h">
+                      {destination.name},{" "}
+                      {!destination.state
+                        ? destination.country
+                        : destination.state === destination.name
+                        ? destination.country
+                        : destination.state}
+                    </h1>
+                  </div>
+                </Mobile>
+                <Desktop>
+                  <div style={{ textAlign: 'start' }}>
+                    <h1 ref={h1Ref} className="my-4 h">
+                      {destination.name},{" "}
+                      {!destination.state
+                        ? destination.country
+                        : destination.state === destination.name
+                        ? destination.country
+                        : destination.state}
+                    </h1>
+                  </div>
+                </Desktop>
               </div>
               <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center gap-3">
                 {user && <FavoriteDestination destination={destination} user={user} getData={getData} />}
                 {user && isOwner(user, destination) && (
                   <button
-                    className="btn btn-icon"
+                    className="btn btn-icon my-4"
                     onClick={() => navigate(`/destinations/${destination._id}/update`)}
                     aria-label={lang.en.aria.editDestination}
                     title={lang.en.aria.editDestination}
@@ -143,9 +212,9 @@ export default function SingleDestination() {
                 <InfoCard
                   title={destination.country ? `${lang.en.label.country}: ${destination.country}` : null}
                   sections={[
-                    destinationExperiences.length > 0 ? {
+                    displayedExperiences.length > 0 ? {
                       title: lang.en.heading.popularExperiences,
-                      content: destinationExperiences
+                      content: displayedExperiences
                         .filter((experience, index) => index < 3)
                         .map((experience, index) => (
                           <Link
@@ -177,8 +246,8 @@ export default function SingleDestination() {
               <h2 className="experiencesHeading mb-5">
                 {lang.en.heading.experiencesIn.replace('{destinationName}', destination.name)}
               </h2>
-              {destinationExperiences.length > 0 ? (
-                destinationExperiences.map((experience, index) => (
+              {displayedExperiences.length > 0 ? (
+                displayedExperiences.map((experience, index) => (
                   <ExperienceCard
                     key={index}
                     experience={experience}

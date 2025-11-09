@@ -67,8 +67,10 @@ export async function deleteApiToken(tokenId, permanent = false) {
  */
 export async function toggleApiAccess(enabled) {
   try {
+    logger.debug('api-tokens-service.toggleApiAccess: sending request', { enabled });
     const result = await sendRequest(`${BASE_URL}/toggle-api-access`, 'PUT', { enabled });
     logger.info('Toggled API access', { enabled });
+    logger.debug('api-tokens-service.toggleApiAccess: response', { result });
     return result;
   } catch (error) {
     logger.error('Error toggling API access', { enabled }, error);

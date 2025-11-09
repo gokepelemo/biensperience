@@ -1,0 +1,155 @@
+/* Layout Component Styles */
+
+/* FlexBetween - DEPRECATED: Use .flex-between from utilities.css */
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.align-start {
+  align-items: flex-start;
+}
+
+.align-center {
+  align-items: center;
+}
+
+.align-end {
+  align-items: flex-end;
+}
+
+.align-stretch {
+  align-items: stretch;
+}
+
+.gap-sm {
+  gap: var(--space-2);
+}
+
+.gap-md {
+  gap: var(--space-4);
+}
+
+.gap-lg {
+  gap: var(--space-6);
+}
+
+.gap-xl {
+  gap: var(--space-8);
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+/* FlexCenter - DEPRECATED: Use .flex-center from utilities.css */
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.direction-row {
+  flex-direction: row;
+}
+
+.direction-column {
+  flex-direction: column;
+}
+
+/* Layout Component Styles */
+
+/* Container */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+}
+
+.container-sm {
+  max-width: 640px;
+}
+
+.container-md {
+  max-width: 768px;
+}
+
+.container-lg {
+  max-width: 1024px;
+}
+
+.container-xl {
+  max-width: 1280px;
+}
+
+.container-full {
+  max-width: none;
+}
+
+.container-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Stack */
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.stack-spacing-sm > * + * {
+  margin-top: var(--space-2);
+}
+
+.stack-spacing-md > * + * {
+  margin-top: var(--space-4);
+}
+
+.stack-spacing-lg > * + * {
+  margin-top: var(--space-6);
+}
+
+.stack-spacing-xl > * + * {
+  margin-top: var(--space-8);
+}
+
+.stack-align-start {
+  align-items: flex-start;
+}
+
+.stack-align-center {
+  align-items: center;
+}
+
+.stack-align-end {
+  align-items: flex-end;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .container {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+
+  .flex-between {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .gap-md {
+    gap: var(--space-3);
+  }
+
+  .gap-lg {
+    gap: var(--space-4);
+  }
+
+  .gap-xl {
+    gap: var(--space-5);
+  }
+}

@@ -1,9 +1,9 @@
 /**
- * SEO and Social Media Meta Tags Utility
+ * OpenGraph and Social Media Meta Tags Utility
  * Generates Open Graph, Twitter Cards, and schema.org structured data
  * for better search engine optimization and social media sharing
  *
- * @module seo-meta
+ * @module OpenGraphMeta
  */
 
 import React from 'react';
@@ -11,7 +11,7 @@ import { Helmet } from 'react-helmet-async';
 
 /**
  * Generate Open Graph and Twitter Card meta tags
- * @param {Object} options - SEO options
+ * @param {Object} options - OpenGraph options
  * @param {string} options.title - Page title
  * @param {string} options.description - Page description
  * @param {string} options.url - Canonical URL
@@ -21,7 +21,7 @@ import { Helmet } from 'react-helmet-async';
  * @param {Object} options.twitter - Twitter-specific options
  * @returns {ReactElement} Helmet component with meta tags
  */
-export function SEOMeta({
+export function OpenGraphMeta({
   title,
   description,
   url,
@@ -267,18 +267,18 @@ export function SchemaScript({ schemaData }) {
 }
 
 /**
- * Combined SEO component with both meta tags and schema data
- * @param {Object} options - SEO options
+ * Combined OpenGraph component with both meta tags and schema data
+ * @param {Object} options - OpenGraph options
  * @param {Object} entity - Entity data for schema
  * @param {string} entityType - Entity type
- * @returns {ReactElement} Combined SEO component
+ * @returns {ReactElement} Combined OpenGraph component
  */
-export function SEOHead({ entity, entityType, ...seoOptions }) {
+export function OpenGraphHead({ entity, entityType, ...openGraphOptions }) {
   const schemaData = entity ? generateSchemaData(entity, entityType) : null;
 
   return (
     <>
-      <SEOMeta {...seoOptions} />
+      <OpenGraphMeta {...openGraphOptions} />
       {schemaData && <SchemaScript schemaData={schemaData} />}
     </>
   );

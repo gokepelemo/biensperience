@@ -321,9 +321,10 @@
 }
 
 /* Badge color improvements */
-.badge.bg-light {
-  color: #495057 !important;
-  border: 1px solid #ced4da;
+.badge-surface {
+  color: var(--color-text-secondary) !important;
+  border: 1px solid var(--color-border-medium);
+  background-color: var(--color-bg-tertiary) !important;
 }
 
 /* Table hover effects */
@@ -374,8 +375,8 @@
 }
 
 /* Resource type badges */
-.activity-monitor .badge.bg-light {
-  background-color: var(--color-light-bg) !important;
+.activity-monitor .badge-surface {
+  background-color: var(--color-bg-tertiary) !important;
   color: var(--color-table-text) !important;
   font-weight: 500;
 }

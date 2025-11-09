@@ -1,3 +1,4 @@
+import TagPill from '../../components/Pill/TagPill';
 import "./SingleExperience.css";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { lang } from "../../lang.constants";
@@ -11,13 +12,14 @@ import { useToast } from "../../contexts/ToastContext";
 import { useCollaboratorUsers } from "../../hooks/useCollaboratorUsers";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import Modal from "../../components/Modal/Modal";
-import PageMeta from "../../components/PageMeta/PageMeta";
+import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import { Badge } from "react-bootstrap";
+import { Button, Container, Mobile, Desktop, FadeIn, FormLabel, FormControl, FormCheck, Text } from "../../components/design-system";
 import { isOwner } from "../../utilities/permissions";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import {
@@ -160,6 +162,9 @@ export default function SingleExperience() {
   // Ref for dynamic font sizing on planned date metric
   const plannedDateRef = useRef(null);
 
+  // Ref for h1 element to ensure proper registration
+  const h1Ref = useRef(null);
+
   // Get owner and collaborator user IDs for experience
   const experienceOwnerPermission = useMemo(
     () =>
@@ -291,8 +296,8 @@ export default function SingleExperience() {
       setUserPlannedDate(fetchedUserPlan?.planned_date || null);
 
       // Set selectedPlanId if not already set and user has a plan
-      if (fetchedUserPlan && !selectedPlanId) {
-        setSelectedPlanId(fetchedUserPlan._id);
+      if (fetchedUserPlan) {
+        setSelectedPlanId((prev) => prev || fetchedUserPlan._id);
       }
 
       // Set collaborative plans data
@@ -341,10 +346,10 @@ export default function SingleExperience() {
       setCollaborativePlans(sortedPlans);
 
       // Set selectedPlanId if not already set and plans exist
-      if (sortedPlans.length > 0 && !selectedPlanId) {
+      if (sortedPlans.length > 0) {
         const newSelectedId = sortedPlans[0]._id;
         debug.log("Setting selectedPlanId to:", newSelectedId);
-        setSelectedPlanId(newSelectedId);
+        setSelectedPlanId((prev) => prev || newSelectedId);
       }
     } catch (err) {
       debug.error("Error fetching all data:", err);
@@ -352,7 +357,7 @@ export default function SingleExperience() {
       setUserPlan(null);
       setCollaborativePlans([]);
     }
-  }, [experienceId, user._id, selectedPlanId]);
+  }, [experienceId, user._id]);
 
   // Legacy individual fetch functions - kept for compatibility with existing code that calls them
   const fetchExperience = useCallback(async () => {
@@ -462,17 +467,17 @@ export default function SingleExperience() {
       setCollaborativePlans(sortedPlans);
 
       // Set selectedPlanId if not already set and plans exist
-      if (sortedPlans.length > 0 && !selectedPlanId) {
+      if (sortedPlans.length > 0) {
         // First plan is now guaranteed to be user's own plan if they have one
         const newSelectedId = sortedPlans[0]._id;
         debug.log("Setting selectedPlanId to:", newSelectedId);
-        setSelectedPlanId(newSelectedId);
+        setSelectedPlanId((prev) => prev || newSelectedId);
       }
     } catch (err) {
       debug.error("Error fetching collaborative plans:", err);
       setCollaborativePlans([]);
     }
-  }, [experienceId, user._id, selectedPlanId]);
+  }, [experienceId, user._id]);
 
   const checkPlanDivergence = useCallback((plan, experience) => {
     if (!plan || !experience || !experience.plan_items) {
@@ -516,29 +521,30 @@ export default function SingleExperience() {
 
   // Register h1 and action buttons for navbar
   useEffect(() => {
-    const h1 = document.querySelector("h1");
-    if (h1) registerH1(h1);
+    if (h1Ref.current) {
+      registerH1(h1Ref.current);
 
-    // Set up action buttons if user is owner or super admin
-    if (user && experience && isOwner(user, experience)) {
-      setPageActionButtons([
-        {
-          label: "Edit",
-          onClick: () => navigate(`/experiences/${experience._id}/update`),
-          variant: "outline-primary",
-          icon: "✏️",
-          tooltip: "Edit Experience",
-          compact: true,
-        },
-        {
-          label: "Delete",
-          onClick: () => setShowDeleteModal(true),
-          variant: "outline-danger",
-          icon: "🗑️",
-          tooltip: "Delete Experience",
-          compact: true,
-        },
-      ]);
+      // Set up action buttons if user is owner or super admin
+      if (user && experience && isOwner(user, experience)) {
+        setPageActionButtons([
+          {
+            label: "Edit",
+            onClick: () => navigate(`/experiences/${experience._id}/update`),
+            variant: "outline-primary",
+            icon: "✏️",
+            tooltip: "Edit Experience",
+            compact: true,
+          },
+          {
+            label: "Delete",
+            onClick: () => setShowDeleteModal(true),
+            variant: "outline-danger",
+            icon: "🗑️",
+            tooltip: "Delete Experience",
+            compact: true,
+          },
+        ]);
+      }
     }
 
     return () => clearActionButtons();
@@ -1439,7 +1445,7 @@ export default function SingleExperience() {
       return;
     }
     // Show confirmation modal before removing
-    setPendingUnplan(true); // Optimistically hide planned date badge immediately
+    // Don't hide badge yet - wait for user to confirm deletion
     setShowRemoveModal(true);
   }, [experience, user, userHasExperience]);
 
@@ -1488,6 +1494,8 @@ export default function SingleExperience() {
     const previousPlan = userPlan;
     const previousPlannedDate = displayedPlannedDate;
     try {
+      // User confirmed deletion - now hide the badge and update UI
+      setPendingUnplan(true);
       // Optimistically update UI immediately for better UX
       setUserHasExperience(false);
       setUserPlannedDate(null);
@@ -1761,28 +1769,12 @@ export default function SingleExperience() {
     [experience, fetchExperiences, fetchExperience, success, showError]
   );
 
-  // Set up navbar for single experience view
-  useEffect(() => {
-    const h1 = document.querySelector("h1");
-    if (h1) registerH1(h1);
-
-    // Enable h1 text in navbar for this view
-    updateShowH1InNavbar(true);
-
-    return () => {
-      clearActionButtons();
-      updateShowH1InNavbar(false);
-    };
-  }, [registerH1, clearActionButtons, updateShowH1InNavbar]);
-
   return (
     <>
       {experience && (
-        <PageMeta
+        <PageOpenGraph
           title={experience.name}
-          description={`Plan your ${experience.name} experience${
-            experience.destination ? ` in ${experience.destination.name}` : ""
-          }. ${
+          description={`Plan your ${experience.name} experience. ${
             experience.cost_estimate > 0
               ? `Estimated cost: ${dollarSigns(
                   Math.ceil(experience.cost_estimate / 1000)
@@ -1817,144 +1809,228 @@ export default function SingleExperience() {
       {experience ? (
         <div>
           <div className="row experience-detail fade-in">
-            <div className="col-md-6 fade-in text-center text-md-start">
-              <h1 className="mt-4 h fade-in">{experience.name}</h1>
-              {userHasExperience && !pendingUnplan && (
-                <div className="fade-in">
-                  {displayedPlannedDate ? (
-                    <Badge
-                      className="pill-info cursor-pointer mb-2"
-                      onClick={() => {
-                        if (showDatePicker) {
-                          setShowDatePicker(false);
-                        } else {
-                          setIsEditingDate(true);
-                          setPlannedDate(formatDateForInput(displayedPlannedDate));
-                          setShowDatePicker(true);
-                        }
-                      }}
-                      title={showDatePicker ? "Click to close date picker" : "Click to edit planned date"}
-                    >
-                      Planned for {formatDateShort(displayedPlannedDate)}
-                    </Badge>
-                  ) : (
-                    <Badge
-                      className="pill-primary cursor-pointer mb-2"
-                      onClick={() => {
-                        if (showDatePicker) {
-                          setShowDatePicker(false);
-                        } else {
-                          setIsEditingDate(false);
-                          setPlannedDate("");
-                          setShowDatePicker(true);
-                        }
-                      }}
-                      title={showDatePicker ? "Click to close date picker" : "Click to set a planned date"}
-                    >
-                      {lang.en.label.plannedDate}: {lang.en.label.setOneNow}
-                    </Badge>
-                  )}
-                </div>
-              )}
-              <div className="experience-header-grid my-2">
-                {experience.cost_estimate > 0 && (
-                  <h2 className="h5 fade-in">
-                    {lang.en.heading.estimatedCost}{" "}
-                    <span className="green fade-in">
-                      {dollarSigns(Math.ceil(experience.cost_estimate / 1000))}
-                    </span>
-                    <span className="grey fade-in">
-                      {dollarSigns(
-                        5 - Math.ceil(experience.cost_estimate / 1000)
+            <div className="col-md-6 fade-in">
+              <Mobile>
+                <div style={{ textAlign: 'center' }}>
+                  <h1 ref={h1Ref} className="mt-4 h fade-in">{experience.name}</h1>
+                  {userHasExperience && !pendingUnplan && (
+                    <FadeIn>
+                      {displayedPlannedDate ? (
+                        <TagPill
+                          color="primary"
+                          className="profile-pill cursor-pointer mb-2"
+                          onClick={() => {
+                            if (showDatePicker) {
+                              setShowDatePicker(false);
+                            } else {
+                              setIsEditingDate(true);
+                              setPlannedDate(formatDateForInput(displayedPlannedDate));
+                              setShowDatePicker(true);
+                            }
+                          }}
+                          title={showDatePicker ? "Click to close date picker" : "Click to edit planned date"}
+                        >
+                          Planned for {formatDateShort(displayedPlannedDate)}
+                        </TagPill>
+                      ) : (
+                        <TagPill
+                          color="primary"
+                          className="cursor-pointer mb-2"
+                          onClick={() => {
+                            if (showDatePicker) {
+                              setShowDatePicker(false);
+                            } else {
+                              setIsEditingDate(false);
+                              setPlannedDate("");
+                              setShowDatePicker(true);
+                            }
+                          }}
+                          title={showDatePicker ? "Click to close date picker" : "Click to set a planned date"}
+                        >
+                          {lang.en.label.plannedDate}: {lang.en.label.setOneNow}
+                        </TagPill>
                       )}
-                    </span>
-                  </h2>
-                )}
-                {experience.max_planning_days > 0 && (
-                  <h2 className="h5 fade-in">
-                    {lang.en.heading.planningTime}{" "}
-                    {experience.max_planning_days}{" "}
-                    {experience.max_planning_days === 1 ? "day" : "days"}
-                  </h2>
-                )}
-              </div>
+                    </FadeIn>
+                  )}
+                  <div className="experience-header-grid my-2">
+                    {experience.cost_estimate > 0 && (
+                      <FadeIn>
+                        <h2 className="h5">
+                          {lang.en.heading.estimatedCost}{" "}
+                          <span className="green">
+                            {dollarSigns(Math.ceil(experience.cost_estimate / 1000))}
+                          </span>
+                          <span className="grey">
+                            {dollarSigns(
+                              5 - Math.ceil(experience.cost_estimate / 1000)
+                            )}
+                          </span>
+                        </h2>
+                      </FadeIn>
+                    )}
+                    {experience.max_planning_days > 0 && (
+                      <FadeIn>
+                        <h2 className="h5">
+                          {lang.en.heading.planningTime}{" "}
+                          {experience.max_planning_days}{" "}
+                          {experience.max_planning_days === 1 ? "day" : "days"}
+                        </h2>
+                      </FadeIn>
+                    )}
+                  </div>
+                </div>
+              </Mobile>
+              <Desktop>
+                <div style={{ textAlign: 'start' }}>
+                  <h1 ref={h1Ref} className="mt-4 h fade-in">{experience.name}</h1>
+                  {userHasExperience && !pendingUnplan && (
+                    <FadeIn>
+                      {displayedPlannedDate ? (
+                        <TagPill
+                          color="primary"
+                          className="cursor-pointer mb-2"
+                          onClick={() => {
+                            if (showDatePicker) {
+                              setShowDatePicker(false);
+                            } else {
+                              setIsEditingDate(true);
+                              setPlannedDate(formatDateForInput(displayedPlannedDate));
+                              setShowDatePicker(true);
+                            }
+                          }}
+                          title={showDatePicker ? "Click to close date picker" : "Click to edit planned date"}
+                        >
+                          Planned for {formatDateShort(displayedPlannedDate)}
+                        </TagPill>
+                      ) : (
+                        <TagPill
+                          color="primary"
+                          className="cursor-pointer mb-2"
+                          onClick={() => {
+                            if (showDatePicker) {
+                              setShowDatePicker(false);
+                            } else {
+                              setIsEditingDate(false);
+                              setPlannedDate("");
+                              setShowDatePicker(true);
+                            }
+                          }}
+                          title={showDatePicker ? "Click to close date picker" : "Click to set a planned date"}
+                        >
+                          {lang.en.label.plannedDate}: {lang.en.label.setOneNow}
+                        </TagPill>
+                      )}
+                    </FadeIn>
+                  )}
+                  <div className="experience-header-grid my-2">
+                    {experience.cost_estimate > 0 && (
+                      <FadeIn>
+                        <h2 className="h5">
+                          {lang.en.heading.estimatedCost}{" "}
+                          <span className="green">
+                            {dollarSigns(Math.ceil(experience.cost_estimate / 1000))}
+                          </span>
+                          <span className="grey">
+                            {dollarSigns(
+                              5 - Math.ceil(experience.cost_estimate / 1000)
+                            )}
+                          </span>
+                        </h2>
+                      </FadeIn>
+                    )}
+                    {experience.max_planning_days > 0 && (
+                      <FadeIn>
+                        <h2 className="h5">
+                          {lang.en.heading.planningTime}{" "}
+                          {experience.max_planning_days}{" "}
+                          {experience.max_planning_days === 1 ? "day" : "days"}
+                        </h2>
+                      </FadeIn>
+                    )}
+                  </div>
+                </div>
+              </Desktop>
             </div>
             <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center flex-row experience-actions">
-              <button
-                className={`btn btn-sm btn-icon my-1 my-sm-2 ${
-                  userHasExperience ? "btn-plan-remove" : "btn-plan-add"
-                } ${loading ? "loading" : ""} fade-in`}
-                ref={planButtonRef}
-                style={planBtnWidth ? { width: `${planBtnWidth}px` } : undefined}
-                onMouseDown={() => {
-                  // Hide planned date immediately on press to avoid any flicker
-                  if (userHasExperience && !pendingUnplan) setPendingUnplan(true);
-                }}
-                onClick={async () => {
-                  if (loading) return;
-                  setLoading(true);
-                  await handleExperience();
-                  setLoading(false);
-                }}
-                aria-label={
-                  userHasExperience
-                    ? lang.en.button.removeFavoriteExp
-                    : lang.en.button.addFavoriteExp
-                }
-                aria-pressed={userHasExperience}
-                onMouseEnter={() => setFavHover(true)}
-                onMouseLeave={() => setFavHover(false)}
-                disabled={loading}
-                aria-busy={loading}
-              >
-                {userHasExperience
-                  ? favHover
-                    ? lang.en.button.removeFavoriteExp
-                    : lang.en.button.expPlanAdded
-                  : lang.en.button.addFavoriteExp}
-              </button>
-              {userHasExperience && (
+              <FadeIn>
                 <button
-                  className="btn btn-sm btn-icon my-1 my-sm-2 ms-0 ms-sm-2 fade-in"
-                  onClick={() => {
-                    if (showDatePicker) {
-                      setShowDatePicker(false);
-                    } else {
-                      setIsEditingDate(false);
-                      setPlannedDate(
-                        displayedPlannedDate
-                          ? formatDateForInput(displayedPlannedDate)
-                          : ""
-                      );
-                      setShowDatePicker(true);
-                    }
+                  className={`btn btn-sm btn-icon my-1 my-sm-2 ${
+                    userHasExperience ? "btn-plan-remove" : "btn-plan-add"
+                  } ${loading ? "loading" : ""}`}
+                  ref={planButtonRef}
+                  style={planBtnWidth ? { width: `${planBtnWidth}px` } : undefined}
+                  onClick={async () => {
+                    if (loading) return;
+                    setLoading(true);
+                    await handleExperience();
+                    setLoading(false);
                   }}
-                  aria-label={lang.en.button.editDate}
-                  title={lang.en.button.editDate}
+                  aria-label={
+                    userHasExperience
+                      ? lang.en.button.removeFavoriteExp
+                      : lang.en.button.addFavoriteExp
+                  }
+                  aria-pressed={userHasExperience}
+                  onMouseEnter={() => setFavHover(true)}
+                  onMouseLeave={() => setFavHover(false)}
+                  disabled={loading}
+                  aria-busy={loading}
                 >
-                  📅
+                  {userHasExperience
+                    ? favHover
+                      ? lang.en.button.removeFavoriteExp
+                      : lang.en.button.expPlanAdded
+                    : lang.en.button.addFavoriteExp}
                 </button>
+              </FadeIn>
+              {userHasExperience && (
+                <FadeIn>
+                  <button
+                    className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
+                    onClick={() => {
+                      if (showDatePicker) {
+                        setShowDatePicker(false);
+                      } else {
+                        setIsEditingDate(false);
+                        setPlannedDate(
+                          displayedPlannedDate
+                            ? formatDateForInput(displayedPlannedDate)
+                            : ""
+                        );
+                        setShowDatePicker(true);
+                      }
+                    }}
+                    aria-label={lang.en.button.editDate}
+                    title={lang.en.button.editDate}
+                  >
+                    📅
+                  </button>
+                </FadeIn>
               )}
               {isOwner(user, experience) && (
                 <>
-                  <button
-                    className="btn btn-sm btn-icon my-1 my-sm-2 ms-0 ms-sm-2 fade-in"
-                    onClick={() =>
-                      navigate(`/experiences/${experienceId}/update`)
-                    }
-                    aria-label={lang.en.button.updateExperience}
-                    title={lang.en.button.updateExperience}
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    className="btn btn-light btn-icon my-2 my-sm-4 ms-0 ms-sm-2 fade-in"
-                    onClick={() => setShowDeleteModal(true)}
-                    aria-label={lang.en.button.delete}
-                    title={lang.en.button.delete}
-                  >
-                    ❌
-                  </button>
+                  <FadeIn>
+                    <button
+                      className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
+                      onClick={() =>
+                        navigate(`/experiences/${experienceId}/update`)
+                      }
+                      aria-label={lang.en.button.updateExperience}
+                      title={lang.en.button.updateExperience}
+                    >
+                      ✏️
+                    </button>
+                  </FadeIn>
+                  <FadeIn>
+                    <button
+                      className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
+                      onClick={() => setShowDeleteModal(true)}
+                      aria-label={lang.en.button.delete}
+                      title={lang.en.button.delete}
+                    >
+                      ❌
+                    </button>
+                  </FadeIn>
                 </>
               )}
             </div>
@@ -1976,13 +2052,12 @@ export default function SingleExperience() {
                       </p>
                     )}
                     <div className="mb-3">
-                      <label htmlFor="plannedDate" className="form-label h5">
+                      <FormLabel htmlFor="plannedDate" className="h5">
                         {lang.en.label.whenDoYouWantExperience}
-                      </label>
-                      <input
+                      </FormLabel>
+                      <FormControl
                         type="date"
                         id="plannedDate"
-                        className="form-control"
                         value={plannedDate}
                         onChange={(e) => setPlannedDate(e.target.value)}
                         onClick={(e) =>
@@ -2081,10 +2156,10 @@ export default function SingleExperience() {
                           content: (
                             <div>
                               {experience.experience_type.map((type) => (
-                                <Link key={type} className="pill" to={`/experience-types/${createUrlSlug(type)}`}>
+                                <TagPill key={type} className="experience-tag-pill" color="primary" size="sm" gradient={false} to={`/experience-types/${createUrlSlug(type)}`}>
                                   <span className="icon"><FaUser /></span>
                                   {type}
-                                </Link>
+                                </TagPill>
                               ))}
                             </div>
                           ),
@@ -2347,19 +2422,15 @@ export default function SingleExperience() {
                               <div className="plan-item-meta">
                                 {Number(planItem.cost_estimate) > 0 && (
                                   <span className="d-flex align-items-center gap-2">
-                                    <strong className="text-dark">Cost:</strong>{" "}
+                                    <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.cost}</Text>
                                     {formatCurrency(planItem.cost_estimate)}
                                   </span>
                                 )}
                                 {Number(planItem.planning_days) > 0 && (
                                   <span className="d-flex align-items-center gap-2">
-                                    <strong className="text-dark">
-                                      Planning Time:
-                                    </strong>{" "}
+                                    <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.planningDays}</Text>
                                     {planItem.planning_days}{" "}
-                                    {planItem.planning_days === 1
-                                      ? "day"
-                                      : "days"}
+                                    {planItem.planning_days === 1 ? lang.en.label.day : lang.en.label.days}
                                   </span>
                                 )}
                               </div>
@@ -2458,7 +2529,7 @@ export default function SingleExperience() {
                       );
                       if (!currentPlan) {
                         return (
-                          <p className="text-center text-muted">
+                          <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
                             {lang.en.alert.planNotFound}
                           </p>
                         );
@@ -2604,7 +2675,7 @@ export default function SingleExperience() {
                         return (
                           <>
                             {planMetadata}
-                            <p className="text-center text-muted">
+                            <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
                               {lang.en.alert.noPlanItems}
                             </p>
                           </>
@@ -2832,21 +2903,15 @@ export default function SingleExperience() {
                                   <div className="plan-item-meta">
                                     {Number(planItem.cost) > 0 && (
                                       <span className="d-flex align-items-center gap-2">
-                                        <strong className="text-dark">
-                                          Cost:
-                                        </strong>{" "}
+                                        <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.cost}</Text>
                                         {formatCurrency(planItem.cost)}
                                       </span>
                                     )}
                                     {Number(planItem.planning_days) > 0 && (
                                       <span className="d-flex align-items-center gap-2">
-                                        <strong className="text-dark">
-                                          Planning Time:
-                                        </strong>{" "}
+                                        <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.planningDays}</Text>
                                         {planItem.planning_days}{" "}
-                                        {planItem.planning_days === 1
-                                          ? "day"
-                                          : "days"}
+                                        {planItem.planning_days === 1 ? lang.en.label.day : lang.en.label.days}
                                       </span>
                                     )}
                                   </div>
@@ -2891,7 +2956,6 @@ export default function SingleExperience() {
         show={showRemoveModal}
         onClose={() => {
           setShowRemoveModal(false);
-          setPendingUnplan(false);
         }}
         onConfirm={confirmRemoveExperience}
         title={lang.en.modal.removeExperienceTitle}
@@ -3014,16 +3078,16 @@ export default function SingleExperience() {
       >
         {collaboratorAddSuccess ? (
           // Success message view
-          <div className="text-center py-5">
+          <div style={{ textAlign: 'center', paddingTop: '3rem', paddingBottom: '3rem' }}>
             <div className="mb-3">
-              <BsCheckCircleFill className="text-success" size={64} />
+              <BsCheckCircleFill style={{ color: 'var(--bs-success)' }} size={64} />
             </div>
             <h4>{lang.en.alert.changesSavedSuccessfully}</h4>
 
             {/* Show added collaborators */}
             {addedCollaborators.length > 0 && (
               <div className="mb-3">
-                <p className="text-muted mb-2">
+                <p style={{ color: 'var(--bs-gray-600)' }} className="mb-2">
                   <strong>
                     {lang.en.alert.addedCollaborators
                       .replace("{count}", addedCollaborators.length)
@@ -3035,7 +3099,7 @@ export default function SingleExperience() {
                 </p>
                 <ul className="list-unstyled">
                   {addedCollaborators.map((collab) => (
-                    <li key={collab._id} className="text-success">
+                    <li key={collab._id} style={{ color: 'var(--bs-success)' }}>
                       ✓ {collab.name}
                     </li>
                   ))}
@@ -3046,7 +3110,7 @@ export default function SingleExperience() {
             {/* Show removed collaborators */}
             {actuallyRemovedCollaborators.length > 0 && (
               <div className="mb-3">
-                <p className="text-muted mb-2">
+                <p style={{ color: 'var(--bs-gray-600)' }} className="mb-2">
                   <strong>
                     {lang.en.alert.removedCollaborators
                       .replace("{count}", actuallyRemovedCollaborators.length)
@@ -3058,7 +3122,7 @@ export default function SingleExperience() {
                 </p>
                 <ul className="list-unstyled">
                   {actuallyRemovedCollaborators.map((collab) => (
-                    <li key={collab._id} className="text-danger">
+                    <li key={collab._id} style={{ color: 'var(--bs-danger)' }}>
                       ✗ {collab.name}
                     </li>
                   ))}
@@ -3068,7 +3132,7 @@ export default function SingleExperience() {
 
             {addedCollaborators.length === 0 &&
               actuallyRemovedCollaborators.length === 0 && (
-                <p className="text-muted">{lang.en.alert.noChangesMade}</p>
+                <p style={{ color: 'var(--bs-gray-600)' }}>{lang.en.alert.noChangesMade}</p>
               )}
           </div>
         ) : (
@@ -3078,7 +3142,7 @@ export default function SingleExperience() {
             className="collaborator-modal-form"
             onSubmit={handleAddCollaborator}
           >
-            <p className="text-muted mb-3">
+            <p style={{ color: 'var(--bs-gray-600)' }} className="mb-3">
               {lang.en.alert.searchCollaboratorsHelp.replace(
                 "{context}",
                 collaboratorContext
@@ -3088,9 +3152,9 @@ export default function SingleExperience() {
             {/* Selected Collaborators Display */}
             {selectedCollaborators.length > 0 && (
               <div className="mb-3">
-                <label className="form-label">
+                <FormLabel>
                   {lang.en.label.selectedCollaborators}
-                </label>
+                </FormLabel>
                 <div className="d-flex flex-wrap gap-2">
                   {selectedCollaborators.map((collaborator) => (
                     <div
@@ -3100,7 +3164,8 @@ export default function SingleExperience() {
                       <span>{collaborator.name}</span>
                       <button
                         type="button"
-                        className="btn btn-link p-0 text-white collaborator-remove-btn"
+                        className="btn btn-link p-0 collaborator-remove-btn"
+                        style={{ color: 'var(--bs-white)' }}
                         onClick={() =>
                           handleRemoveSelectedCollaborator(collaborator._id)
                         }
@@ -3115,12 +3180,11 @@ export default function SingleExperience() {
             )}
 
             <div className="mb-3 position-relative">
-              <label htmlFor="collaboratorSearch" className="form-label">
+              <FormLabel htmlFor="collaboratorSearch">
                 Search User
-              </label>
-              <input
+              </FormLabel>
+              <FormControl
                 type="text"
-                className="form-control"
                 id="collaboratorSearch"
                 value={collaboratorSearch}
                 onChange={(e) => handleSearchUsers(e.target.value)}
@@ -3135,11 +3199,12 @@ export default function SingleExperience() {
                     <button
                       key={user._id}
                       type="button"
-                      className="btn btn-light w-100 text-start border-0 rounded-0"
+                      className="btn btn-light w-100 border-0 rounded-0"
+                      style={{ textAlign: 'start' }}
                       onClick={() => handleSelectUser(user)}
                     >
                       <div className="fw-semibold">{user.name}</div>
-                      <small className="text-muted">{user.email}</small>
+                      <small style={{ color: 'var(--bs-gray-600)' }}>{user.email}</small>
                     </button>
                   ))}
                 </div>
@@ -3150,7 +3215,8 @@ export default function SingleExperience() {
             <div className="mb-3">
               <button
                 type="button"
-                className="btn btn-link text-decoration-none"
+                className="btn btn-link"
+                style={{ textDecoration: 'none' }}
                 onClick={() => {
                   setShowEmailInviteForm(!showEmailInviteForm);
                   setEmailInviteError("");
@@ -3164,7 +3230,7 @@ export default function SingleExperience() {
 
             {/* Email Invite Form */}
             {showEmailInviteForm && (
-              <div className="border rounded p-3 mb-3 bg-light">
+        <div className="border rounded p-3 mb-3 bg-color-tertiary">
                 <h6 className="mb-3">Send Email Invite</h6>
 
                 {emailInviteError && (
@@ -3178,12 +3244,11 @@ export default function SingleExperience() {
                 )}
 
                 <div className="mb-3">
-                  <label htmlFor="inviteEmail" className="form-label">
+                  <FormLabel htmlFor="inviteEmail">
                     Email Address
-                  </label>
-                  <input
+                  </FormLabel>
+                  <FormControl
                     type="email"
-                    className="form-control"
                     id="inviteEmail"
                     value={emailInviteData.email}
                     onChange={(e) =>
@@ -3197,12 +3262,11 @@ export default function SingleExperience() {
                 </div>
 
                 <div className="mb-3">
-                  <label htmlFor="inviteName" className="form-label">
+                  <FormLabel htmlFor="inviteName">
                     Full Name
-                  </label>
-                  <input
+                  </FormLabel>
+                  <FormControl
                     type="text"
-                    className="form-control"
                     id="inviteName"
                     value={emailInviteData.name}
                     onChange={(e) =>
@@ -3264,7 +3328,7 @@ export default function SingleExperience() {
           }
         >
           <>
-            <p className="text-muted mb-3">
+            <p style={{ color: 'var(--bs-gray-600)' }} className="mb-3">
               {lang.en.alert.selectChangesToApply}
             </p>
 
@@ -3272,7 +3336,7 @@ export default function SingleExperience() {
             {syncChanges.added.length > 0 && (
               <div className="mb-4">
                 <div className="d-flex justify-content-between align-items-center mb-2">
-                  <h6 className="text-success mb-0">
+                  <h6 style={{ color: 'var(--bs-success)' }} className="mb-0">
                     <strong>
                       {lang.en.label.addedItems.replace(
                         "{count}",
@@ -3339,7 +3403,7 @@ export default function SingleExperience() {
                         <div className="flex-grow-1">
                           <strong>{item.text}</strong>
                           {item.url && (
-                            <div className="small text-muted">
+                            <div className="small" style={{ color: 'var(--bs-gray-600)' }}>
                               URL:{" "}
                               <a
                                 href={item.url}
@@ -3351,7 +3415,7 @@ export default function SingleExperience() {
                             </div>
                           )}
                         </div>
-                        <div className="text-end ms-2">
+                        <div className="ms-2" style={{ textAlign: 'end' }}>
                           {item.cost > 0 && (
                             <div className="badge bg-secondary">
                               {formatCurrency(item.cost)}
@@ -3375,7 +3439,7 @@ export default function SingleExperience() {
             {syncChanges.removed.length > 0 && (
               <div className="mb-4">
                 <div className="d-flex justify-content-between align-items-center mb-2">
-                  <h6 className="text-danger mb-0">
+                  <h6 style={{ color: 'var(--bs-danger)' }} className="mb-0">
                     <strong>
                       {lang.en.label.removedItems.replace(
                         "{count}",
@@ -3447,7 +3511,7 @@ export default function SingleExperience() {
                         <div className="flex-grow-1">
                           <strong>{item.text}</strong>
                           {item.url && (
-                            <div className="small text-muted">
+                            <div className="small" style={{ color: 'var(--bs-gray-600)' }}>
                               URL: {item.url}
                             </div>
                           )}
@@ -3463,7 +3527,7 @@ export default function SingleExperience() {
             {syncChanges.modified.length > 0 && (
               <div className="mb-4">
                 <div className="d-flex justify-content-between align-items-center mb-2">
-                  <h6 className="text-warning mb-0">
+                  <h6 style={{ color: 'var(--bs-warning)' }} className="mb-0">
                     <strong>
                       {lang.en.label.modifiedItems.replace(
                         "{count}",
@@ -3533,10 +3597,10 @@ export default function SingleExperience() {
                           <strong className="d-block mb-2">{item.text}</strong>
                           {item.modifications.map((mod, modIdx) => (
                             <div key={modIdx} className="small mb-1">
-                              <span className="badge bg-warning text-dark me-2">
+                              <span className="badge bg-warning me-2" style={{ color: 'var(--bs-dark)' }}>
                                 {mod.field}
                               </span>
-                              <span className="text-decoration-line-through text-muted me-2">
+                              <span className="me-2" style={{ textDecoration: 'line-through', color: 'var(--bs-gray-600)' }}>
                                 {mod.field === "cost"
                                   ? `$${(mod.old || 0).toLocaleString("en-US", {
                                       minimumFractionDigits: 2,
@@ -3549,7 +3613,7 @@ export default function SingleExperience() {
                                   : mod.old || "(empty)"}
                               </span>
                               →
-                              <span className="text-success ms-2">
+                              <span className="ms-2" style={{ color: 'var(--bs-success)' }}>
                                 {mod.field === "cost"
                                   ? `$${(mod.new || 0).toLocaleString("en-US", {
                                       minimumFractionDigits: 2,
@@ -3624,13 +3688,12 @@ export default function SingleExperience() {
       >
         <form className="plan-item-modal-form">
           <div className="mb-3">
-            <label htmlFor="planItemText" className="form-label">
+            <FormLabel htmlFor="planItemText">
               {lang.en.label.itemDescription}{" "}
-              <span className="text-danger">*</span>
-            </label>
-            <input
+              <span style={{ color: 'var(--bs-danger)' }}>*</span>
+            </FormLabel>
+            <FormControl
               type="text"
-              className="form-control"
               id="planItemText"
               value={editingPlanItem.text || ""}
               onChange={(e) =>
@@ -3645,12 +3708,11 @@ export default function SingleExperience() {
           </div>
 
           <div className="mb-3">
-            <label htmlFor="planItemUrl" className="form-label">
+            <FormLabel htmlFor="planItemUrl">
               {lang.en.label.urlOptional}
-            </label>
-            <input
+            </FormLabel>
+            <FormControl
               type="url"
-              className="form-control"
               id="planItemUrl"
               value={editingPlanItem.url || ""}
               onChange={(e) =>

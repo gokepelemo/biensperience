@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Form, Dropdown } from 'react-bootstrap';
 import { FaSearch, FaUser, FaMapMarkerAlt, FaStar, FaGlobe } from 'react-icons/fa';
 import Loading from '../Loading/Loading';
+import { Pill } from '../design-system';
 import './Autocomplete.css';
 
 /**
@@ -40,20 +41,45 @@ export default function Autocomplete({
   showMeta = true,
   value,
   onChange,
+  displayValue,
   loading = false,
   emptyMessage = 'No results found',
   disabled = false,
   size = 'md', // 'sm', 'md', 'lg'
   disableFilter = false, // Disable client-side filtering
+  multi = false,
+  selected = [],
+  keepDropdownOpenOnSelect = false,
 }) {
   const [searchTerm, setSearchTerm] = useState(value || '');
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
+  const [selectedItems, setSelectedItems] = useState(Array.isArray(selected) ? selected : []);
 
   // Handle controlled vs uncontrolled
+  // If parent provides a controlled `value`, use it. Otherwise use internal searchTerm.
+  // If displayValue (a selected label) is provided, seed the internal searchTerm with it
+  // but allow the user to type (so displayValue does not permanently control the input).
   const currentValue = value !== undefined ? value : searchTerm;
+
+  // When a selected label (displayValue) is provided from parent, and the user hasn't typed
+  // (searchTerm is empty or equals previous displayValue), seed the searchTerm so the input
+  // shows the selected label but remains editable.
+  useEffect(() => {
+    if (displayValue !== undefined) {
+      // Only seed when searchTerm is empty or matches previous displayValue
+      if (!searchTerm || searchTerm === displayValue) {
+        setSearchTerm(displayValue || '');
+      }
+    }
+    // initialize selected items from prop changes
+    if (multi) {
+      setSelectedItems(Array.isArray(selected) ? selected : []);
+    }
+    // include selected and multi in deps so parent-driven selection updates are reflected
+  }, [displayValue, selected, multi]);
 
   // Filter items based on search term (unless filtering is disabled for API-based search)
   const filteredItems = React.useMemo(() => {
@@ -85,9 +111,9 @@ export default function Autocomplete({
     
     if (onChange) {
       onChange(e);
-    } else {
-      setSearchTerm(newValue);
     }
+    // Always update internal searchTerm for local filtering and display
+    setSearchTerm(newValue);
     
     if (onSearch) {
       onSearch(newValue);
@@ -99,21 +125,44 @@ export default function Autocomplete({
 
   // Handle item selection
   const handleSelect = (item) => {
+    if (multi) {
+      // add to selectedItems if not already present (by _id or id or name)
+      const exists = selectedItems.some(si => (si._id && item._id && String(si._id) === String(item._id)) || (si.id && item.id && String(si.id) === String(item.id)) || (si.name && item.name && si.name === item.name));
+      if (!exists) {
+        const next = [...selectedItems, item];
+        setSelectedItems(next);
+        if (typeof onSelect === 'function') onSelect(next);
+      } else {
+        // still notify with current selection
+        if (typeof onSelect === 'function') onSelect(selectedItems);
+      }
+      // clear input for next selection
+      setSearchTerm('');
+      // Respect caller preference: keep dropdown open for rapid multi-select or close it
+      setIsOpen(!!keepDropdownOpenOnSelect);
+      setHighlightedIndex(-1);
+      return;
+    }
+
     if (onSelect) {
       onSelect(item);
     }
-    
+
     // Update input with selected item's display name
-    const displayValue = item.name || item.username || item.label || '';
-    
+    const display = item.name || item.username || item.label || '';
     if (onChange) {
-      onChange({ target: { value: displayValue } });
-    } else {
-      setSearchTerm(displayValue);
+      onChange({ target: { value: display } });
     }
-    
+    setSearchTerm(display);
+
     setIsOpen(false);
     setHighlightedIndex(-1);
+  };
+
+  const handleRemoveSelected = (item) => {
+    const next = selectedItems.filter(si => !((si._id && item._id && String(si._id) === String(item._id)) || (si.id && item.id && String(si.id) === String(item.id)) || (si.name && item.name && si.name === item.name)));
+    setSelectedItems(next);
+    if (typeof onSelect === 'function') onSelect(next);
   };
 
   // Handle keyboard navigation
@@ -181,7 +230,7 @@ export default function Autocomplete({
   }, [highlightedIndex]);
 
   return (
-    <div className={`autocomplete-wrapper autocomplete-size-${size}`}>
+  <div className={`autocomplete-wrapper autocomplete-size-${size} ${isOpen ? 'autocomplete-open' : ''}`}>
       {/* Search Input */}
       <div className="autocomplete-input-wrapper">
         <FaSearch className="autocomplete-search-icon" />
@@ -198,6 +247,32 @@ export default function Autocomplete({
           autoComplete="off"
         />
       </div>
+      {multi && selectedItems && selectedItems.length > 0 && (
+        <div className="autocomplete-selected-chips">
+          {selectedItems.map((si, idx) => (
+            <Pill
+              key={si._id || si.id || `${si.name}-${idx}`}
+              // Use design-system tokens: destinations should use the neutral variant
+              // and be rendered filled (no outline) for better contrast in dark mode.
+              variant={entityType === 'destination' ? 'neutral' : 'primary'}
+              outline={entityType !== 'destination'}
+              rounded
+              size="sm"
+              className={`autocomplete-chip-pill ${entityType === 'destination' ? 'destination-chip' : ''}`}
+            >
+              <span className="chip-label">{si.name || si.label || si.value}</span>
+              <button
+                type="button"
+                className="chip-remove"
+                onClick={() => handleRemoveSelected(si)}
+                aria-label={`Remove ${si.name || si.label || si.value}`}
+              >
+                ×
+              </button>
+            </Pill>
+          ))}
+        </div>
+      )}
 
       {/* Dropdown Results */}
       {isOpen && (
@@ -206,7 +281,7 @@ export default function Autocomplete({
             <div className="autocomplete-loading">
               <Loading 
                 size="sm" 
-                animation="pulse" 
+                animation="engine" 
                 showMessage={true}
                 message="Searching..."
               />

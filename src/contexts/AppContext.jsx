@@ -87,12 +87,16 @@ export function AppProvider({ children }) {
       setScrollY(currentScrollY);
       setIsScrolled(currentScrollY > 10);
 
-      // Check if h1 is visible
+      // Check if h1 is still visible (top is in viewport)
       if (h1Element) {
         const rect = h1Element.getBoundingClientRect();
-        const isVisible = rect.bottom > 80; // 80px is approximate navbar height
+        const isVisible = rect.top >= 0; // h1 is visible if its top is still in viewport
         setH1Visible(isVisible);
         setShowActionButtons(!isVisible && actionButtons.length > 0);
+      } else {
+        // If no h1 element is registered, don't show action buttons
+        setShowActionButtons(false);
+        setH1Visible(true);
       }
     };
 

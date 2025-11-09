@@ -58,6 +58,9 @@ export default function FormField({
   className = '',
   as,
   rows,
+  rounded = false,
+  variant,
+  showCounter = false,
   children,
   ...rest
 }) {
@@ -91,7 +94,9 @@ export default function FormField({
         minHeight: hasInputGroup ? 'var(--form-field-control-min-height)' : 'var(--form-field-min-height)',
         outline: 'var(--form-field-control-outline)',
         boxShadow: 'var(--form-field-control-box-shadow)',
-        borderRadius: hasInputGroup ? '0' : 'var(--form-field-border-radius)',
+        borderRadius: rounded ? '16px' : (hasInputGroup ? '0' : 'var(--form-field-border-radius)'),
+        // Variant border color overrides
+        borderColor: variant === 'accent' ? 'var(--bs-primary)' : variant === 'error' ? 'var(--bs-danger)' : undefined,
       }}
       {...rest}
     >
@@ -150,7 +155,12 @@ export default function FormField({
 
       {validFeedback && <Form.Control.Feedback type="valid">{validFeedback}</Form.Control.Feedback>}
       {invalidFeedback && <Form.Control.Feedback type="invalid">{invalidFeedback}</Form.Control.Feedback>}
-      {helpText && <Form.Text className="text-muted">{helpText}</Form.Text>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {helpText ? <Form.Text className="text-muted">{helpText}</Form.Text> : <div />}
+        {as === 'textarea' && showCounter && (
+          <Form.Text className="text-muted">{(value && value.length) || 0}/{rest.maxLength || ''}</Form.Text>
+        )}
+      </div>
     </Form.Group>
   );
 }
@@ -181,4 +191,6 @@ FormField.propTypes = {
   as: PropTypes.string,
   rows: PropTypes.number,
   children: PropTypes.node,
+  rounded: PropTypes.bool,
+  variant: PropTypes.string,
 };

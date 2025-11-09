@@ -97,24 +97,53 @@ button.generate-token:disabled {
 
 .api-access-toggle .form-check-input {
   cursor: pointer;
-  width: 4rem;
-  height: 2rem;
-  transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  /* Make a custom large toggle appearance for better visibility in dark mode */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  display: inline-block;
+  width: 56px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--color-bg-tertiary);
+  border: 3px solid rgba(255,255,255,0.08);
   position: relative;
+  transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.18s ease;
 }
 
 .api-access-toggle .form-check-input::after {
-  transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  transition: transform 0.28s ease, background 0.28s ease;
 }
 
 .api-access-toggle .form-check-input:checked {
-  background-color: var(--color-success);
+  background: linear-gradient(90deg, var(--color-success), var(--color-primary));
   border-color: var(--color-success);
+  box-shadow: 0 0 0 4px rgba(0,0,0,0.12) inset;
 }
 
 .api-access-toggle .form-check-input:focus {
   box-shadow: 0 0 0 0.25rem var(--color-success-light);
   border-color: var(--color-success);
+}
+
+.api-access-toggle .form-check-input:checked::after {
+  transform: translateY(-50%) translateX(20px);
+  background: #ffffff;
+}
+
+.api-access-toggle .form-check-input[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Token List Section */

@@ -1,10 +1,44 @@
 import { sendRequest } from "./send-request.js";
 import { normalizeUrl } from "./url-utils.js";
+import { logger } from './logger';
 
 const BASE_URL = `/api/experiences/`
 
-export async function getExperiences() {
-  return await sendRequest(`${BASE_URL}`, "GET");
+export async function getExperiences(filters = {}) {
+  // Fetch first page of experiences (default limit=30)
+  // Allow callers to override page/limit by passing them in `filters`.
+  const pageParam = filters && filters.page ? String(filters.page) : '1';
+  const limitParam = filters && filters.limit ? String(filters.limit) : '30';
+  const params = new URLSearchParams({ page: pageParam, limit: limitParam });
+  // append filters (skip page/limit since already applied, skip client-only filters starting with __)
+  Object.entries(filters || {}).forEach(([k, v]) => {
+    if (k === 'page' || k === 'limit') return;
+    if (k.startsWith('__')) return; // Skip client-only filters like __viewSpecific, __noApiParam
+    if (v !== undefined && v !== null) params.append(k, v);
+  });
+  const url = `${BASE_URL}?${params.toString()}`;
+  logger.debug('getExperiences request', { url, filters });
+  const resp = await sendRequest(url, "GET");
+  // Return full response with { data, meta } for pagination support
+  return resp;
+}
+
+export async function getExperiencesPage(page = 1, limit = 30, filters = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  Object.entries(filters || {}).forEach(([k, v]) => {
+    if (k.startsWith('__')) return; // Skip client-only filters like __viewSpecific, __noApiParam
+    if (v !== undefined && v !== null) params.append(k, v);
+  });
+  return await sendRequest(`${BASE_URL}?${params.toString()}`, "GET");
+}
+
+export async function getExperienceTags(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.q) params.append('q', filters.q);
+  const url = params.toString() ? `${BASE_URL}tags?${params.toString()}` : `${BASE_URL}tags`;
+  const resp = await sendRequest(url, "GET");
+  // Return full response for consistency
+  return resp;
 }
 
 export async function createExperience(experienceData) {

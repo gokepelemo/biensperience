@@ -7,6 +7,7 @@ import {
   FaExclamationTriangle, FaThumbtack, FaLightbulb,
   FaExternalLinkAlt, FaTimes
 } from 'react-icons/fa';
+import EntitySchema from "../OpenGraph/EntitySchema";
 
 // Emoji icons for colorful display
 const TIP_EMOJIS = {
@@ -49,7 +50,7 @@ const TIP_COLORS = {
   Custom: 'secondary'
 };
 
-export default function TravelTip({ tip, index, onDelete, editable = false }) {
+export default function TravelTip({ tip, index, onDelete, editable = false, includeSchema = false }) {
   // Calculate dynamic font size based on text length for simple tips
   const getSimpleTipFontSize = useMemo(() => {
     if (typeof tip !== 'string') return null;
@@ -77,29 +78,34 @@ export default function TravelTip({ tip, index, onDelete, editable = false }) {
   // Handle simple string tip
   if (typeof tip === 'string') {
     return (
-      <div className="travel-tip travel-tip-simple" key={index}>
-        <div className="travel-tip-icon-wrapper simple">
-          <FaLightbulb className="travel-tip-fa-icon" />
+      <>
+        <div className="travel-tip travel-tip-simple" key={index}>
+          <div className="travel-tip-icon-wrapper simple">
+            <FaLightbulb className="travel-tip-fa-icon" />
+          </div>
+          <div className="travel-tip-content-simple">
+            <span
+              className="travel-tip-text"
+              style={{ fontSize: getSimpleTipFontSize }}
+            >
+              {tip}
+            </span>
+          </div>
+          {editable && (
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-danger travel-tip-delete"
+              onClick={() => onDelete(index)}
+              aria-label="Delete tip"
+            >
+              <FaTimes />
+            </button>
+          )}
         </div>
-        <div className="travel-tip-content-simple">
-          <span
-            className="travel-tip-text"
-            style={{ fontSize: getSimpleTipFontSize }}
-          >
-            {tip}
-          </span>
-        </div>
-        {editable && (
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-danger travel-tip-delete"
-            onClick={() => onDelete(index)}
-            aria-label="Delete tip"
-          >
-            <FaTimes />
-          </button>
+        {includeSchema && tip && (
+          <EntitySchema entity={{ name: tip, description: tip, type: 'travel-tip' }} entityType="travel-tip" />
         )}
-      </div>
+      </>
     );
   }
 
@@ -132,10 +138,11 @@ export default function TravelTip({ tip, index, onDelete, editable = false }) {
   } : {};
 
   return (
-    <div
-      className={`travel-tip travel-tip-structured travel-tip-${type.toLowerCase()}`}
-      {...schemaProps}
-    >
+    <>
+      <div
+        className={`travel-tip travel-tip-structured travel-tip-${type.toLowerCase()}`}
+        {...schemaProps}
+      >
       <div className="travel-tip-header">
         <div
           className={`travel-tip-icon-wrapper ${gradientClass}`}
@@ -199,5 +206,9 @@ export default function TravelTip({ tip, index, onDelete, editable = false }) {
         )}
       </div>
     </div>
+    {includeSchema && tip && (
+      <EntitySchema entity={{ name: tip.value || tip.note, description: tip.note, type: 'travel-tip', category: tip.type }} entityType="travel-tip" />
+    )}
+    </>
   );
 }

@@ -6,10 +6,11 @@ import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
 import { useToast } from "../../contexts/ToastContext";
-import PageMeta from "../../components/PageMeta/PageMeta";
+import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
 import InviteCodeModal from "../../components/InviteCodeModal/InviteCodeModal";
+import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, FormControl } from "../../components/design-system";
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
 import { logger } from "../../utilities/logger";
@@ -126,7 +127,7 @@ export default function AllUsers() {
   };
 
   const getSortIcon = (field) => {
-    if (sortField !== field) return <FaSort className="ms-1 text-muted" />;
+    if (sortField !== field) return <FaSort className="ms-1" style={{ color: 'var(--bs-gray-600)' }} />;
     return sortDirection === 'asc' ?
       <FaSortUp className="ms-1" /> :
       <FaSortDown className="ms-1" />;
@@ -181,7 +182,7 @@ export default function AllUsers() {
   if (!isCurrentUserSuperAdmin) {
     return (
       <>
-        <PageMeta
+        <PageOpenGraph
           title="Access Denied"
           description="You do not have permission to access this page."
         />
@@ -196,49 +197,47 @@ export default function AllUsers() {
 
   return (
     <>
-      <PageMeta
+      <PageOpenGraph
         title="All Users - Admin Panel"
         description="Super admin panel for managing all users and their roles."
         keywords="admin panel, user management, super admin, user roles"
       />
 
       <div className="profile-dropdown-view">
-        <div className="container-fluid">
-          <div className="view-header">
-            <div className="row">
-              <div className="col-md-6">
-                <h1 className="mb-2">
-                  <FaUserShield className="me-2 text-success" />
-                  {lang.en.admin.userManagement}
-                </h1>
-                <p className="header-description">{lang.en.admin.superAdminPanel}</p>
-              </div>
-              <div className="col-md-6">
-                <div className="header-actions">
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => setShowInviteModal(true)}
-                  >
-                    <FaUserPlus className="me-2" />
-                    {lang.en.invite.heading}
-                  </button>
-                  <Link to="/" className="btn btn-outline-secondary">
-                    {lang.en.admin.backToHome}
-                  </Link>
-                </div>
-              </div>
+        <Container className="view-header">
+          <FlexBetween className="mb-4">
+            <div>
+              <h1 className="mb-2">
+                <FaUserShield className="me-2 text-success" />
+                {lang.en.admin.userManagement}
+              </h1>
+              <p className="header-description">{lang.en.admin.superAdminPanel}</p>
             </div>
-          </div>
+            <div className="header-actions">
+              <Button
+                variant="primary"
+                onClick={() => setShowInviteModal(true)}
+                className="me-2"
+              >
+                <FaUserPlus className="me-2" />
+                {lang.en.invite.heading}
+              </Button>
+              <Button as={Link} to="/" variant="outline-secondary">
+                {lang.en.admin.backToHome}
+              </Button>
+            </div>
+          </FlexBetween>
+        </Container>
 
-          {/* Stats Cards */}
-                    {/* Stats Cards */}
+        {/* Stats Cards */}
+        <Container className="mb-4">
           <div className="row mb-4">
             <div className="col-md-4 mb-3 mb-md-0">
               <div className="stat-card stat-card-primary">
                 <div className="stat-card-icon">
                   <FaUser />
                 </div>
-                                <div className="stat-card-content">
+                <div className="stat-card-content">
                   <div className="stat-card-value">{stats.total}</div>
                   <div className="stat-card-label">{getUserLabel(stats.total, 'Total User', 'Total Users')}</div>
                 </div>
@@ -249,7 +248,7 @@ export default function AllUsers() {
                 <div className="stat-card-icon">
                   <FaUserShield />
                 </div>
-                                <div className="stat-card-content">
+                <div className="stat-card-content">
                   <div className="stat-card-value">{stats.superAdmins}</div>
                   <div className="stat-card-label">{getUserLabel(stats.superAdmins, 'Super Admin', 'Super Admins')}</div>
                 </div>
@@ -267,6 +266,7 @@ export default function AllUsers() {
               </div>
             </div>
           </div>
+        </Container>
 
           {/* Alerts */}
           {error && <Alert type="danger" message={error} dismissible className="mb-4" />}
@@ -278,9 +278,8 @@ export default function AllUsers() {
                 <div className="col-md-6">
                   <div className="search-box">
                     <FaSearch className="search-icon" />
-                    <input
+                    <FormControl
                       type="text"
-                      className="form-control"
                       placeholder="Search by name or email..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -319,7 +318,7 @@ export default function AllUsers() {
               </Card.Header>
               <Card.Body className="p-0">
                 {filteredUsers.length === 0 ? (
-                  <div className="p-5 text-center text-muted">
+                  <div className="p-5" style={{ textAlign: 'center', color: 'var(--bs-gray-600)' }}>
                     <FaUser size={48} className="mb-3 opacity-50" />
                     <p className="mb-0">
                       {searchTerm || roleFilter !== 'all'
@@ -328,147 +327,138 @@ export default function AllUsers() {
                     </p>
                   </div>
                 ) : (
-                  <div className="table-responsive">
-                    <table className="table table-hover table-unified table-gradient-header mb-0">
-                      <thead>
-                        <tr>
-                          <th onClick={() => handleSort('name')} className="sortable">
-                            Name {getSortIcon('name')}
-                          </th>
-                          <th onClick={() => handleSort('email')} className="sortable">
-                            Email {getSortIcon('email')}
-                          </th>
-                          <th onClick={() => handleSort('role')} className="sortable">
-                            Role {getSortIcon('role')}
-                          </th>
-                          <th onClick={() => handleSort('createdAt')} className="sortable">
-                            Joined {getSortIcon('createdAt')}
-                          </th>
-                          <th className="text-end">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredUsers.map((userData) => {
-                          const isCurrentUser = userData._id === user._id;
-                          return (
-                            <tr key={userData._id} className={isCurrentUser ? 'highlight' : ''}>
-                              <td>
-                                <div className="d-flex align-items-center gap-2">
-                                  <Link
-                                    to={`/profile/${userData._id}`}
-                                    className="user-name-link"
-                                  >
-                                    {userData.name}
-                                  </Link>
-                                  {isCurrentUser && (
-                                    <Badge className="badge badge-info">You</Badge>
-                                  )}
-                                </div>
-                              </td>
-                              <td>
-                                <div className="d-flex align-items-center text-muted">
-                                  <FaEnvelope className="me-2" size={14} />
-                                  {userData.email}
-                                </div>
-                              </td>
-                              <td>
-                                <span className={`role-badge ${
-                                  userData.role === USER_ROLES.SUPER_ADMIN
-                                    ? 'role-badge-admin'
-                                    : 'role-badge-user'
-                                }`}>
-                                  {userData.role === USER_ROLES.SUPER_ADMIN ? (
-                                    <><FaUserShield className="me-1" /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
-                                  ) : (
-                                    <><FaUser className="me-1" /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
-                                  )}
-                                </span>
-                              </td>
-                              <td>
-                                <div className="d-flex align-items-center text-muted">
-                                  <FaCalendarAlt className="me-2" size={14} />
-                                  {userData.createdAt
-                                    ? new Date(userData.createdAt).toLocaleDateString('en-US', {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric'
-                                      })
-                                    : 'Unknown'
+                  <Table hover striped responsive>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell onClick={() => handleSort('name')} className="sortable">
+                          Name {getSortIcon('name')}
+                        </TableCell>
+                        <TableCell onClick={() => handleSort('email')} className="sortable">
+                          Email {getSortIcon('email')}
+                        </TableCell>
+                        <TableCell onClick={() => handleSort('role')} className="sortable">
+                          Role {getSortIcon('role')}
+                        </TableCell>
+                        <TableCell onClick={() => handleSort('createdAt')} className="sortable">
+                          Joined {getSortIcon('createdAt')}
+                        </TableCell>
+                        <TableCell className="text-end">Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {filteredUsers.map((userData) => {
+                        const isCurrentUser = userData._id === user._id;
+                        return (
+                          <TableRow key={userData._id} className={isCurrentUser ? 'highlight' : ''}>
+                            <TableCell>
+                              <div className="d-flex align-items-center gap-2">
+                                <Link
+                                  to={`/profile/${userData._id}`}
+                                  className="user-name-link"
+                                >
+                                  {userData.name}
+                                </Link>
+                                {isCurrentUser && (
+                                  <Badge className="badge badge-info">You</Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="d-flex align-items-center" style={{ color: 'var(--bs-gray-600)' }}>
+                                <FaEnvelope className="me-2" size={14} />
+                                {userData.email}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className={`role-badge ${
+                                userData.role === USER_ROLES.SUPER_ADMIN
+                                  ? 'role-badge-admin'
+                                  : 'role-badge-user'
+                              }`}>
+                                {userData.role === USER_ROLES.SUPER_ADMIN ? (
+                                  <><FaUserShield className="me-1" /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
+                                ) : (
+                                  <><FaUser className="me-1" /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
+                                )}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="d-flex align-items-center" style={{ color: 'var(--bs-gray-600)' }}>
+                                <FaCalendarAlt className="me-2" size={14} />
+                                {userData.createdAt
+                                  ? new Date(userData.createdAt).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric'
+                                    })
+                                  : 'Unknown'
+                                }
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="d-flex justify-content-end gap-2">
+                                <Button
+                                  variant={userData.role === USER_ROLES.SUPER_ADMIN ? "success" : "outline-success"}
+                                  size="sm"
+                                  onClick={() => handleRoleUpdate(userData._id, USER_ROLES.SUPER_ADMIN)}
+                                  disabled={
+                                    updatingUser === userData._id ||
+                                    userData.role === USER_ROLES.SUPER_ADMIN ||
+                                    isCurrentUser
                                   }
-                                </div>
-                              </td>
-                              <td>
-                                <div className="d-flex justify-content-end gap-2">
-                                  <button
-                                    className={`btn btn-sm role-btn ${
-                                      userData.role === USER_ROLES.SUPER_ADMIN
-                                        ? 'role-btn-active role-btn-admin'
-                                        : 'role-btn-inactive'
-                                    }`}
-                                    onClick={() => handleRoleUpdate(userData._id, USER_ROLES.SUPER_ADMIN)}
-                                    disabled={
-                                      updatingUser === userData._id ||
-                                      userData.role === USER_ROLES.SUPER_ADMIN ||
-                                      isCurrentUser
-                                    }
-                                    title={isCurrentUser ? "You cannot change your own role" : "Make Super Admin"}
-                                  >
-                                    {updatingUser === userData._id ? (
-                                      <Loading size="sm" showMessage={false} />
-                                    ) : (
-                                      <>
-                                        <FaUserShield className="me-1" />
-                                        <span className="d-none d-md-inline">Super Admin</span>
-                                        <span className="d-inline d-md-none">SA</span>
-                                      </>
-                                    )}
-                                  </button>
-                                  <button
-                                    className={`btn btn-sm role-btn ${
-                                      userData.role === USER_ROLES.REGULAR_USER
-                                        ? 'role-btn-active role-btn-user'
-                                        : 'role-btn-inactive'
-                                    }`}
-                                    onClick={() => handleRoleUpdate(userData._id, USER_ROLES.REGULAR_USER)}
-                                    disabled={
-                                      updatingUser === userData._id ||
-                                      userData.role === USER_ROLES.REGULAR_USER ||
-                                      isCurrentUser
-                                    }
-                                    title={isCurrentUser ? "You cannot change your own role" : "Make Regular User"}
-                                  >
-                                    {updatingUser === userData._id ? (
-                                      <Loading size="sm" showMessage={false} />
-                                    ) : (
-                                      <>
-                                        <FaUser className="me-1" />
-                                        <span className="d-none d-md-inline">Regular User</span>
-                                        <span className="d-inline d-md-none">RU</span>
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                                  title={isCurrentUser ? "You cannot change your own role" : "Make Super Admin"}
+                                >
+                                  {updatingUser === userData._id ? (
+                                    <Loading size="sm" showMessage={false} />
+                                  ) : (
+                                    <>
+                                      <FaUserShield className="me-1" />
+                                      <span className="d-none d-md-inline">Super Admin</span>
+                                      <span className="d-inline d-md-none">SA</span>
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  variant={userData.role === USER_ROLES.REGULAR_USER ? "primary" : "outline-primary"}
+                                  size="sm"
+                                  onClick={() => handleRoleUpdate(userData._id, USER_ROLES.REGULAR_USER)}
+                                  disabled={
+                                    updatingUser === userData._id ||
+                                    userData.role === USER_ROLES.REGULAR_USER ||
+                                    isCurrentUser
+                                  }
+                                  title={isCurrentUser ? "You cannot change your own role" : "Make Regular User"}
+                                >
+                                  {updatingUser === userData._id ? (
+                                    <Loading size="sm" showMessage={false} />
+                                  ) : (
+                                    <>
+                                      <FaUser className="me-1" />
+                                      <span className="d-none d-md-inline">Regular User</span>
+                                      <span className="d-inline d-md-none">RU</span>
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
                 )}
               </Card.Body>
             </Card>
           )}
         </div>
-      </div>
 
-      {/* Invite Code Modal */}
-      <InviteCodeModal
-        show={showInviteModal}
-        onHide={() => setShowInviteModal(false)}
-        experiences={experiences}
-        destinations={destinations}
-      />
+        {/* Invite Code Modal */}
+        <InviteCodeModal
+          show={showInviteModal}
+          onHide={() => setShowInviteModal(false)}
+          experiences={experiences}
+          destinations={destinations}
+        />
     </>
   );
 }

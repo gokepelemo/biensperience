@@ -4,6 +4,7 @@ import { signUp } from "../../utilities/users-service";
 import { validateInviteCode } from "../../utilities/invite-codes-service";
 import { lang } from "../../lang.constants";
 import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
+import { FormControl } from "../../components/design-system";
 import "./SignUpForm.css";
 
 /**
@@ -124,8 +125,8 @@ function SignUpForm(props) {
         <div className="login-logo"></div>
         <h1 className="login-title">{lang.en.heading.createAccount}</h1>
         <form className="login-form" autoComplete="off" onSubmit={handleSubmit}>
-          <input
-            className="form-control login-input"
+          <FormControl
+            className="login-input"
             type="text"
             name="name"
             value={state.name}
@@ -134,18 +135,18 @@ function SignUpForm(props) {
             required
             autoComplete="name"
           />
-          <input
-            className="form-control login-input"
+          <FormControl
+            className="login-input"
             type="email"
             name="email"
             value={state.email}
             onChange={handleChange}
-            placeholder={lang.en.placeholder.emailExample}
+            placeholder={lang.en.placeholder.email}
             required
             autoComplete="email"
           />
-          <input
-            className="form-control login-input"
+          <FormControl
+            className="login-input"
             type="password"
             name="password"
             value={state.password}
@@ -154,8 +155,8 @@ function SignUpForm(props) {
             required
             autoComplete="new-password"
           />
-          <input
-            className="form-control login-input"
+          <FormControl
+            className="login-input"
             type="password"
             name="confirm"
             value={state.confirm}
@@ -165,8 +166,8 @@ function SignUpForm(props) {
             autoComplete="new-password"
           />
           <div style={{ marginTop: '1rem' }}>
-            <input
-              className="form-control login-input"
+            <FormControl
+              className="login-input"
               type="text"
               name="inviteCode"
               value={state.inviteCode}

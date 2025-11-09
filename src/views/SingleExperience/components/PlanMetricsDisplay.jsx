@@ -3,7 +3,7 @@
  * Displays metrics for a plan (planned date, completion, cost)
  */
 
-import { Badge } from 'react-bootstrap';
+import TagPill from '../../../components/Pill/TagPill';
 import { formatDateMetricCard } from '../../../utilities/date-utils';
 import { formatCurrency } from '../../../utilities/currency-utils';
 
@@ -24,19 +24,13 @@ export default function PlanMetricsDisplay({
           <div className="metric-label">Planned Date</div>
           <div className="metric-value-container">
             {plannedDate ? (
-              <Badge
-                className="pill-primary cursor-pointer metric-badge"
-                onClick={onEditDate}
-              >
+              <TagPill color="primary" className="metric-badge" onClick={onEditDate}>
                 {formatDateMetricCard(plannedDate)}
-              </Badge>
+              </TagPill>
             ) : (
-              <Badge
-                className="pill-neutral cursor-pointer metric-badge"
-                onClick={onEditDate}
-              >
+              <TagPill color="neutral" className="metric-badge" onClick={onEditDate}>
                 Not set
-              </Badge>
+              </TagPill>
             )}
           </div>
           {showEditButton && (
@@ -55,7 +49,7 @@ export default function PlanMetricsDisplay({
         <div className="metric-card h-100">
           <div className="metric-label">Completion</div>
           <div className="metric-value">{completionPercentage}%</div>
-          <div className="progress mt-2" style={{ height: '8px' }}>
+          <div className="progress mt-2" style={{ height: 'var(--progress-bar-height-sm)' }}>
             <div
               className="progress-bar gradient-animated"
               role="progressbar"

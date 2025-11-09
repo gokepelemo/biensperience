@@ -8,8 +8,23 @@ const BASE_URL = `/api/destinations/`
  * @async
  * @returns {Promise<Array>} Array of destination objects
  */
-export async function getDestinations () {
-    return await sendRequest(`${BASE_URL}`, "GET")
+export async function getDestinations (filters = {}) {
+    // Fetch first page of destinations (default limit=30)
+    const params = new URLSearchParams({ page: '1', limit: '30' });
+    Object.entries(filters || {}).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) params.append(k, v);
+    });
+    const resp = await sendRequest(`${BASE_URL}?${params.toString()}`, "GET");
+    // Return full response with { data, meta } for pagination support
+    return resp;
+}
+
+export async function getDestinationsPage(page = 1, limit = 30, filters = {}) {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    Object.entries(filters || {}).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) params.append(k, v);
+    });
+    return await sendRequest(`${BASE_URL}?${params.toString()}`, "GET");
 }
 
 /**

@@ -67,9 +67,10 @@ describe('Destinations API Routes', () => {
 
       expect(response.status).toBe(200);
       validators.isArray(response);
-      expect(response.body.length).toBe(3);
+      const body = response.body.data || response.body;
+      expect(body.length).toBe(3);
 
-      response.body.forEach((destination) => {
+      body.forEach((destination) => {
         validators.isValidDestination(destination);
       });
 
@@ -99,9 +100,10 @@ describe('Destinations API Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       logger.response(response.status, response.body);
-      expect(response.status).toBe(200);
-      validators.isArray(response);
-      expect(response.body.length).toBe(0);
+  expect(response.status).toBe(200);
+  validators.isArray(response);
+  const body = response.body.data || response.body;
+  expect(body.length).toBe(0);
       logger.success('Empty array returned correctly');
     });
   });

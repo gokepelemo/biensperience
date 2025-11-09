@@ -238,46 +238,78 @@ async function trackDelete(options) {
  */
 async function trackPlanItemCompletion(options) {
   const {
-    plan,
-    planItem,
-    completed,
-    actor,
-    req
+    // Accept either `plan` or legacy `resource`, and either `planItem` or `planItemId`.
+    plan = options.plan || options.resource,
+    planItem = options.planItem,
+    planItemId = options.planItemId,
+    completed = options.completed,
+    actor = options.actor,
+    req = options.req
   } = options;
 
-  const action = completed ? 'plan_item_completed' : 'plan_item_uncompleted';
-  const reason = completed
-    ? `Plan item "${planItem.text}" marked as completed`
-    : `Plan item "${planItem.text}" marked as incomplete`;
+  // Resolve planItem when only an ID is provided
+  let resolvedPlanItem = planItem;
+  try {
+    if (!resolvedPlanItem && planItemId && plan) {
+      // plan could be a mongoose doc or a plain object
+      if (typeof plan.plan === 'function' && plan.plan.id) {
+        // Mongoose subdocument accessor
+        resolvedPlanItem = plan.plan.id(planItemId);
+      } else if (Array.isArray(plan.plan)) {
+        resolvedPlanItem = plan.plan.find(i => String(i._id) === String(planItemId));
+      }
+    }
 
-  // Non-blocking: Fire and forget
-  Activity.create({
-    timestamp: new Date(),
-    action,
-    actor: extractActor(actor),
-    resource: {
-      id: plan._id,
-      type: 'Plan',
-      name: plan.experience?.name || 'Unnamed Plan'
-    },
-    target: {
-      id: planItem._id,
-      type: 'PlanItem',
-      name: planItem.text
-    },
-    previousState: { completed: !completed },
-    newState: { completed },
-    reason,
-    metadata: req ? extractMetadata(req) : {},
-    status: 'success',
-    tags: ['plan', 'plan_item', completed ? 'completed' : 'uncompleted']
-  }).catch(err => {
-    backendLogger.error('Failed to track plan item completion', {
-      error: err.message,
-      planId: plan._id,
-      planItemId: planItem._id
+    if (!resolvedPlanItem) {
+      backendLogger.warn('trackPlanItemCompletion called without a valid planItem', {
+        planId: plan?._id || null,
+        planItemId: planItemId || null
+      });
+      return; // Nothing to track
+    }
+
+    const action = completed ? 'plan_item_completed' : 'plan_item_uncompleted';
+    const reason = completed
+      ? `Plan item "${resolvedPlanItem.text || resolvedPlanItem.name || resolvedPlanItem._id}" marked as completed`
+      : `Plan item "${resolvedPlanItem.text || resolvedPlanItem.name || resolvedPlanItem._id}" marked as incomplete`;
+
+    // Non-blocking: Fire and forget
+    Activity.create({
+      timestamp: new Date(),
+      action,
+      actor: extractActor(actor),
+      resource: {
+        id: plan._id,
+        type: 'Plan',
+        name: plan.experience?.name || 'Unnamed Plan'
+      },
+      target: {
+        id: resolvedPlanItem._id,
+        type: 'PlanItem',
+        name: resolvedPlanItem.text || resolvedPlanItem.name || String(resolvedPlanItem._id)
+      },
+      previousState: { completed: !completed },
+      newState: { completed },
+      reason,
+      metadata: req ? extractMetadata(req) : {},
+      status: 'success',
+      tags: ['plan', 'plan_item', completed ? 'completed' : 'uncompleted']
+    }).catch(err => {
+      backendLogger.error('Failed to track plan item completion', {
+        error: err.message,
+        planId: plan._id,
+        planItemId: resolvedPlanItem._id
+      });
     });
-  });
+  } catch (err) {
+    // Defensive: log unexpected errors in resolution logic
+    backendLogger.error('Error in trackPlanItemCompletion', {
+      error: err?.message || String(err),
+      planId: plan?._id || null,
+      planItemId: planItemId || (resolvedPlanItem && resolvedPlanItem._id) || null
+    });
+    return;
+  }
 }
 
 /**

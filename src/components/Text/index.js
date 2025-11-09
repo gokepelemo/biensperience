@@ -1,0 +1,1 @@
+export { default as Text, Heading, Paragraph } from './Text';

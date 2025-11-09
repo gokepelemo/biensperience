@@ -56,7 +56,7 @@
 }
 
 /* Center tags/pills within their container */
-.info-card-content > div:has(.pill) {
+.info-card-content > div:has(.tag-pill) {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;

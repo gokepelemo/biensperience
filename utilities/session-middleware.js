@@ -315,7 +315,22 @@ async function checkSessionExpiry(req, res, next) {
  * @param {Object} user - User document (Mongoose model instance)
  * @returns {Promise<string>} New session ID
  */
-async function createSessionForUser(user) {
+async function createSessionForUser(user, forceNew = false) {
+  // Check if user already has an active session and we're not forcing a new one
+  if (!forceNew && user.currentSessionId && user.sessionExpiresAt) {
+    const now = Date.now();
+    if (user.sessionExpiresAt > now) {
+      // User has an active session, return existing session ID
+      backendLogger.debug('Using existing active session for user', {
+        userId: user._id,
+        sessionId: user.currentSessionId,
+        expiresAt: new Date(user.sessionExpiresAt).toISOString()
+      });
+      return user.currentSessionId;
+    }
+  }
+
+  // Create new session (either forced or no active session exists)
   const sessionId = generateSessionId();
   const createdAt = Date.now();
   const expiresAt = calculateExpiryEpoch(createdAt);

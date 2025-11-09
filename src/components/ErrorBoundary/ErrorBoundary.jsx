@@ -86,13 +86,13 @@ class ErrorBoundary extends React.Component {
                 <summary className="cursor-pointer">Error Details (Development Only)</summary>
                 <div className="mt-2">
                   <strong>Error:</strong>
-                  <pre className="bg-light p-2 rounded">
+                  <pre className="bg-color-secondary p-2 rounded">
                     {this.state.error.toString()}
                   </pre>
                   {this.state.errorInfo && (
                     <>
                       <strong>Component Stack:</strong>
-                      <pre className="bg-light p-2 rounded" style={{ fontSize: '0.85rem' }}>
+                      <pre className="bg-color-secondary p-2 rounded" style={{ fontSize: '0.85rem' }}>
                         {this.state.errorInfo.componentStack}
                       </pre>
                     </>

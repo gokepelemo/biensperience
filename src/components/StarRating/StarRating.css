@@ -1,0 +1,4 @@
+.star-rating { display: inline-flex; gap: 0.25rem; align-items: center; }
+.star { display: inline-flex; line-height: 1; }
+.star svg { display: block; }
+.star-half { transform: translateY(0); }

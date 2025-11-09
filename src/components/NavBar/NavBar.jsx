@@ -244,6 +244,16 @@ export default function NavBar() {
                 Experiences
               </NavLink>
             </li>
+            <li className="nav-item" role="none">
+              <NavLink
+                to="/dashboard"
+                className="nav-link"
+                role="menuitem"
+                aria-label="View dashboard"
+              >
+                Dashboard
+              </NavLink>
+            </li>
             <li className="nav-item dropdown" role="none">
               <button
                 ref={dropdownButtonRef}
@@ -338,7 +348,7 @@ export default function NavBar() {
 
           {/* Dynamic Action Buttons - shown when scrolled past h1 */}
           {showActionButtons && actionButtons.length > 0 && (
-            <div className="navbar-actions fade-in">
+            <div className="navbar-actions animation-fade_in">
               <ActionButtons buttons={actionButtons} compact={true} />
             </div>
           )}

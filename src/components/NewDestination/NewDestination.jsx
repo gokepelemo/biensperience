@@ -142,7 +142,7 @@ export default function NewDestination() {
 
   return (
     <>
-      <div className="row fade-in">
+      <div className="row animation-fade_in">
         <div className="col-12">
           <h1 className="form-title">{lang.en.heading.createDestination}</h1>
         </div>
@@ -163,7 +163,7 @@ export default function NewDestination() {
         </Alert>
       )}
 
-      <div className="row my-4 fade-in justify-content-center">
+      <div className="row my-4 animation-fade_in justify-content-center">
         <div className="col-12">
           <Form onSubmit={handleSubmit} className="form-unified">
             <FormField

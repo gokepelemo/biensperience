@@ -1,0 +1,111 @@
+/* Button Component Styles */
+.btn-custom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 44px; /* Accessibility: minimum touch target */
+  position: relative;
+  overflow: hidden;
+}
+
+/* Gradient Button */
+.btn-gradient {
+  background: var(--gradient-primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-gradient:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-gradient:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Outline Button */
+.btn-outline {
+  background: transparent;
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-outline:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Bootstrap Button (uses existing Bootstrap classes) */
+/* Inherits Bootstrap button styles */
+
+/* Rounded variant */
+.btn-rounded {
+  border-radius: var(--radius-full);
+}
+
+/* Shadow variant */
+.btn-shadow {
+  box-shadow: var(--shadow-md);
+}
+
+.btn-shadow:hover:not(:disabled) {
+  box-shadow: var(--shadow-lg);
+}
+
+/* Size variants */
+.btn-sm {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  min-height: 36px;
+}
+
+.btn-lg {
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--font-size-lg);
+  min-height: 52px;
+}
+
+/* Disabled state */
+.btn-custom:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Focus state for accessibility */
+.btn-custom:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .btn-outline {
+    border-color: var(--color-primary-dark);
+    color: var(--color-primary-dark);
+  }
+
+  .btn-outline:hover:not(:disabled) {
+    background: var(--color-primary-dark);
+  }
+}

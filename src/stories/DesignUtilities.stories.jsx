@@ -1,6 +1,7 @@
 import React from 'react';
 import '../styles/utilities.css';
 import '../styles/design-tokens.css';
+import TagPill from '../components/Pill/TagPill';
 
 export default {
   title: 'Design System/Utilities',
@@ -19,18 +20,34 @@ export default {
           <ul>
             <li><strong>Buttons</strong>: .btn-gradient, .btn-outline-custom, .btn-rounded, .btn-shadow</li>
             <li><strong>Layout</strong>: .flex-between, .flex-center, .space-y-[1-6]</li>
-            <li><strong>Typography</strong>: .text-gradient, .text-shadow, .text-truncate-[1-3]</li>
-            <li><strong>Feedback</strong>: .skeleton-text, .skeleton-circle, .skeleton-rectangle</li>
+            <li><strong>Typography</strong>: .text-gradient-primary, .text-shadow-md, .text-truncate-[1-3]</li>
+            <li><strong>Pills/Badges</strong>: .pill with .pill-variant-* (primary, success, warning, danger, info, neutral)</li>
+            <li><strong>Animations</strong>: .animation-fade-in, .animation-slide-up, .animation-scale-in</li>
+            <li><strong>Feedback</strong>: .loading-skeleton-text, .loading-skeleton-circle, .loading-skeleton-rectangle</li>
             <li><strong>Forms</strong>: .form-unified</li>
             <li><strong>Tables</strong>: .table-unified</li>
             <li><strong>Responsive</strong>: .show-mobile, .hide-mobile</li>
           </ul>
+
+          <h2>Recent Changes (November 2025)</h2>
+          <div style={{ background: 'var(--color-bg-secondary)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+            <h3 style={{ marginTop: 0, color: 'var(--color-primary)' }}>Design System Refactoring</h3>
+            <ul style={{ margin: 0 }}>
+              <li><strong>Kebab-case Naming</strong>: All utility classes converted from snake_case to kebab-case (e.g., <code>pill_primary</code> → <code>pill-variant-primary</code>)</li>
+              <li><strong>Base Pill Class</strong>: Added centralized <code>.pill</code> base class with proper styling and variants</li>
+              <li><strong>Animation Classes</strong>: Updated to kebab-case (<code>animation-fade_in</code> → <code>animation-fade-in</code>)</li>
+              <li><strong>Dark Mode Support</strong>: All utilities now use design tokens for automatic light/dark theme switching</li>
+              <li><strong>Storybook Updates</strong>: All stories updated to use correct class names and render properly</li>
+            </ul>
+          </div>
 
           <h2>Guidelines</h2>
           <ul>
             <li>Prefer utility classes for spacing and layout primitives</li>
             <li>Use component classes for complex patterns (cards, modals)</li>
             <li>Never hardcode colors; rely on design tokens</li>
+            <li>Use kebab-case naming convention for all new utility classes</li>
+            <li>Always combine base classes with variants (e.g., <code>pill pill-variant-primary</code>)</li>
           </ul>
         </div>
       ),
@@ -81,34 +98,34 @@ export const SkeletonLoaders = {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '600px' }}>
       <div>
         <h4 className="mb-3">Text Skeletons</h4>
-        <div className="skeleton-text" style={{ width: '80%' }}></div>
-        <div className="skeleton-text" style={{ width: '60%' }}></div>
-        <div className="skeleton-text" style={{ width: '90%' }}></div>
+        <div className="loading-skeleton-text" style={{ width: '80%' }}></div>
+        <div className="loading-skeleton-text" style={{ width: '60%' }}></div>
+        <div className="loading-skeleton-text" style={{ width: '90%' }}></div>
       </div>
 
       <div>
         <h4 className="mb-3">Image Skeletons</h4>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <div className="skeleton-circle" style={{ width: '60px', height: '60px' }}></div>
+          <div className="loading-skeleton-circle" style={{ width: '60px', height: '60px' }}></div>
           <div style={{ flex: 1 }}>
-            <div className="skeleton-text" style={{ width: '70%' }}></div>
-            <div className="skeleton-text" style={{ width: '50%' }}></div>
+            <div className="loading-skeleton-text" style={{ width: '70%' }}></div>
+            <div className="loading-skeleton-text" style={{ width: '50%' }}></div>
           </div>
         </div>
       </div>
 
       <div>
         <h4 className="mb-3">Card Skeleton</h4>
-        <div className="skeleton-rectangle" style={{ height: '200px', borderRadius: '8px' }}></div>
-        <div className="skeleton-text mt-2" style={{ width: '70%' }}></div>
-        <div className="skeleton-text" style={{ width: '50%' }}></div>
+        <div className="loading-skeleton-rectangle" style={{ height: '200px', borderRadius: '8px' }}></div>
+        <div className="loading-skeleton-text mt-2" style={{ width: '70%' }}></div>
+        <div className="loading-skeleton-text" style={{ width: '50%' }}></div>
       </div>
     </div>
   ),
   parameters: {
     docs: {
       description: {
-        story: 'Skeleton loader classes: .skeleton-text, .skeleton-circle, .skeleton-rectangle',
+        story: 'Skeleton loader classes: .loading-skeleton-text, .loading-skeleton-circle, .loading-skeleton-rectangle',
       },
     },
   },
@@ -120,22 +137,23 @@ export const Pills = {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <div>
         <h4 className="mb-3">Default Pills</h4>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <span className="pill">Tag 1</span>
-          <span className="pill">Tag 2</span>
-          <span className="pill">Tag 3</span>
-          <span className="pill">Long Tag Name</span>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <TagPill>Tag 1</TagPill>
+          <TagPill>Tag 2</TagPill>
+          <TagPill>Tag 3</TagPill>
+          <TagPill>Long Tag Name</TagPill>
         </div>
       </div>
 
       <div>
         <h4 className="mb-3">Color Variants</h4>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <span className="pill pill-primary">Primary</span>
-          <span className="pill pill-success">Success</span>
-          <span className="pill pill-warning">Warning</span>
-          <span className="pill pill-danger">Danger</span>
-          <span className="pill pill-info">Info</span>
+          <TagPill color="primary">Primary</TagPill>
+          <TagPill color="success">Success</TagPill>
+          <TagPill color="warning">Warning</TagPill>
+          <TagPill color="danger">Danger</TagPill>
+          <TagPill color="info">Info</TagPill>
+          <TagPill color="neutral">Neutral</TagPill>
         </div>
       </div>
     </div>
@@ -143,7 +161,7 @@ export const Pills = {
   parameters: {
     docs: {
       description: {
-        story: 'Pill/badge classes: .pill with color variants (.pill-primary, .pill-success, etc.)',
+        story: 'Pill/badge classes: .pill with color variants (.pill-variant-primary, .pill-variant-success, etc.)',
       },
     },
   },
@@ -193,12 +211,12 @@ export const TextUtilities = {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <div>
         <h4 className="mb-3">Text Gradient</h4>
-        <h2 className="text-gradient">Gradient Text Effect</h2>
+        <h2 className="text-gradient-primary">Gradient Text Effect</h2>
       </div>
 
       <div>
         <h4 className="mb-3">Text Shadow</h4>
-        <h2 className="text-shadow" style={{ color: 'var(--color-primary)' }}>Text with Shadow</h2>
+        <h2 className="text-shadow-md" style={{ color: 'var(--color-primary)' }}>Text with Shadow</h2>
       </div>
 
       <div>
@@ -218,7 +236,7 @@ export const TextUtilities = {
   parameters: {
     docs: {
       description: {
-        story: 'Text utilities: .text-gradient, .text-shadow, .text-truncate-* (1-3)',
+        story: 'Text utilities: .text-gradient-primary, .text-shadow-md, .text-truncate-* (1-3)',
       },
     },
   },
@@ -230,14 +248,14 @@ export const AnimationUtilities = {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <div>
         <h4 className="mb-3">Fade In</h4>
-        <div className="fade-in" style={{ background: 'var(--color-primary)', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
+        <div className="animation-fade-in" style={{ background: 'var(--color-primary)', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
           Fades in on load
         </div>
       </div>
 
       <div>
         <h4 className="mb-3">Slide Up</h4>
-        <div className="slide-up" style={{ background: 'var(--color-primary-dark)', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
+        <div className="animation-slide-up" style={{ background: 'var(--color-primary-dark)', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
           Slides up on load
         </div>
       </div>
@@ -253,7 +271,7 @@ export const AnimationUtilities = {
   parameters: {
     docs: {
       description: {
-        story: 'Animation utilities: .fade-in, .slide-up, .scale-in',
+        story: 'Animation utilities: .animation-fade-in, .animation-slide-up, .animation-scale-in',
       },
     },
   },
@@ -386,7 +404,7 @@ export const ResponsiveHelpers = {
 export const CompleteExample = {
   render: () => (
     <div style={{ maxWidth: '800px' }} className="space-y-4">
-      <div className="fade-in">
+      <div className="animation-fade-in">
         <div style={{
           background: 'var(--gradient-primary)',
           color: 'white',
@@ -394,12 +412,12 @@ export const CompleteExample = {
           borderRadius: '12px',
           marginBottom: '2rem'
         }}>
-          <h2 className="text-shadow mb-3">Design System Utilities</h2>
+          <h2 className="text-shadow-md mb-3">Design System Utilities</h2>
           <p className="mb-0">Comprehensive utility classes for rapid development</p>
         </div>
       </div>
 
-      <div className="slide-up" style={{ animationDelay: '0.1s' }}>
+      <div className="animation-slide-up" style={{ animationDelay: '0.1s' }}>
         <div style={{ 
           background: 'var(--color-bg-primary)',
           border: '1px solid var(--color-border-medium)',

@@ -85,14 +85,17 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
 
     setIsTogglingAccess(true);
     try {
+      logger.debug('ApiTokenModal: handleToggleApiAccess called', { current: apiEnabled, intended: !apiEnabled });
       const result = await toggleApiAccess(!apiEnabled);
 
+      logger.debug('ApiTokenModal: toggleApiAccess result', { result });
       if (!isMountedRef.current) return;
 
       setApiEnabled(result.apiEnabled);
 
       // Notify parent to refresh user data after a short delay to avoid interfering with modal close
       if (onUserUpdate) {
+        logger.debug('ApiTokenModal: calling onUserUpdate to refresh parent user data');
         setTimeout(() => {
           onUserUpdate();
         }, 100);
@@ -110,6 +113,8 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       if (!isMountedRef.current) return;
 
       logger.error('Error toggling API access', {}, err);
+      // extra debug output to help trace failures
+      console.error('ApiTokenModal: toggleApiAccess failed', err);
       showError('Failed to toggle API access');
     } finally {
       if (isMountedRef.current) {

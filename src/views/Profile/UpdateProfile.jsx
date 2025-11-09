@@ -9,7 +9,7 @@ import { updateToken } from "../../utilities/users-service";
 import { useUser } from "../../contexts/UserContext";
 import { useToast } from "../../contexts/ToastContext";
 import { lang } from "../../lang.constants";
-import PageMeta from "../../components/PageMeta/PageMeta";
+import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { handleError } from "../../utilities/error-handler";
 import { formatChanges } from "../../utilities/change-formatter";
 import FormField from "../../components/FormField/FormField";
@@ -323,7 +323,7 @@ export default function UpdateProfile() {
 
   return (
     <>
-      <PageMeta
+      <PageOpenGraph
         title={isAdminMode ? `Edit User - ${currentUser?.name}` : `Edit Profile - ${user.name}`}
         description={isAdminMode ? 
           `Admin: Update user profile settings, change name, email, and account settings.` :
@@ -337,7 +337,7 @@ export default function UpdateProfile() {
         }
       />
 
-      <div className="row fade-in">
+      <div className="row animation-fade_in">
         <div className="col-12">
           <h1 className="form-title">
             {isAdminMode ?
@@ -364,7 +364,7 @@ export default function UpdateProfile() {
           <strong>Changes detected:</strong>
           <ul className="mb-0 mt-2">
             {Object.keys(changes).map((field, idx) => (
-              <li key={idx} style={{ whiteSpace: 'pre-line' }}>
+              <li key={idx} className="whitespace-pre-line">
                 {formatChanges(field, changes[field], 'profile')}
               </li>
             ))}
@@ -379,9 +379,9 @@ export default function UpdateProfile() {
       ) : loading ? (
         <Loading variant="centered" size="lg" message={`Loading ${isAdminMode ? 'user' : 'your'} profile...`} />
       ) : (
-        <div className="row my-4 fade-in justify-content-center">
+        <div className="row my-4 animation-fade_in justify-content-center">
           <div className="col-12">
-            <Form className="form-unified" autoComplete="off" onSubmit={handleSubmit} style={{ display: 'block' }}>
+            <Form className="form-unified" autoComplete="off" onSubmit={handleSubmit}>
             <FormField
               name="name"
               label="Name"
@@ -422,7 +422,7 @@ export default function UpdateProfile() {
                   checked={formData.emailConfirmed || false}
                   onChange={handleChange}
                 />
-                <Form.Text className="text-muted">
+                <Form.Text style={{ color: 'var(--bs-gray-600)' }}>
                   Manually confirm or unconfirm this user's email address.
                 </Form.Text>
               </Form.Group>
@@ -535,7 +535,7 @@ export default function UpdateProfile() {
                 <ul className="list-group">
                   {Object.entries(changes).map(([field, change]) => (
                     <li key={field} className="list-group-item">
-                      <div style={{ whiteSpace: 'pre-line' }}>
+                      <div className="whitespace-pre-line">
                         {formatChanges(field, change, 'profile')}
                       </div>
                     </li>

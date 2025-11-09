@@ -159,7 +159,9 @@ const validators = {
    * Validates that a response is an array
    */
   isArray(response) {
-    expect(Array.isArray(response.body)).toBe(true);
+    // Support paginated responses ({ data, meta }) or legacy array responses
+    const body = response && response.body && response.body.data ? response.body.data : response.body;
+    expect(Array.isArray(body)).toBe(true);
   },
 
   /**

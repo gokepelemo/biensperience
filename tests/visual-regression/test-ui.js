@@ -195,12 +195,21 @@ async function getTestData(page) {
 
     const testData = {};
 
-    if (destinationsResponse && destinationsResponse.length > 0) {
-      testData['single-destination'] = destinationsResponse[0]._id;
+    // Support paginated responses ({ data, meta }) or legacy arrays
+    const dests = Array.isArray(destinationsResponse)
+      ? destinationsResponse
+      : (destinationsResponse && destinationsResponse.data) || [];
+
+    const exps = Array.isArray(experiencesResponse)
+      ? experiencesResponse
+      : (experiencesResponse && experiencesResponse.data) || [];
+
+    if (dests.length > 0) {
+      testData['single-destination'] = dests[0]._id;
     }
 
-    if (experiencesResponse && experiencesResponse.length > 0) {
-      testData['single-experience'] = experiencesResponse[0]._id;
+    if (exps.length > 0) {
+      testData['single-experience'] = exps[0]._id;
     }
 
     return testData;

@@ -5,6 +5,58 @@ import FormField from '../FormField/FormField';
 export default {
   title: 'Components/Modal',
   component: Modal,
+  argTypes: {
+    show: {
+      control: { type: 'boolean' },
+      description: 'Whether the modal is visible'
+    },
+    title: {
+      control: { type: 'text' },
+      description: 'Modal title'
+    },
+    submitText: {
+      control: { type: 'text' },
+      description: 'Text for submit button'
+    },
+    submitVariant: {
+      control: { type: 'select' },
+      options: ['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark'],
+      description: 'Bootstrap variant for submit button'
+    },
+    cancelText: {
+      control: { type: 'text' },
+      description: 'Text for cancel button'
+    },
+    showCancelButton: {
+      control: { type: 'boolean' },
+      description: 'Whether to show cancel button'
+    },
+    showSubmitButton: {
+      control: { type: 'boolean' },
+      description: 'Whether to show submit button'
+    },
+    disableSubmit: {
+      control: { type: 'boolean' },
+      description: 'Whether submit button is disabled'
+    },
+    loading: {
+      control: { type: 'boolean' },
+      description: 'Whether modal is in loading state'
+    },
+    size: {
+      control: { type: 'select' },
+      options: ['sm', 'lg', 'xl'],
+      description: 'Modal size'
+    },
+    scrollable: {
+      control: { type: 'boolean' },
+      description: 'Whether modal content is scrollable'
+    },
+    centered: {
+      control: { type: 'boolean' },
+      description: 'Whether modal is vertically centered'
+    }
+  },
   parameters: {
     layout: 'centered',
     docs: {
@@ -42,6 +94,32 @@ export const BasicModal = {
       </>
     );
   },
+};
+
+// Interactive playground for testing modal props
+export const Playground = (args) => (
+  <Modal
+    {...args}
+    onClose={() => console.log('Modal closed')}
+    onSubmit={() => console.log('Modal submitted')}
+  >
+    <p>This is modal content that can be customized using the controls panel.</p>
+    <p>You can adjust the modal properties to see how they affect the appearance and behavior.</p>
+  </Modal>
+);
+Playground.args = {
+  show: true,
+  title: 'Modal Playground',
+  submitText: 'Submit',
+  submitVariant: 'primary',
+  cancelText: 'Cancel',
+  showCancelButton: true,
+  showSubmitButton: true,
+  disableSubmit: false,
+  loading: false,
+  size: undefined,
+  scrollable: false,
+  centered: true
 };
 
 // Form modal with validation

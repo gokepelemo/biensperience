@@ -1,0 +1,191 @@
+/* Responsive Component Styles */
+
+/* Show utilities */
+.show-mobile {
+  display: none;
+}
+
+.show-tablet {
+  display: none;
+}
+
+.show-desktop {
+  display: block;
+}
+
+.show-mobile-tablet {
+  display: none;
+}
+
+.show-tablet-desktop {
+  display: block;
+}
+
+/* Hide utilities */
+.hide-mobile {
+  display: block;
+}
+
+.hide-tablet {
+  display: block;
+}
+
+.hide-desktop {
+  display: none;
+}
+
+.hide-mobile-tablet {
+  display: block;
+}
+
+.hide-tablet-desktop {
+  display: none;
+}
+
+/* Mobile breakpoint (640px and below) */
+@media (max-width: 640px) {
+  .show-mobile {
+    display: block;
+  }
+
+  .show-tablet {
+    display: none;
+  }
+
+  .show-desktop {
+    display: none;
+  }
+
+  .show-mobile-tablet {
+    display: block;
+  }
+
+  .show-tablet-desktop {
+    display: none;
+  }
+
+  .hide-mobile {
+    display: none;
+  }
+
+  .hide-tablet {
+    display: block;
+  }
+
+  .hide-desktop {
+    display: block;
+  }
+
+  .hide-mobile-tablet {
+    display: none;
+  }
+
+  .hide-tablet-desktop {
+    display: block;
+  }
+}
+
+/* Tablet breakpoint (641px to 1024px) */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .show-mobile {
+    display: none;
+  }
+
+  .show-tablet {
+    display: block;
+  }
+
+  .show-desktop {
+    display: none;
+  }
+
+  .show-mobile-tablet {
+    display: block;
+  }
+
+  .show-tablet-desktop {
+    display: block;
+  }
+
+  .hide-mobile {
+    display: block;
+  }
+
+  .hide-tablet {
+    display: none;
+  }
+
+  .hide-desktop {
+    display: block;
+  }
+
+  .hide-mobile-tablet {
+    display: block;
+  }
+
+  .hide-tablet-desktop {
+    display: none;
+  }
+}
+
+/* Desktop breakpoint (1025px and above) */
+@media (min-width: 1025px) {
+  .show-mobile {
+    display: none;
+  }
+
+  .show-tablet {
+    display: none;
+  }
+
+  .show-desktop {
+    display: block;
+  }
+
+  .show-mobile-tablet {
+    display: none;
+  }
+
+  .show-tablet-desktop {
+    display: block;
+  }
+
+  .hide-mobile {
+    display: block;
+  }
+
+  .hide-tablet {
+    display: block;
+  }
+
+  .hide-desktop {
+    display: none;
+  }
+
+  .hide-mobile-tablet {
+    display: block;
+  }
+
+  .hide-tablet-desktop {
+    display: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .show-mobile,
+  .show-tablet,
+  .hide-mobile,
+  .hide-tablet,
+  .hide-desktop {
+    display: block !important;
+  }
+
+  .show-desktop,
+  .show-mobile-tablet,
+  .show-tablet-desktop,
+  .hide-mobile-tablet,
+  .hide-tablet-desktop {
+    display: none !important;
+  }
+}

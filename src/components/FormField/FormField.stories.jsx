@@ -18,13 +18,62 @@ export default {
     type: {
       control: 'select',
       options: ['text', 'email', 'password', 'number', 'tel', 'url', 'date', 'textarea'],
-      description: 'Input type',
+      description: 'Input type'
     },
     size: {
       control: 'select',
       options: ['sm', 'lg'],
-      description: 'Input size',
+      description: 'Input size'
     },
+    label: {
+      control: 'text',
+      description: 'Field label'
+    },
+    placeholder: {
+      control: 'text',
+      description: 'Placeholder text'
+    },
+    required: {
+      control: 'boolean',
+      description: 'Is field required'
+    },
+    disabled: {
+      control: 'boolean',
+      description: 'Is field disabled'
+    },
+    readOnly: {
+      control: 'boolean',
+      description: 'Is field read-only'
+    },
+    isValid: {
+      control: 'boolean',
+      description: 'Valid state'
+    },
+    isInvalid: {
+      control: 'boolean',
+      description: 'Invalid state'
+    },
+    helpText: {
+      control: 'text',
+      description: 'Help text below field'
+    },
+    tooltip: {
+      control: 'text',
+      description: 'Tooltip content'
+    },
+    tooltipPlacement: {
+      control: 'select',
+      options: ['top', 'bottom', 'left', 'right'],
+      description: 'Tooltip placement'
+    },
+    prepend: {
+      control: 'text',
+      description: 'Input group prepend text'
+    },
+    append: {
+      control: 'text',
+      description: 'Input group append text'
+    }
   },
 };
 
@@ -351,4 +400,70 @@ export const CompleteFormExample = {
       },
     },
   },
+};
+
+// Interactive playground for testing all FormField props
+export const Playground = (args) => {
+  const [value, setValue] = useState('');
+
+  return (
+    <div style={{ padding: 16, maxWidth: 400 }}>
+      <FormField
+        {...args}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+      />
+    </div>
+  );
+};
+Playground.args = {
+  name: 'example',
+  label: 'Example Field',
+  type: 'text',
+  placeholder: 'Enter something...',
+  required: false,
+  disabled: false,
+  readOnly: false,
+  isValid: false,
+  isInvalid: false,
+  helpText: '',
+  tooltip: '',
+  tooltipPlacement: 'top'
+};
+
+// Textarea playground with controls for rounded, variant and counter
+export const TextareaPlayground = {
+  args: {
+    name: 'notes',
+    label: 'Notes',
+    placeholder: 'Write something...',
+    rounded: true,
+    variant: 'accent',
+    showCounter: true,
+    rows: 5,
+    maxLength: 500,
+    helpText: 'Tip: Keep it brief.'
+  },
+  argTypes: {
+    rounded: { control: 'boolean' },
+    variant: { control: { type: 'select', options: ['default','accent','error'] } },
+    showCounter: { control: 'boolean' },
+    rows: { control: { type: 'number', min: 1, max: 20 } },
+    maxLength: { control: { type: 'number', min: 0, max: 2000 } },
+    placeholder: { control: 'text' },
+    helpText: { control: 'text' }
+  },
+  render: (args) => {
+    const [value, setValue] = useState('');
+    return (
+      <div style={{ padding: 16, maxWidth: 600 }}>
+        <FormField
+          {...args}
+          as="textarea"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </div>
+    );
+  }
 };

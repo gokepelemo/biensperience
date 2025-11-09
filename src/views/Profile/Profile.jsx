@@ -1,5 +1,5 @@
 import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye } from "react-icons/fa";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import "./Profile.css";
 import { useUser } from "../../contexts/UserContext";
@@ -16,16 +16,19 @@ import { showUserExperiences, showUserCreatedExperiences } from "../../utilities
 import { getUserData, updateUserRole, updateUser as updateUserApi } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
 import { handleError } from "../../utilities/error-handler";
-import PageMeta from "../../components/PageMeta/PageMeta";
+import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { deduplicateById } from "../../utilities/deduplication";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
+import { Button, Container, FlexBetween, Heading, Paragraph } from "../../components/design-system";
+import TagPill from '../../components/Pill/TagPill';
 
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
   const { destinations, plans } = useData();
-  const { registerH1, clearActionButtons, updateShowH1InNavbar } = useApp();
+  const { registerH1, clearActionButtons, updateShowH1InNavbar, setPageActionButtons } = useApp();
+  const navigate = useNavigate();
   let { profileId } = useParams();
 
   // Validate profileId format
@@ -206,17 +209,35 @@ export default function Profile() {
   // Register h1 for navbar integration (but disable showing in navbar for Profile)
   useEffect(() => {
     const h1 = document.querySelector('h1');
-    if (h1) registerH1(h1);
-    
-    // Disable showing h1 in navbar for Profile view to prevent flashing
-    updateShowH1InNavbar(false);
+    if (h1) {
+      registerH1(h1);
+      
+      // Disable showing h1 in navbar for Profile view to prevent flashing
+      updateShowH1InNavbar(false);
+
+      // Set action buttons if user is viewing their own profile
+      if (isOwner && user) {
+        setPageActionButtons([
+          {
+            label: "Edit Profile",
+            onClick: () => navigate('/profile/update'),
+            variant: "outline-primary",
+            icon: "✏️",
+            tooltip: "Edit Your Profile",
+            compact: true,
+          },
+        ]);
+      } else {
+        clearActionButtons();
+      }
+    }
 
     return () => {
       clearActionButtons();
       // Re-enable h1 in navbar for other views
       updateShowH1InNavbar(true);
     };
-  }, [registerH1, clearActionButtons, updateShowH1InNavbar]);
+  }, [registerH1, clearActionButtons, updateShowH1InNavbar, setPageActionButtons, isOwner, user, navigate]);
 
   const handleExpNav = useCallback((view) => {
     setUiState({
@@ -230,7 +251,7 @@ export default function Profile() {
   if (profileError === 'User not found') {
     return (
       <div className="container my-5">
-        <div className="row justify-content-center">
+        <Container className="justify-content-center">
           <div className="col-md-8">
             <Alert
               type="danger"
@@ -243,7 +264,7 @@ export default function Profile() {
               </p>
             </Alert>
           </div>
-        </div>
+        </Container>
       </div>
     );
   }
@@ -261,7 +282,7 @@ export default function Profile() {
               <p>{profileError}</p>
               <hr />
               <p className="mb-0">
-                <button onClick={getProfile} className="btn btn-primary">{lang.en.button.tryAgain}</button>
+                <Button onClick={getProfile} variant="primary">{lang.en.button.tryAgain}</Button>
               </p>
             </Alert>
           </div>
@@ -271,9 +292,9 @@ export default function Profile() {
   }
   
   return (
-    <>
+    <div>
       {currentProfile && (
-        <PageMeta
+        <PageOpenGraph
           title={`${currentProfile.name}'s Profile`}
           description={`View ${currentProfile.name}'s travel profile on Biensperience. Discover their planned experiences${uniqueUserExperiences.length > 0 ? ` (${uniqueUserExperiences.length} experiences)` : ''} and favorite destinations${favoriteDestinations.length > 0 ? ` (${favoriteDestinations.length} destinations)` : ''}.`}
           keywords={`${currentProfile.name}, travel profile, experiences, destinations, travel planning${userExperienceTypes.length > 0 ? `, ${userExperienceTypes.join(', ')}` : ''}`}
@@ -295,8 +316,7 @@ export default function Profile() {
                       {currentProfile?.name}
                       {currentProfile?.emailConfirmed && (
                         <FaCheckCircle
-                          className="text-success ms-2"
-                          style={{ fontSize: '0.6em' }}
+                          className="text-success ms-2 font-size-adjust-xs"
                           title={lang.en.aria.emailConfirmed}
                           aria-label={lang.en.aria.emailConfirmed}
                         />
@@ -309,15 +329,15 @@ export default function Profile() {
                 <div className="header-actions">
                   {!isLoadingProfile && (
                     <div className="dropdown">
-                      <button
-                        className="btn btn-outline-secondary"
+                      <Button
+                        variant="outline-secondary"
                         type="button"
                         data-bs-toggle="dropdown"
                         aria-expanded="false"
                         aria-label={lang.en.aria.profileActions}
                       >
                         ⋯
-                      </button>
+                      </Button>
                       <ul className="dropdown-menu dropdown-menu-end">
                         {isSuperAdmin(user) && (
                           <>
@@ -368,93 +388,93 @@ export default function Profile() {
               </div>
             </div>
           </div>
-      <div className="row mb-4 fade-in">
-        <div className="col-md-6 p-3 fade-in">
+        </div>
+      <div className="row mb-4 animation-fade_in">
+        <div className="col-md-6 p-3 animation-fade_in">
           {isLoadingProfile ? (
-            <div className="photoCard d-flex align-items-center justify-content-center" style={{ minHeight: '400px' }}>
+            <div className="photoCard d-flex align-items-center justify-content-center" style={{ minHeight: 'var(--layout-min-height-card)' }}>
               <Loading size="lg" message="Loading profile photos..." />
             </div>
           ) : (
             <>
-              <PhotoCard 
-                photos={currentProfile?.photos} 
-                defaultPhotoId={currentProfile?.default_photo_id} 
-                title={currentProfile?.name} 
+              <PhotoCard
+                photos={currentProfile?.photos}
+                defaultPhotoId={currentProfile?.default_photo_id}
+                title={currentProfile?.name}
               />
               {!currentProfile?.photos?.length && isOwner && (
-                <small className="d-flex justify-content-center align-items-center noPhoto fade-in">
+                <small className="d-flex justify-content-center align-items-center noPhoto animation-fade_in">
                   <span>{lang.en.message.noPhotoMessage} <Link to="/profile/update">{lang.en.message.uploadPhotoNow}</Link></span>
                 </small>
               )}
             </>
           )}
         </div>
-        <div className="col-md-6 p-3 fade-in">
-          <div className="profile-detail-card fade-in">
+        <div className="col-md-6 p-3 animation-fade_in">
+          <div className="profile-detail-card animation-fade_in">
             <div className="profile-detail-section">
-              <h5 className="profile-detail-section-title">
+              <Heading level={3} className="profile-detail-section-title">
                 {lang.en.heading.favoriteDestinations}
-              </h5>
+              </Heading>
               <div className="profile-detail-content profileDestinations">
                 {isLoadingProfile ? (
                   <Loading size="md" message="Loading favorite destinations..." />
                 ) : favoriteDestinations.length > 0 ? (
-                  favoriteDestinations.map((destination) => (
-                    <Link className="pill" key={destination._id} to={`/destinations/${destination._id}`}>
-                      <span className="icon"><FaPassport /></span>
-                      {destination.name}
-                    </Link>
+                    favoriteDestinations.map((destination) => (
+                      <TagPill key={destination._id} className="profile-pill" color="primary" to={`/destinations/${destination._id}`}>
+                        <span className="icon"><FaPassport /></span>
+                        {destination.name}
+                      </TagPill>
                   ))
                 ) : (
-                  <div className="noFavoriteDestinations fade-in">
+                  <div className="noFavoriteDestinations animation-fade_in">
                     {isOwner ? (
                       <>
                         <p className="mb-3">{lang.en.message.noFavoriteDestinations}</p>
-                        <Link to="/destinations" className="btn btn-primary btn-sm">
+                        <Button as={Link} to="/destinations" variant="primary" size="sm">
                           {lang.en.message.addFavoriteDestinations}
-                        </Link>
+                        </Button>
                       </>
                     ) : (
-                      <>
-                        <p className="mb-3">{`${currentProfile?.name || 'This user'} hasn't added any favorite destinations yet.`}</p>
-                        <Link to="/destinations" className="btn btn-primary btn-sm">
-                          Explore Destinations
-                        </Link>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
+                    <>
+                      <p className="mb-3">{`${currentProfile?.name || 'This user'} hasn't added any favorite destinations yet.`}</p>
+                      <Button as={Link} to="/destinations" variant="primary" size="sm">
+                        Explore Destinations
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             <div className="profile-detail-section">
-              <h5 className="profile-detail-section-title">
+              <Heading level={3} className="profile-detail-section-title">
                 {lang.en.heading.preferredExperienceTypes}
-              </h5>
+              </Heading>
               <div className="profile-detail-content">
-                {isLoadingProfile ? (
+                {(isLoadingProfile || (isOwner && userExperiences.length === 0)) ? (
                   <Loading size="md" message="Loading preferred experience types..." />
                 ) : userExperienceTypes.length > 0 ? (
                   userExperienceTypes.map((type) => (
-                    <Link className="pill" key={type} to={`/experience-types/${createUrlSlug(type)}`}>
+                    <TagPill key={type} className="profile-pill" color="primary" size="sm" gradient={false} to={`/experience-types/${createUrlSlug(type)}`}>
                       <span className="icon"><FaUser /></span>
                       {type}
-                    </Link>
+                    </TagPill>
                   ))
                 ) : (
-                  <div className="fade-in">
+                  <div className="animation-fade_in">
                     {isOwner ? (
                       <>
                         <p className="mb-3">{lang.en.message.noExperiencesYet}</p>
-                        <Link to="/experiences" className="btn btn-primary btn-sm">
+                        <Button as={Link} to="/experiences" variant="primary" size="sm">
                           {lang.en.message.addExperiences}
-                        </Link>
+                        </Button>
                       </>
                     ) : (
                       <>
                         <p className="mb-3">{`${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`}</p>
-                        <Link to="/experiences" className="btn btn-primary btn-sm">
+                        <Button as={Link} to="/experiences" variant="primary" size="sm">
                           Discover Experiences
-                        </Link>
+                        </Button>
                       </>
                     )}
                   </div>
@@ -464,29 +484,29 @@ export default function Profile() {
           </div>
         </div>
       </div>
-      <div className="row my-4 fade-in">
-        <h4 className="badge rounded-pill badge-nav my-4 fade-in">
+      <div className="row my-4 animation-fade_in">
+        <h4 className="badge rounded-pill badge-nav my-4 animation-fade_in">
           <span
-            className={uiState.experiences ? "fw-bold fade-in active-tab" : "fade-in"}
+            className={uiState.experiences ? "fw-bold animation-fade_in active-tab" : "animation-fade_in"}
             onClick={() => handleExpNav('experiences')}
           >
             {lang.en.heading.plannedExperiences}
           </span>
           <span
-            className={uiState.created ? "fw-bold fade-in active-tab" : "fade-in"}
+            className={uiState.created ? "fw-bold animation-fade_in active-tab" : "animation-fade_in"}
             onClick={() => handleExpNav('created')}
           >
             {lang.en.heading.createdExperiences || 'Created Experiences'}
           </span>
           <span
-            className={uiState.destinations ? "fw-bold fade-in active-tab" : "fade-in"}
+            className={uiState.destinations ? "fw-bold animation-fade_in active-tab" : "animation-fade_in"}
             onClick={() => handleExpNav('destinations')}
           >
             {lang.en.heading.experienceDestinations}
           </span>
         </h4>
       </div>
-      <div className="row my-4 justify-content-center fade-in">
+      <div className="row my-4 justify-content-center animation-fade_in">
         {uiState.destinations && (
           Array.from(
             new Set(
@@ -513,7 +533,7 @@ export default function Profile() {
           ) : (
             <Alert
               type="info"
-              className="fade-in text-center"
+              className="animation-fade_in text-center"
             >
               <p className="mb-3">
                 {isOwner
@@ -522,9 +542,9 @@ export default function Profile() {
                 }
               </p>
               {isOwner && (
-                <Link to="/experiences" className="btn btn-primary">
+                <Button as={Link} to="/experiences" variant="primary">
                   {lang.en.message.addExperiences}
-                </Link>
+                </Button>
               )}
             </Alert>
           )
@@ -541,7 +561,7 @@ export default function Profile() {
           ) : (
             <Alert
               type="info"
-              className="fade-in text-center"
+              className="animation-fade_in text-center"
             >
               <p className="mb-3">
                 {isOwner
@@ -550,9 +570,9 @@ export default function Profile() {
                 }
               </p>
               {isOwner && (
-                <Link to="/experiences" className="btn btn-primary">
+                <Button as={Link} to="/experiences" variant="primary">
                   {lang.en.message.addExperiences}
-                </Link>
+                </Button>
               )}
             </Alert>
           )
@@ -569,7 +589,7 @@ export default function Profile() {
           ) : (
             <Alert
               type="info"
-              className="fade-in text-center"
+              className="animation-fade_in text-center"
             >
               <p className="mb-3">
                 {isOwner
@@ -578,18 +598,16 @@ export default function Profile() {
                 }
               </p>
               {isOwner && (
-                <Link to="/experiences/new" className="btn btn-primary">
+                <Button as={Link} to="/experiences/new" variant="primary">
                   {lang.en.message.addOneNowButton}
-                </Link>
+                </Button>
               )}
             </Alert>
           )
         )}
-      </div>
-
-      {/* Super Admin Permissions Section */}
+      </div>      {/* Super Admin Permissions Section */}
       {isSuperAdmin(user) && !isOwner && currentProfile && (
-        <div className="row my-4 fade-in">
+        <div className="row my-4 animation-fade_in">
           <div className="col-12">
             <div className="card">
               <div className="card-header">
@@ -601,7 +619,7 @@ export default function Profile() {
                     <p className="mb-2">
                       <strong>Current Role:</strong> {USER_ROLE_DISPLAY_NAMES[currentProfile.role] || 'Unknown'}
                     </p>
-                    <p className="text-muted small mb-0">
+                    <p className="small mb-0" style={{ color: 'var(--bs-gray-600)' }}>
                       Change this user's role. Super admins have full access to all resources and user management.
                     </p>
                   </div>
@@ -638,7 +656,7 @@ export default function Profile() {
                         <span className="text-warning">Not Confirmed</span>
                       )}
                     </p>
-                    <p className="text-muted small mb-0">
+                    <p className="small mb-0" style={{ color: 'var(--bs-gray-600)' }}>
                       Manually confirm or unconfirm this user's email address.
                     </p>
                   </div>
@@ -666,7 +684,6 @@ export default function Profile() {
           </div>
         </div>
       )}
-      </div>
 
       {/* API Token Modal */}
       {isSuperAdmin(user) && (
@@ -685,6 +702,7 @@ export default function Profile() {
           onHide={handleCloseActivityMonitor}
         />
       )}
-    </>
+      </div>
+    </div>
   );
 }

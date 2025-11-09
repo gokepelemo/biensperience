@@ -104,8 +104,7 @@ export function FormTooltip({ content, placement = 'top', icon = 'ℹ️', iconC
   return (
     <Tooltip content={content} placement={placement}>
       <span 
-        className={iconClass} 
-        style={{ cursor: 'help' }}
+        className={`${iconClass} cursor-help`} 
         tabIndex={0}
         role="button"
         aria-label="More information"

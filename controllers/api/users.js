@@ -106,7 +106,7 @@ async function login(req, res) {
     
     // Create new session for user
     const { createSessionForUser } = require('../../utilities/session-middleware');
-    const sessionId = await createSessionForUser(user);
+    const sessionId = await createSessionForUser(user, true);
     
     // Create JWT token
     const token = createJWT(user);

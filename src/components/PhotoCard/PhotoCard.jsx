@@ -6,8 +6,9 @@ import Loading from "../Loading/Loading";
 import PhotoThumbnail from "./PhotoThumbnail";
 import { sanitizeText, sanitizeUrl } from "../../utilities/sanitize";
 import { calculateAspectRatio } from "../../utilities/image-utils";
+import EntitySchema from "../OpenGraph/EntitySchema";
 
-export default function PhotoCard({ photos, defaultPhotoId, altText, title }) {
+export default function PhotoCard({ photos, defaultPhotoId, altText, title, includeSchema = false }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const imageAlt = altText || title || lang.en.image.alt.photo;
 
@@ -146,7 +147,8 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title }) {
   const sanitizedCreditUrl = sanitizeUrl(displayPhoto.photo_credit_url);
 
   return (
-    <figure className="photoFrame" role="img" aria-label={imageAlt}>
+    <>
+      <figure className="photoFrame" role="img" aria-label={imageAlt}>
       <div
         className="photoCard d-flex align-items-center justify-content-center"
         onClick={() => setShowModal(true)}
@@ -250,5 +252,9 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title }) {
         />
       )}
     </figure>
-  );
+    {includeSchema && displayPhoto && (
+      <EntitySchema entity={displayPhoto} entityType="photo" />
+    )}
+  </>
+);
 }

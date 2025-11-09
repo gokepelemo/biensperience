@@ -4,6 +4,7 @@ import * as usersService from "../../utilities/users-service";
 import { lang } from "../../lang.constants";
 import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
 import ForgotPasswordModal from "../ForgotPasswordModal/ForgotPasswordModal";
+import { FormControl } from "../../components/design-system";
 import "./LoginForm.css";
 
 /**
@@ -110,8 +111,8 @@ export default function LoginForm({ setUser }) {
                 <div className="login-logo"></div>
                 <h2 className="login-title">{lang.en.heading.signInToAccount}</h2>
                 <form className="login-form" onSubmit={handleSubmit}>
-                    <input
-                        className="form-control login-input"
+                    <FormControl
+                        className="login-input"
                         autoComplete="email"
                         type="email"
                         name="email"
@@ -121,8 +122,8 @@ export default function LoginForm({ setUser }) {
                         placeholder={lang.en.placeholder.email}
                         required
                     />
-                    <input
-                        className="form-control login-input"
+                    <FormControl
+                        className="login-input"
                         autoComplete="current-password"
                         type="password"
                         name="password"

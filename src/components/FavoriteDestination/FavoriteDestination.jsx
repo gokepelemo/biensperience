@@ -6,8 +6,8 @@ import {
 } from "../../utilities/destinations-api";
 import AlertModal from "../AlertModal/AlertModal";
 import { logger } from "../../utilities/logger";
-
-export default function FavoriteDestination({ destination, user, getData }) {
+import EntitySchema from "../OpenGraph/EntitySchema";
+export default function FavoriteDestination({ destination, user, getData, includeSchema = false }) {
   const [favHover, setFavHover] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
@@ -53,6 +53,10 @@ export default function FavoriteDestination({ destination, user, getData }) {
               : lang.en.button.favorited}
         </button>
       </div>
+
+      {includeSchema && destination && (
+        <EntitySchema entity={destination} entityType="destination" />
+      )}
       
       <AlertModal
         show={showAlertModal}

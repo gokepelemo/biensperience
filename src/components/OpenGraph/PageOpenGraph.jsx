@@ -1,8 +1,9 @@
-import { useSEO } from '../../utilities/useSEO';
-import { SEOMeta, getEntityImage } from '../../utilities/seo-meta.jsx';
+import { useOpenGraph } from '../../hooks/useOpenGraph';
+import { OpenGraphMeta, getEntityImage } from './OpenGraphMeta.jsx';
+import EntitySchema from './EntitySchema';
 
 /**
- * PageMeta component for managing document title and meta tags
+ * PageOpenGraph component for managing document title and meta tags
  * Now uses React Helmet for proper SSR support and cleaner implementation
  *
  * @param {string} title - The page title
@@ -16,7 +17,7 @@ import { SEOMeta, getEntityImage } from '../../utilities/seo-meta.jsx';
  * @param {string} entityType - Type of entity (experience, destination, user)
  * @param {boolean} noIndex - Whether to add noindex meta tag
  */
-export default function PageMeta({
+export default function PageOpenGraph({
   title,
   description,
   keywords,
@@ -31,28 +32,31 @@ export default function PageMeta({
   // Auto-resolve image from entity if not manually provided
   const resolvedImage = ogImage || (entity ? getEntityImage(entity) : '/logo.png');
 
-  // Use the SEO hook for dynamic meta tag management
-  useSEO({
+  // Use the OpenGraph hook for dynamic meta tag management (but not schema)
+  useOpenGraph({
     title: title || 'Biensperience - Plan Your Next Adventure',
     description: description || 'Discover and plan amazing travel experiences worldwide. Browse curated destinations, create your travel bucket list, and organize your adventures with Biensperience.',
     image: resolvedImage,
-    entity,
-    entityType,
     noIndex
   });
 
-  // Use the SEOMeta component for static meta tags
+  // Use the OpenGraphMeta component for static meta tags
   return (
-    <SEOMeta
-      title={ogTitle || title}
-      description={ogDescription || description}
-      url={canonical}
-      image={resolvedImage}
-      type="website"
-      siteName="Biensperience"
-      twitter={{
-        handle: '@biensperience'
-      }}
-    />
+    <>
+      <OpenGraphMeta
+        title={ogTitle || title}
+        description={ogDescription || description}
+        url={canonical}
+        image={resolvedImage}
+        type="website"
+        siteName="Biensperience"
+        twitter={{
+          handle: '@biensperience'
+        }}
+      />
+      {entity && entityType && (
+        <EntitySchema entity={entity} entityType={entityType} />
+      )}
+    </>
   );
 }

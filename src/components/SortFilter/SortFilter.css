@@ -1,62 +1,129 @@
 .sort-filter-container {
-    margin: var(--space-8) 0;
-    padding: var(--space-6);
-    background: var(--color-bg-secondary);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
+  margin: var(--space-8) 0;
+  padding: var(--space-6);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .sort-filter-controls {
-    display: flex;
-    gap: var(--space-8);
-    align-items: flex-end;
-    flex-wrap: wrap;
+  display: flex;
+  gap: var(--space-8);
+  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
-.sort-control,
+.sort-control {
+  flex: 1 1 0%;
+  min-width: 260px; /* Fixed minimum for form usability */
+}
+
 .filter-control {
-    flex: 1;
-    min-width: 250px; /* Fixed minimum for form usability */
+  flex: 1 1 0%;
+  min-width: 260px;
+}
+
+/* New grid-based layout for automatic 2-column arrangement */
+.sort-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.sf-field {
+  width: 100%;
 }
 
 .sort-control label,
 .filter-control label {
-    margin-bottom: var(--space-2);
-    color: var(--color-text-secondary);
-    display: block;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-secondary);
+  display: block;
 }
 
 .sort-control .form-select,
 .filter-control .form-select {
-    border-radius: var(--radius-md);
-    border: 2px solid var(--color-border-primary);
-    padding: var(--space-3) var(--space-4);
-    font-size: var(--font-size-base);
-    transition: all var(--transition-normal) ease;
-    background-color: var(--color-bg-input);
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-border-primary);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-base);
+  transition: all var(--transition-normal) ease;
+  background-color: var(--color-bg-input);
+}
+
+/* Ensure Autocomplete inputs within controls take full width */
+.sort-control .autocomplete-wrapper,
+.filter-control .autocomplete-wrapper {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .sort-control .form-select:hover,
 .filter-control .form-select:hover {
-    border-color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .sort-control .form-select:focus,
 .filter-control .form-select:focus {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 0.25rem var(--color-primary-light); /* Component-specific focus ring */
-    outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.25rem var(--color-primary-light); /* Component-specific focus ring */
+  outline: none;
 }
 
 @media (max-width: 768px) {
-    .sort-filter-controls {
-        flex-direction: column;
-        gap: var(--space-4);
-    }
+  .sort-filter-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+}
+.sort-control .form-select:hover,
+.filter-control .form-select:hover {
+  border-color: var(--color-primary);
+}
 
-    .sort-control,
-    .filter-control {
-        width: 100%;
-        min-width: 100%;
-    }
+.sort-control .form-select:focus,
+.autocomplete-wrapper {
+  width: 100%;
+  box-sizing: border-box;
+}
+.filter-control .form-select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.25rem var(--color-primary-light); /* Component-specific focus ring */
+  outline: none;
+}
+
+/* Type filter with inline clear button */
+.sf-type-with-clear {
+  position: relative;
+}
+.sf-type-with-clear .type-clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+.sf-type-with-clear .type-clear-btn:hover {
+  color: var(--color-danger);
+}
+
+@media (max-width: 768px) {
+  .sort-filter-controls {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .sort-control,
+  .filter-control {
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
 }

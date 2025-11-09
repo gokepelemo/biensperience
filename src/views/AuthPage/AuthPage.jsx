@@ -4,7 +4,7 @@ import LoginForm from "../../components/LoginForm/LoginForm"
 import { useState, useEffect } from "react"
 import { useLocation } from "react-router-dom"
 import { useUser } from "../../contexts/UserContext"
-import PageMeta from "../../components/PageMeta/PageMeta"
+import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph"
 
 export default function AuthPage() {
     const [signup, setSignup] = useState(false)
@@ -21,7 +21,7 @@ export default function AuthPage() {
 
     return (
         <>
-            <PageMeta
+            <PageOpenGraph
                 title={signup ? "Sign Up for Biensperience" : "Login to Biensperience"}
                 description={signup 
                     ? "Create your Biensperience account to start planning amazing travel adventures and sharing experiences with fellow travelers."

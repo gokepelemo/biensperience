@@ -1,6 +1,7 @@
 import "./ExperienceCard.css";
 import { Link } from "react-router-dom";
 import { useState, useCallback, useMemo, memo, useEffect } from "react";
+import TagPill from '../Pill/TagPill';
 import { lang } from "../../lang.constants";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import { deleteExperience } from "../../utilities/experiences-api";
@@ -12,8 +13,9 @@ import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useToast } from "../../contexts/ToastContext";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
+import EntitySchema from "../OpenGraph/EntitySchema";
 
-function ExperienceCard({ experience, updateData, userPlans = [] }) {
+function ExperienceCard({ experience, updateData, userPlans, includeSchema = false }) {
   const { user } = useUser();
   const { fetchPlans, plans: globalPlans } = useData();
   const { error: showError } = useToast();
@@ -113,12 +115,12 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
   }, [user?._id]);
 
   // LAZY FETCH: Only query server if absolutely necessary
-  // Conditions: user logged in, parent didn't pass plans, global plans empty, and local state unknown
+  // Conditions: user logged in, parent didn't pass plans, global plans not fetched, and local state unknown
   useEffect(() => {
     if (!user?._id || !experience?._id) return;
-    if (userPlans.length > 0) return;
-    if (globalPlans && globalPlans.length > 0) return;
-    if (localPlanState !== null) return;
+    if (userPlans !== undefined) return; // Parent passed plans, use them
+    if (globalPlans !== null) return; // Global plans have been fetched, use them
+    if (localPlanState !== null) return; // We already have local state
 
     let isMounted = true;
     setIsVerifying(true);
@@ -137,20 +139,21 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
     return () => {
       isMounted = false;
     };
-  }, [user?._id, experience?._id, userPlans.length, globalPlans?.length, localPlanState, setLocalPlanStateWithCache]);
+  }, [user?._id, experience?._id, userPlans, globalPlans, localPlanState, setLocalPlanStateWithCache]);
 
   // Sync with parent-provided plans or global plans
   useEffect(() => {
-    const propHasPlan = userPlans.some(plan =>
+    const propHasPlan = userPlans ? userPlans.some(plan =>
       plan.experience?._id === experience._id ||
       plan.experience === experience._id
-    );
+    ) : false;
     const globalHasPlan = (globalPlans || []).some(plan =>
       plan.experience?._id === experience._id ||
       plan.experience === experience._id
     );
 
-    const hasPlan = userPlans.length > 0 ? propHasPlan : globalHasPlan;
+    // Priority: userPlans > globalPlans > local state
+    const hasPlan = userPlans !== undefined ? propHasPlan : globalHasPlan;
 
     if (hasPlan !== localPlanState && hasPlan !== null) {
       setLocalPlanStateWithCache(hasPlan);
@@ -378,11 +381,12 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
           style={{ backgroundImage: getBackgroundImage }}
           onClick={handleCardClick}
         >
-          <Link to={`/experiences/${experience._id}`} className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100 text-decoration-none">
-            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center text-center p-3 w-100">
+          <Link to={`/experiences/${experience._id}`} className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100" style={{ textDecoration: 'none' }}>
+            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center p-3 w-100" style={{ textAlign: 'center' }}>
               {experience.name}
             </span>
           </Link>
+          {/* tags intentionally omitted for ExperienceCard per design */}
           <div className="experience-card-actions d-flex gap-2 flex-shrink-0">
             <button
               className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'} ${isLoading ? 'loading' : ''}`}
@@ -423,8 +427,8 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
           className="experienceCard d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden"
           style={{ backgroundImage: getBackgroundImage }}
         >
-          <Link to="/" className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100 text-decoration-none">
-            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center text-center p-3 w-100">
+          <Link to="/" className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100" style={{ textDecoration: 'none' }}>
+            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center p-3 w-100" style={{ textAlign: 'center' }}>
               Dinner Party with locals at the Rhodopo Mountains in Bulgaria
             </span>
           </Link>
@@ -440,6 +444,9 @@ function ExperienceCard({ experience, updateData, userPlans = [] }) {
             </button>
           </div>
         </div>
+      )}
+      {includeSchema && experience && (
+        <EntitySchema entity={experience} entityType="experience" />
       )}
       <ConfirmModal
         show={showDeleteModal}

@@ -275,3 +275,15 @@ export const Examples = {
     },
   },
 };
+
+// Interactive playground for testing all alert props
+export const Playground = (args) => <Alert {...args}>This is a customizable alert message.</Alert>;
+Playground.args = {
+  type: 'info',
+  size: 'md',
+  dismissible: false,
+  bordered: false,
+  title: '',
+  icon: null,
+  className: ''
+};

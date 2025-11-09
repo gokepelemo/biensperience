@@ -395,6 +395,62 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):focus {
 }
 
 /* ============================================
+   BADGE SYSTEM - Bootstrap Badge Overrides
+   ============================================ */
+
+/* Base badge styles */
+.badge {
+    font-weight: var(--font-weight-semibold);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Badge variants using design tokens */
+.badge.bg-primary {
+    background-color: var(--badge-primary-bg) !important;
+    color: var(--badge-primary-text) !important;
+}
+
+.badge.bg-success {
+    background-color: var(--badge-success-bg) !important;
+    color: var(--badge-success-text) !important;
+}
+
+.badge.bg-danger {
+    background-color: var(--badge-danger-bg) !important;
+    color: var(--badge-danger-text) !important;
+}
+
+.badge.bg-warning {
+    background-color: var(--badge-warning-bg) !important;
+    color: var(--badge-warning-text) !important;
+}
+
+.badge.bg-info {
+    background-color: var(--badge-info-bg) !important;
+    color: var(--badge-info-text) !important;
+}
+
+.badge.bg-secondary {
+    background-color: var(--badge-neutral-bg) !important;
+    color: var(--badge-neutral-text) !important;
+}
+
+.badge.bg-dark {
+    background-color: #343a40 !important;
+    color: #ffffff !important;
+}
+
+/* Ensure badges are readable on both light and dark backgrounds */
+.badge {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================
    DARK MODE - System preference and data-theme attribute
    ============================================ */
 @media (prefers-color-scheme: dark) {

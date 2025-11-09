@@ -28,12 +28,12 @@
 .stat-card {
   background: var(--color-bg-primary);
   border-radius: var(--radius-lg);
-  padding: 1.5rem;
+  padding: var(--space-6);
   box-shadow: var(--shadow-sm);
   transition: var(--transition-normal);
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .stat-card:hover {
@@ -48,7 +48,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: var(--font-size-xl);
   flex-shrink: 0;
 }
 
@@ -72,16 +72,16 @@
 }
 
 .stat-card-value {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   line-height: 1;
 }
 
 .stat-card-label {
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
 }
 
 /* Search Box */
@@ -91,7 +91,7 @@
 
 .search-box .search-icon {
   position: absolute;
-  left: 12px;
+  left: var(--space-3);
   top: 50%;
   transform: translateY(-50%);
   color: var(--color-text-disabled);
@@ -99,7 +99,7 @@
 }
 
 .search-box .form-control {
-  padding-left: 2.5rem;
+  padding-left: var(--space-10);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-medium);
   background: var(--color-bg-input);
@@ -151,10 +151,10 @@
 .role-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.375rem 0.75rem;
+  padding: var(--space-1-5) var(--space-3);
   border-radius: var(--radius-sm);
-  font-size: 0.813rem;
-  font-weight: 600;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   white-space: nowrap;
 }
 
@@ -170,15 +170,15 @@
 
 /* Role Buttons */
 .role-btn {
-  padding: 0.5rem 1rem;
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
-  font-weight: 600;
-  font-size: 0.813rem;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
   transition: var(--transition-base);
   border: 2px solid transparent;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--space-1);
 }
 
 .role-btn-inactive {
@@ -218,24 +218,24 @@
 /* Responsive Adjustments */
 @media (max-width: 768px) {
   .stat-card {
-    padding: 1rem;
+    padding: var(--space-4);
   }
 
   .stat-card-icon {
     width: 50px;
     height: 50px;
-    font-size: 1.25rem;
+    font-size: var(--font-size-lg);
   }
 
   .stat-card-value {
-    font-size: 1.5rem;
+    font-size: var(--font-size-xl);
   }
 
   /* Table responsive styles handled by .table-unified */
 
   .role-btn {
-    padding: 0.375rem 0.625rem;
-    font-size: 0.75rem;
+    padding: var(--space-1-5) var(--space-2-5);
+    font-size: var(--font-size-xs);
   }
 }
 
@@ -245,30 +245,30 @@
   }
 
   .stat-card {
-    padding: 0.875rem;
+    padding: var(--space-3-5);
   }
 
   .stat-card-icon {
     width: 45px;
     height: 45px;
-    font-size: 1.125rem;
+    font-size: var(--font-size-lg);
   }
 
   .stat-card-value {
-    font-size: 1.375rem;
+    font-size: var(--font-size-lg);
   }
 
   /* Table responsive styles handled by .table-unified */
 
   .role-badge {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-xs);
   }
 }
 
 /* Loading State */
 .spinner-border-sm {
-  width: 1rem;
-  height: 1rem;
+  width: var(--space-4);
+  height: var(--space-4);
   border-width: 0.15em;
 }

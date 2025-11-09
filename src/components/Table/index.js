@@ -1,0 +1,1 @@
+export { default as Table, TableHead, TableBody, TableRow, TableCell } from './Table';

@@ -15,32 +15,255 @@ function escapeRegex(string) {
 }
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 
-async function index(req, res) {
+/**
+ * GET /api/experiences/tags
+ * Return a list of distinct experience_type tags across experiences
+ */
+async function getExperienceTags(req, res) {
   try {
-      const start = Date.now();
-      // Aggressive optimization: return only minimal fields needed for card list
-      // - use lean() for plain objects
-      // - slice photos to 1 to reduce populate cost
-      // - avoid destination populate (not used in ExperienceCard list)
-      const query = Experience.find({}, null, { hint: { createdAt: -1 } })
-        // Include minimal fields for cards and client-side filters
-        // destination (as ObjectId) is required for SingleDestination filtering
+    // Use Mongo distinct to get experience_type entries (may be array or comma-separated strings)
+    // Support server-side `q` filter to search tag labels without returning all tags
+    const q = req.query.q && String(req.query.q).trim();
+    let raw;
+    if (q) {
+      const regex = new RegExp(escapeRegex(q), 'i');
+      // Query for documents where experience_type contains the regex either as a string or inside an array
+      const query = {
+        $or: [
+          { experience_type: { $regex: regex } },
+          { experience_type: { $elemMatch: { $regex: regex } } }
+        ]
+      };
+      raw = await Experience.distinct('experience_type', query);
+    } else {
+      raw = await Experience.distinct('experience_type');
+    }
+    const tagSet = new Set();
+
+    raw.forEach(item => {
+      if (!item) return;
+      if (Array.isArray(item)) {
+        item.forEach(tag => {
+          if (typeof tag === 'string') tagSet.add(tag.trim());
+        });
+      } else if (typeof item === 'string') {
+        // split comma-separated strings
+        item.split(',').map(t => t.trim()).forEach(t => { if (t) tagSet.add(t); });
+      }
+    });
+
+    const tags = Array.from(tagSet).sort();
+    res.status(200).json({ data: tags });
+  } catch (err) {
+    backendLogger.error('Error fetching experience tags', { error: err.message });
+    res.status(400).json({ error: 'Failed to fetch tags' });
+  }
+}
+
+async function index(req, res) {
+  const start = Date.now();
+  try {
+      // Pagination support: if page or limit provided, return paginated result with meta
+      const page = parseInt(req.query.page, 10);
+      const limit = parseInt(req.query.limit, 10);
+
+      // Build filter from query params (supports server-side filtering with pagination)
+      const filter = {};
+      if (req.query.destination) {
+        // Support single or comma-separated destination values. Each value may be an ObjectId,
+        // a slug, or a destination name. Resolve non-ObjectId values to ObjectId via lookup.
+        const raw = String(req.query.destination || '').trim();
+        const parts = raw.split(',').map(p => p.trim()).filter(Boolean);
+        const resolvedIds = [];
+
+        for (const part of parts) {
+          if (mongoose.Types.ObjectId.isValid(part)) {
+            // Use `new` with ObjectId to avoid runtime error in certain mongoose/bson versions
+            resolvedIds.push(new mongoose.Types.ObjectId(part));
+            continue;
+          }
+
+          // Try to resolve slug or exact name (case-insensitive)
+          try {
+            backendLogger.debug('Attempting to resolve destination part', { part });
+
+            // If the part contains a comma, try to split into name and country
+            const commaIndex = part.indexOf(',');
+            let destDoc = null;
+
+            if (commaIndex > -1) {
+              const left = part.substring(0, commaIndex).trim();
+              const right = part.substring(commaIndex + 1).trim();
+              // Try exact-ish match on name + country
+              destDoc = await Destination.findOne({
+                $and: [
+                  { name: { $regex: new RegExp(escapeRegex(left), 'i') } },
+                  { country: { $regex: new RegExp(escapeRegex(right), 'i') } }
+                ]
+              }).select('_id').lean().exec();
+            }
+
+            // Fallbacks: slug, name contains, country contains
+            if (!destDoc) {
+              destDoc = await Destination.findOne({
+                $or: [
+                  { slug: part },
+                  { name: { $regex: new RegExp(escapeRegex(part), 'i') } },
+                  { country: { $regex: new RegExp(escapeRegex(part), 'i') } }
+                ]
+              }).select('_id').lean().exec();
+            }
+
+            if (destDoc && destDoc._id) {
+              // destDoc._id may already be an ObjectId or a string; ensure we construct properly
+              resolvedIds.push(new mongoose.Types.ObjectId(destDoc._id));
+              backendLogger.debug('Resolved destination part to _id', { part, id: destDoc._id });
+            } else {
+              backendLogger.debug('Could not resolve destination part to any destination', { part });
+            }
+          } catch (err) {
+            backendLogger.error('Error resolving destination part', { part, error: err.message });
+          }
+        }
+
+        if (resolvedIds.length === 1) {
+          filter.destination = resolvedIds[0];
+        } else if (resolvedIds.length > 1) {
+          filter.destination = { $in: resolvedIds };
+        } else {
+          // No resolvable destination parts; leave filter untouched (will match all)
+          backendLogger.debug('No valid destination ids resolved from query', { raw });
+        }
+      }
+      // Support filtering by experience type (tags). Matches array values or comma-separated strings.
+      if (req.query.experience_type) {
+        const et = String(req.query.experience_type).trim();
+        if (et.length) {
+          const regex = new RegExp(escapeRegex(et), 'i');
+          // This will match if experience_type is a string that contains the tag or an array where an element matches
+          filter.experience_type = { $regex: regex };
+        }
+      }
+
+      const baseQuery = Experience.find(filter)
         .select('name destination photos default_photo_id permissions experience_type createdAt updatedAt')
         .slice('photos', 1)
         .populate({ path: 'photos', select: 'url caption width height' })
         .lean({ virtuals: false });
 
-      const experiences = await query.exec();
+      // Default pagination: page=1, limit=30
+      const p = Number.isNaN(page) || page < 1 ? 1 : page;
+      const l = Number.isNaN(limit) || limit < 1 ? 30 : limit;
+      const skip = (p - 1) * l;
 
-      backendLogger.info('Experiences index fetched', {
+      // Sorting support
+      const sortBy = req.query.sort_by || req.query.sort || 'created-newest';
+      const sortOrder = req.query.sort_order || req.query.order || 'desc';
+      const sortMap = {
+        'alphabetical': { name: 1 },
+        'alphabetical-desc': { name: -1 },
+        'created-newest': { createdAt: -1 },
+        'created-oldest': { createdAt: 1 },
+        'updated-newest': { updatedAt: -1 },
+        'updated-oldest': { updatedAt: 1 }
+      };
+      const sortObj = sortMap[sortBy] || (sortOrder === 'asc' ? { createdAt: 1 } : { createdAt: -1 });
+
+      const total = await Experience.countDocuments(filter);
+  backendLogger.debug('Experiences index request', { query: req.query, filter });
+      // If sorting by destination, use aggregation to lookup destination and sort by destination.name
+      const isDestinationSort = sortBy === 'destination' || sortBy === 'destination-desc';
+      const destSortDir = sortBy === 'destination' ? 1 : -1;
+
+      // If ?all=true requested, return full array (compatibility)
+      if (req.query.all === 'true' || req.query.all === true) {
+        if (isDestinationSort) {
+          const all = await Experience.aggregate([
+            { $match: filter },
+            // lookup destination
+            { $lookup: { from: 'destinations', localField: 'destination', foreignField: '_id', as: 'destination' } },
+            { $unwind: { path: '$destination', preserveNullAndEmptyArrays: true } },
+            // lookup photos (keep first photo only)
+            { $lookup: { from: 'photos', localField: 'photos', foreignField: '_id', as: 'photos' } },
+            { $addFields: { photos: { $slice: ['$photos', 1] } } },
+            { $sort: { 'destination.name': destSortDir } },
+            { $project: { name: 1, destination: 1, photos: 1, default_photo_id: 1, permissions: 1, experience_type: 1, createdAt: 1, updatedAt: 1 } }
+          ]).exec();
+          return res.status(200).json(all);
+        }
+
+        const all = await Experience.find(filter)
+          .select('name destination photos default_photo_id permissions experience_type createdAt updatedAt')
+          .slice('photos', 1)
+          .populate({ path: 'photos', select: 'url caption width height' })
+          .sort(sortObj)
+          .lean({ virtuals: false })
+          .exec();
+        return res.status(200).json(all);
+      }
+
+      // Apply sort and pagination
+      let experiences;
+      if (isDestinationSort) {
+        // Use aggregation for destination sort + pagination
+        const pipeline = [
+          { $match: filter },
+          { $lookup: { from: 'destinations', localField: 'destination', foreignField: '_id', as: 'destination' } },
+          { $unwind: { path: '$destination', preserveNullAndEmptyArrays: true } },
+          { $lookup: { from: 'photos', localField: 'photos', foreignField: '_id', as: 'photos' } },
+          { $addFields: { photos: { $slice: ['$photos', 1] } } },
+          { $sort: { 'destination.name': destSortDir } },
+          { $skip: skip },
+          { $limit: l },
+          { $project: { name: 1, destination: 1, photos: 1, default_photo_id: 1, permissions: 1, experience_type: 1, createdAt: 1, updatedAt: 1 } }
+        ];
+
+        experiences = await Experience.aggregate(pipeline).exec();
+      } else {
+        experiences = await Experience.find(filter)
+          .select('name destination photos default_photo_id permissions experience_type createdAt updatedAt')
+          .slice('photos', 1)
+          .populate({ path: 'photos', select: 'url caption width height' })
+          .sort(sortObj)
+          .skip(skip)
+          .limit(l)
+          .lean({ virtuals: false })
+          .exec();
+      }
+
+      const totalPages = Math.ceil(total / l);
+      backendLogger.info('Experiences index fetched (paginated)', {
         count: experiences.length,
         durationMs: Date.now() - start,
+        page: p,
+        limit: l,
+        total,
         userId: req.user?._id
       });
-      res.status(200).json(experiences);
+
+      return res.status(200).json({
+        data: experiences,
+        meta: {
+          page: p,
+          limit: l,
+          total,
+          totalPages,
+          hasMore: p < totalPages
+        }
+      });
   } catch (err) {
-      backendLogger.error('Error fetching experiences', { error: err.message, userId: req.user?._id, durationMs: Date.now() - start });
-      res.status(400).json({ error: 'Failed to fetch experiences' });
+      // Log full stack and context to aid debugging
+      backendLogger.error('Error fetching experiences', {
+        error: err.message,
+        stack: err.stack,
+        query: req.query,
+        filter: typeof filter !== 'undefined' ? filter : null,
+        userId: req.user?._id,
+        durationMs: Date.now() - start
+      });
+
+      // Return 500 to indicate server-side failure and include message for easier local debugging
+      res.status(500).json({ error: 'Failed to fetch experiences', details: err.message });
   }
 }
 
@@ -193,6 +416,19 @@ async function showExperienceWithContext(req, res) {
       hasUserPlan: !!userPlan,
       collaborativePlansCount: collaborativePlans.length
     });
+    // Compute total_cost for userPlan
+    if (userPlan && userPlan.plan) {
+      userPlan.total_cost = userPlan.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
+    }
+
+    // Compute total_cost for collaborativePlans
+    if (collaborativePlans && collaborativePlans.length > 0) {
+      collaborativePlans.forEach(plan => {
+        if (plan.plan) {
+          plan.total_cost = plan.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
+        }
+      });
+    }
 
     // Return combined data structure
     res.status(200).json({
@@ -1476,6 +1712,7 @@ module.exports = {
   showUserExperiences,
   showUserCreatedExperiences,
   getTagName,
+  getExperienceTags,
   addPhoto,
   removePhoto,
   setDefaultPhoto,

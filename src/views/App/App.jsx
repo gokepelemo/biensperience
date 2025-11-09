@@ -14,7 +14,7 @@ import { logger } from "../../utilities/logger";
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import { Helmet } from 'react-helmet-async';
-import "./App.css";
+import { Container } from "../../components/design-system";
 
 // Lazy load components for better performance
 const AuthPage = lazy(() => import("../AuthPage/AuthPage"));
@@ -34,6 +34,7 @@ const AllUsers = lazy(() => import("../AllUsers/AllUsers"));
 const InviteTracking = lazy(() => import("../InviteTracking/InviteTracking"));
 const ResetPassword = lazy(() => import("../ResetPassword/ResetPassword"));
 const ConfirmEmail = lazy(() => import("../ConfirmEmail/ConfirmEmail"));
+const Dashboard = lazy(() => import("../Dashboard/Dashboard"));
 
 logger.info('App.jsx loaded');
 
@@ -184,7 +185,7 @@ function AppContent() {
           {isAuthenticated ? (
             <>
               <NavBar />
-              <main id="main-content" className="container" role="main" aria-label={lang.en.aria.mainContent}>
+              <Container as="main" id="main-content" role="main" aria-label={lang.en.aria.mainContent}>
                 <ErrorBoundary
                   title="Page Error"
                   message="We encountered an error loading this page. Please try again or return home."
@@ -211,6 +212,7 @@ function AppContent() {
                       <Route path="/invites" element={<InviteTracking />} />
                       <Route path="/admin/users" element={<AllUsers />} />
                       <Route path="/experiences" element={<Experiences />} />
+                      <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/destinations" element={<Destinations />} />
                       <Route path="/experience-types/:tagName" element={<ExperiencesByTag />} />
                       <Route path="/experiences/:experienceId" element={
@@ -237,10 +239,10 @@ function AppContent() {
                     </Routes>
                   </Suspense>
                 </ErrorBoundary>
-              </main>
+              </Container>
             </>
           ) : (
-            <main id="main-content" className="container" role="main" aria-label={lang.en.aria.authentication}>
+            <Container as="main" id="main-content" role="main" aria-label={lang.en.aria.authentication}>
               <Suspense fallback={<Loading variant="centered" size="lg" /> }>
                 <Routes>
                   <Route path="/signup" element={<AuthPage />} />
@@ -249,7 +251,7 @@ function AppContent() {
                   <Route path="*" element={<AuthPage />} />
                 </Routes>
               </Suspense>
-            </main>
+            </Container>
           )}
         </div>
       </>

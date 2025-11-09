@@ -178,7 +178,7 @@ The component supports both preset sizes and custom dimensions:
  */
 export const Default = {
   args: {
-    type: 'clean',
+    type: "white",
     size: 'md'
   }
 };
@@ -187,7 +187,10 @@ export const Default = {
  * All logo type variations displayed side-by-side for comparison.
  */
 export const AllTypes = {
-  render: () => (
+  args: {
+    type: "flat"
+  },
+  render:() => (
     <div style={{ 
       display: 'flex', 
       gap: '2rem', 
@@ -227,7 +230,7 @@ export const AllTypes = {
       </div>
     </div>
   ),
-  parameters: {
+  parameters:{
     docs: {
       description: {
         story: 'Compare all five logo variations: clean, flat, soft, white, and engine (animated loading indicator).'

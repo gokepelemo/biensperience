@@ -16,6 +16,19 @@ export default {
     },
   },
   tags: [],
+  argTypes: {
+    // Stepper controls
+    variant: {
+      control: 'select',
+      options: ['default', 'compact'],
+      description: 'Stepper variant'
+    },
+    color: {
+      control: 'select',
+      options: ['primary', 'success', 'danger', 'warning'],
+      description: 'Stepper color'
+    }
+  },
 };
 
 // Stepper Stories
@@ -148,6 +161,23 @@ export const CompactStepper = {
       </div>
     );
   },
+};
+
+// Interactive playground for testing Stepper props
+export const StepperPlayground = (args) => (
+  <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
+    <Stepper {...args} />
+  </div>
+);
+StepperPlayground.args = {
+  steps: [
+    { title: 'Research Destination', description: 'Find the perfect spot', status: 'completed' },
+    { title: 'Book Accommodation', description: 'Secure your stay', status: 'active' },
+    { title: 'Plan Activities', description: 'Schedule experiences', status: 'pending' },
+    { title: 'Pack & Prepare', description: 'Get ready for travel', status: 'pending' }
+  ],
+  variant: 'default',
+  color: 'primary'
 };
 
 // Pagination Stories

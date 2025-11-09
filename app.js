@@ -274,8 +274,20 @@ app.use("/api/tokens", require("./routes/api/tokens"));
 app.use("/api/invites", require("./routes/api/invites"));
 app.use("/api/invite-tracking", require("./routes/api/invite-tracking"));
 app.use("/api/activities", require("./routes/api/activities"));
+app.use("/api/dashboard", require("./routes/api/dashboard"));
 app.use("/health-check", (req, res) => {
   res.send("OK");
+});
+
+// Centralized API error handler: ensure API routes always return JSON
+// This catches errors thrown by middleware/controllers and prevents HTML error pages
+app.use('/api', (err, req, res, next) => {
+  backendLogger.error('Unhandled API error', { error: err && err.message, stack: err && err.stack, path: req.path });
+  // If headers already sent, delegate to default handler
+  if (res.headersSent) return next(err);
+  // Use standardized error response payload
+  const status = err && err.statusCode ? err.statusCode : 500;
+  return res.status(status).json({ success: false, error: (err && err.message) || 'Internal server error' });
 });
 
 // Catch-all route for React app (only in production)

@@ -180,11 +180,6 @@ export function renderMention(mention, entity, onEntityClick) {
         to={entityUrl}
         onClick={handleClick}
         className="mention-link"
-        style={{
-          color: '#007bff',
-          textDecoration: 'underline',
-          cursor: 'pointer'
-        }}
       >
         {displayText}
       </Link>

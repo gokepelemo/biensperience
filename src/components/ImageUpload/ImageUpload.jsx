@@ -9,6 +9,7 @@ import Alert from "../Alert/Alert";
 import AlertModal from "../AlertModal/AlertModal";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import { logger } from "../../utilities/logger";
+import { FormControl } from "../../components/design-system";
 
 /**
  * Sanitizes text for safe display in JSX
@@ -376,13 +377,12 @@ export default function ImageUpload({ data, setData }) {
           <label htmlFor="photo_credit" className="visually-hidden">
             Photo credit name
           </label>
-          <input
+          <FormControl
             type="text"
             name="photo_credit"
             id="photo_credit"
             onChange={handleFileChange}
             value={uploadForm.photo_credit || ''}
-            className="form-control"
             placeholder={lang.en.placeholder.photoCredit}
             aria-label={lang.en.aria.photoCreditName}
           />
@@ -392,13 +392,12 @@ export default function ImageUpload({ data, setData }) {
           <label htmlFor="photo_credit_url" className="visually-hidden">
             Photo credit URL
           </label>
-          <input
+          <FormControl
             type="text"
             name="photo_credit_url"
             id="photo_credit_url"
             onChange={handleFileChange}
             value={uploadForm.photo_credit_url || ''}
-            className="form-control"
             placeholder={lang.en.placeholder.photoCreditUrl}
             aria-label={lang.en.aria.photoCreditUrl}
           />
@@ -409,12 +408,11 @@ export default function ImageUpload({ data, setData }) {
             <label htmlFor="image" className="visually-hidden">
               Choose image file
             </label>
-            <input
+            <FormControl
               type="file"
               name="image"
               id="image"
               onChange={handleFileChange}
-              className="form-control"
               accept="image/*"
               multiple
               aria-label={lang.en.aria.chooseImageFiles}
@@ -584,10 +582,10 @@ export default function ImageUpload({ data, setData }) {
                   <div className="photo-item-info">
                     <small className="photo-item-credit">{sanitizedCredit}</small>
                     {isDefault && (
-                      <span className="badge bg-primary">Default</span>
+                      <span className="badge pill pill-variant-primary">Default</span>
                     )}
                     {isDisabled && (
-                      <span className="badge bg-danger">Disabled</span>
+                      <span className="badge pill pill-variant-danger">Disabled</span>
                     )}
                   </div>
                   <div className="photo-item-actions">

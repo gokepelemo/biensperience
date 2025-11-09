@@ -556,3 +556,80 @@
     outline-width: 3px;
   }
 }
+
+/* Selected chips (multi-select) */
+.autocomplete-selected-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* When dropdown is open, position chips absolutely so the dropdown can overlay them
+   This prevents the dropdown from being pushed below the chips and enables overlapping. */
+.autocomplete-wrapper.autocomplete-open .autocomplete-selected-chips {
+  position: absolute;
+  left: 0;
+  top: calc(100% + var(--space-2));
+  z-index: 900; /* below the dropdown (1000) */
+  width: 100%;
+}
+
+.autocomplete-chip-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* Avoid overriding background/color tokens from the Pill component; rely on design-system */
+  padding-right: var(--space-2);
+}
+
+/* Destination-specific chip tweaks for dark mode visibility */
+.autocomplete-chip-pill.destination-chip {
+  /* Add subtle shadow and stronger border in dark mode to improve legibility */
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  padding: var(--space-2) var(--space-4);
+}
+
+@media (prefers-color-scheme: dark) {
+  .autocomplete-chip-pill.destination-chip {
+    /* Ensure neutral filled pill remains distinct from dark background */
+    background: var(--color-bg-tertiary-dark);
+    color: var(--color-text-secondary-dark);
+    border: 1px solid var(--color-border-light-dark);
+  }
+  /* Ensure the remove control uses the appropriate dark-mode token */
+  .autocomplete-chip-pill .chip-remove {
+    color: var(--color-text-primary-dark);
+  }
+}
+
+.autocomplete-chip-pill .chip-remove {
+  background: transparent;
+  border: none;
+  /* Use a higher-contrast token when available; fallback to primary text token */
+  color: var(--color-text-primary-contrast, var(--color-text-primary));
+  font-size: 16px; /* slightly larger target */
+  line-height: 1;
+  cursor: pointer;
+  /* Make the remove control a square target and vertically center it */
+  height: 28px;
+  min-width: 28px;
+  padding: 0 6px; /* balanced horizontal hit area */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center; /* ensure it centers within the pill */
+  border-radius: 99px;
+}
+
+.autocomplete-chip-pill .chip-remove:focus {
+  outline: 2px solid var(--color-primary);
+  border-radius: 4px;
+}
+
+/* Ensure label text and remove control share the same vertical rhythm */
+.autocomplete-chip-pill .chip-label {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}

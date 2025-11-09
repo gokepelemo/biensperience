@@ -16,11 +16,66 @@ function escapeRegex(string) {
 
 async function index(req, res) {
   try {
-    const destinations = await Destination.find({})
+    // Pagination support: default to page=1, limit=30
+    const page = parseInt(req.query.page, 10);
+    const limit = parseInt(req.query.limit, 10);
+    const p = Number.isNaN(page) || page < 1 ? 1 : page;
+    const l = Number.isNaN(limit) || limit < 1 ? 30 : limit;
+
+    const skip = (p - 1) * l;
+
+    // Sorting support
+    const sortBy = req.query.sort_by || req.query.sort || 'name';
+    const sortOrder = req.query.sort_order || req.query.order || 'asc';
+    const sortMap = {
+      'name': { name: sortOrder === 'asc' ? 1 : -1 },
+      'alphabetical': { name: 1 },
+      'alphabetical-desc': { name: -1 },
+      'created-newest': { createdAt: -1 },
+      'created-oldest': { createdAt: 1 }
+    };
+    const sortObj = sortMap[sortBy] || sortMap['name'];
+
+    // If ?all=true requested, return full array for compatibility
+    if (req.query.all === 'true' || req.query.all === true) {
+      const allDestinations = await Destination.find({})
+        .populate("photos", "url caption photo_credit photo_credit_url width height")
+        .lean()
+        .exec();
+      return res.status(200).json(allDestinations);
+    }
+
+    // Build optional search filter (q=search term)
+    const searchFilter = {};
+    if (req.query.q && typeof req.query.q === 'string' && req.query.q.trim().length > 0) {
+      const q = escapeRegex(req.query.q.trim());
+      searchFilter.$or = [
+        { name: { $regex: new RegExp(q, 'i') } },
+        { country: { $regex: new RegExp(q, 'i') } }
+      ];
+    }
+
+    // Count total documents (apply searchFilter if present)
+    const total = await Destination.countDocuments(searchFilter);
+    const destinations = await Destination.find(searchFilter)
       .populate("photos", "url caption photo_credit photo_credit_url width height")
+      .sort(sortObj)
+      .skip(skip)
+      .limit(l)
       .lean()
       .exec();
-    res.status(200).json(destinations);
+
+    const totalPages = Math.ceil(total / l);
+    return res.status(200).json({
+      data: destinations,
+      meta: {
+        page: p,
+        limit: l,
+        total,
+        totalPages,
+        hasMore: p < totalPages
+      }
+    });
   } catch (err) {
     backendLogger.error('Error fetching destinations', { error: err.message });
     res.status(400).json({ error: 'Failed to fetch destinations' });

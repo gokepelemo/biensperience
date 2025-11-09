@@ -148,6 +148,37 @@ function createErrorResponse(message, statusCode = 400) {
 }
 
 /**
+ * Standard success response for API controllers
+ * @param {Object} res - Express response
+ * @param {any} data - Payload data
+ * @param {string} [message] - Optional human message
+ * @param {number} [statusCode=200]
+ */
+function successResponse(res, data = {}, message = null, statusCode = 200) {
+  const payload = { success: true, data };
+  if (message) payload.message = message;
+  return res.status(statusCode).json(payload);
+}
+
+/**
+ * Standard error response for API controllers
+ * @param {Object} res - Express response
+ * @param {Error|null} err - Error object (optional)
+ * @param {string} [message] - Optional message to expose
+ * @param {number} [statusCode=400]
+ */
+function errorResponse(res, err = null, message = 'An error occurred', statusCode = 400) {
+  // Prefer explicit message, fall back to error.message
+  const errorMessage = message || (err && err.message) || 'An error occurred';
+  const payload = { success: false, error: errorMessage };
+  // In development include details (non-sensitive)
+  if (process.env.NODE_ENV !== 'production' && err) {
+    payload.details = err.message || String(err);
+  }
+  return res.status(statusCode).json(payload);
+}
+
+/**
  * Async wrapper for controller functions with automatic error handling
  * @param {Function} fn - Async controller function
  * @returns {Function} - Wrapped function with error handling
@@ -245,6 +276,8 @@ module.exports = {
   sanitizeUser,
   validateArrayIndex,
   createErrorResponse,
+  successResponse,
+  errorResponse,
   asyncHandler,
   findByIdWithValidation,
   checkAuthorization

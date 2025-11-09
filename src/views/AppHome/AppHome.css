@@ -17,6 +17,26 @@
   letter-spacing: var(--letter-spacing-wide);
 }
 
+/* Add spacing and flex layout for destination cards */
+.destinations-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  justify-content: center;
+  align-items: stretch;
+  margin-bottom: var(--space-8);
+}
+
+/* Add spacing and flex layout for experience cards */
+.experiences-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  justify-content: center;
+  align-items: stretch;
+  margin-bottom: var(--space-8);
+}
+
 .cards-wrapper {
   display: flex;
   flex-wrap: wrap;

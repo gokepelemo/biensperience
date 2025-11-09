@@ -1,0 +1,15 @@
+.rounded-textarea { display:flex; flex-direction:column; gap:0.5rem; }
+.rounded-textarea-label { font-weight:600; color:var(--text-muted,#334155); }
+.rounded-textarea-input {
+  width:100%;
+  border-radius:16px;
+  padding:1rem;
+  border:1px solid var(--form-field-border,#e6edf3);
+  background:var(--form-field-bg,#fff);
+  font-size:0.95rem;
+  min-height:88px;
+  resize:vertical;
+}
+.rounded-textarea-footer { display:flex; justify-content:space-between; align-items:center; }
+.rounded-textarea-footer .helper { color:var(--muted,#94a3b8); }
+.rounded-textarea-footer .counter { color:var(--muted,#94a3b8); }

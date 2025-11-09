@@ -16,7 +16,7 @@ export default function ExperienceHeader({
 
   return (
     <div className="experience-header">
-      <h1 className="experience-title fade-in">{experience.name}</h1>
+      <h1 className="experience-title animation-fade_in">{experience.name}</h1>
 
       {/* Photos */}
       {experience.photos && experience.photos.length > 0 && (

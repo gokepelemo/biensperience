@@ -360,7 +360,10 @@ export const NoMessage = {
 
 // All animations showcase
 export const AllAnimations = {
-  render: () => (
+  args: {
+    size: "md"
+  },
+  render:() => (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem', padding: '2rem' }}>
       <div style={{ textAlign: 'center' }}>
         <Loading animation="pulse" size="lg" message="Pulse" />
@@ -391,11 +394,22 @@ export const AllAnimations = {
       </div>
     </div>
   ),
-  parameters: {
+  parameters:{
     docs: {
       description: {
         story: 'Showcase of all 9 animation types available.',
       },
     },
-  },
+  }
+};
+
+// Interactive playground for testing all loading props
+export const Playground = (args) => <Loading {...args} />;
+Playground.args = {
+  size: 'md',
+  variant: 'inline',
+  animation: 'pulse',
+  message: 'Loading...',
+  showMessage: true,
+  overlay: 'none'
 };

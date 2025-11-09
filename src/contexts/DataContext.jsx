@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { getDestinations } from '../utilities/destinations-api';
-import { getExperiences } from '../utilities/experiences-api';
+import { getDestinations, getDestinationsPage } from '../utilities/destinations-api';
+import { getExperiences, getExperiencesPage } from '../utilities/experiences-api';
 import { getUserPlans } from '../utilities/plans-api';
 import { useUser } from './UserContext';
 import { logger } from '../utilities/logger';
@@ -31,7 +31,12 @@ export function DataProvider({ children }) {
   logger.debug('DataProvider function called');
   const { user, isAuthenticated } = useUser();
   const [destinations, setDestinations] = useState([]);
+  const [destinationsFilters, setDestinationsFilters] = useState({});
   const [experiences, setExperiences] = useState([]);
+  const [destinationsMeta, setDestinationsMeta] = useState({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
+  const [experiencesMeta, setExperiencesMeta] = useState({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
+  const [experiencesFilters, setExperiencesFilters] = useState({});
+  const experiencesFiltersRef = React.useRef(experiencesFilters);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState({
@@ -39,6 +44,8 @@ export function DataProvider({ children }) {
     experiences: null,
     plans: null,
   });
+  // Track the most recent immediate-set of experiences (stale-while-revalidate)
+  const [immediateExperiences, setImmediateExperiences] = useState(null);
   // Background refresh threshold for cached/plausible data (stale-while-revalidate)
   const STALE_AFTER_MS = 2 * 60 * 1000; // 2 minutes
 
@@ -48,41 +55,232 @@ export function DataProvider({ children }) {
    */
   const fetchDestinations = useCallback(async () => {
     logger.debug('fetchDestinations called', { user: user ? user.email : 'null' });
-    if (!user) {
-      logger.debug('No user, returning empty array');
-      return [];
-    }
 
     try {
-      logger.debug('Calling getDestinations API');
-      const data = await getDestinations();
-      logger.debug('getDestinations returned', { count: data ? data.length : 'null' });
-      setDestinations(data || []);
-      setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
-      return data || [];
+      logger.debug('Calling getDestinations API (page=1)');
+      const resp = await getDestinations(destinationsFilters);
+      // resp should be object with data/meta from API
+      if (resp && resp.data && resp.meta) {
+        setDestinations(resp.data || []);
+        setDestinationsMeta(resp.meta);
+        setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
+        return resp.data || [];
+      } else if (Array.isArray(resp)) {
+        // Backwards compatibility: if API returns array, treat as single page
+        setDestinations(resp || []);
+        setDestinationsMeta({ page: 1, limit: resp.length, total: resp.length, totalPages: 1, hasMore: false });
+        setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
+        return resp || [];
+      } else {
+        logger.warn('Unexpected destinations response format', { resp });
+        return [];
+      }
     } catch (error) {
       logger.error('Failed to fetch destinations', { error: error.message });
       return [];
     }
-  }, [user]);
+  }, [destinationsFilters]);
+
+  // Keep a ref with the latest experiencesFilters to avoid stale closures in
+  // async fetch functions. This lets fetchMoreExperiences and fetchExperiences
+  // always read the most recent filters without requiring them in dependency
+  // arrays (which could otherwise trigger re-creations and unexpected effects).
+  useEffect(() => {
+    experiencesFiltersRef.current = experiencesFilters;
+  }, [experiencesFilters]);
+
+  const applyDestinationsFilter = useCallback(async (filters = {}) => {
+    setDestinationsFilters(filters || {});
+    setDestinations([]);
+    setDestinationsMeta({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
+    return await fetchDestinations();
+  }, [fetchDestinations]);
 
   /**
    * Fetch all experiences from API
    * @returns {Promise<Array>} Array of experiences
    */
-  const fetchExperiences = useCallback(async () => {
-    if (!user) return [];
+  const fetchExperiences = useCallback(async (filters = {}) => {
+
+    // Use provided filters or the latest filters from ref
+    const appliedFilters = Object.keys(filters).length ? filters : (experiencesFiltersRef.current || {});
 
     try {
-      const data = await getExperiences();
-      setExperiences(data || []);
-      setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
-      return data || [];
+      // If caller passed explicit filters, treat this as a new query and reset state
+      if (Object.keys(filters).length) {
+        setExperiences([]);
+        setExperiencesMeta({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
+      }
+
+      const resp = await getExperiences(appliedFilters);
+
+      // resp should be object with data/meta from API
+      if (resp && resp.data && resp.meta) {
+        setExperiences(resp.data || []);
+        setExperiencesMeta(resp.meta);
+        setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
+        return resp.data || [];
+      } else if (Array.isArray(resp)) {
+        // Backwards compatibility: if API returns array, treat as single page
+        setExperiences(resp || []);
+        setExperiencesMeta({ page: 1, limit: resp.length, total: resp.length, totalPages: 1, hasMore: false });
+        setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
+        return resp || [];
+      } else {
+        logger.warn('Unexpected experiences response format', { resp });
+        return [];
+      }
     } catch (error) {
       logger.error('Failed to fetch experiences', { error: error.message });
       return [];
     }
-  }, [user]);
+  }, []);
+
+  /**
+   * Immediately set experiences in context from provided data (stale-while-revalidate)
+   * Shows the provided items to the UI synchronously, then triggers a background
+   * refresh from the API to replace with fresh results for the same filters.
+   * @param {Array} items - Array of experience objects to show immediately
+   * @param {Object} options - Optional params: { meta, filters, backgroundRefresh }
+   */
+  const setExperiencesImmediate = useCallback((items = [], options = {}) => {
+  const { meta = null, filters = null, backgroundRefresh = true } = options || {};
+    try {
+      // Synchronously show provided items so navigating views render instantly
+      setExperiences(Array.isArray(items) ? items : (items && items.data ? items.data : []));
+      if (meta) {
+        setExperiencesMeta(meta);
+      } else if (Array.isArray(items)) {
+        // If caller provided items but no meta, set a reasonable meta so
+        // pagination / infinite-scroll logic can operate (page=1). We
+        // default hasMore to false since we don't know total; callers
+        // may override by passing meta.
+        const len = items.length;
+        if (len > 0) {
+          setExperiencesMeta(prev => ({ ...prev, page: 1, limit: prev.limit || len, total: len, totalPages: 1, hasMore: false }));
+        }
+      }
+      if (filters) setExperiencesFilters(filters || {});
+      setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
+
+      if (!backgroundRefresh) {
+        // still record immediate marker without a refresh
+        // normalize filters to an object so consumers can compare reliably
+        const normalizedFilters = filters ?? {};
+        // Update filters in context immediately so other helpers (fetchMore) can use them
+        setExperiencesFilters(normalizedFilters);
+        experiencesFiltersRef.current = normalizedFilters;
+        setImmediateExperiences({ filters: normalizedFilters, at: Date.now(), status: 'done', promise: Promise.resolve([]) });
+        return Promise.resolve([]);
+      }
+
+      // Create a refresh promise so callers can deterministically wait for the
+      // canonical server refresh to complete. We record the promise in the
+      // immediateExperiences marker so views can inspect status or await it.
+      const at = Date.now();
+      let resolveFn;
+      let rejectFn;
+      const refreshPromise = new Promise((resolve, reject) => {
+        resolveFn = resolve;
+        rejectFn = reject;
+      });
+
+      // set marker as refreshing
+  // Normalize filters to object ({} when null) so views can compare via JSON
+  const normalizedFilters = filters ?? {};
+  // Update filters in context immediately so other helpers (fetchMore) can use them
+  setExperiencesFilters(normalizedFilters);
+  experiencesFiltersRef.current = normalizedFilters;
+  setImmediateExperiences({ filters: normalizedFilters, at, status: 'refreshing', promise: refreshPromise });
+
+      // Run the refresh (do not block the caller). Use fetchExperiences to keep
+      // canonical fetch logic centralized.
+      (async () => {
+        try {
+          // If caller set a special __noApiParam flag, avoid passing those filters to the API
+          const apiFilters = (filters && filters.__noApiParam) ? {} : (filters || experiencesFiltersRef.current || {});
+          const resp = await fetchExperiences(apiFilters);
+          // mark done
+          setImmediateExperiences({ filters: normalizedFilters, at, status: 'done', promise: refreshPromise });
+          resolveFn(resp || []);
+        } catch (err) {
+          setImmediateExperiences({ filters: normalizedFilters, at, status: 'error', promise: refreshPromise });
+          logger.debug('Background refresh of experiences failed', { error: err?.message || err });
+          rejectFn(err);
+        }
+      })();
+
+      return refreshPromise;
+    } catch (err) {
+      logger.error('setExperiencesImmediate failed', { error: err?.message || err });
+      return Promise.reject(err);
+    }
+  }, [fetchExperiences]);
+
+  // Fetch next page of destinations and append to state
+  const fetchMoreDestinations = useCallback(async () => {
+    // If initial page hasn't been loaded yet, don't fetch more
+    if (!destinationsMeta || destinationsMeta.page < 1) {
+      logger.debug('fetchMoreDestinations: waiting for initial page', { meta: destinationsMeta });
+      return [];
+    }
+    // Check if there are more pages available
+    if (!destinationsMeta.hasMore) {
+      logger.debug('fetchMoreDestinations: no more pages', { meta: destinationsMeta });
+      return [];
+    }
+
+    const nextPage = destinationsMeta.page + 1;
+    logger.debug('fetchMoreDestinations: fetching page', { nextPage, currentPage: destinationsMeta.page });
+
+    try {
+      const resp = await getDestinationsPage(nextPage, destinationsMeta.limit || 30, destinationsFilters);
+      if (resp && resp.data && resp.meta) {
+        setDestinations(prev => [...prev, ...resp.data]);
+        setDestinationsMeta(resp.meta);
+        setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
+        logger.debug('fetchMoreDestinations: success', { newItems: resp.data.length, newMeta: resp.meta });
+        return resp.data;
+      }
+      return [];
+    } catch (err) {
+      logger.error('Failed to fetch more destinations', { error: err.message, nextPage });
+      return [];
+    }
+  }, [destinationsMeta, destinationsFilters]);
+
+  // Fetch next page of experiences and append to state
+  const fetchMoreExperiences = useCallback(async (filters = null) => {
+    const appliedFilters = filters || experiencesFiltersRef.current || {};
+    // If initial page hasn't been loaded yet, don't fetch more (prevents requesting page=2 before page=1)
+    if (!experiencesMeta || experiencesMeta.page < 1) {
+      logger.debug('fetchMoreExperiences: waiting for initial page', { meta: experiencesMeta });
+      return [];
+    }
+    // Check if there are more pages available
+    if (!experiencesMeta.hasMore) {
+      logger.debug('fetchMoreExperiences: no more pages', { meta: experiencesMeta });
+      return [];
+    }
+
+    const nextPage = experiencesMeta.page + 1;
+    logger.debug('fetchMoreExperiences: fetching page', { nextPage, currentPage: experiencesMeta.page });
+
+    try {
+      const resp = await getExperiencesPage(nextPage, experiencesMeta.limit || 30, appliedFilters);
+      if (resp && resp.data && resp.meta) {
+        setExperiences(prev => [...prev, ...resp.data]);
+        setExperiencesMeta(resp.meta);
+        setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
+        logger.debug('fetchMoreExperiences: success', { newItems: resp.data.length, newMeta: resp.meta });
+        return resp.data;
+      }
+      return [];
+    } catch (err) {
+      logger.error('Failed to fetch more experiences', { error: err.message, nextPage });
+      return [];
+    }
+  }, [experiencesMeta]);
 
   /**
    * Fetch all user plans from API
@@ -279,6 +477,48 @@ export function DataProvider({ children }) {
     return plans.find(plan => plan.experience === experienceId || plan.experience._id === experienceId) || null;
   }, [plans]);
 
+  // Apply filters for experiences (sets filters and fetches first page)
+  // NOTE: keep this function identity stable and avoid depending on fetchExperiences
+  // to prevent causing effects that depend on this function to re-run when
+  // internal fetch functions change identity (which can create render loops).
+  const applyExperiencesFilter = useCallback(async (filters = {}) => {
+    const cleanFilters = filters || {};
+    setExperiencesFilters(cleanFilters);
+    logger.info('applyExperiencesFilter called', {
+      filters: cleanFilters,
+      hasViewSpecific: cleanFilters.__viewSpecific,
+      isEmpty: Object.keys(cleanFilters).length === 0
+    });
+    // Reset experiences and fetch first page with filters
+    setExperiences([]);
+    setExperiencesMeta({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
+
+    try {
+      // Call the API directly rather than delegating to fetchExperiences
+      const resp = await getExperiences(cleanFilters);
+
+      // resp should be object with data/meta from API
+      if (resp && resp.data && resp.meta) {
+        setExperiences(resp.data || []);
+        setExperiencesMeta(resp.meta);
+        setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
+        return resp.data || [];
+      } else if (Array.isArray(resp)) {
+        // Backwards compatibility: if API returns array, treat as single page
+        setExperiences(resp || []);
+        setExperiencesMeta({ page: 1, limit: resp.length, total: resp.length, totalPages: 1, hasMore: false });
+        setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
+        return resp || [];
+      } else {
+        logger.warn('Unexpected experiences filter response format', { resp });
+        return [];
+      }
+    } catch (error) {
+      logger.error('Failed to apply experiences filter', { error: error.message });
+      return [];
+    }
+  }, []);
+
   // Initial data fetch on mount or when user changes
   useEffect(() => {
     logger.debug('DataContext useEffect triggered', {
@@ -351,6 +591,20 @@ export function DataProvider({ children }) {
     fetchExperiences,
     fetchPlans,
     refreshAll,
+  // Pagination helpers
+  fetchMoreDestinations,
+  fetchMoreExperiences,
+  destinationsMeta,
+  experiencesMeta,
+  // Filtering helpers
+  applyDestinationsFilter,
+  destinationsFilters,
+  applyExperiencesFilter,
+  experiencesFilters,
+  // Immediate-set helper (stale-while-revalidate)
+  setExperiencesImmediate,
+  // Marker for immediate-set (helpers can inspect to avoid overwrite races)
+  immediateExperiences,
 
     // Getters
     getDestination,

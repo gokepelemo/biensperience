@@ -5,7 +5,8 @@ import { handleError } from '../../utilities/error-handler';
 import { lang } from '../../lang.constants';
 import FormField from '../../components/FormField/FormField';
 import Alert from '../../components/Alert/Alert';
-import PageMeta from '../../components/PageMeta/PageMeta';
+import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
+import { Button, Container } from '../../components/design-system';
 import './ResetPassword.css';
 
 export default function ResetPassword() {
@@ -67,7 +68,7 @@ export default function ResetPassword() {
 
   return (
     <>
-      <PageMeta
+      <PageOpenGraph
         title="Reset Password - Biensperience"
         description="Create a new password for your Biensperience account"
         keywords="reset password, password recovery, account security"
@@ -78,7 +79,7 @@ export default function ResetPassword() {
           <div className="col-md-6 col-lg-5">
             <div className="reset-password-card card">
               <div className="card-body p-4 p-md-5">
-                <h1 className="text-center mb-4">Reset Password</h1>
+                <h1 className="mb-4" style={{ textAlign: 'center' }}>Reset Password</h1>
 
                 {success ? (
                   <Alert type="success">
@@ -123,15 +124,17 @@ export default function ResetPassword() {
                       minLength={3}
                     />
 
-                    <button
+                    <Button
                       type="submit"
-                      className="btn btn-primary btn-lg w-100 mt-4"
+                      variant="primary"
+                      size="lg"
+                      className="w-100 mt-4"
                       disabled={loading || !formData.password || !formData.confirmPassword}
                     >
                       {loading ? 'Resetting Password...' : 'Reset Password'}
-                    </button>
+                    </Button>
 
-                    <div className="text-center mt-4">
+                    <div className="mt-4" style={{ textAlign: 'center' }}>
                       <Link to="/login" className="text-muted">
                         {lang.en.button.backToLogin}
                       </Link>

@@ -2,6 +2,7 @@ import "./UserAvatar.css";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 import debug from "../../utilities/debug";
+import EntitySchema from "../OpenGraph/EntitySchema";
 
 /**
  * UserAvatar - Reusable component for displaying a single user's avatar
@@ -13,6 +14,7 @@ import debug from "../../utilities/debug";
  * @param {string} props.className - Additional CSS classes
  * @param {Function} props.onClick - Optional click handler
  * @param {string} props.title - Optional tooltip text (defaults to user.name)
+ * @param {boolean} props.includeSchema - Whether to include schema.org markup (default: false)
  */
 const UserAvatar = ({ 
   user,
@@ -20,7 +22,8 @@ const UserAvatar = ({
   linkToProfile = true,
   className = "",
   onClick,
-  title
+  title,
+  includeSchema = false
 }) => {
   if (!user) return null;
 
@@ -62,27 +65,37 @@ const UserAvatar = ({
 
   if (linkToProfile && user._id) {
     return (
-      <Link 
-        to={`/profile/${user._id}`} 
-        className={avatarClasses}
-        title={avatarTitle}
-        onClick={onClick}
-      >
-        {avatarContent}
-      </Link>
+      <>
+        <Link 
+          to={`/profile/${user._id}`} 
+          className={avatarClasses}
+          title={avatarTitle}
+          onClick={onClick}
+        >
+          {avatarContent}
+        </Link>
+        {includeSchema && user && (
+          <EntitySchema entity={user} entityType="user" />
+        )}
+      </>
     );
   }
 
   return (
-    <div 
-      className={avatarClasses}
-      title={avatarTitle}
-      onClick={onClick}
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-    >
-      {avatarContent}
-    </div>
+    <>
+      <div 
+        className={avatarClasses}
+        title={avatarTitle}
+        onClick={onClick}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+      >
+        {avatarContent}
+      </div>
+      {includeSchema && user && (
+        <EntitySchema entity={user} entityType="user" />
+      )}
+    </>
   );
 };
 
@@ -97,6 +110,7 @@ UserAvatar.propTypes = {
   className: PropTypes.string,
   onClick: PropTypes.func,
   title: PropTypes.string,
+  includeSchema: PropTypes.bool,
 };
 
 export default UserAvatar;
