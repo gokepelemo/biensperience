@@ -8,6 +8,7 @@
  * @module permission-enforcer
  */
 
+const mongoose = require('mongoose');
 const backendLogger = require('./backend-logger');
 const {
   ROLES,
@@ -82,7 +83,7 @@ class PermissionEnforcer {
         };
       }
 
-      backendLogger.info('PERMISSION_DEBUG: can() called', { userId, resourceId: resource._id, action });
+      backendLogger.info('PERMISSION_DEBUG: can() called', { userId, resourceId: resource?._id, action });
 
       // Convert userId to string for consistent comparison
       const userIdStr = userId.toString ? userId.toString() : userId;
@@ -108,8 +109,23 @@ class PermissionEnforcer {
       // Get user's role and permissions for this resource
       const permissionInfo = await this._getUserPermissions(userIdStr, resource, context);
 
+      // Diagnostic logging: record resolved permission info for debugging
+      try {
+        const resourceSummary = {
+          resourceId: resource?._id,
+          resourceType: resource?.constructor?.modelName || (resource && resource.type) || null,
+          resourceUser: resource?.user ? (resource.user._id ? resource.user._id : resource.user) : resource?.user
+        };
+        const samplePermissions = (resource.permissions && Array.isArray(resource.permissions)) ? resource.permissions.slice(0,5).map(p => ({ _id: p._id, entity: p.entity, type: p.type })) : [];
+        backendLogger.info('PERMISSION_DEBUG: resolved permissions', { userId: userIdStr, action, resourceSummary, samplePermissions, permissionInfo });
+      } catch (logErr) {
+        backendLogger.error('PERMISSION_DEBUG: failed to log resolved permissions', { error: logErr?.message });
+      }
+
       // Check if action is allowed based on role
       const actionAllowed = this._isActionAllowed(action, permissionInfo.role);
+
+      backendLogger.info('PERMISSION_DEBUG: action decision', { userId: userIdStr, action, role: permissionInfo.role, allowed: actionAllowed });
 
       return {
         allowed: actionAllowed,
@@ -337,7 +353,17 @@ class PermissionEnforcer {
     }
 
     // Check if user is owner (highest priority)
-    if (isOwner(userIdStr, resource)) {
+    const ownerCheck = isOwner(userIdStr, resource);
+    backendLogger.info('COLLAB_DEBUG: isOwner check', {
+      userIdStr,
+      resourceId: resource._id,
+      resourceUser: resource.user?.toString ? resource.user.toString() : resource.user,
+      ownerCheck,
+      hasPermissions: !!resource.permissions,
+      permissionsLength: resource.permissions?.length
+    });
+
+    if (ownerCheck) {
       return { role: ROLES.OWNER, inherited: false };
     }
 
@@ -347,6 +373,17 @@ class PermissionEnforcer {
         p.entity === ENTITY_TYPES.USER &&
         p._id.toString() === userIdStr
       );
+
+      backendLogger.info('COLLAB_DEBUG: Direct permission check', {
+        userIdStr,
+        foundPermission: !!directPermission,
+        permissionType: directPermission?.type,
+        allPermissions: resource.permissions.map(p => ({
+          _id: p._id?.toString(),
+          entity: p.entity,
+          type: p.type
+        }))
+      });
 
       if (directPermission) {
         return { role: directPermission.type, inherited: false };
@@ -542,6 +579,11 @@ class PermissionEnforcer {
    */
   async addPermission({ resource, permission, actorId, reason, metadata = {}, allowSelfContributor = false }) {
     try {
+      backendLogger.info('ENFORCER: addPermission called', {
+        resourceId: resource?._id?.toString ? resource._id.toString() : resource?._id,
+        permission: { _id: permission?._id, entity: permission?.entity, type: permission?.type },
+        actorId: actorId?.toString ? actorId.toString() : actorId
+      });
       // 1. Validate permission object
       const { ROLES, ENTITY_TYPES, validatePermission } = require('./permissions');
       const validation = validatePermission(permission);
@@ -648,8 +690,13 @@ class PermissionEnforcer {
       }
 
       // 7. Add permission with metadata
+      // Ensure the permission._id is stored as an ObjectId instance in DB
+      // (some callers may pass a string). Storing consistent types prevents
+      // query mismatches when searching by ObjectId later.
+      const permId = (typeof permission._id === 'string') ? new mongoose.Types.ObjectId(permission._id) : permission._id;
       const newPermission = {
         ...permission,
+        _id: permId,
         granted_at: new Date(),
         granted_by: actorId
       };
@@ -657,6 +704,11 @@ class PermissionEnforcer {
       resource.permissions.push(newPermission);
 
       // 8. Save to database using atomic update to prevent "Can't save() the same doc multiple times in parallel" error
+      backendLogger.info('ENFORCER: about to enter atomic update loop', {
+        resourceId: resource._id,
+        currentPermissionsCount: (resource.permissions || []).length,
+        originalVersion
+      });
       let saved = false;
       let saveAttempts = 0;
       const maxAttempts = 3;
@@ -683,6 +735,11 @@ class PermissionEnforcer {
             resource.permissions = result.permissions;
             resource.__v = result.__v;
             saved = true;
+            backendLogger.info('ENFORCER: atomic update succeeded', {
+              resourceId: resource._id,
+              newVersion: result.__v,
+              permissionsCount: result.permissions.length
+            });
           } else {
             // Update failed - either version conflict or duplicate
             saveAttempts++;
@@ -727,6 +784,7 @@ class PermissionEnforcer {
         }
       }
 
+  backendLogger.info('ENFORCER: atomic update loop exited', { resourceId: resource._id, saved, saveAttempts });
       // 9. Capture state after change
       const newState = JSON.parse(JSON.stringify(resource.permissions));
 
@@ -735,6 +793,7 @@ class PermissionEnforcer {
       const rollbackToken = crypto.randomBytes(32).toString('hex');
 
       // 11. Create audit log
+      backendLogger.info('ENFORCER: creating audit log', { resourceId: resource._id, action: 'permission_added' });
       const auditResult = await this._createAuditLog({
         action: 'permission_added',
         actor,
@@ -747,6 +806,7 @@ class PermissionEnforcer {
         rollbackToken
       });
 
+      backendLogger.info('ENFORCER: audit log created (result)', { success: !!auditResult.success, resourceId: resource._id });
       if (!auditResult.success) {
         backendLogger.error('Failed to create audit log', { error: auditResult.error });
         // Continue anyway - mutation succeeded but audit failed
@@ -947,7 +1007,10 @@ class PermissionEnforcer {
 
       // 1. Verify actor is current owner or super admin
       const actorIdStr = actorId.toString();
-      const isCurrentOwner = oldOwnerId.toString() === actorIdStr;
+      // Normalize owner IDs to ObjectId instances when provided as strings
+      const oldOwnerObjId = (typeof oldOwnerId === 'string') ? new mongoose.Types.ObjectId(oldOwnerId) : oldOwnerId;
+      const newOwnerObjId = (typeof newOwnerId === 'string') ? new mongoose.Types.ObjectId(newOwnerId) : newOwnerId;
+      const isCurrentOwner = oldOwnerObjId.toString() === actorIdStr;
       const actor = this.models.User ? await this.models.User.findById(actorIdStr) : null;
       const isSuperAdminUser = actor ? require('./permissions').isSuperAdmin(actor) : false;
 
@@ -960,14 +1023,14 @@ class PermissionEnforcer {
 
       // 3. Remove old owner's owner permission, make them contributor
       const oldOwnerIndex = resource.permissions.findIndex(p => 
-        p._id.toString() === oldOwnerId.toString() && 
+        p._id.toString() === oldOwnerObjId.toString() && 
         p.entity === 'user' &&
         p.type === ROLES.OWNER
       );
 
       if (oldOwnerIndex !== -1) {
         resource.permissions[oldOwnerIndex] = {
-          _id: oldOwnerId,
+          _id: oldOwnerObjId,
           entity: 'user',
           type: ROLES.CONTRIBUTOR,
           granted_at: new Date(),
@@ -977,14 +1040,14 @@ class PermissionEnforcer {
 
       // 4. Add or update new owner's permission
       const newOwnerIndex = resource.permissions.findIndex(p => 
-        p._id.toString() === newOwnerId.toString() && 
+        p._id.toString() === newOwnerObjId.toString() && 
         p.entity === 'user'
       );
 
       if (newOwnerIndex !== -1) {
         // Update existing permission to owner
         resource.permissions[newOwnerIndex] = {
-          _id: newOwnerId,
+          _id: newOwnerObjId,
           entity: 'user',
           type: ROLES.OWNER,
           granted_at: new Date(),
@@ -993,7 +1056,7 @@ class PermissionEnforcer {
       } else {
         // Add new owner permission
         resource.permissions.push({
-          _id: newOwnerId,
+          _id: newOwnerObjId,
           entity: 'user',
           type: ROLES.OWNER,
           granted_at: new Date(),
@@ -1002,7 +1065,7 @@ class PermissionEnforcer {
       }
 
       // 5. Update user field
-      resource.user = newOwnerId;
+  resource.user = newOwnerObjId;
 
       // 6. Capture state after change
       const newState = JSON.parse(JSON.stringify(resource.permissions));

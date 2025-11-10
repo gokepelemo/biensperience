@@ -9,13 +9,21 @@ const BASE_URL = '/api/dashboard';
  */
 export async function getDashboardData() {
   try {
-    const result = await sendRequest(BASE_URL);
+    // Add timestamp to prevent caching
+    const url = `${BASE_URL}?_t=${Date.now()}`;
+    const result = await sendRequest(url);
+    // The API controllers use a standard success response wrapper:
+    // { success: true, data: { stats, recentActivity, upcomingPlans } }
+    // Unwrap `data` for callers so they receive { stats, recentActivity, upcomingPlans } directly.
+    const payload = (result && result.data) ? result.data : result || {};
+
     logger.debug('[dashboard-api] Dashboard data fetched', {
-      stats: result.stats,
-      activityCount: result.recentActivity?.length || 0,
-      upcomingPlansCount: result.upcomingPlans?.length || 0
+      stats: payload.stats,
+      activityCount: payload.recentActivity?.length || 0,
+      upcomingPlansCount: payload.upcomingPlans?.length || 0
     });
-    return result;
+
+    return payload;
   } catch (error) {
     logger.error('[dashboard-api] Failed to fetch dashboard data', error);
     throw error;

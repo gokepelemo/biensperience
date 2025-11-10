@@ -8,6 +8,8 @@ const { getEnforcer } = require("../../utilities/permission-enforcer");
 const { asyncHandler } = require("../../utilities/controller-helpers");
 const backendLogger = require("../../utilities/backend-logger");
 const mongoose = require("mongoose");
+const Activity = require('../../models/activity');
+const { sendCollaboratorInviteEmail } = require('../../utilities/email-service');
 const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion } = require('../../utilities/activity-tracker');
 
 /**
@@ -607,16 +609,31 @@ const addCollaborator = asyncHandler(async (req, res) => {
 
   // Only owner can add collaborators
   const enforcer = getEnforcer({ Plan, Experience, Destination, User });
-  const permCheck = await enforcer.canManagePermissions({
-    userId: req.user._id,
-    resource: plan
-  });
+  // Lightweight short-circuit: if the requester is the plan owner (plan.user), allow immediately.
+  try {
+    if (plan.user && plan.user.toString() === req.user._id.toString()) {
+      // Owner detected - skip enforcer check
+      backendLogger.debug('Add collaborator: short-circuit owner check passed', {
+        planId: plan._id.toString(),
+        ownerId: plan.user.toString(),
+        actorId: req.user._id.toString()
+      });
+    } else {
+      const permCheck = await enforcer.canManagePermissions({
+        userId: req.user._id,
+        resource: plan
+      });
 
-  if (!permCheck.allowed) {
-    return res.status(403).json({
-      error: "Only the plan owner can add collaborators",
-      message: permCheck.reason
-    });
+      if (!permCheck.allowed) {
+        return res.status(403).json({
+          error: "Only the plan owner can add collaborators",
+          message: permCheck.reason
+        });
+      }
+    }
+  } catch (err) {
+    backendLogger.error('Error checking permissions for addCollaborator', { error: err?.message, stack: err?.stack });
+    return res.status(500).json({ error: 'Error checking permissions' });
   }
 
   // Check if user already has permission
@@ -652,6 +669,87 @@ const addCollaborator = asyncHandler(async (req, res) => {
 
   // Permission saved by enforcer, no need to save again
 
+  // Create an activity for the collaborator addition so the target user
+  // will see a notification/toast on next login or refresh. Also send an
+  // email asynchronously (do not block the API response on email success).
+  try {
+    // Fetch target user and experience details for the activity and email
+    const [targetUser, experienceDoc] = await Promise.all([
+      User.findById(userId).select('name email').lean(),
+      Experience.findById(plan.experience).populate('destination', 'name').select('name destination').lean()
+    ]);
+
+    const actorInfo = {
+      _id: req.user._id,
+      email: req.user.email || null,
+      name: req.user.name || null,
+      role: req.user.role || null
+    };
+
+    const activityData = {
+      action: 'collaborator_added',
+      actor: actorInfo,
+      resource: {
+        id: experienceDoc?._id || plan.experience,
+        type: 'Experience',
+        name: experienceDoc?.name || ''
+      },
+      target: {
+        id: targetUser?._id || userId,
+        type: 'User',
+        name: targetUser?.name || ''
+      },
+      permission: {
+        _id: mongoose.Types.ObjectId(userId),
+        entity: 'user',
+        type: 'collaborator'
+      },
+      previousState: null,
+      newState: null,
+      reason: `${req.user.name || 'Someone'} added ${targetUser?.name || 'a user'} as a collaborator to ${experienceDoc?.name || 'an experience'}`,
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method
+      },
+      tags: ['notification']
+    };
+
+    const logResult = await Activity.log(activityData);
+    if (!logResult.success) {
+      backendLogger.error('Failed to log collaborator_added activity', { error: logResult.error, planId: plan._id, userId });
+    } else {
+      backendLogger.info('Logged collaborator_added activity', { activityId: logResult.activity._id, planId: plan._id, userId });
+    }
+
+    // Send email asynchronously — do not await so API response is fast.
+    (async () => {
+      try {
+        if (targetUser && targetUser.email) {
+          const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+          const signupUrl = `${frontendBase}/experiences/${experienceDoc?._id || plan.experience}`;
+
+          await sendCollaboratorInviteEmail({
+            toEmail: targetUser.email,
+            inviterName: req.user.name || 'A user',
+            experienceName: experienceDoc?.name || '',
+            destinationName: experienceDoc?.destination?.name || '',
+            signupUrl
+          });
+
+          backendLogger.info('Collaborator invite email sent (async)', { to: targetUser.email, userId, planId: plan._id });
+        } else {
+          backendLogger.warn('No email address for collaborator; skipping invite email', { userId });
+        }
+      } catch (emailErr) {
+        backendLogger.error('Failed to send collaborator invite email', { error: emailErr?.message, userId });
+      }
+    })();
+  } catch (activityErr) {
+    backendLogger.error('Error while creating collaborator activity or preparing email', { error: activityErr?.message, userId });
+  }
+
   const updatedPlan = await Plan.findById(plan._id)
     .populate('experience', 'name photos default_photo_id')
     .populate({
@@ -684,16 +782,29 @@ const removeCollaborator = asyncHandler(async (req, res) => {
 
   // Only owner can remove collaborators
   const enforcer = getEnforcer({ Plan, Experience, Destination, User });
-  const permCheck = await enforcer.canManagePermissions({
-    userId: req.user._id,
-    resource: plan
-  });
+  try {
+    if (plan.user && plan.user.toString() === req.user._id.toString()) {
+      backendLogger.debug('Remove collaborator: short-circuit owner check passed', {
+        planId: plan._id.toString(),
+        ownerId: plan.user.toString(),
+        actorId: req.user._id.toString()
+      });
+    } else {
+      const permCheck = await enforcer.canManagePermissions({
+        userId: req.user._id,
+        resource: plan
+      });
 
-  if (!permCheck.allowed) {
-    return res.status(403).json({
-      error: "Only the plan owner can remove collaborators",
-      message: permCheck.reason
-    });
+      if (!permCheck.allowed) {
+        return res.status(403).json({
+          error: "Only the plan owner can remove collaborators",
+          message: permCheck.reason
+        });
+      }
+    }
+  } catch (err) {
+    backendLogger.error('Error checking permissions for removeCollaborator', { error: err?.message, stack: err?.stack });
+    return res.status(500).json({ error: 'Error checking permissions' });
   }
 
   // Remove collaborator using enforcer (SECURE)
@@ -737,11 +848,32 @@ const updatePlanItem = asyncHandler(async (req, res) => {
     return res.status(404).json({ error: "Plan not found" });
   }
 
+  // Debug logging for permissions
+  backendLogger.info('COLLAB_DEBUG: Plan permissions check', {
+    planId: id,
+    userId: req.user._id.toString(),
+    planOwnerId: plan.user?.toString ? plan.user.toString() : plan.user,
+    permissionsCount: plan.permissions?.length || 0,
+    permissions: plan.permissions?.map(p => ({
+      _id: p._id?.toString ? p._id.toString() : p._id,
+      entity: p.entity,
+      type: p.type
+    }))
+  });
+
   // Check permissions - must be owner or collaborator
   const enforcer = getEnforcer({ Plan, Experience, Destination, User });
   const permCheck = await enforcer.canEdit({
     userId: req.user._id,
     resource: plan
+  });
+
+  backendLogger.info('COLLAB_DEBUG: Permission check result', {
+    planId: id,
+    userId: req.user._id.toString(),
+    allowed: permCheck.allowed,
+    reason: permCheck.reason,
+    role: permCheck.role
   });
 
   if (!permCheck.allowed) {

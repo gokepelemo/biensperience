@@ -58,7 +58,13 @@ async function getCsrfToken() {
  */
 export async function sendRequest(url, method = "GET", payload = null) {
     logger.debug('[send-request] Starting request', { method, url, hasPayload: !!payload });
-    const options = { method };
+
+    // Default timeout for fetch requests (ms)
+    const DEFAULT_TIMEOUT = 30000; // 30s
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+
+    const options = { method, signal: controller.signal };
     
     // Add CSRF token for state-changing requests
     const isStateChanging = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
@@ -121,6 +127,7 @@ export async function sendRequest(url, method = "GET", payload = null) {
             headers: Object.keys(options.headers || {})
         });
         const res = await fetch(url, options);
+        clearTimeout(timeoutId);
         logger.debug('[send-request] Response received', { 
             status: res.status, 
             statusText: res.statusText,
@@ -177,6 +184,11 @@ export async function sendRequest(url, method = "GET", payload = null) {
 
         throw new Error(errorMessage);
     } catch (error) {
+        // If the fetch was aborted due to timeout, normalize the error
+        if (error.name === 'AbortError') {
+            logger.error('Request timed out', { url, method, timeoutMs: DEFAULT_TIMEOUT });
+            throw new Error('Request timed out. Please try again.');
+        }
         // Handle network errors, CORS issues, etc.
         logger.error('Network request failed', {
             url,
@@ -201,7 +213,12 @@ export async function sendRequest(url, method = "GET", payload = null) {
  * @throws {Error} Throws 'Bad Request' if response is not ok
  */
 export async function uploadFile(url, method = "POST", payload = null) {
-    const options = { method };
+    // Add a short timeout for uploads as well
+    const DEFAULT_TIMEOUT = 60000; // 60s
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+
+    const options = { method, signal: controller.signal };
     if (payload) {
         options.body = payload;
     }
@@ -213,6 +230,7 @@ export async function uploadFile(url, method = "POST", payload = null) {
 
     try {
         const res = await fetch(url, options);
+        clearTimeout(timeoutId);
         if (res.ok) return res.json();
 
         // Handle 401 Unauthorized - user deleted or token invalid
@@ -244,6 +262,10 @@ export async function uploadFile(url, method = "POST", payload = null) {
         });
         throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
     } catch (error) {
+        if (error.name === 'AbortError') {
+            logger.error('File upload timed out', { url, method, timeoutMs: DEFAULT_TIMEOUT });
+            throw new Error('Upload timed out. Please try again.');
+        }
         // Handle network errors, CORS issues, etc.
         logger.error('File upload failed', {
             url,

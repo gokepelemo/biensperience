@@ -550,6 +550,32 @@
     outline-offset: 2px;
 }
 
+/* Plan Tab Select - Style select element as tab button */
+.plan-tab-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 1em;
+    padding-right: 2.5rem;
+    width: auto;
+    flex: 0 0 auto;
+    min-width: fit-content;
+    max-width: max-content;
+}
+
+.plan-tab-select:hover {
+    color: var(--color-single-experience-text-dark-secondary);
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.plan-tab-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .plan-item-header {
@@ -584,6 +610,14 @@
     .plan-tab-button.active {
         border-left-color: transparent;
         border-bottom-color: var(--color-single-experience-primary);
+    }
+
+    .plan-tab-select {
+        flex: 0 0 auto;
+        min-width: fit-content;
+        max-width: max-content;
+        padding: var(--space-3) var(--space-4);
+        padding-right: 2.5rem;
     }
 
     .plan-tab-dropdown-container {
@@ -825,6 +859,16 @@
         color: #8b9cff;
         border-bottom-color: #8b9cff;
         background: rgba(102, 126, 234, 0.1);
+    }
+
+    /* Plan Tab Select - Dark mode */
+    .plan-tab-select {
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e9ecef' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    }
+
+    .plan-tab-select:hover {
+        color: var(--color-text-secondary);
+        background-color: rgba(255, 255, 255, 0.05);
     }
 
     /* Plan Dropdown */

@@ -11,6 +11,8 @@ import Loading from "../../components/Loading/Loading";
 import ScrollToTop from "../../components/ScrollToTop/ScrollToTop";
 import { handleOAuthCallback } from "../../utilities/oauth-service";
 import { logger } from "../../utilities/logger";
+import { getCollaboratorNotifications } from '../../utilities/notifications-api';
+import { useNavigate } from 'react-router-dom';
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import { Helmet } from 'react-helmet-async';
@@ -126,9 +128,77 @@ function AppContent() {
   logger.debug('useApp completed');
 
   logger.debug('About to call useToast');
-  const { success, error: showError } = useToast();
+  const { success, error: showError, addToast } = useToast();
   logger.debug('useToast completed');
 
+  const navigate = useNavigate();
+  // Effect: fetch collaborator notifications on login/hard refresh
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchNotifications = async () => {
+      try {
+        if (!isAuthenticated) return;
+        const user = JSON.parse(localStorage.getItem('bien_user')) || null;
+        const userId = user?._id;
+        if (!userId) return;
+
+        const raw = await getCollaboratorNotifications(userId, { limit: 10 });
+        const activities = Array.isArray(raw) ? raw : (raw?.data || []);
+
+        const seenKey = `seen_activities_${userId}`;
+        let seen = [];
+        try { seen = JSON.parse(localStorage.getItem(seenKey) || '[]'); } catch (e) { seen = []; }
+
+        const newIds = [];
+
+        activities.forEach(act => {
+          if (!mounted) return;
+          if (!act || !act._id) return;
+          if (seen.includes(act._id)) return;
+
+          const message = act.reason || `${act.actor?.name || 'Someone'} added you as a collaborator to ${act.resource?.name || 'an experience'}`;
+          addToast({
+            message,
+            header: 'New collaborator',
+            type: 'primary',
+            duration: 10000,
+            actions: [
+              {
+                label: 'View',
+                onClick: () => {
+                  if (act.resource && (act.resource.id || act.resource._id)) {
+                    const id = act.resource.id || act.resource._id;
+                    navigate(`/experiences/${id}`);
+                  }
+                  const cur = JSON.parse(localStorage.getItem(seenKey) || '[]');
+                  cur.push(act._id);
+                  localStorage.setItem(seenKey, JSON.stringify(cur));
+                },
+                variant: 'primary'
+              }
+            ]
+          });
+
+          newIds.push(act._id);
+        });
+
+        if (mounted && newIds.length > 0) {
+          const cur = JSON.parse(localStorage.getItem(seenKey) || '[]');
+          const merged = Array.from(new Set([...cur, ...newIds]));
+          localStorage.setItem(seenKey, JSON.stringify(merged));
+        }
+      } catch (err) {
+        logger.error('Failed to fetch collaborator notifications', { error: err?.message || err });
+      }
+    };
+
+    fetchNotifications();
+
+    return () => { mounted = false; };
+  }, [isAuthenticated, addToast, navigate]);
+
+  // Effect: watch for OS theme changes and set bootstrap theme attribute
   useEffect(() => {
     const setBootstrapTheme = () => {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -137,41 +207,45 @@ function AppContent() {
       logger.debug('Bootstrap theme updated to:', theme);
     };
 
+    setBootstrapTheme();
+
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => setBootstrapTheme();
 
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handleChange);
-    } else {
+    } else if (mediaQuery.addListener) {
       mediaQuery.addListener(handleChange);
     }
 
     return () => {
       if (mediaQuery.removeEventListener) {
         mediaQuery.removeEventListener('change', handleChange);
-      } else {
+      } else if (mediaQuery.removeListener) {
         mediaQuery.removeListener(handleChange);
       }
     };
   }, []);
 
-    // Handle OAuth callback on mount
-    useEffect(() => {
-      const processOAuth = async () => {
-        try {
-          const result = await handleOAuthCallback();
-          if (result) {
-            const { user: oauthUser, provider } = result;
-            updateUser(oauthUser);
-            success(`Successfully signed in with ${provider}!`);
-          }
-        } catch (err) {
-          showError(err.message || 'Authentication failed');
+  // Effect: handle OAuth callback once on mount
+  useEffect(() => {
+    const processOAuth = async () => {
+      try {
+        const result = await handleOAuthCallback();
+        if (result) {
+          const { user: oauthUser, provider } = result;
+          updateUser(oauthUser);
+          success(`Successfully signed in with ${provider}!`);
         }
-      };
+      } catch (err) {
+        showError(err.message || 'Authentication failed');
+      }
+    };
 
-      processOAuth();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    processOAuth();
+    // Intentionally leave deps empty to run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
     return (
       <>

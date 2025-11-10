@@ -115,8 +115,15 @@ async function index(req, res) {
             }
 
             if (destDoc && destDoc._id) {
-              // destDoc._id may already be an ObjectId or a string; ensure we construct properly
-              resolvedIds.push(new mongoose.Types.ObjectId(destDoc._id));
+              // destDoc._id may already be an ObjectId or a string; only construct a new ObjectId
+              // when the value is a string. Passing an existing ObjectId into the constructor
+              // can trigger "Class constructor ObjectId cannot be invoked without 'new'" in
+              // some environments. Preserve the original ObjectId when present.
+              if (typeof destDoc._id === 'string') {
+                resolvedIds.push(new mongoose.Types.ObjectId(destDoc._id));
+              } else {
+                resolvedIds.push(destDoc._id);
+              }
               backendLogger.debug('Resolved destination part to _id', { part, id: destDoc._id });
             } else {
               backendLogger.debug('Could not resolve destination part to any destination', { part });
@@ -385,50 +392,129 @@ async function showExperienceWithContext(req, res) {
       user: userId
     })
       .select('experience user planned_date plan permissions notes createdAt updatedAt')
+      .populate({
+        path: 'user',
+        select: 'name email photos default_photo_id',
+        populate: { path: 'photos', select: 'url caption' }
+      })
       .lean()
       .exec();
 
     // Fetch all collaborative plans for this experience (where user is a collaborator)
     // Only fetch essential fields to reduce data transfer
-    const collaborativePlansPromise = Plan.find({
+    // Fetch plans for this experience that the current user can view
+    // Use $elemMatch for permissions and match both ObjectId and string forms to tolerate mixed storage
+    const userIdStr = userId.toString();
+    const plansForUserPromise = Plan.find({
       experience: experienceId,
-      'permissions._id': userId,
-      user: { $ne: userId } // Exclude user's own plan
+      $or: [
+        { user: userId },
+        {
+          permissions: {
+            $elemMatch: {
+              _id: userId,
+              type: { $in: ['collaborator', 'owner'] }
+            }
+          }
+        },
+        {
+          permissions: {
+            $elemMatch: {
+              _id: userIdStr,
+              type: { $in: ['collaborator', 'owner'] }
+            }
+          }
+        }
+      ]
     })
       .select('experience user planned_date plan permissions notes createdAt updatedAt')
+      // Populate the plan owner user small profile so frontend can render owner names
+      .populate({
+        path: 'user',
+        select: 'name email photos default_photo_id',
+        populate: { path: 'photos', select: 'url caption' }
+      })
       .lean()
       .exec();
 
     // Execute all queries in parallel for maximum performance
-    const [experience, userPlan, collaborativePlans] = await Promise.all([
+    const [experience, userPlan, plansForUser] = await Promise.all([
       experiencePromise,
       userPlanPromise,
-      collaborativePlansPromise
+      plansForUserPromise
     ]);
 
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
     }
 
+    // Will compute collaborativePlans below; log using plansForUser length as an initial indicator
     backendLogger.info('Experience context fetched', {
       experienceId,
       userId: userId.toString(),
       hasUserPlan: !!userPlan,
-      collaborativePlansCount: collaborativePlans.length
+      plansForUserCount: plansForUser ? plansForUser.length : 0
     });
     // Compute total_cost for userPlan
     if (userPlan && userPlan.plan) {
       userPlan.total_cost = userPlan.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
     }
 
-    // Compute total_cost for collaborativePlans
-    if (collaborativePlans && collaborativePlans.length > 0) {
+    // From plansForUser derive collaborativePlans (exclude the user's own plan)
+    let collaborativePlans = [];
+    if (plansForUser && plansForUser.length > 0) {
+      // find user's own plan in the set (may duplicate userPlan)
+      const ownIdStr = userId.toString();
+      collaborativePlans = plansForUser.filter(p => {
+        const planUserId = p.user && p.user._id ? p.user._id.toString() : (p.user ? p.user.toString() : null);
+        return planUserId !== ownIdStr;
+      });
+
+      // Compute totals for each collaborative plan
       collaborativePlans.forEach(plan => {
         if (plan.plan) {
           plan.total_cost = plan.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
         }
       });
     }
+
+    // Fallback: if none found above, explicitly query for plans where the user is a collaborator
+    if ((!collaborativePlans || collaborativePlans.length === 0)) {
+      try {
+        const fallbackPlans = await Plan.find({
+          experience: experienceId,
+          $and: [
+            { user: { $ne: userId } },
+            {
+              permissions: {
+                $elemMatch: {
+                  entity: 'user',
+                  _id: userId,
+                  type: 'collaborator'
+                }
+              }
+            }
+          ]
+        })
+          .select('experience user planned_date plan permissions notes createdAt updatedAt')
+          .populate({ path: 'user', select: 'name email photos default_photo_id', populate: { path: 'photos', select: 'url caption' } })
+          .lean()
+          .exec();
+
+        if (fallbackPlans && fallbackPlans.length > 0) {
+          collaborativePlans = fallbackPlans.map(plan => {
+            if (plan.plan) {
+              plan.total_cost = plan.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
+            }
+            return plan;
+          });
+        }
+      } catch (fallbackErr) {
+        backendLogger.warn('Fallback collaborator plans query failed', { error: fallbackErr.message, experienceId, userId: userId.toString() });
+      }
+    }
+
+    // (developer) test plan injection removed
 
     // Return combined data structure
     res.status(200).json({

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, Button } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { Heading } from '../design-system';
 
@@ -11,10 +12,12 @@ export default function QuickActions({
   actions = [],
   title = "Quick Actions"
 }) {
+  const navigate = useNavigate();
+
   const defaultActions = [
-    { label: 'Create New Experience', variant: 'primary' },
-    { label: 'Add Destination', variant: 'outline-secondary' },
-    { label: 'Browse Experiences', variant: 'outline-secondary' },
+    { label: 'Create New Experience', variant: 'primary', onClick: () => navigate('/experiences/new') },
+    { label: 'Add Destination', variant: 'outline-secondary', onClick: () => navigate('/destinations/new') },
+    { label: 'Browse Experiences', variant: 'outline-secondary', onClick: () => navigate('/experiences') },
   ];
 
   const actionsToShow = actions.length > 0 ? actions : defaultActions;

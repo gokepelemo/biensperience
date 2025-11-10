@@ -1,6 +1,7 @@
 import TagPill from '../../components/Pill/TagPill';
 import "./SingleExperience.css";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { FaUserPlus, FaTimes, FaUser } from "react-icons/fa";
@@ -18,8 +19,8 @@ import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay
 import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
-import { Badge } from "react-bootstrap";
 import { Button, Container, Mobile, Desktop, FadeIn, FormLabel, FormControl, FormCheck, Text } from "../../components/design-system";
+import Loading from "../../components/Loading/Loading";
 import { isOwner } from "../../utilities/permissions";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import {
@@ -87,6 +88,19 @@ function setSyncAlertCookie(planId) {
   syncAlertStorage.set(planId);
 }
 
+/**
+ * Helper to compare IDs (ObjectId or string) safely
+ * Returns true if both IDs exist and their string forms match
+ */
+function idEquals(a, b) {
+  if (!a || !b) return false;
+  try {
+    return a.toString() === b.toString();
+  } catch (e) {
+    return false;
+  }
+}
+
 export default function SingleExperience() {
   const { user } = useUser();
   const { removeExperience, fetchExperiences, fetchPlans } = useData();
@@ -128,6 +142,7 @@ export default function SingleExperience() {
   const [userPlan, setUserPlan] = useState(null);
   const [collaborativePlans, setCollaborativePlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
+  const [plansLoading, setPlansLoading] = useState(true);
   const [showSyncButton, setShowSyncButton] = useState(false);
   const [showSyncAlert, setShowSyncAlert] = useState(true); // Separate state for alert visibility
   const [showSyncModal, setShowSyncModal] = useState(false);
@@ -193,7 +208,7 @@ export default function SingleExperience() {
       activeTab === "experience"
         ? null
         : selectedPlanId
-        ? collaborativePlans.find((p) => p._id === selectedPlanId)
+        ? collaborativePlans.find((p) => idEquals(p._id, selectedPlanId))
         : userPlan,
     [activeTab, selectedPlanId, collaborativePlans, userPlan]
   );
@@ -343,7 +358,6 @@ export default function SingleExperience() {
       });
 
       debug.log("Accessible plans after filtering and sorting:", sortedPlans);
-      setCollaborativePlans(sortedPlans);
 
       // Set selectedPlanId if not already set and plans exist
       if (sortedPlans.length > 0) {
@@ -351,11 +365,20 @@ export default function SingleExperience() {
         debug.log("Setting selectedPlanId to:", newSelectedId);
         setSelectedPlanId((prev) => prev || newSelectedId);
       }
+
+      // Set collaborative plans and mark loading complete
+      // Use flushSync to force synchronous rendering and prevent layout shift
+      flushSync(() => {
+        setCollaborativePlans(sortedPlans);
+        setPlansLoading(false);
+      });
     } catch (err) {
       debug.error("Error fetching all data:", err);
       setExperience(null);
       setUserPlan(null);
       setCollaborativePlans([]);
+      // Loading complete even on error
+      setPlansLoading(false);
     }
   }, [experienceId, user._id]);
 
@@ -561,7 +584,7 @@ export default function SingleExperience() {
   useEffect(() => {
     if (selectedPlanId && collaborativePlans.length > 0 && experience) {
       const currentPlan = collaborativePlans.find(
-        (p) => p._id === selectedPlanId
+  (p) => idEquals(p._id, selectedPlanId)
       );
       if (currentPlan) {
         const hasDiverged = checkPlanDivergence(currentPlan, experience);
@@ -589,7 +612,7 @@ export default function SingleExperience() {
     if (activeTab === "myplan" && selectedPlanId) {
       // Show the selected plan's planned date
       const selectedPlan = collaborativePlans.find(
-        (p) => p._id === selectedPlanId
+  (p) => idEquals(p._id, selectedPlanId)
       );
       setDisplayedPlannedDate(selectedPlan?.planned_date || null);
     } else {
@@ -653,7 +676,7 @@ export default function SingleExperience() {
     try {
       // Calculate changes between experience and plan
       const currentPlan = collaborativePlans.find(
-        (p) => p._id === selectedPlanId
+        (p) => idEquals(p._id, selectedPlanId)
       );
       if (!currentPlan) return;
 
@@ -762,7 +785,7 @@ export default function SingleExperience() {
       setLoading(true);
 
       const currentPlan = collaborativePlans.find(
-        (p) => p._id === selectedPlanId
+  (p) => idEquals(p._id, selectedPlanId)
       );
       if (!currentPlan) {
         throw new Error("Current plan not found");
@@ -899,7 +922,7 @@ export default function SingleExperience() {
 
       // Optimistic update for plan instance items
       const prevPlans = [...collaborativePlans];
-      const planIndex = collaborativePlans.findIndex((p) => p._id === selectedPlanId);
+  const planIndex = collaborativePlans.findIndex((p) => idEquals(p._id, selectedPlanId));
       const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex], plan: [...collaborativePlans[planIndex].plan] } : null;
 
       const isAdd = planItemFormState === 1;
@@ -984,7 +1007,7 @@ export default function SingleExperience() {
     if (!selectedPlanId || !planInstanceItemToDelete) return;
     // Optimistic removal from selected plan snapshot
     const prevPlans = [...collaborativePlans];
-    const planIndex = collaborativePlans.findIndex((p) => p._id === selectedPlanId);
+  const planIndex = collaborativePlans.findIndex((p) => idEquals(p._id, selectedPlanId));
     const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex], plan: [...collaborativePlans[planIndex].plan] } : null;
 
     const apply = () => {
@@ -1199,11 +1222,11 @@ export default function SingleExperience() {
             return { ...plan, permissions: [...withoutRemoved, ...addedPerms] };
           };
 
-          if (userPlan && userPlan._id === selectedPlanId) {
+          if (userPlan && idEquals(userPlan._id, selectedPlanId)) {
             setUserPlan((prev) => applyToPlan(prev));
           } else {
             setCollaborativePlans((prev) =>
-              prev.map((p) => (p._id === selectedPlanId ? applyToPlan(p) : p))
+              prev.map((p) => (idEquals(p._id, selectedPlanId) ? applyToPlan(p) : p))
             );
           }
         }
@@ -1214,7 +1237,7 @@ export default function SingleExperience() {
           setExperience(prevExperience);
         } else {
           // Restore both possible containers
-          if (prevUserPlan && prevUserPlan._id === selectedPlanId) {
+          if (prevUserPlan && idEquals(prevUserPlan._id, selectedPlanId)) {
             setUserPlan(prevUserPlan);
           }
           if (prevCollaborativePlans?.length) {
@@ -1350,7 +1373,7 @@ export default function SingleExperience() {
   const handleSelectUser = useCallback((user) => {
     // Add to selected collaborators if not already selected
     setSelectedCollaborators((prev) => {
-      if (prev.some((u) => u._id === user._id)) {
+      if (prev.some((u) => idEquals(u._id, user._id))) {
         return prev; // Already selected
       }
       return [...prev, user];
@@ -1363,14 +1386,12 @@ export default function SingleExperience() {
 
   const handleRemoveSelectedCollaborator = useCallback(
     (userId) => {
-      setSelectedCollaborators((prev) => prev.filter((u) => u._id !== userId));
+  setSelectedCollaborators((prev) => prev.filter((u) => !idEquals(u._id, userId)));
 
       // If this was an existing collaborator, add to removed list
-      const wasExisting = existingCollaborators.some((u) => u._id === userId);
+  const wasExisting = existingCollaborators.some((u) => idEquals(u._id, userId));
       if (wasExisting) {
-        const collaborator = existingCollaborators.find(
-          (u) => u._id === userId
-        );
+        const collaborator = existingCollaborators.find((u) => idEquals(u._id, userId));
         setRemovedCollaborators((prev) => [...prev, collaborator]);
       }
     },
@@ -1411,13 +1432,11 @@ export default function SingleExperience() {
 
         // Filter out users that are already selected or are the current user (owner)
         const filteredResults = results.filter((result) => {
-          // Don't show current user
-          if (result._id === user._id) return false;
+            // Don't show current user
+            if (idEquals(result._id, user._id)) return false;
 
-          // Don't show users that are already selected
-          const alreadySelected = selectedCollaborators.some(
-            (collab) => collab._id === result._id
-          );
+            // Don't show users that are already selected
+            const alreadySelected = selectedCollaborators.some((collab) => idEquals(collab._id, result._id));
 
           return !alreadySelected;
         });
@@ -2204,51 +2223,75 @@ export default function SingleExperience() {
                   >
                     {lang.en.heading.thePlan}
                   </button>
-                  {collaborativePlans.length > 0 && (
-                    <div className="plan-tab-dropdown-container">
+                  {plansLoading ? (
+                    // Show loading state for plan tabs
+                    <button className="plan-tab-button" disabled>
+                      <Loading size="sm" variant="inline" showMessage={false} />
+                    </button>
+                  ) : collaborativePlans.length > 0 && (
+                    collaborativePlans.length === 1 ? (
+                      // Single plan - render as button (no dropdown)
                       <button
                         className={`plan-tab-button ${
                           activeTab === "myplan" ? "active" : ""
                         }`}
-                        onClick={() => setActiveTab("myplan")}
+                        onClick={() => {
+                          setSelectedPlanId(collaborativePlans[0]._id);
+                          setActiveTab("myplan");
+                        }}
                       >
                         {(() => {
-                          // Find the first plan (which is sorted to be user's own if it exists)
-                          const firstPlan = collaborativePlans[0];
-                          if (!firstPlan) return lang.en.heading.myPlan;
+                          const plan = collaborativePlans[0];
 
-                          // Handle case where user populate failed
-                          if (!firstPlan.user || !firstPlan.user._id) {
-                            return lang.en.heading.myPlan;
+                          // Handle case where plan.user might be an ID or an object
+                          const planUserId = plan.user?._id || plan.user;
+                          const isOwnPlan = idEquals(planUserId, user._id);
+
+                          if (isOwnPlan) {
+                            return "My Plan";
+                          } else if (plan.user?.name) {
+                            const firstName = plan.user.name.split(' ')[0];
+                            return `${firstName}'s Plan`;
                           }
-
-                          const isUserOwned =
-                            firstPlan.user._id === user._id ||
-                            firstPlan.user === user._id;
-                          return isUserOwned
-                            ? lang.en.heading.myPlan
-                            : `${firstPlan.user.name}'s Plan`;
+                          return "Plan";
                         })()}
                       </button>
-                      {collaborativePlans.length > 1 && (
-                        <select
-                          className="plan-dropdown"
-                          value={selectedPlanId || ""}
-                          onChange={(e) => handlePlanChange(e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {collaborativePlans.map((plan) => (
+                    ) : (
+                      // Multiple plans - render as select dropdown
+                      <select
+                        className={`plan-tab-button plan-tab-select ${
+                          activeTab === "myplan" ? "active" : ""
+                        }`}
+                        value={selectedPlanId || ""}
+                        onChange={(e) => {
+                          handlePlanChange(e.target.value);
+                          setActiveTab("myplan");
+                        }}
+                        onClick={() => setActiveTab("myplan")}
+                      >
+                        {collaborativePlans.map((plan) => {
+                          // Determine display name for the plan
+                          // Handle case where plan.user might be an ID or an object
+                          const planUserId = plan.user?._id || plan.user;
+                          const isOwnPlan = idEquals(planUserId, user._id);
+                          let displayName = "Plan";
+
+                          if (isOwnPlan) {
+                            displayName = "My Plan";
+                          } else if (plan.user?.name) {
+                            // Extract first name from full name (split by space, take first part)
+                            const firstName = plan.user.name.split(' ')[0];
+                            displayName = `${firstName}'s Plan`;
+                          }
+
+                          return (
                             <option key={plan._id} value={plan._id}>
-                              {plan.user && plan.user._id === user._id
-                                ? "My Plan"
-                                : plan.user && plan.user.name
-                                ? `${plan.user.name}'s Plan`
-                                : "Plan"}
+                              {displayName}
                             </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
+                          );
+                        })}
+                      </select>
+                    )
                   )}
                 </div>
 
@@ -2460,17 +2503,14 @@ export default function SingleExperience() {
                     {/* Collaborators and Action Buttons Row */}
                     {(() => {
                       const currentPlan = collaborativePlans.find(
-                        (p) => p._id === selectedPlanId
+                        (p) => idEquals(p._id, selectedPlanId)
                       );
 
-                      const isPlanOwner =
-                        planOwner && planOwner._id === user._id;
+                      const isPlanOwner = planOwner && idEquals(planOwner._id, user._id);
                       const isPlanCollaborator =
                         currentPlan &&
                         currentPlan.permissions?.some(
-                          (p) =>
-                            p._id.toString() === user._id.toString() &&
-                            ["owner", "collaborator"].includes(p.type)
+                          (p) => idEquals(p._id, user._id) && ["owner", "collaborator"].includes(p.type)
                         );
                       const canEdit = isPlanOwner || isPlanCollaborator;
 
@@ -2525,7 +2565,7 @@ export default function SingleExperience() {
                     })()}
                     {(() => {
                       const currentPlan = collaborativePlans.find(
-                        (p) => p._id === selectedPlanId
+                        (p) => idEquals(p._id, selectedPlanId)
                       );
                       if (!currentPlan) {
                         return (
@@ -2774,15 +2814,9 @@ export default function SingleExperience() {
                                     // Check if user can edit this plan (owner or collaborator)
                                     const canEditPlan =
                                       currentPlan &&
-                                      ((planOwner &&
-                                        planOwner._id === user._id) ||
-                                        currentPlan.permissions?.some(
-                                          (p) =>
-                                            p._id.toString() ===
-                                              user._id.toString() &&
-                                            ["owner", "collaborator"].includes(
-                                              p.type
-                                            )
+                                      ((planOwner && idEquals(planOwner._id, user._id)) ||
+                                        currentPlan.permissions?.some((p) =>
+                                          idEquals(p._id, user._id) && ["owner", "collaborator"].includes(p.type)
                                         ));
 
                                     return (

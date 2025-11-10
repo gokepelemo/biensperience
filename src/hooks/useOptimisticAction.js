@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { logger } from '../utilities/logger';
 
 /**
@@ -14,8 +13,17 @@ import { logger } from '../utilities/logger';
  * @param {string} [options.context] - Context string for logging and error messages
  * @returns {Function} run - Call to execute the optimistic action
  */
+/**
+ * Factory that returns a run() function which executes an optimistic UI
+ * change, performs the async API call, rolls back on error, and calls
+ * optional success/error callbacks.
+ *
+ * This is intentionally NOT a React hook so callers may create the run
+ * function inline (e.g., inside event handlers or callbacks) without
+ * violating the Rules of Hooks.
+ */
 export default function useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context = 'Action' }) {
-  return useCallback(async () => {
+  return async function run() {
     try {
       // Apply optimistic change immediately
       apply?.();
@@ -23,8 +31,16 @@ export default function useOptimisticAction({ apply, apiCall, rollback, onSucces
       onSuccess?.();
     } catch (err) {
       logger.error(`[Optimistic] ${context} failed`, { error: err?.message }, err);
-      rollback?.();
-      onError?.(err, `${context} failed. Please try again.`);
+      try {
+        rollback?.();
+      } catch (rollbackErr) {
+        logger.error('[Optimistic] rollback failed', { error: rollbackErr?.message }, rollbackErr);
+      }
+      try {
+        onError?.(err, `${context} failed. Please try again.`);
+      } catch (onErrorErr) {
+        logger.error('[Optimistic] onError handler threw', { error: onErrorErr?.message }, onErrorErr);
+      }
     }
-  }, [apply, apiCall, rollback, onSuccess, onError, context]);
+  };
 }

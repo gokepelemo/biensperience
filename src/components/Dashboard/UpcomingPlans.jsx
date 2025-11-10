@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import { FaCalendar } from 'react-icons/fa';
 import PropTypes from 'prop-types';
 import { Heading } from '../design-system';
@@ -40,7 +41,11 @@ export default function UpcomingPlans({ plans, title = "Upcoming Plans" }) {
               color: 'var(--color-text-primary)',
               marginBottom: 'var(--space-1)',
             }}>
-              {plan.title}
+              {plan.experienceId ? (
+                <Link to={`/experiences/${plan.experienceId}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {plan.title}
+                </Link>
+              ) : plan.title}
             </div>
             <div style={{
               fontSize: 'var(--font-size-sm)',
@@ -68,6 +73,7 @@ export default function UpcomingPlans({ plans, title = "Upcoming Plans" }) {
 UpcomingPlans.propTypes = {
   plans: PropTypes.arrayOf(PropTypes.shape({
     id: PropTypes.string.isRequired,
+    experienceId: PropTypes.any,
     title: PropTypes.string.isRequired,
     date: PropTypes.string,
   })).isRequired,

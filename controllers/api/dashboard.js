@@ -12,6 +12,7 @@ const backendLogger = require('../../utilities/backend-logger');
  */
 async function getDashboard(req, res) {
   try {
+    console.log('getDashboard called with user:', req.user._id.toString());
     const userId = req.user._id;
     backendLogger.info('Fetching dashboard data', { userId: userId.toString() });
 
@@ -31,6 +32,10 @@ async function getDashboard(req, res) {
       recentActivity: recentActivityResult,
       upcomingPlans: upcomingPlansResult
     };
+
+    console.log('API Response dashboardData:', dashboardData);
+    console.log('API Response stats:', dashboardData.stats);
+    console.log('API Response activePlansDetails:', dashboardData.stats?.activePlansDetails);
 
     backendLogger.info('Dashboard data fetched successfully', {
       userId: userId.toString(),
@@ -54,23 +59,187 @@ async function getDashboard(req, res) {
  */
 async function getDashboardStats(userId) {
   try {
-    // Get plan count and total spent separately to avoid aggregation issues
-    const planQuery = {
+    backendLogger.info('Calculating dashboard stats for user', { userId: userId.toString() });
+
+    // Fetch plans the user owns or has permissions on
+    const plans = await Plan.find({
       $or: [
         { user: userId },
         { 'permissions._id': userId, 'permissions.entity': 'user' }
       ]
-    };
+    }).populate('experience', 'name').lean();
 
-    const planCount = await Plan.countDocuments(planQuery);
+    // If no plans found for the user, fall back to a lightweight sample check to aid debugging
+    if (plans.length === 0) {
+      const allPlans = await Plan.find({}).populate('experience', 'name').limit(10).lean();
+      backendLogger.info('No plans found for user, sample from DB', {
+        userId: userId.toString(),
+        totalPlansInDb: allPlans.length,
+        samplePlanUsers: allPlans.slice(0, 3).map(p => ({ planId: p._id?.toString(), user: p.user?.toString(), permissions: p.permissions }))
+      });
+    }
 
-    // Calculate total spent by summing all plan item costs
-    const plans = await Plan.find(planQuery).select('plan').lean();
+    // Calculate detailed plan metrics
     let totalSpent = 0;
+    let ownedPlans = 0;
+    let sharedPlans = 0;
+    let completedPlans = 0;
+
     plans.forEach(plan => {
+      // Sum costs
+      (plan.plan || []).forEach(item => {
+        totalSpent += item.cost || 0;
+      });
+
+      // Determine user's permission on the plan
+      const userPermission = (plan.permissions || []).find(p => p._id?.toString() === userId.toString() && p.entity === 'user');
+
+      backendLogger.debug('Processing plan for stats', {
+        planId: plan._id?.toString(),
+        planUser: plan.user?.toString(),
+        userPermission
+      });
+
+      if (userPermission) {
+        if (userPermission.type === 'owner') ownedPlans++;
+        else if (userPermission.type === 'collaborator') sharedPlans++;
+        // contributors don't count as active plans
+      } else if (plan.user?.toString() === userId.toString()) {
+        // fallback: direct owner
+        ownedPlans++;
+      }
+
+      const totalItems = (plan.plan || []).length;
+      const completedItems = (plan.plan || []).filter(i => i.complete).length;
+      if (totalItems > 0 && completedItems === totalItems) completedPlans++;
+    });
+
+    const totalPlans = ownedPlans + sharedPlans;
+
+    backendLogger.info('Dashboard stats calculated', {
+      userId: userId.toString(),
+      totalPlans,
+      ownedPlans,
+      sharedPlans,
+      completedPlans,
+      totalSpent
+    });
+
+    // Efficient counts for experiences and destinations related to the user
+    const [experienceCount, destinationCount] = await Promise.all([
+      Experience.countDocuments({
+        $or: [
+          { user: userId },
+          { 'permissions._id': userId, 'permissions.entity': 'user' }
+        ]
+      }),
+      Destination.countDocuments({
+        $or: [
+          { user: userId },
+          { 'permissions._id': userId, 'permissions.entity': 'user' }
+        ]
+      })
+    ]);
+
+    return {
+      activePlans: totalPlans || 0,
+      activePlansDetails: {
+        totalPlans: totalPlans || 0,
+        ownedPlans: ownedPlans || 0,
+        sharedPlans: sharedPlans || 0,
+        completedPlans: completedPlans || 0
+      },
+      experiences: experienceCount || 0,
+      destinations: destinationCount || 0,
+      totalSpent: totalSpent || 0
+    };
+  } catch (error) {
+    backendLogger.error('Error in getDashboardStats', { userId: userId.toString(), error: error.message });
+    // Return safe defaults on error
+    return {
+      activePlans: 0,
+      activePlansDetails: {
+        totalPlans: 0,
+        ownedPlans: 0,
+        sharedPlans: 0,
+        completedPlans: 0
+      },
+      experiences: 0,
+      destinations: 0,
+      totalSpent: 0
+    };
+  }
+}
+
+/**
+ * Get recent activity for the user
+    if (plans.length === 0) {
+      const allPlans = await Plan.find({}).populate('experience', 'name').limit(10).lean();
+      backendLogger.info('No plans found with user query, checking all plans', {
+        userId: userId.toString(),
+        totalPlansInDb: allPlans.length,
+        samplePlanUsers: allPlans.slice(0, 3).map(p => ({
+          planId: p._id.toString(),
+          user: p.user?.toString(),
+          permissions: p.permissions
+        }))
+      });
+    }
+
+    // Calculate detailed plan metrics
+    let totalSpent = 0;
+    let ownedPlans = 0;
+    let sharedPlans = 0;
+    let completedPlans = 0;
+
+    plans.forEach(plan => {
+      // Calculate total spent
       plan.plan.forEach(item => {
         totalSpent += item.cost || 0;
       });
+
+      // Check user's permission level for this plan
+      const userPermission = plan.permissions?.find(p =>
+        p._id?.toString() === userId.toString() && p.entity === 'user'
+      );
+
+      backendLogger.info('Processing plan', {
+        planId: plan._id.toString(),
+        planUser: plan.user?.toString(),
+        userPermission: userPermission,
+        permissions: plan.permissions
+      });
+
+      // Determine if this is an owned or shared plan
+      if (userPermission) {
+        if (userPermission.type === 'owner') {
+          ownedPlans++;
+        } else if (userPermission.type === 'collaborator') {
+          sharedPlans++;
+        }
+        // Skip contributor permissions - they don't count as active plans
+      } else if (plan.user?.toString() === userId.toString()) {
+        // Fallback: if no permissions but user is the direct owner, count as owned
+        ownedPlans++;
+      }
+
+      // Count completed plans (all items completed)
+      const totalItems = plan.plan.length;
+      const completedItems = plan.plan.filter(item => item.complete).length;
+      if (totalItems > 0 && completedItems === totalItems) {
+        completedPlans++;
+      }
+    });
+
+    const totalPlans = ownedPlans + sharedPlans;
+
+    backendLogger.info('Dashboard stats calculated', {
+      userId: userId.toString(),
+      totalPlans,
+      ownedPlans,
+      sharedPlans,
+      completedPlans,
+      totalSpent
     });
 
     // Get experience and destination counts using efficient queries
@@ -90,7 +259,13 @@ async function getDashboardStats(userId) {
     ]);
 
     return {
-      activePlans: planCount || 0,
+      activePlans: totalPlans || 0,
+      activePlansDetails: {
+        totalPlans: totalPlans || 0,
+        ownedPlans: ownedPlans || 0,
+        sharedPlans: sharedPlans || 0,
+        completedPlans: completedPlans || 0,
+      },
       experiences: experienceCount || 0,
       destinations: destinationCount || 0,
       totalSpent: totalSpent || 0
@@ -153,6 +328,7 @@ async function getUpcomingPlans(userId) {
 
     return plans.map(plan => ({
       id: plan._id,
+      experienceId: plan.experience?._id,
       title: plan.experience?.name || 'Unknown Experience',
       date: plan.planned_date ? formatDate(plan.planned_date) : null
     }));

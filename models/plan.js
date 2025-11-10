@@ -146,7 +146,7 @@ planSchema.virtual("total_cost").get(function () {
  */
 planSchema.virtual("max_days").get(function () {
   if (!this.plan || !Array.isArray(this.plan)) return 0;
-  return this.plan.reduce((max, item) => Math.max(max, item.days || 0), 0);
+  return this.plan.reduce((max, item) => Math.max(max, item.planning_days || 0), 0);
 });
 
 /**

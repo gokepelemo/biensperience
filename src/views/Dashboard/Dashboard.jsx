@@ -6,7 +6,7 @@ import { getUser } from '../../utilities/users-service';
 import { logger } from '../../utilities/logger';
 import { useToast } from '../../contexts/ToastContext';
 import { SkeletonLoader, Heading, Text } from '../../components/design-system';
-import { StatsCard, ActivityList, QuickActions, UpcomingPlans } from '../../components/Dashboard';
+import { StatsCard, ActivityList, QuickActions, UpcomingPlans, ActivePlansCard } from '../../components/Dashboard';
 import './Dashboard.css';
 
 /**
@@ -31,9 +31,8 @@ export default function Dashboard() {
       setError(null);
       logger.debug('[Dashboard] Fetching dashboard data');
 
-      const data = await getDashboardData();
-      setDashboardData(data);
-
+  const data = await getDashboardData();
+  setDashboardData(data);
       logger.info('[Dashboard] Dashboard data loaded', {
         stats: data.stats,
         activityCount: data.recentActivity?.length || 0,
@@ -165,11 +164,11 @@ export default function Dashboard() {
 
             {/* Stats Cards */}
             <Row style={{ marginBottom: 'var(--space-8)' }}>
+              <ActivePlansCard stats={dashboardData.stats} loading={loading} />
               {[
-                { label: 'Active Plans', value: activePlansValue, color: 'var(--color-primary)', icon: <FaCalendar /> },
                 { label: 'Experiences', value: experiencesValue, color: 'var(--color-success)', icon: <FaStar /> },
                 { label: 'Destinations', value: destinationsValue, color: 'var(--color-warning)', icon: <FaMapMarkerAlt /> },
-                { label: 'Total Spent', value: `$${Number(totalSpentValue).toLocaleString()}`, color: 'var(--color-info)', icon: <FaDollarSign /> },
+                { label: 'Estimated Cost', value: `$${Number(totalSpentValue).toLocaleString()}`, color: 'var(--color-info)', icon: <FaDollarSign /> },
               ].map(stat => (
                 <StatsCard
                   key={stat.label}

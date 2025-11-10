@@ -30,10 +30,17 @@ function validateObjectId(id, fieldName = 'ID') {
       objectId: null
     };
   }
+  // If the provided id is already an ObjectId instance, preserve it
+  // Construct a new ObjectId only when we receive a string. Passing
+  // an existing ObjectId into the constructor can trigger runtime
+  // errors in some environments ("Class constructor ObjectId cannot
+  // be invoked without 'new'").
+  const objectId = (typeof id === 'string') ? new mongoose.Types.ObjectId(id) : id;
+
   return {
     valid: true,
     error: null,
-    objectId: new mongoose.Types.ObjectId(id)
+    objectId
   };
 }
 
