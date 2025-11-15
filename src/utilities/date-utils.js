@@ -20,7 +20,8 @@ export function formatDate(date, locale = 'en-US', options = {}) {
   };
 
   try {
-    const dateObj = date instanceof Date ? date : new Date(date);
+    const dateObj = toLocalDate(date);
+    if (!dateObj) return '';
     return dateObj.toLocaleDateString(locale, defaultOptions);
   } catch (error) {
     return '';
@@ -46,8 +47,8 @@ export function formatDateTime(date, locale = 'en-US') {
   };
 
   try {
-    const dateObj = date instanceof Date ? date : new Date(date);
-    return dateObj.toLocaleDateString(locale, options);
+    const dateObj = toLocalDate(date) || (date instanceof Date ? date : new Date(date));
+    return dateObj.toLocaleString(locale, options);
   } catch (error) {
     return '';
   }
@@ -62,8 +63,13 @@ export function formatDateForInput(date) {
   if (!date) return '';
 
   try {
-    const dateObj = date instanceof Date ? date : new Date(date);
-    return dateObj.toISOString().split('T')[0];
+    // Normalize to a date-only (YYYY-MM-DD) using local date components
+    const dateObj = toLocalDate(date);
+    if (!dateObj) return '';
+    const y = dateObj.getFullYear();
+    const m = `${dateObj.getMonth() + 1}`.padStart(2, '0');
+    const d = `${dateObj.getDate()}`.padStart(2, '0');
+    return `${y}-${m}-${d}`;
   } catch (error) {
     return '';
   }
@@ -75,8 +81,10 @@ export function formatDateForInput(date) {
  * @returns {string} ISO formatted date string (YYYY-MM-DD)
  */
 export function getMinimumPlanningDate(planningDays) {
-  const minDate = new Date(Date.now() + planningDays * 24 * 60 * 60 * 1000);
-  return formatDateForInput(minDate);
+  const min = new Date();
+  min.setDate(min.getDate() + (planningDays || 0));
+  // Use local date-only string
+  return formatDateForInput(min);
 }
 
 /**
@@ -89,8 +97,14 @@ export function isValidPlannedDate(plannedDate, planningDays) {
   if (!plannedDate) return false;
 
   try {
-    const planned = new Date(plannedDate);
-    const minimum = new Date(Date.now() + planningDays * 24 * 60 * 60 * 1000);
+    // Compare using local date-only values to avoid timezone shifts
+    const planned = toLocalDate(plannedDate);
+    if (!planned) return false;
+    const minimum = new Date();
+    minimum.setDate(minimum.getDate() + (planningDays || 0));
+    // zero time components for comparison
+    planned.setHours(0,0,0,0);
+    minimum.setHours(0,0,0,0);
     return planned >= minimum;
   } catch (error) {
     return false;
@@ -119,7 +133,8 @@ export function formatDateMetricCard(date) {
   if (!date) return '';
 
   try {
-    const dateObj = date instanceof Date ? date : new Date(date);
+    const dateObj = toLocalDate(date);
+    if (!dateObj) return '';
     const options = {
       weekday: 'short',
       month: 'short',
@@ -132,5 +147,39 @@ export function formatDateMetricCard(date) {
     return `${formattedDate} ${year}`;
   } catch (error) {
     return '';
+  }
+}
+
+/**
+ * Parse a date input (Date or string) and return a Date object representing
+ * the same calendar date in the local timezone (midnight local time).
+ * This avoids timezone shifts that move the displayed date one day earlier
+ * when the backend stores dates as UTC midnight.
+ *
+ * Accepts values like:
+ * - Date objects
+ * - 'YYYY-MM-DD' strings
+ * - ISO strings like 'YYYY-MM-DDTHH:mm:ss.sssZ' (we will use the date part only)
+ */
+function toLocalDate(input) {
+  if (!input) return null;
+  if (input instanceof Date) return new Date(input.getFullYear(), input.getMonth(), input.getDate());
+  const s = String(input);
+  // Extract date part before 'T' if present
+  const datePart = s.split('T')[0];
+  const m = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    return new Date(y, mo - 1, d);
+  }
+  // fallback: try Date parse and use local components
+  try {
+    const parsed = new Date(s);
+    if (isNaN(parsed.getTime())) return null;
+    return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  } catch (err) {
+    return null;
   }
 }
