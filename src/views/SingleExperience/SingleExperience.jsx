@@ -214,17 +214,17 @@ export default function SingleExperience() {
         if (newExperienceId !== experienceId?.toString()) return;
 
         // Update local state to reflect newly created plan
+        // IMPORTANT: Always update core state even during suppression
+        // Only skip tab switching during suppression (user initiated the action)
         setUserHasExperience(true);
         setUserPlan(newPlan);
+        setDisplayedPlannedDate(newPlan.planned_date || null);
+        setUserPlannedDate(newPlan.planned_date || null);
+
         // Record that we just handled a local/external plan event so
         // immediate API fetches shouldn't stomp our optimistic/event state
         lastLocalPlanEventAtRef.current = Date.now();
-        // Only override displayed/user planned date if we're not currently
-        // suppressing plan events for a local update (optimistic state)
-        if (!suppressPlanEventsRef.current) {
-          setDisplayedPlannedDate(newPlan.planned_date || null);
-          setUserPlannedDate(newPlan.planned_date || null);
-        }
+
         setSelectedPlanId(newPlan._id && newPlan._id.toString ? newPlan._id.toString() : newPlan._id);
         setCollaborativePlans((prev) => {
           // Avoid duplicates
@@ -232,8 +232,12 @@ export default function SingleExperience() {
           if (exists) return prev;
           return [newPlan, ...prev];
         });
+
         // Only switch to My Plan tab automatically if not suppressing events
-        if (!suppressPlanEventsRef.current) setActiveTab('myplan');
+        // (suppression means user just clicked Plan It button, so we already switched tabs)
+        if (!suppressPlanEventsRef.current) {
+          setActiveTab('myplan');
+        }
       } catch (err) {
         debug.warn('Failed to handle bien:plan_created event', err);
       }
@@ -268,7 +272,11 @@ export default function SingleExperience() {
         // If the updated plan affects the user's own plan, update userPlan
         if (userPlan && updatedPlan._id && userPlan._id && updatedPlan._id.toString() === userPlan._id.toString()) {
           setUserPlan(updatedPlan);
+          // IMPORTANT: Always update dates for user's plan, even during suppression
+          setDisplayedPlannedDate(updatedPlan.planned_date || null);
+          setUserPlannedDate(updatedPlan.planned_date || null);
         }
+
         // Record recent plan event
         lastLocalPlanEventAtRef.current = Date.now();
 
@@ -284,12 +292,10 @@ export default function SingleExperience() {
           return [updatedPlan, ...prev];
         });
 
-        // If this update is for the currently selected plan, update displayed date and userPlan
+        // If this update is for the currently selected plan, update displayed date
         if (selectedPlanId && updatedPlan._id && selectedPlanId.toString() === updatedPlan._id.toString()) {
-          if (!suppressPlanEventsRef.current) {
-            setDisplayedPlannedDate(updatedPlan.planned_date || null);
-            setUserPlannedDate(updatedPlan.planned_date || null);
-          }
+          setDisplayedPlannedDate(updatedPlan.planned_date || null);
+          setUserPlannedDate(updatedPlan.planned_date || null);
           setUserPlan((prev) => (prev && prev._id && prev._id.toString() === updatedPlan._id.toString() ? updatedPlan : prev));
         }
 
