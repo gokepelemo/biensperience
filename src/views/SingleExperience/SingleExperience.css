@@ -623,11 +623,22 @@
     mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><polyline points='6 9 12 15 18 9' fill='white'/></svg>") no-repeat center;
     background-repeat: no-repeat;
     background-size: 1em 1em;
+
+    /* Ensure caret is visible above the select element */
+    z-index: 2;
+    display: block;
 }
 
 /* When disabled (single plan), hide caret */
 .plan-tab-button:disabled ~ .plan-tab-dropdown-container::after {
     display: none;
+}
+
+/* Ensure the select leaves space for the caret and sits beneath it */
+.plan-tab-dropdown-container select {
+    padding-right: 2.25rem; /* accommodate caret */
+    position: relative;
+    z-index: 1;
 }
 
 /* Make the select visually active like the button when selected */
