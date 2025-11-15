@@ -103,6 +103,25 @@ function idEquals(a, b) {
   }
 }
 
+/**
+ * Normalize a plan object to ensure consistent ID types
+ * Converts _id and user._id to strings for reliable comparisons
+ */
+function normalizePlan(plan) {
+  if (!plan) return plan;
+  const normalized = { ...plan };
+  if (normalized._id && typeof normalized._id !== 'string') {
+    normalized._id = normalized._id.toString();
+  }
+  if (normalized.user && normalized.user._id && typeof normalized.user._id !== 'string') {
+    normalized.user._id = normalized.user._id.toString();
+  }
+  if (normalized.user && typeof normalized.user === 'string') {
+    normalized.user = { _id: normalized.user };
+  }
+  return normalized;
+}
+
 export default function SingleExperience() {
   const { user } = useUser();
   const { removeExperience, fetchExperiences, fetchPlans, experiences: ctxExperiences, updateExperience: updateExperienceInContext, setOptimisticPlanStateForExperience, clearOptimisticPlanStateForExperience } = useData();
@@ -202,6 +221,18 @@ export default function SingleExperience() {
   // Ref for h1 element to ensure proper registration
   const h1Ref = useRef(null);
 
+  // Normalize plan objects for consistent client-side comparisons.
+  // Ensures `_id` and nested `user._id` are strings to avoid select value mismatches.
+  const normalizePlan = useCallback((plan) => {
+    if (!plan) return plan;
+    const normalized = { ...plan };
+    if (normalized._id && normalized._id.toString) normalized._id = normalized._id.toString();
+    if (normalized.user && normalized.user._id && normalized.user._id.toString) {
+      normalized.user = { ...normalized.user, _id: normalized.user._id.toString() };
+    }
+    return normalized;
+  }, []);
+
   // Listen for global plan-created events so this view updates immediately
   useEffect(() => {
     const handler = (e) => {
@@ -224,20 +255,21 @@ export default function SingleExperience() {
 
         // Update local state to reflect newly created plan from external source
         setUserHasExperience(true);
-        setUserPlan(newPlan);
-        setDisplayedPlannedDate(newPlan.planned_date || null);
-        setUserPlannedDate(newPlan.planned_date || null);
+        const normalizedNew = normalizePlan(newPlan);
+        setUserPlan(normalizedNew);
+        setDisplayedPlannedDate(normalizedNew.planned_date || null);
+        setUserPlannedDate(normalizedNew.planned_date || null);
 
         // Record that we just handled a local/external plan event so
         // immediate API fetches shouldn't stomp our optimistic/event state
         lastLocalPlanEventAtRef.current = Date.now();
 
-        setSelectedPlanId(newPlan._id && newPlan._id.toString ? newPlan._id.toString() : newPlan._id);
+        setSelectedPlanId(normalizedNew._id);
         setCollaborativePlans((prev) => {
-          // Avoid duplicates
-          const exists = prev.some(p => p._id && newPlan._id && (p._id.toString() === newPlan._id.toString()));
+          // Avoid duplicates (compare as strings)
+          const exists = prev.some(p => p._id && normalizedNew._id && (p._id.toString ? p._id.toString() === normalizedNew._id.toString() : p._id === normalizedNew._id));
           if (exists) return prev;
-          return [newPlan, ...prev];
+          return [normalizedNew, ...prev];
         });
 
         // Switch to My Plan tab automatically for external events
@@ -475,18 +507,18 @@ export default function SingleExperience() {
         // Use pushState so selecting plans creates history entries (analytics-friendly)
         const hashed = `/experiences/${experienceId}#plan-${selectedPlanId}`;
         try {
-          // Dedupe: avoid pushing if the URL is already the same
+          // Dedupe: avoid navigating if the URL is already the same
           const current = `${window.location.pathname}${window.location.hash || ''}`;
           if (current !== hashed) {
-            window.history.pushState(window.history.state, document.title, hashed);
+            navigate(hashed, { replace: false });
           } else {
-            debug.log('Skipping pushState: URL already matches hashed plan link');
+            debug.log('Skipping navigate: URL already matches hashed plan link');
           }
         } catch (err) {
-          // Fallback to replaceState if pushState is unavailable
+          // Fallback to replace navigation if push-like navigation fails
           const current = `${window.location.pathname}${window.location.hash || ''}`;
           if (current !== hashed) {
-            window.history.replaceState(window.history.state, document.title, hashed);
+            navigate(hashed, { replace: true });
           }
         }
         return;
@@ -501,18 +533,18 @@ export default function SingleExperience() {
           // preserve it so the hash-handling logic can select the plan after load.
           const incomingHash = window.location.hash || '';
           if (incomingHash.startsWith('#plan-')) {
-            debug.log('Preserving incoming plan hash; skipping expUrl push');
+            debug.log('Preserving incoming plan hash; skipping expUrl navigate');
           } else if (current !== expUrl) {
-            // When leaving plan view, push a new history entry to make navigation intuitive
-            window.history.pushState(window.history.state, document.title, expUrl);
+            // When leaving plan view, navigate to create a history entry
+            navigate(expUrl, { replace: false });
           } else {
-            debug.log('Skipping pushState: URL already matches experience URL');
+            debug.log('Skipping navigate: URL already matches experience URL');
           }
         } catch (err) {
           const current = `${window.location.pathname}${window.location.hash || ''}`;
           const incomingHash = window.location.hash || '';
           if (!incomingHash.startsWith('#plan-') && current !== expUrl) {
-            window.history.replaceState(window.history.state, document.title, expUrl);
+            navigate(expUrl, { replace: true });
           }
         }
       }
@@ -665,9 +697,12 @@ export default function SingleExperience() {
 
       debug.log("Accessible plans after filtering and sorting:", sortedPlans);
 
+      // Normalize plan IDs to strings to avoid select/value mismatch
+      const normalizedSorted = sortedPlans.map(p => normalizePlan(p));
+
       // Set selectedPlanId if not already set and plans exist
-      if (sortedPlans.length > 0) {
-        const newSelectedId = sortedPlans[0]._id && sortedPlans[0]._id.toString ? sortedPlans[0]._id.toString() : sortedPlans[0]._id;
+      if (normalizedSorted.length > 0) {
+        const newSelectedId = normalizedSorted[0]._id;
         debug.log("Setting selectedPlanId to:", newSelectedId);
         setSelectedPlanId((prev) => prev || newSelectedId);
       }
@@ -675,7 +710,7 @@ export default function SingleExperience() {
       // Set collaborative plans and mark loading complete
       // Use flushSync to force synchronous rendering and prevent layout shift
       flushSync(() => {
-        setCollaborativePlans(sortedPlans);
+        setCollaborativePlans(normalizedSorted);
         setPlansLoading(false);
       });
     } catch (err) {
@@ -812,12 +847,32 @@ export default function SingleExperience() {
       debug.log("Accessible plans after filtering and sorting:", sortedPlans);
       debug.log("Current selectedPlanId:", selectedPlanId);
 
-      setCollaborativePlans(sortedPlans);
+      // Normalize IDs
+      const normalized = sortedPlans.map(p => normalizePlan(p));
+
+      // If we have a local userPlan (optimistic) that isn't present in the
+      // fetched list yet, merge it in front so optimistic UI is preserved
+      let merged = normalized;
+      try {
+        if (userPlan && userPlan._id) {
+          const normUser = normalizePlan(userPlan);
+          const exists = normalized.some(p => idEquals(p._id, normUser._id));
+          if (!exists) {
+            merged = [normUser, ...normalized];
+            debug.log("Merged optimistic userPlan into collaborativePlans", { planId: normUser._id });
+          }
+        }
+      } catch (err) {
+        debug.warn("Error merging userPlan into collaborativePlans", err);
+        // ignore merge errors and fall back to normalized
+      }
+
+      setCollaborativePlans(merged);
 
       // Set selectedPlanId if not already set and plans exist
-      if (sortedPlans.length > 0) {
+      if (merged.length > 0) {
         // First plan is now guaranteed to be user's own plan if they have one
-        const newSelectedId = sortedPlans[0]._id;
+        const newSelectedId = merged[0]._id;
         debug.log("Setting selectedPlanId to:", newSelectedId);
         setSelectedPlanId((prev) => prev || newSelectedId);
       }
@@ -1549,7 +1604,7 @@ export default function SingleExperience() {
       setSelectedPlanId(pid);
 
       // Update displayed planned date to the selected plan's date
-      const selectedPlan = collaborativePlans.find((p) => p._id === planId);
+      const selectedPlan = collaborativePlans.find((p) => idEquals(p._id, pid));
       if (selectedPlan) {
         setDisplayedPlannedDate(selectedPlan.planned_date || null);
       }
@@ -2004,10 +2059,12 @@ export default function SingleExperience() {
           setUserPlannedDate(addData.planned_date || null);
           setDisplayedPlannedDate(addData.planned_date || null);
           
+          // Normalize and add the new plan to collaborativePlans if missing
+          const normalizedNew = normalizePlan(newPlan);
           setCollaborativePlans(prev => {
-            const exists = prev.some(p => p._id === newPlan._id);
+            const exists = prev.some(p => idEquals(p._id, normalizedNew._id));
             if (exists) return prev;
-            return [newPlan, ...prev];
+            return [normalizedNew, ...prev];
           });
 
           // Record optimistic plan state in DataContext so canonical updates
@@ -2726,8 +2783,10 @@ export default function SingleExperience() {
                                   displayName = `${firstName}'s Plan`;
                                 }
 
+                                const optionValue = plan._id && plan._id.toString ? plan._id.toString() : plan._id;
+
                                 return (
-                                  <option key={plan._id} value={plan._id}>
+                                  <option key={optionValue} value={optionValue}>
                                     {displayName}
                                   </option>
                                 );
