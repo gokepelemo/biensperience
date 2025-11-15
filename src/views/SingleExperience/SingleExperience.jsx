@@ -67,6 +67,24 @@ function setSyncAlertCookie(planId) {
   syncAlertStorage.set(planId);
 }
 
+// Duration for sync alert dismissal (7 days)
+const SYNC_ALERT_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
+
+// Create expirable storage for sync alert dismissals
+const syncAlertStorage = createExpirableStorage(
+  "planSyncAlertDismissed",
+  SYNC_ALERT_DURATION
+);
+
+/**
+ * Checks if sync alert was dismissed for a specific plan and if it's still valid
+ * @param {string} planId - The plan ID to check
+ * @returns {number|null} Timestamp if dismissed and still valid, null otherwise
+ */
+function getSyncAlertCookie(planId) {
+  return syncAlertStorage.get(planId);
+}
+
 /**
  * Helper to compare IDs (ObjectId or string) safely
  * Returns true if both IDs exist and their string forms match
