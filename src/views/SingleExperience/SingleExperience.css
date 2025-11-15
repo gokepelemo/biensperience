@@ -624,9 +624,9 @@
     background-repeat: no-repeat;
     background-size: 1em 1em;
 
-    /* Ensure caret is visible above the select element */
-    z-index: 2;
-    display: block;
+    /* Keep pseudo-element as fallback but don't rely on it; inline SVG caret will be used */
+    z-index: 0;
+    display: none; /* hide mask-based caret by default */
 }
 
 /* When disabled (single plan), hide caret */
@@ -639,6 +639,40 @@
     padding-right: 2.25rem; /* accommodate caret */
     position: relative;
     z-index: 1;
+}
+
+/* Inline caret element placed in the DOM for reliable rendering */
+.plan-tab-caret {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1em;
+    height: 1em;
+    pointer-events: none;
+    color: var(--color-single-experience-text-secondary);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.plan-tab-dropdown-container.active .plan-tab-caret,
+.plan-tab-dropdown-container .plan-tab-caret {
+    /* Always show caret when dropdown is present */
+    display: flex;
+}
+
+.plan-tab-caret svg {
+    width: 1em;
+    height: 1em;
+    display: block;
+    color: inherit; /* Use currentColor for stroke via CSS color */
+}
+
+.plan-tab-dropdown-container.active .plan-tab-caret svg,
+.plan-tab-button.active ~ .plan-tab-dropdown-container .plan-tab-caret svg {
+    color: var(--color-single-experience-primary);
 }
 
 /* Make the select visually active like the button when selected */
