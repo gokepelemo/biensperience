@@ -576,18 +576,33 @@
     cursor: not-allowed;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
+/* Responsive - Mobile and Tablet */
+@media (max-width: 991px) {
+    /* Center plan item title and metadata */
     .plan-item-header {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
+        text-align: center;
+    }
+
+    .plan-item-title {
+        text-align: center;
+        margin-right: 0;
     }
 
     .plan-item-meta {
         flex-direction: column;
         gap: 0.5rem;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
     }
 
+    .plan-item-tree {
+        margin-bottom: 0.5rem;
+    }
+
+    /* Plan tabs navigation */
     .plan-tabs-nav {
         flex-direction: row;
         flex-wrap: wrap;
