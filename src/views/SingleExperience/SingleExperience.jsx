@@ -819,6 +819,9 @@ export default function SingleExperience() {
     if (h1Ref.current) {
       registerH1(h1Ref.current);
 
+      // Enable h1 text in navbar for this view
+      updateShowH1InNavbar(true);
+
       // Set up action buttons if user is owner or super admin
       if (user && experience && isOwner(user, experience)) {
         setPageActionButtons([
@@ -842,11 +845,16 @@ export default function SingleExperience() {
       }
     }
 
-    return () => clearActionButtons();
+    return () => {
+      clearActionButtons();
+      // Disable h1 in navbar when leaving this view
+      updateShowH1InNavbar(false);
+    };
   }, [
     registerH1,
     setPageActionButtons,
     clearActionButtons,
+    updateShowH1InNavbar,
     user,
     experience,
     navigate,
