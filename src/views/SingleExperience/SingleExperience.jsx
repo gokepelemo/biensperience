@@ -2457,9 +2457,11 @@ export default function SingleExperience() {
               <div className="col-md-12 fade-in">
                 <InfoCard
                   title={
-                    experience.destination
-                      ? `${lang.en.label.destinationLabel}: ${experience.destination.name}`
-                      : null
+                    !experience.destination ? (
+                      <div className="loading-skeleton loading-skeleton-text" style={{ width: '70%', height: '1.5rem' }}></div>
+                    ) : (
+                      `${lang.en.label.destinationLabel}: ${experience.destination.name}`
+                    )
                   }
                   titleLink={
                     experience.destination
@@ -2490,13 +2492,15 @@ export default function SingleExperience() {
                       : null,
                   ].filter(Boolean)}
                   map={
-                    experience.destination ? (
+                    !experience.destination ? (
+                      <div className="loading-skeleton loading-skeleton-rectangle" style={{ width: '100%', height: '300px', borderRadius: 'var(--radius-md)' }}></div>
+                    ) : (
                       <GoogleMap
                         location={`${experience.destination.name}+${experience.destination.country}`}
                         height={300}
                         title={lang.en.helper.map}
                       />
-                    ) : null
+                    )
                   }
                 />
               </div>
