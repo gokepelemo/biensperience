@@ -902,6 +902,9 @@ const updatePlanItem = asyncHandler(async (req, res) => {
 
   // Track plan item completion change (non-blocking)
   if (complete !== undefined && wasComplete !== willBeComplete) {
+    // Populate experience for activity logging
+    await plan.populate('experience', 'name');
+
     trackPlanItemCompletion({
       resource: plan,
       resourceType: 'Plan',

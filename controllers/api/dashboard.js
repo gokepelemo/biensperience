@@ -295,14 +295,53 @@ async function getRecentActivity(userId) {
     .limit(10)
     .lean();
 
-    // Transform activities into user-friendly format
-    return activities.map(activity => ({
-      id: activity._id,
-      action: formatActivityAction(activity.action),
-      item: activity.resource?.name || 'Unknown',
-      time: formatTimeAgo(activity.timestamp),
-      timestamp: activity.timestamp
+    // For each activity, populate related data if needed
+    const enrichedActivities = await Promise.all(activities.map(async (activity) => {
+      let resourceName = activity.resource?.name || 'Unnamed';
+      let resourceLink = null;
+      let targetName = activity.target?.name || null;
+
+      // For plan-related activities, populate the experience name
+      if (activity.resource?.type === 'Plan' && (!activity.resource?.name || activity.resource?.name === 'Unnamed Plan')) {
+        try {
+          const plan = await Plan.findById(activity.resource.id).populate('experience', 'name').lean();
+          if (plan && plan.experience) {
+            resourceName = plan.experience.name;
+            resourceLink = `/experiences/${plan.experience._id}`;
+          }
+        } catch (err) {
+          backendLogger.warn('Failed to populate plan experience for activity', { activityId: activity._id });
+        }
+      }
+
+      // For experience activities
+      if (activity.resource?.type === 'Experience') {
+        resourceLink = `/experiences/${activity.resource.id}`;
+      }
+
+      // For destination activities
+      if (activity.resource?.type === 'Destination') {
+        resourceLink = `/destinations/${activity.resource.id}`;
+      }
+
+      // For plan item completion, show both the plan (experience) and the item
+      if ((activity.action === 'plan_item_completed' || activity.action === 'plan_item_uncompleted') && activity.target) {
+        targetName = activity.target.name;
+      }
+
+      return {
+        id: activity._id.toString(),
+        action: formatActivityAction(activity.action),
+        item: resourceName,
+        targetItem: targetName,
+        link: resourceLink,
+        time: formatTimeAgo(activity.timestamp),
+        timestamp: activity.timestamp,
+        resourceType: activity.resource?.type
+      };
     }));
+
+    return enrichedActivities;
   } catch (error) {
     backendLogger.error('Error in getRecentActivity', { userId: userId.toString(), error: error.message });
     return []; // Return empty array on error

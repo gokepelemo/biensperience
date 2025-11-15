@@ -269,9 +269,23 @@ async function trackPlanItemCompletion(options) {
     }
 
     const action = completed ? 'plan_item_completed' : 'plan_item_uncompleted';
+    const itemName = resolvedPlanItem.text || resolvedPlanItem.name || String(resolvedPlanItem._id);
     const reason = completed
-      ? `Plan item "${resolvedPlanItem.text || resolvedPlanItem.name || resolvedPlanItem._id}" marked as completed`
-      : `Plan item "${resolvedPlanItem.text || resolvedPlanItem.name || resolvedPlanItem._id}" marked as incomplete`;
+      ? `Plan item "${itemName}" marked as completed`
+      : `Plan item "${itemName}" marked as incomplete`;
+
+    // Determine the plan name - prefer populated experience name
+    let planName = 'Unnamed Plan';
+    if (plan.experience) {
+      // Experience might be populated or just an ID
+      if (typeof plan.experience === 'object' && plan.experience.name) {
+        planName = plan.experience.name;
+      } else if (plan.experience.toString) {
+        // If it's just an ID, we can't get the name synchronously
+        // The dashboard query will handle populating it
+        planName = 'Plan';
+      }
+    }
 
     // Non-blocking: Fire and forget
     Activity.create({
@@ -281,12 +295,12 @@ async function trackPlanItemCompletion(options) {
       resource: {
         id: plan._id,
         type: 'Plan',
-        name: plan.experience?.name || 'Unnamed Plan'
+        name: planName
       },
       target: {
         id: resolvedPlanItem._id,
         type: 'PlanItem',
-        name: resolvedPlanItem.text || resolvedPlanItem.name || String(resolvedPlanItem._id)
+        name: itemName
       },
       previousState: { completed: !completed },
       newState: { completed },
