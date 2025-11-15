@@ -46,8 +46,8 @@ export default function ConfirmEmail() {
         keywords="confirm email, email verification, account activation"
       />
 
-      <div className="container">
-        <Container className="justify-content-center mt-5">
+      <div className="confirm-email-wrapper container">
+        <Container className="justify-content-center">
           <div className="col-md-6 col-lg-5">
             <div className="confirm-email-card card">
               <div className="card-body p-4 p-md-5">
