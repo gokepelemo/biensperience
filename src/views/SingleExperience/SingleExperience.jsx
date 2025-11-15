@@ -213,9 +213,15 @@ export default function SingleExperience() {
         // Only react if this plan is for the currently viewed experience
         if (newExperienceId !== experienceId?.toString()) return;
 
-        // Update local state to reflect newly created plan
-        // IMPORTANT: Always update core state even during suppression
-        // Only skip tab switching during suppression (user initiated the action)
+        // If events are suppressed (user just clicked Plan It button), skip ALL updates
+        // because handleAddExperience will handle state updates with fresh API data.
+        // Only listen to events from OTHER tabs or external sources when not suppressed.
+        if (suppressPlanEventsRef.current) {
+          debug.log('Skipping bien:plan_created event handler due to suppression (user-initiated action)');
+          return;
+        }
+
+        // Update local state to reflect newly created plan from external source
         setUserHasExperience(true);
         setUserPlan(newPlan);
         setDisplayedPlannedDate(newPlan.planned_date || null);
@@ -233,11 +239,8 @@ export default function SingleExperience() {
           return [newPlan, ...prev];
         });
 
-        // Only switch to My Plan tab automatically if not suppressing events
-        // (suppression means user just clicked Plan It button, so we already switched tabs)
-        if (!suppressPlanEventsRef.current) {
-          setActiveTab('myplan');
-        }
+        // Switch to My Plan tab automatically for external events
+        setActiveTab('myplan');
       } catch (err) {
         debug.warn('Failed to handle bien:plan_created event', err);
       }
