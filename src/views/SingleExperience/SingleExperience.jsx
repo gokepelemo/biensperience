@@ -499,6 +499,12 @@ export default function SingleExperience() {
     try {
       if (typeof window === 'undefined' || !window.history || !window.history.replaceState) return;
 
+      // Only update URL if we're still on the SingleExperience route
+      // Prevent interference with navigation away from this component
+      if (!experienceId || window.location.pathname !== `/experiences/${experienceId}`) {
+        return;
+      }
+
       // When viewing My Plan (or a collaborative plan) update the address
       // bar to a hash-based deep link that points to the experience with
       // a plan fragment. Example: `/experiences/<id>#plan/<planId>`

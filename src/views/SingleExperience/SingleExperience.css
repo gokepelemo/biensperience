@@ -681,6 +681,20 @@
     z-index: 1;
 }
 
+/* Hide native select dropdown indicators across browsers so only our
+   inline SVG caret is visible. This prevents double-carets on some
+   browser/OS combinations where appearance:none is not sufficient. */
+.plan-tab-dropdown-container select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: none !important;
+}
+
+.plan-tab-dropdown-container select::-ms-expand {
+    display: none; /* IE/Edge */
+}
+
 /* Inline caret element placed in the DOM for reliable rendering */
 .plan-tab-caret {
     position: absolute;
