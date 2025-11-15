@@ -529,8 +529,21 @@ export default function SingleExperience() {
           // Dedupe: avoid navigating if the URL is already the same
           const current = `${window.location.pathname}${window.location.hash || ''}`;
           if (current !== hashed) {
-            // Use history.pushState instead of navigate to avoid React Router conflicts
+            // Use History API to update address bar, then dispatch popstate so
+            // React Router detects the change and renders the correct route.
             window.history.pushState(null, '', hashed);
+            try {
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            } catch (e) {
+              // Older browsers: create event via document.createEvent
+              try {
+                const evt = document.createEvent('PopStateEvent');
+                evt.initPopStateEvent('popstate', false, false, null);
+                window.dispatchEvent(evt);
+              } catch (err) {
+                debug.warn('Failed to dispatch popstate after pushState', err);
+              }
+            }
           } else {
             debug.log('Skipping history update: URL already matches hashed plan link');
           }
@@ -539,6 +552,17 @@ export default function SingleExperience() {
           const current = `${window.location.pathname}${window.location.hash || ''}`;
           if (current !== hashed) {
             window.history.replaceState(null, '', hashed);
+            try {
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            } catch (e) {
+              try {
+                const evt = document.createEvent('PopStateEvent');
+                evt.initPopStateEvent('popstate', false, false, null);
+                window.dispatchEvent(evt);
+              } catch (err) {
+                debug.warn('Failed to dispatch popstate after replaceState', err);
+              }
+            }
           }
         }
         return;
@@ -557,6 +581,17 @@ export default function SingleExperience() {
           } else if (current !== expUrl) {
             // When leaving plan view, update URL to create a history entry
             window.history.pushState(null, '', expUrl);
+            try {
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            } catch (e) {
+              try {
+                const evt = document.createEvent('PopStateEvent');
+                evt.initPopStateEvent('popstate', false, false, null);
+                window.dispatchEvent(evt);
+              } catch (err) {
+                debug.warn('Failed to dispatch popstate after pushState (expUrl)', err);
+              }
+            }
           } else {
             debug.log('Skipping history update: URL already matches experience URL');
           }
@@ -565,6 +600,17 @@ export default function SingleExperience() {
           const incomingHash = window.location.hash || '';
           if (!incomingHash.startsWith('#plan-') && current !== expUrl) {
             window.history.replaceState(null, '', expUrl);
+            try {
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            } catch (e) {
+              try {
+                const evt = document.createEvent('PopStateEvent');
+                evt.initPopStateEvent('popstate', false, false, null);
+                window.dispatchEvent(evt);
+              } catch (err) {
+                debug.warn('Failed to dispatch popstate after replaceState (expUrl)', err);
+              }
+            }
           }
         }
       }
