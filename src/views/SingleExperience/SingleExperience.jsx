@@ -105,7 +105,7 @@ function idEquals(a, b) {
 
 export default function SingleExperience() {
   const { user } = useUser();
-  const { removeExperience, fetchExperiences, fetchPlans, experiences: ctxExperiences } = useData();
+  const { removeExperience, fetchExperiences, fetchPlans, experiences: ctxExperiences, updateExperience: updateExperienceInContext } = useData();
   const {
     registerH1,
     setPageActionButtons,
@@ -509,6 +509,12 @@ export default function SingleExperience() {
       setExperience(experienceData);
       setTravelTips(experienceData.travel_tips || []);
 
+      // Update DataContext with fully-populated experience
+      // This ensures other views have access to the complete experience data
+      if (experienceData && experienceData._id) {
+        updateExperienceInContext(experienceData);
+      }
+
       // Set expanded parents (all parents expanded by default)
       const parentIds = experienceData.plan_items
         .filter((item) => !item.parent)
@@ -591,7 +597,7 @@ export default function SingleExperience() {
       // Loading complete even on error
       setPlansLoading(false);
     }
-  }, [experienceId, user._id]);
+  }, [experienceId, user._id, updateExperienceInContext]);
 
   // Legacy individual fetch functions - kept for compatibility with existing code that calls them
   const fetchExperience = useCallback(async () => {
@@ -608,6 +614,11 @@ export default function SingleExperience() {
         );
       }
       setExperience(experienceData);
+
+      // Update DataContext with experience data
+      if (experienceData && experienceData._id) {
+        updateExperienceInContext(experienceData);
+      }
 
       // userHasExperience will be set in fetchUserPlan based on Plan model
       // No longer using experience.users array
@@ -626,7 +637,7 @@ export default function SingleExperience() {
       debug.error("Error fetching experience:", err);
       setExperience(null);
     }
-  }, [experienceId]);
+  }, [experienceId, updateExperienceInContext]);
 
   const fetchUserPlan = useCallback(async () => {
     try {

@@ -20,7 +20,7 @@ import { Container, Mobile, Desktop } from "../../components/design-system";
 
 export default function SingleDestination() {
   const { user } = useUser();
-  const { experiences, destinations, plans, fetchDestinations, setExperiencesImmediate } = useData();
+  const { experiences, destinations, plans, fetchDestinations } = useData();
   const { registerH1, setPageActionButtons, clearActionButtons, updateShowH1InNavbar } = useApp();
   const { destinationId } = useParams();
   const navigate = useNavigate();
@@ -85,7 +85,7 @@ export default function SingleDestination() {
     getData();
   }, [getData]);
 
-  // Ensure experiences for this destination are loaded into DataContext
+  // Ensure experiences for this destination are loaded into local state
   useEffect(() => {
     if (!destinationId) return;
     try {
@@ -94,19 +94,11 @@ export default function SingleDestination() {
       setDirectDestinationExperiences(null);
       getExperiences({ destination: destinationId }).then((resp) => {
         const data = resp && resp.data ? resp.data : (Array.isArray(resp) ? resp : []);
-        const meta = resp && resp.meta ? resp.meta : null;
 
-        // Set local state immediately
+        // Set local state immediately - DO NOT update DataContext
+        // Updating DataContext with view-specific filtered data would pollute
+        // the global state and cause other views to lose their fully-populated data
         setDirectDestinationExperiences(data);
-
-        // Update DataContext with stale-while-revalidate pattern
-        // Shows destination-scoped experiences immediately, but marks them as temporary
-        // with a special filter flag so other views know this is destination-specific data
-        setExperiencesImmediate(data, {
-          meta,
-          filters: { destination: destinationId, __viewSpecific: 'SingleDestination' },
-          backgroundRefresh: false // Don't refresh - this is intentionally destination-scoped
-        });
       }).catch((err) => {
         logger.error('Failed to fetch experiences directly for destination', { destinationId, error: err?.message || err });
         setDirectDestinationExperiences([]);
@@ -114,7 +106,7 @@ export default function SingleDestination() {
     } catch (err) {
       logger.error('Error fetching experiences for destination', { destinationId, error: err?.message || err });
     }
-  }, [destinationId, setExperiencesImmediate]);
+  }, [destinationId]);
 
   // Register h1 and action buttons
   useEffect(() => {
