@@ -21,7 +21,7 @@
 .plan-item-modal-form .form-label {
     display: block;
     margin-bottom: 0.5rem;
-    font-size: 1rem;
+    font-size: var(--font-size-lg);
 }
 
 .plan-item-modal-form .form-control {
@@ -538,7 +538,7 @@
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
-    bottom: -2px;
+    bottom: 0;
     white-space: nowrap; /* Prevent text wrapping on Safari */
     flex-shrink: 0; /* Prevent shrinking on Safari */
 }
@@ -579,7 +579,7 @@
     border-radius: 0; /* Remove rounded corners */
     /* Match visual style of .plan-tab-button */
     padding: var(--space-3) var(--space-6);
-    font-size: 1rem;
+    font-size: var(--font-size-lg);
     font-weight: 600;
     line-height: 1; /* match button line-height */
     display: inline-flex; /* treat select like button for alignment */
@@ -612,7 +612,7 @@
 .plan-tab-dropdown-container {
     position: relative; /* ensure ::after positioned correctly */
     display: inline-flex;
-    align-items: flex-end; /* align select baseline with other tabs */
+    align-items: center; /* align select baseline with other tabs */
 }
 
 .plan-tab-dropdown-container::after {
