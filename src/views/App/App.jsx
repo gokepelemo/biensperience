@@ -294,6 +294,7 @@ function AppContent() {
                           <SingleExperience />
                         </ErrorBoundary>
                       } />
+                      <Route path="/confirm-email/:token" element={<ConfirmEmail />} />
                       <Route path="/experiences/:experienceId/update" element={
                         <ErrorBoundary title="Form Error" message="Error loading the update experience form.">
                           <UpdateExperience />
