@@ -14,6 +14,7 @@ import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
 import ActivityMonitor from "../../components/ActivityMonitor/ActivityMonitor";
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
 import { getUserData, updateUserRole, updateUser as updateUserApi } from "../../utilities/users-api";
+import { resendConfirmation } from "../../utilities/users-api";
 import { lang } from "../../lang.constants";
 import { handleError } from "../../utilities/error-handler";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
@@ -22,6 +23,7 @@ import { createUrlSlug } from "../../utilities/url-utils";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
 import { Button, Container, FlexBetween, Heading, Paragraph } from "../../components/design-system";
+import { useToast } from '../../contexts/ToastContext';
 import TagPill from '../../components/Pill/TagPill';
 
 export default function Profile() {
@@ -53,6 +55,70 @@ export default function Profile() {
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [showApiTokenModal, setShowApiTokenModal] = useState(false);
   const [showActivityMonitor, setShowActivityMonitor] = useState(false);
+  const { success, error: showError } = useToast();
+  const [resendInProgress, setResendInProgress] = useState(false);
+  const [resendDisabled, setResendDisabled] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const COOLDOWN_SECONDS = 60;
+  const COOLDOWN_KEY_PREFIX = 'resend_verification_cooldown_';
+
+  // Start a cooldown for the given email and persist to localStorage
+  const startCooldown = (email) => {
+    if (!email) return;
+    const key = COOLDOWN_KEY_PREFIX + email;
+    const expiresAt = Date.now() + COOLDOWN_SECONDS * 1000;
+    try {
+      localStorage.setItem(key, String(expiresAt));
+    } catch (e) {
+      // ignore localStorage errors
+    }
+    setResendDisabled(true);
+    setCooldownRemaining(COOLDOWN_SECONDS);
+    const timer = setInterval(() => {
+      setCooldownRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          try { localStorage.removeItem(key); } catch (e) {}
+          setResendDisabled(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // On profile load, restore any existing cooldown for this email
+  useEffect(() => {
+    if (!currentProfile || !currentProfile.email) return;
+    const key = COOLDOWN_KEY_PREFIX + currentProfile.email;
+    try {
+      const expires = localStorage.getItem(key);
+      if (!expires) return;
+      const expiresAt = parseInt(expires, 10);
+      const now = Date.now();
+      if (expiresAt > now) {
+        const remaining = Math.ceil((expiresAt - now) / 1000);
+        setResendDisabled(true);
+        setCooldownRemaining(remaining);
+        const timer = setInterval(() => {
+          const rem = Math.ceil((expiresAt - Date.now()) / 1000);
+          if (rem <= 0) {
+            clearInterval(timer);
+            try { localStorage.removeItem(key); } catch (e) {}
+            setResendDisabled(false);
+            setCooldownRemaining(0);
+          } else {
+            setCooldownRemaining(rem);
+          }
+        }, 1000);
+        return () => clearInterval(timer);
+      } else {
+        try { localStorage.removeItem(key); } catch (e) {}
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [currentProfile]);
 
   // Deduplicate user experiences by ID
   const uniqueUserExperiences = useMemo(() => {
@@ -369,6 +435,34 @@ export default function Profile() {
                             >
                               ✏️ Update Profile
                             </Link>
+                          </li>
+                        )}
+                        {isOwner && currentProfile && !currentProfile.emailConfirmed && (
+                          <li>
+                            <button
+                              className="dropdown-item"
+                              type="button"
+                              onClick={async () => {
+                                if (!currentProfile || !currentProfile.email) return;
+                                // prevent clicks while already in progress or cooldown
+                                if (resendInProgress || resendDisabled) return;
+                                try {
+                                  setResendInProgress(true);
+                                  await resendConfirmation(currentProfile.email);
+                                  // start cooldown after successful send
+                                  startCooldown(currentProfile.email);
+                                  success(lang.en.success.resendConfirmation);
+                                } catch (err) {
+                                  const msg = handleError(err, { context: 'Resend verification' });
+                                  showError(msg || 'Failed to resend verification email');
+                                } finally {
+                                  setResendInProgress(false);
+                                }
+                              }}
+                              disabled={resendInProgress || resendDisabled}
+                            >
+                              🔁 {lang.en.alert.emailNotVerifiedAction} {resendDisabled && cooldownRemaining > 0 ? `(${cooldownRemaining}s)` : ''}
+                            </button>
                           </li>
                         )}
                         {isSuperAdmin(user) && profileId && profileId !== user._id && (

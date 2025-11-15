@@ -133,6 +133,7 @@ const en = {
     userProfileUpdated: "User profile updated successfully.",
     apiTokenCreated: "API token created successfully. Make sure to copy it now.",
     changesSaved: "Changes saved successfully.",
+    resendConfirmation: "Verification email sent. Please check your inbox.",
   },
 
   modal: {
