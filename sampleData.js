@@ -1165,17 +1165,17 @@ class DataGenerator {
       );
       const contributors = getRandomElements(availableContributors, contributorCount);
 
-      // Build permissions array
+      // Build permissions array (ensure ObjectId types and include metadata)
       const permissions = [
-        { _id: owner._id, entity: 'user', type: 'owner' }
+        { _id: mongoose.Types.ObjectId(owner._id), entity: 'user', type: 'owner', granted_at: new Date(), granted_by: mongoose.Types.ObjectId(owner._id) }
       ];
 
       collaborators.forEach(collaborator => {
-        permissions.push({ _id: collaborator._id, entity: 'user', type: 'collaborator' });
+        permissions.push({ _id: mongoose.Types.ObjectId(collaborator._id), entity: 'user', type: 'collaborator', granted_at: new Date(), granted_by: mongoose.Types.ObjectId(owner._id) });
       });
 
       contributors.forEach(contributor => {
-        permissions.push({ _id: contributor._id, entity: 'user', type: 'contributor' });
+        permissions.push({ _id: mongoose.Types.ObjectId(contributor._id), entity: 'user', type: 'contributor', granted_at: new Date(), granted_by: mongoose.Types.ObjectId(owner._id) });
       });
 
       experiences.push({
@@ -1240,7 +1240,7 @@ class DataGenerator {
         user: user._id,
         planned_date: Math.random() < 0.7 ? randomFutureDate() : null, // 70% have planned dates
         plan: planItems,
-        permissions: [{ _id: user._id, entity: 'user', type: 'owner' }]
+  permissions: [{ _id: mongoose.Types.ObjectId(user._id), entity: 'user', type: 'owner', granted_at: new Date(), granted_by: mongoose.Types.ObjectId(user._id) }]
       });
     }
 
@@ -1607,8 +1607,8 @@ async function createSampleData() {
       const dest = destinationData[i];
       const owner = getRandomElement(createdUsers.filter(u => !u.isSuperAdmin));
 
-      dest.user = owner._id;
-      dest.permissions = [{ _id: owner._id, entity: 'user', type: 'owner' }];
+  dest.user = owner._id;
+  dest.permissions = [{ _id: mongoose.Types.ObjectId(owner._id), entity: 'user', type: 'owner', granted_at: new Date(), granted_by: mongoose.Types.ObjectId(owner._id) }];
 
       const destination = new Destination(dest);
       await destination.save();
@@ -1623,8 +1623,8 @@ async function createSampleData() {
 
     for (const photoInfo of photoData) {
       const owner = getRandomElement(createdUsers.filter(u => !u.isSuperAdmin));
-      photoInfo.user = owner._id;
-      photoInfo.permissions = [{ _id: owner._id, entity: 'user', type: 'owner' }];
+  photoInfo.user = owner._id;
+  photoInfo.permissions = [{ _id: mongoose.Types.ObjectId(owner._id), entity: 'user', type: 'owner', granted_at: new Date(), granted_by: mongoose.Types.ObjectId(owner._id) }];
 
       const photo = new Photo(photoInfo);
       await photo.save();
