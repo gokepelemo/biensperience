@@ -561,11 +561,12 @@
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    /* Use explicit stroke color in the embedded SVG for Safari compatibility */
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b9cff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 0.5rem center;
-    background-size: 1em;
+    /* caret is rendered by the wrapper's pseudo-element so we can
+       use CSS design tokens (variables) for light/dark themes.
+       Avoid embedding color-dependent SVG stroke in data URIs
+       because some Safari versions don't honor currentColor
+       inside encoded SVGs. */
+    background-image: none;
     padding-right: 2.5rem;
     min-width: 120px; /* Fixed minimum for Safari compatibility */
     width: auto;
@@ -588,6 +589,37 @@
 .plan-tab-select:hover {
     color: var(--color-single-experience-text-dark-secondary);
     background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Render caret using a masked SVG in the wrapper so caret color can
+   be controlled with CSS variables (design tokens) and work in
+   Safari and other browsers. */
+.plan-tab-dropdown-container {
+    position: relative; /* ensure ::after positioned correctly */
+}
+
+.plan-tab-dropdown-container::after {
+    content: '';
+    position: absolute;
+    right: 0.75rem; /* align with select padding */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1em;
+    height: 1em;
+    pointer-events: none;
+    /* default caret color from design token */
+    background-color: var(--plan-caret-color, var(--color-single-experience-text-secondary));
+    /* Use mask to draw the caret shape; fill is taken from background-color */
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><polyline points='6 9 12 15 18 9' fill='white'/></svg>") no-repeat center;
+    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><polyline points='6 9 12 15 18 9' fill='white'/></svg>") no-repeat center;
+    background-repeat: no-repeat;
+    background-size: 1em 1em;
+}
+
+/* When disabled (single plan), hide caret */
+.plan-tab-button:disabled ~ .plan-tab-dropdown-container::after,
+.plan-tab-dropdown-container:has(.plan-tab-select:disabled)::after {
+    display: none;
 }
 
 /* When disabled (single plan), hide chevron and keep normal appearance */
@@ -920,9 +952,9 @@
         background: rgba(102, 126, 234, 0.1);
     }
 
-    /* Plan Tab Select - Dark mode */
-    .plan-tab-select {
-        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e9ecef' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    /* Use design token for caret color in dark mode */
+    .plan-tab-dropdown-container {
+        --plan-caret-color: var(--color-text-secondary, #e9ecef);
     }
 
     /* Avoid pseudo-element overlays for <select> in dark mode; some browsers
