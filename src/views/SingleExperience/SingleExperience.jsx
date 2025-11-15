@@ -219,7 +219,7 @@ export default function SingleExperience() {
       currentPlan?.permissions?.find(
         (p) => p.entity === "user" && p.type === "owner"
       ),
-    [currentPlan?.permissions]
+    [currentPlan]
   );
 
   const planOwnerId = useMemo(
@@ -232,7 +232,7 @@ export default function SingleExperience() {
       currentPlan?.permissions
         ?.filter((p) => p.entity === "user" && p.type === "collaborator")
         .map((p) => p._id) || [],
-    [currentPlan?.permissions]
+    [currentPlan]
   );
 
   // Memoize owner ID arrays to prevent infinite re-renders from hook
