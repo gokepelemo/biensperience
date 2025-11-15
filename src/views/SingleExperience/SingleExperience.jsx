@@ -542,6 +542,35 @@ export default function SingleExperience() {
     fetchAllData();
   }, [fetchAllData]);
 
+  // Handle hash-based plan deep linking (e.g., #plan-{planId})
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#plan-')) {
+      const planId = hash.substring(6); // Remove '#plan-' prefix
+      debug.log('Hash-based plan navigation detected:', planId);
+
+      // Wait for plans to load before selecting
+      if (!plansLoading && collaborativePlans.length > 0) {
+        const targetPlan = collaborativePlans.find(p => idEquals(p._id, planId));
+        if (targetPlan) {
+          debug.log('Switching to plan:', targetPlan._id);
+          setSelectedPlanId(targetPlan._id);
+          setActiveTab('myplan');
+
+          // Scroll to plan section after a brief delay to ensure tab switch
+          setTimeout(() => {
+            const planSection = document.querySelector('.my-plan-view');
+            if (planSection) {
+              planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }, 100);
+        } else {
+          debug.warn('Plan ID from hash not found in collaborative plans:', planId);
+        }
+      }
+    }
+  }, [collaborativePlans, plansLoading, setSelectedPlanId, setActiveTab]);
+
   // Register h1 and action buttons for navbar
   useEffect(() => {
     if (h1Ref.current) {

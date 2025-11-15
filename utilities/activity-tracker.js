@@ -103,15 +103,33 @@ async function trackCreate(options) {
     reason = 'Resource created'
   } = options;
 
+  // Determine resource name based on type
+  let resourceName = 'Unnamed';
+  let action = 'resource_created';
+
+  if (resourceType === 'Plan') {
+    // For plans, use the experience name
+    if (resource.experience) {
+      if (typeof resource.experience === 'object' && resource.experience.name) {
+        resourceName = resource.experience.name;
+      } else {
+        resourceName = 'Plan';
+      }
+    }
+    action = 'plan_created'; // Use specific plan action
+  } else {
+    resourceName = resource.name || resource.email || 'Unnamed';
+  }
+
   // Non-blocking: Fire and forget
   Activity.create({
     timestamp: new Date(),
-    action: 'resource_created',
+    action,
     actor: extractActor(actor),
     resource: {
       id: resource._id,
       type: resourceType,
-      name: resource.name || resource.email || 'Unnamed'
+      name: resourceName
     },
     previousState: null,
     newState: resource.toObject ? resource.toObject() : resource,
@@ -156,15 +174,33 @@ async function trackUpdate(options) {
     ? calculateChanges(previousState, newState, fieldsToTrack)
     : [];
 
+  // Determine resource name based on type
+  let resourceName = 'Unnamed';
+  let action = 'resource_updated';
+
+  if (resourceType === 'Plan') {
+    // For plans, use the experience name
+    if (resource.experience) {
+      if (typeof resource.experience === 'object' && resource.experience.name) {
+        resourceName = resource.experience.name;
+      } else {
+        resourceName = 'Plan';
+      }
+    }
+    action = 'plan_updated'; // Use specific plan action
+  } else {
+    resourceName = resource.name || resource.email || 'Unnamed';
+  }
+
   // Non-blocking: Fire and forget
   Activity.create({
     timestamp: new Date(),
-    action: 'resource_updated',
+    action,
     actor: extractActor(actor),
     resource: {
       id: resource._id,
       type: resourceType,
-      name: resource.name || resource.email || 'Unnamed'
+      name: resourceName
     },
     previousState,
     newState,
@@ -201,15 +237,33 @@ async function trackDelete(options) {
     reason = 'Resource deleted'
   } = options;
 
+  // Determine resource name based on type
+  let resourceName = 'Unnamed';
+  let action = 'resource_deleted';
+
+  if (resourceType === 'Plan') {
+    // For plans, use the experience name
+    if (resource.experience) {
+      if (typeof resource.experience === 'object' && resource.experience.name) {
+        resourceName = resource.experience.name;
+      } else {
+        resourceName = 'Plan';
+      }
+    }
+    action = 'plan_deleted'; // Use specific plan action
+  } else {
+    resourceName = resource.name || resource.email || 'Unnamed';
+  }
+
   // Non-blocking: Fire and forget
   Activity.create({
     timestamp: new Date(),
-    action: 'resource_deleted',
+    action,
     actor: extractActor(actor),
     resource: {
       id: resource._id,
       type: resourceType,
-      name: resource.name || resource.email || 'Unnamed'
+      name: resourceName
     },
     previousState: resource.toObject ? resource.toObject() : resource,
     newState: null,

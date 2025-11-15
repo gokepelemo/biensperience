@@ -301,13 +301,14 @@ async function getRecentActivity(userId) {
       let resourceLink = null;
       let targetName = activity.target?.name || null;
 
-      // For plan-related activities, populate the experience name
-      if (activity.resource?.type === 'Plan' && (!activity.resource?.name || activity.resource?.name === 'Unnamed Plan')) {
+      // For plan-related activities, populate the experience name and create deep link
+      if (activity.resource?.type === 'Plan') {
         try {
           const plan = await Plan.findById(activity.resource.id).populate('experience', 'name').lean();
           if (plan && plan.experience) {
             resourceName = plan.experience.name;
-            resourceLink = `/experiences/${plan.experience._id}`;
+            // Create hash-based deep link to specific plan
+            resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}`;
           }
         } catch (err) {
           backendLogger.warn('Failed to populate plan experience for activity', { activityId: activity._id });
@@ -385,9 +386,9 @@ function formatActivityAction(action) {
     'resource_created': 'Created',
     'resource_updated': 'Updated',
     'resource_deleted': 'Deleted',
-    'plan_created': 'Created plan for',
-    'plan_updated': 'Updated plan for',
-    'plan_deleted': 'Removed plan for',
+    'plan_created': 'Plan created on',
+    'plan_updated': 'Plan updated on',
+    'plan_deleted': 'Plan deleted from',
     'permission_added': 'Shared',
     'permission_removed': 'Unshared',
     'user_registered': 'Joined',

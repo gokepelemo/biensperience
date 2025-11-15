@@ -512,7 +512,9 @@ const deletePlan = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: "Invalid plan ID" });
   }
 
-  const plan = await Plan.findById(id).select('user permissions experience');
+  const plan = await Plan.findById(id)
+    .select('user permissions experience')
+    .populate('experience', 'name'); // Populate for activity logging
 
   if (!plan) {
     return res.status(404).json({ error: "Plan not found" });
