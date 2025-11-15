@@ -2259,19 +2259,20 @@ export default function SingleExperience() {
                     </button>
                   ) : collaborativePlans.length > 0 && (
                     // Always render as select for consistency, but style differently based on count
-                    <select
-                      className={`plan-tab-button ${collaborativePlans.length > 1 ? 'plan-tab-select' : ''} ${
-                        activeTab === "myplan" ? "active" : ""
-                      }`}
-                      value={selectedPlanId || ""}
-                      onChange={(e) => {
-                        handlePlanChange(e.target.value);
-                        setActiveTab("myplan");
-                      }}
-                      onClick={() => setActiveTab("myplan")}
-                      disabled={collaborativePlans.length === 1}
-                    >
-                      {collaborativePlans.map((plan) => {
+                    <div className={`plan-tab-dropdown-container ${activeTab === 'myplan' ? 'active' : ''}`}>
+                      <select
+                        className={`plan-tab-button ${collaborativePlans.length > 1 ? 'plan-tab-select' : ''} ${
+                          activeTab === "myplan" ? "active" : ""
+                        }`}
+                        value={selectedPlanId || ""}
+                        onChange={(e) => {
+                          handlePlanChange(e.target.value);
+                          setActiveTab("myplan");
+                        }}
+                        onClick={() => setActiveTab("myplan")}
+                        disabled={collaborativePlans.length === 1}
+                      >
+                        {collaborativePlans.map((plan) => {
                         // Determine display name for the plan
                         // Handle case where plan.user might be an ID or an object
                         const planUserId = plan.user?._id || plan.user;
@@ -2292,7 +2293,8 @@ export default function SingleExperience() {
                           </option>
                         );
                       })}
-                    </select>
+                      </select>
+                    </div>
                   )}
                 </div>
 
