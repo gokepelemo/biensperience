@@ -969,17 +969,18 @@ export default function SingleExperience() {
   }, [experienceId, user._id]);
 
   const checkPlanDivergence = useCallback((plan, experience) => {
-    if (!plan || !experience || !experience.plan_items) {
+    // Defensive guards: ensure both plan.plan and experience.plan_items are arrays
+    if (!plan || !experience || !Array.isArray(experience.plan_items) || !Array.isArray(plan.plan)) {
       return false;
     }
 
     // Check if plan items count differs
-    if (plan.plan.length !== experience.plan_items.length) {
+    if ((plan.plan || []).length !== (experience.plan_items || []).length) {
       return true;
     }
 
     // Check if any plan item has changed
-    for (let i = 0; i < plan.plan.length; i++) {
+    for (let i = 0; i < (plan.plan || []).length; i++) {
       const planItem = plan.plan[i];
       const experienceItem = experience.plan_items.find(
         (item) => item._id.toString() === planItem.plan_item_id.toString()
@@ -2166,94 +2167,152 @@ export default function SingleExperience() {
       const addData =
         data !== null ? data : plannedDate ? { planned_date: plannedDate } : {};
       const previousState = userHasExperience;
+      // Snapshot previous plan-related state for rollback if needed
+      const prevUserPlan = userPlan;
+      const prevCollaborativePlans = collaborativePlans ? [...collaborativePlans] : [];
+      const prevSelectedPlanId = selectedPlanId;
+      const prevDisplayedPlannedDate = displayedPlannedDate;
+      const prevUserPlannedDate = userPlannedDate;
+
       try {
-        // Optimistically update UI
+        // Optimistically update UI (quick feedback)
         setUserHasExperience(true);
         setShowDatePicker(false);
         setIsEditingDate(false);
         setPlannedDate("");
         setUserPlannedDate(addData.planned_date || null);
 
-        // Create a plan for this experience
+        // Insert a temporary optimistic plan into the list so the UI reflects change immediately
+        const tempId = `temp-${Date.now()}`;
+        const tempPlan = normalizePlan({
+          _id: tempId,
+          experience: experience._id,
+          user: user._id || (user && user._id),
+          planned_date: addData.planned_date || null,
+          permissions: [{ _id: user._id, entity: 'user', type: 'owner' }],
+        });
+
+        setSelectedPlanId(tempId);
+        setUserPlan(tempPlan);
+        setDisplayedPlannedDate(addData.planned_date || null);
+        setCollaborativePlans((prev) => [tempPlan, ...(prev || [])]);
+
+        // Record optimistic plan state in DataContext so canonical updates can preserve optimistic UI
         try {
-          // Suppress handling of immediate broadcasted plan events so
-          // our optimistic UI changes are not overwritten.
+          setOptimisticPlanStateForExperience(experience._id, {
+            selectedPlanId: tempId,
+            userPlan: tempPlan,
+            displayedPlannedDate: addData.planned_date || null,
+            userHasExperience: true,
+          });
+        } catch (err) {
+          debug.warn('Failed to set optimistic plan state in DataContext', err);
+        }
+
+        // Create a plan for this experience (suppress immediate broadcast handling)
+        try {
           suppressPlanEventsFor(PLAN_EVENT_SUPPRESSION_MS);
 
           const newPlan = await createPlan(
             experience._id,
             addData.planned_date || null
           );
-          
-          logger.info("Plan created", { 
+
+          logger?.info?.("Plan created", {
             planId: newPlan?._id,
-            experienceId: experience._id
+            experienceId: experience._id,
           });
 
-          setSelectedPlanId(newPlan._id && newPlan._id.toString ? newPlan._id.toString() : newPlan._id);
-          setUserPlan(newPlan);
+          // Replace temp plan (if present) with canonical server plan
+          const normalizedNew = normalizePlan(newPlan);
+          setCollaborativePlans((prev) => {
+            try {
+              // Replace temp entry if present
+              const replaced = (prev || []).map((p) => (p._id === tempId ? normalizedNew : p));
+              // Ensure canonical plan is present (de-duplicate by id)
+              const exists = replaced.some((p) => idEquals(p._id, normalizedNew._id));
+              if (!exists) return [normalizedNew, ...replaced];
+              return replaced;
+            } catch (err) {
+              debug.warn('Error merging created plan into collaborativePlans', err);
+              return [normalizedNew, ...(prev || [])];
+            }
+          });
+
+          // Update selection and userPlan to canonical plan
+          const canonicalId = normalizedNew._id && normalizedNew._id.toString ? normalizedNew._id.toString() : normalizedNew._id;
+          setSelectedPlanId(canonicalId);
+          setUserPlan(normalizedNew);
           setUserHasExperience(true);
           setUserPlannedDate(addData.planned_date || null);
           setDisplayedPlannedDate(addData.planned_date || null);
-          
-          // Normalize and add the new plan to collaborativePlans if missing
-          const normalizedNew = normalizePlan(newPlan);
-          setCollaborativePlans(prev => {
-            const exists = prev.some(p => idEquals(p._id, normalizedNew._id));
-            if (exists) return prev;
-            return [normalizedNew, ...prev];
-          });
 
-          // Record optimistic plan state in DataContext so canonical updates
-          // can preserve optimistic UI until the backend converges.
+          // Persist optimistic marker with canonical id
           try {
             setOptimisticPlanStateForExperience(experience._id, {
-              selectedPlanId: newPlan._id && newPlan._id.toString ? newPlan._id.toString() : newPlan._id,
-              userPlan: newPlan,
+              selectedPlanId: canonicalId,
+              userPlan: normalizedNew,
               displayedPlannedDate: addData.planned_date || null,
               userHasExperience: true,
             });
           } catch (err) {
-            debug.warn('Failed to set optimistic plan state in DataContext', err);
+            debug.warn('Failed to set optimistic plan state in DataContext (canonical)', err);
           }
 
           // DON'T call fetchUserPlan() or fetchCollaborativePlans() immediately
           // They might return stale data before the database has the new plan.
-          // We already have fresh data from createPlan() API response and manually
-          // added the plan to collaborativePlans. Delay all fetches to avoid
-          // racing with optimistic state.
+          // Delay all fetches to avoid racing with optimistic state.
           setTimeout(() => {
             fetchPlans().catch(() => {});
-            // Refresh user plan and collaborative plans after delay to ensure database consistency
             fetchUserPlan().catch(() => {});
             fetchCollaborativePlans().catch(() => {});
-            // Refresh experience after other plan fetches to ensure canonical state
             fetchExperience().catch(() => {});
           }, Math.max(800, PLAN_EVENT_SUPPRESSION_MS));
 
           // Record that we handled a local plan event to block immediate API overwrites
           lastLocalPlanEventAtRef.current = Date.now();
 
+          // Success feedback
+          try {
+            success(lang.en.success?.experienceCreated || "Planned");
+          } catch (e) {
+            // ignore toast failures
+          }
+
           setActiveTab("myplan");
         } catch (planErr) {
-          logger.error("Error creating plan", { 
+          logger?.error?.("Error creating plan", {
             experienceId: experience._id,
-            error: planErr.message
+            error: planErr?.message,
           }, planErr);
-          // Revert on error
+
+          // Rollback optimistic changes
           setUserHasExperience(previousState);
-          setShowDatePicker(true);
-          handleError(planErr, { context: "Create plan" });
+          setUserPlan(prevUserPlan);
+          setSelectedPlanId(prevSelectedPlanId);
+          setDisplayedPlannedDate(prevDisplayedPlannedDate);
+          setUserPlannedDate(prevUserPlannedDate);
+          setCollaborativePlans(prevCollaborativePlans);
+
+          // Clear optimistic state in DataContext
+          try {
+            clearOptimisticPlanStateForExperience(experience._id);
+          } catch (err) {
+            debug.warn('Failed to clear optimistic plan state in DataContext', err);
+          }
+
+          const errorMsg = handleError(planErr, { context: "Create plan" }) || "Failed to create plan";
+          showError(errorMsg);
           return;
         }
-        // Do NOT refresh the experience synchronously here — we schedule a
-        // background refresh above after the suppression window. This avoids
-        // overwriting optimistic UI state with a server response that may not
-        // yet include the newly created plan.
       } catch (err) {
-        // Revert on error
+        // Revert on unexpected error
         setUserHasExperience(previousState);
-        setShowDatePicker(true);
+        setUserPlan(prevUserPlan);
+        setSelectedPlanId(prevSelectedPlanId);
+        setDisplayedPlannedDate(prevDisplayedPlannedDate);
+        setUserPlannedDate(prevUserPlannedDate);
+        setCollaborativePlans(prevCollaborativePlans);
         handleError(err, { context: "Add experience" });
       }
     },
