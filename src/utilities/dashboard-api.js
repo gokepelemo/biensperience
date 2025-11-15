@@ -29,3 +29,29 @@ export async function getDashboardData() {
     throw error;
   }
 }
+
+/**
+ * Get paginated activity feed for the current user
+ * @param {number} page - Page number (default: 1)
+ * @param {number} limit - Items per page (default: 20)
+ * @returns {Promise<Object>} Activities and pagination metadata
+ */
+export async function getActivityFeed(page = 1, limit = 20) {
+  try {
+    const url = `${BASE_URL}/activity-feed?page=${page}&limit=${limit}`;
+    const result = await sendRequest(url);
+    const payload = (result && result.data) ? result.data : result || {};
+
+    logger.debug('[dashboard-api] Activity feed fetched', {
+      page,
+      limit,
+      activitiesCount: payload.activities?.length || 0,
+      hasMore: payload.pagination?.hasMore
+    });
+
+    return payload;
+  } catch (error) {
+    logger.error('[dashboard-api] Failed to fetch activity feed', error);
+    throw error;
+  }
+}

@@ -183,7 +183,7 @@ export default function Dashboard() {
             <Row>
               {/* Recent Activity */}
               <Col lg={8} style={{ marginBottom: 'var(--space-6)' }}>
-                <ActivityList activities={recentActivity} />
+                <ActivityList initialActivities={recentActivity} />
               </Col>
 
               {/* Quick Actions & Upcoming Plans */}

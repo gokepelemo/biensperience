@@ -285,14 +285,22 @@ async function getDashboardStats(userId) {
 /**
  * Get recent activity for the user
  * Optimized query with proper indexing on timestamp
+ * @param {ObjectId} userId - User ID
+ * @param {Object} options - Query options
+ * @param {number} options.limit - Number of activities to return (default: 10)
+ * @param {number} options.skip - Number of activities to skip (default: 0)
+ * @returns {Promise<Array>} Array of enriched activities
  */
-async function getRecentActivity(userId) {
+async function getRecentActivity(userId, options = {}) {
   try {
+    const { limit = 10, skip = 0 } = options;
+
     const activities = await Activity.find({
       'actor._id': userId // Activities performed by the user
     })
     .sort({ timestamp: -1 })
-    .limit(10)
+    .limit(limit)
+    .skip(skip)
     .lean();
 
     // For each activity, populate related data if needed
@@ -386,15 +394,15 @@ function formatActivityAction(action) {
     'resource_created': 'Created',
     'resource_updated': 'Updated',
     'resource_deleted': 'Deleted',
-    'plan_created': 'Plan created on',
-    'plan_updated': 'Plan updated on',
-    'plan_deleted': 'Plan deleted from',
+    'plan_created': 'Created a plan on',
+    'plan_updated': 'Updated a plan on',
+    'plan_deleted': 'Deleted a plan from',
     'permission_added': 'Shared',
     'permission_removed': 'Unshared',
-    'user_registered': 'Joined',
-    'email_verified': 'Verified email',
-    'plan_item_completed': 'Completed item in',
-    'plan_item_uncompleted': 'Uncompleted item in'
+    'user_registered': 'Joined Biensperience',
+    'email_verified': 'Verified email address',
+    'plan_item_completed': 'Marked a plan item complete on',
+    'plan_item_uncompleted': 'Marked a plan item incomplete on'
   };
 
   return actionMap[action] || action.replace(/_/g, ' ');
@@ -429,6 +437,61 @@ function formatDate(date) {
   });
 }
 
+/**
+ * Get paginated activity feed for the authenticated user
+ * Supports infinite scroll with cursor-based pagination
+ */
+async function getActivityFeed(req, res) {
+  try {
+    const userId = req.user._id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    backendLogger.info('Fetching activity feed', {
+      userId: userId.toString(),
+      page,
+      limit,
+      skip
+    });
+
+    // Get total count for pagination metadata
+    const totalCount = await Activity.countDocuments({
+      'actor._id': userId
+    });
+
+    // Get activities with pagination
+    const activities = await getRecentActivity(userId, { limit, skip });
+
+    const response = {
+      activities,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasMore: skip + activities.length < totalCount
+      }
+    };
+
+    backendLogger.info('Activity feed fetched successfully', {
+      userId: userId.toString(),
+      activitiesCount: activities.length,
+      totalCount,
+      hasMore: response.pagination.hasMore
+    });
+
+    return successResponse(res, response);
+  } catch (error) {
+    backendLogger.error('Error fetching activity feed', {
+      userId: req.user._id.toString(),
+      error: error.message
+    }, error);
+    return errorResponse(res, error, 'Error fetching activity feed');
+  }
+}
+
 module.exports = {
-  getDashboard
+  getDashboard,
+  getActivityFeed
 };
