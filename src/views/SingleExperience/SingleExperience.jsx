@@ -38,45 +38,70 @@ import {
   createPlan,
   deletePlan,
   getExperiencePlans,
-  updatePlan,
-  updatePlanItem,
-  addPlanItem as addPlanItemToInstance,
-  deletePlanItem as deletePlanItemFromInstance,
-  removeCollaborator,
-  addCollaborator,
-} from "../../utilities/plans-api";
-import {
-  formatDateShort,
-  formatDateForInput,
-  formatDateMetricCard,
-  getMinimumPlanningDate,
-  isValidPlannedDate,
-} from "../../utilities/date-utils";
-import { handleError } from "../../utilities/error-handler";
-import { createExpirableStorage } from "../../utilities/cookie-utils";
-import { formatCurrency } from "../../utilities/currency-utils";
-import { createUrlSlug } from "../../utilities/url-utils";
-import { sendEmailInvite } from "../../utilities/invites-api";
-import { searchUsers } from "../../utilities/users-api";
-import { logger } from "../../utilities/logger";
-import debug from "../../utilities/debug";
+                  {plansLoading ? (
+                    // Show loading state for plan tabs
+                    <button className="plan-tab-button" disabled>
+                      <Loading size="sm" variant="inline" showMessage={false} />
+                    </button>
+                  ) : collaborativePlans.length > 1 ? (
+                    // Multiple plans -> render select dropdown
+                    <div className={`plan-tab-dropdown-container ${activeTab === 'myplan' ? 'active' : ''}`}>
+                      <select
+                        className={`plan-tab-button plan-tab-select ${
+                          activeTab === "myplan" ? "active" : ""
+                        }`}
+                        value={selectedPlanId || ""}
+                        onChange={(e) => {
+                          handlePlanChange(e.target.value);
+                          setActiveTab("myplan");
+                        }}
+                        onClick={() => setActiveTab("myplan")}
+                      >
+                        {collaborativePlans.map((plan) => {
+                          const planUserId = plan.user?._id || plan.user;
+                          const isOwnPlan = idEquals(planUserId, user._id);
+                          let displayName = "Plan";
 
-// Constants for sync alert cookie management
-const SYNC_ALERT_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days (1 week) in milliseconds
+                          if (isOwnPlan) {
+                            displayName = "My Plan";
+                          } else if (plan.user?.name) {
+                            const firstName = plan.user.name.split(' ')[0];
+                            displayName = `${firstName}'s Plan`;
+                          }
 
-// Create expirable storage for sync alert dismissals
-const syncAlertStorage = createExpirableStorage(
-  "planSyncAlertDismissed",
-  SYNC_ALERT_DURATION
-);
+                          return (
+                            <option key={plan._id} value={plan._id}>
+                              {displayName}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  ) : collaborativePlans.length === 1 ? (
+                    // Single accessible plan -> render as a normal tab button (no caret)
+                    (() => {
+                      const plan = collaborativePlans[0];
+                      const planUserId = plan.user?._id || plan.user;
+                      const isOwnPlan = idEquals(planUserId, user._id);
+                      let displayName = "My Plan";
+                      if (!isOwnPlan && plan.user?.name) {
+                        const firstName = plan.user.name.split(' ')[0];
+                        displayName = `${firstName}'s Plan`;
+                      }
 
-/**
- * Checks if sync alert was dismissed for a specific plan and if it's still valid
- * @param {string} planId - The plan ID to check
- * @returns {number|null} Timestamp if dismissed and still valid, null otherwise
- */
-function getSyncAlertCookie(planId) {
-  return syncAlertStorage.get(planId);
+                      return (
+                        <button
+                          className={`plan-tab-button ${activeTab === "myplan" ? "active" : ""}`}
+                          onClick={() => {
+                            setSelectedPlanId(plan._id);
+                            setActiveTab("myplan");
+                          }}
+                        >
+                          {displayName}
+                        </button>
+                      );
+                    })()
+                  ) : null}
 }
 
 /**
