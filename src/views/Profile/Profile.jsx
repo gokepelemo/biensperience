@@ -272,6 +272,22 @@ export default function Profile() {
     getProfile();
   }, [getProfile]);
 
+  // Listen for user profile update events
+  useEffect(() => {
+    const handleUserUpdated = (event) => {
+      const { user: updatedUser } = event.detail || {};
+      if (updatedUser && updatedUser._id === userId) {
+        logger.debug('[Profile] User updated event received', { id: updatedUser._id });
+        setCurrentProfile(updatedUser);
+      }
+    };
+
+    window.addEventListener('user:updated', handleUserUpdated);
+    return () => {
+      window.removeEventListener('user:updated', handleUserUpdated);
+    };
+  }, [userId]);
+
   // Register h1 for navbar integration (but disable showing in navbar for Profile)
   useEffect(() => {
     const h1 = document.querySelector('h1');

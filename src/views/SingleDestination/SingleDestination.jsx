@@ -49,6 +49,22 @@ export default function SingleDestination() {
     }
   }, [destinations, destinationId]);
 
+  // Listen for destination update events to refresh this specific destination
+  useEffect(() => {
+    const handleDestinationUpdated = (event) => {
+      const { destination: updatedDestination } = event.detail || {};
+      if (updatedDestination && updatedDestination._id === destinationId) {
+        logger.debug('[SingleDestination] Destination updated event received', { id: updatedDestination._id });
+        setDestination(updatedDestination);
+      }
+    };
+
+    window.addEventListener('destination:updated', handleDestinationUpdated);
+    return () => {
+      window.removeEventListener('destination:updated', handleDestinationUpdated);
+    };
+  }, [destinationId]);
+
   useEffect(() => {
     const filteredExperiences = experiences.filter((experience) => {
       // destination may be an ObjectId string or a populated object

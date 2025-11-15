@@ -398,7 +398,7 @@ async function showExperienceWithContext(req, res) {
     // OPTIMIZATION: Simplified queries with minimal population and select fields
     // Remove nested population to reduce query complexity
     const experiencePromise = Experience.findById(experienceId)
-      .populate("destination", "name city country slug")
+      .populate("destination", "name city state country slug _id")
       .populate("photos", "url caption photo_credit photo_credit_url width height")
       .select('-__v')  // Exclude version field
       .lean()

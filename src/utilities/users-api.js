@@ -1,4 +1,7 @@
 import { sendRequest } from "./send-request.js";
+import { logger } from "./logger.js";
+import { broadcastEvent } from "./event-bus.js";
+
 const BASE_URL = `/api/users/`;
 
 export function signUp(userData) {
@@ -26,11 +29,37 @@ export async function getBulkUserData(ids) {
 }
 
 export async function updateUser(id, userData) {
-  return await sendRequest(`${BASE_URL}${id}`, "PUT", userData);
+  const result = await sendRequest(`${BASE_URL}${id}`, "PUT", userData);
+
+  // Emit events so components can react
+  try {
+    if (typeof window !== 'undefined' && window.dispatchEvent && result) {
+      window.dispatchEvent(new CustomEvent('user:updated', { detail: { user: result } }));
+      broadcastEvent('user:updated', { user: result });
+      logger.debug('[users-api] User updated event dispatched', { id: result._id });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function updateUserAsAdmin(id, userData) {
-  return await sendRequest(`${BASE_URL}${id}/admin`, "PUT", userData);
+  const result = await sendRequest(`${BASE_URL}${id}/admin`, "PUT", userData);
+
+  // Emit events so components can react
+  try {
+    if (typeof window !== 'undefined' && window.dispatchEvent && result) {
+      window.dispatchEvent(new CustomEvent('user:updated', { detail: { user: result } }));
+      broadcastEvent('user:updated', { user: result });
+      logger.debug('[users-api] User updated (admin) event dispatched', { id: result._id });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function searchUsers(query) {
