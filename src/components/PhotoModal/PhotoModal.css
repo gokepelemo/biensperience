@@ -166,12 +166,6 @@
   -webkit-backdrop-filter: blur(8px);
   max-width: 90vw;
   overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.photo-modal-thumbnails::-webkit-scrollbar {
-  display: none;
 }
 
 .photo-modal-thumbnail {

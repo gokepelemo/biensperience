@@ -1132,6 +1132,68 @@
 }
 
 /* ============================================
+   ICON SPACING (SVG)
+   ============================================ */
+
+/* Global SVG icon padding for consistent spacing across the platform */
+svg {
+  padding-left: var(--space-1);
+  padding-right: var(--space-1);
+}
+
+/* SVG icons in pills - use gap property instead of padding */
+.pill svg {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* SVG icons in buttons - balanced spacing */
+button svg,
+.btn svg {
+  padding-left: var(--space-1);
+  padding-right: var(--space-1);
+}
+
+/* SVG icons in links */
+a svg {
+  padding-left: var(--space-1);
+  padding-right: var(--space-1);
+}
+
+/* First and last SVG children - remove outer padding for edge alignment */
+svg:first-child {
+  padding-left: 0;
+}
+
+svg:last-child {
+  padding-right: 0;
+}
+
+/* SVG in flex containers with gap property - no additional padding needed */
+.d-flex svg,
+.flex-center svg,
+.flex-between svg,
+[style*="gap:"] svg,
+[style*="gap "] svg {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Standalone SVG icons (not in containers) */
+svg.standalone-icon {
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+/* Icons in activity list and similar components */
+.activity-item svg,
+.metric-card svg,
+.plan-item svg {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* ============================================
    DARK MODE COMPATIBILITY
    ============================================ */
 

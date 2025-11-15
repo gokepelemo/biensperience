@@ -143,12 +143,30 @@ async function index(req, res) {
         }
       }
       // Support filtering by experience type (tags). Matches array values or comma-separated strings.
+      // We build a flexible regex that tolerates special characters (e.g. '&') and punctuation
+      // so that slugs like "food-drink" will match stored values like "Food & Drink".
       if (req.query.experience_type) {
         const et = String(req.query.experience_type).trim();
         if (et.length) {
-          const regex = new RegExp(escapeRegex(et), 'i');
-          // This will match if experience_type is a string that contains the tag or an array where an element matches
-          filter.experience_type = { $regex: regex };
+          // Create a slug-like split of the input (words only) and join with a flexible separator
+          const slugify = (s) => String(s || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-+|-+$/g, '');
+
+          const parts = slugify(et).split('-').filter(Boolean).map(p => escapeRegex(p));
+
+          if (parts.length === 0) {
+            // Fallback to exact escaped match
+            filter.experience_type = { $regex: new RegExp(escapeRegex(et), 'i') };
+          } else if (parts.length === 1) {
+            filter.experience_type = { $regex: new RegExp(parts[0], 'i') };
+          } else {
+            // Allow any non-word or underscore characters between parts (covers & and punctuation)
+            const pattern = parts.join('[\\W_]*');
+            filter.experience_type = { $regex: new RegExp(pattern, 'i') };
+          }
         }
       }
 

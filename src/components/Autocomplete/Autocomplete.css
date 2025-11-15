@@ -105,25 +105,6 @@
   }
 }
 
-/* Custom scrollbar */
-.autocomplete-dropdown::-webkit-scrollbar {
-  width: 8px;
-}
-
-.autocomplete-dropdown::-webkit-scrollbar-track {
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-md);
-}
-
-.autocomplete-dropdown::-webkit-scrollbar-thumb {
-  background: var(--color-border-medium);
-  border-radius: var(--radius-md);
-}
-
-.autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
-}
-
 /* ============================================
    ITEMS CONTAINER
    ============================================ */

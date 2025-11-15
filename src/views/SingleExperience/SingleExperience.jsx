@@ -76,6 +76,11 @@ const syncAlertStorage = createExpirableStorage(
   SYNC_ALERT_DURATION
 );
 
+// Milliseconds to suppress reacting to plan lifecycle events that are
+// triggered by local create/update actions. Adjust this to tune how long
+// optimistic UI is protected from overwriting by immediate broadcasts.
+const PLAN_EVENT_SUPPRESSION_MS = 1200;
+
 /**
  * Checks if sync alert was dismissed for a specific plan and if it's still valid
  * @param {string} planId - The plan ID to check
@@ -100,7 +105,7 @@ function idEquals(a, b) {
 
 export default function SingleExperience() {
   const { user } = useUser();
-  const { removeExperience, fetchExperiences, fetchPlans } = useData();
+  const { removeExperience, fetchExperiences, fetchPlans, experiences: ctxExperiences } = useData();
   const {
     registerH1,
     setPageActionButtons,
@@ -174,8 +179,184 @@ export default function SingleExperience() {
   // Ref for dynamic font sizing on planned date metric
   const plannedDateRef = useRef(null);
 
+  // When we perform a local create/update of a plan we want to avoid
+  // reacting to the immediate broadcasted plan events in a way that
+  // overwrites optimistic local state or re-opens the date picker. Use
+  // this ref to temporarily suppress parts of the global event handlers
+  // for a short window while the local operation completes.
+  const suppressPlanEventsRef = useRef(false);
+
+  const suppressPlanEventsFor = (ms = PLAN_EVENT_SUPPRESSION_MS) => {
+    suppressPlanEventsRef.current = true;
+    setTimeout(() => {
+      suppressPlanEventsRef.current = false;
+    }, ms);
+  };
+
+  // Timestamp of the last local plan event (create/update/delete) handled
+  // locally. Used to ignore near-immediate API fetches that would otherwise
+  // overwrite optimistic/event-driven state. Value is ms since epoch.
+  const lastLocalPlanEventAtRef = useRef(0);
+
   // Ref for h1 element to ensure proper registration
   const h1Ref = useRef(null);
+
+  // Listen for global plan-created events so this view updates immediately
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const newPlan = detail.plan;
+        const rawExp = detail.experienceId || newPlan?.experience?._id || newPlan?.experience || null;
+        const newExperienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        if (!newPlan || !newExperienceId) return;
+        // Only react if this plan is for the currently viewed experience
+        if (newExperienceId !== experienceId?.toString()) return;
+
+        // Update local state to reflect newly created plan
+        setUserHasExperience(true);
+        setUserPlan(newPlan);
+        // Record that we just handled a local/external plan event so
+        // immediate API fetches shouldn't stomp our optimistic/event state
+        lastLocalPlanEventAtRef.current = Date.now();
+        // Only override displayed/user planned date if we're not currently
+        // suppressing plan events for a local update (optimistic state)
+        if (!suppressPlanEventsRef.current) {
+          setDisplayedPlannedDate(newPlan.planned_date || null);
+          setUserPlannedDate(newPlan.planned_date || null);
+        }
+        setSelectedPlanId(newPlan._id && newPlan._id.toString ? newPlan._id.toString() : newPlan._id);
+        setCollaborativePlans((prev) => {
+          // Avoid duplicates
+          const exists = prev.some(p => p._id && newPlan._id && (p._id.toString() === newPlan._id.toString()));
+          if (exists) return prev;
+          return [newPlan, ...prev];
+        });
+        // Only switch to My Plan tab automatically if not suppressing events
+        if (!suppressPlanEventsRef.current) setActiveTab('myplan');
+      } catch (err) {
+        debug.warn('Failed to handle bien:plan_created event', err);
+      }
+    };
+
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('bien:plan_created', handler);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined' && window.removeEventListener) {
+        window.removeEventListener('bien:plan_created', handler);
+      }
+    };
+  }, [experienceId]);
+
+  // Listen for plan updates (e.g., planned_date edits) so the UI updates immediately
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onPlanUpdated = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const updatedPlan = detail.plan;
+        const rawExp = detail.experienceId || updatedPlan?.experience?._id || updatedPlan?.experience || null;
+        const updatedExperienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        if (!updatedPlan || !updatedExperienceId) return;
+
+        // Compare normalized experience id to current route experienceId
+        if (updatedExperienceId !== experienceId?.toString()) return;
+
+        // If the updated plan affects the user's own plan, update userPlan
+        if (userPlan && updatedPlan._id && userPlan._id && updatedPlan._id.toString() === userPlan._id.toString()) {
+          setUserPlan(updatedPlan);
+        }
+        // Record recent plan event
+        lastLocalPlanEventAtRef.current = Date.now();
+
+        // Replace or insert into collaborativePlans (ensure no duplicates)
+        setCollaborativePlans((prev) => {
+          const found = prev.findIndex(p => p._id && updatedPlan._id && (p._id.toString() === updatedPlan._id.toString()));
+          if (found >= 0) {
+            const copy = [...prev];
+            copy[found] = updatedPlan;
+            return copy;
+          }
+          // If not found but this plan belongs to this experience, add it to front
+          return [updatedPlan, ...prev];
+        });
+
+        // If this update is for the currently selected plan, update displayed date and userPlan
+        if (selectedPlanId && updatedPlan._id && selectedPlanId.toString() === updatedPlan._id.toString()) {
+          if (!suppressPlanEventsRef.current) {
+            setDisplayedPlannedDate(updatedPlan.planned_date || null);
+            setUserPlannedDate(updatedPlan.planned_date || null);
+          }
+          setUserPlan((prev) => (prev && prev._id && prev._id.toString() === updatedPlan._id.toString() ? updatedPlan : prev));
+        }
+
+        // If this update is from the current user (and not already marked), ensure userHasExperience true
+        setUserHasExperience(true);
+
+      } catch (err) {
+        debug.warn('Failed to handle bien:plan_updated event', err);
+      }
+    };
+
+    window.addEventListener('bien:plan_updated', onPlanUpdated);
+
+    return () => {
+      window.removeEventListener('bien:plan_updated', onPlanUpdated);
+    };
+  }, [userPlan, selectedPlanId, experienceId, setCollaborativePlans, setUserPlan, setDisplayedPlannedDate, setUserPlannedDate]);
+
+  // Listen for plan deletions so the UI updates immediately when a plan is removed
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onPlanDeleted = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const deletedPlan = detail.plan;
+        const rawExp = detail.experienceId || deletedPlan?.experience?._id || deletedPlan?.experience || null;
+        const deletedExperienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        if (!deletedExperienceId) return;
+
+        if (deletedExperienceId !== experienceId?.toString()) return;
+
+        // Remove plan from collaborativePlans if present
+        if (deletedPlan && deletedPlan._id) {
+          setCollaborativePlans((prev) => prev.filter(p => !(p._id && p._id.toString() === deletedPlan._id.toString())));
+
+          // If the deleted plan was the currently selected plan, clear selection
+          if (selectedPlanId && deletedPlan._id && selectedPlanId.toString() === deletedPlan._id.toString()) {
+            setSelectedPlanId(null);
+            setDisplayedPlannedDate(null);
+            setUserPlannedDate(null);
+            setUserPlan(null);
+            // If user had this plan, mark as not having an experience
+            setUserHasExperience(false);
+            // Record recent plan event to avoid immediate fetches stomping state
+            lastLocalPlanEventAtRef.current = Date.now();
+            // Switch back to experience tab
+            setActiveTab('experience');
+          }
+        } else {
+          // If no plan payload provided, conservatively clear userHasExperience
+          setUserHasExperience(false);
+          setUserPlan(null);
+          setDisplayedPlannedDate(null);
+          lastLocalPlanEventAtRef.current = Date.now();
+        }
+      } catch (err) {
+        debug.warn('Failed to handle bien:plan_deleted event', err);
+      }
+    };
+
+    window.addEventListener('bien:plan_deleted', onPlanDeleted);
+
+    return () => {
+      window.removeEventListener('bien:plan_deleted', onPlanDeleted);
+    };
+  }, [selectedPlanId, experienceId]);
 
   // Get owner and collaborator user IDs for experience
   const experienceOwnerPermission = useMemo(
@@ -218,6 +399,38 @@ export default function SingleExperience() {
       ),
     [currentPlan]
   );
+
+  // Keep local `experience` in sync when DataContext's `experiences` is updated
+  useEffect(() => {
+    try {
+      if (!ctxExperiences || !ctxExperiences.length) return;
+      const updated = ctxExperiences.find((e) => idEquals(e._id, experienceId));
+      if (!updated) return;
+
+      // Avoid stomping optimistic/local event-driven state shortly after a plan event
+      const sinceEvent = Date.now() - (lastLocalPlanEventAtRef.current || 0);
+      if (sinceEvent >= 0 && sinceEvent < PLAN_EVENT_SUPPRESSION_MS) {
+        debug.log('Skipping context-driven experience update due to recent plan event', { sinceEvent });
+        return;
+      }
+
+      // Only apply if different to avoid unnecessary renders
+      try {
+        const a = JSON.stringify(updated || {});
+        const b = JSON.stringify(experience || {});
+        if (a !== b) {
+          setExperience(updated);
+          setTravelTips(updated.travel_tips || []);
+        }
+      } catch (err) {
+        // Fallback to naive set on JSON stringify error
+        setExperience(updated);
+        setTravelTips(updated.travel_tips || []);
+      }
+    } catch (err) {
+      debug.warn('Failed to apply context experience update', err);
+    }
+  }, [ctxExperiences, experienceId, experience]);
 
   const planOwnerId = useMemo(
     () => planOwnerPermission?._id,
@@ -309,7 +522,8 @@ export default function SingleExperience() {
 
       // Set selectedPlanId if not already set and user has a plan
       if (fetchedUserPlan) {
-        setSelectedPlanId((prev) => prev || fetchedUserPlan._id);
+        const uid = fetchedUserPlan._id && fetchedUserPlan._id.toString ? fetchedUserPlan._id.toString() : fetchedUserPlan._id;
+        setSelectedPlanId((prev) => prev || uid);
       }
 
       // Set collaborative plans data
@@ -358,7 +572,7 @@ export default function SingleExperience() {
 
       // Set selectedPlanId if not already set and plans exist
       if (sortedPlans.length > 0) {
-        const newSelectedId = sortedPlans[0]._id;
+        const newSelectedId = sortedPlans[0]._id && sortedPlans[0]._id.toString ? sortedPlans[0]._id.toString() : sortedPlans[0]._id;
         debug.log("Setting selectedPlanId to:", newSelectedId);
         setSelectedPlanId((prev) => prev || newSelectedId);
       }
@@ -421,17 +635,31 @@ export default function SingleExperience() {
         (p) =>
           p.experience._id === experienceId || p.experience === experienceId
       );
-      setUserPlan(plan || null);
+      // If we recently handled a local plan event, avoid letting this
+      // API-based fetch overwrite our event-driven/optimistic state.
+      const sinceEvent = Date.now() - (lastLocalPlanEventAtRef.current || 0);
+      if (sinceEvent >= 0 && sinceEvent < PLAN_EVENT_SUPPRESSION_MS) {
+        debug.log('Skipping fetchUserPlan update due to recent local plan event', { sinceEvent });
+        return plan || null;
+      }
 
-      // Set userHasExperience based on Plan model (not experience.users)
-      setUserHasExperience(!!plan);
-
-      // Set userPlannedDate from the plan (no longer using experience.users)
-      setUserPlannedDate(plan?.planned_date || null);
+      // Only update state if we found a plan OR if we don't currently have optimistic state set
+      // This prevents race conditions where fetchUserPlan() is called before the API has returned the newly created plan
+      if (plan) {
+        setUserPlan(plan);
+        setUserHasExperience(true);
+        setUserPlannedDate(plan.planned_date || null);
+      } else {
+        // No plan found from API - only clear state if we don't have optimistic state
+        setUserPlan((prev) => prev || null);
+        setUserHasExperience((prev) => prev || false);
+        setUserPlannedDate((prev) => prev || null);
+      }
 
       // Only set selectedPlanId if not already set
       if (plan && !selectedPlanId) {
-        setSelectedPlanId(plan._id);
+        const pid = plan._id && plan._id.toString ? plan._id.toString() : plan._id;
+        setSelectedPlanId(pid);
       }
     } catch (err) {
       debug.error("Error fetching user plan:", err);
@@ -551,7 +779,8 @@ export default function SingleExperience() {
         const targetPlan = collaborativePlans.find(p => idEquals(p._id, planId));
         if (targetPlan) {
           debug.log('Switching to plan:', targetPlan._id);
-          setSelectedPlanId(targetPlan._id);
+          const tid = targetPlan._id && targetPlan._id.toString ? targetPlan._id.toString() : targetPlan._id;
+          setSelectedPlanId(tid);
           setActiveTab('myplan');
 
           // Scroll to plan section after a brief delay to ensure tab switch
@@ -1179,7 +1408,8 @@ export default function SingleExperience() {
 
   const handlePlanChange = useCallback(
     (planId) => {
-      setSelectedPlanId(planId);
+      const pid = planId && planId.toString ? planId.toString() : planId;
+      setSelectedPlanId(pid);
 
       // Update displayed planned date to the selected plan's date
       const selectedPlan = collaborativePlans.find((p) => p._id === planId);
@@ -1606,6 +1836,10 @@ export default function SingleExperience() {
 
         // Create a plan for this experience
         try {
+          // Suppress handling of immediate broadcasted plan events so
+          // our optimistic UI changes are not overwritten.
+          suppressPlanEventsFor(PLAN_EVENT_SUPPRESSION_MS);
+
           const newPlan = await createPlan(
             experience._id,
             addData.planned_date || null
@@ -1616,7 +1850,7 @@ export default function SingleExperience() {
             experienceId: experience._id
           });
 
-          setSelectedPlanId(newPlan._id);
+          setSelectedPlanId(newPlan._id && newPlan._id.toString ? newPlan._id.toString() : newPlan._id);
           setUserPlan(newPlan);
           setUserHasExperience(true);
           setUserPlannedDate(addData.planned_date || null);
@@ -1628,9 +1862,13 @@ export default function SingleExperience() {
             return [newPlan, ...prev];
           });
 
+          // Refresh user/experience-scoped lists now, but delay the global
+          // plans refresh slightly to avoid racing with optimistic state
           await fetchUserPlan();
           await fetchCollaborativePlans();
-          await fetchPlans(); // Refresh global plans state for other views
+          setTimeout(() => {
+            fetchPlans().catch(() => {});
+          }, 800);
           setActiveTab("myplan");
         } catch (planErr) {
           logger.error("Error creating plan", { 
@@ -1675,15 +1913,24 @@ export default function SingleExperience() {
         const dateToSend = plannedDate
           ? new Date(plannedDate).toISOString()
           : null;
+
+        // Suppress reacting to the immediate update event so our optimistic
+        // displayed date isn't overwritten by a racing fetch
+        suppressPlanEventsFor(PLAN_EVENT_SUPPRESSION_MS);
+
+        // Update server
         await updatePlan(selectedPlanId, { planned_date: dateToSend });
 
-        // Refresh plans to get updated data
-        await fetchUserPlan();
-        await fetchCollaborativePlans();
-        await fetchPlans(); // Refresh global plans state
-
-        // Update displayed date
+        // Optimistically update displayed date immediately
         setDisplayedPlannedDate(dateToSend);
+
+        // Refresh plans in background (delayed) so other views eventually
+        // converge to canonical state without racing our optimistic UI
+        setTimeout(() => {
+          fetchUserPlan().catch(() => {});
+          fetchCollaborativePlans().catch(() => {});
+          fetchPlans().catch(() => {});
+        }, 800);
 
         debug.log("Plan date updated successfully");
       } else if (!isOwner(user, experience)) {
@@ -1697,11 +1944,15 @@ export default function SingleExperience() {
           const dateToSend = plannedDate
             ? new Date(plannedDate).toISOString()
             : null;
+
+          suppressPlanEventsFor(PLAN_EVENT_SUPPRESSION_MS);
           await updatePlan(userPlan._id, { planned_date: dateToSend });
-          await fetchUserPlan();
-          await fetchCollaborativePlans();
-          await fetchPlans(); // Refresh global plans state
           setDisplayedPlannedDate(dateToSend);
+          setTimeout(() => {
+            fetchUserPlan().catch(() => {});
+            fetchCollaborativePlans().catch(() => {});
+            fetchPlans().catch(() => {});
+          }, 800);
           debug.log("Existing plan date updated successfully");
         } else {
           // Create new plan by adding experience
@@ -1718,11 +1969,15 @@ export default function SingleExperience() {
           const dateToSend = plannedDate
             ? new Date(plannedDate).toISOString()
             : null;
+
+          suppressPlanEventsFor(1200);
           await updatePlan(userPlan._id, { planned_date: dateToSend });
-          await fetchUserPlan();
-          await fetchCollaborativePlans();
-          await fetchPlans(); // Refresh global plans state
           setDisplayedPlannedDate(dateToSend);
+          setTimeout(() => {
+            fetchUserPlan().catch(() => {});
+            fetchCollaborativePlans().catch(() => {});
+            fetchPlans().catch(() => {});
+          }, 800);
           debug.log("Owner's existing plan date updated successfully");
         } else {
           // Create new plan by adding experience
@@ -2323,7 +2578,7 @@ export default function SingleExperience() {
                             <button
                               className={`plan-tab-button ${activeTab === "myplan" ? "active" : ""}`}
                               onClick={() => {
-                                setSelectedPlanId(onlyPlan._id);
+                                setSelectedPlanId(onlyPlan._id && onlyPlan._id.toString ? onlyPlan._id.toString() : onlyPlan._id);
                                 setActiveTab("myplan");
                               }}
                             >

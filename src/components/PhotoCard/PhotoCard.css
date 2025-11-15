@@ -100,13 +100,6 @@ div.photoFrame {
     background: var(--color-bg-primary);
     border-radius: var(--radius-lg);
     border: 1px solid var(--color-border-light);
-    /* Hide scrollbar but keep functionality */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
-}
-
-.photo-thumbnails::-webkit-scrollbar {
-    display: none; /* Chrome/Safari */
 }
 
 /* Scroll buttons */

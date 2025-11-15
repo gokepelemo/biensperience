@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { resendConfirmation } from '../utilities/users-api';
 import Toast from '../components/Toast/Toast';
 
 const ToastContext = createContext();
@@ -73,6 +74,38 @@ export function ToastProvider({ children }) {
   }, [addToast]);
 
   const error = useCallback((message, options = {}) => {
+    // If message is a structured EMAIL_NOT_VERIFIED payload, render a toast with a resend action
+    if (message && typeof message === 'object' && message.__emailNotVerified) {
+      const email = message.email;
+      const actions = [];
+
+      if (email) {
+        actions.push({
+          label: 'Resend verification',
+          variant: 'primary',
+          onClick: async () => {
+            try {
+              await resendConfirmation(email);
+              // Show success feedback
+              addToast({ message: 'Verification email sent. Please check your inbox.', type: 'success', duration: 5000 });
+            } catch (err) {
+              addToast({ message: err?.message || 'Failed to resend verification email.', type: 'danger' });
+            }
+          }
+        });
+      } else {
+        // If we don't have an email, provide a way to open the Profile page
+        actions.push({
+          label: 'Open profile',
+          variant: 'primary',
+          onClick: () => { window.location.href = '/profile'; }
+        });
+      }
+
+      // Keep the toast visible until user dismisses (duration: 0)
+      return addToast({ message: message.message, type: 'danger', actions, duration: 0 });
+    }
+
     return addToast({ message, type: 'danger', ...options });
   }, [addToast]);
 
@@ -112,6 +145,45 @@ export function ToastProvider({ children }) {
     light,
     dark,
   };
+
+  // Listen for global email-not-verified events emitted by send-request
+  useEffect(() => {
+    const handler = (e) => {
+      const data = e?.detail || {};
+      const message = data.error || 'Please verify your email address before performing this action.';
+      const email = data.email || null;
+      const actions = [];
+
+      if (email) {
+        actions.push({
+          label: 'Resend verification',
+          variant: 'primary',
+          onClick: async () => {
+            try {
+              await resendConfirmation(email);
+              addToast({ message: 'Verification email sent. Please check your inbox.', type: 'success', duration: 5000 });
+            } catch (err) {
+              addToast({ message: err?.message || 'Failed to resend verification email.', type: 'danger' });
+            }
+          }
+        });
+      } else {
+        actions.push({ label: 'Open profile', variant: 'primary', onClick: () => { window.location.href = '/profile'; } });
+      }
+
+      addToast({ message, type: 'danger', actions, duration: 0 });
+    };
+
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('bien:email_not_verified', handler);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined' && window.removeEventListener) {
+        window.removeEventListener('bien:email_not_verified', handler);
+      }
+    };
+  }, [addToast]);
 
   // Group toasts by position for proper stacking
   const toastsByPosition = toasts.reduce((acc, toast) => {

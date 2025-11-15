@@ -671,9 +671,10 @@ const addCollaborator = asyncHandler(async (req, res) => {
 
   // Permission saved by enforcer, no need to save again
 
-  // Create an activity for the collaborator addition so the target user
-  // will see a notification/toast on next login or refresh. Also send an
-  // email asynchronously (do not block the API response on email success).
+  // Create activity records for BOTH users:
+  // 1. Activity for the owner who added the collaborator
+  // 2. Activity for the collaborator who was added
+  // Also send an email asynchronously (do not block the API response on email success).
   try {
     // Fetch target user and experience details for the activity and email
     const [targetUser, experienceDoc] = await Promise.all([
@@ -681,19 +682,29 @@ const addCollaborator = asyncHandler(async (req, res) => {
       Experience.findById(plan.experience).populate('destination', 'name').select('name destination').lean()
     ]);
 
-    const actorInfo = {
+    const ownerInfo = {
       _id: req.user._id,
       email: req.user.email || null,
       name: req.user.name || null,
       role: req.user.role || null
     };
 
-    const activityData = {
-      action: 'collaborator_added',
-      actor: actorInfo,
+    const collaboratorInfo = {
+      _id: targetUser?._id || userId,
+      email: targetUser?.email || null,
+      name: targetUser?.name || null,
+      role: 'regular_user'
+    };
+
+    const resourceLink = `/experiences/${experienceDoc?._id || plan.experience}#plan-${plan._id}`;
+
+    // Activity 1: For the owner (shows "Added [user] as collaborator to [experience]")
+    const ownerActivityData = {
+      action: 'collaborator_added_by_owner',
+      actor: ownerInfo,
       resource: {
-        id: experienceDoc?._id || plan.experience,
-        type: 'Experience',
+        id: plan._id,
+        type: 'Plan',
         name: experienceDoc?.name || ''
       },
       target: {
@@ -701,28 +712,66 @@ const addCollaborator = asyncHandler(async (req, res) => {
         type: 'User',
         name: targetUser?.name || ''
       },
-      permission: {
-        _id: mongoose.Types.ObjectId(userId),
-        entity: 'user',
-        type: 'collaborator'
-      },
       previousState: null,
-      newState: null,
-      reason: `${req.user.name || 'Someone'} added ${targetUser?.name || 'a user'} as a collaborator to ${experienceDoc?.name || 'an experience'}`,
+      newState: {
+        permissions: plan.permissions
+      },
+      reason: `Added ${targetUser?.name || 'a user'} as a collaborator to ${experienceDoc?.name || 'an experience'}`,
       metadata: {
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
         requestPath: req.path,
-        requestMethod: req.method
+        requestMethod: req.method,
+        resourceLink
       },
-      tags: ['notification']
+      tags: ['collaboration', 'permission_grant']
     };
 
-    const logResult = await Activity.log(activityData);
-    if (!logResult.success) {
-      backendLogger.error('Failed to log collaborator_added activity', { error: logResult.error, planId: plan._id, userId });
+    // Activity 2: For the collaborator (shows "You were added as a collaborator to [experience]")
+    const collaboratorActivityData = {
+      action: 'collaborator_added_to_plan',
+      actor: collaboratorInfo, // Actor is the collaborator so it shows in their feed
+      resource: {
+        id: plan._id,
+        type: 'Plan',
+        name: experienceDoc?.name || ''
+      },
+      target: {
+        id: req.user._id,
+        type: 'User',
+        name: req.user.name || ''
+      },
+      previousState: null,
+      newState: {
+        permissions: plan.permissions
+      },
+      reason: `You were added as a collaborator to ${experienceDoc?.name || 'an experience'} by ${req.user.name || 'someone'}`,
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestPath: req.path,
+        requestMethod: req.method,
+        resourceLink
+      },
+      tags: ['collaboration', 'permission_received', 'notification']
+    };
+
+    // Log both activities
+    const [ownerLogResult, collaboratorLogResult] = await Promise.all([
+      Activity.log(ownerActivityData),
+      Activity.log(collaboratorActivityData)
+    ]);
+
+    if (!ownerLogResult.success) {
+      backendLogger.error('Failed to log owner collaborator activity', { error: ownerLogResult.error, planId: plan._id, userId });
     } else {
-      backendLogger.info('Logged collaborator_added activity', { activityId: logResult.activity._id, planId: plan._id, userId });
+      backendLogger.info('Logged owner collaborator activity', { activityId: ownerLogResult.activity._id, planId: plan._id, userId });
+    }
+
+    if (!collaboratorLogResult.success) {
+      backendLogger.error('Failed to log collaborator activity', { error: collaboratorLogResult.error, planId: plan._id, userId });
+    } else {
+      backendLogger.info('Logged collaborator activity', { activityId: collaboratorLogResult.activity._id, planId: plan._id, userId });
     }
 
     // Send email asynchronously — do not await so API response is fast.

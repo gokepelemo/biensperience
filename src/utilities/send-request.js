@@ -2,6 +2,7 @@ import { getToken, logout } from "./users-service.js"
 import { logger } from "./logger.js"
 import { getSessionId, refreshSessionIfNeeded } from "./session-utils.js"
 import { generateTraceId } from "./trace-utils.js"
+import { broadcastEvent } from './event-bus';
 
 // CSRF token cache
 let csrfToken = null;
@@ -168,11 +169,12 @@ export async function sendRequest(url, method = "GET", payload = null) {
             errorText
         });
 
-        // Try to parse JSON error response
+        // Try to parse JSON error response and attach structured response
         let errorMessage = `Request failed: ${res.status} ${res.statusText}`;
+        let errorData = null;
         try {
-            const errorData = JSON.parse(errorText);
-            if (errorData.error) {
+            errorData = JSON.parse(errorText);
+            if (errorData && errorData.error) {
                 errorMessage = errorData.error;
             }
         } catch (e) {
@@ -182,7 +184,32 @@ export async function sendRequest(url, method = "GET", payload = null) {
             }
         }
 
-        throw new Error(errorMessage);
+        const error = new Error(errorMessage);
+        // Attach response-like shape to be compatible with axios-style handlers in the app
+        error.response = {
+            status: res.status,
+            statusText: res.statusText,
+            data: errorData || { error: errorMessage }
+        };
+
+        // If the backend indicates email verification is required, emit a global event
+        try {
+            if (res.status === 403 && errorData && errorData.code === 'EMAIL_NOT_VERIFIED') {
+                if (typeof window !== 'undefined' && window.dispatchEvent) {
+                    window.dispatchEvent(new CustomEvent('bien:email_not_verified', { detail: errorData }));
+                    // Broadcast via centralized helper so other tabs receive it
+                    try {
+                        broadcastEvent('bien:email_not_verified', errorData);
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+            }
+        } catch (e) {
+            // ignore event dispatch errors
+        }
+
+        throw error;
     } catch (error) {
         // If the fetch was aborted due to timeout, normalize the error
         if (error.name === 'AbortError') {

@@ -1,6 +1,7 @@
 import { sendRequest } from "./send-request";
 import { normalizeUrl } from "./url-utils.js";
 import { logger } from "./logger";
+import { broadcastEvent } from "./event-bus";
 
 const BASE_URL = "/api/plans";
 
@@ -30,6 +31,19 @@ export async function createPlan(experienceId, plannedDate) {
       planId: result._id, 
       experienceId
     });
+    // Emit global event so open views can react (e.g., SingleExperience)
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        // Normalize experienceId for consumers: prefer explicit param, then plan.experience
+        const rawExp = experienceId || result?.experience?._id || result?.experience;
+        const normalizedExpId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        window.dispatchEvent(new CustomEvent('bien:plan_created', { detail: { plan: result, experienceId: normalizedExpId } }));
+        // Broadcast for other tabs
+        broadcastEvent('bien:plan_created', { plan: result, experienceId: normalizedExpId });
+      }
+    } catch (e) {
+      // ignore
+    }
     return result;
   } catch (error) {
     logger.error('[plans-api] Failed to create plan', { 
@@ -60,14 +74,44 @@ export function checkUserPlanForExperience(experienceId) {
  * Update a plan
  */
 export function updatePlan(planId, updates) {
-  return sendRequest(`${BASE_URL}/${planId}`, "PUT", updates);
+  return sendRequest(`${BASE_URL}/${planId}`, "PUT", updates)
+    .then((result) => {
+      // Emit global event so open views can react to plan edits (planned_date changes, etc.)
+      try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          const rawExp = result?.experience?._id || result?.experience || null;
+          const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+          window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: result, experienceId } }));
+          // Broadcast for other tabs
+          broadcastEvent('bien:plan_updated', { plan: result, experienceId });
+        }
+      } catch (e) {
+        // ignore
+      }
+      return result;
+    });
 }
 
 /**
  * Delete a plan
  */
-export function deletePlan(planId) {
-  return sendRequest(`${BASE_URL}/${planId}`, "DELETE");
+export async function deletePlan(planId) {
+  const result = await sendRequest(`${BASE_URL}/${planId}`, "DELETE");
+
+  // Emit global event so open views can react (e.g., ExperienceCard)
+  try {
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+          const rawExp = result?.experience?._id || result?.experience || null;
+          const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+          window.dispatchEvent(new CustomEvent('bien:plan_deleted', { detail: { plan: result, experienceId } }));
+          // Broadcast for other tabs
+          broadcastEvent('bien:plan_deleted', { plan: result, experienceId });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 /**
@@ -80,7 +124,22 @@ export function updatePlanItem(planId, itemId, updates) {
     url: updates.url ? normalizeUrl(updates.url) : updates.url
   };
   
-  return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "PATCH", normalizedUpdates);
+  return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "PATCH", normalizedUpdates)
+    .then((result) => {
+      try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
+          const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+          const plan = result?.plan || result;
+          window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan, experienceId } }));
+          // Broadcast for other tabs
+          broadcastEvent('bien:plan_updated', { plan, experienceId });
+        }
+      } catch (e) {
+        // ignore
+      }
+      return result;
+    });
 }
 
 /**
@@ -93,14 +152,45 @@ export function addPlanItem(planId, planItem) {
     url: planItem.url ? normalizeUrl(planItem.url) : planItem.url
   };
   
-  return sendRequest(`${BASE_URL}/${planId}/items`, "POST", normalizedItem);
+  return sendRequest(`${BASE_URL}/${planId}/items`, "POST", normalizedItem)
+    .then((result) => {
+      try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          // server may return the new item or an updated plan; try to extract experience id
+          const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
+          const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+          const plan = result?.plan || null;
+          window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId, planItem: result } }));
+          // Broadcast for other tabs
+          broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId, planItem: result });
+        }
+      } catch (e) {
+        // ignore
+      }
+      return result;
+    });
 }
 
 /**
  * Delete a plan item from a plan
  */
 export function deletePlanItem(planId, itemId) {
-  return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "DELETE");
+  return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "DELETE")
+    .then((result) => {
+      try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          const experienceId = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
+          const normalizedExpId = experienceId && experienceId.toString ? experienceId.toString() : experienceId;
+          const plan = result?.plan || null;
+          window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId: normalizedExpId, deletedItemId: itemId } }));
+          // Broadcast for other tabs
+          broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId: normalizedExpId, deletedItemId: itemId });
+        }
+      } catch (e) {
+        // ignore
+      }
+      return result;
+    });
 }
 
 /**
@@ -116,6 +206,20 @@ export function getCollaborators(planId) {
 export function addCollaborator(planId, userId) {
   return sendRequest(`${BASE_URL}/${planId}/permissions/collaborator`, "POST", {
     userId,
+  }).then((result) => {
+    try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
+        const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        const plan = result?.plan || null;
+        window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId, collaboratorAdded: userId } }));
+        // Broadcast for other tabs
+        broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId, collaboratorAdded: userId });
+      }
+    } catch (e) {
+      // ignore
+    }
+    return result;
   });
 }
 
@@ -126,5 +230,19 @@ export function removeCollaborator(planId, userId) {
   return sendRequest(
     `${BASE_URL}/${planId}/permissions/collaborator/${userId}`,
     "DELETE"
-  );
+  ).then((result) => {
+    try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
+        const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        const plan = result?.plan || null;
+        window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId, collaboratorRemoved: userId } }));
+        // Broadcast for other tabs
+        broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId, collaboratorRemoved: userId });
+      }
+    } catch (e) {
+      // ignore
+    }
+    return result;
+  });
 }

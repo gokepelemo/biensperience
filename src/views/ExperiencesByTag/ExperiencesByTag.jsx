@@ -77,11 +77,11 @@ export default function ExperiencesByTag() {
         setIsRefreshing(true);
         logger.debug('ExperiencesByTag: Fetching all experiences for tag', { tagName });
 
-        // Fetch ALL experiences (no pagination limit) filtered by this tag
-        // The backend will filter by experience_type using regex
+        // Fetch ALL experiences for this tag. Use the server's `all=true` flag
+        // which returns the full result set (compatibility across pagination API changes).
         const response = await experiencesAPI.getExperiences({
           experience_type: initialTitleCaseTag,
-          limit: 1000  // High limit to get all matching experiences
+          all: true
         });
 
         if (mounted) {

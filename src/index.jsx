@@ -4,6 +4,8 @@ import ReactDOM from 'react-dom/client';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './index.css';
+// Initialize cross-tab event bridge
+import './utilities/event-bus';
 import App from './views/App/App';
 import { StrictMode } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';

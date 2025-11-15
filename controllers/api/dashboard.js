@@ -338,9 +338,26 @@ async function getRecentActivity(userId, options = {}) {
         targetName = activity.target.name;
       }
 
+      // For collaborator activities, use the target user's name
+      if ((activity.action === 'collaborator_added_by_owner' || activity.action === 'collaborator_added_to_plan') && activity.target) {
+        targetName = activity.target.name;
+      }
+
+      // Use resourceLink from metadata if available (for hash-based deep links)
+      if (activity.metadata?.resourceLink) {
+        resourceLink = activity.metadata.resourceLink;
+      }
+
+      // Format action text, with special-casing for destination permission events
+      let actionText = formatActivityAction(activity.action);
+      if (activity.resource?.type === 'Destination') {
+        if (activity.action === 'permission_added') actionText = 'Favorited';
+        if (activity.action === 'permission_removed') actionText = 'Unfavorited';
+      }
+
       return {
         id: activity._id.toString(),
-        action: formatActivityAction(activity.action),
+        action: actionText,
         item: resourceName,
         targetItem: targetName,
         link: resourceLink,
@@ -402,7 +419,9 @@ function formatActivityAction(action) {
     'user_registered': 'Joined Biensperience',
     'email_verified': 'Verified email address',
     'plan_item_completed': 'Marked a plan item complete on',
-    'plan_item_uncompleted': 'Marked a plan item incomplete on'
+    'plan_item_uncompleted': 'Marked a plan item incomplete on',
+    'collaborator_added_by_owner': 'Added as a collaborator to',
+    'collaborator_added_to_plan': 'Became a collaborator on'
   };
 
   return actionMap[action] || action.replace(/_/g, ' ');

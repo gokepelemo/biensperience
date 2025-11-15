@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { getDestinations, getDestinationsPage } from '../utilities/destinations-api';
 import { getExperiences, getExperiencesPage } from '../utilities/experiences-api';
+import { showExperience } from '../utilities/experiences-api';
 import { getUserPlans } from '../utilities/plans-api';
 import { useUser } from './UserContext';
 import { logger } from '../utilities/logger';
@@ -537,6 +538,124 @@ export function DataProvider({ children }) {
       setPlans([]);
     }
   }, [isAuthenticated, user, refreshAll]); // Include refreshAll to satisfy linting
+
+  // Listen for global plan lifecycle events (created/updated/deleted) and
+  // update DataContext plans so all consumers reflect changes immediately.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onPlanCreated = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const plan = detail.plan;
+        if (!plan || !plan._id) return;
+        setPlans(prev => {
+          const exists = prev.some(p => p._id && p._id.toString() === plan._id.toString());
+          if (exists) {
+            return prev.map(p => (p._id && p._id.toString() === plan._id.toString() ? plan : p));
+          }
+          return [plan, ...prev];
+        });
+        setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+        // Also refresh the related experience in context so views that read
+        // from DataContext don't get a stale experience after a plan change.
+        (async () => {
+          try {
+            const rawExp = detail.experienceId || plan?.experience?._id || plan?.experience || null;
+            const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+            if (!expId) return;
+            const updatedExp = await showExperience(expId);
+            if (!updatedExp) return;
+            setExperiences(prev => {
+              const found = prev.findIndex(x => x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id));
+              if (found >= 0) {
+                const copy = [...prev];
+                copy[found] = updatedExp;
+                return copy;
+              }
+              // If experience not in list, add it to front to ensure freshness
+              return [updatedExp, ...prev];
+            });
+            setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
+          } catch (err) {
+            logger.debug('Failed to refresh experience after plan create', { error: err?.message });
+          }
+        })();
+      } catch (err) {
+        logger.warn('DataContext onPlanCreated handler failed', { error: err?.message });
+      }
+    };
+
+    const onPlanUpdated = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const plan = detail.plan;
+        if (!plan || !plan._id) return;
+        setPlans(prev => prev.map(p => (p._id && plan._id && p._id.toString() === plan._id.toString() ? { ...p, ...plan } : p)));
+        setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+        // Keep the related experience fresh as well
+        (async () => {
+          try {
+            const rawExp = detail.experienceId || plan?.experience?._id || plan?.experience || null;
+            const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+            if (!expId) return;
+            const updatedExp = await showExperience(expId);
+            if (!updatedExp) return;
+            setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? updatedExp : x)));
+            setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
+          } catch (err) {
+            logger.debug('Failed to refresh experience after plan update', { error: err?.message });
+          }
+        })();
+      } catch (err) {
+        logger.warn('DataContext onPlanUpdated handler failed', { error: err?.message });
+      }
+    };
+
+    const onPlanDeleted = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const plan = detail.plan;
+        const experienceId = detail.experienceId || (plan && (plan.experience?._id || plan.experience)) || null;
+        if (plan && plan._id) {
+          setPlans(prev => prev.filter(p => !(p._id && p._id.toString() === plan._id.toString())));
+          setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+          return;
+        }
+        if (experienceId) {
+          const expId = experienceId && experienceId.toString ? experienceId.toString() : experienceId;
+          setPlans(prev => prev.filter(p => {
+            const pExp = p.experience?._id || p.experience || null;
+            return !(pExp && pExp.toString ? pExp.toString() === expId : pExp === expId);
+          }));
+          setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+          // Also refresh the experience to remove plan-related flags
+          (async () => {
+            try {
+              const updatedExp = await showExperience(expId);
+              if (!updatedExp) return;
+              setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? updatedExp : x)));
+              setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
+            } catch (err) {
+              logger.debug('Failed to refresh experience after plan delete', { error: err?.message });
+            }
+          })();
+        }
+      } catch (err) {
+        logger.warn('DataContext onPlanDeleted handler failed', { error: err?.message });
+      }
+    };
+
+    window.addEventListener('bien:plan_created', onPlanCreated);
+    window.addEventListener('bien:plan_updated', onPlanUpdated);
+    window.addEventListener('bien:plan_deleted', onPlanDeleted);
+
+    return () => {
+      window.removeEventListener('bien:plan_created', onPlanCreated);
+      window.removeEventListener('bien:plan_updated', onPlanUpdated);
+      window.removeEventListener('bien:plan_deleted', onPlanDeleted);
+    };
+  }, []);
 
   // Background refresh when we detect potentially stale cached data in memory
   // Triggers non-blocking refreshes while keeping current UI responsive

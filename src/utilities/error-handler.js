@@ -69,6 +69,20 @@ export function withErrorHandling(fn, onError) {
 export function handleError(error, options = {}) {
   const { context = 'Operation', onError, silent = false } = options;
 
+  // If server returned EMAIL_NOT_VERIFIED, return a structured object so callers
+  // (and the toast system) can display a resend button
+  if (error && error.response && error.response.data && error.response.data.code === 'EMAIL_NOT_VERIFIED') {
+    const message = error.response.data.error || `${context} failed: Please verify your email address.`;
+    const email = error.response.data.email || null;
+    const payload = { __emailNotVerified: true, message, email };
+
+    if (!silent && onError) {
+      onError(message, error);
+    }
+
+    return payload;
+  }
+
   const errorMessage = getErrorMessage(error, `${context} failed`);
 
   if (!silent && onError) {

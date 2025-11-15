@@ -46,6 +46,12 @@ const experienceSchema = new Schema(
       type: String,
     },
     experience_type: [String],
+    // Array of slugified experience type values for fast, indexed lookup
+    experience_type_slugs: {
+      type: [String],
+      index: true,
+      default: []
+    },
     plan_items: [planItemSchema],
     photos: {
       type: [Schema.Types.ObjectId],
@@ -140,10 +146,64 @@ experienceSchema.index({ name: 1 });
 experienceSchema.index({ 'permissions._id': 1, 'permissions.type': 1 });
 experienceSchema.index({ 'permissions._id': 1 });
 experienceSchema.index({ experience_type: 1 });
+// Index the slug array for fast tag lookups
+experienceSchema.index({ experience_type_slugs: 1 });
 experienceSchema.index({ destination: 1, createdAt: -1 });
 experienceSchema.index({ createdAt: -1 });
 experienceSchema.index({ 'permissions._id': 1, 'permissions.type': 1, name: 1 });
 experienceSchema.index({ photos: 1 });
 experienceSchema.index({ default_photo_id: 1 });
+
+/**
+ * Pre-save hook: ensure `experience_type_slugs` is populated from `experience_type`.
+ * - Slugifies each tag value
+ * - Ensures global uniqueness of the slug by appending a short random suffix when a collision exists
+ */
+experienceSchema.pre('save', async function (next) {
+  try {
+    if (!this.experience_type || !Array.isArray(this.experience_type)) {
+      this.experience_type_slugs = [];
+      return next();
+    }
+
+    const slugify = (s) => String(s || '')
+      .toLowerCase()
+      .replace(/'/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    const crypto = require('crypto');
+    const Experience = mongoose.model('Experience');
+
+    const slugs = [];
+    for (const rawTag of this.experience_type) {
+      if (!rawTag || typeof rawTag !== 'string') continue;
+      let base = slugify(rawTag);
+      if (!base) continue;
+
+      // Ensure this slug is unique across experiences; if collision, append short hash
+      let candidate = base;
+      let attempts = 0;
+      while (attempts < 5) {
+        const conflict = await Experience.findOne({ experience_type_slugs: candidate }, { _id: 1 }).lean().exec();
+        // Allow conflict if it is the same document (update case)
+        if (!conflict || (this._id && String(conflict._id) === String(this._id))) break;
+        // Collision with another document: append short random suffix
+        const suffix = crypto.randomBytes(3).toString('hex');
+        candidate = `${base}-${suffix}`;
+        attempts += 1;
+      }
+
+      slugs.push(candidate);
+    }
+
+    // Deduplicate and set
+    this.experience_type_slugs = Array.from(new Set(slugs));
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+});
 
 module.exports = mongoose.model("Experience", experienceSchema);

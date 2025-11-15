@@ -304,27 +304,6 @@
     gap: var(--space-2);
     max-height: 300px;
     overflow-y: auto;
-    /* Custom scrollbar */
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border-medium) var(--color-bg-secondary);
-}
-
-.url-queue-list::-webkit-scrollbar {
-    width: 8px;
-}
-
-.url-queue-list::-webkit-scrollbar-track {
-    background: var(--color-bg-secondary);
-    border-radius: var(--radius-md);
-}
-
-.url-queue-list::-webkit-scrollbar-thumb {
-    background: var(--color-border-medium);
-    border-radius: var(--radius-md);
-}
-
-.url-queue-list::-webkit-scrollbar-thumb:hover {
-    background: var(--color-border-dark);
 }
 
 .url-queue-item {

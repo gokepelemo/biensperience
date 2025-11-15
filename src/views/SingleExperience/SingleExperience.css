@@ -529,7 +529,7 @@
     border: none;
     border-bottom: 3px solid transparent;
     padding: var(--space-3) var(--space-6);
-    font-size: 1rem;
+    font-size: var(--font-size-lg); /* match select size */
     font-weight: 600;
     line-height: 1; /* ensure consistent vertical size */
     display: inline-flex; /* align text and caret consistently */
@@ -541,6 +541,7 @@
     bottom: 0;
     white-space: nowrap; /* Prevent text wrapping on Safari */
     flex-shrink: 0; /* Prevent shrinking on Safari */
+    min-width: 120px; /* ensure parity with .plan-tab-select */
 }
 
 .plan-tab-button:hover {
@@ -579,7 +580,7 @@
     border-radius: 0; /* Remove rounded corners */
     /* Match visual style of .plan-tab-button */
     padding: var(--space-3) var(--space-6);
-    font-size: var(--font-size-lg);
+        font-size: var(--font-size-lg) !important; /* Override global form clamp */
     font-weight: 600;
     line-height: 1; /* match button line-height */
     display: inline-flex; /* treat select like button for alignment */
@@ -589,6 +590,16 @@
     border: none;
     border-bottom: 3px solid transparent;
     transition: all 0.3s ease;
+}
+
+/* Stronger override for environments where global form rules (e.g., clamp()) win.
+     Apply to select inside the dropdown container as this select is used as a tab control. */
+.plan-tab-dropdown-container select,
+.plan-tab-select {
+    font-size: var(--font-size-lg) !important;
+    line-height: 1 !important;
+    font-family: inherit !important;
+    height: auto !important;
 }
 
 /* Active state for plan tab select - match regular tab button */
@@ -613,6 +624,14 @@
     position: relative; /* ensure ::after positioned correctly */
     display: inline-flex;
     align-items: center; /* align select baseline with other tabs */
+}
+
+/* Ensure dropdown wrapper aligns exactly like .plan-tab-button */
+.plan-tab-dropdown-container {
+    align-self: flex-end; /* match .plan-tab-button bottom alignment inside .plan-tabs-nav */
+    padding: 0; /* padding handled by select itself */
+    margin: 0; /* remove any micro offsets */
+    min-width: 120px; /* parity with .plan-tab-button */
 }
 
 .plan-tab-dropdown-container::after {
@@ -676,6 +695,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+/* Small nudge to ensure caret doesn't shift the visual baseline in some browsers */
+.plan-tab-dropdown-container .plan-tab-caret {
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .plan-tab-dropdown-container.active .plan-tab-caret,
