@@ -221,6 +221,16 @@ export default function SingleExperience() {
   // Ref for h1 element to ensure proper registration
   const h1Ref = useRef(null);
 
+  // Ref to track if component is unmounting to prevent navigation interference
+  const isUnmountingRef = useRef(false);
+
+  // Set unmounting flag when component unmounts
+  useEffect(() => {
+    return () => {
+      isUnmountingRef.current = true;
+    };
+  }, []);
+
   // Normalize plan objects for consistent client-side comparisons.
   // Ensures `_id` and nested `user._id` are strings to avoid select value mismatches.
   const normalizePlan = useCallback((plan) => {
@@ -499,6 +509,9 @@ export default function SingleExperience() {
     try {
       if (typeof window === 'undefined' || !window.history || !window.history.replaceState) return;
 
+      // Prevent navigation if component is unmounting
+      if (isUnmountingRef.current) return;
+
       // Only update URL if we're still on the SingleExperience route
       // Prevent interference with navigation away from this component
       if (!experienceId || window.location.pathname !== `/experiences/${experienceId}`) {
@@ -516,15 +529,16 @@ export default function SingleExperience() {
           // Dedupe: avoid navigating if the URL is already the same
           const current = `${window.location.pathname}${window.location.hash || ''}`;
           if (current !== hashed) {
-            navigate(hashed, { replace: false });
+            // Use history.pushState instead of navigate to avoid React Router conflicts
+            window.history.pushState(null, '', hashed);
           } else {
-            debug.log('Skipping navigate: URL already matches hashed plan link');
+            debug.log('Skipping history update: URL already matches hashed plan link');
           }
         } catch (err) {
-          // Fallback to replace navigation if push-like navigation fails
+          // Fallback to replaceState if pushState fails
           const current = `${window.location.pathname}${window.location.hash || ''}`;
           if (current !== hashed) {
-            navigate(hashed, { replace: true });
+            window.history.replaceState(null, '', hashed);
           }
         }
         return;
@@ -541,16 +555,16 @@ export default function SingleExperience() {
           if (incomingHash.startsWith('#plan-')) {
             debug.log('Preserving incoming plan hash; skipping expUrl navigate');
           } else if (current !== expUrl) {
-            // When leaving plan view, navigate to create a history entry
-            navigate(expUrl, { replace: false });
+            // When leaving plan view, update URL to create a history entry
+            window.history.pushState(null, '', expUrl);
           } else {
-            debug.log('Skipping navigate: URL already matches experience URL');
+            debug.log('Skipping history update: URL already matches experience URL');
           }
         } catch (err) {
           const current = `${window.location.pathname}${window.location.hash || ''}`;
           const incomingHash = window.location.hash || '';
           if (!incomingHash.startsWith('#plan-') && current !== expUrl) {
-            navigate(expUrl, { replace: true });
+            window.history.replaceState(null, '', expUrl);
           }
         }
       }
