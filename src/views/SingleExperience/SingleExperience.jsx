@@ -38,70 +38,13 @@ import {
   createPlan,
   deletePlan,
   getExperiencePlans,
-                  {plansLoading ? (
-                    // Show loading state for plan tabs
-                    <button className="plan-tab-button" disabled>
-                      <Loading size="sm" variant="inline" showMessage={false} />
-                    </button>
-                  ) : collaborativePlans.length > 1 ? (
-                    // Multiple plans -> render select dropdown
-                    <div className={`plan-tab-dropdown-container ${activeTab === 'myplan' ? 'active' : ''}`}>
-                      <select
-                        className={`plan-tab-button plan-tab-select ${
-                          activeTab === "myplan" ? "active" : ""
-                        }`}
-                        value={selectedPlanId || ""}
-                        onChange={(e) => {
-                          handlePlanChange(e.target.value);
-                          setActiveTab("myplan");
-                        }}
-                        onClick={() => setActiveTab("myplan")}
-                      >
-                        {collaborativePlans.map((plan) => {
-                          const planUserId = plan.user?._id || plan.user;
-                          const isOwnPlan = idEquals(planUserId, user._id);
-                          let displayName = "Plan";
-
-                          if (isOwnPlan) {
-                            displayName = "My Plan";
-                          } else if (plan.user?.name) {
-                            const firstName = plan.user.name.split(' ')[0];
-                            displayName = `${firstName}'s Plan`;
-                          }
-
-                          return (
-                            <option key={plan._id} value={plan._id}>
-                              {displayName}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                  ) : collaborativePlans.length === 1 ? (
-                    // Single accessible plan -> render as a normal tab button (no caret)
-                    (() => {
-                      const plan = collaborativePlans[0];
-                      const planUserId = plan.user?._id || plan.user;
-                      const isOwnPlan = idEquals(planUserId, user._id);
-                      let displayName = "My Plan";
-                      if (!isOwnPlan && plan.user?.name) {
-                        const firstName = plan.user.name.split(' ')[0];
-                        displayName = `${firstName}'s Plan`;
-                      }
-
-                      return (
-                        <button
-                          className={`plan-tab-button ${activeTab === "myplan" ? "active" : ""}`}
-                          onClick={() => {
-                            setSelectedPlanId(plan._id);
-                            setActiveTab("myplan");
-                          }}
-                        >
-                          {displayName}
-                        </button>
-                      );
-                    })()
-                  ) : null}
+  updatePlan,
+  updatePlanItem,
+  addPlanItem as addPlanItemToInstance,
+  deletePlanItem as deletePlanItemFromInstance,
+  removeCollaborator,
+  addCollaborator,
+} from "../../utilities/plans-api";
 }
 
 /**
