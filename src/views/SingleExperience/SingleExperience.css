@@ -514,10 +514,14 @@
 /* Plan Tabs Navigation */
 .plan-tabs-nav {
     display: flex;
+    flex-wrap: nowrap; /* Prevent wrapping on Safari */
+    align-items: flex-end; /* Align tabs to bottom edge */
     gap: 0.5rem;
     border-bottom: 2px solid var(--color-single-experience-border-light);
     padding-bottom: 0;
     margin-bottom: 1.5rem;
+    overflow-x: auto; /* Allow horizontal scroll if needed */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 .plan-tab-button {
@@ -532,6 +536,8 @@
     transition: all 0.3s ease;
     position: relative;
     bottom: -2px;
+    white-space: nowrap; /* Prevent text wrapping on Safari */
+    flex-shrink: 0; /* Prevent shrinking on Safari */
 }
 
 .plan-tab-button:hover {
@@ -555,45 +561,33 @@
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    /* Use explicit stroke color in the embedded SVG for Safari compatibility */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b9cff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
     background-repeat: no-repeat;
     background-position: right 0.5rem center;
     background-size: 1em;
     padding-right: 2.5rem;
+    min-width: 120px; /* Fixed minimum for Safari compatibility */
     width: auto;
-    flex: 0 0 auto;
-    min-width: fit-content;
-    max-width: max-content;
+    flex-shrink: 0;
     position: relative;
+    /* Match tab button styling */
+    border-radius: 0; /* Remove rounded corners */
 }
 
-/* Create animated overlay on hover for blinking effect */
-.plan-tab-select:hover::after {
-    content: '';
-    position: absolute;
-    right: 0.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 1em;
-    height: 1em;
-    background-color: var(--color-single-experience-bg-primary, #fff);
-    animation: chevron-blink 1s ease-in-out infinite;
-    pointer-events: none;
+/* Active state for plan tab select - match regular tab button */
+.plan-tab-select.active,
+.plan-tab-button.active.plan-tab-select {
+    color: var(--color-single-experience-primary);
+    border-bottom-color: var(--color-single-experience-primary);
+    background: rgba(102, 126, 234, 0.05);
+    border-radius: 0; /* Ensure no rounded corners on active state */
 }
 
+/* Avoid using pseudo-elements on <select> (not supported in some browsers). */
 .plan-tab-select:hover {
     color: var(--color-single-experience-text-dark-secondary);
     background-color: rgba(0, 0, 0, 0.02);
-}
-
-/* Chevron blink animation - fade white overlay over chevron */
-@keyframes chevron-blink {
-    0%, 100% {
-        opacity: 0;
-    }
-    50% {
-        opacity: 0.7;
-    }
 }
 
 /* When disabled (single plan), hide chevron and keep normal appearance */
@@ -606,6 +600,28 @@
 
 /* Responsive - Mobile and Tablet */
 @media (max-width: 991px) {
+    /* Center plan metric cards */
+    .metric-card {
+        align-items: center;
+        text-align: center;
+    }
+
+    .metric-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.5rem;
+    }
+
+    .metric-title {
+        text-align: center;
+    }
+
+    .metric-value {
+        text-align: center;
+        padding-right: 0;
+    }
+
     /* Center plan item title and metadata */
     .plan-item-header {
         flex-direction: column;
@@ -909,11 +925,8 @@
         background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e9ecef' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
     }
 
-    /* Dark mode overlay uses dark background color */
-    .plan-tab-select:hover::after {
-        background-color: var(--color-bg-tertiary, #2d3748);
-    }
-
+    /* Avoid pseudo-element overlays for <select> in dark mode; some browsers
+       (Safari) do not support pseudo-elements on replaced elements reliably. */
     .plan-tab-select:hover {
         color: var(--color-text-secondary);
         background-color: rgba(255, 255, 255, 0.05);
