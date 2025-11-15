@@ -1,4 +1,6 @@
 import { sendRequest } from './send-request.js';
+import { logger } from './logger';
+import { broadcastEvent } from './event-bus';
 
 const BASE_URL = `/api/destinations/`
 
@@ -37,7 +39,20 @@ export async function getDestinationsPage(page = 1, limit = 30, filters = {}) {
  * @returns {Promise<Object>} Created destination object
  */
 export async function createDestination (destinationData) {
-    return await sendRequest(`${BASE_URL}`, "POST", destinationData)
+    const result = await sendRequest(`${BASE_URL}`, "POST", destinationData);
+
+    // Emit events so components can react
+    try {
+        if (typeof window !== 'undefined' && window.dispatchEvent && result) {
+            window.dispatchEvent(new CustomEvent('destination:created', { detail: { destination: result } }));
+            broadcastEvent('destination:created', { destination: result });
+            logger.debug('[destinations-api] Destination created event dispatched', { id: result._id });
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return result;
 }
 
 /**
@@ -60,7 +75,20 @@ export async function showDestination (id) {
  * @returns {Promise<Object>} Updated destination object
  */
 export async function updateDestination (id, destinationData) {
-    return await sendRequest(`${BASE_URL}${id}`, "PUT", destinationData)
+    const result = await sendRequest(`${BASE_URL}${id}`, "PUT", destinationData);
+
+    // Emit events so components can react
+    try {
+        if (typeof window !== 'undefined' && window.dispatchEvent && result) {
+            window.dispatchEvent(new CustomEvent('destination:updated', { detail: { destination: result } }));
+            broadcastEvent('destination:updated', { destination: result });
+            logger.debug('[destinations-api] Destination updated event dispatched', { id: result._id });
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return result;
 }
 
 /**
@@ -71,7 +99,20 @@ export async function updateDestination (id, destinationData) {
  * @returns {Promise<Object>} Deletion response
  */
 export async function deleteDestination (id) {
-    return await sendRequest(`${BASE_URL}${id}`, "DELETE")
+    const result = await sendRequest(`${BASE_URL}${id}`, "DELETE");
+
+    // Emit events so components can react
+    try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('destination:deleted', { detail: { destinationId: id } }));
+            broadcastEvent('destination:deleted', { destinationId: id });
+            logger.debug('[destinations-api] Destination deleted event dispatched', { id });
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return result;
 }
 
 /**

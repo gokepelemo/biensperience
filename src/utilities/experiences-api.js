@@ -1,6 +1,7 @@
 import { sendRequest } from "./send-request.js";
 import { normalizeUrl } from "./url-utils.js";
 import { logger } from './logger';
+import { broadcastEvent } from './event-bus';
 
 const BASE_URL = `/api/experiences/`
 
@@ -42,7 +43,20 @@ export async function getExperienceTags(filters = {}) {
 }
 
 export async function createExperience(experienceData) {
-  return await sendRequest(`${BASE_URL}`, "POST", experienceData);
+  const result = await sendRequest(`${BASE_URL}`, "POST", experienceData);
+
+  // Emit events so components can react
+  try {
+    if (typeof window !== 'undefined' && window.dispatchEvent && result) {
+      window.dispatchEvent(new CustomEvent('experience:created', { detail: { experience: result } }));
+      broadcastEvent('experience:created', { experience: result });
+      logger.debug('[experiences-api] Experience created event dispatched', { id: result._id });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function showExperience(id) {
@@ -56,7 +70,20 @@ export async function showExperienceWithContext(id) {
 }
 
 export async function deleteExperience(id) {
-  return await sendRequest(`${BASE_URL}${id}`, "DELETE");
+  const result = await sendRequest(`${BASE_URL}${id}`, "DELETE");
+
+  // Emit events so components can react
+  try {
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+      window.dispatchEvent(new CustomEvent('experience:deleted', { detail: { experienceId: id } }));
+      broadcastEvent('experience:deleted', { experienceId: id });
+      logger.debug('[experiences-api] Experience deleted event dispatched', { id });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function transferOwnership(experienceId, newOwnerId) {
@@ -68,11 +95,24 @@ export async function transferOwnership(experienceId, newOwnerId) {
 }
 
 export async function updateExperience(experienceId, experienceData) {
-  return await sendRequest(
+  const result = await sendRequest(
     `${BASE_URL}${experienceId}`,
     "PUT",
     experienceData
   );
+
+  // Emit events so components can react
+  try {
+    if (typeof window !== 'undefined' && window.dispatchEvent && result) {
+      window.dispatchEvent(new CustomEvent('experience:updated', { detail: { experience: result } }));
+      broadcastEvent('experience:updated', { experience: result });
+      logger.debug('[experiences-api] Experience updated event dispatched', { id: result._id });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function userRemoveExperience(userId, experienceId) {
