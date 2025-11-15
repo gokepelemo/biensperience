@@ -574,15 +574,15 @@
     position: relative;
     /* Match tab button styling */
     border-radius: 0; /* Remove rounded corners */
+    /* Match visual style of .plan-tab-button */
+    padding: var(--space-3) var(--space-6);
     font-size: 1rem;
     font-weight: 600;
     color: var(--color-single-experience-text-secondary);
     background: transparent;
     border: none;
     border-bottom: 3px solid transparent;
-    padding: var(--space-3) var(--space-6);
-    bottom: -2px;
-    white-space: nowrap;
+    transition: all 0.3s ease;
 }
 
 /* Active state for plan tab select - match regular tab button */
@@ -616,7 +616,7 @@
     width: 1em;
     height: 1em;
     pointer-events: none;
-    /* default caret color using existing design token */
+    /* default caret color from existing design token */
     background-color: var(--color-single-experience-text-secondary);
     /* Use mask to draw the caret shape; fill is taken from background-color */
     -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><polyline points='6 9 12 15 18 9' fill='white'/></svg>") no-repeat center;
@@ -626,9 +626,20 @@
 }
 
 /* When disabled (single plan), hide caret */
-.plan-tab-button:disabled ~ .plan-tab-dropdown-container::after,
-.plan-tab-dropdown-container:has(.plan-tab-select:disabled)::after {
+.plan-tab-button:disabled ~ .plan-tab-dropdown-container::after {
     display: none;
+}
+
+/* Make the select visually active like the button when selected */
+.plan-tab-select.active {
+    color: var(--color-single-experience-primary);
+    border-bottom-color: var(--color-single-experience-primary);
+    background: rgba(102, 126, 234, 0.05);
+}
+
+/* When any button before the dropdown is active, make caret primary */
+.plan-tab-button.active ~ .plan-tab-dropdown-container::after {
+    background-color: var(--color-single-experience-primary);
 }
 
 /* When disabled (single plan), hide chevron and keep normal appearance */
@@ -961,9 +972,9 @@
         background: rgba(102, 126, 234, 0.1);
     }
 
-    /* Dark mode: use existing design token for caret color */
-    .plan-tab-dropdown-container::after {
-        background-color: var(--color-text-secondary);
+    /* Use design token for caret color in dark mode */
+    .plan-tab-dropdown-container {
+        --plan-caret-color: var(--color-text-secondary, #e9ecef);
     }
 
     /* Avoid pseudo-element overlays for <select> in dark mode; some browsers
