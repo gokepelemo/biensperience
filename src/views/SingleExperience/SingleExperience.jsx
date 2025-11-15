@@ -376,21 +376,40 @@ export default function SingleExperience() {
 
         // Remove plan from collaborativePlans if present
         if (deletedPlan && deletedPlan._id) {
-          setCollaborativePlans((prev) => prev.filter(p => !(p._id && p._id.toString() === deletedPlan._id.toString())));
+          // Compute the new list so we can make decisions based on it
+          setCollaborativePlans((prev) => {
+            const filtered = prev.filter(
+              (p) => !(p._id && p._id.toString() === deletedPlan._id.toString())
+            );
 
-          // If the deleted plan was the currently selected plan, clear selection
-          if (selectedPlanId && deletedPlan._id && selectedPlanId.toString() === deletedPlan._id.toString()) {
-            setSelectedPlanId(null);
-            setDisplayedPlannedDate(null);
-            setUserPlannedDate(null);
-            setUserPlan(null);
-            // If user had this plan, mark as not having an experience
-            setUserHasExperience(false);
-            // Record recent plan event to avoid immediate fetches stomping state
-            lastLocalPlanEventAtRef.current = Date.now();
-            // Switch back to experience tab
-            setActiveTab('experience');
-          }
+            // If the deleted plan was the currently selected plan, attempt to
+            // select the first remaining collaborative plan (prefer collaborator's plan)
+            if (selectedPlanId && deletedPlan._id && selectedPlanId.toString() === deletedPlan._id.toString()) {
+              if (filtered.length > 0) {
+                const firstId = filtered[0]._id && filtered[0]._id.toString ? filtered[0]._id.toString() : filtered[0]._id;
+                // Select the first remaining plan and show its My Plan view
+                setSelectedPlanId(firstId);
+                setDisplayedPlannedDate(filtered[0].planned_date || null);
+                setUserPlannedDate(filtered[0].planned_date || null);
+                // If the new selected plan is not the user's own, ensure userHasExperience reflects that
+                const planUserId = filtered[0].user?._id || filtered[0].user;
+                setUserHasExperience(idEquals(planUserId, user._id));
+                setUserPlan((prevUserPlan) => (prevUserPlan && prevUserPlan._id && idEquals(prevUserPlan._id, firstId) ? prevUserPlan : null));
+                setActiveTab('myplan');
+              } else {
+                // No remaining plans - clear selection and revert to experience tab
+                setSelectedPlanId(null);
+                setDisplayedPlannedDate(null);
+                setUserPlannedDate(null);
+                setUserPlan(null);
+                setUserHasExperience(false);
+                lastLocalPlanEventAtRef.current = Date.now();
+                setActiveTab('experience');
+              }
+            }
+
+            return filtered;
+          });
         } else {
           // If no plan payload provided, conservatively clear userHasExperience
           setUserHasExperience(false);
