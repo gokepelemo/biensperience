@@ -482,7 +482,8 @@ export default function SingleExperience() {
 
           // Merge updated experience into local state but preserve deeply local plan UI fields if present
           try {
-            const merged = { ...(experience || {}), ...(updated || {}), __ctx_merged_at: Date.now() };
+            // Avoid storing volatile metadata (like timestamps) on the merged object
+            const merged = { ...(experience || {}), ...(updated || {}) };
             setExperience(merged);
             setTravelTips(merged.travel_tips || []);
           } catch (errMerge) {
@@ -499,7 +500,7 @@ export default function SingleExperience() {
     } catch (err) {
       debug.warn('Failed to apply context experience update', err);
     }
-  }, [ctxExperiences, experienceId, experience]);
+  }, [ctxExperiences, experienceId]);
 
   // Update the browser address bar to point directly to the selected plan
   // when the user switches to the "My Plan" tab or selects a collaborative plan.
