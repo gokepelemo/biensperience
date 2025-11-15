@@ -353,14 +353,23 @@ export function DataProvider({ children }) {
 
   /**
    * Update a single destination in state (optimistic update)
+   * Uses upsert pattern: adds if not found, updates if exists
    * @param {Object} updatedDestination - Full updated destination object
    */
   const updateDestination = useCallback((updatedDestination) => {
-    setDestinations(prev =>
-      prev.map(dest =>
-        dest._id === updatedDestination._id ? { ...dest, ...updatedDestination } : dest
-      )
-    );
+    setDestinations(prev => {
+      const existingIndex = prev.findIndex(dest => dest._id === updatedDestination._id);
+      if (existingIndex >= 0) {
+        // Destination exists - update it
+        return prev.map(dest =>
+          dest._id === updatedDestination._id ? { ...dest, ...updatedDestination } : dest
+        );
+      } else {
+        // Destination doesn't exist - add it
+        return [...prev, updatedDestination];
+      }
+    });
+    setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
   }, []);
 
   /**
@@ -383,14 +392,23 @@ export function DataProvider({ children }) {
 
   /**
    * Update a single experience in state (optimistic update)
+   * Uses upsert pattern: adds if not found, updates if exists
    * @param {Object} updatedExperience - Full updated experience object
    */
   const updateExperience = useCallback((updatedExperience) => {
-    setExperiences(prev =>
-      prev.map(exp =>
-        exp._id === updatedExperience._id ? { ...exp, ...updatedExperience } : exp
-      )
-    );
+    setExperiences(prev => {
+      const existingIndex = prev.findIndex(exp => exp._id === updatedExperience._id);
+      if (existingIndex >= 0) {
+        // Experience exists - update it
+        return prev.map(exp =>
+          exp._id === updatedExperience._id ? { ...exp, ...updatedExperience } : exp
+        );
+      } else {
+        // Experience doesn't exist - add it
+        return [...prev, updatedExperience];
+      }
+    });
+    setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
   }, []);
 
   /**
@@ -413,15 +431,28 @@ export function DataProvider({ children }) {
 
   /**
    * Update a single plan in state (optimistic update)
+   * Uses upsert pattern: adds if not found, updates if exists
    * @param {string} planId - Plan ID
-   * @param {Object} updates - Updated plan data
+   * @param {Object} updates - Updated plan data (or full plan object)
    */
   const updatePlan = useCallback((planId, updates) => {
-    setPlans(prev =>
-      prev.map(plan =>
-        plan._id === planId ? { ...plan, ...updates } : plan
-      )
-    );
+    setPlans(prev => {
+      const existingIndex = prev.findIndex(plan => plan._id === planId);
+      if (existingIndex >= 0) {
+        // Plan exists - update it
+        return prev.map(plan =>
+          plan._id === planId ? { ...plan, ...updates } : plan
+        );
+      } else {
+        // Plan doesn't exist - add it (if updates is a full plan object)
+        if (updates._id || planId) {
+          const newPlan = updates._id ? updates : { _id: planId, ...updates };
+          return [...prev, newPlan];
+        }
+        return prev;
+      }
+    });
+    setLastUpdated(prev => ({ ...prev, plans: new Date() }));
   }, []);
 
   /**
