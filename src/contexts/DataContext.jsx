@@ -53,6 +53,21 @@ export function DataProvider({ children }) {
   // Background refresh threshold for cached/plausible data (stale-while-revalidate)
   const STALE_AFTER_MS = 2 * 60 * 1000; // 2 minutes
 
+  // Safe shallow merge helper: copy defined keys from incoming onto existing.
+  // This avoids overwriting existing nested objects with `undefined` from
+  // partial or inconsistent API payloads (observed with destination fields).
+  const safeMergeObj = useCallback((existing = {}, incoming = {}) => {
+    if (!existing) return { ...incoming };
+    if (!incoming) return { ...existing };
+    const merged = { ...existing };
+    Object.keys(incoming).forEach(key => {
+      const val = incoming[key];
+      if (typeof val === 'undefined') return; // preserve existing value
+      merged[key] = val;
+    });
+    return merged;
+  }, []);
+
   /**
    * Fetch all destinations from API
    * @returns {Promise<Array>} Array of destinations
@@ -404,7 +419,7 @@ export function DataProvider({ children }) {
       if (existingIndex >= 0) {
         // Experience exists - merge carefully and preserve local optimistic markers
         return prev.map(exp =>
-          exp._id === updatedExperience._id ? { ...exp, ...updatedExperience, __ctx_merged_at: Date.now() } : exp
+          exp._id === updatedExperience._id ? { ...safeMergeObj(exp, updatedExperience), __ctx_merged_at: Date.now() } : exp
         );
       } else {
         // Experience doesn't exist - add it
@@ -641,7 +656,7 @@ export function DataProvider({ children }) {
                   const found = prev.findIndex(x => x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id));
                   if (found >= 0) {
                     const copy = [...prev];
-                    copy[found] = { ...copy[found], ...updatedExp, __ctx_merged_at: Date.now() };
+                    copy[found] = { ...safeMergeObj(copy[found], updatedExp), __ctx_merged_at: Date.now() };
                     return copy;
                   }
                   return [{ ...updatedExp, __ctx_merged_at: Date.now() }, ...prev];
@@ -656,7 +671,7 @@ export function DataProvider({ children }) {
                 const found = prev.findIndex(x => x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id));
                 if (found >= 0) {
                   const copy = [...prev];
-                  copy[found] = { ...copy[found], ...updatedExp, __ctx_merged_at: Date.now() };
+                  copy[found] = { ...safeMergeObj(copy[found], updatedExp), __ctx_merged_at: Date.now() };
                   return copy;
                 }
                 // If experience not in list, add it to front to ensure freshness
@@ -697,13 +712,13 @@ export function DataProvider({ children }) {
             if (opt && now - (opt.at || 0) < GRACE_MS) {
               logger.debug('[DataContext] delaying canonical experience apply due to optimistic plan state (update)', { expId, delayMs: GRACE_MS });
               setTimeout(() => {
-                setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...x, ...updatedExp, __ctx_merged_at: Date.now() } : x)));
+                setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...safeMergeObj(x, updatedExp), __ctx_merged_at: Date.now() } : x)));
                 setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
                 setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
                 logger.debug('[DataContext] applied delayed canonical experience update (update)', { expId, appliedAt: Date.now() });
               }, Math.max(800, GRACE_MS));
             } else {
-              setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...x, ...updatedExp, __ctx_merged_at: Date.now() } : x)));
+              setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...safeMergeObj(x, updatedExp), __ctx_merged_at: Date.now() } : x)));
               setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
             }
           } catch (err) {
@@ -746,13 +761,13 @@ export function DataProvider({ children }) {
               if (opt && now - (opt.at || 0) < GRACE_MS) {
                 logger.debug('[DataContext] delaying canonical experience apply due to optimistic plan state (delete)', { expId, delayMs: GRACE_MS });
                 setTimeout(() => {
-                  setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...x, ...updatedExp, __ctx_merged_at: Date.now() } : x)));
+                  setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...safeMergeObj(x, updatedExp), __ctx_merged_at: Date.now() } : x)));
                   setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
                   setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
                   logger.debug('[DataContext] applied delayed canonical experience update (delete)', { expId, appliedAt: Date.now() });
                 }, Math.max(800, GRACE_MS));
               } else {
-                setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...x, ...updatedExp, __ctx_merged_at: Date.now() } : x)));
+                setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...safeMergeObj(x, updatedExp), __ctx_merged_at: Date.now() } : x)));
                 setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
               }
             } catch (err) {

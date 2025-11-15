@@ -17,8 +17,13 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
   useEffect(() => {
     async function fetchTags() {
       try {
-        const tags = await getExperienceTags();
-        setAllTags(tags || []);
+        const resp = await getExperienceTags();
+        // API may return { data: [...] } or an array directly. Normalize to string array.
+        const items = resp && resp.data ? resp.data : resp || [];
+        const normalized = Array.isArray(items)
+          ? items.map(t => (typeof t === 'string' ? t : (t.name || t.label || String(t)))).filter(Boolean)
+          : [];
+        setAllTags(normalized);
       } catch (error) {
         logger.error('Error fetching tags', {}, error);
       }
@@ -29,8 +34,9 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
   // Filter suggestions based on input
   useEffect(() => {
     if (inputValue.trim()) {
-      const filtered = allTags.filter(tag =>
-        tag.toLowerCase().includes(inputValue.toLowerCase()) &&
+      const source = Array.isArray(allTags) ? allTags : [];
+      const filtered = source.filter(tag =>
+        (typeof tag === 'string' && tag.toLowerCase().includes(inputValue.toLowerCase())) &&
         !tags.includes(tag)
       );
       setSuggestions(filtered.slice(0, 5)); // Limit to 5 suggestions
