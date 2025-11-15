@@ -564,21 +564,35 @@
     flex: 0 0 auto;
     min-width: fit-content;
     max-width: max-content;
+    position: relative;
+}
+
+/* Create animated overlay on hover for blinking effect */
+.plan-tab-select:hover::after {
+    content: '';
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1em;
+    height: 1em;
+    background-color: var(--color-single-experience-bg-primary, #fff);
+    animation: chevron-blink 1s ease-in-out infinite;
+    pointer-events: none;
 }
 
 .plan-tab-select:hover {
     color: var(--color-single-experience-text-dark-secondary);
     background-color: rgba(0, 0, 0, 0.02);
-    animation: chevron-blink 1s ease-in-out infinite;
 }
 
-/* Chevron blink animation */
+/* Chevron blink animation - fade white overlay over chevron */
 @keyframes chevron-blink {
     0%, 100% {
-        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        opacity: 0;
     }
     50% {
-        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' opacity='0.3'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        opacity: 0.7;
     }
 }
 
@@ -895,20 +909,14 @@
         background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e9ecef' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
     }
 
+    /* Dark mode overlay uses dark background color */
+    .plan-tab-select:hover::after {
+        background-color: var(--color-bg-tertiary, #2d3748);
+    }
+
     .plan-tab-select:hover {
         color: var(--color-text-secondary);
         background-color: rgba(255, 255, 255, 0.05);
-        animation: chevron-blink-dark 1s ease-in-out infinite;
-    }
-
-    /* Chevron blink animation for dark mode */
-    @keyframes chevron-blink-dark {
-        0%, 100% {
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e9ecef' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-        }
-        50% {
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e9ecef' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' opacity='0.3'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-        }
     }
 
     /* When disabled (single plan), hide chevron in dark mode */
