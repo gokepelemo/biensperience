@@ -27,6 +27,11 @@ const SEARCH_CONFIG = {
   externalService: null, // Set to 'algolia', 'elasticsearch', etc. when ready
 };
 
+// Maximum input length to consider for Levenshtein distance to avoid
+// excessive CPU usage or loop-bound injection from very large inputs.
+// This caps the dynamic programming table size and prevents attacker-controlled
+// values from causing unbounded loops.
+const LEVENSHTEIN_MAX_LEN = 256;
 /**
  * Normalize a string for comparison
  * - lowercased
@@ -48,6 +53,11 @@ function normalize(str = '') {
 function levenshtein(a = '', b = '') {
   a = normalize(a);
   b = normalize(b);
+  // Cap the lengths to a reasonable value to avoid loop-bound injection
+  // and DoS from extremely large inputs.
+  if (a.length > LEVENSHTEIN_MAX_LEN) a = a.slice(0, LEVENSHTEIN_MAX_LEN);
+  if (b.length > LEVENSHTEIN_MAX_LEN) b = b.slice(0, LEVENSHTEIN_MAX_LEN);
+
   const m = a.length;
   const n = b.length;
   if (m === 0) return n;

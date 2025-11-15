@@ -212,7 +212,11 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Register auth routes AFTER JWT/token middleware (so logout can access req.user)
-app.use("/api/auth", require("./routes/api/auth"));
+// Apply strict auth rate limiter to authentication endpoints (login, password)
+// to mitigate brute-force attacks. The authLimiter is configured in
+// `config/rateLimiters.js` and skips successful requests where appropriate.
+const { authLimiter, modificationLimiter } = require('./config/rateLimiters');
+app.use('/api/auth', authLimiter, require('./routes/api/auth'));
 
 // Session ID middleware - manage session IDs for authenticated requests (after auth)
 const { attachSessionId } = require('./utilities/session-middleware');
@@ -264,7 +268,9 @@ app.use('/api', (req, res, next) => {
   doubleCsrfProtection(req, res, next);
 });
 
-app.use("/api/users", require("./routes/api/users"));
+// Protect user creation/modification endpoints with a modification limiter
+// to reduce abuse and credential stuffing vectors.
+app.use('/api/users', modificationLimiter, require('./routes/api/users'));
 app.use("/api/destinations", require("./routes/api/destinations"));
 app.use("/api/experiences", require("./routes/api/experiences"));
 app.use("/api/photos", require("./routes/api/photos"));
