@@ -697,6 +697,111 @@ export function DataProvider({ children }) {
     fetchPlans,
   ]);
 
+  // Event bus listeners - update DataContext when events are broadcast
+  useEffect(() => {
+    const handleExperienceUpdated = (event) => {
+      const { experience } = event.detail || {};
+      if (experience && experience._id) {
+        logger.debug('[DataContext] experience:updated event received', { id: experience._id });
+        updateExperience(experience);
+      }
+    };
+
+    const handleExperienceCreated = (event) => {
+      const { experience } = event.detail || {};
+      if (experience && experience._id) {
+        logger.debug('[DataContext] experience:created event received', { id: experience._id });
+        addExperience(experience);
+      }
+    };
+
+    const handleExperienceDeleted = (event) => {
+      const { experienceId } = event.detail || {};
+      if (experienceId) {
+        logger.debug('[DataContext] experience:deleted event received', { id: experienceId });
+        removeExperience(experienceId);
+      }
+    };
+
+    const handleDestinationUpdated = (event) => {
+      const { destination } = event.detail || {};
+      if (destination && destination._id) {
+        logger.debug('[DataContext] destination:updated event received', { id: destination._id });
+        updateDestination(destination);
+      }
+    };
+
+    const handleDestinationCreated = (event) => {
+      const { destination } = event.detail || {};
+      if (destination && destination._id) {
+        logger.debug('[DataContext] destination:created event received', { id: destination._id });
+        addDestination(destination);
+      }
+    };
+
+    const handleDestinationDeleted = (event) => {
+      const { destinationId } = event.detail || {};
+      if (destinationId) {
+        logger.debug('[DataContext] destination:deleted event received', { id: destinationId });
+        removeDestination(destinationId);
+      }
+    };
+
+    const handlePlanUpdated = (event) => {
+      const { plan, planId } = event.detail || {};
+      if (plan || planId) {
+        const id = planId || plan?._id;
+        logger.debug('[DataContext] plan:updated event received', { id });
+        if (plan) {
+          updatePlan(id, plan);
+        } else {
+          // Partial update - refetch plans
+          fetchPlans().catch(() => {});
+        }
+      }
+    };
+
+    const handlePlanCreated = (event) => {
+      const { plan } = event.detail || {};
+      if (plan && plan._id) {
+        logger.debug('[DataContext] plan:created event received', { id: plan._id });
+        addPlan(plan);
+      }
+    };
+
+    const handlePlanDeleted = (event) => {
+      const { planId } = event.detail || {};
+      if (planId) {
+        logger.debug('[DataContext] plan:deleted event received', { id: planId });
+        removePlan(planId);
+      }
+    };
+
+    // Register event listeners
+    window.addEventListener('experience:updated', handleExperienceUpdated);
+    window.addEventListener('experience:created', handleExperienceCreated);
+    window.addEventListener('experience:deleted', handleExperienceDeleted);
+    window.addEventListener('destination:updated', handleDestinationUpdated);
+    window.addEventListener('destination:created', handleDestinationCreated);
+    window.addEventListener('destination:deleted', handleDestinationDeleted);
+    window.addEventListener('plan:updated', handlePlanUpdated);
+    window.addEventListener('plan:created', handlePlanCreated);
+    window.addEventListener('plan:deleted', handlePlanDeleted);
+
+    // Cleanup listeners on unmount
+    return () => {
+      window.removeEventListener('experience:updated', handleExperienceUpdated);
+      window.removeEventListener('experience:created', handleExperienceCreated);
+      window.removeEventListener('experience:deleted', handleExperienceDeleted);
+      window.removeEventListener('destination:updated', handleDestinationUpdated);
+      window.removeEventListener('destination:created', handleDestinationCreated);
+      window.removeEventListener('destination:deleted', handleDestinationDeleted);
+      window.removeEventListener('plan:updated', handlePlanUpdated);
+      window.removeEventListener('plan:created', handlePlanCreated);
+      window.removeEventListener('plan:deleted', handlePlanDeleted);
+    };
+  }, [updateExperience, addExperience, removeExperience, updateDestination, addDestination, removeDestination, updatePlan, addPlan, removePlan, fetchPlans]);
+
   const value = {
     // State
     destinations,
