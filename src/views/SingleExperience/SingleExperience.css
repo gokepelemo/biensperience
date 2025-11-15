@@ -571,9 +571,12 @@
     background-color: rgba(0, 0, 0, 0.02);
 }
 
-.plan-tab-select:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+/* When disabled (single plan), hide chevron and keep normal appearance */
+.plan-tab-button:disabled {
+    opacity: 1;
+    cursor: pointer;
+    background-image: none;
+    padding-right: var(--space-6);
 }
 
 /* Responsive - Mobile and Tablet */
@@ -884,6 +887,11 @@
     .plan-tab-select:hover {
         color: var(--color-text-secondary);
         background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    /* When disabled (single plan), hide chevron in dark mode */
+    .plan-tab-button:disabled {
+        background-image: none;
     }
 
     /* Plan Dropdown */

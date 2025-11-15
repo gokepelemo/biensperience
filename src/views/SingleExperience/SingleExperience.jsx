@@ -2258,69 +2258,41 @@ export default function SingleExperience() {
                       <Loading size="sm" variant="inline" showMessage={false} />
                     </button>
                   ) : collaborativePlans.length > 0 && (
-                    collaborativePlans.length === 1 ? (
-                      // Single plan - render as button (no dropdown)
-                      <button
-                        className={`plan-tab-button ${
-                          activeTab === "myplan" ? "active" : ""
-                        }`}
-                        onClick={() => {
-                          setSelectedPlanId(collaborativePlans[0]._id);
-                          setActiveTab("myplan");
-                        }}
-                      >
-                        {(() => {
-                          const plan = collaborativePlans[0];
+                    // Always render as select for consistency, but style differently based on count
+                    <select
+                      className={`plan-tab-button ${collaborativePlans.length > 1 ? 'plan-tab-select' : ''} ${
+                        activeTab === "myplan" ? "active" : ""
+                      }`}
+                      value={selectedPlanId || ""}
+                      onChange={(e) => {
+                        handlePlanChange(e.target.value);
+                        setActiveTab("myplan");
+                      }}
+                      onClick={() => setActiveTab("myplan")}
+                      disabled={collaborativePlans.length === 1}
+                    >
+                      {collaborativePlans.map((plan) => {
+                        // Determine display name for the plan
+                        // Handle case where plan.user might be an ID or an object
+                        const planUserId = plan.user?._id || plan.user;
+                        const isOwnPlan = idEquals(planUserId, user._id);
+                        let displayName = "Plan";
 
-                          // Handle case where plan.user might be an ID or an object
-                          const planUserId = plan.user?._id || plan.user;
-                          const isOwnPlan = idEquals(planUserId, user._id);
+                        if (isOwnPlan) {
+                          displayName = "My Plan";
+                        } else if (plan.user?.name) {
+                          // Extract first name from full name (split by space, take first part)
+                          const firstName = plan.user.name.split(' ')[0];
+                          displayName = `${firstName}'s Plan`;
+                        }
 
-                          if (isOwnPlan) {
-                            return "My Plan";
-                          } else if (plan.user?.name) {
-                            const firstName = plan.user.name.split(' ')[0];
-                            return `${firstName}'s Plan`;
-                          }
-                          return "Plan";
-                        })()}
-                      </button>
-                    ) : (
-                      // Multiple plans - render as select dropdown
-                      <select
-                        className={`plan-tab-button plan-tab-select ${
-                          activeTab === "myplan" ? "active" : ""
-                        }`}
-                        value={selectedPlanId || ""}
-                        onChange={(e) => {
-                          handlePlanChange(e.target.value);
-                          setActiveTab("myplan");
-                        }}
-                        onClick={() => setActiveTab("myplan")}
-                      >
-                        {collaborativePlans.map((plan) => {
-                          // Determine display name for the plan
-                          // Handle case where plan.user might be an ID or an object
-                          const planUserId = plan.user?._id || plan.user;
-                          const isOwnPlan = idEquals(planUserId, user._id);
-                          let displayName = "Plan";
-
-                          if (isOwnPlan) {
-                            displayName = "My Plan";
-                          } else if (plan.user?.name) {
-                            // Extract first name from full name (split by space, take first part)
-                            const firstName = plan.user.name.split(' ')[0];
-                            displayName = `${firstName}'s Plan`;
-                          }
-
-                          return (
-                            <option key={plan._id} value={plan._id}>
-                              {displayName}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    )
+                        return (
+                          <option key={plan._id} value={plan._id}>
+                            {displayName}
+                          </option>
+                        );
+                      })}
+                    </select>
                   )}
                 </div>
 
