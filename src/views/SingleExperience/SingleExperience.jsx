@@ -105,7 +105,7 @@ function idEquals(a, b) {
 
 export default function SingleExperience() {
   const { user } = useUser();
-  const { removeExperience, fetchExperiences, fetchPlans, experiences: ctxExperiences, updateExperience: updateExperienceInContext } = useData();
+  const { removeExperience, fetchExperiences, fetchPlans, experiences: ctxExperiences, updateExperience: updateExperienceInContext, setOptimisticPlanStateForExperience, clearOptimisticPlanStateForExperience } = useData();
   const {
     registerH1,
     setPageActionButtons,
@@ -145,6 +145,7 @@ export default function SingleExperience() {
   const [collaborativePlans, setCollaborativePlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [plansLoading, setPlansLoading] = useState(true);
+  const [hashSelecting, setHashSelecting] = useState(false);
   const [showSyncButton, setShowSyncButton] = useState(false);
   const [showSyncAlert, setShowSyncAlert] = useState(true); // Separate state for alert visibility
   const [showSyncModal, setShowSyncModal] = useState(false);
@@ -428,8 +429,25 @@ export default function SingleExperience() {
         const a = JSON.stringify(updated || {});
         const b = JSON.stringify(experience || {});
         if (a !== b) {
-          setExperience(updated);
-          setTravelTips(updated.travel_tips || []);
+          // Instrumentation: log diff-ish preview to help diagnose overwrites
+          try {
+            const previewPrev = { _id: experience?._id, plan_items_count: (experience?.plan_items || []).length, travel_tips_count: (experience?.travel_tips || []).length };
+            const previewNew = { _id: updated?._id, plan_items_count: (updated?.plan_items || []).length, travel_tips_count: (updated?.travel_tips || []).length };
+            debug.log('Applying context-driven experience update', { experienceId: experienceId, sinceLocalPlanEventMs: sinceEvent, previewPrev, previewNew });
+          } catch (inner) {
+            debug.log('Applying context-driven experience update (no preview available)', { experienceId: experienceId, sinceLocalPlanEventMs: sinceEvent });
+          }
+
+          // Merge updated experience into local state but preserve deeply local plan UI fields if present
+          try {
+            const merged = { ...(experience || {}), ...(updated || {}), __ctx_merged_at: Date.now() };
+            setExperience(merged);
+            setTravelTips(merged.travel_tips || []);
+          } catch (errMerge) {
+            // Fallback to replacing if merge fails
+            setExperience(updated);
+            setTravelTips(updated.travel_tips || []);
+          }
         }
       } catch (err) {
         // Fallback to naive set on JSON stringify error
@@ -440,6 +458,68 @@ export default function SingleExperience() {
       debug.warn('Failed to apply context experience update', err);
     }
   }, [ctxExperiences, experienceId, experience]);
+
+  // Update the browser address bar to point directly to the selected plan
+  // when the user switches to the "My Plan" tab or selects a collaborative plan.
+  // We use the History API (replaceState) so this does not trigger a navigation
+  // or reload — the server already exposes a route for `/plans/:planId`.
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined' || !window.history || !window.history.replaceState) return;
+
+      // When viewing My Plan (or a collaborative plan) update the address
+      // bar to a hash-based deep link that points to the experience with
+      // a plan fragment. Example: `/experiences/<id>#plan/<planId>`
+      if (activeTab === 'myplan' && selectedPlanId && experienceId) {
+        // Use legacy hash format '#plan-<planId>' which the mount logic expects
+        // Use pushState so selecting plans creates history entries (analytics-friendly)
+        const hashed = `/experiences/${experienceId}#plan-${selectedPlanId}`;
+        try {
+          // Dedupe: avoid pushing if the URL is already the same
+          const current = `${window.location.pathname}${window.location.hash || ''}`;
+          if (current !== hashed) {
+            window.history.pushState(window.history.state, document.title, hashed);
+          } else {
+            debug.log('Skipping pushState: URL already matches hashed plan link');
+          }
+        } catch (err) {
+          // Fallback to replaceState if pushState is unavailable
+          const current = `${window.location.pathname}${window.location.hash || ''}`;
+          if (current !== hashed) {
+            window.history.replaceState(window.history.state, document.title, hashed);
+          }
+        }
+        return;
+      }
+
+      // Otherwise restore the canonical experience URL without fragment
+      if (experienceId) {
+        const expUrl = `/experiences/${experienceId}`;
+        try {
+          const current = `${window.location.pathname}${window.location.hash || ''}`;
+          // If an incoming plan hash exists (e.g., user opened /experiences/:id#plan-<id>),
+          // preserve it so the hash-handling logic can select the plan after load.
+          const incomingHash = window.location.hash || '';
+          if (incomingHash.startsWith('#plan-')) {
+            debug.log('Preserving incoming plan hash; skipping expUrl push');
+          } else if (current !== expUrl) {
+            // When leaving plan view, push a new history entry to make navigation intuitive
+            window.history.pushState(window.history.state, document.title, expUrl);
+          } else {
+            debug.log('Skipping pushState: URL already matches experience URL');
+          }
+        } catch (err) {
+          const current = `${window.location.pathname}${window.location.hash || ''}`;
+          const incomingHash = window.location.hash || '';
+          if (!incomingHash.startsWith('#plan-') && current !== expUrl) {
+            window.history.replaceState(window.history.state, document.title, expUrl);
+          }
+        }
+      }
+    } catch (err) {
+      debug.warn('Failed to update history for plan selection', err);
+    }
+  }, [activeTab, selectedPlanId, experienceId]);
 
   const planOwnerId = useMemo(
     () => planOwnerPermission?._id,
@@ -787,18 +867,29 @@ export default function SingleExperience() {
     fetchAllData();
   }, [fetchAllData]);
 
-  // Handle hash-based plan deep linking (e.g., #plan-{planId})
+  // Handle hash-based plan deep linking (e.g., #plan-<planId>)
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.startsWith('#plan-')) {
-      const planId = hash.substring(6); // Remove '#plan-' prefix
-      debug.log('Hash-based plan navigation detected:', planId);
+    const handleHashNavigation = () => {
+      try {
+        const hash = window.location.hash || '';
+        if (!hash.startsWith('#plan-')) return;
+        const planId = hash.substring(6); // Remove '#plan-' prefix
+        debug.log('Hash-based plan navigation detected:', planId);
 
-      // Wait for plans to load before selecting
-      if (!plansLoading && collaborativePlans.length > 0) {
-        const targetPlan = collaborativePlans.find(p => idEquals(p._id, planId));
+        // If plans haven't loaded yet, we'll wait until collaborativePlans changes
+        if (plansLoading) {
+          debug.log('Plans still loading; will attempt selection after load');
+          // Indicate we're waiting on plans to resolve a hash selection
+          setHashSelecting(true);
+          return;
+        }
+
+        // Clear any waiting indicator now that plans are available
+        if (hashSelecting) setHashSelecting(false);
+
+        const targetPlan = collaborativePlans.find((p) => idEquals(p._id, planId));
         if (targetPlan) {
-          debug.log('Switching to plan:', targetPlan._id);
+          debug.log('Switching to plan from hash:', targetPlan._id);
           const tid = targetPlan._id && targetPlan._id.toString ? targetPlan._id.toString() : targetPlan._id;
           setSelectedPlanId(tid);
           setActiveTab('myplan');
@@ -811,11 +902,21 @@ export default function SingleExperience() {
             }
           }, 100);
         } else {
-          debug.warn('Plan ID from hash not found in collaborative plans:', planId);
+          debug.warn('Plan ID from hash not found in collaborativePlans');
         }
+      } catch (err) {
+        debug.warn('Error handling hash navigation', err);
       }
-    }
-  }, [collaborativePlans, plansLoading, setSelectedPlanId, setActiveTab]);
+    };
+
+    // Run once (attempt selection) and register hashchange listener
+    handleHashNavigation();
+    window.addEventListener('hashchange', handleHashNavigation);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashNavigation);
+    };
+  }, [plansLoading, collaborativePlans]);
 
   // Register h1 and action buttons for navbar
   useEffect(() => {
@@ -1822,6 +1923,17 @@ export default function SingleExperience() {
       if (userPlan) {
         await deletePlan(userPlan._id);
         debug.log("Plan deleted successfully");
+        try {
+          // Record optimistic deletion state so DataContext delays canonical apply
+          setOptimisticPlanStateForExperience(experience._id, {
+            selectedPlanId: null,
+            userPlan: null,
+            displayedPlannedDate: null,
+            userHasExperience: false,
+          });
+        } catch (err) {
+          debug.warn('Failed to set optimistic deletion state in DataContext', err);
+        }
       }
 
       // Refresh data in background (user already sees updated UI)
@@ -1898,6 +2010,19 @@ export default function SingleExperience() {
             return [newPlan, ...prev];
           });
 
+          // Record optimistic plan state in DataContext so canonical updates
+          // can preserve optimistic UI until the backend converges.
+          try {
+            setOptimisticPlanStateForExperience(experience._id, {
+              selectedPlanId: newPlan._id && newPlan._id.toString ? newPlan._id.toString() : newPlan._id,
+              userPlan: newPlan,
+              displayedPlannedDate: addData.planned_date || null,
+              userHasExperience: true,
+            });
+          } catch (err) {
+            debug.warn('Failed to set optimistic plan state in DataContext', err);
+          }
+
           // DON'T call fetchUserPlan() or fetchCollaborativePlans() immediately
           // They might return stale data before the database has the new plan.
           // We already have fresh data from createPlan() API response and manually
@@ -1908,7 +2033,13 @@ export default function SingleExperience() {
             // Refresh user plan and collaborative plans after delay to ensure database consistency
             fetchUserPlan().catch(() => {});
             fetchCollaborativePlans().catch(() => {});
-          }, 800);
+            // Refresh experience after other plan fetches to ensure canonical state
+            fetchExperience().catch(() => {});
+          }, Math.max(800, PLAN_EVENT_SUPPRESSION_MS));
+
+          // Record that we handled a local plan event to block immediate API overwrites
+          lastLocalPlanEventAtRef.current = Date.now();
+
           setActiveTab("myplan");
         } catch (planErr) {
           logger.error("Error creating plan", { 
@@ -1921,9 +2052,10 @@ export default function SingleExperience() {
           handleError(planErr, { context: "Create plan" });
           return;
         }
-
-        // Refresh experience data to get latest state
-        await fetchExperience();
+        // Do NOT refresh the experience synchronously here — we schedule a
+        // background refresh above after the suppression window. This avoids
+        // overwriting optimistic UI state with a server response that may not
+        // yet include the newly created plan.
       } catch (err) {
         // Revert on error
         setUserHasExperience(previousState);
@@ -2831,6 +2963,12 @@ export default function SingleExperience() {
                 {/* My Plan Tab Content */}
                 {activeTab === "myplan" && selectedPlanId && (
                   <div className="my-plan-view mt-4">
+                    {/* Show loading indicator when we detected a hash deep-link and plans are still loading */}
+                    {hashSelecting && (
+                      <div className="mb-3">
+                        <Loading size="md" message={lang.en.label.loadingPlan || 'Loading plan...'} showMessage={true} />
+                      </div>
+                    )}
                     {/* Alert Area - For all plan-related alerts */}
                     {showSyncButton && showSyncAlert && (
                       <Alert
