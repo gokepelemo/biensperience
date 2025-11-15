@@ -531,6 +531,9 @@
     padding: var(--space-3) var(--space-6);
     font-size: 1rem;
     font-weight: 600;
+    line-height: 1; /* ensure consistent vertical size */
+    display: inline-flex; /* align text and caret consistently */
+    align-items: center;
     color: var(--color-single-experience-text-secondary);
     cursor: pointer;
     transition: all 0.3s ease;
@@ -578,6 +581,9 @@
     padding: var(--space-3) var(--space-6);
     font-size: 1rem;
     font-weight: 600;
+    line-height: 1; /* match button line-height */
+    display: inline-flex; /* treat select like button for alignment */
+    align-items: center;
     color: var(--color-single-experience-text-secondary);
     background: transparent;
     border: none;
@@ -605,6 +611,8 @@
    Safari and other browsers. */
 .plan-tab-dropdown-container {
     position: relative; /* ensure ::after positioned correctly */
+    display: inline-flex;
+    align-items: flex-end; /* align select baseline with other tabs */
 }
 
 .plan-tab-dropdown-container::after {
@@ -628,6 +636,19 @@
     z-index: 0;
     display: none; /* hide mask-based caret by default */
 }
+
+/* Inline caret used with select; ensure it doesn't affect tab sizing */
+.plan-tab-caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.4rem;
+    color: var(--color-single-experience-text-secondary);
+    line-height: 1;
+    pointer-events: none;
+}
+
+.plan-tab-caret svg { display: inline-block; vertical-align: middle; }
 
 /* When disabled (single plan), hide caret */
 .plan-tab-button:disabled ~ .plan-tab-dropdown-container::after {
