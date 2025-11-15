@@ -889,6 +889,14 @@ export default function SingleExperience() {
       return;
     }
 
+    // Skip updates if we recently handled a plan event to prevent race conditions
+    // during optimistic state updates (like when user clicks "Plan It")
+    const sinceEvent = Date.now() - (lastLocalPlanEventAtRef.current || 0);
+    if (sinceEvent >= 0 && sinceEvent < PLAN_EVENT_SUPPRESSION_MS) {
+      debug.log('Skipping displayedPlannedDate update due to recent plan event', { sinceEvent });
+      return;
+    }
+
     if (activeTab === "myplan" && selectedPlanId) {
       // Show the selected plan's planned date
       const selectedPlan = collaborativePlans.find(
