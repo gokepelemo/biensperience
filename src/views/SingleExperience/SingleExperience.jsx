@@ -1737,8 +1737,14 @@ export default function SingleExperience() {
       setIsEditingDate(false);
       setPlannedDate("");
     } catch (err) {
-      const errorMsg = handleError(err, { context: "Update date" });
-      showError(errorMsg);
+      // Special-case email verification errors to give a clear action to the user
+      const msgLower = (err && err.message ? err.message.toLowerCase() : "");
+      if (msgLower.includes("email verification") || msgLower.includes("email_not_verified") || msgLower.includes("email not verified") || msgLower.includes("verify your email") || msgLower.includes("email_confirmed") ) {
+        showError('Email verification required. Please verify your email address (check your inbox for a verification link)');
+      } else {
+        const errorMsg = handleError(err, { context: "Update date" });
+        showError(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
