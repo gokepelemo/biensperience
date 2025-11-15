@@ -922,6 +922,57 @@ export default function SingleExperience() {
     fetchAllData();
   }, [fetchAllData]);
 
+  // Reset component state when navigating to a different experience
+  useEffect(() => {
+    // Reset all experience-specific state
+    setExperience(null);
+    setUserPlan(null);
+    setUserHasExperience(false);
+    setUserPlannedDate(null);
+    setDisplayedPlannedDate(null);
+    setTravelTips([]);
+    setCollaborativePlans([]);
+    setSelectedPlanId(null);
+    setPlansLoading(true);
+    setActiveTab("experience");
+    setExpandedParents(new Set());
+    setHashSelecting(false);
+    setShowSyncButton(false);
+    setShowSyncAlert(true);
+    setSyncChanges(null);
+    setSelectedSyncItems({ added: [], removed: [], modified: [] });
+    setFavHover(false);
+    setPendingUnplan(false);
+    setPlanBtnWidth(null);
+    setShowDatePicker(false);
+    setIsEditingDate(false);
+    setPlannedDate("");
+    setShowDeleteModal(false);
+    setShowRemoveModal(false);
+    setShowPlanDeleteModal(false);
+    setPlanItemToDelete(null);
+    setShowPlanInstanceDeleteModal(false);
+    setPlanInstanceItemToDelete(null);
+    setShowCollaboratorModal(false);
+    setCollaboratorContext("plan");
+    setCollaboratorSearch("");
+    setSearchResults([]);
+    setSelectedCollaborators([]);
+    setExistingCollaborators([]);
+    setRemovedCollaborators([]);
+    setCollaboratorAddSuccess(false);
+    setAddedCollaborators([]);
+    setActuallyRemovedCollaborators([]);
+    setShowEmailInviteForm(false);
+    setEmailInviteData({ email: "", name: "" });
+    setEmailInviteSending(false);
+    setEmailInviteError("");
+    setShowPlanItemModal(false);
+    setPlanItemFormState(1);
+    setEditingPlanItem({});
+    setShowSyncModal(false);
+  }, [experienceId]);
+
   // Handle hash-based plan deep linking (e.g., #plan-<planId>)
   useEffect(() => {
     const handleHashNavigation = () => {
