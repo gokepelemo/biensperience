@@ -1887,12 +1887,15 @@ export default function SingleExperience() {
             return [newPlan, ...prev];
           });
 
-          // Refresh user/experience-scoped lists now, but delay the global
-          // plans refresh slightly to avoid racing with optimistic state
-          await fetchUserPlan();
+          // DON'T call fetchUserPlan() immediately - it might return stale data
+          // before the database has the new plan. We already have fresh data from
+          // createPlan() API response. Only refresh collaborative plans and delay
+          // global plans refresh to avoid racing with optimistic state.
           await fetchCollaborativePlans();
           setTimeout(() => {
             fetchPlans().catch(() => {});
+            // Refresh user plan after delay to ensure database consistency
+            fetchUserPlan().catch(() => {});
           }, 800);
           setActiveTab("myplan");
         } catch (planErr) {
