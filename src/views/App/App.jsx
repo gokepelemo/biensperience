@@ -17,7 +17,6 @@ import CookieConsent from "../../components/CookieConsent/CookieConsent";
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import { Helmet } from 'react-helmet-async';
 import { Container } from "../../components/design-system";
-import { useHashPreservation } from "../../hooks/useHashPreservation";
 
 // Lazy load components for better performance
 const AuthPage = lazy(() => import("../AuthPage/AuthPage"));
@@ -134,8 +133,45 @@ function AppContent() {
 
   const navigate = useNavigate();
 
-  // Preserve hash fragments during React Router navigation
-  useHashPreservation();
+  // Preserve hash fragments - React Router strips them during navigation
+  // This effect captures and restores hashes for deep linking
+  useEffect(() => {
+    // Store hash on initial load (handles direct URL paste)
+    const initialHash = window.location.hash;
+    if (initialHash) {
+      logger.info('[Hash Preservation] Initial hash detected:', initialHash);
+      // Store in sessionStorage to survive React Router processing
+      sessionStorage.setItem('pendingHash', initialHash);
+    }
+
+    // Restore hash after a brief delay to ensure component has mounted
+    const storedHash = sessionStorage.getItem('pendingHash');
+    if (storedHash && window.location.hash !== storedHash) {
+      logger.info('[Hash Preservation] Restoring hash:', storedHash);
+      setTimeout(() => {
+        window.location.hash = storedHash;
+        sessionStorage.removeItem('pendingHash');
+      }, 50);
+    }
+
+    // Global click handler to capture hashes from Link navigation
+    const handleClick = (e) => {
+      const link = e.target.closest('a[href]');
+      if (!link) return;
+
+      const href = link.getAttribute('href');
+      if (href && href.includes('#')) {
+        const hashIndex = href.indexOf('#');
+        const hash = href.substring(hashIndex);
+        logger.info('[Hash Preservation] Captured hash from link:', hash);
+        sessionStorage.setItem('pendingHash', hash);
+      }
+    };
+
+    document.addEventListener('click', handleClick, true);
+    return () => document.removeEventListener('click', handleClick, true);
+  }, []);
+
   // Effect: fetch collaborator notifications on login/hard refresh
   useEffect(() => {
     let mounted = true;
