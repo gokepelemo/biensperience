@@ -527,6 +527,13 @@ export default function SingleExperience() {
   // We use the History API (replaceState) so this does not trigger a navigation
   // or reload — the server already exposes a route for `/plans/:planId`.
   useEffect(() => {
+    debug.log('URL management useEffect triggered', {
+      activeTab,
+      selectedPlanId,
+      experienceId,
+      hash: window.location.hash
+    });
+
     try {
       if (typeof window === 'undefined' || !window.history || !window.history.replaceState) return;
 
@@ -536,6 +543,11 @@ export default function SingleExperience() {
       // Only update URL if we're still on the SingleExperience route
       // Prevent interference with navigation away from this component
       if (!experienceId || window.location.pathname !== `/experiences/${experienceId}`) {
+        debug.log('URL management: early return', {
+          hasExperienceId: !!experienceId,
+          currentPath: window.location.pathname,
+          expectedPath: experienceId ? `/experiences/${experienceId}` : 'N/A'
+        });
         return;
       }
 
