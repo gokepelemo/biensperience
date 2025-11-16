@@ -594,12 +594,16 @@ export default function SingleExperience() {
         const expUrl = `/experiences/${experienceId}`;
         try {
           const current = `${window.location.pathname}${window.location.hash || ''}`;
-          // If an incoming plan hash exists (e.g., user opened /experiences/:id#plan-<id>),
+          // CRITICAL: If an incoming plan hash exists (e.g., user opened /experiences/:id#plan-<id>),
           // preserve it so the hash-handling logic can select the plan after load.
+          // This must happen BEFORE any URL normalization to prevent race conditions.
           const incomingHash = window.location.hash || '';
           if (incomingHash.startsWith('#plan-')) {
-            debug.log('Preserving incoming plan hash; skipping expUrl navigate');
-          } else if (current !== expUrl) {
+            debug.log('Preserving incoming plan hash; skipping expUrl navigate to avoid removing hash');
+            return; // CRITICAL: Early return to prevent hash removal
+          }
+
+          if (current !== expUrl) {
             // When leaving plan view, update URL to create a history entry
             window.history.pushState(null, '', expUrl);
             try {
@@ -619,7 +623,13 @@ export default function SingleExperience() {
         } catch (err) {
           const current = `${window.location.pathname}${window.location.hash || ''}`;
           const incomingHash = window.location.hash || '';
-          if (!incomingHash.startsWith('#plan-') && current !== expUrl) {
+          // CRITICAL: Preserve plan hash in fallback path too
+          if (incomingHash.startsWith('#plan-')) {
+            debug.log('Preserving incoming plan hash in fallback; skipping expUrl replaceState');
+            return; // CRITICAL: Early return to prevent hash removal
+          }
+
+          if (current !== expUrl) {
             window.history.replaceState(null, '', expUrl);
             try {
               window.dispatchEvent(new PopStateEvent('popstate'));
