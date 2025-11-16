@@ -6,6 +6,7 @@
  */
 
 const THEME_KEY = 'biensperience:theme';
+const PREFERENCES_KEY = 'biensperience:preferences';
 
 export function applyTheme(theme) {
   if (typeof document === 'undefined') return;
@@ -27,6 +28,18 @@ export function applyTheme(theme) {
     // the user's preference and the applied effective theme.
     try {
       localStorage.setItem(THEME_KEY, JSON.stringify({ theme, applied, ts: Date.now() }));
+      // Also keep the preferences blob in sync when possible
+      try {
+        const raw = localStorage.getItem(PREFERENCES_KEY);
+        let prefs = {};
+        if (raw) {
+          try { prefs = JSON.parse(raw) || {}; } catch (e) { prefs = {}; }
+        }
+        prefs.theme = theme;
+        localStorage.setItem(PREFERENCES_KEY, JSON.stringify(prefs));
+      } catch (e) {
+        // ignore preferences sync failures
+      }
     } catch (e) {
       // ignore localStorage failures
     }
@@ -40,6 +53,17 @@ export function applyTheme(theme) {
 export function getStoredTheme() {
   if (typeof localStorage === 'undefined') return null;
   try {
+    // First prefer the preferences blob if available
+    const prefRaw = localStorage.getItem(PREFERENCES_KEY);
+    if (prefRaw) {
+      try {
+        const prefs = JSON.parse(prefRaw);
+        if (prefs && typeof prefs.theme === 'string') return prefs.theme;
+      } catch (e) {
+        // fall through to THEME_KEY
+      }
+    }
+
     const raw = localStorage.getItem(THEME_KEY);
     if (!raw) return null;
     const obj = JSON.parse(raw);
@@ -52,16 +76,29 @@ export function getStoredTheme() {
   }
 }
 
+// Prefer the preferences key first, then THEME_KEY — useful for startup hydration
+export function getHydratedTheme() {
+  return getStoredTheme();
+}
+
 // Listen for cross-tab theme changes
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('storage', (e) => {
-    if (e.key === THEME_KEY && e.newValue) {
-      try {
+    try {
+      if ((e.key === THEME_KEY || e.key === PREFERENCES_KEY) && e.newValue) {
         const payload = JSON.parse(e.newValue);
-        if (payload && payload.theme) applyTheme(payload.theme);
-      } catch (err) {
-        // ignore
+        // Preferences blob may have a `theme` property
+        if (payload && (payload.theme || (payload.theme === '')) ) {
+          applyTheme(payload.theme);
+          return;
+        }
+        // THEME_KEY payload shape
+        if (payload && payload.theme) {
+          applyTheme(payload.theme);
+        }
       }
+    } catch (err) {
+      // ignore
     }
   });
 }
@@ -69,4 +106,5 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 export default {
   applyTheme,
   getStoredTheme,
+  getHydratedTheme,
 };

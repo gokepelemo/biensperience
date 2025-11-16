@@ -16,7 +16,8 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 
 // Apply stored theme (if any) before rendering for immediate effect
 try {
-  const stored = themeManager.getStoredTheme();
+  // Prefer hydrated theme from user preferences (if present)
+  const stored = themeManager.getHydratedTheme ? themeManager.getHydratedTheme() : themeManager.getStoredTheme();
   if (stored) themeManager.applyTheme(stored);
 } catch (err) {
   // ignore
