@@ -1071,14 +1071,20 @@ export default function SingleExperience() {
     setShowSyncModal(false);
   }, [experienceId]);
 
-  // Handle hash-based plan deep linking (e.g., #plan-<planId>)
+  // Handle hash-based plan deep linking (e.g., #plan-<planId> or #plan-<planId>-item-<itemId>)
   useEffect(() => {
     const handleHashNavigation = () => {
       try {
         const hash = window.location.hash || '';
         if (!hash.startsWith('#plan-')) return;
-        const planId = hash.substring(6); // Remove '#plan-' prefix
-        debug.log('Hash-based plan navigation detected:', planId);
+
+        // Parse hash format: #plan-{planId} or #plan-{planId}-item-{itemId}
+        const hashContent = hash.substring(6); // Remove '#plan-' prefix
+        const parts = hashContent.split('-item-');
+        const planId = parts[0];
+        const itemId = parts.length > 1 ? parts[1] : null;
+
+        debug.log('Hash-based plan navigation detected:', { planId, itemId });
 
         // If plans haven't loaded yet, we'll wait until collaborativePlans changes
         if (plansLoading) {
@@ -1098,11 +1104,33 @@ export default function SingleExperience() {
           setSelectedPlanId(tid);
           setActiveTab('myplan');
 
-          // Scroll to plan section after a brief delay to ensure tab switch
+          // Scroll to plan section or specific item after a brief delay to ensure tab switch
           setTimeout(() => {
-            const planSection = document.querySelector('.my-plan-view');
-            if (planSection) {
-              planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (itemId) {
+              // Scroll to specific plan item
+              const itemElement = document.querySelector(`[data-plan-item-id="${itemId}"]`);
+              if (itemElement) {
+                debug.log('Scrolling to plan item:', itemId);
+                itemElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Brief highlight effect
+                itemElement.style.backgroundColor = 'var(--color-primary-light, #e0e7ff)';
+                setTimeout(() => {
+                  itemElement.style.backgroundColor = '';
+                }, 2000);
+              } else {
+                debug.warn('Plan item element not found:', itemId);
+                // Fallback to plan section if item not found
+                const planSection = document.querySelector('.my-plan-view');
+                if (planSection) {
+                  planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }
+            } else {
+              // Scroll to plan section only
+              const planSection = document.querySelector('.my-plan-view');
+              if (planSection) {
+                planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
             }
           }, 100);
         } else {
@@ -3126,6 +3154,7 @@ export default function SingleExperience() {
                       return itemsToRender.map((planItem) => (
                         <div
                           key={planItem._id}
+                          data-plan-item-id={planItem._id}
                           className={`plan-item-card mb-3 overflow-hidden ${
                             planItem.isVisible ? "" : "collapsed"
                           }`}
@@ -3501,6 +3530,7 @@ export default function SingleExperience() {
                           {itemsToRender.map((planItem) => (
                             <div
                               key={planItem.plan_item_id || planItem._id}
+                              data-plan-item-id={planItem.plan_item_id || planItem._id}
                               className={`plan-item-card mb-3 overflow-hidden ${
                                 planItem.isVisible ? "" : "collapsed"
                               }`}

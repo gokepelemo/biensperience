@@ -350,17 +350,29 @@ async function trackPlanItemCompletion(options) {
       ? `Plan item "${itemName}" marked as completed`
       : `Plan item "${itemName}" marked as incomplete`;
 
-    // Determine the plan name - prefer populated experience name
+    // Determine the plan name and experience ID for deep linking
     let planName = 'Unnamed Plan';
+    let experienceId = null;
     if (plan.experience) {
       // Experience might be populated or just an ID
       if (typeof plan.experience === 'object' && plan.experience.name) {
         planName = plan.experience.name;
+        experienceId = plan.experience._id;
       } else if (plan.experience.toString) {
-        // If it's just an ID, we can't get the name synchronously
-        // The dashboard query will handle populating it
+        // If it's just an ID, store it for deep linking
+        experienceId = plan.experience;
         planName = 'Plan';
       }
+    }
+
+    // Create deep link to specific plan item
+    // Format: /experiences/{experienceId}#plan-{planId}-item-{itemId}
+    let resourceLink = null;
+    if (experienceId) {
+      const expId = experienceId.toString ? experienceId.toString() : experienceId;
+      const planIdStr = plan._id.toString ? plan._id.toString() : plan._id;
+      const itemIdStr = resolvedPlanItem._id.toString ? resolvedPlanItem._id.toString() : resolvedPlanItem._id;
+      resourceLink = `/experiences/${expId}#plan-${planIdStr}-item-${itemIdStr}`;
     }
 
     // Non-blocking: Fire and forget
@@ -381,7 +393,10 @@ async function trackPlanItemCompletion(options) {
       previousState: { completed: !completed },
       newState: { completed },
       reason,
-      metadata: req ? extractMetadata(req) : {},
+      metadata: {
+        ...(req ? extractMetadata(req) : {}),
+        resourceLink // Deep link to specific plan item
+      },
       status: 'success',
       tags: ['plan', 'plan_item', completed ? 'completed' : 'uncompleted']
     };
