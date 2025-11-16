@@ -22,7 +22,6 @@ import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import { Button, Container, Mobile, Desktop, FadeIn, FormLabel, FormControl, FormCheck, Text } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
 import debug from "../../utilities/debug";
-import { createActivity } from "../../utilities/activities-api";
 import { createUrlSlug } from "../../utilities/url-utils";
 import {
   formatDateShort,
@@ -3641,6 +3640,8 @@ export default function SingleExperience() {
                                               const newComplete = !planItem.complete;
 
                                               // Update the plan item on the server
+                                              // Activity tracking happens automatically in the backend
+                                              // via trackPlanItemCompletion() in controllers/api/plans.js
                                               await updatePlanItem(
                                                 selectedPlanId,
                                                 itemId,
@@ -3648,26 +3649,6 @@ export default function SingleExperience() {
                                                   complete: newComplete,
                                                 }
                                               );
-
-                                              // Create a recent-activity entry for this action.
-                                              // Build a friendly action string and a link that points
-                                              // to the experience page with a hash anchor to the plan item.
-                                              try {
-                                                const experienceTitle = experience?.name || experience?.title || '';
-                                                const actionText = newComplete ? 'marked complete' : 'marked incomplete';
-                                                const activityPayload = {
-                                                  action: actionText,
-                                                  item: planItem.text || 'Plan item',
-                                                  targetItem: experienceTitle,
-                                                  link: `/experiences/${experience?._id || experienceId}#plan-${selectedPlanId}-item-${itemId}`,
-                                                };
-
-                                                // Fire-and-forget but await so failures can be logged
-                                                await createActivity(activityPayload);
-                                              } catch (activityErr) {
-                                                debug.error('Failed to create activity for plan item toggle', activityErr);
-                                                // Do not block user action on activity creation failure
-                                              }
 
                                               // Refresh client plan state
                                               await fetchCollaborativePlans();
