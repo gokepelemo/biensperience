@@ -17,6 +17,7 @@ import CookieConsent from "../../components/CookieConsent/CookieConsent";
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import { Helmet } from 'react-helmet-async';
 import { Container } from "../../components/design-system";
+import { useHashPreservation } from "../../hooks/useHashPreservation";
 
 // Lazy load components for better performance
 const AuthPage = lazy(() => import("../AuthPage/AuthPage"));
@@ -132,6 +133,9 @@ function AppContent() {
   logger.debug('useToast completed');
 
   const navigate = useNavigate();
+
+  // Preserve hash fragments during React Router navigation
+  useHashPreservation();
   // Effect: fetch collaborator notifications on login/hard refresh
   useEffect(() => {
     let mounted = true;
