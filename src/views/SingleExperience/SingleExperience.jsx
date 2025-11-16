@@ -550,6 +550,15 @@ export default function SingleExperience() {
         const hashed = hasItemHash
           ? `${window.location.pathname}${currentHash}`
           : `/experiences/${experienceId}#plan-${selectedPlanId}`;
+
+        debug.log('URL management: myplan tab active', {
+          activeTab,
+          selectedPlanId,
+          currentHash,
+          hasItemHash,
+          hashed
+        });
+
         try {
           // Dedupe: avoid navigating if the URL is already the same
           const current = `${window.location.pathname}${window.location.hash || ''}`;
@@ -596,6 +605,14 @@ export default function SingleExperience() {
       // Otherwise restore the canonical experience URL without fragment
       if (experienceId) {
         const expUrl = `/experiences/${experienceId}`;
+
+        debug.log('URL management: canonical URL section', {
+          activeTab,
+          selectedPlanId,
+          experienceId,
+          currentHash: window.location.hash
+        });
+
         try {
           const current = `${window.location.pathname}${window.location.hash || ''}`;
           // CRITICAL: If an incoming plan hash exists (e.g., user opened /experiences/:id#plan-<id>),
@@ -603,7 +620,9 @@ export default function SingleExperience() {
           // This must happen BEFORE any URL normalization to prevent race conditions.
           const incomingHash = window.location.hash || '';
           if (incomingHash.startsWith('#plan-')) {
-            debug.log('Preserving incoming plan hash; skipping expUrl navigate to avoid removing hash');
+            debug.log('Preserving incoming plan hash; skipping expUrl navigate to avoid removing hash', {
+              incomingHash
+            });
             return; // CRITICAL: Early return to prevent hash removal
           }
 
