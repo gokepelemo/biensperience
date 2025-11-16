@@ -16,7 +16,7 @@ import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { isOwner } from "../../utilities/permissions";
-import { Container, Mobile, Desktop } from "../../components/design-system";
+import { Container, Mobile, Desktop, Button } from "../../components/design-system";
 
 export default function SingleDestination() {
   const { user } = useUser();
@@ -27,27 +27,43 @@ export default function SingleDestination() {
   const [destination, setDestination] = useState(null);
   const [destinationExperiences, setDestinationExperiences] = useState([]);
   const [directDestinationExperiences, setDirectDestinationExperiences] = useState(null);
+  const [visibleExperiencesCount, setVisibleExperiencesCount] = useState(6);
   const h1Ref = useRef(null);
+  const loadMoreRef = useRef(null);
+
+  /**
+   * Merge helper function to update destination state without full replacement
+   * Preserves unchanged data and prevents UI flashing
+   */
+  const mergeDestination = useCallback((updates) => {
+    setDestination(prev => {
+      if (!prev) return updates; // First load - use full data
+      if (!updates) return prev; // No updates - keep existing
+      return { ...prev, ...updates }; // Merge - preserve unchanged data
+    });
+  }, []);
 
   const getData = useCallback(async () => {
     try {
       // Fetch destination data
       const destinationData = await showDestination(destinationId);
-      setDestination(destinationData);
+      // ✅ Use merge to preserve unchanged data (prevents photo/name flash)
+      mergeDestination(destinationData);
       // Refresh destinations list in background
       fetchDestinations();
     } catch (error) {
       logger.error('Error fetching destination', { destinationId, error: error.message });
     }
-  }, [destinationId, fetchDestinations]);
+  }, [destinationId, fetchDestinations, mergeDestination]);
 
   // Update local state when global destinations or experiences change
   useEffect(() => {
     const foundDestination = destinations.find((dest) => dest._id === destinationId);
     if (foundDestination) {
-      setDestination(foundDestination);
+      // ✅ Use merge to preserve unchanged data (prevents flash on context update)
+      mergeDestination(foundDestination);
     }
-  }, [destinations, destinationId]);
+  }, [destinations, destinationId, mergeDestination]);
 
   // Listen for destination update events to refresh this specific destination
   useEffect(() => {
@@ -55,7 +71,8 @@ export default function SingleDestination() {
       const { destination: updatedDestination } = event.detail || {};
       if (updatedDestination && updatedDestination._id === destinationId) {
         logger.debug('[SingleDestination] Destination updated event received', { id: updatedDestination._id });
-        setDestination(updatedDestination);
+        // ✅ Use merge to preserve unchanged data (prevents flash on event update)
+        mergeDestination(updatedDestination);
       }
     };
 
@@ -63,7 +80,7 @@ export default function SingleDestination() {
     return () => {
       window.removeEventListener('destination:updated', handleDestinationUpdated);
     };
-  }, [destinationId]);
+  }, [destinationId, mergeDestination]);
 
   useEffect(() => {
     const filteredExperiences = experiences.filter((experience) => {
@@ -138,7 +155,8 @@ export default function SingleDestination() {
 
   // Choose which experiences list to display: prefer direct server results when present
   // Normalize possible shapes: legacy array, or paginated { data, meta }
-  const displayedExperiences = (() => {
+  // Get all experiences for this destination
+  const allExperiences = (() => {
     if (directDestinationExperiences !== null) {
       if (Array.isArray(directDestinationExperiences)) return directDestinationExperiences;
       if (directDestinationExperiences && Array.isArray(directDestinationExperiences.data)) return directDestinationExperiences.data;
@@ -147,6 +165,39 @@ export default function SingleDestination() {
     }
     return Array.isArray(destinationExperiences) ? destinationExperiences : [];
   })();
+
+  // Slice to show only visible experiences (for infinite scroll)
+  const displayedExperiences = allExperiences.slice(0, visibleExperiencesCount);
+  const hasMoreExperiences = allExperiences.length > visibleExperiencesCount;
+
+  // Infinite scroll: load more experiences when sentinel comes into view
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasMoreExperiences) return;
+
+    const currentRef = loadMoreRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          // Load 6 more experiences
+          setVisibleExperiencesCount((prev) => prev + 6);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(currentRef);
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasMoreExperiences]);
+
+  // Reset visible count when destination changes
+  useEffect(() => {
+    setVisibleExperiencesCount(6);
+  }, [destinationId]);
 
 
 
@@ -255,17 +306,46 @@ export default function SingleDestination() {
                 {lang.en.heading.experiencesIn.replace('{destinationName}', destination.name)}
               </h2>
               {displayedExperiences.length > 0 ? (
-                displayedExperiences.map((experience, index) => (
-                  <ExperienceCard
-                    key={index}
-                    experience={experience}
-                    userPlans={plans}
-                  />
-                ))
+                <>
+                  {displayedExperiences.map((experience, index) => (
+                    <ExperienceCard
+                      key={index}
+                      experience={experience}
+                      userPlans={plans}
+                    />
+                  ))}
+                  {/* Infinite scroll sentinel - loads more when visible */}
+                  {hasMoreExperiences && (
+                    <div
+                      ref={loadMoreRef}
+                      style={{
+                        height: '20px',
+                        width: '100%',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: '2rem 0'
+                      }}
+                    >
+                      <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+                        Loading more experiences...
+                      </span>
+                    </div>
+                  )}
+                </>
               ) : (
-                <Alert type="info">
-                  {lang.en.alert.noExperiencesInDestination} <Link to="/experiences/new">{lang.en.message.addOneNow}</Link>?
-                </Alert>
+                <Alert
+                  type="info"
+                  className="alert-centered"
+                  message={lang.en.alert.noExperiencesInDestination}
+                  actions={
+                    <Link to="/experiences/new">
+                      <Button variant="gradient" size="md">
+                        Add Experience
+                      </Button>
+                    </Link>
+                  }
+                />
               )}
             </div>
           </>

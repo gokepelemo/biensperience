@@ -1,5 +1,14 @@
-/* AppHome.css - Styles for the AppHome view */
+.app-home-empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem 0;
+}
 
+/* Ensure buttons in the empty-state alert have breathing room */
+.app-home-empty .btn + .btn {
+  margin-left: 0.75rem;
+}
 .app-home-container {
   display: flex;
   flex-direction: column;

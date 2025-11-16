@@ -1,5 +1,3 @@
-/* New Experience Form - Uses design system .form-unified class */
-
 .modal.fade.show {
   animation: modalFadeIn 0.3s ease-out;
 }

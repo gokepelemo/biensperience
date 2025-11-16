@@ -108,18 +108,19 @@ export default function Autocomplete({
   // Handle input change
   const handleInputChange = (e) => {
     const newValue = e.target.value;
-    
+
     if (onChange) {
       onChange(e);
     }
     // Always update internal searchTerm for local filtering and display
     setSearchTerm(newValue);
-    
+
     if (onSearch) {
       onSearch(newValue);
     }
-    
-    setIsOpen(true);
+
+    // Only open dropdown if there's a value or if there are items to show
+    setIsOpen(newValue.trim().length > 0 || items.length > 0);
     setHighlightedIndex(-1);
   };
 
@@ -240,7 +241,12 @@ export default function Autocomplete({
           placeholder={placeholder}
           value={currentValue}
           onChange={handleInputChange}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => {
+            // Only open dropdown if there's a value or items to show
+            if (currentValue.trim().length > 0 || items.length > 0) {
+              setIsOpen(true);
+            }
+          }}
           onKeyDown={handleKeyDown}
           disabled={disabled}
           className="autocomplete-input"

@@ -1,4 +1,4 @@
-/* Inherit core styles from LoginForm; add minor adjustments for multi-field layout */
+
 .login-btn {
 	text-transform: none;
 	font-size: var(--font-size-base);

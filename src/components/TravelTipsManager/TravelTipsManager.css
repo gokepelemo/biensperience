@@ -1,8 +1,217 @@
-/**
- * TravelTipsManager Component Styles
- * Using design tokens for dark mode support
- */
+/* Helper text override for better contrast */
+.travel-tips-helper {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
 
+.structured-tip-form {
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  background-color: var(--color-bg-secondary);
+  transition: background-color var(--transition-base), border-color var(--transition-base);
+}
+
+.structured-tip-preview {
+  padding: 1rem;
+}
+
+.structured-tip-preview .badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.structured-tip-preview strong {
+  font-size: 1rem;
+  color: var(--color-text-primary);
+}
+
+.structured-tip-preview .text-muted {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+/* Mode toggle buttons - Design system compliant with layout stability */
+.btn-group {
+  /* Contain layout shifts within button group */
+  contain: layout;
+}
+
+.btn-group .btn {
+  font-size: var(--font-size-sm);
+  /* Prevent focus/active state from causing layout shifts */
+  box-sizing: border-box;
+  /* Use padding that accounts for border changes */
+  padding: var(--space-2) var(--space-3);
+  /* Reserve space for focus border by using consistent border */
+  border-width: 2px;
+  border-style: solid;
+  transition: background-color var(--transition-base), 
+              color var(--transition-base), 
+              border-color var(--transition-base);
+  /* Prevent any transform on interaction */
+  transform: none !important;
+  /* Lock vertical alignment */
+  vertical-align: middle;
+  /* Prevent outline from extending outside */
+  outline-offset: -2px;
+}
+
+/* Primary button state */
+.btn-group .btn.btn-primary {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+/* Outline button state */
+.btn-group .btn.btn-outline-secondary {
+  border-color: var(--color-border-medium);
+  background-color: transparent;
+  color: var(--color-text-secondary);
+}
+
+.btn-group .btn.btn-outline-secondary:hover {
+  border-color: var(--color-border-dark);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+/* Focus states - use border color change only */
+.btn-group .btn:focus,
+.btn-group .btn:focus-visible {
+  /* Keep same border width - only change color */
+  border-color: var(--color-primary);
+  /* Use inset box-shadow instead of outline */
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+  outline: none;
+  /* Lock position - no movement */
+  transform: none !important;
+  /* Prevent any size changes */
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+}
+
+/* Active state */
+.btn-group .btn:active {
+  transform: none !important;
+  box-shadow: none;
+  /* Slightly darker on click but no movement */
+  filter: brightness(0.95);
+}
+
+/* Hover state */
+.btn-group .btn:hover {
+  transform: none !important;
+}
+
+/* Override any Bootstrap defaults that might cause shifts */
+.btn-group .btn.btn-primary:hover,
+.btn-group .btn.btn-primary:focus,
+.btn-group .btn.btn-primary:active,
+.btn-group .btn.btn-outline-secondary:hover,
+.btn-group .btn.btn-outline-secondary:focus,
+.btn-group .btn.btn-outline-secondary:active {
+  transform: none !important;
+  box-shadow: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .structured-tip-form {
+    padding: 0.75rem;
+  }
+
+  .structured-tip-preview {
+    padding: 0.75rem;
+  }
+}
+
+/* Drag and drop styles */
+.drag-handle {
+  cursor: grab;
+  color: var(--color-text-muted);
+  font-size: 1.2rem;
+  margin-right: 0.5rem;
+  user-select: none;
+  transition: color var(--transition-fast);
+}
+
+.drag-handle:hover {
+  color: var(--color-text-secondary);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.dragging {
+  opacity: 0.5;
+  transform: rotate(5deg);
+  box-shadow: var(--shadow-md);
+}
+
+.drag-over {
+  border-top: 2px solid var(--color-primary);
+  background-color: var(--color-bg-tertiary);
+  transition: background-color var(--transition-fast);
+}
+
+/* Dark mode specific adjustments */
+@media (prefers-color-scheme: dark) {
+  .structured-tip-form {
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border-light);
+  }
+
+  .drag-over {
+    background-color: var(--color-bg-secondary);
+  }
+
+  .call-to-action-section {
+    background-color: var(--color-bg-tertiary);
+  }
+}
+
+/* Call to Action Section - Design System Compliant */
+.call-to-action-section {
+  border: 2px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+  background-color: var(--color-bg-secondary);
+  transition: background-color var(--transition-base), border-color var(--transition-base);
+}
+
+.call-to-action-section .form-label {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
+  margin-bottom: var(--space-2);
+}
+
+.call-to-action-section .form-control {
+  background-color: var(--color-bg-input);
+  border-color: var(--color-border-medium);
+  color: var(--color-text-primary);
+}
+
+.call-to-action-section .form-control:focus {
+  background-color: var(--color-bg-input);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.2rem var(--color-primary-alpha);
+}
+
+.call-to-action-section .form-control::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.call-to-action-section .form-text {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-2);
+}
 /* Helper text override for better contrast */
 .travel-tips-helper {
   color: var(--color-text-secondary);

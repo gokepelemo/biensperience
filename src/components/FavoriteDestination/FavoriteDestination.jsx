@@ -39,7 +39,7 @@ export default function FavoriteDestination({ destination, user, getData, includ
     <>
       <div className="favorite-destination-wrapper">
         <button
-          className={`btn btn-icon my-4 ${isUserFavorite ? 'btn-favorite-remove' : 'btn-favorite-add'} ${loading ? 'loading' : ''}`}
+          className={`btn btn-sm btn-icon my-4 ${isUserFavorite ? 'btn-favorite-remove' : 'btn-favorite-add'} ${loading ? 'loading' : ''}`}
           onClick={handleAddToFavorites}
           onMouseEnter={() => setFavHover(true)}
           onMouseLeave={() => setFavHover(false)}

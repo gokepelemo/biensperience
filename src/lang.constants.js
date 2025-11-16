@@ -27,7 +27,7 @@ const en = {
     setDateAndAdd: "Set Date & Add",
     addDestinationCreateExperience: "Add Destination ➡️ Create New Experience",
     addFavoriteExp: "+ Plan It",
-    addFavoriteDest: "+ Add to Favorite Destinations",
+    addFavoriteDest: "+ Favorite",
     removeFavoriteExp: "- Remove",
     removeFavoriteDest: "- Remove",
     addToPlan: "+ Add to Planned Experiences",
@@ -410,7 +410,7 @@ const en = {
     dontHaveAccount: "Don't have an account?",
     alreadyHaveAccount: "Already have an account?",
     noPhotoMessage: "No profile photo yet.",
-    uploadPhotoNow: "Upload one now",
+    uploadPhotoNow: "Upload One Now",
     noFavoriteDestinations:
       "No favorite destinations yet. Explore our destinations and add your favorites.",
     addFavoriteDestinations: "Add Some Favorite Destinations",

@@ -227,7 +227,7 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
             <Button size="sm" variant="outline-secondary" disabled={page <= 1} onClick={() => loadPage(page - 1)}>Prev</Button>
             <div style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
-              Page {page}/{pagination.numPages || pagination.totalPages}
+              {page}/{pagination.numPages || pagination.totalPages}
             </div>
             <Button size="sm" variant="outline-secondary" disabled={page >= (pagination.numPages || pagination.totalPages)} onClick={() => loadPage(page + 1)}>Next</Button>
           </div>

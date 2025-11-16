@@ -100,6 +100,15 @@
   color: var(--color-alert-success-text);
 }
 
+/* Centered Alert Content */
+.alert.alert-centered .alert-content {
+  justify-content: center;
+}
+
+.alert.alert-centered .alert-text {
+  text-align: center;
+}
+
 /* Alert Actions - Centered Button Layout */
 .alert-actions {
   margin-top: var(--space-4);

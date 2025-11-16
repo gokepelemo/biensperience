@@ -1,9 +1,9 @@
 button, .btn {
-    transition: var(--transition-base);
+  transition: var(--transition-base);
 }
 button:hover, .btn:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 /* Pills - Using unified design system utility class */
@@ -11,87 +11,85 @@ button:hover, .btn:hover {
 
 /* FavoriteDestination-specific pill overrides */
 .pill {
-    background: linear-gradient(90deg, var(--color-favorite-pill-bg) 0%, var(--color-favorite-pill-bg-end) 100%);
-    margin: var(--space-1);
+  background: linear-gradient(90deg, var(--color-favorite-pill-bg) 0%, var(--color-favorite-pill-bg-end) 100%);
+  margin: var(--space-1);
 }
 
 .pill.inactive {
-    background: var(--color-bg-tertiary);
-    color: var(--color-text-muted);
-    box-shadow: none;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  box-shadow: none;
 }
 
 .pill .icon {
-    margin-right: var(--space-2);
-    font-size: var(--font-size-lg);
+  margin-right: var(--space-2);
+  font-size: var(--font-size-lg);
 }
 
 .pill:hover {
-    color: var(--color-favorite-text) !important;
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
+  color: var(--color-favorite-text) !important;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 /* Custom Button Classes - Extend Bootstrap without overriding */
 .btn-favorite-add,
 .btn-favorite-remove {
-    /* Clone btn-icon properties - purple gradient base */
-    background: var(--gradient-primary) !important;
-    color: white !important;
-    border: none;
-    font-weight: var(--font-weight-semibold);
-    font-size: var(--font-size-lg);
-    padding: var(--space-3) var(--space-5);
-    transition: var(--transition-normal);
-    /* Fixed width to accommodate longest text with comfortable padding */
-    min-width: 400px;
-    width: 400px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  /* Clone btn-icon properties - purple gradient base */
+  background: var(--gradient-primary) !important;
+  color: white !important;
+  border: none;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+  padding: var(--space-3) var(--space-5);
+  transition: var(--transition-normal);
+  /* Fixed width to accommodate longest text with comfortable padding */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Turn green when hovering on add state */
 .btn-favorite-add:hover {
-    background: linear-gradient(135deg, var(--color-favorite-add-hover-start) 0%, var(--color-favorite-add-hover-end) 100%) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-    color: white !important;
+  background: linear-gradient(135deg, var(--color-favorite-add-hover-start) 0%, var(--color-favorite-add-hover-end) 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+  color: white !important;
 }
 
 /* Turn red when hovering on remove state */
 .btn-favorite-remove:hover {
-    background: linear-gradient(135deg, var(--color-favorite-remove-hover-start) 0%, var(--color-favorite-remove-hover-end) 100%) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-    color: white !important;
+  background: linear-gradient(135deg, var(--color-favorite-remove-hover-start) 0%, var(--color-favorite-remove-hover-end) 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+  color: white !important;
 }
 
 /* Loading pulse animation for favorite button */
 @keyframes favoritePulse {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(0.85);
-    }
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.85);
+  }
 }
 
 .btn-favorite-add.loading,
 .btn-favorite-remove.loading {
-    animation: favoritePulse 0.8s ease-in-out infinite;
-    opacity: 0.7;
-    pointer-events: none;
+  animation: favoritePulse 0.8s ease-in-out infinite;
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 /* Center button on mobile and tablet viewports */
 .favorite-destination-wrapper {
-    display: flex;
-    justify-content: flex-end;
+  display: flex;
+  justify-content: flex-end;
 }
 
 @media (max-width: 991px) {
-    .favorite-destination-wrapper {
-        justify-content: center;
-    }
+  .favorite-destination-wrapper {
+    justify-content: center;
+  }
 }

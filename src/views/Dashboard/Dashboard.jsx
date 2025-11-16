@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Button } from 'react-bootstrap';
 import { FaCalendar, FaStar, FaMapMarkerAlt, FaDollarSign } from 'react-icons/fa';
 import { getDashboardData } from '../../utilities/dashboard-api';
@@ -30,6 +30,29 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    try {
+      const hash = (window.location.hash || '').replace('#', '');
+      if (!hash) return;
+      if (['overview', 'plans', 'preferences'].includes(hash)) {
+        setActiveTab(hash);
+        return;
+      }
+      
+      if (hash === 'quick-actions' && quickActionsRef.current) {
+        quickActionsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      if (hash === 'upcoming-plans' && upcomingPlansRef.current) {
+        upcomingPlansRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+    } catch (e) {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     const handlePlanUpdated = () => {
       logger.debug('[Dashboard] Plan updated event received, refreshing dashboard');
       fetchDashboardData();
@@ -42,6 +65,33 @@ export default function Dashboard() {
       window.removeEventListener('plan:updated', handlePlanUpdated);
       window.removeEventListener('bien:plan_updated', handlePlanUpdated);
     };
+  }, []);
+
+  const quickActionsRef = useRef(null);
+  const upcomingPlansRef = useRef(null);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      try {
+        const hash = (window.location.hash || '').replace('#', '');
+        if (!hash) return;
+        if (['overview', 'plans', 'preferences'].includes(hash)) {
+          setActiveTab(hash);
+          return;
+        }
+        if (hash === 'quick-actions' && quickActionsRef.current) {
+          quickActionsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+        if (hash === 'upcoming-plans' && upcomingPlansRef.current) {
+          upcomingPlansRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
   async function fetchDashboardData() {
@@ -150,9 +200,15 @@ export default function Dashboard() {
                     role="button"
                     tabIndex={0}
                     key={item.key}
-                    onClick={() => setActiveTab(item.key)}
+                    onClick={() => {
+                      setActiveTab(item.key);
+                      try { window.history.pushState(null, '', `${window.location.pathname}#${item.key}`); } catch (e) {}
+                    }}
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') setActiveTab(item.key);
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        setActiveTab(item.key);
+                        try { window.history.pushState(null, '', `${window.location.pathname}#${item.key}`); } catch (e) {}
+                      }
                     }}
                     style={{
                       padding: 'var(--space-3)',
@@ -223,11 +279,11 @@ export default function Dashboard() {
                   </Col>
 
                   <Col lg={4} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                    <div style={{ marginBottom: 'var(--space-6)' }}>
+                    <div style={{ marginBottom: 'var(--space-6)' }} ref={quickActionsRef}>
                       <QuickActions />
                     </div>
 
-                    <div style={{ flex: 1, overflow: 'auto' }}>
+                    <div style={{ flex: 1, overflow: 'auto' }} ref={upcomingPlansRef}>
                       <UpcomingPlans plans={upcomingPlans} />
                     </div>
                   </Col>

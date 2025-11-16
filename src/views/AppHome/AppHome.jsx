@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
 import { useUser } from "../../contexts/UserContext";
@@ -18,6 +18,10 @@ export default function AppHome() {
   const { experiences, destinations, plans, loading, applyDestinationsFilter, applyExperiencesFilter } = useData();
   const { user } = useUser();
   const navigate = useNavigate();
+  const [showAllDestinations, setShowAllDestinations] = useState(false);
+  const [showAllExperiences, setShowAllExperiences] = useState(false);
+  const DESTINATIONS_INITIAL_DISPLAY = 10;
+  const EXPERIENCES_INITIAL_DISPLAY = 12;
 
   // Fetch fresh, unfiltered data when AppHome mounts
   // This ensures we show all destinations and experiences, not filtered data from other views
@@ -63,8 +67,8 @@ export default function AppHome() {
       {loading ? (
         <Loading variant="centered" size="lg" message="Loading..." />
       ) : isEmptyState ? (
-        <Container>
-          <div className="col-12 col-md-8 col-lg-6">
+        <FlexCenter>
+          <div className="col-12 col-md-8 col-lg-6 text-center">
             <Alert
               type="info"
               title={lang.en.alert.welcomeTitle.replace('{name}', user?.name ? `, ${user.name}` : '')}
@@ -76,6 +80,7 @@ export default function AppHome() {
               <SpaceY size={3}>
                 <Button
                   variant="primary"
+                  className="mb-3"
                   onClick={() => navigate('/destinations/new')}
                 >
                   {lang.en.button.createDestination}
@@ -89,24 +94,40 @@ export default function AppHome() {
               </SpaceY>
             </Alert>
           </div>
-        </Container>
+        </FlexCenter>
       ) : (
         <>
           <h2 className="my-4 animation-fade_in">{lang.en.heading.popularDestinations}</h2>
-          <FlexCenter className="animation-fade_in">
-            {destinations && destinations.length > 0 ? (
-              <div className="destinations-list">
-                {destinations
-                  .filter((destination, index) => index <= 9)
-                  .map((destination, index) => (
-                    <DestinationCard
-                      key={destination._id || index}
-                      destination={destination}
-                      className="animation-fade_in"
-                    />
-                  ))}
-              </div>
-            ) : (
+          {destinations && destinations.length > 0 ? (
+            <>
+              <FlexCenter className="animation-fade_in">
+                <div className="destinations-list">
+                  {(showAllDestinations ? destinations : destinations.slice(0, DESTINATIONS_INITIAL_DISPLAY))
+                    .map((destination, index) => (
+                      <DestinationCard
+                        key={destination._id || index}
+                        destination={destination}
+                        className="animation-fade_in"
+                      />
+                    ))}
+                </div>
+              </FlexCenter>
+              {destinations.length > DESTINATIONS_INITIAL_DISPLAY && (
+                <div className="col-12 text-center mt-4 mb-5">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => setShowAllDestinations(!showAllDestinations)}
+                  >
+                    {showAllDestinations
+                      ? 'Show Less'
+                      : `Show ${destinations.length - DESTINATIONS_INITIAL_DISPLAY} More`}
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <FlexCenter className="animation-fade_in">
               <div className="col-12">
                 <Alert type="info" dismissible={false}>
                   <p className="mb-2">{lang.en.alert.noDestinationsYet}</p>
@@ -119,25 +140,41 @@ export default function AppHome() {
                   </Button>
                 </Alert>
               </div>
-            )}
-          </FlexCenter>
+            </FlexCenter>
+          )}
 
           <h2 className="my-4 animation-fade_in">{lang.en.heading.curatedExperiences}</h2>
-          <FlexCenter className="animation-fade_in">
-            {experiences && experiences.length > 0 ? (
-              <div className="experiences-list">
-                {experiences
-                  .filter((experience, index) => index <= 11)
-                  .map((experience, index) => (
-                    <ExperienceCard
-                      key={experience._id || index}
-                      experience={experience}
-                      className="animation-fade_in"
-                      userPlans={plans}
-                    />
-                  ))}
-              </div>
-            ) : (
+          {experiences && experiences.length > 0 ? (
+            <>
+              <FlexCenter className="animation-fade_in">
+                <div className="experiences-list">
+                  {(showAllExperiences ? experiences : experiences.slice(0, EXPERIENCES_INITIAL_DISPLAY))
+                    .map((experience, index) => (
+                      <ExperienceCard
+                        key={experience._id || index}
+                        experience={experience}
+                        className="animation-fade_in"
+                        userPlans={plans}
+                      />
+                    ))}
+                </div>
+              </FlexCenter>
+              {experiences.length > EXPERIENCES_INITIAL_DISPLAY && (
+                <div className="col-12 text-center mt-4 mb-5">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => setShowAllExperiences(!showAllExperiences)}
+                  >
+                    {showAllExperiences
+                      ? 'Show Less'
+                      : `Show ${experiences.length - EXPERIENCES_INITIAL_DISPLAY} More`}
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <FlexCenter className="animation-fade_in">
               <div className="col-12">
                 <Alert type="info" dismissible={false}>
                   <p className="mb-2">{lang.en.alert.noExperiencesYet}</p>
@@ -150,8 +187,8 @@ export default function AppHome() {
                   </Button>
                 </Alert>
               </div>
-            )}
-          </FlexCenter>
+            </FlexCenter>
+          )}
         </>
       )}
     </PageWrapper>

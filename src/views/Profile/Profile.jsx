@@ -50,17 +50,122 @@ export default function Profile() {
     created: false,
     destinations: false,
   });
+
+  const [showApiTokenModal, setShowApiTokenModal] = useState(false);
+  const [showActivityMonitor, setShowActivityMonitor] = useState(false);
+
+  // Initialize tab from hash (supports deep links like /profile#created)
+  useEffect(() => {
+    try {
+      const hash = (window.location.hash || '').replace('#', '');
+      if (!hash) return;
+
+      // Map known hashes to local profile tabs
+      if (['experiences', 'created', 'destinations'].includes(hash)) {
+        setUiState({
+          experiences: hash === 'experiences',
+          created: hash === 'created',
+          destinations: hash === 'destinations',
+        });
+        return;
+      }
+
+      // If hash targets dashboard tabs, navigate there preserving hash
+      if (hash === 'plans' || hash === 'preferences') {
+        // push a navigation entry so users can go back
+        navigate(`/dashboard#${hash}`);
+        return;
+      }
+
+      // Support modal deep-links on profile
+      if (hash === 'api-token') {
+        setShowApiTokenModal(true);
+        return;
+      }
+      if (hash === 'activity-monitor') {
+        setShowActivityMonitor(true);
+        return;
+      }
+    } catch (e) {
+      // ignore
+    }
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep UI tab state in sync when hash changes externally
+  useEffect(() => {
+    const onHashChange = () => {
+      try {
+        const hash = (window.location.hash || '').replace('#', '');
+
+        // Empty hash - close modals if open
+        if (!hash) {
+          if (showApiTokenModal) setShowApiTokenModal(false);
+          if (showActivityMonitor) setShowActivityMonitor(false);
+          return;
+        }
+
+        if (['experiences', 'created', 'destinations'].includes(hash)) {
+          setUiState({
+            experiences: hash === 'experiences',
+            created: hash === 'created',
+            destinations: hash === 'destinations',
+          });
+          return;
+        }
+
+        if (hash === 'plans' || hash === 'preferences') {
+          // push navigation entry to dashboard
+          navigate(`/dashboard#${hash}`);
+          return;
+        }
+
+        // Modal hashes
+        if (hash === 'api-token') {
+          setShowApiTokenModal(true);
+          return;
+        }
+        if (hash === 'activity-monitor') {
+          setShowActivityMonitor(true);
+          return;
+        }
+        // Unknown hash - ignore
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [navigate, showApiTokenModal, showActivityMonitor]);
   const [userExperiences, setUserExperiences] = useState([]);
   const [createdExperiences, setCreatedExperiences] = useState([]);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
-  const [showApiTokenModal, setShowApiTokenModal] = useState(false);
-  const [showActivityMonitor, setShowActivityMonitor] = useState(false);
   const { success, error: showError } = useToast();
   const [resendInProgress, setResendInProgress] = useState(false);
   const [resendDisabled, setResendDisabled] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [showAllExperienceTypes, setShowAllExperienceTypes] = useState(false);
+  const [showAllPlanned, setShowAllPlanned] = useState(false);
+  const [showAllCreated, setShowAllCreated] = useState(false);
+  const [showAllDestinations, setShowAllDestinations] = useState(false);
   const COOLDOWN_SECONDS = 60;
   const COOLDOWN_KEY_PREFIX = 'resend_verification_cooldown_';
+  const EXPERIENCE_TYPES_INITIAL_DISPLAY = 10;
+  const ITEMS_INITIAL_DISPLAY = 6;
+
+  /**
+   * Merge helper function to update profile state without full replacement
+   * Preserves unchanged data and prevents UI flashing
+   */
+  const mergeProfile = useCallback((updates) => {
+    setCurrentProfile(prev => {
+      if (!prev) return updates; // First load - use full data
+      if (!updates) return prev; // No updates - keep existing
+      return { ...prev, ...updates }; // Merge - preserve unchanged data
+    });
+  }, []);
 
   // Start a cooldown for the given email and persist to localStorage
   const startCooldown = (email) => {
@@ -214,9 +319,9 @@ export default function Profile() {
     setIsUpdatingRole(true);
     try {
       await updateUserRole(profileId, { role: newRole });
-      // Refresh profile data
-      await getProfile();
-      alert('User role updated successfully');
+      // ✅ MERGE only changed field - no full refetch
+      mergeProfile({ role: newRole });
+      success('User role updated successfully');
     } catch (error) {
       handleError(error);
     } finally {
@@ -233,9 +338,9 @@ export default function Profile() {
     setIsUpdatingRole(true);
     try {
       await updateUserApi(profileId, { emailConfirmed });
-      // Refresh profile data
-      await getProfile();
-      alert(`Email ${emailConfirmed ? 'confirmed' : 'unconfirmed'} successfully`);
+      // ✅ MERGE only changed field - no full refetch
+      mergeProfile({ emailConfirmed });
+      success(`Email ${emailConfirmed ? 'confirmed' : 'unconfirmed'} successfully`);
     } catch (error) {
       handleError(error);
     } finally {
@@ -244,27 +349,32 @@ export default function Profile() {
   };
 
   const handleUserUpdate = useCallback(async () => {
-    // Refresh user context after API token changes
-    await getProfile();
+    // ✅ SINGLE REFETCH only if needed (API token changes require full user context update)
     if (isOwner && updateUserContext) {
       const freshUserData = await getUserData(user._id);
       updateUserContext(freshUserData);
+      // Merge fresh data into profile (avoids double refetch)
+      mergeProfile(freshUserData);
     }
-  }, [getProfile, isOwner, updateUserContext, user._id]);
+  }, [isOwner, updateUserContext, user._id, mergeProfile]);
 
   const handleOpenApiModal = useCallback(() => {
+    try { window.history.pushState(null, '', `${window.location.pathname}#api-token`); } catch (e) {}
     setShowApiTokenModal(true);
   }, []);
 
   const handleCloseApiModal = useCallback(() => {
+    try { window.history.pushState(null, '', window.location.pathname + window.location.search); } catch (e) {}
     setShowApiTokenModal(false);
   }, []);
 
   const handleOpenActivityMonitor = useCallback(() => {
+    try { window.history.pushState(null, '', `${window.location.pathname}#activity-monitor`); } catch (e) {}
     setShowActivityMonitor(true);
   }, []);
 
   const handleCloseActivityMonitor = useCallback(() => {
+    try { window.history.pushState(null, '', window.location.pathname + window.location.search); } catch (e) {}
     setShowActivityMonitor(false);
   }, []);
 
@@ -564,12 +674,26 @@ export default function Profile() {
                 {(isLoadingProfile || (isOwner && userExperiences.length === 0)) ? (
                   <Loading size="md" message="Loading preferred experience types..." />
                 ) : userExperienceTypes.length > 0 ? (
-                  userExperienceTypes.map((type) => (
-                    <TagPill key={type} className="profile-pill" color="primary" size="sm" gradient={false} to={`/experience-types/${createUrlSlug(type)}`}>
-                      <span className="icon"><FaUser /></span>
-                      {type}
-                    </TagPill>
-                  ))
+                  <>
+                    {(showAllExperienceTypes ? userExperienceTypes : userExperienceTypes.slice(0, EXPERIENCE_TYPES_INITIAL_DISPLAY)).map((type) => (
+                      <TagPill key={type} className="profile-pill" color="primary" size="sm" gradient={false} to={`/experience-types/${createUrlSlug(type)}`}>
+                        <span className="icon"><FaUser /></span>
+                        {type}
+                      </TagPill>
+                    ))}
+                    {userExperienceTypes.length > EXPERIENCE_TYPES_INITIAL_DISPLAY && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() => setShowAllExperienceTypes(!showAllExperienceTypes)}
+                        style={{ marginTop: 'var(--space-2)' }}
+                      >
+                        {showAllExperienceTypes
+                          ? 'Show Less'
+                          : `Show ${userExperienceTypes.length - EXPERIENCE_TYPES_INITIAL_DISPLAY} More`}
+                      </Button>
+                    )}
+                  </>
                 ) : (
                   <div className="animation-fade_in">
                     {isOwner ? (
@@ -598,48 +722,71 @@ export default function Profile() {
         <h4 className="badge rounded-pill badge-nav my-4 animation-fade_in">
           <span
             className={uiState.experiences ? "fw-bold animation-fade_in active-tab" : "animation-fade_in"}
-            onClick={() => handleExpNav('experiences')}
+            onClick={() => {
+              handleExpNav('experiences');
+              try { window.history.pushState(null, '', `${window.location.pathname}#experiences`); } catch (e) {}
+            }}
           >
             {lang.en.heading.plannedExperiences}
           </span>
           <span
             className={uiState.created ? "fw-bold animation-fade_in active-tab" : "animation-fade_in"}
-            onClick={() => handleExpNav('created')}
+            onClick={() => {
+              handleExpNav('created');
+              try { window.history.pushState(null, '', `${window.location.pathname}#created`); } catch (e) {}
+            }}
           >
             {lang.en.heading.createdExperiences || 'Created Experiences'}
           </span>
           <span
             className={uiState.destinations ? "fw-bold animation-fade_in active-tab" : "animation-fade_in"}
-            onClick={() => handleExpNav('destinations')}
+            onClick={() => {
+              handleExpNav('destinations');
+              try { window.history.pushState(null, '', `${window.location.pathname}#destinations`); } catch (e) {}
+            }}
           >
             {lang.en.heading.experienceDestinations}
           </span>
         </h4>
       </div>
       <div className="row my-4 justify-content-center animation-fade_in">
-        {uiState.destinations && (
-          Array.from(
+        {uiState.destinations && (() => {
+          const uniqueDestinationIds = Array.from(
             new Set(
               uniqueUserExperiences.map(
                 (experience) => experience.destination._id
               )
             )
-          ).length > 0 ? (
-            Array.from(
-              new Set(
-                uniqueUserExperiences.map(
-                  (experience) => experience.destination._id
-                )
-              )
-            ).map((destinationId, index) => {
-              const destination = destinations.filter((dest) => dest._id === destinationId)[0];
-              return destination ? (
-                <DestinationCard
-                  key={destination._id || index}
-                  destination={destination}
-                />
-              ) : null;
-            })
+          );
+          const displayedDestinations = showAllDestinations
+            ? uniqueDestinationIds
+            : uniqueDestinationIds.slice(0, ITEMS_INITIAL_DISPLAY);
+
+          return uniqueDestinationIds.length > 0 ? (
+            <>
+              {displayedDestinations.map((destinationId, index) => {
+                const destination = destinations.filter((dest) => dest._id === destinationId)[0];
+                return destination ? (
+                  <DestinationCard
+                    key={destination._id || index}
+                    destination={destination}
+                  />
+                ) : null;
+              })}
+              {uniqueDestinationIds.length > ITEMS_INITIAL_DISPLAY && (
+                <div className="col-12 text-center mt-3">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => setShowAllDestinations(!showAllDestinations)}
+                  >
+                    {showAllDestinations
+                      ? 'Show Less'
+                      : `Show ${uniqueDestinationIds.length - ITEMS_INITIAL_DISPLAY} More`}
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <Alert
               type="info"
@@ -657,17 +804,36 @@ export default function Profile() {
                 </Button>
               )}
             </Alert>
-          )
-        )}
-        {uiState.experiences && (
-          uniqueUserExperiences.length > 0 ? (
-            uniqueUserExperiences.map((experience, index) => (
-              <ExperienceCard
-                experience={experience}
-                key={experience._id || index}
-                userPlans={plans}
-              />
-            ))
+          );
+        })()}
+        {uiState.experiences && (() => {
+          const displayedExperiences = showAllPlanned
+            ? uniqueUserExperiences
+            : uniqueUserExperiences.slice(0, ITEMS_INITIAL_DISPLAY);
+
+          return uniqueUserExperiences.length > 0 ? (
+            <>
+              {displayedExperiences.map((experience, index) => (
+                <ExperienceCard
+                  experience={experience}
+                  key={experience._id || index}
+                  userPlans={plans}
+                />
+              ))}
+              {uniqueUserExperiences.length > ITEMS_INITIAL_DISPLAY && (
+                <div className="col-12 text-center mt-3">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => setShowAllPlanned(!showAllPlanned)}
+                  >
+                    {showAllPlanned
+                      ? 'Show Less'
+                      : `Show ${uniqueUserExperiences.length - ITEMS_INITIAL_DISPLAY} More`}
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <Alert
               type="info"
@@ -685,17 +851,36 @@ export default function Profile() {
                 </Button>
               )}
             </Alert>
-          )
-        )}
-        {uiState.created && (
-          uniqueCreatedExperiences.length > 0 ? (
-            uniqueCreatedExperiences.map((experience, index) => (
-              <ExperienceCard
-                experience={experience}
-                key={experience._id || index}
-                userPlans={plans}
-              />
-            ))
+          );
+        })()}
+        {uiState.created && (() => {
+          const displayedCreated = showAllCreated
+            ? uniqueCreatedExperiences
+            : uniqueCreatedExperiences.slice(0, ITEMS_INITIAL_DISPLAY);
+
+          return uniqueCreatedExperiences.length > 0 ? (
+            <>
+              {displayedCreated.map((experience, index) => (
+                <ExperienceCard
+                  experience={experience}
+                  key={experience._id || index}
+                  userPlans={plans}
+                />
+              ))}
+              {uniqueCreatedExperiences.length > ITEMS_INITIAL_DISPLAY && (
+                <div className="col-12 text-center mt-3">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => setShowAllCreated(!showAllCreated)}
+                  >
+                    {showAllCreated
+                      ? 'Show Less'
+                      : `Show ${uniqueCreatedExperiences.length - ITEMS_INITIAL_DISPLAY} More`}
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <Alert
               type="info"
@@ -713,8 +898,8 @@ export default function Profile() {
                 </Button>
               )}
             </Alert>
-          )
-        )}
+          );
+        })()}
       </div>      {/* Super Admin Permissions Section */}
       {isSuperAdmin(user) && !isOwner && currentProfile && (
         <div className="row my-4 animation-fade_in">

@@ -1,13 +1,3 @@
-/**
- * Profile Component Styles
- * 
- * Updated for dark mode support using design system tokens
- * - Uses CSS variables from design-tokens.css for consistent theming
- * - Supports automatic dark mode via prefers-color-scheme
- * - Removed hardcoded colors and replaced with semantic tokens
- * - Badge navigation tabs now properly adapt to dark/light modes
- */
-
 /* Dropdown z-index fix */
 .dropdown {
     position: relative;

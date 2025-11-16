@@ -196,7 +196,7 @@ export default function UpcomingPlans({ plans = [], title = "Upcoming Plans", pa
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-4)', paddingBottom: 'var(--space-4)' }}>
                   <Button size="sm" variant="outline-secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</Button>
                   <div style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
-                    Page {page}/{pagination.numPages || pagination.totalPages}
+                    {page}/{pagination.numPages || pagination.totalPages}
                   </div>
                   <Button size="sm" variant="outline-secondary" disabled={page >= (pagination.numPages || pagination.totalPages)} onClick={() => setPage(page + 1)}>Next</Button>
                 </div>

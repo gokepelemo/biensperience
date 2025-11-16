@@ -1,6 +1,4 @@
-/* Dashboard view styles */
-/* Most styling is done inline to match Storybook design system tokens */
-
+/* Dashboard view styles (minimal comments for v0.5.1) */
 /* Responsive adjustments */
 @media (max-width: 991px) {
   /* Hide sidebar on mobile/tablet for better UX */

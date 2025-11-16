@@ -15,12 +15,12 @@ export default function ExperienceHeader({
   if (!experience) return null;
 
   return (
-    <div className="experience-header">
+    <div id="overview" className="experience-header">
       <h1 className="experience-title animation-fade_in">{experience.name}</h1>
 
       {/* Photos */}
       {experience.photos && experience.photos.length > 0 && (
-        <div className="row mb-4">
+        <div id="photos" className="row mb-4">
           <div className="col-12">
             <PhotoCard
               photos={experience.photos}
@@ -67,7 +67,7 @@ export default function ExperienceHeader({
 
       {/* Travel Tips */}
       {travelTips && travelTips.length > 0 && (
-        <div className="mb-4">
+        <div id="travel-tips" className="mb-4">
           <h3>Travel Tips</h3>
           <ul className="travel-tips-list">
             {travelTips.map((tip, index) => (
