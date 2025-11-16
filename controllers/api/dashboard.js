@@ -301,8 +301,17 @@ async function getRecentActivity(userId, options = {}) {
       skip
     });
 
+    // Find activities where user is either:
+    // 1. The actor (performed the action)
+    // 2. The target (action was performed on them)
+    // This ensures users see all relevant activities including:
+    // - Actions they performed (plan item completions, adding collaborators)
+    // - Actions performed on them (being added as collaborator)
     const activities = await Activity.find({
-      'actor._id': userId // Activities performed by the user
+      $or: [
+        { 'actor._id': userId },    // Activities performed by the user
+        { 'target.id': userId }      // Activities performed on the user
+      ]
     })
     .sort({ timestamp: -1 })
     .limit(limit)
@@ -555,8 +564,12 @@ async function getActivityFeed(req, res) {
     });
 
     // Get total count for pagination metadata
+    // Count activities where user is actor OR target
     const totalCount = await Activity.countDocuments({
-      'actor._id': userId
+      $or: [
+        { 'actor._id': userId },
+        { 'target.id': userId }
+      ]
     });
 
     // Get activities with pagination
