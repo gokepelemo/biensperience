@@ -57,6 +57,7 @@ import {
   removeCollaborator,
   addCollaborator,
 } from "../../utilities/plans-api";
+import { searchUsers } from "../../utilities/users-api";
 
 /**
  * Updates the cookie with dismissal data for a specific plan (upsert)
