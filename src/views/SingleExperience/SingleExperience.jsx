@@ -22,6 +22,7 @@ import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import { Button, Container, Mobile, Desktop, FadeIn, FormLabel, FormControl, FormCheck, Text } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
 import debug from "../../utilities/debug";
+import { createActivity } from "../../utilities/activities-api";
 import { createUrlSlug } from "../../utilities/url-utils";
 import {
   formatDateShort,
@@ -1206,6 +1207,25 @@ export default function SingleExperience() {
       setDisplayedPlannedDate(userPlannedDate);
     }
   }, [activeTab, selectedPlanId, collaborativePlans, userPlannedDate, userHasExperience]);
+
+  /**
+   * Update URL hash when a plan is selected to enable direct linking
+   * Creates hash-based URLs like /experiences/:id#plan-:planId
+   */
+  useEffect(() => {
+    if (activeTab === 'myplan' && selectedPlanId) {
+      const newHash = `#plan-${selectedPlanId}`;
+      // Only update if hash is different to avoid unnecessary history entries
+      if (window.location.hash !== newHash) {
+        window.history.replaceState(null, '', newHash);
+      }
+    } else if (activeTab === 'experience') {
+      // Clear hash when viewing experience tab
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+  }, [activeTab, selectedPlanId]);
 
   /**
    * Dynamically adjusts the font size of the planned date metric value to fit within container.
@@ -3616,13 +3636,40 @@ export default function SingleExperience() {
                                               const itemId =
                                                 planItem._id ||
                                                 planItem.plan_item_id;
+
+                                              // compute new completion state
+                                              const newComplete = !planItem.complete;
+
+                                              // Update the plan item on the server
                                               await updatePlanItem(
                                                 selectedPlanId,
                                                 itemId,
                                                 {
-                                                  complete: !planItem.complete,
+                                                  complete: newComplete,
                                                 }
                                               );
+
+                                              // Create a recent-activity entry for this action.
+                                              // Build a friendly action string and a link that points
+                                              // to the experience page with a hash anchor to the plan item.
+                                              try {
+                                                const experienceTitle = experience?.name || experience?.title || '';
+                                                const actionText = newComplete ? 'marked complete' : 'marked incomplete';
+                                                const activityPayload = {
+                                                  action: actionText,
+                                                  item: planItem.text || 'Plan item',
+                                                  targetItem: experienceTitle,
+                                                  link: `/experiences/${experience?._id || experienceId}#plan-${selectedPlanId}-item-${itemId}`,
+                                                };
+
+                                                // Fire-and-forget but await so failures can be logged
+                                                await createActivity(activityPayload);
+                                              } catch (activityErr) {
+                                                debug.error('Failed to create activity for plan item toggle', activityErr);
+                                                // Do not block user action on activity creation failure
+                                              }
+
+                                              // Refresh client plan state
                                               await fetchCollaborativePlans();
                                               await fetchUserPlan();
                                               await fetchPlans(); // Refresh global plans state
