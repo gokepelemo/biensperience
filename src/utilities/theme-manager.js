@@ -5,7 +5,6 @@
  * - Provides helpers to get/apply default theme
  */
 
-const THEME_KEY = 'biensperience:theme';
 const PREFERENCES_KEY = 'biensperience:preferences';
 
 export function applyTheme(theme) {
@@ -27,8 +26,7 @@ export function applyTheme(theme) {
     // Persist to localStorage so other tabs can pick it up. Store both
     // the user's preference and the applied effective theme.
     try {
-      localStorage.setItem(THEME_KEY, JSON.stringify({ theme, applied, ts: Date.now() }));
-      // Also keep the preferences blob in sync when possible
+      // Keep the preferences blob in sync when possible
       try {
         const raw = localStorage.getItem(PREFERENCES_KEY);
         let prefs = {};
@@ -64,12 +62,6 @@ export function getStoredTheme() {
       }
     }
 
-    const raw = localStorage.getItem(THEME_KEY);
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    // Prefer user preference if present, otherwise fall back to applied
-    if (obj && typeof obj.theme === 'string') return obj.theme;
-    if (obj && typeof obj.applied === 'string') return obj.applied;
     return null;
   } catch (e) {
     return null;
@@ -85,15 +77,9 @@ export function getHydratedTheme() {
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('storage', (e) => {
     try {
-      if ((e.key === THEME_KEY || e.key === PREFERENCES_KEY) && e.newValue) {
+      if (e.key === PREFERENCES_KEY && e.newValue) {
         const payload = JSON.parse(e.newValue);
-        // Preferences blob may have a `theme` property
-        if (payload && (payload.theme || (payload.theme === '')) ) {
-          applyTheme(payload.theme);
-          return;
-        }
-        // THEME_KEY payload shape
-        if (payload && payload.theme) {
+        if (payload && typeof payload.theme === 'string') {
           applyTheme(payload.theme);
         }
       }

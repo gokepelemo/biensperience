@@ -26,9 +26,35 @@
     <div id="root"></div>
     <script>
       (function() {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const theme = prefersDark ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-bs-theme', theme);
+        try {
+          var raw = null;
+          try { raw = localStorage.getItem('biensperience:preferences'); } catch (e) { raw = null; }
+          var theme = null;
+          if (raw) {
+            try {
+              var prefs = JSON.parse(raw) || {};
+              if (prefs && prefs.theme) theme = prefs.theme;
+            } catch (e) { theme = null; }
+          }
+          if (!theme) {
+            // fallback: use system preference
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            theme = prefersDark ? 'dark' : 'light';
+          }
+          // resolve system-default to actual applied theme
+          var applied = theme;
+          if (theme === 'system-default') {
+            try {
+              var prefersDark2 = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+              applied = prefersDark2 ? 'dark' : 'light';
+            } catch (e) { applied = 'light'; }
+          }
+          document.documentElement.setAttribute('data-theme', applied);
+          // Also set bootstrap theme attribute for components
+          try { document.documentElement.setAttribute('data-bs-theme', applied); } catch (e) {}
+        } catch (err) {
+          // ignore
+        }
       })();
     </script>
     <!-- Vite entry point -->
