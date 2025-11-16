@@ -421,6 +421,7 @@ export default function UpdateProfile() {
                   }
                   checked={formData.emailConfirmed || false}
                   onChange={handleChange}
+                  className="normalize-checkbox"
                 />
                 <Form.Text style={{ color: 'var(--bs-gray-600)' }}>
                   Manually confirm or unconfirm this user's email address.

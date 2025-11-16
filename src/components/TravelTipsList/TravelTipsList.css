@@ -15,38 +15,41 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  font-size: var(--font-size-3xl);
+  font-size: clamp(var(--font-size-2xl), 3.5vw, var(--font-size-3xl));
   font-weight: var(--font-weight-bold);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   margin-bottom: var(--space-6);
-  padding-bottom: var(--space-3);
-  border-bottom: 3px solid var(--color-primary-light);
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid var(--color-border-medium);
   letter-spacing: var(--letter-spacing-tight);
-  text-shadow: var(--shadow-text-sm);
+  line-height: var(--line-height-tight);
 }
 
 .travel-tips-icon {
-  font-size: var(--font-size-3xl);
+  font-size: clamp(var(--font-size-2xl), 3.5vw, var(--font-size-3xl));
   line-height: var(--line-height-none);
+  flex-shrink: 0;
 }
 
 /* Grid Layout for Tips */
 .travel-tips-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 /* Responsive Grid */
 @media (min-width: 768px) {
   .travel-tips-grid {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--space-5);
   }
 }
 
 @media (min-width: 1200px) {
   .travel-tips-grid {
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: var(--space-6);
   }
 }
 

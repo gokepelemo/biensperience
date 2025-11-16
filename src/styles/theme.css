@@ -248,13 +248,14 @@
    LINKS
    ============================================ */
 
-a:not(.btn):not(.nav-link):not(.dropdown-item) {
+/* Exclude design-system button anchors so Button as={Link} isn't styled as plain link */
+a:not(.btn):not(.btn-custom):not(.nav-link):not(.dropdown-item) {
     color: var(--color-primary);
     transition: color var(--transition-base);
 }
 
-a:not(.btn):not(.nav-link):not(.dropdown-item):hover,
-a:not(.btn):not(.nav-link):not(.dropdown-item):focus {
+a:not(.btn):not(.btn-custom):not(.nav-link):not(.dropdown-item):hover,
+a:not(.btn):not(.btn-custom):not(.nav-link):not(.dropdown-item):focus {
     color: var(--color-primary-dark);
     text-decoration: underline;
 }

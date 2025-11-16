@@ -11,6 +11,7 @@ import Loading from "../../components/Loading/Loading";
 import ScrollToTop from "../../components/ScrollToTop/ScrollToTop";
 import { handleOAuthCallback } from "../../utilities/oauth-service";
 import { logger } from "../../utilities/logger";
+import { getHydratedTheme } from '../../utilities/theme-manager';
 import { getCollaboratorNotifications } from '../../utilities/notifications-api';
 import { useNavigate } from 'react-router-dom';
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
@@ -141,17 +142,53 @@ function AppContent() {
     if (initialHash) {
       logger.info('[Hash Preservation] Initial hash detected:', initialHash);
       // Store in sessionStorage to survive React Router processing
-      sessionStorage.setItem('pendingHash', initialHash);
+      // Save origin pathname so we only restore on the same view when possible
+      try {
+        const payload = JSON.stringify({ hash: initialHash, originPath: window.location.pathname });
+        sessionStorage.setItem('pendingHash', payload);
+      } catch (e) {
+        sessionStorage.setItem('pendingHash', initialHash);
+      }
     }
 
     // Restore hash after a brief delay to ensure component has mounted
-    const storedHash = sessionStorage.getItem('pendingHash');
-    if (storedHash && window.location.hash !== storedHash) {
-      logger.info('[Hash Preservation] Restoring hash:', storedHash);
-      setTimeout(() => {
-        window.location.hash = storedHash;
-        sessionStorage.removeItem('pendingHash');
-      }, 50);
+    const raw = sessionStorage.getItem('pendingHash');
+    if (raw) {
+      let stored = null;
+      try {
+        stored = JSON.parse(raw);
+      } catch (e) {
+        stored = { hash: raw, originPath: null };
+      }
+
+      const storedHash = stored?.hash || '';
+      const originPath = stored?.originPath || null;
+
+      if (storedHash && window.location.hash !== storedHash) {
+        logger.info('[Hash Preservation] Considering restoring hash:', storedHash, 'originPath:', originPath);
+        setTimeout(() => {
+          // Only restore if the stored origin path matches the current pathname
+          // OR if an element with the target id exists on the page (deep link target present)
+          const id = (storedHash || '').replace('#', '');
+          const hasElement = !!(id && (document.getElementById(id) || document.querySelector(`[name="${id}"]`)));
+          if (originPath && originPath === window.location.pathname) {
+            window.location.hash = storedHash;
+            sessionStorage.removeItem('pendingHash');
+            logger.info('[Hash Preservation] Restored hash because originPath matched');
+          } else if (hasElement) {
+            window.location.hash = storedHash;
+            sessionStorage.removeItem('pendingHash');
+            logger.info('[Hash Preservation] Restored hash because target element exists on page');
+          } else {
+            // Not applicable to this view — clear pending hash to avoid polluting other routes
+            sessionStorage.removeItem('pendingHash');
+            logger.info('[Hash Preservation] Cleared pending hash; not applicable to this view');
+          }
+        }, 50);
+      } else {
+        // No stored hash or already set — ensure we don't leave stale data
+        if (!storedHash) sessionStorage.removeItem('pendingHash');
+      }
     }
 
     // Global click handler to capture hashes from Link navigation
@@ -164,7 +201,12 @@ function AppContent() {
         const hashIndex = href.indexOf('#');
         const hash = href.substring(hashIndex);
         logger.info('[Hash Preservation] Captured hash from link:', hash);
-        sessionStorage.setItem('pendingHash', hash);
+        try {
+          const payload = JSON.stringify({ hash, originPath: window.location.pathname });
+          sessionStorage.setItem('pendingHash', payload);
+        } catch (e) {
+          sessionStorage.setItem('pendingHash', hash);
+        }
       }
     };
 
@@ -239,7 +281,10 @@ function AppContent() {
   }, [isAuthenticated, addToast, navigate]);
 
   // Effect: watch for OS theme changes and set bootstrap theme attribute
+  // Only attach a global OS listener when the user's preference is `system-default` or not set.
   useEffect(() => {
+    const pref = getHydratedTheme();
+
     const setBootstrapTheme = () => {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const theme = prefersDark ? 'dark' : 'light';
@@ -247,6 +292,15 @@ function AppContent() {
       logger.debug('Bootstrap theme updated to:', theme);
     };
 
+    // If user has explicitly selected light/dark, respect it and don't attach OS listener here.
+    if (pref && pref !== 'system-default') {
+      try {
+        document.documentElement.setAttribute('data-bs-theme', pref);
+      } catch (e) {}
+      return undefined;
+    }
+
+    // Otherwise, follow OS and attach listener
     setBootstrapTheme();
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');

@@ -75,9 +75,11 @@ const preview = {
 				if (theme === 'dark') {
 					root.style.colorScheme = 'dark';
 					root.setAttribute('data-theme', 'dark');
+					try { root.setAttribute('data-bs-theme', 'dark'); } catch (e) { /* ignore */ }
 				} else {
 					root.style.colorScheme = 'light';
-					root.removeAttribute('data-theme');
+					root.setAttribute('data-theme', 'light');
+					try { root.setAttribute('data-bs-theme', 'light'); } catch (e) { /* ignore */ }
 				}
 			}
 

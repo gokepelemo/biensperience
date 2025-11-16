@@ -28,6 +28,10 @@ form.update-profile-form,
     margin: 0 auto;
 }
 
+input [type="checkbox"] {
+    margin: 0 !important;
+}
+
 /* Form Labels */
 
 /* All form labels with clamp to prevent tiny or huge text */

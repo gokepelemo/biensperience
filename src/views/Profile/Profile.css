@@ -3,6 +3,10 @@
     position: relative;
 }
 
+.normalize-checkbox>input[type="checkbox"] {
+    margin: 0 !important;
+}
+
 .dropdown-menu {
     z-index: 1070 !important;
     position: absolute !important;
@@ -114,6 +118,21 @@
 .profile-detail-section:first-child a.profile-pill .icon,
 .profile-detail-section:first-child a.profile-pill svg {
     color: var(--color-primary) !important;
+}
+
+/* Pagination button styling on gradient background */
+.profile-detail-section:first-child .btn-link {
+    color: white !important;
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+    transition: all var(--transition-normal);
+}
+
+.profile-detail-section:first-child .btn-link:hover {
+    color: white !important;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    transform: translateY(-1px);
 }
 
 /* Prominent link styling for "add some favorite destinations" */

@@ -35,13 +35,13 @@
 
 /* Loading placeholder styling */
 .loading-placeholder {
-    background: #f8f9fa;
-    border: 2px solid #e9ecef;
+    background: var(--color-bg-secondary);
+    border: 2px solid var(--color-border-light);
     animation: pulse 1.5s ease-in-out infinite;
 }
 
 .loading-placeholder .avatar-initials {
-    color: #adb5bd;
+    color: var(--color-text-muted);
     font-weight: 400;
 }
 

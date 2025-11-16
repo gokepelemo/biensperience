@@ -43,10 +43,9 @@ button:hover, .btn:hover {
   font-size: var(--font-size-lg);
   padding: var(--space-3) var(--space-5);
   transition: var(--transition-normal);
-  /* Fixed width to accommodate longest text with comfortable padding */
+  /* Fit content width with comfortable padding */
+  width: fit-content;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Turn green when hovering on add state */

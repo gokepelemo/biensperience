@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, Button } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
 import { FaClock, FaStar, FaExternalLinkAlt } from 'react-icons/fa';
 import PropTypes from 'prop-types';
-import { Heading } from '../design-system';
+import { Heading, HashLink } from '../design-system';
 import { getActivityFeed } from '../../utilities/dashboard-api';
 import { logger } from '../../utilities/logger';
 
@@ -19,7 +18,7 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
   const [error, setError] = useState(null);
   const isLoadingRef = useRef(false);
   const scrollRef = useRef(null);
-  
+
   /**
    * Render the activity description with proper formatting and links
    */
@@ -33,9 +32,12 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
         <>
           {action}{' '}
           {link ? (
-            <Link to={link} style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>
+            <HashLink
+              to={link}
+              style={{ fontWeight: 'bold', color: 'var(--color-primary)', textDecoration: 'none' }}
+            >
               {item}
-            </Link>
+            </HashLink>
           ) : (
             <strong>{item}</strong>
           )}
@@ -52,9 +54,12 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
       <>
         {action}{' '}
         {link ? (
-          <Link to={link} style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>
+          <HashLink
+            to={link}
+            style={{ fontWeight: 'bold', color: 'var(--color-primary)', textDecoration: 'none' }}
+          >
             {item}
-          </Link>
+          </HashLink>
         ) : (
           <strong>{item}</strong>
         )}
@@ -162,20 +167,20 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
               </div>
             </div>
             {activity.link && (
-              <Button
-                as={Link}
-                to={activity.link}
-                variant="outline-secondary"
-                size="sm"
-                style={{
-                  borderRadius: 'var(--radius-md)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-2)',
-                }}
-              >
-                View <FaExternalLinkAlt size={12} />
-              </Button>
+              <HashLink to={activity.link}>
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  style={{
+                    borderRadius: 'var(--radius-md)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-2)',
+                  }}
+                >
+                  View <FaExternalLinkAlt size={12} />
+                </Button>
+              </HashLink>
             )}
           </div>
         )) : (

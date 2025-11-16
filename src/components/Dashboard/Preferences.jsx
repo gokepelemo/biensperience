@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Button } from 'react-bootstrap';
-import { Heading, Text } from '../design-system';
+import {
+  Heading,
+  Text,
+  Button,
+  Form,
+  FormGroup,
+  FormLabel,
+  FormControl,
+  FormCheck,
+  Container,
+  SpaceY,
+  FadeIn
+} from '../design-system';
 import { useUser } from '../../contexts/UserContext';
 import { updateUser } from '../../utilities/users-api';
 import themeManager from '../../utilities/theme-manager';
@@ -95,67 +106,171 @@ export default function Preferences() {
   };
 
   return (
-    <Card style={{ height: '100%', padding: 'var(--space-4)' }}>
-      <Heading level={4}>Preferences</Heading>
-      <Text size="sm" className="mb-3">Platform preferences and notification settings</Text>
+    <FadeIn>
+      <Container
+        className="preferences-card"
+        style={{
+          height: '100%',
+          padding: 'var(--space-6)',
+          borderRadius: 'var(--radius-lg)',
+          background: 'var(--color-bg-surface)',
+          border: '1px solid var(--color-border-light)',
+          boxShadow: 'var(--shadow-sm)'
+        }}
+      >
+        <Heading level={4} className="mb-2">Preferences</Heading>
+        <Text size="sm" variant="secondary" className="mb-4">
+          Platform preferences and notification settings
+        </Text>
 
-      <Form onSubmit={handleSave}>
-        <Form.Group className="mb-3">
-          <Form.Label>Theme</Form.Label>
-          <Form.Select value={form.theme} onChange={e => handleChange('theme', e.target.value)}>
-            <option value="system-default">System Default</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </Form.Select>
-        </Form.Group>
+        <Form onSubmit={handleSave}>
+          <SpaceY spacing="4">
+            <FormGroup>
+              <FormLabel htmlFor="theme-select">Theme</FormLabel>
+              <FormControl
+                as="select"
+                id="theme-select"
+                value={form.theme}
+                onChange={e => handleChange('theme', e.target.value)}
+              >
+                <option value="system-default">System Default</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </FormControl>
+            </FormGroup>
 
-        <Form.Group className="mb-3">
-          <Form.Label>Currency</Form.Label>
-          <Form.Control value={form.currency} onChange={e => handleChange('currency', e.target.value)} />
-        </Form.Group>
+            <FormGroup>
+              <FormLabel htmlFor="currency-input">Currency</FormLabel>
+              <FormControl
+                id="currency-input"
+                type="text"
+                value={form.currency}
+                onChange={e => handleChange('currency', e.target.value)}
+                placeholder="USD"
+              />
+            </FormGroup>
 
-        <Form.Group className="mb-3">
-          <Form.Label>Language</Form.Label>
-          <Form.Select value={form.language} onChange={e => handleChange('language', e.target.value)}>
-            {getLanguageOptions().map(opt => (
-              <option key={opt.code} value={opt.code}>{opt.name}</option>
-            ))}
-          </Form.Select>
-        </Form.Group>
+            <FormGroup>
+              <FormLabel htmlFor="language-select">Language</FormLabel>
+              <FormControl
+                as="select"
+                id="language-select"
+                value={form.language}
+                onChange={e => handleChange('language', e.target.value)}
+              >
+                {getLanguageOptions().map(opt => (
+                  <option key={opt.code} value={opt.code}>{opt.name}</option>
+                ))}
+              </FormControl>
+            </FormGroup>
 
-        <Form.Group className="mb-3">
-          <Form.Label>Profile Visibility</Form.Label>
-          <Form.Select value={form.profileVisibility} onChange={e => handleChange('profileVisibility', e.target.value)}>
-            <option value="public">Public</option>
-            <option value="private">Private</option>
-          </Form.Select>
-        </Form.Group>
+            <FormGroup>
+              <FormLabel htmlFor="visibility-select">Profile Visibility</FormLabel>
+              <FormControl
+                as="select"
+                id="visibility-select"
+                value={form.profileVisibility}
+                onChange={e => handleChange('profileVisibility', e.target.value)}
+              >
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </FormControl>
+            </FormGroup>
 
-        <Form.Group className="mb-3">
-          <Form.Check type="checkbox" label="Enable notifications" checked={form.notificationsEnabled} onChange={e => handleChange('notificationsEnabled', e.target.checked)} />
-        </Form.Group>
+            <FormGroup>
+              <FormCheck
+                type="checkbox"
+                id="notifications-enabled"
+                checked={form.notificationsEnabled}
+                onChange={e => handleChange('notificationsEnabled', e.target.checked)}
+              >
+                Enable notifications
+              </FormCheck>
+            </FormGroup>
 
-        <Form.Group className="mb-3">
-          <Form.Label>Notification Channels</Form.Label>
-          <div>
-            <Form.Check inline label="Email" type="checkbox" checked={form.notificationChannels.includes('email')} onChange={() => toggleChannel('email')} />
-            <Form.Check inline label="Push" type="checkbox" checked={form.notificationChannels.includes('push')} onChange={() => toggleChannel('push')} />
-            <Form.Check inline label="SMS" type="checkbox" checked={form.notificationChannels.includes('sms')} onChange={() => toggleChannel('sms')} />
-          </div>
-        </Form.Group>
+            <FormGroup>
+              <FormLabel>Notification Channels</FormLabel>
+              <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                <FormCheck
+                  type="checkbox"
+                  id="channel-email"
+                  checked={form.notificationChannels.includes('email')}
+                  onChange={() => toggleChannel('email')}
+                >
+                  Email
+                </FormCheck>
+                <FormCheck
+                  type="checkbox"
+                  id="channel-push"
+                  checked={form.notificationChannels.includes('push')}
+                  onChange={() => toggleChannel('push')}
+                >
+                  Push
+                </FormCheck>
+                <FormCheck
+                  type="checkbox"
+                  id="channel-sms"
+                  checked={form.notificationChannels.includes('sms')}
+                  onChange={() => toggleChannel('sms')}
+                >
+                  SMS
+                </FormCheck>
+              </div>
+            </FormGroup>
 
-        <Form.Group className="mb-3">
-          <Form.Label>Notification Types</Form.Label>
-          <div>
-            <Form.Check inline label="Activity" type="checkbox" checked={form.notificationTypes.includes('activity')} onChange={() => toggleType('activity')} />
-            <Form.Check inline label="Reminders" type="checkbox" checked={form.notificationTypes.includes('reminder')} onChange={() => toggleType('reminder')} />
-            <Form.Check inline label="Marketing" type="checkbox" checked={form.notificationTypes.includes('marketing')} onChange={() => toggleType('marketing')} />
-            <Form.Check inline label="Updates" type="checkbox" checked={form.notificationTypes.includes('updates')} onChange={() => toggleType('updates')} />
-          </div>
-        </Form.Group>
+            <FormGroup>
+              <FormLabel>Notification Types</FormLabel>
+              <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                <FormCheck
+                  type="checkbox"
+                  id="type-activity"
+                  checked={form.notificationTypes.includes('activity')}
+                  onChange={() => toggleType('activity')}
+                >
+                  Activity
+                </FormCheck>
+                <FormCheck
+                  type="checkbox"
+                  id="type-reminder"
+                  checked={form.notificationTypes.includes('reminder')}
+                  onChange={() => toggleType('reminder')}
+                >
+                  Reminders
+                </FormCheck>
+                <FormCheck
+                  type="checkbox"
+                  id="type-marketing"
+                  checked={form.notificationTypes.includes('marketing')}
+                  onChange={() => toggleType('marketing')}
+                >
+                  Marketing
+                </FormCheck>
+                <FormCheck
+                  type="checkbox"
+                  id="type-updates"
+                  checked={form.notificationTypes.includes('updates')}
+                  onChange={() => toggleType('updates')}
+                >
+                  Updates
+                </FormCheck>
+              </div>
+            </FormGroup>
 
-        <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Preferences'}</Button>
-      </Form>
-    </Card>
+            <div style={{ paddingTop: 'var(--space-2)' }}>
+              <Button
+                type="submit"
+                variant="gradient"
+                size="lg"
+                disabled={saving}
+                rounded
+                shadow
+              >
+                {saving ? 'Saving...' : 'Save Preferences'}
+              </Button>
+            </div>
+          </SpaceY>
+        </Form>
+      </Container>
+    </FadeIn>
   );
 }

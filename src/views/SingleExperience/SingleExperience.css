@@ -934,7 +934,7 @@
 }
 
 .my-plan-view .plan-item-details {
-    background: #f8f9fa;
+    background: var(--color-bg-primary);
 }
 
 .my-plan-view .alert {
@@ -1198,4 +1198,23 @@
 .info-card-header a.experience-tag-pill .icon,
 .info-card-header a.experience-tag-pill svg {
     color: var(--color-primary) !important;
+}
+
+/* Shake animation for deep link navigation */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-4px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(4px);
+  }
+}
+
+.shake-animation {
+    animation: shake 2s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  background-color: var(--color-primary-light, #e0e7ff) !important;
+  transition: background-color 0.3s ease;
 }

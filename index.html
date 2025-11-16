@@ -50,6 +50,11 @@
             } catch (e) { applied = 'light'; }
           }
           document.documentElement.setAttribute('data-theme', applied);
+          // Also add class for CSS class-based overrides (ensures tokens are applied)
+          try {
+            document.documentElement.classList.remove('theme-light', 'theme-dark');
+            document.documentElement.classList.add('theme-' + applied);
+          } catch (e) { /* ignore */ }
           // Also set bootstrap theme attribute for components
           try { document.documentElement.setAttribute('data-bs-theme', applied); } catch (e) {}
         } catch (err) {

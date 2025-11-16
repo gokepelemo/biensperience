@@ -21,7 +21,7 @@
 /* Gradient Button */
 .btn-gradient {
   background: var(--gradient-primary);
-  color: white;
+  color: var(--btn-gradient-color);
   box-shadow: var(--shadow-sm);
 }
 

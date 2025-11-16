@@ -23,6 +23,8 @@ import { Button, Container, Mobile, Desktop, FadeIn, FormLabel, FormControl, For
 import Loading from "../../components/Loading/Loading";
 import debug from "../../utilities/debug";
 import { createUrlSlug } from "../../utilities/url-utils";
+import { handleStoredHash, restoreHashToUrl, clearStoredHash } from "../../utilities/hash-navigation";
+import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
 import {
   formatDateShort,
   formatDateForInput,
@@ -57,71 +59,6 @@ import {
   removeCollaborator,
   addCollaborator,
 } from "../../utilities/plans-api";
-import { searchUsers } from "../../utilities/users-api";
-
-/**
- * Updates the cookie with dismissal data for a specific plan (upsert)
- * Automatically cleans up expired entries
- * @param {string} planId - The plan ID to mark as dismissed
- */
-function setSyncAlertCookie(planId) {
-  syncAlertStorage.set(planId);
-}
-
-// Duration for sync alert dismissal (7 days)
-const SYNC_ALERT_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
-
-// Create expirable storage for sync alert dismissals
-const syncAlertStorage = createExpirableStorage(
-  "planSyncAlertDismissed",
-  SYNC_ALERT_DURATION
-);
-
-// Milliseconds to suppress reacting to plan lifecycle events that are
-// triggered by local create/update actions. Adjust this to tune how long
-// optimistic UI is protected from overwriting by immediate broadcasts.
-const PLAN_EVENT_SUPPRESSION_MS = 1200;
-
-/**
- * Checks if sync alert was dismissed for a specific plan and if it's still valid
- * @param {string} planId - The plan ID to check
- * @returns {number|null} Timestamp if dismissed and still valid, null otherwise
- */
-function getSyncAlertCookie(planId) {
-  return syncAlertStorage.get(planId);
-}
-
-/**
- * Helper to compare IDs (ObjectId or string) safely
- * Returns true if both IDs exist and their string forms match
- */
-function idEquals(a, b) {
-  if (!a || !b) return false;
-  try {
-    return a.toString() === b.toString();
-  } catch (e) {
-    return false;
-  }
-}
-
-/**
- * Normalize a plan object to ensure consistent ID types
- * Converts _id and user._id to strings for reliable comparisons
- */
-function normalizePlan(plan) {
-  if (!plan) return plan;
-  const normalized = { ...plan };
-  if (normalized._id && typeof normalized._id !== 'string') {
-    normalized._id = normalized._id.toString();
-  }
-  if (normalized.user && normalized.user._id && typeof normalized.user._id !== 'string') {
-    normalized.user._id = normalized.user._id.toString();
-  }
-  if (normalized.user && typeof normalized.user === 'string') {
-    normalized.user = { _id: normalized.user };
-  }
-  return normalized;
-}
 
 export default function SingleExperience() {
   const { user } = useUser();
@@ -209,6 +146,11 @@ export default function SingleExperience() {
   // Ref for dynamic font sizing on planned date metric
   const plannedDateRef = useRef(null);
 
+  // Milliseconds to suppress reacting to plan lifecycle events that are
+  // triggered by local create/update actions. Adjust this to tune how long
+  // optimistic UI is protected from overwriting by immediate broadcasts.
+  const PLAN_EVENT_SUPPRESSION_MS = 1200;
+
   // When we perform a local create/update of a plan we want to avoid
   // reacting to the immediate broadcasted plan events in a way that
   // overwrites optimistic local state or re-opens the date picker. Use
@@ -234,11 +176,26 @@ export default function SingleExperience() {
   // Ref to track if component is unmounting to prevent navigation interference
   const isUnmountingRef = useRef(false);
 
+  // Track hashes that we've already handled (so we don't re-run the
+  // shake/highlight when the user is already on the page and the URL
+  // contains the plan/item fragment).
+  const handledHashesRef = useRef(new Set());
+
   // Set unmounting flag when component unmounts
   useEffect(() => {
     return () => {
       isUnmountingRef.current = true;
     };
+  }, []);
+
+  // Helper to compare IDs safely (ObjectId or string)
+  const idEquals = useCallback((a, b) => {
+    if (!a || !b) return false;
+    try {
+      return a.toString() === b.toString();
+    } catch (e) {
+      return false;
+    }
   }, []);
 
   // Normalize plan objects for consistent client-side comparisons.
@@ -252,6 +209,8 @@ export default function SingleExperience() {
     }
     return normalized;
   }, []);
+
+  // Scrolling + highlight helpers centralized in `src/utilities/scroll-utils.js`.
 
   // Listen for global plan-created events so this view updates immediately
   useEffect(() => {
@@ -1130,16 +1089,37 @@ export default function SingleExperience() {
   useEffect(() => {
     const handleHashNavigation = () => {
       try {
-        const hash = window.location.hash || '';
-        if (!hash.startsWith('#plan-')) return;
+        // Check for stored hash from cross-navigation (e.g., from Dashboard)
+        const { planId: storedPlanId, itemId: storedItemId, hash: storedHash, originPath } = handleStoredHash();
 
-        // Parse hash format: #plan-{planId} or #plan-{planId}-item-{itemId}
-        const hashContent = hash.substring(6); // Remove '#plan-' prefix
-        const parts = hashContent.split('-item-');
-        const planId = parts[0];
-        const itemId = parts.length > 1 ? parts[1] : null;
+        // Use stored hash if present, otherwise check URL hash
+        let planId, itemId, hashSource = null;
+        if (storedPlanId) {
+          planId = storedPlanId;
+          itemId = storedItemId;
+          hashSource = 'storage';
+          debug.log('Using stored hash from cross-navigation:', { planId, itemId, storedHash, originPath });
 
-        debug.log('Hash-based plan navigation detected:', { planId, itemId });
+          // Don't clear the stored hash yet — wait until we've successfully
+          // scrolled to the plan or item. This guard allows us to keep the
+          // pending hash while plans are still loading and handle it once DOM
+          // is ready.
+        } else {
+          const hash = window.location.hash || '';
+          if (!hash.startsWith('#plan-')) return;
+
+          // Parse hash format: #plan-{planId} or #plan-{planId}-item-{itemId}
+          const hashContent = hash.substring(6); // Remove '#plan-' prefix
+          const parts = hashContent.split('-item-');
+          planId = parts[0];
+          itemId = parts.length > 1 ? parts[1] : null;
+          hashSource = 'url';
+
+          debug.log('Hash-based plan navigation detected from URL:', { planId, itemId, hash });
+        }
+
+        // If no planId found from either source, nothing to do
+        if (!planId) return;
 
         // If plans haven't loaded yet, we'll wait until collaborativePlans changes
         if (plansLoading) {
@@ -1159,37 +1139,45 @@ export default function SingleExperience() {
           setSelectedPlanId(tid);
           setActiveTab('myplan');
 
-          // Scroll to plan section or specific item after a brief delay to ensure tab switch
-          setTimeout(() => {
-            if (itemId) {
-              // Scroll to specific plan item
-              const itemElement = document.querySelector(`[data-plan-item-id="${itemId}"]`);
-              if (itemElement) {
-                debug.log('Scrolling to plan item:', itemId);
-                itemElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // Brief highlight effect
-                itemElement.style.backgroundColor = 'var(--color-primary-light, #e0e7ff)';
-                setTimeout(() => {
-                  itemElement.style.backgroundColor = '';
-                }, 2000);
-              } else {
-                debug.warn('Plan item element not found:', itemId);
-                // Fallback to plan section if item not found
-                const planSection = document.querySelector('.my-plan-view');
-                if (planSection) {
-                  planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-              }
-            } else {
-              // Scroll to plan section only
-              const planSection = document.querySelector('.my-plan-view');
-              if (planSection) {
-                planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
+          // Start attempts shortly after tab switch to give React time to render
+          setTimeout(() => attemptScrollToItem(itemId), 250);
+
+          // Also mark URL-based hash as handled when the user landed via URL
+          if (hashSource === 'url') {
+            try { const cur = window.location.hash || ''; if (cur) handledHashesRef.current.add(cur); } catch (e) {}
+          }
+
+          // Mark this hash as handled so we don't re-run the highlight
+          // animation on subsequent user actions while the URL remains set.
+          try {
+            const normalized = storedHash && storedHash.startsWith('#') ? storedHash : (window.location.hash || '');
+            if (normalized) handledHashesRef.current.add(normalized);
+          } catch (e) {
+            // ignore
+          }
+
+          // After scheduling the scroll attempts, restore the hash to the URL
+          // so the address bar reflects the deep link. We clear the stored
+          // hash only after this point to avoid losing it if the DOM isn't
+          // ready yet; clearing will be done inside attemptScrollToItem when
+          // the element is found or after falling back.
+          try {
+            if (storedHash) {
+              // Replace the current history entry (created by React Router
+              // navigate) with a hash-bearing URL so the back button goes
+              // back to the originating dashboard instead of an intermediate
+              // hash-less experience URL.
+              restoreHashToUrl(storedHash, { replace: true });
+              debug.log('Restored hash to URL (deferred, replaced):', storedHash);
             }
-          }, 100);
+          } catch (err) {
+            debug.warn('Failed to restore hash to URL immediately', err);
+          }
         } else {
           debug.warn('Plan ID from hash not found in collaborativePlans');
+          // No matching plan in this experience; clear the stored hash to avoid
+          // repeated failed attempts.
+          try { clearStoredHash(); } catch (e) {}
         }
       } catch (err) {
         debug.warn('Error handling hash navigation', err);
@@ -3749,6 +3737,29 @@ export default function SingleExperience() {
                                               await fetchCollaborativePlans();
                                               await fetchUserPlan();
                                               await fetchPlans(); // Refresh global plans state
+                                              // Scroll to and highlight the toggled item
+                                              try {
+                                                // If the address bar already points to this plan item
+                                                // (e.g. #plan-<planId>-item-<itemId>) and we have
+                                                // already handled that hash during initial
+                                                // navigation, avoid re-running the highlight
+                                                // animation — it's intended only for the first
+                                                // arrival at the deep-link.
+                                                try {
+                                                  const curHash = window.location.hash || '';
+                                                  const targetHash = `#plan-${selectedPlanId}-item-${itemId}`;
+                                                  if (curHash === targetHash && handledHashesRef.current.has(targetHash)) {
+                                                    // Skip re-highlighting; still optionally scroll a bit
+                                                  } else {
+                                                    await attemptScrollToItem(itemId);
+                                                  }
+                                                } catch (inner) {
+                                                  // Best-effort: fall back to attempting scroll/highlight
+                                                  await attemptScrollToItem(itemId);
+                                                }
+                                              } catch (e) {
+                                                // ignore scroll/highlight errors
+                                              }
                                             } catch (err) {
                                               const errorMsg = handleError(err, {
                                                 context:

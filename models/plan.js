@@ -55,7 +55,30 @@ const planItemSnapshotSchema = new Schema({
   text: String,
   url: String,
   photo: { type: Schema.Types.ObjectId, ref: "Photo" },
-  parent: { type: Schema.Types.ObjectId }
+  parent: { type: Schema.Types.ObjectId },
+  // Optional location object: plain text `address` and a GeoJSON `Point`
+  // stored at `location.geo` as { type: 'Point', coordinates: [lng, lat] }
+  location: {
+    address: { type: String },
+    geo: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point'
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        validate: {
+          validator: function(v) {
+            // allow empty (no location) or an array of two numbers [lng, lat]
+            if (!v) return true;
+            return Array.isArray(v) && v.length === 2 && v.every(n => typeof n === 'number');
+          },
+          message: 'GeoJSON coordinates must be an array of two numbers [lng, lat]'
+        }
+      }
+    }
+  }
 }, { _id: true });
 
 /**
@@ -147,6 +170,9 @@ planSchema.index({ experience: 1 });
 // OPTIMIZATION: Compound index for permission-based queries (Phase 2.3)
 // Supports queries that filter by experience and permission entities
 planSchema.index({ experience: 1, 'permissions._id': 1, 'permissions.type': 1 });  // For getExperiencePlans queries
+
+// Spatial index for plan item locations (GeoJSON Points stored on each plan item)
+planSchema.index({ 'plan.location.geo': '2dsphere' });
 
 /**
  * Virtual property for total cost

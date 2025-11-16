@@ -1,18 +1,18 @@
 .travel-tip {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 250, 0.98) 100%);
-  backdrop-filter: blur(10px);
+  background: var(--color-bg-surface);
   border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
+  padding: var(--space-5);
+  margin-bottom: 0;
   box-shadow: var(--shadow-sm);
-  transition: all var(--transition-slow) cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--color-border-light);
   position: relative;
 }
 
 .travel-tip:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
+  border-color: var(--color-border-medium);
 }
 
 /* Simple Tip Styles */
@@ -53,14 +53,14 @@
 .travel-tip-structured {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .travel-tip-header {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-2);
+  margin-bottom: 0;
 }
 
 /* Icon Wrapper with Gradient Background */
@@ -177,25 +177,26 @@
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: var(--space-1) var(--space-2);
+  display: inline-flex;
+  align-items: center;
 }
 
 .travel-tip-content {
-  padding-left: var(--space-10);
+  padding-left: calc(48px + var(--space-3));
 }
 
 .travel-tip-value {
-  font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-base));
+  font-size: var(--font-size-base);
   line-height: var(--line-height-relaxed);
-  color: var(--color-text-secondary);
-  font-weight: var(--font-weight-medium);
-  margin-bottom: var(--space-2);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-3);
 }
 
 .travel-tip-note {
-  font-size: clamp(var(--font-size-xs), 1.25vw, var(--font-size-sm));
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   margin-bottom: var(--space-2);
 }
 
@@ -223,27 +224,24 @@
 
 /* Delete Button */
 .travel-tip-delete {
-  border: none;
-  background: var(--color-travel-tip-delete-bg);
-  color: var(--color-travel-tip-delete-text);
-  border-radius: var(--radius-full);
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-none);
-  font-weight: var(--font-weight-bold);
-  transition: all var(--transition-fast) ease;
+  border-radius: var(--radius-full) !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
   flex-shrink: 0;
+  border-color: var(--color-danger) !important;
+  color: var(--color-danger) !important;
 }
 
 .travel-tip-delete:hover {
-  background: #dc3545;
-  color: white;
+  background: var(--color-danger) !important;
+  color: white !important;
   transform: scale(1.1);
+  border-color: var(--color-danger) !important;
 }
 
 /* Type-Specific Styles */

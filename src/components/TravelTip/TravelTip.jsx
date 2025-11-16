@@ -1,5 +1,4 @@
 import "./TravelTip.css";
-import { Badge, Button } from 'react-bootstrap';
 import { useMemo } from 'react';
 import {
   FaLanguage, FaMoneyBillWave, FaBus, FaShieldAlt,
@@ -7,6 +6,7 @@ import {
   FaExclamationTriangle, FaThumbtack, FaLightbulb,
   FaExternalLinkAlt, FaTimes
 } from 'react-icons/fa';
+import { Button, Pill, Text } from '../design-system';
 import EntitySchema from "../OpenGraph/EntitySchema";
 
 // Emoji icons for colorful display
@@ -43,11 +43,11 @@ const TIP_COLORS = {
   Transportation: 'primary',
   Safety: 'warning',
   Weather: 'info',
-  Customs: 'secondary',
+  Customs: 'neutral',
   Food: 'danger',
-  Accommodation: 'dark',
+  Accommodation: 'neutral',
   Emergency: 'danger',
-  Custom: 'secondary'
+  Custom: 'neutral'
 };
 
 export default function TravelTip({ tip, index, onDelete, editable = false, includeSchema = false }) {
@@ -92,14 +92,15 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
             </span>
           </div>
           {editable && (
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-danger travel-tip-delete"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => onDelete(index)}
               aria-label="Delete tip"
+              className="travel-tip-delete"
             >
               <FaTimes />
-            </button>
+            </Button>
           )}
         </div>
         {includeSchema && tip && (
@@ -152,20 +153,22 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
           <FAIcon className="travel-tip-fa-icon" />
         </div>
         <div className="travel-tip-header-content">
-          <Badge className={`travel-tip-badge`} bg={`${badgeColor}`}>
-            <FAIcon className="me-1" size="0.8em" />
+          <Pill variant={badgeColor} size="sm" className="travel-tip-badge">
+            <FAIcon style={{ marginRight: 'var(--space-1)' }} size="0.8em" />
             {displayCategory}
-          </Badge>
+          </Pill>
         </div>
         {editable && (
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-danger travel-tip-delete ms-auto"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => onDelete(index)}
             aria-label="Delete tip"
+            className="travel-tip-delete"
+            style={{ marginLeft: 'auto' }}
           >
             <FaTimes />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -190,17 +193,18 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
         )}
 
         {callToAction && callToAction.url && (
-          <div className="travel-tip-cta mt-2">
+          <div className="travel-tip-cta" style={{ marginTop: 'var(--space-2)' }}>
             <Button
+              as="a"
               href={callToAction.url}
               target="_blank"
               rel="noopener noreferrer"
               size="sm"
-              variant="outline-primary"
+              variant="outline"
               className="travel-tip-cta-button"
             >
               {callToAction.label || 'Learn More'}
-              <FaExternalLinkAlt className="ms-1" size="0.8em" />
+              <FaExternalLinkAlt style={{ marginLeft: 'var(--space-1)' }} size="0.8em" />
             </Button>
           </div>
         )}

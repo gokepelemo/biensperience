@@ -16,7 +16,8 @@ import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { isOwner } from "../../utilities/permissions";
-import { Container, Mobile, Desktop, Button } from "../../components/design-system";
+import { Container, Mobile, Desktop, Button, SkeletonLoader } from "../../components/design-system";
+import Loading from "../../components/Loading/Loading";
 
 export default function SingleDestination() {
   const { user } = useUser();
@@ -28,6 +29,7 @@ export default function SingleDestination() {
   const [destinationExperiences, setDestinationExperiences] = useState([]);
   const [directDestinationExperiences, setDirectDestinationExperiences] = useState(null);
   const [visibleExperiencesCount, setVisibleExperiencesCount] = useState(6);
+  const [isLoading, setIsLoading] = useState(true);
   const h1Ref = useRef(null);
   const loadMoreRef = useRef(null);
 
@@ -45,6 +47,7 @@ export default function SingleDestination() {
 
   const getData = useCallback(async () => {
     try {
+      setIsLoading(true);
       // Fetch destination data
       const destinationData = await showDestination(destinationId);
       // ✅ Use merge to preserve unchanged data (prevents photo/name flash)
@@ -53,6 +56,8 @@ export default function SingleDestination() {
       fetchDestinations();
     } catch (error) {
       logger.error('Error fetching destination', { destinationId, error: error.message });
+    } finally {
+      setIsLoading(false);
     }
   }, [destinationId, fetchDestinations, mergeDestination]);
 
@@ -201,22 +206,70 @@ export default function SingleDestination() {
 
 
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="container my-5">
+        <div className="row">
+          <div className="col-12 text-center mb-4">
+            <SkeletonLoader variant="text" width="60%" height="48px" style={{ margin: '0 auto' }} />
+          </div>
+        </div>
+        <div className="row">
+          <div className="col-md-6 p-3">
+            <SkeletonLoader variant="rectangle" width="100%" height="400px" />
+          </div>
+          <div className="col-md-6 p-3">
+            <SkeletonLoader variant="rectangle" width="100%" height="400px" />
+          </div>
+        </div>
+        <div className="row my-4">
+          <div className="col-12">
+            <SkeletonLoader variant="text" width="40%" height="32px" />
+            <div className="mt-3">
+              <SkeletonLoader variant="text" lines={3} />
+            </div>
+          </div>
+        </div>
+        <div className="row my-4">
+          <div className="col-12">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-4)' }}>
+              <SkeletonLoader variant="rectangle" width="100%" height="300px" />
+              <SkeletonLoader variant="rectangle" width="100%" height="300px" />
+              <SkeletonLoader variant="rectangle" width="100%" height="300px" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if destination not found
+  if (!destination) {
+    return (
+      <div className="container my-5">
+        <Alert type="warning" title="Destination Not Found">
+          <p>The destination you're looking for doesn't exist or has been removed.</p>
+          <hr />
+          <p className="mb-0">
+            <Link to="/destinations" className="alert-link">Browse all destinations</Link>
+          </p>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <>
-      {destination && (
-        <PageOpenGraph
-          title={`${destination.name}, ${!destination.state ? destination.country : destination.state === destination.name ? destination.country : destination.state}`}
-          description={`Discover ${destination.name}, ${destination.country}. Explore popular experiences, travel tips, and plan your perfect visit to this amazing destination.${displayedExperiences.length > 0 ? ` Find ${displayedExperiences.length} curated experiences.` : ''}`}
-          keywords={`${destination.name}, ${destination.country}, travel destination, tourism${destination.state ? `, ${destination.state}` : ''}, experiences, travel tips`}
-          ogTitle={`${destination.name}, ${destination.country}`}
-          ogDescription={`${displayedExperiences.length > 0 ? `Explore ${displayedExperiences.length} unique experiences in ${destination.name}. ` : ''}${destination.travel_tips?.length > 0 && typeof destination.travel_tips[0] === 'string' ? destination.travel_tips[0] : destination.travel_tips?.length > 0 && destination.travel_tips[0]?.value ? destination.travel_tips[0].value : `Plan your trip to ${destination.name} today.`}`}
-          entity={destination}
-          entityType="destination"
-        />
-      )}
-      <>
-        {destination && (
-          <>
+      <PageOpenGraph
+        title={`${destination.name}, ${!destination.state ? destination.country : destination.state === destination.name ? destination.country : destination.state}`}
+        description={`Discover ${destination.name}, ${destination.country}. Explore popular experiences, travel tips, and plan your perfect visit to this amazing destination.${displayedExperiences.length > 0 ? ` Find ${displayedExperiences.length} curated experiences.` : ''}`}
+        keywords={`${destination.name}, ${destination.country}, travel destination, tourism${destination.state ? `, ${destination.state}` : ''}, experiences, travel tips`}
+        ogTitle={`${destination.name}, ${destination.country}`}
+        ogDescription={`${displayedExperiences.length > 0 ? `Explore ${displayedExperiences.length} unique experiences in ${destination.name}. ` : ''}${destination.travel_tips?.length > 0 && typeof destination.travel_tips[0] === 'string' ? destination.travel_tips[0] : destination.travel_tips?.length > 0 && destination.travel_tips[0]?.value ? destination.travel_tips[0].value : `Plan your trip to ${destination.name} today.`}`}
+        entity={destination}
+        entityType="destination"
+      />
             <div className="row align-items-center single-destination-header">
               <div className="col-md-6">
                 <Mobile>
@@ -348,9 +401,6 @@ export default function SingleDestination() {
                 />
               )}
             </div>
-          </>
-        )}
-      </>
     </>
   );
 }
