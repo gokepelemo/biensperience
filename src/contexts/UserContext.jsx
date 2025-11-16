@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { getUser, logout } from '../utilities/users-service';
+import themeManager from '../utilities/theme-manager';
 import { getUserData } from '../utilities/users-api';
 import { redeemInviteCode } from '../utilities/invite-codes-service';
 import { logger } from '../utilities/logger';
@@ -52,6 +53,29 @@ export function UserProvider({ children }) {
     try {
       const profileData = await getUserData(user._id);
       setProfile(profileData);
+
+      // Persist user preferences to localStorage for immediate app-wide usage
+      try {
+        const prefs = profileData.preferences || {};
+        const storageObj = {
+          currency: prefs.currency || null,
+          language: prefs.language || null,
+          theme: prefs.theme || null,
+        };
+        try { localStorage.setItem('biensperience:preferences', JSON.stringify(storageObj)); } catch (e) { /* ignore */ }
+        if (prefs.currency) {
+          try { localStorage.setItem('biensperience:currency', prefs.currency); } catch (e) {}
+        }
+        if (prefs.language) {
+          try { localStorage.setItem('biensperience:language', prefs.language); } catch (e) {}
+        }
+        // Apply theme immediately for user
+        if (prefs.theme) {
+          try { themeManager.applyTheme(prefs.theme); } catch (e) { /* ignore */ }
+        }
+      } catch (e) {
+        // ignore localStorage/themeManager failures
+      }
 
       // Extract planned experiences if provided
       if (profileData.experiences) {

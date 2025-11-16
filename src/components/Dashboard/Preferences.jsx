@@ -78,6 +78,14 @@ export default function Preferences() {
       // refresh profile data
       // apply theme immediately for instant feedback
       try { themeManager.applyTheme(form.theme); } catch (e) { /* ignore */ }
+      
+        // Update localStorage preferences immediately so other parts of the app render accordingly
+        try {
+          const storageObj = { currency: form.currency, language: form.language, theme: form.theme };
+          localStorage.setItem('biensperience:preferences', JSON.stringify(storageObj));
+          localStorage.setItem('biensperience:currency', form.currency);
+          localStorage.setItem('biensperience:language', form.language);
+        } catch (e) { /* ignore */ }
       if (typeof fetchProfile === 'function') await fetchProfile();
     } catch (err) {
       // ignore or use toast
