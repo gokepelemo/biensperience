@@ -699,12 +699,18 @@ const en = {
   },
 };
 
-// All available languages
-const languages = { en };
+// All available language resources keyed by code
+const languages = { en: en };
+
+// Friendly names for language codes (used in UI selects).
+// Add additional languages here as they are added to `languages` above.
+const languageNames = {
+  en: 'English',
+};
 
 // Get current language from environment or default to 'en'
 const getCurrentLanguage = () => {
-  return process.env.REACT_APP_LANG || "en";
+  return process.env.REACT_APP_LANG || 'en';
 };
 
 // Get language object for current language
@@ -713,13 +719,29 @@ const getLang = () => {
   return languages[currentLang] || languages.en;
 };
 
+// Return array of available language codes
+const getAvailableLanguageCodes = () => Object.keys(languages);
+
+// Return friendly display name for a language code
+const getLanguageName = (code) => {
+  if (!code) return '';
+  return languageNames[code] || (code === 'en' ? 'English' : code.toUpperCase());
+};
+
+// Return options suitable for populating select controls: [{ code, name }]
+const getLanguageOptions = () => getAvailableLanguageCodes().map(c => ({ code: c, name: getLanguageName(c) }));
+
 // Export both the full language object and the getter function
 const lang = {
   get current() {
     return getLang();
   },
-  // Export English directly
+  // Export English directly for convenience
   en: languages.en,
+  // Utilities
+  getAvailableLanguageCodes,
+  getLanguageName,
+  getLanguageOptions,
 };
 
-export { lang, getCurrentLanguage, getLang };
+export { lang, getCurrentLanguage, getLang, getAvailableLanguageCodes, getLanguageName, getLanguageOptions };

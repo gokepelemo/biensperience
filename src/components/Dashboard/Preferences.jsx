@@ -4,6 +4,7 @@ import { Heading, Text } from '../design-system';
 import { useUser } from '../../contexts/UserContext';
 import { updateUser } from '../../utilities/users-api';
 import themeManager from '../../utilities/theme-manager';
+import { getLanguageOptions } from '../../lang.constants';
 
 export default function Preferences() {
   const { user, profile, fetchProfile } = useUser();
@@ -107,7 +108,11 @@ export default function Preferences() {
 
         <Form.Group className="mb-3">
           <Form.Label>Language</Form.Label>
-          <Form.Control value={form.language} onChange={e => handleChange('language', e.target.value)} />
+          <Form.Select value={form.language} onChange={e => handleChange('language', e.target.value)}>
+            {getLanguageOptions().map(opt => (
+              <option key={opt.code} value={opt.code}>{opt.name}</option>
+            ))}
+          </Form.Select>
         </Form.Group>
 
         <Form.Group className="mb-3">
