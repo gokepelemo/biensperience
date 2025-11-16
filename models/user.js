@@ -17,39 +17,10 @@ const { USER_ROLES } = require("../utilities/user-roles");
  */
 const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || 12);
 
-// Dynamically load available languages from src/lang.constants.js
-// We avoid importing ES modules directly from the server; instead parse
-// the source file to extract the `languages` keys. Fallback to ['en'].
-const fs = require('fs');
-const path = require('path');
-let AVAILABLE_LANGS = ['en'];
-let DEFAULT_LANG = 'en';
-try {
-  const langFile = path.resolve(__dirname, '..', 'src', 'lang.constants.js');
-  if (fs.existsSync(langFile)) {
-    const content = fs.readFileSync(langFile, 'utf8');
-    // Find the languages object declaration: const languages = { ... }
-    const match = content.match(/const\s+languages\s*=\s*\{([\s\S]*?)\};/m);
-    if (match && match[1]) {
-      const body = match[1];
-      const codes = [];
-      // Match keys like en: or 'es': or "fr":
-      const keyRe = /['"]?([a-zA-Z0-9_-]+)['"]?\s*:/g;
-      let m;
-      while ((m = keyRe.exec(body)) !== null) {
-        if (m[1]) codes.push(m[1]);
-      }
-      if (codes.length > 0) {
-        AVAILABLE_LANGS = codes;
-        DEFAULT_LANG = codes.includes('en') ? 'en' : codes[0];
-      }
-    }
-  }
-} catch (err) {
-  // If anything goes wrong, fall back to English only
-  AVAILABLE_LANGS = ['en'];
-  DEFAULT_LANG = 'en';
-}
+// Preferences.language validation is handled at controller level using
+// the canonical `src/lang.constants.js` module as the single source of truth.
+// Defining a simple default here; controller will enforce available codes.
+const DEFAULT_LANG = 'en';
 
 /**
  * Mongoose schema for User model
@@ -283,7 +254,7 @@ const userSchema = new Schema(
       type: new Schema({
         theme: { type: String, enum: ['light', 'dark', 'system-default'], default: 'system-default' },
         currency: { type: String, default: 'USD' },
-        language: { type: String, enum: AVAILABLE_LANGS, default: DEFAULT_LANG },
+        language: { type: String, default: DEFAULT_LANG },
         profileVisibility: { type: String, enum: ['private','public'], default: 'public' },
         notifications: {
           enabled: { type: Boolean, default: true },

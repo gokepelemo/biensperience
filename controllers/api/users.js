@@ -222,7 +222,8 @@ async function updateUser(req, res, next) {
     }
 
     // Whitelist allowed fields to prevent mass assignment vulnerabilities
-    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'oldPassword'];
+    // Allow `preferences` so users can update theme, language, currency, etc.
+    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'oldPassword', 'preferences'];
     
     // Super admins can also update their email confirmation status
     if (isSuperAdmin(req.user)) {
@@ -310,6 +311,71 @@ async function updateUser(req, res, next) {
     if (updateData.default_photo_id !== undefined) {
       if (updateData.default_photo_id === null || mongoose.Types.ObjectId.isValid(updateData.default_photo_id)) {
         validatedUpdateData.default_photo_id = updateData.default_photo_id;
+      }
+    }
+
+    // Validate preferences object if provided
+    if (updateData.preferences !== undefined && typeof updateData.preferences === 'object') {
+      const p = updateData.preferences;
+      const prefs = {};
+
+      // theme: allow light, dark, or system-default
+      if (p.theme && typeof p.theme === 'string' && ['light', 'dark', 'system-default'].includes(p.theme)) {
+        prefs.theme = p.theme;
+      }
+
+      // currency: basic sanitization (3-10 chars)
+      if (p.currency && typeof p.currency === 'string' && p.currency.length <= 10) {
+        prefs.currency = p.currency.trim();
+      }
+
+      // language: validate against lang.constants.js available codes
+      if (p.language && typeof p.language === 'string' && p.language.length <= 20) {
+        const langCode = p.language.trim();
+        try {
+          const path = require('path');
+          const { pathToFileURL } = require('url');
+          const langPath = path.resolve(__dirname, '..', '..', 'src', 'lang.constants.js');
+          // Dynamic import of ESM module
+          const langModule = await import(pathToFileURL(langPath).href);
+          const available = typeof langModule.getAvailableLanguageCodes === 'function'
+            ? langModule.getAvailableLanguageCodes()
+            : (langModule.lang && langModule.lang.en ? ['en'] : []);
+          if (Array.isArray(available) && available.includes(langCode)) {
+            prefs.language = langCode;
+          } else {
+            // If code not available, skip or fallback to default from module if provided
+            if (typeof langModule.getCurrentLanguage === 'function') {
+              prefs.language = langModule.getCurrentLanguage() || 'en';
+            }
+          }
+        } catch (e) {
+          // On any error, ignore and fall back to provided value
+          prefs.language = langCode;
+        }
+      }
+
+      // profileVisibility
+      if (p.profileVisibility && ['private', 'public'].includes(p.profileVisibility)) {
+        prefs.profileVisibility = p.profileVisibility;
+      }
+
+      // notifications
+      if (p.notifications && typeof p.notifications === 'object') {
+        const n = {};
+        if (typeof p.notifications.enabled === 'boolean') n.enabled = !!p.notifications.enabled;
+        if (Array.isArray(p.notifications.channels)) {
+          n.channels = p.notifications.channels.filter(c => ['email', 'push', 'sms'].includes(c));
+        }
+        if (Array.isArray(p.notifications.types)) {
+          n.types = p.notifications.types.filter(t => ['activity', 'reminder', 'marketing', 'updates'].includes(t));
+        }
+        prefs.notifications = n;
+      }
+
+      // Only set preferences if at least one valid value present
+      if (Object.keys(prefs).length > 0) {
+        validatedUpdateData.preferences = prefs;
       }
     }
 
