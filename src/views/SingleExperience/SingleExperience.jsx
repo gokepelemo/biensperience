@@ -135,6 +135,15 @@ export default function SingleExperience() {
   const { success, error: showError } = useToast();
   const { experienceId } = useParams();
   const navigate = useNavigate();
+
+  // DEBUG: Log initial URL state on component mount
+  debug.log('SingleExperience component mounted', {
+    experienceId,
+    pathname: window.location.pathname,
+    hash: window.location.hash,
+    href: window.location.href
+  });
+
   const [experience, setExperience] = useState(null);
   const [userHasExperience, setUserHasExperience] = useState(false);
   const [travelTips, setTravelTips] = useState([]);
