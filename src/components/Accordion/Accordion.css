@@ -1,0 +1,29 @@
+.ds-accordion {
+  --accordion-bg: var(--color-bg-secondary);
+  --accordion-border: var(--color-border-light);
+  --accordion-radius: var(--radius-md);
+}
+
+.ds-accordion .accordion-item {
+  background: var(--accordion-bg);
+  border: 1px solid var(--accordion-border);
+  border-radius: var(--accordion-radius);
+  margin-bottom: var(--space-3);
+}
+
+.ds-accordion .accordion-button {
+  background: transparent;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ds-accordion .accordion-button:not(.collapsed) {
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-600) 100%);
+  color: white;
+}
+
+.ds-accordion .accordion-body {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border-top: 1px dashed var(--accordion-border);
+}

@@ -82,6 +82,21 @@ const planSchema = new Schema(
       type: [planItemSnapshotSchema],
       default: []
     },
+    // Costs associated with the plan. Each cost can be linked to a plan_item,
+    // a collaborator, or the plan itself.
+    costs: {
+      type: [new Schema({
+        title: { type: String, required: true },
+        description: { type: String },
+        cost: { type: Number, required: true, default: 0 },
+        currency: { type: String, default: 'USD' },
+        plan_item: { type: Schema.Types.ObjectId }, // optional link to a plan item snapshot
+        plan: { type: Schema.Types.ObjectId, ref: 'Plan' }, // optional link back to this plan
+        collaborator: { type: Schema.Types.ObjectId, ref: 'User' }, // optional contributor who paid or is responsible
+        created_at: { type: Date, default: Date.now }
+      }, { _id: true }) ],
+      default: []
+    },
     permissions: {
       type: [permissionSchema],
       default: [],
@@ -138,7 +153,11 @@ planSchema.index({ experience: 1, 'permissions._id': 1, 'permissions.type': 1 })
  */
 planSchema.virtual("total_cost").get(function () {
   if (!this.plan || !Array.isArray(this.plan)) return 0;
-  return this.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
+  const itemsTotal = this.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
+  const costsTotal = (this.costs && Array.isArray(this.costs))
+    ? this.costs.reduce((s, c) => s + (c.cost || 0), 0)
+    : 0;
+  return itemsTotal + costsTotal;
 });
 
 /**

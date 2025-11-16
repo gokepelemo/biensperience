@@ -10,8 +10,17 @@ import App from './views/App/App';
 import { StrictMode } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ToastProvider } from './contexts/ToastContext';
+import themeManager from './utilities/theme-manager';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
+
+// Apply stored theme (if any) before rendering for immediate effect
+try {
+  const stored = themeManager.getStoredTheme();
+  if (stored) themeManager.applyTheme(stored);
+} catch (err) {
+  // ignore
+}
 root.render(
   <StrictMode>
     <ToastProvider>

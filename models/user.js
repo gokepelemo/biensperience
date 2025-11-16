@@ -242,6 +242,27 @@ const userSchema = new Schema(
     },
 
     /**
+     * User preferences for platform settings
+     * Includes theme, currency, language, profile visibility and notification preferences
+     */
+    preferences: {
+      type: new Schema({
+        theme: { type: String, enum: ['light', 'dark'], default: 'light' },
+        currency: { type: String, default: 'USD' },
+        language: { type: String, default: 'en' },
+        profileVisibility: { type: String, enum: ['private','public'], default: 'public' },
+        notifications: {
+          enabled: { type: Boolean, default: true },
+          // channels: email, push, sms
+          channels: { type: [String], enum: ['email','push','sms'], default: ['email'] },
+          // types: activity, reminders, marketing, updates
+          types: { type: [String], enum: ['activity','reminder','marketing','updates'], default: ['activity','reminder'] }
+        }
+      }, { _id: false }),
+      default: {}
+    },
+
+    /**
      * Invite code used to sign up (optional)
      * @type {string}
      */

@@ -53,13 +53,32 @@ export function UserProvider({ children }) {
       const profileData = await getUserData(user._id);
       setProfile(profileData);
 
-      // Extract favorites and planned experiences
-      if (profileData.favoriteDestinations) {
-        setFavoriteDestinations(profileData.favoriteDestinations);
-      }
-
+      // Extract planned experiences if provided
       if (profileData.experiences) {
         setPlannedExperiences(profileData.experiences);
+      }
+
+      // Some deployments compute favorite destinations on the server and include
+      // `favoriteDestinations` on the profile object. If it's missing, derive
+      // favorites by fetching destinations and filtering for those that include
+      // this user in `users_favorite`.
+      if (profileData.favoriteDestinations && profileData.favoriteDestinations.length > 0) {
+        setFavoriteDestinations(profileData.favoriteDestinations);
+      } else {
+        // Lazy-load destinations and derive favorites (falls back to server-side support)
+        try {
+          // Use the new server endpoint that returns only the user's favorited destinations
+          const { getFavorites } = require('../utilities/destinations-api');
+          const favs = await getFavorites(user._id);
+          if (Array.isArray(favs)) {
+            setFavoriteDestinations(favs);
+          } else {
+            setFavoriteDestinations([]);
+          }
+        } catch (err) {
+          // If destinations fetch fails, leave favorites as whatever server provided
+          logger.debug('Failed to derive favorite destinations from destinations API', { error: err.message });
+        }
       }
     } catch (error) {
       logger.error('Failed to fetch user profile', { error: error.message }, error);

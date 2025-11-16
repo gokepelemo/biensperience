@@ -6,16 +6,20 @@ import { getUser } from '../../utilities/users-service';
 import { logger } from '../../utilities/logger';
 import { useToast } from '../../contexts/ToastContext';
 import { SkeletonLoader, Heading, Text } from '../../components/design-system';
-import { StatsCard, ActivityList, QuickActions, UpcomingPlans, ActivePlansCard } from '../../components/Dashboard';
+import {
+  StatsCard,
+  ActivityList,
+  QuickActions,
+  UpcomingPlans,
+  ActivePlansCard,
+  MyPlans,
+  Preferences,
+} from '../../components/Dashboard';
 import './Dashboard.css';
 
-/**
- * Dashboard view component
- * Displays user statistics, recent activity, and upcoming plans
- * Built exactly like the Popular Patterns >> Dashboard Layout story
- */
 export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const user = getUser();
@@ -25,7 +29,6 @@ export default function Dashboard() {
     fetchDashboardData();
   }, []);
 
-  // Refresh dashboard when plan items are updated
   useEffect(() => {
     const handlePlanUpdated = () => {
       logger.debug('[Dashboard] Plan updated event received, refreshing dashboard');
@@ -47,21 +50,19 @@ export default function Dashboard() {
       setError(null);
       logger.debug('[Dashboard] Fetching dashboard data');
 
-  const data = await getDashboardData();
-  setDashboardData(data);
+      const data = await getDashboardData();
+      setDashboardData(data);
       logger.info('[Dashboard] Dashboard data loaded', {
         stats: data.stats,
         activityCount: data.recentActivity?.length || 0,
-        upcomingPlansCount: data.upcomingPlans?.length || 0
+        upcomingPlansCount: data.upcomingPlans?.length || 0,
       });
     } catch (err) {
       logger.error('[Dashboard] Failed to load dashboard data', err);
       const message = err?.message || 'Failed to load dashboard data';
-      // Surface a toast so users get non-blocking feedback
       try {
         toast.error(message, { header: 'Dashboard Error', duration: 8000 });
       } catch (e) {
-        // swallow if toast provider not mounted
         logger.debug('[Dashboard] Toast provider not available', e);
       }
       setError(message);
@@ -70,29 +71,27 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) {
-    return <DashboardSkeleton />;
-  }
-  // If there was an error and no dashboard data, render a lightweight retry UI
+  if (loading) return <DashboardSkeleton />;
+
   if (!dashboardData) {
     return (
       <Container style={{ padding: 'var(--space-8) 0' }}>
-        <Card style={{
-          backgroundColor: 'var(--color-bg-primary)',
-          border: '1px solid var(--color-border-light)',
-          borderRadius: 'var(--radius-lg)',
-          padding: 'var(--space-6)',
-          textAlign: 'center'
-        }}>
+        <Card
+          style={{
+            backgroundColor: 'var(--color-bg-primary)',
+            border: '1px solid var(--color-border-light)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-6)',
+            textAlign: 'center',
+          }}
+        >
           <div style={{ color: 'var(--color-text-error)', marginBottom: 'var(--space-4)' }}>
             <FaStar size={48} />
           </div>
           <Heading level={2} style={{ marginBottom: 'var(--space-2)' }}>
             Dashboard Unavailable
           </Heading>
-          <Text style={{ marginBottom: 'var(--space-4)' }}>
-            {error || 'We were unable to load your dashboard data.'}
-          </Text>
+          <Text style={{ marginBottom: 'var(--space-4)' }}>{error || 'We were unable to load your dashboard data.'}</Text>
           <Button onClick={fetchDashboardData} variant="primary">
             Try Again
           </Button>
@@ -103,124 +102,154 @@ export default function Dashboard() {
 
   const { stats = {}, recentActivity = [], upcomingPlans = [] } = dashboardData;
 
-  // Defensive defaults for stat fields to avoid runtime errors when API returns partial data
   const activePlansValue = typeof stats.activePlans === 'number' ? stats.activePlans : 0;
   const experiencesValue = typeof stats.experiences === 'number' ? stats.experiences : 0;
   const destinationsValue = typeof stats.destinations === 'number' ? stats.destinations : 0;
   const totalSpentValue = typeof stats.totalSpent === 'number' ? stats.totalSpent : 0;
 
   return (
-    <div style={{
-      backgroundColor: 'var(--color-bg-primary)',
-      minHeight: '100vh',
-      padding: 'var(--space-8) 0',
-    }}>
+    <div
+      style={{
+        backgroundColor: 'var(--color-bg-primary)',
+        minHeight: '100vh',
+        padding: 'var(--space-8) 0',
+      }}
+    >
       <Container fluid>
         <Row>
-          {/* Sidebar */}
-          <Col lg={2} className="dashboard-sidebar-mobile-hidden" style={{
-            backgroundColor: 'var(--color-bg-secondary)',
-            minHeight: '100vh',
-            padding: 'var(--space-6)',
-            borderRight: '1px solid var(--color-border-light)',
-          }}>
-            <Heading level={2} style={{
-              fontSize: 'var(--font-size-xl)',
-              fontWeight: 'var(--font-weight-bold)',
-              color: 'var(--color-text-primary)',
-              marginBottom: 'var(--space-8)',
-            }}>
+          <Col
+            lg={2}
+            className="dashboard-sidebar-mobile-hidden"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              minHeight: '100vh',
+              padding: 'var(--space-6)',
+              borderRight: '1px solid var(--color-border-light)',
+            }}
+          >
+            <Heading
+              level={2}
+              style={{
+                fontSize: 'var(--font-size-xl)',
+                fontWeight: 'var(--font-weight-bold)',
+                color: 'var(--color-text-primary)',
+                marginBottom: 'var(--space-8)',
+              }}
+            >
               Dashboard
             </Heading>
             <nav>
               {[
-                { label: 'Overview', active: true },
-                { label: 'My Experiences' },
-                { label: 'My Plans' },
-                { label: 'Favorites' },
-                { label: 'Settings' },
-              ].map(item => (
-                <div
-                  key={item.label}
-                  style={{
-                    padding: 'var(--space-3)',
-                    marginBottom: 'var(--space-2)',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: item.active ? 'var(--color-primary)' : 'transparent',
-                    color: item.active ? 'white' : 'var(--color-text-primary)',
-                    cursor: 'pointer',
-                    fontWeight: item.active ? 'var(--font-weight-semibold)' : 'var(--font-weight-medium)',
-                  }}
-                >
-                  {item.label}
-                </div>
-              ))}
+                { key: 'overview', label: 'Overview' },
+                { key: 'plans', label: 'My Plans' },
+                { key: 'preferences', label: 'Preferences' },
+              ].map((item) => {
+                const isActive = activeTab === item.key;
+                return (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    key={item.key}
+                    onClick={() => setActiveTab(item.key)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') setActiveTab(item.key);
+                    }}
+                    style={{
+                      padding: 'var(--space-3)',
+                      marginBottom: 'var(--space-2)',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: isActive ? 'var(--color-primary)' : 'transparent',
+                      color: isActive ? 'white' : 'var(--color-text-primary)',
+                      cursor: 'pointer',
+                      fontWeight: isActive ? 'var(--font-weight-semibold)' : 'var(--font-weight-medium)',
+                    }}
+                  >
+                    {item.label}
+                  </div>
+                );
+              })}
             </nav>
           </Col>
 
-          {/* Main Content */}
-          <Col lg={10} className="dashboard-main-mobile-padding" style={{
-            padding: 'var(--space-8)',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '100vh',
-            overflow: 'hidden'
-          }}>
-            {/* Welcome Header */}
-            <div style={{ marginBottom: 'var(--space-8)' }}>
-              <Heading level={1} style={{
-                fontSize: 'var(--font-size-3xl)',
-                fontWeight: 'var(--font-weight-bold)',
-                color: 'var(--color-text-primary)',
-                marginBottom: 'var(--space-2)',
-              }}>
-                Welcome back, {user?.name?.split(' ')[0] || 'Traveler'}! 👋
-              </Heading>
-              <Text style={{
-                fontSize: 'var(--font-size-lg)',
-                color: 'var(--color-text-secondary)',
-              }}>
-                Here's what's happening with your travel plans
-              </Text>
-            </div>
-
-            {/* Stats Cards */}
-            <Row style={{ marginBottom: 'var(--space-8)' }}>
-              <ActivePlansCard stats={dashboardData.stats} loading={loading} />
-              {[
-                { label: 'Experiences', value: experiencesValue, color: 'var(--color-success)', icon: <FaStar /> },
-                { label: 'Destinations', value: destinationsValue, color: 'var(--color-warning)', icon: <FaMapMarkerAlt /> },
-                { label: 'Estimated Cost', value: `$${Number(totalSpentValue).toLocaleString()}`, color: 'var(--color-info)', icon: <FaDollarSign /> },
-              ].map(stat => (
-                <StatsCard
-                  key={stat.label}
-                  label={stat.label}
-                  value={stat.value}
-                  color={stat.color}
-                  icon={stat.icon}
-                />
-              ))}
-            </Row>
-
-            <Row style={{ flex: 1, overflow: 'hidden' }}>
-              {/* Recent Activity */}
-              <Col lg={8} style={{ marginBottom: 'var(--space-6)', display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <ActivityList initialActivities={recentActivity} />
-              </Col>
-
-              {/* Quick Actions & Upcoming Plans */}
-              <Col lg={4} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                {/* Quick Actions */}
-                <div style={{ marginBottom: 'var(--space-6)' }}>
-                  <QuickActions />
+          <Col
+            lg={10}
+            className="dashboard-main-mobile-padding"
+            style={{
+              padding: 'var(--space-8)',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: '100vh',
+              overflow: 'hidden',
+            }}
+          >
+            {activeTab === 'overview' && (
+              <>
+                <div style={{ marginBottom: 'var(--space-8)' }}>
+                  <Heading
+                    level={1}
+                    style={{
+                      fontSize: 'var(--font-size-3xl)',
+                      fontWeight: 'var(--font-weight-bold)',
+                      color: 'var(--color-text-primary)',
+                      marginBottom: 'var(--space-2)',
+                    }}
+                  >
+                    Welcome back, {user?.name?.split(' ')[0] || 'Traveler'}! 👋
+                  </Heading>
+                  <Text
+                    style={{
+                      fontSize: 'var(--font-size-lg)',
+                      color: 'var(--color-text-secondary)',
+                    }}
+                  >
+                    Here's what's happening with your travel plans
+                  </Text>
                 </div>
 
-                {/* Upcoming Plans - make this scroll independently and fill remaining height */}
-                <div style={{ flex: 1, overflow: 'auto' }}>
-                  <UpcomingPlans plans={upcomingPlans} />
-                </div>
-              </Col>
-            </Row>
+                <Row style={{ marginBottom: 'var(--space-8)' }}>
+                  <ActivePlansCard stats={dashboardData.stats} loading={loading} />
+                  {[
+                    { label: 'Experiences', value: experiencesValue, color: 'var(--color-success)', icon: <FaStar /> },
+                    { label: 'Destinations', value: destinationsValue, color: 'var(--color-warning)', icon: <FaMapMarkerAlt /> },
+                    { label: 'Estimated Cost', value: `$${Number(totalSpentValue).toLocaleString()}`, color: 'var(--color-info)', icon: <FaDollarSign /> },
+                  ].map((stat) => (
+                    <StatsCard key={stat.label} label={stat.label} value={stat.value} color={stat.color} icon={stat.icon} />
+                  ))}
+                </Row>
+
+                <Row style={{ flex: 1, overflow: 'hidden' }}>
+                  <Col lg={8} style={{ marginBottom: 'var(--space-6)', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <ActivityList initialActivities={recentActivity} />
+                  </Col>
+
+                  <Col lg={4} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <div style={{ marginBottom: 'var(--space-6)' }}>
+                      <QuickActions />
+                    </div>
+
+                    <div style={{ flex: 1, overflow: 'auto' }}>
+                      <UpcomingPlans plans={upcomingPlans} />
+                    </div>
+                  </Col>
+                </Row>
+              </>
+            )}
+
+            {/* My Experiences removed from dashboard per request */}
+
+            {activeTab === 'plans' && (
+              <div style={{ flex: 1, overflow: 'auto' }}>
+                <MyPlans />
+              </div>
+            )}
+
+            {/* Favorites tab removed per design — no rendering block */}
+
+            {activeTab === 'preferences' && (
+              <div style={{ flex: 1, overflow: 'auto' }}>
+                <Preferences />
+              </div>
+            )}
           </Col>
         </Row>
       </Container>
@@ -228,87 +257,49 @@ export default function Dashboard() {
   );
 }
 
-/**
- * Dashboard skeleton loading component
- * Shows placeholder content while data is loading
- */
 function DashboardSkeleton() {
   return (
-    <div style={{
-      backgroundColor: 'var(--color-bg-primary)',
-      minHeight: '100vh',
-      padding: 'var(--space-8) 0',
-    }}>
+    <div
+      style={{
+        backgroundColor: 'var(--color-bg-primary)',
+        minHeight: '100vh',
+        padding: 'var(--space-8) 0',
+      }}
+    >
       <Container fluid>
         <Row>
-          {/* Sidebar Skeleton */}
-          <Col lg={2} style={{
-            backgroundColor: 'var(--color-bg-secondary)',
-            minHeight: '100vh',
-            padding: 'var(--space-6)',
-            borderRight: '1px solid var(--color-border-light)',
-          }}>
+          <Col lg={2} style={{ backgroundColor: 'var(--color-bg-secondary)', minHeight: '100vh', padding: 'var(--space-6)', borderRight: '1px solid var(--color-border-light)' }}>
             <SkeletonLoader variant="text" width="120px" style={{ marginBottom: 'var(--space-8)' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <SkeletonLoader key={i} variant="rectangle" height="40px" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonLoader key={i} variant="text" width="100%" height="20px" />
               ))}
             </div>
           </Col>
 
-          {/* Main Content Skeleton */}
           <Col lg={10} style={{ padding: 'var(--space-8)' }}>
-            {/* Header Skeleton */}
-            <div style={{ marginBottom: 'var(--space-8)' }}>
-              <SkeletonLoader variant="text" width="300px" height="36px" style={{ marginBottom: 'var(--space-2)' }} />
-              <SkeletonLoader variant="text" width="250px" height="24px" />
-            </div>
-
-            {/* Stats Cards Skeleton */}
-            <Row style={{ marginBottom: 'var(--space-8)' }}>
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Col md={6} lg={3} key={i} style={{ marginBottom: 'var(--space-4)' }}>
-                  <Card style={{
-                    backgroundColor: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-border-light)',
-                    borderRadius: 'var(--radius-lg)',
-                    padding: 'var(--space-6)',
-                    height: '120px',
-                  }}>
-                    <SkeletonLoader variant="rectangle" height="100%" />
-                  </Card>
-                </Col>
-              ))}
+            <Row style={{ marginBottom: 'var(--space-6)' }}>
+              <Col lg={8}>
+                <SkeletonLoader variant="text" width="60%" height={36} />
+                <SkeletonLoader variant="text" width="40%" height={20} style={{ marginTop: 'var(--space-2)' }} />
+              </Col>
             </Row>
 
             <Row>
-              {/* Recent Activity Skeleton */}
-              <Col lg={8} style={{ marginBottom: 'var(--space-6)' }}>
-                <Card style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border-light)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: 'var(--space-6)',
-                }}>
-                  <SkeletonLoader variant="text" width="150px" height="24px" style={{ marginBottom: 'var(--space-6)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <SkeletonLoader key={i} variant="rectangle" height="60px" />
-                    ))}
+              <Col lg={8}>
+                <Card style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+                  <SkeletonLoader variant="text" width="150px" height={24} style={{ marginBottom: 'var(--space-6)' }} />
+                  <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+                    <SkeletonLoader variant="rectangle" height={80} width="100%" />
+                    <SkeletonLoader variant="rectangle" height={80} width="100%" />
+                    <SkeletonLoader variant="rectangle" height={80} width="100%" />
                   </div>
                 </Card>
               </Col>
 
-              {/* Sidebar Skeletons */}
               <Col lg={4}>
-                <Card style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border-light)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: 'var(--space-6)',
-                  marginBottom: 'var(--space-6)',
-                }}>
-                  <SkeletonLoader variant="text" width="120px" height="24px" style={{ marginBottom: 'var(--space-6)' }} />
+                <Card style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+                  <SkeletonLoader variant="text" width="120px" height={24} style={{ marginBottom: 'var(--space-6)' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                     {Array.from({ length: 3 }).map((_, i) => (
                       <SkeletonLoader key={i} variant="rectangle" height="40px" />
@@ -316,13 +307,8 @@ function DashboardSkeleton() {
                   </div>
                 </Card>
 
-                <Card style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border-light)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: 'var(--space-6)',
-                }}>
-                  <SkeletonLoader variant="text" width="130px" height="24px" style={{ marginBottom: 'var(--space-6)' }} />
+                <Card style={{ padding: 'var(--space-6)' }}>
+                  <SkeletonLoader variant="text" width="130px" height={24} style={{ marginBottom: 'var(--space-6)' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                     {Array.from({ length: 3 }).map((_, i) => (
                       <SkeletonLoader key={i} variant="rectangle" height="50px" />

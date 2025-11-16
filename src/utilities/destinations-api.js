@@ -21,6 +21,22 @@ export async function getDestinations (filters = {}) {
     return resp;
 }
 
+/**
+ * Fetches destinations favorited by a specific user.
+ * Returns an array of destination objects.
+ */
+export async function getFavorites(userId) {
+    if (!userId) return [];
+    const params = new URLSearchParams({ favorited_by: String(userId) });
+    const resp = await sendRequest(`${BASE_URL}?${params.toString()}`, "GET");
+
+    // Controller returns an array when favorited_by is used
+    if (Array.isArray(resp)) return resp;
+    // Support possible { data } envelope
+    if (resp && resp.data) return resp.data;
+    return [];
+}
+
 export async function getDestinationsPage(page = 1, limit = 30, filters = {}) {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     Object.entries(filters || {}).forEach(([k, v]) => {

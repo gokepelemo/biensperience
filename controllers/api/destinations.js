@@ -36,6 +36,22 @@ async function index(req, res) {
     };
     const sortObj = sortMap[sortBy] || sortMap['name'];
 
+    // If ?favorited_by=<userId> requested, return only destinations favorited by that user
+    if (req.query.favorited_by) {
+      const userId = req.query.favorited_by;
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ error: 'Invalid user id for favorited_by' });
+      }
+
+      const favDestinations = await Destination.find({ users_favorite: userId })
+        .populate("photos", "url caption photo_credit photo_credit_url width height")
+        .lean()
+        .exec();
+
+      // Return array for compatibility with existing client fallback
+      return res.status(200).json(favDestinations);
+    }
+
     // If ?all=true requested, return full array for compatibility
     if (req.query.all === 'true' || req.query.all === true) {
       const allDestinations = await Destination.find({})
