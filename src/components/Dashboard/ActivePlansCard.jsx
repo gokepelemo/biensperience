@@ -7,7 +7,7 @@ import { FaCalendar, FaUser, FaUsers, FaCheckCircle } from 'react-icons/fa';
  * ActivePlansCard component for displaying detailed active plans metrics
  * Shows total plans, owned plans, shared plans, and completion status
  */
-export default function ActivePlansCard({ stats, loading }) {
+export default function ActivePlansCard({ stats = {}, loading = false }) {
   // No debug logging in production UI
 
   if (loading) {
@@ -181,7 +181,4 @@ ActivePlansCard.propTypes = {
   loading: PropTypes.bool,
 };
 
-ActivePlansCard.defaultProps = {
-  stats: {},
-  loading: false,
-};
+// defaultProps removed: using JS default parameters for function components

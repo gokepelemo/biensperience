@@ -699,8 +699,9 @@ const addCollaborator = asyncHandler(async (req, res) => {
     const resourceLink = `/experiences/${experienceDoc?._id || plan.experience}#plan-${plan._id}`;
 
     // Activity 1: For the owner (shows "Added [user] as collaborator to [experience]")
+    // Use allowed action enum values from Activity model ('permission_added' or 'collaborator_added')
     const ownerActivityData = {
-      action: 'collaborator_added_by_owner',
+      action: 'permission_added',
       actor: ownerInfo,
       resource: {
         id: plan._id,
@@ -729,7 +730,7 @@ const addCollaborator = asyncHandler(async (req, res) => {
 
     // Activity 2: For the collaborator (shows "You were added as a collaborator to [experience]")
     const collaboratorActivityData = {
-      action: 'collaborator_added_to_plan',
+      action: 'collaborator_added',
       actor: collaboratorInfo, // Actor is the collaborator so it shows in their feed
       resource: {
         id: plan._id,
@@ -952,9 +953,29 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   await plan.save();
 
   // Track plan item completion change (non-blocking)
+  backendLogger.info('Plan item update completion tracking check', {
+    planId: id,
+    itemId,
+    completeParam: complete,
+    wasComplete,
+    willBeComplete,
+    shouldTrack: complete !== undefined && wasComplete !== willBeComplete,
+    userId: req.user._id.toString()
+  });
+
   if (complete !== undefined && wasComplete !== willBeComplete) {
     // Populate experience for activity logging
     await plan.populate('experience', 'name');
+
+    backendLogger.info('Calling trackPlanItemCompletion', {
+      planId: plan._id.toString(),
+      experienceId: plan.experience?._id?.toString(),
+      experienceName: plan.experience?.name,
+      planItemId: itemId,
+      completed: willBeComplete,
+      actorId: req.user._id.toString(),
+      actorName: req.user.name
+    });
 
     trackPlanItemCompletion({
       resource: plan,

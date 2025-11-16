@@ -63,8 +63,8 @@ export default function Text({
 Text.propTypes = {
   children: PropTypes.node.isRequired,
   as: PropTypes.oneOf(['p', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']),
-  variant: PropTypes.oneOf(['body', 'lead', 'caption', 'gradient', 'muted']),
-  size: PropTypes.oneOf(['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl']),
+  variant: PropTypes.oneOf(['body', 'lead', 'caption', 'gradient', 'muted', 'heading']),
+  size: PropTypes.oneOf(['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', 'heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6']),
   weight: PropTypes.oneOf(['light', 'normal', 'medium', 'semibold', 'bold']),
   gradient: PropTypes.bool,
   shadow: PropTypes.bool,

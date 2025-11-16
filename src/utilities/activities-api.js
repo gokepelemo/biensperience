@@ -101,6 +101,23 @@ export async function getActorHistory(actorId, options = {}) {
 }
 
 /**
+ * Create a new activity record.
+ * Payload should be an object describing the activity. Example:
+ * {
+ *   action: 'marked complete',
+ *   item: 'Pack hiking boots',
+ *   targetItem: 'Everest trip',
+ *   link: '/experiences/abc123#plan-xyz-item-123'
+ * }
+ *
+ * @param {Object} payload - Activity payload
+ * @returns {Promise<Object>} Created activity
+ */
+export async function createActivity(payload = {}) {
+  return await sendRequest(BASE_URL, 'POST', payload);
+}
+
+/**
  * Restore resource state using rollback token
  * Super admin only
  * 

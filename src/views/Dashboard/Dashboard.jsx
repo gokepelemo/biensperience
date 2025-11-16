@@ -143,7 +143,13 @@ export default function Dashboard() {
           </Col>
 
           {/* Main Content */}
-          <Col lg={10} className="dashboard-main-mobile-padding" style={{ padding: 'var(--space-8)' }}>
+          <Col lg={10} className="dashboard-main-mobile-padding" style={{
+            padding: 'var(--space-8)',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '100vh',
+            overflow: 'hidden'
+          }}>
             {/* Welcome Header */}
             <div style={{ marginBottom: 'var(--space-8)' }}>
               <Heading level={1} style={{
@@ -180,21 +186,23 @@ export default function Dashboard() {
               ))}
             </Row>
 
-            <Row>
+            <Row style={{ flex: 1, overflow: 'hidden' }}>
               {/* Recent Activity */}
-              <Col lg={8} style={{ marginBottom: 'var(--space-6)' }}>
+              <Col lg={8} style={{ marginBottom: 'var(--space-6)', display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <ActivityList initialActivities={recentActivity} />
               </Col>
 
               {/* Quick Actions & Upcoming Plans */}
-              <Col lg={4}>
-              {/* Quick Actions */}
-              <div style={{ marginBottom: 'var(--space-6)' }}>
-                <QuickActions />
-              </div>
+              <Col lg={4} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                {/* Quick Actions */}
+                <div style={{ marginBottom: 'var(--space-6)' }}>
+                  <QuickActions />
+                </div>
 
-                {/* Upcoming Plans */}
-                <UpcomingPlans plans={upcomingPlans} />
+                {/* Upcoming Plans - make this scroll independently and fill remaining height */}
+                <div style={{ flex: 1, overflow: 'auto' }}>
+                  <UpcomingPlans plans={upcomingPlans} />
+                </div>
               </Col>
             </Row>
           </Col>

@@ -295,6 +295,12 @@ async function getRecentActivity(userId, options = {}) {
   try {
     const { limit = 10, skip = 0 } = options;
 
+    backendLogger.info('Fetching recent activity', {
+      userId: userId.toString(),
+      limit,
+      skip
+    });
+
     const activities = await Activity.find({
       'actor._id': userId // Activities performed by the user
     })
@@ -302,6 +308,17 @@ async function getRecentActivity(userId, options = {}) {
     .limit(limit)
     .skip(skip)
     .lean();
+
+    backendLogger.info('Activities found', {
+      userId: userId.toString(),
+      count: activities.length,
+      actions: activities.map(a => ({
+        action: a.action,
+        timestamp: a.timestamp,
+        resourceType: a.resource?.type,
+        actorId: a.actor?._id?.toString()
+      }))
+    });
 
     // For each activity, populate related data if needed
     const enrichedActivities = await Promise.all(activities.map(async (activity) => {
@@ -404,6 +421,61 @@ async function getUpcomingPlans(userId) {
 }
 
 /**
+ * Paginated upcoming plans endpoint
+ */
+async function getUpcomingPlansEndpoint(req, res) {
+  try {
+    const userId = req.user._id;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit) || 5);
+    const skip = (page - 1) * limit;
+
+    backendLogger.info('Fetching paginated upcoming plans', { userId: userId.toString(), page, limit, skip });
+
+    const filter = {
+      $or: [
+        { user: userId },
+        { 'permissions._id': userId, 'permissions.entity': 'user' }
+      ],
+      planned_date: { $gte: new Date() }
+    };
+
+    const [totalCount, plans] = await Promise.all([
+      Plan.countDocuments(filter),
+      Plan.find(filter)
+        .populate('experience', 'name')
+        .sort({ planned_date: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
+
+    const mapped = plans.map(plan => ({
+      id: plan._id,
+      experienceId: plan.experience?._id,
+      title: plan.experience?.name || 'Unknown Experience',
+      date: plan.planned_date ? formatDate(plan.planned_date) : null
+    }));
+
+    const response = {
+      plans: mapped,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+        hasMore: skip + mapped.length < totalCount
+      }
+    };
+
+    return successResponse(res, response);
+  } catch (error) {
+    backendLogger.error('Error fetching paginated upcoming plans', { error: error.message });
+    return errorResponse(res, error, 'Error fetching upcoming plans');
+  }
+}
+
+/**
  * Format activity action into user-friendly text
  */
 function formatActivityAction(action) {
@@ -482,13 +554,16 @@ async function getActivityFeed(req, res) {
     // Get activities with pagination
     const activities = await getRecentActivity(userId, { limit, skip });
 
+    const totalPages = Math.max(1, Math.ceil(totalCount / limit));
     const response = {
       activities,
       pagination: {
         page,
         limit,
         totalCount,
-        totalPages: Math.ceil(totalCount / limit),
+        totalPages,
+        // numPages kept for caller convenience (explicit name requested)
+        numPages: totalPages,
         hasMore: skip + activities.length < totalCount
       }
     };
@@ -512,5 +587,6 @@ async function getActivityFeed(req, res) {
 
 module.exports = {
   getDashboard,
-  getActivityFeed
+  getActivityFeed,
+  getUpcomingPlansEndpoint
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { FaClock, FaStar, FaExternalLinkAlt } from 'react-icons/fa';
@@ -15,9 +15,11 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
   const [activities, setActivities] = useState(initialActivities);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, totalPages: 1, totalCount: 0 });
   const [error, setError] = useState(null);
-  const observerTarget = useRef(null);
+  const isLoadingRef = useRef(false);
+  const scrollRef = useRef(null);
+  
   /**
    * Render the activity description with proper formatting and links
    */
@@ -60,60 +62,56 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
     );
   };
 
-  // Fetch more activities
-  const loadMore = useCallback(async () => {
-    if (loading || !hasMore) return;
-
+  // Load a specific page of activities (numbered pagination)
+  const loadPage = useCallback(async (pageToLoad = 1) => {
+    if (isLoadingRef.current) return;
     try {
       setLoading(true);
+      isLoadingRef.current = true;
       setError(null);
 
-      const response = await getActivityFeed(page + 1);
+      const response = await getActivityFeed(pageToLoad, pagination.limit);
 
-      if (response.activities && response.activities.length > 0) {
-        setActivities(prev => [...prev, ...response.activities]);
-        setPage(prev => prev + 1);
-        setHasMore(response.pagination.hasMore);
+      if (response.activities) {
+        setActivities(response.activities);
+        setPage(response.pagination.page || pageToLoad);
+        setPagination(response.pagination || { page: pageToLoad, limit: pagination.limit, totalPages: 1, totalCount: response.activities.length });
       } else {
-        setHasMore(false);
+        setActivities([]);
+        setPagination({ page: 1, limit: pagination.limit, totalPages: 1, totalCount: 0 });
       }
     } catch (err) {
-      logger.error('Error loading more activities', { error: err.message }, err);
-      setError('Failed to load more activities');
+      logger.error('Error loading activity page', { error: err.message }, err);
+      setError('Failed to load activity feed');
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
-  }, [page, loading, hasMore]);
+  }, [pagination.limit]);
 
-  // Set up intersection observer for infinite scroll
+  // Load initial page on mount
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
-          loadMore();
-        }
-      },
-      { threshold: 0.1 }
-    );
+    loadPage(1);
+  }, [loadPage]);
 
-    const currentTarget = observerTarget.current;
-    if (currentTarget) {
-      observer.observe(currentTarget);
-    }
-
-    return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget);
+  // Scroll to top of activity list when page changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      try {
+        scrollRef.current.scrollTop = 0;
+      } catch (e) {
+        // ignore
       }
-    };
-  }, [loadMore, hasMore, loading]);
+    }
+  }, [page]);
 
-  // Initialize with initial activities if provided
+  // If initialActivities provided and server didn't include pagination yet,
+  // seed the list immediately while the first page request resolves.
   useEffect(() => {
     if (initialActivities && initialActivities.length > 0 && activities.length === 0) {
       setActivities(initialActivities);
     }
-  }, [initialActivities, activities.length]);
+  }, [initialActivities]);
 
   return (
     <Card style={{
@@ -121,8 +119,10 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
       border: '1px solid var(--color-border-light)',
       borderRadius: 'var(--radius-lg)',
       padding: 'var(--space-6)',
-      maxHeight: '600px',
+      height: '100%',
       overflow: 'auto',
+      display: 'flex',
+      flexDirection: 'column'
     }}>
       <Heading level={3} style={{
         fontSize: 'var(--font-size-xl)',
@@ -132,7 +132,7 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
       }}>
         {title}
       </Heading>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      <div ref={scrollRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', flex: 1, overflow: 'auto' }}>
         {activities.length > 0 ? activities.map((activity) => (
           <div
             key={activity.id}
@@ -196,7 +196,7 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
             padding: 'var(--space-4)',
             color: 'var(--color-text-muted)',
           }}>
-            Loading more activities...
+            Loading activities...
           </div>
         )}
 
@@ -211,11 +211,8 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
           </div>
         )}
 
-        {/* Intersection observer target for infinite scroll */}
-        <div ref={observerTarget} style={{ height: '20px' }} />
-
         {/* End of list message */}
-        {!hasMore && activities.length > 0 && (
+        {!loading && activities.length > 0 && pagination.page >= pagination.totalPages && (
           <div style={{
             textAlign: 'center',
             padding: 'var(--space-4)',
@@ -225,9 +222,50 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
             You've reached the end of your activity history
           </div>
         )}
+        {/* Pagination controls: only show pages count and Prev/Next */}
+        {pagination.numPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+            <Button size="sm" variant="outline-secondary" disabled={page <= 1} onClick={() => loadPage(page - 1)}>Prev</Button>
+            <div style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+              Page {page}/{pagination.numPages || pagination.totalPages}
+            </div>
+            <Button size="sm" variant="outline-secondary" disabled={page >= (pagination.numPages || pagination.totalPages)} onClick={() => loadPage(page + 1)}>Next</Button>
+          </div>
+        )}
       </div>
     </Card>
   );
+}
+
+// Helper to render page buttons compactly
+function renderPageButtons(totalPages, currentPage, onClick) {
+  const buttons = [];
+  const maxButtons = 7;
+
+  const addButton = (p) => buttons.push(
+    <Button key={p} size="sm" variant={p === currentPage ? 'primary' : 'outline-secondary'} onClick={() => onClick(p)}>
+      {p}
+    </Button>
+  );
+
+  if (totalPages <= maxButtons) {
+    for (let i = 1; i <= totalPages; i++) addButton(i);
+  } else {
+    // Always show first
+    addButton(1);
+    let start = Math.max(2, currentPage - 2);
+    let end = Math.min(totalPages - 1, currentPage + 2);
+
+    if (start > 2) buttons.push(<span key="dots-start" style={{ alignSelf: 'center' }}>...</span>);
+
+    for (let i = start; i <= end; i++) addButton(i);
+
+    if (end < totalPages - 1) buttons.push(<span key="dots-end" style={{ alignSelf: 'center' }}>...</span>);
+
+    addButton(totalPages);
+  }
+
+  return <div style={{ display: 'flex', gap: 'var(--space-2)' }}>{buttons}</div>;
 }
 
 ActivityList.propTypes = {
@@ -244,7 +282,4 @@ ActivityList.propTypes = {
   title: PropTypes.string,
 };
 
-ActivityList.defaultProps = {
-  initialActivities: [],
-  title: 'Recent Activity',
-};
+// defaultProps removed: using JS default parameters in function signature

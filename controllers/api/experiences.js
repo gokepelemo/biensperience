@@ -148,25 +148,41 @@ async function index(req, res) {
       if (req.query.experience_type) {
         const et = String(req.query.experience_type).trim();
         if (et.length) {
+            // Protect against ReDoS by limiting user-supplied input used to build
+            // dynamic regular expressions. If the slugified input is too long or
+            // contains too many parts, fall back to a simple escaped match.
+            const MAX_REGEX_INPUT_LENGTH = 200; // reasonable upper bound
+            const MAX_REGEX_PARTS = 6; // limit complexity of joined pattern
           // Create a slug-like split of the input (words only) and join with a flexible separator
           const slugify = (s) => String(s || '')
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/-+/g, '-')
             .replace(/^-+|-+$/g, '');
+            const slug = slugify(et);
 
-          const parts = slugify(et).split('-').filter(Boolean).map(p => escapeRegex(p));
-
-          if (parts.length === 0) {
-            // Fallback to exact escaped match
-            filter.experience_type = { $regex: new RegExp(escapeRegex(et), 'i') };
-          } else if (parts.length === 1) {
-            filter.experience_type = { $regex: new RegExp(parts[0], 'i') };
-          } else {
-            // Allow any non-word or underscore characters between parts (covers & and punctuation)
-            const pattern = parts.join('[\\W_]*');
-            filter.experience_type = { $regex: new RegExp(pattern, 'i') };
-          }
+            // If the slug is excessively long, skip building a complex pattern
+            if (!slug || slug.length === 0) {
+              filter.experience_type = { $regex: new RegExp(escapeRegex(et), 'i') };
+            } else if (slug.length > MAX_REGEX_INPUT_LENGTH) {
+              // Fallback to a simple escaped regex on the whole input to avoid
+              // creating a potentially expensive pattern from attacker-controlled data.
+              filter.experience_type = { $regex: new RegExp(escapeRegex(et), 'i') };
+            } else {
+              const parts = slug.split('-').filter(Boolean).map(p => escapeRegex(p));
+              if (parts.length === 0) {
+                filter.experience_type = { $regex: new RegExp(escapeRegex(et), 'i') };
+              } else if (parts.length === 1) {
+                filter.experience_type = { $regex: new RegExp(parts[0], 'i') };
+              } else if (parts.length > MAX_REGEX_PARTS) {
+                // Too many parts would create a complex regex; use a simple escaped match
+                filter.experience_type = { $regex: new RegExp(escapeRegex(et), 'i') };
+              } else {
+                // Allow any non-word or underscore characters between parts (covers & and punctuation)
+                const pattern = parts.join('[\\W_]*');
+                filter.experience_type = { $regex: new RegExp(pattern, 'i') };
+              }
+            }
         }
       }
 

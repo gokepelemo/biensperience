@@ -55,3 +55,28 @@ export async function getActivityFeed(page = 1, limit = 20) {
     throw error;
   }
 }
+
+/**
+ * Get paginated upcoming plans from server
+ * @param {number} page
+ * @param {number} limit
+ */
+export async function getUpcomingPlans(page = 1, limit = 5) {
+  try {
+    const url = `${BASE_URL}/upcoming-plans?page=${page}&limit=${limit}`;
+    const result = await sendRequest(url);
+    const payload = (result && result.data) ? result.data : result || {};
+
+    logger.debug('[dashboard-api] Upcoming plans fetched', {
+      page,
+      limit,
+      plansCount: payload.plans?.length || 0,
+      totalPages: payload.pagination?.totalPages
+    });
+
+    return payload;
+  } catch (error) {
+    logger.error('[dashboard-api] Failed to fetch upcoming plans', error);
+    throw error;
+  }
+}

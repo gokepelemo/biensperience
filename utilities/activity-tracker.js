@@ -304,20 +304,42 @@ async function trackPlanItemCompletion(options) {
   // Resolve planItem when only an ID is provided
   let resolvedPlanItem = planItem;
   try {
+    backendLogger.info('trackPlanItemCompletion called', {
+      hasPlan: !!plan,
+      hasPlanItem: !!planItem,
+      planItemId,
+      planId: plan?._id?.toString(),
+      planItemsCount: plan?.plan?.length,
+      isPlanArray: Array.isArray(plan?.plan),
+      hasPlanIdMethod: typeof plan?.plan?.id === 'function'
+    });
+
     if (!resolvedPlanItem && planItemId && plan) {
       // plan could be a mongoose doc or a plain object
-      if (typeof plan.plan === 'function' && plan.plan.id) {
+      if (typeof plan.plan.id === 'function') {
         // Mongoose subdocument accessor
+        backendLogger.info('Using Mongoose plan.id() method to find plan item');
         resolvedPlanItem = plan.plan.id(planItemId);
       } else if (Array.isArray(plan.plan)) {
+        backendLogger.info('Using Array.find() to find plan item', {
+          planItemId,
+          planItemsCount: plan.plan.length
+        });
         resolvedPlanItem = plan.plan.find(i => String(i._id) === String(planItemId));
       }
     }
 
+    backendLogger.info('Plan item resolution result', {
+      resolved: !!resolvedPlanItem,
+      planItemId: resolvedPlanItem?._id?.toString(),
+      planItemText: resolvedPlanItem?.text
+    });
+
     if (!resolvedPlanItem) {
       backendLogger.warn('trackPlanItemCompletion called without a valid planItem', {
         planId: plan?._id || null,
-        planItemId: planItemId || null
+        planItemId: planItemId || null,
+        planItemsInPlan: plan?.plan?.length || 0
       });
       return; // Nothing to track
     }
@@ -342,7 +364,7 @@ async function trackPlanItemCompletion(options) {
     }
 
     // Non-blocking: Fire and forget
-    Activity.create({
+    const activityData = {
       timestamp: new Date(),
       action,
       actor: extractActor(actor),
@@ -362,11 +384,32 @@ async function trackPlanItemCompletion(options) {
       metadata: req ? extractMetadata(req) : {},
       status: 'success',
       tags: ['plan', 'plan_item', completed ? 'completed' : 'uncompleted']
+    };
+
+    backendLogger.info('Creating activity record', {
+      action: activityData.action,
+      actorId: activityData.actor._id?.toString(),
+      actorEmail: activityData.actor.email,
+      resourceId: activityData.resource.id.toString(),
+      resourceName: activityData.resource.name,
+      targetId: activityData.target.id.toString(),
+      targetName: activityData.target.name,
+      completed
+    });
+
+    Activity.create(activityData).then(activity => {
+      backendLogger.info('Activity record created successfully', {
+        activityId: activity._id.toString(),
+        action: activity.action,
+        actorId: activity.actor._id?.toString()
+      });
     }).catch(err => {
       backendLogger.error('Failed to track plan item completion', {
         error: err.message,
+        stack: err.stack,
         planId: plan._id,
-        planItemId: resolvedPlanItem._id
+        planItemId: resolvedPlanItem._id,
+        activityData: JSON.stringify(activityData, null, 2)
       });
     });
   } catch (err) {
