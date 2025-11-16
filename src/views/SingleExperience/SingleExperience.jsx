@@ -543,9 +543,13 @@ export default function SingleExperience() {
       // bar to a hash-based deep link that points to the experience with
       // a plan fragment. Example: `/experiences/<id>#plan/<planId>`
       if (activeTab === 'myplan' && selectedPlanId && experienceId) {
-        // Use legacy hash format '#plan-<planId>' which the mount logic expects
-        // Use pushState so selecting plans creates history entries (analytics-friendly)
-        const hashed = `/experiences/${experienceId}#plan-${selectedPlanId}`;
+        // Preserve item-level hash if present (e.g., #plan-{planId}-item-{itemId})
+        // Otherwise use plan-level hash (e.g., #plan-{planId})
+        const currentHash = window.location.hash || '';
+        const hasItemHash = currentHash.includes('-item-');
+        const hashed = hasItemHash
+          ? `${window.location.pathname}${currentHash}`
+          : `/experiences/${experienceId}#plan-${selectedPlanId}`;
         try {
           // Dedupe: avoid navigating if the URL is already the same
           const current = `${window.location.pathname}${window.location.hash || ''}`;
