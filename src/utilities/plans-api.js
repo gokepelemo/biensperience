@@ -146,9 +146,14 @@ export function updatePlanItem(planId, itemId, updates) {
           const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
           const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
           const plan = result?.plan || result;
+
+          // Legacy event for backward compatibility
           window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan, experienceId } }));
-          // Broadcast for other tabs
           broadcastEvent('bien:plan_updated', { plan, experienceId });
+
+          // Standardized event for DataContext and Dashboard
+          window.dispatchEvent(new CustomEvent('plan:updated', { detail: { plan, planId } }));
+          broadcastEvent('plan:updated', { plan, planId });
         }
       } catch (e) {
         // ignore

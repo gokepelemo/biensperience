@@ -25,6 +25,22 @@ export default function Dashboard() {
     fetchDashboardData();
   }, []);
 
+  // Refresh dashboard when plan items are updated
+  useEffect(() => {
+    const handlePlanUpdated = () => {
+      logger.debug('[Dashboard] Plan updated event received, refreshing dashboard');
+      fetchDashboardData();
+    };
+
+    window.addEventListener('plan:updated', handlePlanUpdated);
+    window.addEventListener('bien:plan_updated', handlePlanUpdated);
+
+    return () => {
+      window.removeEventListener('plan:updated', handlePlanUpdated);
+      window.removeEventListener('bien:plan_updated', handlePlanUpdated);
+    };
+  }, []);
+
   async function fetchDashboardData() {
     try {
       setLoading(true);
