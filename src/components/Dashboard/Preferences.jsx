@@ -9,7 +9,7 @@ export default function Preferences() {
   const { user, profile, fetchProfile } = useUser();
   const prefs = profile?.preferences || {};
   const [form, setForm] = useState({
-    theme: prefs.theme || 'light',
+    theme: prefs.theme || 'system-default',
     currency: prefs.currency || 'USD',
     language: prefs.language || 'en',
     profileVisibility: prefs.profileVisibility || (profile?.visibility || 'public'),
@@ -94,6 +94,7 @@ export default function Preferences() {
         <Form.Group className="mb-3">
           <Form.Label>Theme</Form.Label>
           <Form.Select value={form.theme} onChange={e => handleChange('theme', e.target.value)}>
+            <option value="system-default">System Default</option>
             <option value="light">Light</option>
             <option value="dark">Dark</option>
           </Form.Select>

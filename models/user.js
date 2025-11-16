@@ -247,7 +247,7 @@ const userSchema = new Schema(
      */
     preferences: {
       type: new Schema({
-        theme: { type: String, enum: ['light', 'dark'], default: 'light' },
+        theme: { type: String, enum: ['light', 'dark', 'system-default'], default: 'system-default' },
         currency: { type: String, default: 'USD' },
         language: { type: String, default: 'en' },
         profileVisibility: { type: String, enum: ['private','public'], default: 'public' },

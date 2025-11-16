@@ -10,12 +10,23 @@ const THEME_KEY = 'biensperience:theme';
 export function applyTheme(theme) {
   if (typeof document === 'undefined') return;
   if (!theme) return;
-
   try {
-    document.documentElement.setAttribute('data-theme', theme);
-    // Persist to localStorage so other tabs can pick it up
+    // Resolve system-default to actual preference (light/dark)
+    let applied = theme;
+    if (theme === 'system-default') {
+      try {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        applied = prefersDark ? 'dark' : 'light';
+      } catch (e) {
+        applied = 'light';
+      }
+    }
+
+    document.documentElement.setAttribute('data-theme', applied);
+    // Persist to localStorage so other tabs can pick it up. Store both
+    // the user's preference and the applied effective theme.
     try {
-      localStorage.setItem(THEME_KEY, JSON.stringify({ theme, ts: Date.now() }));
+      localStorage.setItem(THEME_KEY, JSON.stringify({ theme, applied, ts: Date.now() }));
     } catch (e) {
       // ignore localStorage failures
     }
@@ -32,7 +43,10 @@ export function getStoredTheme() {
     const raw = localStorage.getItem(THEME_KEY);
     if (!raw) return null;
     const obj = JSON.parse(raw);
-    return obj && obj.theme ? obj.theme : null;
+    // Prefer user preference if present, otherwise fall back to applied
+    if (obj && typeof obj.theme === 'string') return obj.theme;
+    if (obj && typeof obj.applied === 'string') return obj.applied;
+    return null;
   } catch (e) {
     return null;
   }
