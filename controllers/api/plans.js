@@ -701,6 +701,7 @@ const addCollaborator = asyncHandler(async (req, res) => {
     // Activity 1: For the owner (shows "Added [user] as collaborator to [experience]")
     // Use allowed action enum values from Activity model ('permission_added' or 'collaborator_added')
     const ownerActivityData = {
+      timestamp: new Date(),
       action: 'permission_added',
       actor: ownerInfo,
       resource: {
@@ -725,11 +726,13 @@ const addCollaborator = asyncHandler(async (req, res) => {
         requestMethod: req.method,
         resourceLink
       },
-      tags: ['collaboration', 'permission_grant']
+      tags: ['collaboration', 'permission_grant'],
+      status: 'success'
     };
 
     // Activity 2: For the collaborator (shows "You were added as a collaborator to [experience]")
     const collaboratorActivityData = {
+      timestamp: new Date(),
       action: 'collaborator_added',
       actor: collaboratorInfo, // Actor is the collaborator so it shows in their feed
       resource: {
@@ -754,10 +757,18 @@ const addCollaborator = asyncHandler(async (req, res) => {
         requestMethod: req.method,
         resourceLink
       },
-      tags: ['collaboration', 'permission_received', 'notification']
+      tags: ['collaboration', 'permission_received', 'notification'],
+      status: 'success'
     };
 
     // Log both activities
+    backendLogger.info('Creating collaborator activities', {
+      ownerActorId: ownerActivityData.actor._id.toString(),
+      collaboratorActorId: collaboratorActivityData.actor._id.toString(),
+      ownerAction: ownerActivityData.action,
+      collaboratorAction: collaboratorActivityData.action
+    });
+
     const [ownerLogResult, collaboratorLogResult] = await Promise.all([
       Activity.log(ownerActivityData),
       Activity.log(collaboratorActivityData)
@@ -766,13 +777,27 @@ const addCollaborator = asyncHandler(async (req, res) => {
     if (!ownerLogResult.success) {
       backendLogger.error('Failed to log owner collaborator activity', { error: ownerLogResult.error, planId: plan._id, userId });
     } else {
-      backendLogger.info('Logged owner collaborator activity', { activityId: ownerLogResult.activity._id, planId: plan._id, userId });
+      backendLogger.info('Logged owner collaborator activity', {
+        activityId: ownerLogResult.activity._id,
+        actorId: ownerLogResult.activity.actor._id.toString(),
+        action: ownerLogResult.activity.action,
+        timestamp: ownerLogResult.activity.timestamp,
+        planId: plan._id,
+        userId
+      });
     }
 
     if (!collaboratorLogResult.success) {
       backendLogger.error('Failed to log collaborator activity', { error: collaboratorLogResult.error, planId: plan._id, userId });
     } else {
-      backendLogger.info('Logged collaborator activity', { activityId: collaboratorLogResult.activity._id, planId: plan._id, userId });
+      backendLogger.info('Logged collaborator activity', {
+        activityId: collaboratorLogResult.activity._id,
+        actorId: collaboratorLogResult.activity.actor._id.toString(),
+        action: collaboratorLogResult.activity.action,
+        timestamp: collaboratorLogResult.activity.timestamp,
+        planId: plan._id,
+        userId
+      });
     }
 
     // Send email asynchronously — do not await so API response is fast.

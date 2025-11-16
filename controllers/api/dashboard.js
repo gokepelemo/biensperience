@@ -313,10 +313,16 @@ async function getRecentActivity(userId, options = {}) {
       userId: userId.toString(),
       count: activities.length,
       actions: activities.map(a => ({
+        id: a._id?.toString(),
         action: a.action,
         timestamp: a.timestamp,
         resourceType: a.resource?.type,
-        actorId: a.actor?._id?.toString()
+        resourceId: a.resource?.id?.toString(),
+        resourceName: a.resource?.name,
+        actorId: a.actor?._id?.toString(),
+        actorName: a.actor?.name,
+        targetId: a.target?.id?.toString(),
+        targetName: a.target?.name
       }))
     });
 
@@ -356,7 +362,9 @@ async function getRecentActivity(userId, options = {}) {
       }
 
       // For collaborator activities, use the target user's name
-      if ((activity.action === 'collaborator_added_by_owner' || activity.action === 'collaborator_added_to_plan') && activity.target) {
+      if ((activity.action === 'permission_added' || activity.action === 'permission_removed' ||
+           activity.action === 'collaborator_added' || activity.action === 'collaborator_removed') &&
+          activity.target && activity.resource?.type === 'Plan') {
         targetName = activity.target.name;
       }
 
@@ -486,14 +494,14 @@ function formatActivityAction(action) {
     'plan_created': 'Created a plan on',
     'plan_updated': 'Updated a plan on',
     'plan_deleted': 'Deleted a plan from',
-    'permission_added': 'Shared',
-    'permission_removed': 'Unshared',
+    'permission_added': 'Added a collaborator to',
+    'permission_removed': 'Removed a collaborator from',
     'user_registered': 'Joined Biensperience',
     'email_verified': 'Verified email address',
     'plan_item_completed': 'Marked a plan item complete on',
     'plan_item_uncompleted': 'Marked a plan item incomplete on',
-    'collaborator_added_by_owner': 'Added as a collaborator to',
-    'collaborator_added_to_plan': 'Became a collaborator on'
+    'collaborator_added': 'Became a collaborator on',
+    'collaborator_removed': 'Removed from collaboration on'
   };
 
   return actionMap[action] || action.replace(/_/g, ' ');
