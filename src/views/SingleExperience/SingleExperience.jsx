@@ -559,9 +559,20 @@ export default function SingleExperience() {
         // Otherwise use plan-level hash (e.g., #plan-{planId})
         const currentHash = window.location.hash || '';
         const hasItemHash = currentHash.includes('-item-');
-        const hashed = hasItemHash
-          ? `${window.location.pathname}${currentHash}`
-          : `/experiences/${experienceId}#plan-${selectedPlanId}`;
+
+        // CRITICAL: Only build URL if we have a hash OR we're creating a new one
+        // Never strip an existing hash
+        let hashed;
+        if (hasItemHash && currentHash) {
+          // Preserve full item-level hash
+          hashed = `${window.location.pathname}${currentHash}`;
+        } else if (currentHash.startsWith('#plan-') && currentHash.length > 6) {
+          // Preserve any existing plan hash (even if not item-level)
+          hashed = `${window.location.pathname}${currentHash}`;
+        } else {
+          // Create new plan-level hash
+          hashed = `/experiences/${experienceId}#plan-${selectedPlanId}`;
+        }
 
         debug.log('URL management: myplan tab active', {
           activeTab,
