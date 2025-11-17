@@ -31,9 +31,11 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
       return (
         <>
           {action}{' '}
-          {link ? (
+            {link ? (
             <HashLink
               to={link}
+              activitySource="dashboard"
+              shouldShake={true}
               style={{ fontWeight: 'bold', color: 'var(--color-primary)', textDecoration: 'none' }}
             >
               {item}
@@ -167,7 +169,7 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
               </div>
             </div>
             {activity.link && (
-              <HashLink to={activity.link}>
+              <HashLink to={activity.link} activitySource="dashboard" shouldShake={true}>
                 <Button
                   variant="outline-secondary"
                   size="sm"

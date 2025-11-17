@@ -83,10 +83,15 @@ export default function HashLink({
 
         // If there's a hash, store it for destination handling
         if (cleanHash) {
+          // Allow callers to pass metadata (e.g., activitySource or shouldShake)
+          const meta = {};
+          if (props && props.activitySource) meta.activitySource = props.activitySource;
+          if (props && props.shouldShake) meta.shouldShake = true;
+
           try {
-            storeHash(cleanHash, window.location.pathname);
+            storeHash(cleanHash, window.location.pathname, Object.keys(meta).length ? meta : null);
           } catch (err) {
-            storeHash(cleanHash);
+            try { storeHash(cleanHash, null, Object.keys(meta).length ? meta : null); } catch (e) { storeHash(cleanHash); }
           }
         }
 

@@ -70,9 +70,12 @@ const planItemSnapshotSchema = new Schema({
         type: [Number], // [longitude, latitude]
         validate: {
           validator: function(v) {
-            // allow empty (no location) or an array of two numbers [lng, lat]
-            if (!v) return true;
-            return Array.isArray(v) && v.length === 2 && v.every(n => typeof n === 'number');
+              // allow empty (no location), an empty array, or an array of two numbers [lng, lat]
+              // Some clients may send an empty array `[]` while location is not yet available;
+              // treat that as "no location" to avoid failing validation during interim API requests.
+              if (v == null) return true; // null or undefined
+              if (Array.isArray(v) && v.length === 0) return true; // allow empty array
+              return Array.isArray(v) && v.length === 2 && v.every(n => typeof n === 'number');
           },
           message: 'GeoJSON coordinates must be an array of two numbers [lng, lat]'
         }

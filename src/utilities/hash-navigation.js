@@ -8,12 +8,13 @@ const HASH_STORAGE_KEY = 'bien:pending_hash';
  * Store hash fragment before navigation
  * Uses localStorage for cross-tab compatibility and persistence
  * @param {string} hash - Hash fragment (e.g., "#plan-123-item-456")
+ * @param {Object} [meta] - Optional metadata to store alongside the hash
  */
-export function storeHash(hash, originPath = null) {
+export function storeHash(hash, originPath = null, meta = null) {
   if (!hash || typeof window === 'undefined') return;
 
   try {
-    const payload = JSON.stringify({ hash, originPath, storedAt: Date.now() });
+    const payload = JSON.stringify({ hash, originPath, storedAt: Date.now(), meta: meta || null });
     localStorage.setItem(HASH_STORAGE_KEY, payload);
   } catch (e) {
     // Ignore storage errors (quota exceeded, etc.)
@@ -23,7 +24,7 @@ export function storeHash(hash, originPath = null) {
 /**
  * Retrieve stored hash WITHOUT clearing it
  * Allows destination component to read hash for navigation
- * @returns {string|null} - Stored hash or null
+ * @returns {Object|null} - Stored object { hash, originPath, storedAt, meta } or null
  */
 export function getStoredHash() {
   if (typeof window === 'undefined') return null;
@@ -35,7 +36,7 @@ export function getStoredHash() {
       return JSON.parse(raw);
     } catch (e) {
       // If stored value is a plain string (legacy), return as object
-      return { hash: raw, originPath: null, storedAt: null };
+      return { hash: raw, originPath: null, storedAt: null, meta: null };
     }
   } catch (e) {
     // Ignore storage errors
@@ -137,14 +138,14 @@ export function scrollToElement(elementId, shake = false) {
  */
 export function handleStoredHash() {
   const stored = getStoredHash();
-  if (!stored) return { planId: null, itemId: null, hash: null, originPath: null };
+  if (!stored) return { planId: null, itemId: null, hash: null, originPath: null, meta: null };
 
-  const { hash, originPath } = stored;
-  if (!hash) return { planId: null, itemId: null, hash: null, originPath: originPath || null };
+  const { hash, originPath, meta } = stored;
+  if (!hash) return { planId: null, itemId: null, hash: null, originPath: originPath || null, meta: meta || null };
 
   const { planId, itemId } = parseHash(hash);
 
-  return { planId, itemId, hash, originPath: originPath || null };
+  return { planId, itemId, hash, originPath: originPath || null, meta: meta || null };
 }
 
 /**

@@ -349,6 +349,17 @@ async function getRecentActivity(userId, options = {}) {
             resourceName = plan.experience.name;
             // Create hash-based deep link to specific plan
             resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}`;
+
+            // If this activity targets a specific plan item (e.g. plan_item_completed),
+            // include the item id in the hash so the UI can deep-link directly to it.
+            if ((activity.action === 'plan_item_completed' || activity.action === 'plan_item_uncompleted') && activity.target && activity.target.id) {
+              try {
+                const itemId = activity.target.id.toString();
+                resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}-item-${itemId}`;
+              } catch (err) {
+                // ignore conversion errors and fall back to plan-level link
+              }
+            }
           }
         } catch (err) {
           backendLogger.warn('Failed to populate plan experience for activity', { activityId: activity._id });

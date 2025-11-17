@@ -36,14 +36,18 @@ export default function Button({
   to,
   ...props
 }) {
+  // Normalize legacy variant names: 'primary' -> 'gradient'
+  let normalizedVariant = variant;
+  if (variant === 'primary') normalizedVariant = 'gradient';
+
   // Build className string
   const classes = [
     'btn-custom',
-    `btn-${variant}`,
+    `btn-${normalizedVariant}`,
     rounded && 'btn-rounded',
     shadow && 'btn-shadow',
     size !== 'md' && `btn-${size}`,
-    variant === 'bootstrap' && `btn btn-${bootstrapVariant}`,
+    normalizedVariant === 'bootstrap' && `btn btn-${bootstrapVariant}`,
     className
   ].filter(Boolean).join(' ');
 
@@ -83,7 +87,8 @@ export default function Button({
 
 Button.propTypes = {
   children: PropTypes.node.isRequired,
-  variant: PropTypes.oneOf(['gradient', 'outline', 'bootstrap']),
+  // Accept legacy shorthand variants used across the codebase
+  variant: PropTypes.oneOf(['gradient', 'outline', 'bootstrap', 'primary', 'link']),
   bootstrapVariant: PropTypes.oneOf([
     'primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark',
     'outline-primary', 'outline-secondary', 'outline-success', 'outline-danger',

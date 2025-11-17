@@ -102,10 +102,28 @@ const createPlan = asyncHandler(async (req, res) => {
     plannedDate: planned_date
   });
 
+  // Normalize planned_date: accept null, empty string, ISO string, or numeric epoch
+  let normalizedPlannedDate = null;
+  try {
+    if (planned_date === null || planned_date === undefined || (typeof planned_date === 'string' && planned_date.trim() === '')) {
+      normalizedPlannedDate = null;
+    } else if (planned_date instanceof Date) {
+      normalizedPlannedDate = planned_date;
+    } else if (typeof planned_date === 'number' && Number.isFinite(planned_date)) {
+      normalizedPlannedDate = new Date(planned_date);
+    } else if (typeof planned_date === 'string') {
+      const d = new Date(planned_date);
+      if (!isNaN(d.getTime())) normalizedPlannedDate = d;
+      else normalizedPlannedDate = null;
+    }
+  } catch (err) {
+    normalizedPlannedDate = null;
+  }
+
   const plan = await Plan.create({
     experience: experienceId,
     user: req.user._id,
-    planned_date: planned_date || null,
+    planned_date: normalizedPlannedDate,
     plan: planSnapshot,
     permissions: [{
       _id: req.user._id,
@@ -439,9 +457,15 @@ const updatePlan = asyncHandler(async (req, res) => {
   const validateUpdate = (field, value) => {
     switch(field) {
       case 'planned_date':
-        // Accept Date objects or ISO date strings
+        // Accept null (clearing the date), Date objects, ISO date strings, or numeric epoch timestamps
+        if (value === null) return true;
         if (value instanceof Date) return true;
+        if (typeof value === 'number') {
+          return Number.isFinite(value);
+        }
         if (typeof value === 'string') {
+          // Allow empty-string which we treat as null (clearing the date)
+          if (value.trim() === '') return true;
           const date = new Date(value);
           return !isNaN(date.getTime());
         }
@@ -454,6 +478,61 @@ const updatePlan = asyncHandler(async (req, res) => {
         return false;
     }
   };
+
+  // If the request only updates `planned_date`, perform an atomic update to avoid
+  // triggering full-document validation (e.g. GeoJSON fields) which can fail
+  // when optional nested fields are absent. This lets clients PATCH/PUT just the
+  // planned_date without causing unrelated validation errors.
+  const requestedKeys = Object.keys(updates || {}).filter(k => k);
+  const allowedForRequest = ['planned_date', 'plan', 'notes'];
+  const requestedAllowed = requestedKeys.filter(k => allowedForRequest.includes(k));
+  if (requestedAllowed.length === 1 && requestedAllowed[0] === 'planned_date') {
+    // Validate the planned_date value
+    if (!validateUpdate('planned_date', updates.planned_date)) {
+      return res.status(400).json({ error: 'Validation error', message: 'Invalid value for field: planned_date' });
+    }
+
+    // Normalize value into Date or null
+    let normalized = null;
+    if (updates.planned_date === null || updates.planned_date === '') {
+      normalized = null;
+    } else if (updates.planned_date instanceof Date) {
+      normalized = updates.planned_date;
+    } else if (typeof updates.planned_date === 'number' && Number.isFinite(updates.planned_date)) {
+      normalized = new Date(updates.planned_date);
+    } else if (typeof updates.planned_date === 'string') {
+      const t = updates.planned_date.trim();
+      normalized = t === '' ? null : new Date(t);
+    }
+
+    const previousState = plan.toObject();
+
+    // Atomic update - do not run full document validators here to avoid GeoJSON errors
+    const updated = await Plan.findByIdAndUpdate(
+      plan._id,
+      { $set: { planned_date: normalized } },
+      { new: true }
+    )
+    .populate('experience', 'name destination photos default_photo_id')
+    .populate({
+      path: 'user',
+      select: 'name email photos default_photo_id',
+      populate: { path: 'photos', select: 'url caption' }
+    });
+
+    // Track update (non-blocking)
+    trackUpdate({
+      resource: updated,
+      previousState,
+      resourceType: 'Plan',
+      actor: req.user,
+      req,
+      fieldsToTrack: ['planned_date'],
+      reason: `Plan updated (planned_date)`
+    });
+
+    return res.json(updated);
+  }
 
   // Capture previous state for activity tracking
   const previousState = plan.toObject();
@@ -469,7 +548,29 @@ const updatePlan = asyncHandler(async (req, res) => {
           message: `Invalid value for field: ${field}` 
         });
       }
-      plan[field] = updates[field];
+      // Coerce empty strings for planned_date to null to avoid storing empty strings
+      if (field === 'planned_date') {
+        // Normalize several accepted formats into a Date or null
+        if (updates[field] === '' || updates[field] === null) {
+          plan[field] = null;
+        } else if (updates[field] instanceof Date) {
+          plan[field] = updates[field];
+        } else if (typeof updates[field] === 'number' && Number.isFinite(updates[field])) {
+          plan[field] = new Date(updates[field]);
+        } else if (typeof updates[field] === 'string') {
+          const trimmed = updates[field].trim();
+          if (trimmed === '') {
+            plan[field] = null;
+          } else {
+            plan[field] = new Date(trimmed);
+          }
+        } else {
+          // Fallback: set to null to be safe
+          plan[field] = null;
+        }
+      } else {
+        plan[field] = updates[field];
+      }
       fieldsToTrack.push(field);
     }
   }
@@ -971,6 +1072,52 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   const wasComplete = planItem.complete;
   const willBeComplete = complete !== undefined ? complete : wasComplete;
 
+  // If the request only updates allowable scalar item fields, perform an atomic
+  // positional update to avoid validating other unrelated nested fields
+  // (such as optional GeoJSON coordinates) which can cause validation failures.
+  const requestedKeys = Object.keys(req.body || {}).filter(k => k);
+  const allowedScalarKeys = ['complete', 'cost', 'planning_days'];
+  const onlyAllowed = requestedKeys.length > 0 && requestedKeys.every(k => allowedScalarKeys.includes(k));
+
+  if (onlyAllowed) {
+    // Build $set object for atomic positional update
+    const setObj = {};
+    if (complete !== undefined) setObj['plan.$.complete'] = complete;
+    if (cost !== undefined) setObj['plan.$.cost'] = cost;
+    if (planning_days !== undefined) setObj['plan.$.planning_days'] = planning_days;
+
+    // Preserve previous state for tracking
+    const previousState = plan.toObject();
+
+    // Perform atomic update using the positional $ operator
+    const updatedPlan = await Plan.findOneAndUpdate(
+      { _id: plan._id, 'plan._id': itemId },
+      { $set: setObj },
+      { new: true }
+    )
+    .populate('experience', 'name')
+    .populate({
+      path: 'user',
+      select: 'name email'
+    });
+
+    // If completion changed, track it
+    if (complete !== undefined && wasComplete !== willBeComplete) {
+      trackPlanItemCompletion({
+        resource: updatedPlan,
+        resourceType: 'Plan',
+        actor: req.user,
+        req,
+        planItemId: itemId,
+        completed: willBeComplete,
+        reason: `Plan item ${willBeComplete ? 'completed' : 'marked incomplete'}`
+      });
+    }
+
+    return res.json(updatedPlan);
+  }
+
+  // Otherwise apply changes to the in-memory document and save (runs full validation)
   if (complete !== undefined) planItem.complete = complete;
   if (cost !== undefined) planItem.cost = cost;
   if (planning_days !== undefined) planItem.planning_days = planning_days;
