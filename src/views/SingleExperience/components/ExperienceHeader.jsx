@@ -32,7 +32,7 @@ export default function ExperienceHeader({
       )}
 
       {/* Destination Link */}
-      {experience.destination && (
+      {experience.destination && experience.destination.name && (
         <div className="mb-3">
           <strong>Destination: </strong>
           <Link to={`/destinations/${experience.destination._id}`}>

@@ -33,7 +33,7 @@ import {
   isValidPlannedDate,
 } from "../../utilities/date-utils";
 import { handleError } from "../../utilities/error-handler";
-import { createExpirableStorage } from "../../utilities/cookie-utils";
+import { createExpirableStorage, getCookieValue, setCookieValue } from "../../utilities/cookie-utils";
 import { formatCurrency } from "../../utilities/currency-utils";
 import { isOwner } from "../../utilities/permissions";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
@@ -61,6 +61,27 @@ import {
 } from "../../utilities/plans-api";
 
 export default function SingleExperience() {
+  // Constants for sync alert cookie management
+  const SYNC_ALERT_COOKIE = "planSyncAlertDismissed";
+  const SYNC_ALERT_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
+
+  // Helpers to read/write sync alert dismissal state
+  function getSyncAlertCookie(planId) {
+    try {
+      return getCookieValue(SYNC_ALERT_COOKIE, planId, SYNC_ALERT_DURATION);
+    } catch (err) {
+      debug.warn('getSyncAlertCookie failed', err);
+      return null;
+    }
+  }
+
+  function setSyncAlertCookie(planId) {
+    try {
+      setCookieValue(SYNC_ALERT_COOKIE, planId, Date.now(), SYNC_ALERT_DURATION, SYNC_ALERT_DURATION);
+    } catch (err) {
+      debug.warn('setSyncAlertCookie failed', err);
+    }
+  }
   const { user } = useUser();
   const { removeExperience, fetchExperiences, fetchPlans, experiences: ctxExperiences, updateExperience: updateExperienceInContext, setOptimisticPlanStateForExperience, clearOptimisticPlanStateForExperience } = useData();
   const {
@@ -2620,14 +2641,14 @@ export default function SingleExperience() {
               : ""
           }`}
           keywords={`${experience.name}, travel, experience, planning${
-            experience.destination
+            experience.destination && experience.destination.name
               ? `, ${experience.destination.name}, ${experience.destination.country}`
               : ""
           }${
             experience.experience_type ? `, ${experience.experience_type}` : ""
           }`}
           ogTitle={`${experience.name}${
-            experience.destination ? ` - ${experience.destination.name}` : ""
+            experience.destination && experience.destination.name ? ` - ${experience.destination.name}` : ""
           }`}
           ogDescription={`Discover and plan ${experience.name}. ${
             travelTips.length > 0
@@ -2961,7 +2982,7 @@ export default function SingleExperience() {
                   defaultPhotoIndex={experience.default_photo_index}
                   title={experience.name}
                   altText={`${experience.name}${
-                    experience.destination
+                    experience.destination && experience.destination.name
                       ? ` in ${experience.destination.name}`
                       : ""
                   }`}
@@ -2972,7 +2993,7 @@ export default function SingleExperience() {
               <div className="col-md-12 fade-in">
                 <InfoCard
                   title={
-                    !experience.destination ? (
+                    !experience.destination || !experience.destination.name ? (
                       <div className="loading-skeleton loading-skeleton-text" style={{ width: '70%', height: '1.5rem' }}></div>
                     ) : (
                       `${lang.en.label.destinationLabel}: ${experience.destination.name}`
@@ -3007,7 +3028,7 @@ export default function SingleExperience() {
                       : null,
                   ].filter(Boolean)}
                   map={
-                    !experience.destination ? (
+                    !experience.destination || !experience.destination.name ? (
                       <div className="loading-skeleton loading-skeleton-rectangle" style={{ width: '100%', height: '300px', borderRadius: 'var(--radius-md)' }}></div>
                     ) : (
                       <GoogleMap
@@ -3068,7 +3089,7 @@ export default function SingleExperience() {
                               }}
                               onClick={() => setActiveTab("myplan")}
                             >
-                              {collaborativePlans.map((plan) => {
+                              {collaborativePlans.map((plan, ci) => {
                                 const planUserId = plan.user?._id || plan.user;
                                 const isOwnPlan = idEquals(planUserId, user._id);
                                 let displayName = "Plan";
@@ -3081,9 +3102,12 @@ export default function SingleExperience() {
                                 }
 
                                 const optionValue = plan._id && plan._id.toString ? plan._id.toString() : plan._id;
+                                // Ensure a stable, unique key for React. Fall back to the loop index
+                                // only if no plan id is available (defensive).
+                                const optionKey = optionValue != null ? optionValue : `plan-${ci}`;
 
                                 return (
-                                  <option key={optionValue} value={optionValue}>
+                                  <option key={optionKey} value={optionValue}>
                                     {displayName}
                                   </option>
                                 );
