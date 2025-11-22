@@ -902,8 +902,9 @@ export default function SingleExperience() {
         if (!planId) return;
 
         // If plans haven't loaded yet, we'll wait until collaborativePlans changes
-        // Also wait if collaborativePlans is empty (still populating)
-        if (plansLoading || (collaborativePlans.length === 0 && hashSelecting)) {
+        // CRITICAL: Wait if collaborativePlans is empty, regardless of hashSelecting state
+        // This ensures we don't try to select a plan before they've loaded
+        if (plansLoading || collaborativePlans.length === 0) {
           debug.log('[Hash Navigation] Plans still loading or empty; will attempt selection after load', {
             plansLoading,
             collaborativePlansCount: collaborativePlans.length,
