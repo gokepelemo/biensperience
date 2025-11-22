@@ -1,11 +1,97 @@
-/* Plan Item Notes - Chat-style interface for plan item notes */
+/* Plan Item Notes - Chat-style interface with search, pagination, and InteractiveTextArea */
 
 .plan-item-notes-chat {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 400px;
-  max-height: 600px;
+  max-height: 700px;
+}
+
+/* Search and Add Note Header */
+.notes-header {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border-light);
+  align-items: center;
+}
+
+.notes-search {
+  flex: 1;
+  max-width: 400px;
+}
+
+.search-icon {
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-medium);
+  color: var(--color-text-muted);
+}
+
+.search-input {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-medium);
+  color: var(--color-text-primary);
+}
+
+.search-input:focus {
+  background-color: var(--color-bg-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.2rem rgba(111, 66, 193, 0.25);
+}
+
+.clear-search {
+  color: var(--color-text-muted);
+  padding: var(--space-2);
+}
+
+.clear-search:hover {
+  color: var(--color-text-primary);
+}
+
+.add-note-button {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Add Note Form */
+.add-note-form {
+  padding: var(--space-4);
+  background-color: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.form-header h4 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.close-form-button {
+  color: var(--color-text-muted);
+  padding: var(--space-1);
+}
+
+.close-form-button:hover {
+  color: var(--color-text-primary);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 /* Chat messages area */
@@ -49,8 +135,63 @@
   background: var(--color-border-dark);
 }
 
+/* Pagination Controls */
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4);
+  background-color: var(--color-bg-primary);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.pagination-info {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.pagination-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.page-indicator {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  padding: 0 var(--space-2);
+}
+
+/* Empty State Content */
+.empty-state-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
+  .notes-header {
+    background-color: var(--color-bg-primary);
+    border-bottom-color: var(--color-border-dark);
+  }
+
+  .add-note-form {
+    background-color: var(--color-bg-secondary);
+    border-bottom-color: var(--color-border-dark);
+  }
+
+  .search-icon {
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border-dark);
+  }
+
+  .search-input {
+    background-color: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+  }
+
   .chat-messages {
     background-color: var(--color-bg-primary);
   }
@@ -58,16 +199,44 @@
   .chat-messages::-webkit-scrollbar-track {
     background: var(--color-bg-primary);
   }
+
+  .pagination-controls {
+    background-color: var(--color-bg-primary);
+    border-top-color: var(--color-border-dark);
+  }
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .plan-item-notes-chat {
     min-height: 300px;
-    max-height: 500px;
+    max-height: 600px;
+  }
+
+  .notes-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .notes-search {
+    max-width: none;
+  }
+
+  .add-note-button {
+    width: 100%;
+    justify-content: center;
   }
 
   .chat-messages {
     padding: var(--space-4);
+  }
+
+  .pagination-controls {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .pagination-info {
+    text-align: center;
   }
 }

@@ -1,12 +1,14 @@
 /**
  * PlanItemNotes Component
  * Displays and manages notes for a plan item in a chat-style interface
+ * Features: search, pagination, InteractiveTextArea with mentions support
  */
 
-import { useState } from 'react';
-import { Form } from 'react-bootstrap';
-import { FaPaperPlane } from 'react-icons/fa';
-import { BsCheckAll } from 'react-icons/bs';
+import { useState, useMemo, useCallback } from 'react';
+import { Form, InputGroup, Button } from 'react-bootstrap';
+import { FaPaperPlane, FaSearch, FaPlus, FaTimes } from 'react-icons/fa';
+import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
+import { renderTextWithMentions } from '../../utilities/mentions';
 import './PlanItemNotes.css';
 
 export default function PlanItemNotes({
@@ -15,50 +17,83 @@ export default function PlanItemNotes({
   onAddNote,
   onUpdateNote,
   onDeleteNote,
-  disabled = false
+  disabled = false,
+  // For mentions support
+  availableEntities = [],
+  entityData = {}
 }) {
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [newNoteVisibility, setNewNoteVisibility] = useState('public');
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editContent, setEditContent] = useState('');
+  const [editVisibility, setEditVisibility] = useState('public');
   const [isAdding, setIsAdding] = useState(false);
+  const [showAddNoteForm, setShowAddNoteForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const notesPerPage = 5;
 
-  const handleAddNote = async () => {
+  // Filtered and paginated notes
+  const filteredNotes = useMemo(() => {
+    if (!searchQuery.trim()) return notes;
+
+    const query = searchQuery.toLowerCase();
+    return notes.filter(note =>
+      note.content?.toLowerCase().includes(query) ||
+      note.user?.name?.toLowerCase().includes(query)
+    );
+  }, [notes, searchQuery]);
+
+  const paginatedNotes = useMemo(() => {
+    const startIndex = (currentPage - 1) * notesPerPage;
+    const endIndex = startIndex + notesPerPage;
+    return filteredNotes.slice(startIndex, endIndex);
+  }, [filteredNotes, currentPage, notesPerPage]);
+
+  const totalPages = Math.ceil(filteredNotes.length / notesPerPage);
+
+  const handleAddNote = useCallback(async () => {
     if (!newNoteContent.trim()) return;
 
     setIsAdding(true);
     try {
-      await onAddNote(newNoteContent.trim());
+      await onAddNote(newNoteContent.trim(), newNoteVisibility);
       setNewNoteContent('');
+      setNewNoteVisibility('public');
+      setShowAddNoteForm(false);
     } catch (error) {
       console.error('[PlanItemNotes] Failed to add note:', error);
     } finally {
       setIsAdding(false);
     }
-  };
+  }, [newNoteContent, newNoteVisibility, onAddNote]);
 
-  const handleStartEdit = (note) => {
+  const handleStartEdit = useCallback((note) => {
     setEditingNoteId(note._id);
     setEditContent(note.content);
-  };
+    setEditVisibility(note.visibility || 'public');
+  }, []);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     setEditingNoteId(null);
     setEditContent('');
-  };
+    setEditVisibility('public');
+  }, []);
 
-  const handleSaveEdit = async (noteId) => {
+  const handleSaveEdit = useCallback(async (noteId) => {
     if (!editContent.trim()) return;
 
     try {
-      await onUpdateNote(noteId, editContent.trim());
+      await onUpdateNote(noteId, editContent.trim(), editVisibility);
       setEditingNoteId(null);
       setEditContent('');
+      setEditVisibility('public');
     } catch (error) {
       console.error('[PlanItemNotes] Failed to update note:', error);
     }
-  };
+  }, [editContent, editVisibility, onUpdateNote]);
 
-  const handleDeleteNote = async (noteId) => {
+  const handleDeleteNote = useCallback(async (noteId) => {
     if (!window.confirm('Are you sure you want to delete this note?')) return;
 
     try {
@@ -66,7 +101,7 @@ export default function PlanItemNotes({
     } catch (error) {
       console.error('[PlanItemNotes] Failed to delete note:', error);
     }
-  };
+  }, [onDeleteNote]);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -100,14 +135,124 @@ export default function PlanItemNotes({
 
   return (
     <div className="plan-item-notes-chat">
+      {/* Search and Add Note Header */}
+      {!disabled && (
+        <div className="notes-header">
+          <InputGroup className="notes-search">
+            <InputGroup.Text className="search-icon">
+              <FaSearch />
+            </InputGroup.Text>
+            <Form.Control
+              type="text"
+              placeholder="Search notes..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1); // Reset to first page on search
+              }}
+              className="search-input"
+            />
+            {searchQuery && (
+              <Button
+                variant="link"
+                onClick={() => setSearchQuery('')}
+                className="clear-search"
+                aria-label="Clear search"
+              >
+                <FaTimes />
+              </Button>
+            )}
+          </InputGroup>
+
+          <Button
+            variant="primary"
+            onClick={() => setShowAddNoteForm(!showAddNoteForm)}
+            className="add-note-button"
+            disabled={disabled}
+          >
+            <FaPlus /> Add Note
+          </Button>
+        </div>
+      )}
+
+      {/* Add Note Form (with InteractiveTextArea) */}
+      {showAddNoteForm && !disabled && (
+        <div className="add-note-form">
+          <div className="form-header">
+            <h4>Add a Note</h4>
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => {
+                setShowAddNoteForm(false);
+                setNewNoteContent('');
+                setNewNoteVisibility('public');
+              }}
+              className="close-form-button"
+            >
+              <FaTimes />
+            </Button>
+          </div>
+
+          <InteractiveTextArea
+            value={newNoteContent}
+            onChange={setNewNoteContent}
+            visibility={newNoteVisibility}
+            onVisibilityChange={setNewNoteVisibility}
+            availableEntities={availableEntities}
+            entityData={entityData}
+            placeholder="Type your note... Use @ to mention users, destinations, or experiences"
+            rows={4}
+            disabled={isAdding}
+          />
+
+          <div className="form-actions">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowAddNoteForm(false);
+                setNewNoteContent('');
+                setNewNoteVisibility('public');
+              }}
+              disabled={isAdding}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleAddNote}
+              disabled={!newNoteContent.trim() || isAdding}
+            >
+              <FaPaperPlane /> {isAdding ? 'Adding...' : 'Add Note'}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Chat messages area */}
       <div className="chat-messages">
-        {notes.length === 0 ? (
+        {filteredNotes.length === 0 ? (
           <div className="empty-state">
-            <p>No notes yet. Start the conversation!</p>
+            {searchQuery ? (
+              <p>No notes match your search.</p>
+            ) : (
+              <div className="empty-state-content">
+                <p>No notes yet.</p>
+                {!disabled && !showAddNoteForm && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setShowAddNoteForm(true)}
+                    className="mt-2"
+                  >
+                    <FaPlus /> Add a Note
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         ) : (
-          notes.map((note) => {
+          paginatedNotes.map((note) => {
             const isAuthor = isNoteAuthor(note);
             const isEditing = editingNoteId === note._id;
 
@@ -157,63 +302,38 @@ export default function PlanItemNotes({
                   )}
 
                   {isEditing ? (
-                    // Edit mode
+                    // Edit mode with InteractiveTextArea
                     <div style={{
                       backgroundColor: 'var(--color-bg-secondary)',
                       borderRadius: 'var(--radius-xl)',
                       padding: 'var(--space-3)',
                     }}>
-                      <Form.Control
-                        as="textarea"
-                        rows={3}
+                      <InteractiveTextArea
                         value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        style={{
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          fontSize: 'var(--font-size-base)',
-                          resize: 'none',
-                          outline: 'none',
-                          boxShadow: 'none',
-                          color: 'var(--color-text-primary)',
-                          marginBottom: 'var(--space-2)'
-                        }}
-                        autoFocus
+                        onChange={setEditContent}
+                        visibility={editVisibility}
+                        onVisibilityChange={setEditVisibility}
+                        availableEntities={availableEntities}
+                        entityData={entityData}
+                        placeholder="Edit your note..."
+                        rows={3}
                       />
-                      <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
-                        <button
+                      <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end', marginTop: 'var(--space-2)' }}>
+                        <Button
+                          size="sm"
+                          variant="primary"
                           onClick={() => handleSaveEdit(note._id)}
                           disabled={!editContent.trim()}
-                          type="button"
-                          style={{
-                            padding: 'var(--space-2) var(--space-4)',
-                            backgroundColor: 'var(--color-primary)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 'var(--radius-lg)',
-                            fontSize: 'var(--font-size-sm)',
-                            fontWeight: 'var(--font-weight-semibold)',
-                            cursor: 'pointer',
-                            opacity: !editContent.trim() ? 0.5 : 1
-                          }}
                         >
                           Save
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={handleCancelEdit}
-                          type="button"
-                          style={{
-                            padding: 'var(--space-2) var(--space-4)',
-                            backgroundColor: 'transparent',
-                            color: 'var(--color-text-secondary)',
-                            border: '1px solid var(--color-border-medium)',
-                            borderRadius: 'var(--radius-lg)',
-                            fontSize: 'var(--font-size-sm)',
-                            cursor: 'pointer'
-                          }}
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
@@ -232,7 +352,7 @@ export default function PlanItemNotes({
                         wordWrap: 'break-word'
                       }}
                     >
-                      {note.content}
+                      {renderTextWithMentions(note.content, entityData)}
 
                       {/* Timestamp and actions */}
                       <div style={{
@@ -310,72 +430,32 @@ export default function PlanItemNotes({
         )}
       </div>
 
-      {/* Chat input (Storybook-inspired) */}
-      {!disabled && (
-        <div style={{
-          borderTop: '1px solid var(--color-border-light)',
-          padding: 'var(--space-4)',
-          backgroundColor: 'var(--color-bg-primary)'
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'flex-end',
-            gap: 'var(--space-3)'
-          }}>
-            <div style={{
-              flex: 1,
-              backgroundColor: 'var(--color-bg-secondary)',
-              borderRadius: 'var(--radius-2xl)',
-              padding: 'var(--space-4)'
-            }}>
-              <Form.Control
-                as="textarea"
-                rows={2}
-                placeholder="Type a note..."
-                value={newNoteContent}
-                onChange={(e) => setNewNoteContent(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (newNoteContent.trim() && !isAdding) {
-                      handleAddNote();
-                    }
-                  }
-                }}
-                style={{
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  fontSize: 'var(--font-size-base)',
-                  resize: 'none',
-                  outline: 'none',
-                  boxShadow: 'none',
-                  color: 'var(--color-text-primary)'
-                }}
-              />
-            </div>
-
-            <button
-              onClick={handleAddNote}
-              disabled={!newNoteContent.trim() || isAdding}
-              type="button"
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: 'var(--radius-full)',
-                backgroundColor: !newNoteContent.trim() || isAdding ? 'var(--color-border-medium)' : 'var(--color-primary)',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                cursor: !newNoteContent.trim() || isAdding ? 'not-allowed' : 'pointer',
-                boxShadow: 'var(--shadow-lg)',
-                flexShrink: 0,
-                transition: 'var(--transition-normal)'
-              }}
+      {/* Pagination Controls */}
+      {filteredNotes.length > notesPerPage && (
+        <div className="pagination-controls">
+          <div className="pagination-info">
+            Showing {((currentPage - 1) * notesPerPage) + 1} - {Math.min(currentPage * notesPerPage, filteredNotes.length)} of {filteredNotes.length} notes
+          </div>
+          <div className="pagination-buttons">
+            <Button
+              size="sm"
+              variant="outline-secondary"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
             >
-              <FaPaperPlane size={18} />
-            </button>
+              Previous
+            </Button>
+            <span className="page-indicator">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              size="sm"
+              variant="outline-secondary"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
           </div>
         </div>
       )}

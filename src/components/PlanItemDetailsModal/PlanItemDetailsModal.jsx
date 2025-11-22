@@ -20,16 +20,16 @@ export default function PlanItemDetailsModal({
   onDeleteNote,
   onAssign,
   onUnassign,
-  canEdit = false
+  canEdit = false,
+  // For mentions support
+  availableEntities = [],
+  entityData = {}
 }) {
   const [activeTab, setActiveTab] = useState('notes');
-  const [currentPage, setCurrentPage] = useState(1);
-  const notesPerPage = 5;
 
-  // Reset to first page when modal opens or plan item changes
+  // Reset to notes tab when modal opens or plan item changes
   useEffect(() => {
     if (show) {
-      setCurrentPage(1);
       setActiveTab('notes');
     }
   }, [show, planItem?._id]);
@@ -38,19 +38,6 @@ export default function PlanItemDetailsModal({
 
   const notes = planItem.details?.notes || [];
   const assignedTo = planItem.assignedTo;
-
-  // Pagination calculations
-  const totalNotes = notes.length;
-  const totalPages = Math.ceil(totalNotes / notesPerPage);
-  const startIndex = (currentPage - 1) * notesPerPage;
-  const endIndex = startIndex + notesPerPage;
-  const paginatedNotes = notes.slice(startIndex, endIndex);
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-    }
-  };
 
   const handleAssignChange = async (e) => {
     const userId = e.target.value;
@@ -135,69 +122,44 @@ export default function PlanItemDetailsModal({
             disabled
             type="button"
           >
-            📍 Location (Coming Soon)
+            📍 Location
           </button>
           <button
             className="details-tab disabled"
             disabled
             type="button"
           >
-            💬 Chat (Coming Soon)
+            💬 Chat
           </button>
           <button
             className="details-tab disabled"
             disabled
             type="button"
           >
-            📷 Photos (Coming Soon)
+            📷 Photos
           </button>
           <button
             className="details-tab disabled"
             disabled
             type="button"
           >
-            📄 Documents (Coming Soon)
+            📄 Documents
           </button>
         </div>
 
         {/* Tab content */}
         <div className="details-content">
           {activeTab === 'notes' && (
-            <>
-              <PlanItemNotes
-                notes={paginatedNotes}
-                currentUser={currentUser}
-                onAddNote={onAddNote}
-                onUpdateNote={onUpdateNote}
-                onDeleteNote={onDeleteNote}
-                disabled={!canEdit}
-              />
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="pagination">
-                  <button
-                    className="pagination-btn"
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    type="button"
-                  >
-                    ← Previous
-                  </button>
-                  <span className="pagination-info">
-                    Page {currentPage} of {totalPages} ({totalNotes} notes)
-                  </span>
-                  <button
-                    className="pagination-btn"
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    type="button"
-                  >
-                    Next →
-                  </button>
-                </div>
-              )}
-            </>
+            <PlanItemNotes
+              notes={notes}
+              currentUser={currentUser}
+              onAddNote={onAddNote}
+              onUpdateNote={onUpdateNote}
+              onDeleteNote={onDeleteNote}
+              disabled={!canEdit}
+              availableEntities={availableEntities}
+              entityData={entityData}
+            />
           )}
 
           {activeTab === 'location' && (

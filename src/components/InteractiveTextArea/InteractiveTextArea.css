@@ -28,13 +28,14 @@
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
+  background: var(--color-bg-primary);
   border: 1px solid var(--color-border-medium);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
   z-index: 1000;
   max-height: 200px;
   overflow-y: auto;
+  margin-top: var(--space-1);
 }
 
 .mention-suggestion-item {
@@ -90,6 +91,26 @@
   opacity: 0.8;
 }
 
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .mentions-suggestions {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+  }
+
+  .mention-suggestion-item:hover {
+    background-color: var(--color-bg-tertiary);
+  }
+
+  .mention-suggestion-item {
+    border-bottom-color: var(--color-border-dark);
+  }
+
+  .interactive-textarea-footer {
+    border-top-color: var(--color-border-dark);
+  }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .interactive-textarea-footer {
@@ -101,6 +122,6 @@
   }
 
   .mention-suggestion-item {
-    padding: 6px 8px;
+    padding: var(--space-2) var(--space-2);
   }
 }
