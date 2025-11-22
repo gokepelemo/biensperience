@@ -1,22 +1,79 @@
 /**
  * ExperienceHeader Component
- * Displays experience title, photos, and metadata
+ * Displays experience title, photos, metadata, and planned date badge
  */
 
 import { Link } from 'react-router-dom';
 import PhotoCard from '../../../components/PhotoCard/PhotoCard';
+import TagPill from '../../../components/Pill/TagPill';
+import FadeIn from '../../../components/Animation/Animation';
 import { formatCurrency } from '../../../utilities/currency-utils';
+import { formatDateShort, formatDateForInput } from '../../../utilities/date-utils';
 
 export default function ExperienceHeader({
   experience,
   travelTips,
-  canEdit
+  canEdit,
+  // Planned date badge props
+  userHasExperience,
+  pendingUnplan,
+  selectedPlan,
+  showDatePicker,
+  setShowDatePicker,
+  setIsEditingDate,
+  plannedDate,
+  setPlannedDate,
+  lang
 }) {
   if (!experience) return null;
+
+  // Get planned date from selected plan (updates when user switches plans in dropdown)
+  const displayedPlannedDate = selectedPlan?.planned_date;
 
   return (
     <div id="overview" className="experience-header">
       <h1 className="experience-title animation-fade_in">{experience.name}</h1>
+
+      {/* Planned Date Badge - shows selected plan's date */}
+      {userHasExperience && !pendingUnplan && (
+        <FadeIn>
+          {displayedPlannedDate ? (
+            <TagPill
+              color="primary"
+              className="cursor-pointer mb-2"
+              onClick={() => {
+                if (showDatePicker) {
+                  setShowDatePicker(false);
+                } else {
+                  setIsEditingDate(true);
+                  setPlannedDate(formatDateForInput(displayedPlannedDate));
+                  setShowDatePicker(true);
+                }
+              }}
+              title={showDatePicker ? "Click to close date picker" : "Click to edit planned date"}
+            >
+              Planned for {formatDateShort(displayedPlannedDate)}
+            </TagPill>
+          ) : (
+            <TagPill
+              color="primary"
+              className="cursor-pointer mb-2"
+              onClick={() => {
+                if (showDatePicker) {
+                  setShowDatePicker(false);
+                } else {
+                  setIsEditingDate(false);
+                  setPlannedDate("");
+                  setShowDatePicker(true);
+                }
+              }}
+              title={showDatePicker ? "Click to close date picker" : "Click to set a planned date"}
+            >
+              {lang.en.label.plannedDate}: {lang.en.label.setOneNow}
+            </TagPill>
+          )}
+        </FadeIn>
+      )}
 
       {/* Photos */}
       {experience.photos && experience.photos.length > 0 && (
@@ -32,7 +89,7 @@ export default function ExperienceHeader({
       )}
 
       {/* Destination Link */}
-      {experience.destination && experience.destination.name && (
+      {experience.destination && (
         <div className="mb-3">
           <strong>Destination: </strong>
           <Link to={`/destinations/${experience.destination._id}`}>

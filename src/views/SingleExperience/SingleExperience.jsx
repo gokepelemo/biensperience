@@ -1,4 +1,14 @@
 import TagPill from '../../components/Pill/TagPill';
+import ExperienceTitleSection from './components/ExperienceTitleSection';
+import ActionButtonsRow from './components/ActionButtonsRow';
+import DatePickerSection from './components/DatePickerSection';
+import ExperienceOverviewSection from './components/ExperienceOverviewSection';
+import PlanTabsNavigation from './components/PlanTabsNavigation';
+import ExperienceTabContent from './components/ExperienceTabContent';
+import MyPlanTabContent from './components/MyPlanTabContent';
+import CollaboratorModal from './components/CollaboratorModal';
+import SyncPlanModal from './components/SyncPlanModal';
+import PlanItemModal from './components/PlanItemModal';
 import "./SingleExperience.css";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
@@ -12,7 +22,6 @@ import { useApp } from "../../contexts/AppContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useCollaboratorUsers } from "../../hooks/useCollaboratorUsers";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
-import Modal from "../../components/Modal/Modal";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
@@ -21,6 +30,7 @@ import Alert from "../../components/Alert/Alert";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import { Button, Container, Mobile, Desktop, FadeIn, FormLabel, FormControl, FormCheck, Text } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
+import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import debug from "../../utilities/debug";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { handleStoredHash, restoreHashToUrl, clearStoredHash } from "../../utilities/hash-navigation";
@@ -37,6 +47,7 @@ import { createExpirableStorage, getCookieValue, setCookieValue } from "../../ut
 import { formatCurrency } from "../../utilities/currency-utils";
 import { isOwner } from "../../utilities/permissions";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
+import usePlanManagement from "../../hooks/usePlanManagement";
 import {
   showExperience,
   showExperienceWithContext,
@@ -46,6 +57,7 @@ import {
   updatePlanItem as updateExperiencePlanItem,
   addExperienceCollaborator,
   removeExperienceCollaborator,
+  reorderExperiencePlanItems,
 } from "../../utilities/experiences-api";
 import {
   getUserPlans,
@@ -58,7 +70,9 @@ import {
   deletePlanItem as deletePlanItemFromInstance,
   removeCollaborator,
   addCollaborator,
+  reorderPlanItems,
 } from "../../utilities/plans-api";
+import { reconcileState, generateOptimisticId } from "../../utilities/event-bus";
 
 export default function SingleExperience() {
   // Constants for sync alert cookie management
@@ -102,16 +116,39 @@ export default function SingleExperience() {
     href: window.location.href
   });
 
+  // Plan management hook - replaces plan-related state and functions
+  const {
+    userPlan,
+    setUserPlan,
+    collaborativePlans,
+    setCollaborativePlans,
+    selectedPlanId,
+    setSelectedPlanId,
+    selectedPlan,
+    plansLoading,
+    setPlansLoading,
+    plannedDate,
+    setPlannedDate,
+    userPlannedDate,
+    setUserPlannedDate,
+    displayedPlannedDate,
+    setDisplayedPlannedDate,
+    userHasExperience,
+    setUserHasExperience,
+    fetchUserPlan,
+    fetchCollaborativePlans,
+    // fetchPlans from DataContext (useData) is used instead of hook's fetchPlans
+    createPlan: createPlanViaHook,
+    updatePlan: updatePlanViaHook,
+    deletePlan: deletePlanViaHook
+  } = usePlanManagement(experienceId, user?._id);
+
   const [experience, setExperience] = useState(null);
-  const [userHasExperience, setUserHasExperience] = useState(false);
   const [travelTips, setTravelTips] = useState([]);
   const [favHover, setFavHover] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hoveredPlanItem, setHoveredPlanItem] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [plannedDate, setPlannedDate] = useState("");
-  const [userPlannedDate, setUserPlannedDate] = useState(null);
-  const [displayedPlannedDate, setDisplayedPlannedDate] = useState(null); // Date for currently viewed plan
   const [expandedParents, setExpandedParents] = useState(new Set());
   const [animatingCollapse, setAnimatingCollapse] = useState(null);
   const [isEditingDate, setIsEditingDate] = useState(false);
@@ -128,10 +165,6 @@ export default function SingleExperience() {
   const [activeTab, setActiveTab] = useState("experience"); // "experience" or "myplan"
   const planButtonRef = useRef(null);
   const [planBtnWidth, setPlanBtnWidth] = useState(null);
-  const [userPlan, setUserPlan] = useState(null);
-  const [collaborativePlans, setCollaborativePlans] = useState([]);
-  const [selectedPlanId, setSelectedPlanId] = useState(null);
-  const [plansLoading, setPlansLoading] = useState(true);
   const [hashSelecting, setHashSelecting] = useState(false);
   const [showSyncButton, setShowSyncButton] = useState(false);
   const [showSyncAlert, setShowSyncAlert] = useState(true); // Separate state for alert visibility
@@ -167,29 +200,9 @@ export default function SingleExperience() {
   // Ref for dynamic font sizing on planned date metric
   const plannedDateRef = useRef(null);
 
-  // Milliseconds to suppress reacting to plan lifecycle events that are
-  // triggered by local create/update actions. Adjust this to tune how long
-  // optimistic UI is protected from overwriting by immediate broadcasts.
-  const PLAN_EVENT_SUPPRESSION_MS = 1200;
-
-  // When we perform a local create/update of a plan we want to avoid
-  // reacting to the immediate broadcasted plan events in a way that
-  // overwrites optimistic local state or re-opens the date picker. Use
-  // this ref to temporarily suppress parts of the global event handlers
-  // for a short window while the local operation completes.
-  const suppressPlanEventsRef = useRef(false);
-
-  const suppressPlanEventsFor = (ms = PLAN_EVENT_SUPPRESSION_MS) => {
-    suppressPlanEventsRef.current = true;
-    setTimeout(() => {
-      suppressPlanEventsRef.current = false;
-    }, ms);
-  };
-
-  // Timestamp of the last local plan event (create/update/delete) handled
-  // locally. Used to ignore near-immediate API fetches that would otherwise
-  // overwrite optimistic/event-driven state. Value is ms since epoch.
-  const lastLocalPlanEventAtRef = useRef(0);
+  // Version-based reconciliation (via event-bus.js) replaces timeout-based suppression
+  // Events now carry version numbers and reconcileState() automatically handles
+  // optimistic ID replacement and stale event rejection
 
   // Ref for h1 element to ensure proper registration
   const h1Ref = useRef(null);
@@ -232,192 +245,7 @@ export default function SingleExperience() {
   }, []);
 
   // Scrolling + highlight helpers centralized in `src/utilities/scroll-utils.js`.
-
-  // Listen for global plan-created events so this view updates immediately
-  useEffect(() => {
-    const handler = (e) => {
-      try {
-        const detail = e?.detail || {};
-        const newPlan = detail.plan;
-        const rawExp = detail.experienceId || newPlan?.experience?._id || newPlan?.experience || null;
-        const newExperienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-        if (!newPlan || !newExperienceId) return;
-        // Only react if this plan is for the currently viewed experience
-        if (newExperienceId !== experienceId?.toString()) return;
-
-        // If events are suppressed (user just clicked Plan It button), skip ALL updates
-        // because handleAddExperience will handle state updates with fresh API data.
-        // Only listen to events from OTHER tabs or external sources when not suppressed.
-        if (suppressPlanEventsRef.current) {
-          debug.log('Skipping bien:plan_created event handler due to suppression (user-initiated action)');
-          return;
-        }
-
-        // Update local state to reflect newly created plan from external source
-        setUserHasExperience(true);
-        const normalizedNew = normalizePlan(newPlan);
-        setUserPlan(normalizedNew);
-        setDisplayedPlannedDate(normalizedNew.planned_date || null);
-        setUserPlannedDate(normalizedNew.planned_date || null);
-
-        // Record that we just handled a local/external plan event so
-        // immediate API fetches shouldn't stomp our optimistic/event state
-        lastLocalPlanEventAtRef.current = Date.now();
-
-        setSelectedPlanId(normalizedNew._id);
-        setCollaborativePlans((prev) => {
-          // Avoid duplicates (compare as strings)
-          const exists = prev.some(p => p._id && normalizedNew._id && (p._id.toString ? p._id.toString() === normalizedNew._id.toString() : p._id === normalizedNew._id));
-          if (exists) return prev;
-          return [normalizedNew, ...prev];
-        });
-
-        // Switch to My Plan tab automatically for external events
-        setActiveTab('myplan');
-      } catch (err) {
-        debug.warn('Failed to handle bien:plan_created event', err);
-      }
-    };
-
-    if (typeof window !== 'undefined' && window.addEventListener) {
-      window.addEventListener('bien:plan_created', handler);
-    }
-
-    return () => {
-      if (typeof window !== 'undefined' && window.removeEventListener) {
-        window.removeEventListener('bien:plan_created', handler);
-      }
-    };
-  }, [experienceId]);
-
-  // Listen for plan updates (e.g., planned_date edits) so the UI updates immediately
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const onPlanUpdated = (e) => {
-      try {
-        const detail = e?.detail || {};
-        const updatedPlan = detail.plan;
-        const rawExp = detail.experienceId || updatedPlan?.experience?._id || updatedPlan?.experience || null;
-        const updatedExperienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-        if (!updatedPlan || !updatedExperienceId) return;
-
-        // Compare normalized experience id to current route experienceId
-        if (updatedExperienceId !== experienceId?.toString()) return;
-
-        // If the updated plan affects the user's own plan, update userPlan
-        if (userPlan && updatedPlan._id && userPlan._id && updatedPlan._id.toString() === userPlan._id.toString()) {
-          setUserPlan(updatedPlan);
-          // IMPORTANT: Always update dates for user's plan, even during suppression
-          setDisplayedPlannedDate(updatedPlan.planned_date || null);
-          setUserPlannedDate(updatedPlan.planned_date || null);
-        }
-
-        // Record recent plan event
-        lastLocalPlanEventAtRef.current = Date.now();
-
-        // Replace or insert into collaborativePlans (ensure no duplicates)
-        setCollaborativePlans((prev) => {
-          const found = prev.findIndex(p => p._id && updatedPlan._id && (p._id.toString() === updatedPlan._id.toString()));
-          if (found >= 0) {
-            const copy = [...prev];
-            copy[found] = updatedPlan;
-            return copy;
-          }
-          // If not found but this plan belongs to this experience, add it to front
-          return [updatedPlan, ...prev];
-        });
-
-        // If this update is for the currently selected plan, update displayed date
-        if (selectedPlanId && updatedPlan._id && selectedPlanId.toString() === updatedPlan._id.toString()) {
-          setDisplayedPlannedDate(updatedPlan.planned_date || null);
-          setUserPlannedDate(updatedPlan.planned_date || null);
-          setUserPlan((prev) => (prev && prev._id && prev._id.toString() === updatedPlan._id.toString() ? updatedPlan : prev));
-        }
-
-        // If this update is from the current user (and not already marked), ensure userHasExperience true
-        setUserHasExperience(true);
-
-      } catch (err) {
-        debug.warn('Failed to handle bien:plan_updated event', err);
-      }
-    };
-
-    window.addEventListener('bien:plan_updated', onPlanUpdated);
-
-    return () => {
-      window.removeEventListener('bien:plan_updated', onPlanUpdated);
-    };
-  }, [userPlan, selectedPlanId, experienceId, setCollaborativePlans, setUserPlan, setDisplayedPlannedDate, setUserPlannedDate]);
-
-  // Listen for plan deletions so the UI updates immediately when a plan is removed
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const onPlanDeleted = (e) => {
-      try {
-        const detail = e?.detail || {};
-        const deletedPlan = detail.plan;
-        const rawExp = detail.experienceId || deletedPlan?.experience?._id || deletedPlan?.experience || null;
-        const deletedExperienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-        if (!deletedExperienceId) return;
-
-        if (deletedExperienceId !== experienceId?.toString()) return;
-
-        // Remove plan from collaborativePlans if present
-        if (deletedPlan && deletedPlan._id) {
-          // Compute the new list so we can make decisions based on it
-          setCollaborativePlans((prev) => {
-            const filtered = prev.filter(
-              (p) => !(p._id && p._id.toString() === deletedPlan._id.toString())
-            );
-
-            // If the deleted plan was the currently selected plan, attempt to
-            // select the first remaining collaborative plan (prefer collaborator's plan)
-            if (selectedPlanId && deletedPlan._id && selectedPlanId.toString() === deletedPlan._id.toString()) {
-              if (filtered.length > 0) {
-                const firstId = filtered[0]._id && filtered[0]._id.toString ? filtered[0]._id.toString() : filtered[0]._id;
-                // Select the first remaining plan and show its My Plan view
-                setSelectedPlanId(firstId);
-                setDisplayedPlannedDate(filtered[0].planned_date || null);
-                setUserPlannedDate(filtered[0].planned_date || null);
-                // If the new selected plan is not the user's own, ensure userHasExperience reflects that
-                const planUserId = filtered[0].user?._id || filtered[0].user;
-                setUserHasExperience(idEquals(planUserId, user._id));
-                setUserPlan((prevUserPlan) => (prevUserPlan && prevUserPlan._id && idEquals(prevUserPlan._id, firstId) ? prevUserPlan : null));
-                setActiveTab('myplan');
-              } else {
-                // No remaining plans - clear selection and revert to experience tab
-                setSelectedPlanId(null);
-                setDisplayedPlannedDate(null);
-                setUserPlannedDate(null);
-                setUserPlan(null);
-                setUserHasExperience(false);
-                lastLocalPlanEventAtRef.current = Date.now();
-                setActiveTab('experience');
-              }
-            }
-
-            return filtered;
-          });
-        } else {
-          // If no plan payload provided, conservatively clear userHasExperience
-          setUserHasExperience(false);
-          setUserPlan(null);
-          setDisplayedPlannedDate(null);
-          lastLocalPlanEventAtRef.current = Date.now();
-        }
-      } catch (err) {
-        debug.warn('Failed to handle bien:plan_deleted event', err);
-      }
-    };
-
-    window.addEventListener('bien:plan_deleted', onPlanDeleted);
-
-    return () => {
-      window.removeEventListener('bien:plan_deleted', onPlanDeleted);
-    };
-  }, [selectedPlanId, experienceId]);
+  // Plan event listeners (plan:created, plan:updated, plan:deleted) are now handled by usePlanManagement hook
 
   // Get owner and collaborator user IDs for experience
   const experienceOwnerPermission = useMemo(
@@ -468,13 +296,6 @@ export default function SingleExperience() {
       const updated = ctxExperiences.find((e) => idEquals(e._id, experienceId));
       if (!updated) return;
 
-      // Avoid stomping optimistic/local event-driven state shortly after a plan event
-      const sinceEvent = Date.now() - (lastLocalPlanEventAtRef.current || 0);
-      if (sinceEvent >= 0 && sinceEvent < PLAN_EVENT_SUPPRESSION_MS) {
-        debug.log('Skipping context-driven experience update due to recent plan event', { sinceEvent });
-        return;
-      }
-
       // Only apply if different to avoid unnecessary renders
       try {
         const a = JSON.stringify(updated || {});
@@ -484,9 +305,9 @@ export default function SingleExperience() {
           try {
             const previewPrev = { _id: experience?._id, plan_items_count: (experience?.plan_items || []).length, travel_tips_count: (experience?.travel_tips || []).length };
             const previewNew = { _id: updated?._id, plan_items_count: (updated?.plan_items || []).length, travel_tips_count: (updated?.travel_tips || []).length };
-            debug.log('Applying context-driven experience update', { experienceId: experienceId, sinceLocalPlanEventMs: sinceEvent, previewPrev, previewNew });
+            debug.log('Applying context-driven experience update', { experienceId: experienceId, previewPrev, previewNew });
           } catch (inner) {
-            debug.log('Applying context-driven experience update (no preview available)', { experienceId: experienceId, sinceLocalPlanEventMs: sinceEvent });
+            debug.log('Applying context-driven experience update (no preview available)', { experienceId: experienceId });
           }
 
           // Merge updated experience into local state but preserve deeply local plan UI fields if present
@@ -779,11 +600,9 @@ export default function SingleExperience() {
       setUserHasExperience(!!fetchedUserPlan);
       setUserPlannedDate(fetchedUserPlan?.planned_date || null);
 
-      // Set selectedPlanId if not already set and user has a plan
-      if (fetchedUserPlan) {
-        const uid = fetchedUserPlan._id && fetchedUserPlan._id.toString ? fetchedUserPlan._id.toString() : fetchedUserPlan._id;
-        setSelectedPlanId((prev) => prev || uid);
-      }
+      // selectedPlanId will be set by either:
+      // 1. Hash navigation (if URL contains #plan-{id})
+      // 2. Auto-select useEffect (first plan in dropdown after load)
 
       // Set collaborative plans data
       // Filter to only show plans where user is owner or collaborator
@@ -805,10 +624,21 @@ export default function SingleExperience() {
         return isUserPlan || hasPermission;
       });
 
+      // CRITICAL: getExperiencePlans returns BOTH user's own plan AND collaborative plans
+      // If we have a fetchedUserPlan from checkUserPlanForExperience, we need to filter
+      // it out from accessiblePlans to prevent duplicates when merging
+      const collaborativePlansOnly = fetchedUserPlan
+        ? accessiblePlans.filter((plan) => {
+            // Exclude user's own plan - it will be prepended separately
+            const planUserId = plan.user?._id?.toString() || plan.user?.toString();
+            return planUserId !== user._id?.toString();
+          })
+        : accessiblePlans;
+
       // Combine user's own plan with collaborative plans for unified display
       // Backend returns userPlan separately from collaborativePlans array
-      const allPlans = fetchedUserPlan 
-        ? [fetchedUserPlan, ...accessiblePlans] 
+      const allPlans = fetchedUserPlan
+        ? [fetchedUserPlan, ...collaborativePlansOnly]
         : accessiblePlans;
 
       // Sort plans: user's own plan first, then others
@@ -832,12 +662,10 @@ export default function SingleExperience() {
       // Normalize plan IDs to strings to avoid select/value mismatch
       const normalizedSorted = sortedPlans.map(p => normalizePlan(p));
 
-      // Set selectedPlanId if not already set and plans exist
-      if (normalizedSorted.length > 0) {
-        const newSelectedId = normalizedSorted[0]._id;
-        debug.log("Setting selectedPlanId to:", newSelectedId);
-        setSelectedPlanId((prev) => prev || newSelectedId);
-      }
+      // Leave selectedPlanId as null initially
+      // Auto-select useEffect will select first plan after plans load (if no hash)
+      // Hash navigation handler will select plan if there's a hash in URL
+      debug.log("Plans loaded. Auto-select or hash handler will set selectedPlanId.");
 
       // Set collaborative plans and mark loading complete
       // Use flushSync to force synchronous rendering and prevent layout shift
@@ -895,124 +723,7 @@ export default function SingleExperience() {
     }
   }, [experienceId, updateExperienceInContext]);
 
-  const fetchUserPlan = useCallback(async () => {
-    try {
-      const plans = await getUserPlans();
-      const plan = plans.find(
-        (p) =>
-          p.experience._id === experienceId || p.experience === experienceId
-      );
-      // If we recently handled a local plan event, avoid letting this
-      // API-based fetch overwrite our event-driven/optimistic state.
-      const sinceEvent = Date.now() - (lastLocalPlanEventAtRef.current || 0);
-      if (sinceEvent >= 0 && sinceEvent < PLAN_EVENT_SUPPRESSION_MS) {
-        debug.log('Skipping fetchUserPlan update due to recent local plan event', { sinceEvent });
-        return plan || null;
-      }
-
-      // Only update state if we found a plan OR if we don't currently have optimistic state set
-      // This prevents race conditions where fetchUserPlan() is called before the API has returned the newly created plan
-      if (plan) {
-        setUserPlan(plan);
-        setUserHasExperience(true);
-        setUserPlannedDate(plan.planned_date || null);
-      } else {
-        // No plan found from API - only clear state if we don't have optimistic state
-        setUserPlan((prev) => prev || null);
-        setUserHasExperience((prev) => prev || false);
-        setUserPlannedDate((prev) => prev || null);
-      }
-
-      // Only set selectedPlanId if not already set
-      if (plan && !selectedPlanId) {
-        const pid = plan._id && plan._id.toString ? plan._id.toString() : plan._id;
-        setSelectedPlanId(pid);
-      }
-    } catch (err) {
-      debug.error("Error fetching user plan:", err);
-      setUserPlan(null);
-      setUserPlannedDate(null);
-      setUserHasExperience(false);
-    }
-  }, [experienceId, selectedPlanId]);
-
-  const fetchCollaborativePlans = useCallback(async () => {
-    try {
-      const plans = await getExperiencePlans(experienceId);
-      debug.log("Fetched experience plans:", plans);
-
-      // Filter to only show plans where user is owner or collaborator
-      const accessiblePlans = plans.filter((plan) => {
-        // Check if user owns this plan
-        const isUserPlan =
-          plan.user &&
-          (plan.user._id?.toString() === user._id?.toString() ||
-            plan.user.toString() === user._id?.toString());
-
-        // Check if user is a collaborator or owner via permissions
-        const hasPermission = plan.permissions?.some(
-          (p) =>
-            p.entity === "user" &&
-            p._id?.toString() === user._id?.toString() &&
-            (p.type === "owner" || p.type === "collaborator")
-        );
-
-        return isUserPlan || hasPermission;
-      });
-
-      // Sort plans: user's own plan first, then others
-      const sortedPlans = accessiblePlans.sort((a, b) => {
-        const aIsUserPlan =
-          a.user &&
-          (a.user._id?.toString() === user._id?.toString() ||
-            a.user.toString() === user._id?.toString());
-        const bIsUserPlan =
-          b.user &&
-          (b.user._id?.toString() === user._id?.toString() ||
-            b.user.toString() === user._id?.toString());
-
-        if (aIsUserPlan && !bIsUserPlan) return -1;
-        if (!aIsUserPlan && bIsUserPlan) return 1;
-        return 0;
-      });
-
-      debug.log("Accessible plans after filtering and sorting:", sortedPlans);
-      debug.log("Current selectedPlanId:", selectedPlanId);
-
-      // Normalize IDs
-      const normalized = sortedPlans.map(p => normalizePlan(p));
-
-      // If we have a local userPlan (optimistic) that isn't present in the
-      // fetched list yet, merge it in front so optimistic UI is preserved
-      let merged = normalized;
-      try {
-        if (userPlan && userPlan._id) {
-          const normUser = normalizePlan(userPlan);
-          const exists = normalized.some(p => idEquals(p._id, normUser._id));
-          if (!exists) {
-            merged = [normUser, ...normalized];
-            debug.log("Merged optimistic userPlan into collaborativePlans", { planId: normUser._id });
-          }
-        }
-      } catch (err) {
-        debug.warn("Error merging userPlan into collaborativePlans", err);
-        // ignore merge errors and fall back to normalized
-      }
-
-      setCollaborativePlans(merged);
-
-      // Set selectedPlanId if not already set and plans exist
-      if (merged.length > 0) {
-        // First plan is now guaranteed to be user's own plan if they have one
-        const newSelectedId = merged[0]._id;
-        debug.log("Setting selectedPlanId to:", newSelectedId);
-        setSelectedPlanId((prev) => prev || newSelectedId);
-      }
-    } catch (err) {
-      debug.error("Error fetching collaborative plans:", err);
-      setCollaborativePlans([]);
-    }
-  }, [experienceId, user._id]);
+  // fetchUserPlan, fetchCollaborativePlans, and fetchPlans are now provided by usePlanManagement hook
 
   const checkPlanDivergence = useCallback((plan, experience) => {
     // Defensive guards: ensure both plan.plan and experience.plan_items are arrays
@@ -1054,6 +765,19 @@ export default function SingleExperience() {
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
+
+  // DEBUG: Track all state changes for Plan It button and badge
+  useEffect(() => {
+    debug.log('[STATE_TRACKER] State changed', {
+      timestamp: Date.now(),
+      userHasExperience,
+      displayedPlannedDate,
+      userPlanId: userPlan?._id,
+      plansLoading,
+      loading,
+      userId: user?._id
+    });
+  }, [userHasExperience, displayedPlannedDate, userPlan, plansLoading, loading, user]);
 
   // Reset component state when navigating to a different experience
   useEffect(() => {
@@ -1111,7 +835,16 @@ export default function SingleExperience() {
     const handleHashNavigation = () => {
       try {
         // Check for stored hash from cross-navigation (e.g., from Dashboard)
-        const { planId: storedPlanId, itemId: storedItemId, hash: storedHash, originPath } = handleStoredHash();
+        const { planId: storedPlanId, itemId: storedItemId, hash: storedHash, originPath, meta } = handleStoredHash();
+
+        console.log('[SingleExperience] 📍 Hash check:', {
+          storedPlanId,
+          storedItemId,
+          storedHash,
+          originPath,
+          meta,
+          currentHash: window.location.hash
+        });
 
         // Use stored hash if present, otherwise check URL hash
         let planId, itemId, hashSource = null;
@@ -1119,6 +852,7 @@ export default function SingleExperience() {
           planId = storedPlanId;
           itemId = storedItemId;
           hashSource = 'storage';
+          console.log('[SingleExperience] ✅ Using stored hash from cross-navigation:', { planId, itemId, storedHash, originPath });
           debug.log('Using stored hash from cross-navigation:', { planId, itemId, storedHash, originPath });
 
           // Don't clear the stored hash yet — wait until we've successfully
@@ -1143,8 +877,13 @@ export default function SingleExperience() {
         if (!planId) return;
 
         // If plans haven't loaded yet, we'll wait until collaborativePlans changes
-        if (plansLoading) {
-          debug.log('Plans still loading; will attempt selection after load');
+        // Also wait if collaborativePlans is empty (still populating)
+        if (plansLoading || (collaborativePlans.length === 0 && hashSelecting)) {
+          debug.log('[Hash Navigation] Plans still loading or empty; will attempt selection after load', {
+            plansLoading,
+            collaborativePlansCount: collaborativePlans.length,
+            hashSelecting
+          });
           // Indicate we're waiting on plans to resolve a hash selection
           setHashSelecting(true);
           return;
@@ -1153,49 +892,80 @@ export default function SingleExperience() {
         // Clear any waiting indicator now that plans are available
         if (hashSelecting) setHashSelecting(false);
 
+        // DEBUG: Log all available plans and the target planId
+        debug.log('[Hash Navigation] Looking for planId:', planId);
+        debug.log('[Hash Navigation] Available collaborativePlans:', collaborativePlans.map(p => ({
+          id: p._id,
+          isOwn: p.user?._id?.toString() === user?._id?.toString() || p.user?.toString() === user?._id?.toString()
+        })));
+
         const targetPlan = collaborativePlans.find((p) => idEquals(p._id, planId));
         if (targetPlan) {
-          debug.log('Switching to plan from hash:', targetPlan._id);
+          debug.log('[Hash Navigation] ✅ Found target plan:', targetPlan._id);
           const tid = targetPlan._id && targetPlan._id.toString ? targetPlan._id.toString() : targetPlan._id;
           setSelectedPlanId(tid);
           setActiveTab('myplan');
 
-          // Start attempts shortly after tab switch to give React time to render
-          setTimeout(() => attemptScrollToItem(itemId), 250);
+          // Clear stored hash immediately after consuming it
+          // This prevents stale hashes if user stops page load before scroll completes
+          if (storedHash) {
+            try {
+              clearStoredHash();
+              debug.log('[Hash Navigation] Cleared stored hash from localStorage');
+            } catch (e) {
+              debug.warn('[Hash Navigation] Failed to clear stored hash', e);
+            }
+          }
 
-          // Also mark URL-based hash as handled when the user landed via URL
+          // Start attempts shortly after tab switch to give React time to render
+          // Animation rules:
+          // 1. Always animate for direct URL navigation (hashSource === 'url')
+          // 2. Always animate if HashLink explicitly requested shake (meta.shouldShake)
+          // 3. For stored hashes (cross-navigation), animate if hash not previously handled
+          const targetHash = storedHash && storedHash.startsWith('#') ? storedHash : (window.location.hash || '');
+          const shouldAnimate = hashSource === 'url' || meta?.shouldShake === true || !handledHashesRef.current.has(targetHash);
+          setTimeout(() => attemptScrollToItem(itemId, { shouldHighlight: shouldAnimate }), 250);
+
+          // Mark this hash as handled to prevent re-animation on non-HashLink actions
+          // (like marking items complete while hash is still in URL)
           if (hashSource === 'url') {
             try { const cur = window.location.hash || ''; if (cur) handledHashesRef.current.add(cur); } catch (e) {}
           }
-
-          // Mark this hash as handled so we don't re-run the highlight
-          // animation on subsequent user actions while the URL remains set.
           try {
-            const normalized = storedHash && storedHash.startsWith('#') ? storedHash : (window.location.hash || '');
-            if (normalized) handledHashesRef.current.add(normalized);
+            if (targetHash) handledHashesRef.current.add(targetHash);
           } catch (e) {
             // ignore
           }
 
           // After scheduling the scroll attempts, restore the hash to the URL
-          // so the address bar reflects the deep link. We clear the stored
-          // hash only after this point to avoid losing it if the DOM isn't
-          // ready yet; clearing will be done inside attemptScrollToItem when
-          // the element is found or after falling back.
+          // so the address bar reflects the deep link. The stored hash has
+          // already been cleared from localStorage above to prevent stale data.
           try {
             if (storedHash) {
               // Replace the current history entry (created by React Router
               // navigate) with a hash-bearing URL so the back button goes
               // back to the originating dashboard instead of an intermediate
               // hash-less experience URL.
+              console.log('[SingleExperience] 🔗 Restoring hash to URL:', {
+                storedHash,
+                currentURL: window.location.href,
+                hashSource
+              });
               restoreHashToUrl(storedHash, { replace: true });
+              console.log('[SingleExperience] ✅ Hash restored. New URL:', window.location.href);
               debug.log('Restored hash to URL (deferred, replaced):', storedHash);
+            } else {
+              console.log('[SingleExperience] ⚠️ No storedHash to restore', { hashSource });
             }
           } catch (err) {
+            console.error('[SingleExperience] ❌ Failed to restore hash to URL:', err);
             debug.warn('Failed to restore hash to URL immediately', err);
           }
         } else {
-          debug.warn('Plan ID from hash not found in collaborativePlans');
+          debug.warn('[Hash Navigation] ❌ Plan ID from hash not found in collaborativePlans');
+          debug.warn('[Hash Navigation] planId:', planId);
+          debug.warn('[Hash Navigation] collaborativePlans count:', collaborativePlans.length);
+          debug.warn('[Hash Navigation] collaborativePlans IDs:', collaborativePlans.map(p => p._id));
           // No matching plan in this experience; clear the stored hash to avoid
           // repeated failed attempts.
           try { clearStoredHash(); } catch (e) {}
@@ -1286,14 +1056,6 @@ export default function SingleExperience() {
     // If the user doesn't currently have this experience planned, suppress any planned date display
     if (!userHasExperience) {
       setDisplayedPlannedDate(null);
-      return;
-    }
-
-    // Skip updates if we recently handled a plan event to prevent race conditions
-    // during optimistic state updates (like when user clicks "Plan It")
-    const sinceEvent = Date.now() - (lastLocalPlanEventAtRef.current || 0);
-    if (sinceEvent >= 0 && sinceEvent < PLAN_EVENT_SUPPRESSION_MS) {
-      debug.log('Skipping displayedPlannedDate update due to recent plan event', { sinceEvent });
       return;
     }
 
@@ -1872,6 +1634,35 @@ export default function SingleExperience() {
     [collaborativePlans]
   );
 
+  // Auto-select first plan when plans load (if no hash navigation)
+  useEffect(() => {
+    // Only auto-select if:
+    // 1. Plans have loaded
+    // 2. There are plans available
+    // 3. No plan is currently selected
+    // 4. Not waiting for hash navigation
+    if (!plansLoading && collaborativePlans.length > 0 && !selectedPlanId && !hashSelecting) {
+      // Check if there's a hash in the URL - if so, let hash navigation handle it
+      const hash = window.location.hash || '';
+      if (hash.startsWith('#plan-')) {
+        debug.log('[Auto-select] Hash present in URL, skipping auto-select');
+        return;
+      }
+
+      // Auto-select the first plan (user's own plan is always first due to sorting)
+      const firstPlan = collaborativePlans[0];
+      const firstPlanId = firstPlan._id && firstPlan._id.toString ? firstPlan._id.toString() : firstPlan._id;
+
+      debug.log('[Auto-select] Auto-selecting first plan:', {
+        planId: firstPlanId,
+        isOwnPlan: idEquals(firstPlan.user?._id || firstPlan.user, user._id)
+      });
+
+      setSelectedPlanId(firstPlanId);
+      handlePlanChange(firstPlanId);
+    }
+  }, [plansLoading, collaborativePlans, selectedPlanId, hashSelecting, user._id, idEquals, handlePlanChange]);
+
   const handleAddCollaborator = useCallback(
     async (e) => {
       e.preventDefault();
@@ -2216,57 +2007,26 @@ export default function SingleExperience() {
 
   const confirmRemoveExperience = useCallback(async () => {
     if (!experience || !user) return;
-    // Remove experience plan
-    const previousState = userHasExperience;
-    const previousPlan = userPlan;
-    const previousPlannedDate = displayedPlannedDate;
+    if (!userPlan) {
+      setShowRemoveModal(false);
+      return;
+    }
+
     try {
-      // User confirmed deletion - now hide the badge and update UI
+      // User confirmed deletion
       setPendingUnplan(true);
-      // Optimistically update UI immediately for better UX
-      setUserHasExperience(false);
-      setUserPlannedDate(null);
-      setDisplayedPlannedDate(null);
-      setUserPlan(null);
       setShowRemoveModal(false);
       setShowDatePicker(false); // Close date picker modal when plan is removed
-      setCollaborativePlans([]);
-      setSelectedPlanId(null);
       setActiveTab("experience"); // Switch back to experience tab
 
-      // Delete the user's plan (using Plan API) - do this in background
-      if (userPlan) {
-        await deletePlan(userPlan._id);
-        debug.log("Plan deleted successfully");
-        try {
-          // Record optimistic deletion state so DataContext delays canonical apply
-          setOptimisticPlanStateForExperience(experience._id, {
-            selectedPlanId: null,
-            userPlan: null,
-            displayedPlannedDate: null,
-            userHasExperience: false,
-          });
-        } catch (err) {
-          debug.warn('Failed to set optimistic deletion state in DataContext', err);
-        }
-      }
+      // Delete plan - hook handles ALL optimistic updates (userHasExperience, userPlan, etc.)
+      await deletePlan(userPlan._id);
+      debug.log("Plan deleted successfully");
 
-      // Refresh data in background (user already sees updated UI)
-      fetchExperience().catch((err) =>
-        debug.error("Error refreshing experience:", err)
-      );
-      fetchCollaborativePlans().catch((err) =>
-        debug.error("Error refreshing collaborative plans:", err)
-      );
-      fetchPlans().catch((err) =>
-        debug.error("Error refreshing global plans:", err)
-      );
       setPendingUnplan(false);
     } catch (err) {
-      // Revert on error
-      setUserHasExperience(previousState);
-      setUserPlan(previousPlan);
-      setDisplayedPlannedDate(previousPlannedDate);
+      // Hook's deletePlan already handles rollback on error
+      // Just show error to user and restore UI state
       setShowRemoveModal(false);
       setPendingUnplan(false);
       const errorMsg = handleError(err, { context: "Remove plan" });
@@ -2275,12 +2035,8 @@ export default function SingleExperience() {
   }, [
     experience,
     user,
-    userHasExperience,
     userPlan,
-    displayedPlannedDate,
-    fetchExperience,
-    fetchCollaborativePlans,
-    fetchPlans,
+    deletePlan,
     showError,
   ]);
 
@@ -2288,111 +2044,42 @@ export default function SingleExperience() {
     async (data = null) => {
       const addData =
         data !== null ? data : plannedDate ? { planned_date: plannedDate } : {};
-      const previousState = userHasExperience;
-      // Snapshot previous plan-related state for rollback if needed
-      const prevUserPlan = userPlan;
-      const prevCollaborativePlans = collaborativePlans ? [...collaborativePlans] : [];
-      const prevSelectedPlanId = selectedPlanId;
-      const prevDisplayedPlannedDate = displayedPlannedDate;
-      const prevUserPlannedDate = userPlannedDate;
 
       try {
-        // Optimistically update UI (quick feedback)
-        setUserHasExperience(true);
+        debug.log('[HANDLE_ADD] Starting handleAddExperience', {
+          timestamp: Date.now(),
+          currentUserHasExperience: userHasExperience,
+          plannedDate: addData.planned_date
+        });
+
+        // Close UI elements - all plan state managed by usePlanManagement hook
         setShowDatePicker(false);
         setIsEditingDate(false);
         setPlannedDate("");
-        setUserPlannedDate(addData.planned_date || null);
 
-        // Insert a temporary optimistic plan into the list so the UI reflects change immediately
-        const tempId = `temp-${Date.now()}`;
-        const tempPlan = normalizePlan({
-          _id: tempId,
-          experience: experience._id,
-          user: user._id || (user && user._id),
-          planned_date: addData.planned_date || null,
-          permissions: [{ _id: user._id, entity: 'user', type: 'owner' }],
-        });
-
-        setSelectedPlanId(tempId);
-        setUserPlan(tempPlan);
-        setDisplayedPlannedDate(addData.planned_date || null);
-        setCollaborativePlans((prev) => [tempPlan, ...(prev || [])]);
-
-        // Record optimistic plan state in DataContext so canonical updates can preserve optimistic UI
+        // Create plan - hook handles ALL optimistic updates and reconciliation
         try {
-          setOptimisticPlanStateForExperience(experience._id, {
-            selectedPlanId: tempId,
-            userPlan: tempPlan,
-            displayedPlannedDate: addData.planned_date || null,
-            userHasExperience: true,
+          debug.log('[HANDLE_ADD] Calling createPlan from hook', {
+            timestamp: Date.now(),
+            experienceId: experience._id,
+            plannedDate: addData.planned_date
           });
-        } catch (err) {
-          debug.warn('Failed to set optimistic plan state in DataContext', err);
-        }
-
-        // Create a plan for this experience (suppress immediate broadcast handling)
-        try {
-          suppressPlanEventsFor(PLAN_EVENT_SUPPRESSION_MS);
 
           const newPlan = await createPlan(
             experience._id,
             addData.planned_date || null
           );
 
+          debug.log('[HANDLE_ADD] Plan created successfully', {
+            timestamp: Date.now(),
+            planId: newPlan?._id,
+            experienceId: experience._id
+          });
+
           logger?.info?.("Plan created", {
             planId: newPlan?._id,
             experienceId: experience._id,
           });
-
-          // Replace temp plan (if present) with canonical server plan
-          const normalizedNew = normalizePlan(newPlan);
-          setCollaborativePlans((prev) => {
-            try {
-              // Replace temp entry if present
-              const replaced = (prev || []).map((p) => (p._id === tempId ? normalizedNew : p));
-              // Ensure canonical plan is present (de-duplicate by id)
-              const exists = replaced.some((p) => idEquals(p._id, normalizedNew._id));
-              if (!exists) return [normalizedNew, ...replaced];
-              return replaced;
-            } catch (err) {
-              debug.warn('Error merging created plan into collaborativePlans', err);
-              return [normalizedNew, ...(prev || [])];
-            }
-          });
-
-          // Update selection and userPlan to canonical plan
-          const canonicalId = normalizedNew._id && normalizedNew._id.toString ? normalizedNew._id.toString() : normalizedNew._id;
-          setSelectedPlanId(canonicalId);
-          setUserPlan(normalizedNew);
-          setUserHasExperience(true);
-          setUserPlannedDate(addData.planned_date || null);
-          setDisplayedPlannedDate(addData.planned_date || null);
-
-          // Persist optimistic marker with canonical id
-          try {
-            setOptimisticPlanStateForExperience(experience._id, {
-              selectedPlanId: canonicalId,
-              userPlan: normalizedNew,
-              displayedPlannedDate: addData.planned_date || null,
-              userHasExperience: true,
-            });
-          } catch (err) {
-            debug.warn('Failed to set optimistic plan state in DataContext (canonical)', err);
-          }
-
-          // DON'T call fetchUserPlan() or fetchCollaborativePlans() immediately
-          // They might return stale data before the database has the new plan.
-          // Delay all fetches to avoid racing with optimistic state.
-          setTimeout(() => {
-            fetchPlans().catch(() => {});
-            fetchUserPlan().catch(() => {});
-            fetchCollaborativePlans().catch(() => {});
-            fetchExperience().catch(() => {});
-          }, Math.max(800, PLAN_EVENT_SUPPRESSION_MS));
-
-          // Record that we handled a local plan event to block immediate API overwrites
-          lastLocalPlanEventAtRef.current = Date.now();
 
           // Success feedback
           try {
@@ -2401,6 +2088,7 @@ export default function SingleExperience() {
             // ignore toast failures
           }
 
+          // Switch to My Plan tab to show the new plan
           setActiveTab("myplan");
         } catch (planErr) {
           logger?.error?.("Error creating plan", {
@@ -2408,33 +2096,14 @@ export default function SingleExperience() {
             error: planErr?.message,
           }, planErr);
 
-          // Rollback optimistic changes
-          setUserHasExperience(previousState);
-          setUserPlan(prevUserPlan);
-          setSelectedPlanId(prevSelectedPlanId);
-          setDisplayedPlannedDate(prevDisplayedPlannedDate);
-          setUserPlannedDate(prevUserPlannedDate);
-          setCollaborativePlans(prevCollaborativePlans);
-
-          // Clear optimistic state in DataContext
-          try {
-            clearOptimisticPlanStateForExperience(experience._id);
-          } catch (err) {
-            debug.warn('Failed to clear optimistic plan state in DataContext', err);
-          }
-
+          // Hook's createPlan already handles rollback on error
+          // Just show error to user
           const errorMsg = handleError(planErr, { context: "Create plan" }) || "Failed to create plan";
           showError(errorMsg);
           return;
         }
       } catch (err) {
-        // Revert on unexpected error
-        setUserHasExperience(previousState);
-        setUserPlan(prevUserPlan);
-        setSelectedPlanId(prevSelectedPlanId);
-        setDisplayedPlannedDate(prevDisplayedPlannedDate);
-        setUserPlannedDate(prevUserPlannedDate);
-        setCollaborativePlans(prevCollaborativePlans);
+        // Unexpected error - hook handles rollback
         handleError(err, { context: "Add experience" });
       }
     },
@@ -2461,23 +2130,16 @@ export default function SingleExperience() {
           ? new Date(plannedDate).toISOString()
           : null;
 
-        // Suppress reacting to the immediate update event so our optimistic
-        // displayed date isn't overwritten by a racing fetch
-        suppressPlanEventsFor(PLAN_EVENT_SUPPRESSION_MS);
-
-        // Update server
-        await updatePlan(selectedPlanId, { planned_date: dateToSend });
-
         // Optimistically update displayed date immediately
         setDisplayedPlannedDate(dateToSend);
 
-        // Refresh plans in background (delayed) so other views eventually
-        // converge to canonical state without racing our optimistic UI
-        setTimeout(() => {
-          fetchUserPlan().catch(() => {});
-          fetchCollaborativePlans().catch(() => {});
-          fetchPlans().catch(() => {});
-        }, 800);
+        // Update server - event reconciliation handles state synchronization
+        await updatePlan(selectedPlanId, { planned_date: dateToSend });
+
+        // Refresh plans immediately - version-based reconciliation prevents overwrites
+        fetchUserPlan().catch(() => {});
+        fetchCollaborativePlans().catch(() => {});
+        fetchPlans().catch(() => {});
 
         debug.log("Plan date updated successfully");
       } else if (!isOwner(user, experience)) {
@@ -2492,14 +2154,17 @@ export default function SingleExperience() {
             ? new Date(plannedDate).toISOString()
             : null;
 
-          suppressPlanEventsFor(PLAN_EVENT_SUPPRESSION_MS);
-          await updatePlan(userPlan._id, { planned_date: dateToSend });
+          // Optimistically update displayed date
           setDisplayedPlannedDate(dateToSend);
-          setTimeout(() => {
-            fetchUserPlan().catch(() => {});
-            fetchCollaborativePlans().catch(() => {});
-            fetchPlans().catch(() => {});
-          }, 800);
+
+          // Update server - event reconciliation handles state synchronization
+          await updatePlan(userPlan._id, { planned_date: dateToSend });
+
+          // Refresh plans immediately - version-based reconciliation prevents overwrites
+          fetchUserPlan().catch(() => {});
+          fetchCollaborativePlans().catch(() => {});
+          fetchPlans().catch(() => {});
+
           debug.log("Existing plan date updated successfully");
         } else {
           // Create new plan by adding experience
@@ -2517,14 +2182,17 @@ export default function SingleExperience() {
             ? new Date(plannedDate).toISOString()
             : null;
 
-          suppressPlanEventsFor(1200);
-          await updatePlan(userPlan._id, { planned_date: dateToSend });
+          // Optimistically update displayed date
           setDisplayedPlannedDate(dateToSend);
-          setTimeout(() => {
-            fetchUserPlan().catch(() => {});
-            fetchCollaborativePlans().catch(() => {});
-            fetchPlans().catch(() => {});
-          }, 800);
+
+          // Update server - event reconciliation handles state synchronization
+          await updatePlan(userPlan._id, { planned_date: dateToSend });
+
+          // Refresh plans immediately - version-based reconciliation prevents overwrites
+          fetchUserPlan().catch(() => {});
+          fetchCollaborativePlans().catch(() => {});
+          fetchPlans().catch(() => {});
+
           debug.log("Owner's existing plan date updated successfully");
         } else {
           // Create new plan by adding experience
@@ -2622,6 +2290,227 @@ export default function SingleExperience() {
     [experience, fetchExperiences, fetchExperience, success, showError]
   );
 
+  const handlePlanItemToggleComplete = useCallback(
+    async (planItem) => {
+      if (!selectedPlanId || !planItem) return;
+
+      const itemId = planItem._id || planItem.plan_item_id;
+      const newComplete = !planItem.complete;
+
+      // Optimistic update to collaborativePlans state
+      const prevPlans = [...collaborativePlans];
+      const planIndex = collaborativePlans.findIndex((p) => idEquals(p._id, selectedPlanId));
+      const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex], plan: [...(collaborativePlans[planIndex].plan || [])] } : null;
+
+      const apply = () => {
+        if (!prevPlan || planIndex < 0) return;
+        const updatedPlans = [...collaborativePlans];
+        const updatedPlanItems = prevPlan.plan.map((item) => {
+          const currentItemId = item._id || item.plan_item_id;
+          if (currentItemId?.toString() === itemId?.toString()) {
+            return { ...item, complete: newComplete };
+          }
+          return item;
+        });
+        updatedPlans[planIndex] = { ...prevPlan, plan: updatedPlanItems };
+        setCollaborativePlans(updatedPlans);
+      };
+
+      const apiCall = async () => {
+        await updatePlanItem(selectedPlanId, itemId, { complete: newComplete });
+      };
+
+      const rollback = () => {
+        setCollaborativePlans(prevPlans);
+      };
+
+      const onSuccess = async () => {
+        // Refresh plan data to ensure consistency
+        fetchCollaborativePlans().catch(() => {});
+        fetchUserPlan().catch(() => {});
+        fetchPlans().catch(() => {});
+
+        // Scroll to item but don't animate (item completion shouldn't shake)
+        try {
+          await attemptScrollToItem(itemId, { shouldHighlight: false });
+        } catch (e) {
+          // ignore scroll errors
+        }
+      };
+
+      const onError = (err, defaultMsg) => {
+        const errorMsg = handleError(err, { context: "Toggle plan item completion" }) || defaultMsg;
+        showError(errorMsg);
+      };
+
+      const run = useOptimisticAction({
+        apply,
+        apiCall,
+        rollback,
+        onSuccess,
+        onError,
+        context: 'Toggle plan item completion'
+      });
+      await run();
+    },
+    [
+      selectedPlanId,
+      collaborativePlans,
+      fetchCollaborativePlans,
+      fetchUserPlan,
+      fetchPlans,
+      showError,
+    ]
+  );
+
+  /**
+   * Handle reordering plan items via drag-and-drop
+   */
+  const handleReorderPlanItems = useCallback(
+    async (planId, reorderedItems, draggedItemId) => {
+      if (!planId || !reorderedItems) {
+        debug.warn('[Reorder] Missing planId or reorderedItems');
+        return;
+      }
+
+      debug.log('[Reorder] Reordering plan items', {
+        planId,
+        itemCount: reorderedItems.length,
+        draggedItemId
+      });
+
+      // Optimistic update to collaborativePlans state
+      const prevPlans = [...collaborativePlans];
+      const planIndex = collaborativePlans.findIndex((p) => idEquals(p._id, planId));
+      const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex] } : null;
+
+      const apply = () => {
+        if (!prevPlan || planIndex < 0) return;
+        const updatedPlans = [...collaborativePlans];
+        updatedPlans[planIndex] = { ...prevPlan, plan: reorderedItems };
+        setCollaborativePlans(updatedPlans);
+      };
+
+      const apiCall = async () => {
+        await reorderPlanItems(planId, reorderedItems);
+      };
+
+      const rollback = () => {
+        setCollaborativePlans(prevPlans);
+      };
+
+      const onSuccess = async () => {
+        // Scroll to and highlight the dragged item
+        if (draggedItemId) {
+          setTimeout(() => {
+            const itemSelector = `[data-plan-item-id="${escapeSelector(draggedItemId)}"]`;
+            const itemElement = document.querySelector(itemSelector);
+            if (itemElement) {
+              highlightPlanItem(itemElement);
+            }
+          }, 100);
+        }
+
+        // Refresh plan data to ensure consistency
+        fetchCollaborativePlans().catch(() => {});
+        fetchUserPlan().catch(() => {});
+        fetchPlans().catch(() => {});
+        success('Plan items reordered successfully');
+      };
+
+      const onError = (err, defaultMsg) => {
+        const errorMsg = handleError(err, { context: "Reorder plan items" }) || defaultMsg;
+        showError(errorMsg);
+      };
+
+      const run = useOptimisticAction({
+        apply,
+        apiCall,
+        rollback,
+        onSuccess,
+        onError,
+        context: 'Reorder plan items'
+      });
+      await run();
+    },
+    [
+      collaborativePlans,
+      fetchCollaborativePlans,
+      fetchUserPlan,
+      fetchPlans,
+      success,
+      showError,
+    ]
+  );
+
+  const handleReorderExperiencePlanItems = useCallback(
+    async (experienceId, reorderedItems, draggedItemId) => {
+      if (!experienceId || !reorderedItems) {
+        debug.warn('[ExperienceReorder] Missing experienceId or reorderedItems');
+        return;
+      }
+
+      debug.log('[ExperienceReorder] Reordering experience plan items', {
+        experienceId,
+        itemCount: reorderedItems.length,
+        draggedItemId
+      });
+
+      // Optimistic update to experience state
+      const prevExperience = { ...experience };
+
+      const apply = () => {
+        setExperience({ ...experience, plan_items: reorderedItems });
+      };
+
+      const apiCall = async () => {
+        await reorderExperiencePlanItems(experienceId, reorderedItems);
+      };
+
+      const rollback = () => {
+        setExperience(prevExperience);
+      };
+
+      const onSuccess = async () => {
+        // Scroll to and highlight the dragged item
+        if (draggedItemId) {
+          setTimeout(() => {
+            const itemSelector = `[data-plan-item-id="${escapeSelector(draggedItemId)}"]`;
+            const itemElement = document.querySelector(itemSelector);
+            if (itemElement) {
+              highlightPlanItem(itemElement);
+            }
+          }, 100);
+        }
+
+        // Refresh experience data to ensure consistency
+        fetchExperience().catch(() => {});
+        success('Plan items reordered successfully');
+      };
+
+      const onError = (err, defaultMsg) => {
+        const errorMsg = handleError(err, { context: "Reorder experience plan items" }) || defaultMsg;
+        showError(errorMsg);
+      };
+
+      const run = useOptimisticAction({
+        apply,
+        apiCall,
+        rollback,
+        onSuccess,
+        onError,
+        context: 'Reorder experience plan items'
+      });
+      await run();
+    },
+    [
+      experience,
+      fetchExperience,
+      success,
+      showError,
+    ]
+  );
+
   return (
     <>
       {experience && (
@@ -2664,1205 +2553,153 @@ export default function SingleExperience() {
           <div className="row experience-detail fade-in">
             <div className="col-md-6 fade-in">
               <Mobile>
-                <div style={{ textAlign: 'center' }}>
-                  <h1 ref={h1Ref} className="mt-4 h fade-in">{experience.name}</h1>
-                  {userHasExperience && !pendingUnplan && (
-                    <FadeIn>
-                      {displayedPlannedDate ? (
-                        <TagPill
-                          color="primary"
-                          className="profile-pill cursor-pointer mb-2"
-                          onClick={() => {
-                            if (showDatePicker) {
-                              setShowDatePicker(false);
-                            } else {
-                              setIsEditingDate(true);
-                              setPlannedDate(formatDateForInput(displayedPlannedDate));
-                              setShowDatePicker(true);
-                            }
-                          }}
-                          title={showDatePicker ? "Click to close date picker" : "Click to edit planned date"}
-                        >
-                          Planned for {formatDateShort(displayedPlannedDate)}
-                        </TagPill>
-                      ) : (
-                        <TagPill
-                          color="primary"
-                          className="cursor-pointer mb-2"
-                          onClick={() => {
-                            if (showDatePicker) {
-                              setShowDatePicker(false);
-                            } else {
-                              setIsEditingDate(false);
-                              setPlannedDate("");
-                              setShowDatePicker(true);
-                            }
-                          }}
-                          title={showDatePicker ? "Click to close date picker" : "Click to set a planned date"}
-                        >
-                          {lang.en.label.plannedDate}: {lang.en.label.setOneNow}
-                        </TagPill>
-                      )}
-                    </FadeIn>
-                  )}
-                  <div className="experience-header-grid my-2">
-                    {experience.cost_estimate > 0 && (
-                      <FadeIn>
-                        <h2 className="h5">
-                          {lang.en.heading.estimatedCost}{" "}
-                          <span className="green">
-                            {dollarSigns(Math.ceil(experience.cost_estimate / 1000))}
-                          </span>
-                          <span className="grey">
-                            {dollarSigns(
-                              5 - Math.ceil(experience.cost_estimate / 1000)
-                            )}
-                          </span>
-                        </h2>
-                      </FadeIn>
-                    )}
-                    {experience.max_planning_days > 0 && (
-                      <FadeIn>
-                        <h2 className="h5">
-                          {lang.en.heading.planningTime}{" "}
-                          {experience.max_planning_days}{" "}
-                          {experience.max_planning_days === 1 ? "day" : "days"}
-                        </h2>
-                      </FadeIn>
-                    )}
-                  </div>
-                </div>
+                <ExperienceTitleSection
+                  experience={experience}
+                  h1Ref={h1Ref}
+                  user={user}
+                  userHasExperience={userHasExperience}
+                  pendingUnplan={pendingUnplan}
+                  selectedPlan={selectedPlan}
+                  showDatePicker={showDatePicker}
+                  setShowDatePicker={setShowDatePicker}
+                  setIsEditingDate={setIsEditingDate}
+                  setPlannedDate={setPlannedDate}
+                  textAlign="center"
+                  lang={lang}
+                />
               </Mobile>
               <Desktop>
-                <div style={{ textAlign: 'start' }}>
-                  <h1 ref={h1Ref} className="mt-4 h fade-in">{experience.name}</h1>
-                  {userHasExperience && !pendingUnplan && (
-                    <FadeIn>
-                      {displayedPlannedDate ? (
-                        <TagPill
-                          color="primary"
-                          className="cursor-pointer mb-2"
-                          onClick={() => {
-                            if (showDatePicker) {
-                              setShowDatePicker(false);
-                            } else {
-                              setIsEditingDate(true);
-                              setPlannedDate(formatDateForInput(displayedPlannedDate));
-                              setShowDatePicker(true);
-                            }
-                          }}
-                          title={showDatePicker ? "Click to close date picker" : "Click to edit planned date"}
-                        >
-                          Planned for {formatDateShort(displayedPlannedDate)}
-                        </TagPill>
-                      ) : (
-                        <TagPill
-                          color="primary"
-                          className="cursor-pointer mb-2"
-                          onClick={() => {
-                            if (showDatePicker) {
-                              setShowDatePicker(false);
-                            } else {
-                              setIsEditingDate(false);
-                              setPlannedDate("");
-                              setShowDatePicker(true);
-                            }
-                          }}
-                          title={showDatePicker ? "Click to close date picker" : "Click to set a planned date"}
-                        >
-                          {lang.en.label.plannedDate}: {lang.en.label.setOneNow}
-                        </TagPill>
-                      )}
-                    </FadeIn>
-                  )}
-                  <div className="experience-header-grid my-2">
-                    {experience.cost_estimate > 0 && (
-                      <FadeIn>
-                        <h2 className="h5">
-                          {lang.en.heading.estimatedCost}{" "}
-                          <span className="green">
-                            {dollarSigns(Math.ceil(experience.cost_estimate / 1000))}
-                          </span>
-                          <span className="grey">
-                            {dollarSigns(
-                              5 - Math.ceil(experience.cost_estimate / 1000)
-                            )}
-                          </span>
-                        </h2>
-                      </FadeIn>
-                    )}
-                    {experience.max_planning_days > 0 && (
-                      <FadeIn>
-                        <h2 className="h5">
-                          {lang.en.heading.planningTime}{" "}
-                          {experience.max_planning_days}{" "}
-                          {experience.max_planning_days === 1 ? "day" : "days"}
-                        </h2>
-                      </FadeIn>
-                    )}
-                  </div>
-                </div>
+                <ExperienceTitleSection
+                  experience={experience}
+                  h1Ref={h1Ref}
+                  user={user}
+                  userHasExperience={userHasExperience}
+                  pendingUnplan={pendingUnplan}
+                  selectedPlan={selectedPlan}
+                  showDatePicker={showDatePicker}
+                  setShowDatePicker={setShowDatePicker}
+                  setIsEditingDate={setIsEditingDate}
+                  setPlannedDate={setPlannedDate}
+                  textAlign="start"
+                  lang={lang}
+                />
               </Desktop>
             </div>
-            <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center flex-row experience-actions">
-              <FadeIn>
-                <button
-                  className={`btn btn-sm btn-icon my-1 my-sm-2 ${
-                    userHasExperience ? "btn-plan-remove" : "btn-plan-add"
-                  } ${loading ? "loading" : ""}`}
-                  ref={planButtonRef}
-                  style={planBtnWidth ? { width: `${planBtnWidth}px` } : undefined}
-                  onClick={async () => {
-                    if (loading) return;
-                    setLoading(true);
-                    await handleExperience();
-                    setLoading(false);
-                  }}
-                  aria-label={
-                    userHasExperience
-                      ? lang.en.button.removeFavoriteExp
-                      : lang.en.button.addFavoriteExp
-                  }
-                  aria-pressed={userHasExperience}
-                  onMouseEnter={() => setFavHover(true)}
-                  onMouseLeave={() => setFavHover(false)}
-                  disabled={loading}
-                  aria-busy={loading}
-                >
-                  {userHasExperience
-                    ? favHover
-                      ? lang.en.button.removeFavoriteExp
-                      : lang.en.button.expPlanAdded
-                    : lang.en.button.addFavoriteExp}
-                </button>
-              </FadeIn>
-              {userHasExperience && (
-                <FadeIn>
-                  <button
-                    className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
-                    onClick={() => {
-                      if (showDatePicker) {
-                        setShowDatePicker(false);
-                      } else {
-                        setIsEditingDate(false);
-                        setPlannedDate(
-                          displayedPlannedDate
-                            ? formatDateForInput(displayedPlannedDate)
-                            : ""
-                        );
-                        setShowDatePicker(true);
-                      }
-                    }}
-                    aria-label={lang.en.button.editDate}
-                    title={lang.en.button.editDate}
-                  >
-                    📅
-                  </button>
-                </FadeIn>
-              )}
-              {isOwner(user, experience) && (
-                <>
-                  <FadeIn>
-                    <button
-                      className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
-                      onClick={() =>
-                        navigate(`/experiences/${experienceId}/update`)
-                      }
-                      aria-label={lang.en.button.updateExperience}
-                      title={lang.en.button.updateExperience}
-                    >
-                      ✏️
-                    </button>
-                  </FadeIn>
-                  <FadeIn>
-                    <button
-                      className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
-                      onClick={() => setShowDeleteModal(true)}
-                      aria-label={lang.en.button.delete}
-                      title={lang.en.button.delete}
-                    >
-                      ❌
-                    </button>
-                  </FadeIn>
-                </>
-              )}
-            </div>
-            {showDatePicker && (
-              <div className="row mt-3 date-picker-modal">
-                <div className="col-12">
-                  <Alert type="info" className="mb-0">
-                    <h3 className="mb-3">
-                      {isEditingDate
-                        ? lang.en.heading.editPlannedDate
-                        : lang.en.heading.planYourExperience}
-                    </h3>
-                    {experience.max_planning_days > 0 && (
-                      <p className="mb-3">
-                        {lang.en.helper.requiresDaysToPlan.replace(
-                          "{days}",
-                          experience.max_planning_days
-                        )}
-                      </p>
-                    )}
-                    <div className="mb-3">
-                      <FormLabel htmlFor="plannedDate" className="h5">
-                        {lang.en.label.whenDoYouWantExperience}
-                      </FormLabel>
-                      <FormControl
-                        type="date"
-                        id="plannedDate"
-                        value={plannedDate}
-                        onChange={(e) => setPlannedDate(e.target.value)}
-                        onClick={(e) =>
-                          e.target.showPicker && e.target.showPicker()
-                        }
-                        min={getMinimumPlanningDate(
-                          experience.max_planning_days
-                        )}
-                      />
-                      {plannedDate &&
-                        experience.max_planning_days > 0 &&
-                        !isValidPlannedDate(
-                          plannedDate,
-                          experience.max_planning_days
-                        ) && (
-                          <Alert
-                            type="warning"
-                            className="mt-2"
-                            message={lang.en.alert.notEnoughTimeWarning}
-                          />
-                        )}
-                    </div>
-                    <button
-                      className="btn btn-primary me-2"
-                      onClick={() => handleDateUpdate()}
-                      disabled={!plannedDate || loading}
-                      aria-label={
-                        isEditingDate
-                          ? lang.en.button.updateDate
-                          : lang.en.button.setDateAndAdd
-                      }
-                    >
-                      {isEditingDate
-                        ? lang.en.button.updateDate
-                        : lang.en.button.setDateAndAdd}
-                    </button>
-                    {!isEditingDate && (
-                      <button
-                        className="btn btn-secondary me-2"
-                        onClick={() => handleAddExperience({})}
-                        aria-label={lang.en.button.skip}
-                      >
-                        {lang.en.button.skip}
-                      </button>
-                    )}
-                    <button
-                      className="btn btn-secondary"
-                      onClick={() => {
-                        setShowDatePicker(false);
-                        setIsEditingDate(false);
-                        setPlannedDate("");
-                      }}
-                      aria-label={lang.en.button.cancel}
-                    >
-                      {lang.en.button.cancel}
-                    </button>
-                  </Alert>
-                </div>
-              </div>
-            )}
+            <ActionButtonsRow
+              user={user}
+              experience={experience}
+              experienceId={experienceId}
+              userHasExperience={userHasExperience}
+              loading={loading}
+              plansLoading={plansLoading}
+              displayedPlannedDate={displayedPlannedDate}
+              selectedPlan={selectedPlan}
+              planButtonRef={planButtonRef}
+              planBtnWidth={planBtnWidth}
+              favHover={favHover}
+              setFavHover={setFavHover}
+              handleExperience={handleExperience}
+              setShowDeleteModal={setShowDeleteModal}
+              showDatePicker={showDatePicker}
+              setShowDatePicker={setShowDatePicker}
+              setIsEditingDate={setIsEditingDate}
+              setPlannedDate={setPlannedDate}
+              lang={lang}
+            />
+            <DatePickerSection
+              showDatePicker={showDatePicker}
+              experience={experience}
+              isEditingDate={isEditingDate}
+              plannedDate={plannedDate}
+              setPlannedDate={setPlannedDate}
+              loading={loading}
+              handleDateUpdate={handleDateUpdate}
+              handleAddExperience={handleAddExperience}
+              setShowDatePicker={setShowDatePicker}
+              setIsEditingDate={setIsEditingDate}
+              lang={lang}
+            />
           </div>
-          <div className="row my-4 fade-in">
-            <div className="col-md-6 p-3 fade-in">
-              {/* Display experience photo (or placeholder if none available) */}
-              <div className="mb-4">
-                <PhotoCard
-                  photos={experience.photos}
-                  photo={experience.photo}
-                  defaultPhotoIndex={experience.default_photo_index}
-                  title={experience.name}
-                  altText={`${experience.name}${
-                    experience.destination && experience.destination.name
-                      ? ` in ${experience.destination.name}`
-                      : ""
-                  }`}
-                />
-              </div>
-            </div>
-            <div className="col-md-6 p-3 fade-in">
-              <div className="col-md-12 fade-in">
-                <InfoCard
-                  title={
-                    !experience.destination || !experience.destination.name ? (
-                      <div className="loading-skeleton loading-skeleton-text" style={{ width: '70%', height: '1.5rem' }}></div>
-                    ) : (
-                      `${lang.en.label.destinationLabel}: ${experience.destination.name}`
-                    )
-                  }
-                  titleLink={
-                    experience.destination
-                      ? `/destinations/${experience.destination._id}`
-                      : null
-                  }
-                  sections={[
-                    experience.experience_type && experience.experience_type.length > 0
-                      ? {
-                          title: lang.en.label.experienceType,
-                          content: (
-                            <div>
-                              {experience.experience_type.map((type) => (
-                                <TagPill key={type} className="experience-tag-pill" color="primary" size="sm" gradient={false} to={`/experience-types/${createUrlSlug(type)}`}>
-                                  <span className="icon"><FaUser /></span>
-                                  {type}
-                                </TagPill>
-                              ))}
-                            </div>
-                          ),
-                        }
-                      : null,
-                    experience.description
-                      ? {
-                          title: lang.en.label.description,
-                          content: <p>{experience.description}</p>,
-                        }
-                      : null,
-                  ].filter(Boolean)}
-                  map={
-                    !experience.destination || !experience.destination.name ? (
-                      <div className="loading-skeleton loading-skeleton-rectangle" style={{ width: '100%', height: '300px', borderRadius: 'var(--radius-md)' }}></div>
-                    ) : (
-                      <GoogleMap
-                        location={`${experience.destination.name}+${experience.destination.country}`}
-                        height={300}
-                        title={lang.en.helper.map}
-                      />
-                    )
-                  }
-                />
-              </div>
-            </div>
-          </div>
+          <ExperienceOverviewSection
+            experience={experience}
+            lang={lang}
+          />
           <div className="row my-2 p-3 fade-in">
             {experience.plan_items && experience.plan_items.length > 0 && (
               <div className="plan-items-container fade-in p-3 p-md-4">
                 {/* Plan Navigation Tabs */}
-                {debug.log(
-                  "Rendering tabs. collaborativePlans:",
-                  collaborativePlans,
-                  "length:",
-                  collaborativePlans.length
-                ) || null}
-                <div className="plan-tabs-nav mb-4">
-                  <button
-                    className={`plan-tab-button ${
-                      activeTab === "experience" ? "active" : ""
-                    }`}
-                    onClick={() => setActiveTab("experience")}
-                  >
-                    {lang.en.heading.thePlan}
-                  </button>
-                  {plansLoading ? (
-                    // Show loading state for plan tabs
-                    <button className="plan-tab-button" disabled>
-                      <Loading size="sm" variant="inline" showMessage={false} />
-                    </button>
-                  ) : (
-                    (() => {
-                      // Determine how many plans belong to others (collaborator plans)
-                      const otherPlansCount = collaborativePlans.filter((plan) => {
-                        const planUserId = plan.user?._id || plan.user;
-                        return !idEquals(planUserId, user._id);
-                      }).length;
-
-                      // If there are multiple plans (user + collaborators OR multiple collaborators), show a select
-                      if (collaborativePlans.length > 1 || otherPlansCount > 0) {
-                        return (
-                          <div className={`plan-tab-dropdown-container ${activeTab === 'myplan' ? 'active' : ''}`}>
-                            <select
-                              className={`plan-tab-button ${collaborativePlans.length > 1 ? 'plan-tab-select' : ''} ${
-                                activeTab === "myplan" ? "active" : ""
-                              }`}
-                              value={selectedPlanId || ""}
-                              onChange={(e) => {
-                                handlePlanChange(e.target.value);
-                                setActiveTab("myplan");
-                              }}
-                              onClick={() => setActiveTab("myplan")}
-                            >
-                              {collaborativePlans.map((plan, ci) => {
-                                const planUserId = plan.user?._id || plan.user;
-                                const isOwnPlan = idEquals(planUserId, user._id);
-                                let displayName = "Plan";
-
-                                if (isOwnPlan) {
-                                  displayName = "My Plan";
-                                } else if (plan.user?.name) {
-                                  const firstName = plan.user.name.split(' ')[0];
-                                  displayName = `${firstName}'s Plan`;
-                                }
-
-                                const optionValue = plan._id && plan._id.toString ? plan._id.toString() : plan._id;
-                                // Ensure a stable, unique key for React. Fall back to the loop index
-                                // only if no plan id is available (defensive).
-                                const optionKey = optionValue != null ? optionValue : `plan-${ci}`;
-
-                                return (
-                                  <option key={optionKey} value={optionValue}>
-                                    {displayName}
-                                  </option>
-                                );
-                              })}
-                            </select>
-                            {/* Inline caret SVG for reliable cross-browser rendering */}
-                            <span className="plan-tab-caret" aria-hidden="true">
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                                <polyline points="6 9 12 15 18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                              </svg>
-                            </span>
-                          </div>
-                        );
-                      }
-
-                      // Otherwise, render a simple button for the (single) user's plan
-                      if (collaborativePlans.length === 1) {
-                        const onlyPlan = collaborativePlans[0];
-                        const planUserId = onlyPlan.user?._id || onlyPlan.user;
-                        const isOwnPlan = idEquals(planUserId, user._id);
-                        // Only show the button if it's the user's own plan
-                        if (isOwnPlan) {
-                          return (
-                            <button
-                              className={`plan-tab-button ${activeTab === "myplan" ? "active" : ""}`}
-                              onClick={() => {
-                                setSelectedPlanId(onlyPlan._id && onlyPlan._id.toString ? onlyPlan._id.toString() : onlyPlan._id);
-                                setActiveTab("myplan");
-                              }}
-                            >
-                              My Plan
-                            </button>
-                          );
-                        }
-                      }
-
-                      // No plans available - render nothing
-                      return null;
-                    })()
-                  )}
-                </div>
+                <PlanTabsNavigation
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  user={user}
+                  idEquals={idEquals}
+                  collaborativePlans={collaborativePlans}
+                  plansLoading={plansLoading}
+                  selectedPlanId={selectedPlanId}
+                  setSelectedPlanId={setSelectedPlanId}
+                  handlePlanChange={handlePlanChange}
+                  lang={lang}
+                />
 
                 {/* Experience Plan Items Tab Content */}
                 {activeTab === "experience" && (
-                  <div className="experience-plan-view mt-4">
-                    {/* Collaborators and Action Buttons Row */}
-                    <div className="plan-header-row mb-4">
-                      {/* Collaborators Display - Left Side */}
-                      <UsersListDisplay
-                        owner={experienceOwner}
-                        users={experienceCollaborators}
-                        messageKey="CreatingPlan"
-                        loading={
-                          experienceOwnerLoading ||
-                          experienceCollaboratorsLoading
-                        }
-                        reserveSpace={true}
-                      />
-
-                      {/* Action Buttons - Right Side */}
-                      {isOwner(user, experience) && (
-                        <div className="plan-action-buttons">
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => handleAddExperiencePlanItem()}
-                          >
-                            <BsPlusCircle className="me-2" />
-                            {lang.en.button.addPlanItem}
-                          </button>
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => openCollaboratorModal("experience")}
-                          >
-                            <FaUserPlus className="me-2" />
-                            {lang.en.button.addCollaborators}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    {(() => {
-                      // Helper to flatten and mark children
-                      const flattenPlanItems = (items) => {
-                        const result = [];
-                        const addItem = (item, isChild = false) => {
-                          const isVisible =
-                            !isChild ||
-                            (expandedParents.has(item.parent) &&
-                              animatingCollapse !== item.parent);
-                          result.push({ ...item, isChild, isVisible });
-                          items
-                            .filter(
-                              (sub) =>
-                                sub.parent &&
-                                sub.parent.toString() === item._id.toString()
-                            )
-                            .forEach((sub) => addItem(sub, true));
-                        };
-                        items
-                          .filter((item) => !item.parent)
-                          .forEach((item) => addItem(item, false));
-                        return result;
-                      };
-                      const flattenedItems = flattenPlanItems(
-                        experience.plan_items
-                      );
-                      const itemsToRender = flattenedItems.filter(
-                        (item) =>
-                          item.isVisible ||
-                          (item.isChild && animatingCollapse === item.parent)
-                      );
-                      return itemsToRender.map((planItem) => (
-                        <div
-                          key={planItem._id}
-                          data-plan-item-id={planItem._id}
-                          className={`plan-item-card mb-3 overflow-hidden ${
-                            planItem.isVisible ? "" : "collapsed"
-                          }`}
-                        >
-                          <div className="plan-item-header p-3 p-md-4">
-                            <div className="plan-item-tree">
-                              {!planItem.isChild ? (
-                                (() => {
-                                  const hasChildren =
-                                    experience.plan_items.some(
-                                      (sub) =>
-                                        sub.parent &&
-                                        sub.parent.toString() ===
-                                          planItem._id.toString()
-                                    );
-                                  if (hasChildren) {
-                                    return (
-                                      <button
-                                        className="btn btn-sm btn-link p-0 expand-toggle"
-                                        onClick={() =>
-                                          toggleExpanded(planItem._id)
-                                        }
-                                      >
-                                        {expandedParents.has(planItem._id)
-                                          ? "▼"
-                                          : "▶"}
-                                      </button>
-                                    );
-                                  } else {
-                                    return (
-                                      <span className="no-child-arrow">•</span>
-                                    );
-                                  }
-                                })()
-                              ) : (
-                                <span className="child-arrow">↳</span>
-                              )}
-                            </div>
-                            <div className="plan-item-title flex-grow-1 fw-semibold fs-5">
-                              {planItem.url ? (
-                                <Link
-                                  to={planItem.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  {planItem.text}
-                                </Link>
-                              ) : (
-                                <span>{planItem.text}</span>
-                              )}
-                            </div>
-                            <div className="plan-item-actions">
-                              {isOwner(user, experience) && (
-                                <div className="d-flex gap-1">
-                                  {!planItem.parent && (
-                                    <button
-                                      className="btn btn-outline-primary btn-sm"
-                                      onClick={() =>
-                                        handleAddExperiencePlanItem(
-                                          planItem._id
-                                        )
-                                      }
-                                      aria-label={`${lang.en.button.addChild} to ${planItem.text}`}
-                                      title={lang.en.button.addChild}
-                                    >
-                                      ✚
-                                    </button>
-                                  )}
-                                  <button
-                                    className="btn btn-outline-secondary btn-sm"
-                                    onClick={() =>
-                                      handleEditExperiencePlanItem(planItem)
-                                    }
-                                    aria-label={`${lang.en.button.edit} ${planItem.text}`}
-                                    title={lang.en.tooltip.edit}
-                                  >
-                                    ✏️
-                                  </button>
-                                  <button
-                                    className="btn btn-outline-danger btn-sm"
-                                    onClick={() => {
-                                      setPlanItemToDelete(planItem._id);
-                                      setShowPlanDeleteModal(true);
-                                    }}
-                                    aria-label={`${lang.en.button.delete} ${planItem.text}`}
-                                    title={lang.en.tooltip.delete}
-                                  >
-                                    ✖️
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="plan-item-details p-2 p-md-3">
-                            {(Number(planItem.cost_estimate) > 0 ||
-                              Number(planItem.planning_days) > 0) && (
-                              <div className="plan-item-meta">
-                                {Number(planItem.cost_estimate) > 0 && (
-                                  <span className="d-flex align-items-center gap-2">
-                                    <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.cost}</Text>
-                                    {formatCurrency(planItem.cost_estimate)}
-                                  </span>
-                                )}
-                                {Number(planItem.planning_days) > 0 && (
-                                  <span className="d-flex align-items-center gap-2">
-                                    <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.planningDays}</Text>
-                                    {planItem.planning_days}{" "}
-                                    {planItem.planning_days === 1 ? lang.en.label.day : lang.en.label.days}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ));
-                    })()}
-                  </div>
+                  <ExperienceTabContent
+                    user={user}
+                    experience={experience}
+                    experienceOwner={experienceOwner}
+                    experienceCollaborators={experienceCollaborators}
+                    experienceOwnerLoading={experienceOwnerLoading}
+                    experienceCollaboratorsLoading={experienceCollaboratorsLoading}
+                    expandedParents={expandedParents}
+                    animatingCollapse={animatingCollapse}
+                    handleAddExperiencePlanItem={handleAddExperiencePlanItem}
+                    handleEditExperiencePlanItem={handleEditExperiencePlanItem}
+                    openCollaboratorModal={openCollaboratorModal}
+                    toggleExpanded={toggleExpanded}
+                    setPlanItemToDelete={setPlanItemToDelete}
+                    setShowPlanDeleteModal={setShowPlanDeleteModal}
+                    onReorderExperiencePlanItems={handleReorderExperiencePlanItems}
+                    lang={lang}
+                  />
                 )}
 
                 {/* My Plan Tab Content */}
                 {activeTab === "myplan" && selectedPlanId && (
-                  <div className="my-plan-view mt-4">
-                    {/* Show loading indicator when we detected a hash deep-link and plans are still loading */}
-                    {hashSelecting && (
-                      <div className="mb-3">
-                        <Loading size="md" message={lang.en.label.loadingPlan || 'Loading plan...'} showMessage={true} />
-                      </div>
-                    )}
-                    {/* Alert Area - For all plan-related alerts */}
-                    {showSyncButton && showSyncAlert && (
-                      <Alert
-                        type="warning"
-                        dismissible={true}
-                        onDismiss={dismissSyncAlert}
-                        title={lang.en.alert.planOutOfSync}
-                        message={lang.en.alert.planOutOfSyncMessage}
-                        className="mb-4"
-                      />
-                    )}
-
-                    {/* Collaborators and Action Buttons Row */}
-                    {(() => {
-                      const currentPlan = collaborativePlans.find(
-                        (p) => idEquals(p._id, selectedPlanId)
-                      );
-
-                      const isPlanOwner = planOwner && idEquals(planOwner._id, user._id);
-                      const isPlanCollaborator =
-                        currentPlan &&
-                        currentPlan.permissions?.some(
-                          (p) => idEquals(p._id, user._id) && ["owner", "collaborator"].includes(p.type)
-                        );
-                      const canEdit = isPlanOwner || isPlanCollaborator;
-
-                      return (
-                        <div className="plan-header-row mb-4">
-                          {/* Collaborators Display - Left Side */}
-                          <UsersListDisplay
-                            owner={planOwner}
-                            users={planCollaborators}
-                            messageKey="PlanningExperience"
-                            loading={
-                              planOwnerLoading || planCollaboratorsLoading
-                            }
-                            reserveSpace={true}
-                          />
-
-                          {/* Action Buttons - Right Side */}
-                          <div className="plan-action-buttons">
-                            {canEdit && (
-                              <button
-                                className="btn btn-primary"
-                                onClick={() => handleAddPlanInstanceItem()}
-                              >
-                                <BsPlusCircle className="me-2" />
-                                {lang.en.button.addPlanItem}
-                              </button>
-                            )}
-                            {isPlanOwner && (
-                              <button
-                                className="btn btn-primary"
-                                onClick={() => openCollaboratorModal("plan")}
-                              >
-                                <BsPersonPlus className="me-2" />
-                                {lang.en.button.addCollaborator}
-                              </button>
-                            )}
-                            {showSyncButton && (
-                              <button
-                                className="btn btn-primary"
-                                onClick={handleSyncPlan}
-                                disabled={loading}
-                                title={lang.en.tooltip.syncPlan}
-                              >
-                                {loading
-                                  ? lang.en.button.syncing
-                                  : lang.en.button.syncNow}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    {(() => {
-                      const currentPlan = collaborativePlans.find(
-                        (p) => idEquals(p._id, selectedPlanId)
-                      );
-                      if (!currentPlan) {
-                        return (
-                          <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
-                            {lang.en.alert.planNotFound}
-                          </p>
-                        );
-                      }
-
-                      // Plan metadata
-                      const planMetadata = (
-                        <div className="plan-metrics-container mb-4">
-                          <div className="row g-3">
-                            {/* Planned Date Card */}
-                            <div className="col-md-3 col-sm-6">
-                              <div className="metric-card">
-                                <div className="metric-header">
-                                  <span className="metric-title">
-                                    {lang.en.label.plannedDate}
-                                  </span>
-                                </div>
-                                <div
-                                  className="metric-value"
-                                  ref={plannedDateRef}
-                                >
-                                  {currentPlan.planned_date ? (
-                                    formatDateMetricCard(
-                                      currentPlan.planned_date
-                                    )
-                                  ) : (
-                                    <span
-                                      className="set-date-link"
-                                      onClick={() => {
-                                        setIsEditingDate(true);
-                                        setPlannedDate(
-                                          displayedPlannedDate
-                                            ? formatDateForInput(
-                                                displayedPlannedDate
-                                              )
-                                            : ""
-                                        );
-                                        setShowDatePicker(true);
-                                        // Scroll to date picker
-                                        setTimeout(() => {
-                                          const datePicker =
-                                            document.querySelector(
-                                              ".date-picker-modal"
-                                            );
-                                          if (datePicker) {
-                                            datePicker.scrollIntoView({
-                                              behavior: "smooth",
-                                              block: "center",
-                                            });
-                                          }
-                                        }, 100);
-                                      }}
-                                      title={lang.en.tooltip.setPlannedDate}
-                                    >
-                                      {lang.en.label.setOneNow}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Total Cost Card */}
-                            <div className="col-md-3 col-sm-6">
-                              <div className="metric-card">
-                                <div className="metric-header">
-                                  <span className="metric-title">
-                                    {lang.en.label.totalCost}
-                                  </span>
-                                </div>
-                                <div className="metric-value">
-                                  {formatCurrency(currentPlan.total_cost || 0)}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Completion Card */}
-                            <div className="col-md-3 col-sm-6">
-                              <div className="metric-card">
-                                <div className="metric-header">
-                                  <span className="metric-title">
-                                    {lang.en.label.completion}
-                                  </span>
-                                </div>
-                                <div className="metric-value">
-                                  {currentPlan.completion_percentage || 0}%
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Planning Time Card */}
-                            <div className="col-md-3 col-sm-6">
-                              <div className="metric-card">
-                                <div className="metric-header">
-                                  <span className="metric-title">
-                                    {lang.en.label.planningTime}
-                                  </span>
-                                </div>
-                                <div className="metric-value">
-                                  {currentPlan.max_days || 0}{" "}
-                                  {(currentPlan.max_days || 0) === 1
-                                    ? lang.en.label.day
-                                    : lang.en.label.days}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-
-                      // Helper to flatten and mark children (same as Experience Plan Items)
-                      const flattenPlanItems = (items) => {
-                        const result = [];
-                        const addItem = (item, isChild = false) => {
-                          const isVisible =
-                            !isChild ||
-                            (expandedParents.has(item.parent) &&
-                              animatingCollapse !== item.parent);
-                          result.push({ ...item, isChild, isVisible });
-
-                          // Debug logging
-                          if (item.parent) {
-                            debug.log(
-                              `Item with parent: "${item.text}", parent: ${item.parent}, plan_item_id: ${item.plan_item_id}, _id: ${item._id}`
-                            );
-                          }
-
-                          items
-                            .filter(
-                              (sub) =>
-                                sub.parent &&
-                                sub.parent.toString() ===
-                                  (item.plan_item_id || item._id).toString()
-                            )
-                            .forEach((sub) => addItem(sub, true));
-                        };
-                        items
-                          .filter((item) => !item.parent)
-                          .forEach((item) => addItem(item, false));
-                        return result;
-                      };
-
-                      if (!currentPlan.plan || currentPlan.plan.length === 0) {
-                        return (
-                          <>
-                            {planMetadata}
-                            <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
-                              {lang.en.alert.noPlanItems}
-                            </p>
-                          </>
-                        );
-                      }
-
-                      const flattenedItems = flattenPlanItems(currentPlan.plan);
-                      const itemsToRender = flattenedItems.filter(
-                        (item) =>
-                          item.isVisible ||
-                          (item.isChild && animatingCollapse === item.parent)
-                      );
-
-                      return (
-                        <>
-                          {planMetadata}
-                          {itemsToRender.map((planItem) => (
-                            <div
-                              key={planItem.plan_item_id || planItem._id}
-                              data-plan-item-id={planItem.plan_item_id || planItem._id}
-                              className={`plan-item-card mb-3 overflow-hidden ${
-                                planItem.isVisible ? "" : "collapsed"
-                              }`}
-                            >
-                              <div className="plan-item-header p-3 p-md-4">
-                                <div className="plan-item-tree">
-                                  {!planItem.isChild ? (
-                                    (() => {
-                                      const hasChildren = currentPlan.plan.some(
-                                        (sub) =>
-                                          sub.parent &&
-                                          sub.parent.toString() ===
-                                            (
-                                              planItem.plan_item_id ||
-                                              planItem._id
-                                            ).toString()
-                                      );
-                                      if (hasChildren) {
-                                        return (
-                                          <button
-                                            className="btn btn-sm btn-link p-0 expand-toggle"
-                                            onClick={() =>
-                                              toggleExpanded(
-                                                planItem.plan_item_id ||
-                                                  planItem._id
-                                              )
-                                            }
-                                          >
-                                            {expandedParents.has(
-                                              planItem.plan_item_id ||
-                                                planItem._id
-                                            )
-                                              ? "▼"
-                                              : "▶"}
-                                          </button>
-                                        );
-                                      } else {
-                                        return (
-                                          <span className="no-child-arrow">
-                                            •
-                                          </span>
-                                        );
-                                      }
-                                    })()
-                                  ) : (
-                                    <span className="child-arrow">↳</span>
-                                  )}
-                                </div>
-                                <div className="plan-item-title flex-grow-1 fw-semibold fs-5">
-                                  {planItem.url ? (
-                                    <Link
-                                      to={planItem.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      {planItem.text}
-                                    </Link>
-                                  ) : (
-                                    <span>{planItem.text}</span>
-                                  )}
-                                </div>
-                                <div className="plan-item-actions">
-                                  {(() => {
-                                    // Get plan owner for permission checks
-                                    let planOwner = currentPlan?.user;
-                                    if (!planOwner) {
-                                      const ownerPermission =
-                                        currentPlan?.permissions?.find(
-                                          (p) => p.type === "owner"
-                                        );
-                                      if (ownerPermission?.user) {
-                                        planOwner = ownerPermission.user;
-                                      }
-                                      // Don't create fake user objects - leave planOwner as undefined if no valid user data
-                                    }
-
-                                    // Check if user can edit this plan (owner or collaborator)
-                                    const canEditPlan =
-                                      currentPlan &&
-                                      ((planOwner && idEquals(planOwner._id, user._id)) ||
-                                        currentPlan.permissions?.some((p) =>
-                                          idEquals(p._id, user._id) && ["owner", "collaborator"].includes(p.type)
-                                        ));
-
-                                    return (
-                                      <div className="d-flex gap-1">
-                                        {canEditPlan && !planItem.parent && (
-                                          <button
-                                            className="btn btn-outline-primary btn-sm"
-                                            onClick={() =>
-                                              handleAddPlanInstanceItem(
-                                                planItem.plan_item_id ||
-                                                  planItem._id
-                                              )
-                                            }
-                                            aria-label={`${lang.en.button.addChild} to ${planItem.text}`}
-                                            title={lang.en.button.addChild}
-                                          >
-                                            ✚
-                                          </button>
-                                        )}
-                                        {canEditPlan && (
-                                          <>
-                                            <button
-                                              className="btn btn-outline-secondary btn-sm"
-                                              onClick={() =>
-                                                handleEditPlanInstanceItem(
-                                                  planItem
-                                                )
-                                              }
-                                              aria-label={`${lang.en.button.edit} ${planItem.text}`}
-                                              title={lang.en.tooltip.edit}
-                                            >
-                                              ✏️
-                                            </button>
-                                            <button
-                                              className="btn btn-outline-danger btn-sm"
-                                              onClick={() => {
-                                                setPlanInstanceItemToDelete(
-                                                  planItem
-                                                );
-                                                setShowPlanInstanceDeleteModal(
-                                                  true
-                                                );
-                                              }}
-                                              aria-label={`${lang.en.button.delete} ${planItem.text}`}
-                                              title={lang.en.tooltip.delete}
-                                            >
-                                              🗑️
-                                            </button>
-                                          </>
-                                        )}
-                                        <button
-                                          className={`btn btn-sm ${
-                                            planItem.complete
-                                              ? "btn-success"
-                                              : "btn-outline-success"
-                                          }`}
-                                          type="button"
-                                          onClick={async () => {
-                                            try {
-                                              const itemId =
-                                                planItem._id ||
-                                                planItem.plan_item_id;
-
-                                              // compute new completion state
-                                              const newComplete = !planItem.complete;
-
-                                              // Update the plan item on the server
-                                              // Activity tracking happens automatically in the backend
-                                              // via trackPlanItemCompletion() in controllers/api/plans.js
-                                              await updatePlanItem(
-                                                selectedPlanId,
-                                                itemId,
-                                                {
-                                                  complete: newComplete,
-                                                }
-                                              );
-
-                                              // Refresh client plan state
-                                              await fetchCollaborativePlans();
-                                              await fetchUserPlan();
-                                              await fetchPlans(); // Refresh global plans state
-                                              // Scroll to and highlight the toggled item
-                                              try {
-                                                // If the address bar already points to this plan item
-                                                // (e.g. #plan-<planId>-item-<itemId>) and we have
-                                                // already handled that hash during initial
-                                                // navigation, avoid re-running the highlight
-                                                // animation — it's intended only for the first
-                                                // arrival at the deep-link.
-                                                try {
-                                                  const curHash = window.location.hash || '';
-                                                  const targetHash = `#plan-${selectedPlanId}-item-${itemId}`;
-                                                  if (curHash === targetHash && handledHashesRef.current.has(targetHash)) {
-                                                    // Skip re-highlighting; still optionally scroll a bit
-                                                  } else {
-                                                    await attemptScrollToItem(itemId);
-                                                  }
-                                                } catch (inner) {
-                                                  // Best-effort: fall back to attempting scroll/highlight
-                                                  await attemptScrollToItem(itemId);
-                                                }
-                                              } catch (e) {
-                                                // ignore scroll/highlight errors
-                                              }
-                                            } catch (err) {
-                                              const errorMsg = handleError(err, {
-                                                context:
-                                                  "Toggle plan item completion",
-                                              });
-                                              showError(errorMsg);
-                                            }
-                                          }}
-                                          onMouseEnter={() =>
-                                            setHoveredPlanItem(
-                                              planItem._id ||
-                                                planItem.plan_item_id
-                                            )
-                                          }
-                                          onMouseLeave={() =>
-                                            setHoveredPlanItem(null)
-                                          }
-                                          aria-label={
-                                            planItem.complete
-                                              ? `${lang.en.button.undoComplete} ${planItem.text}`
-                                              : `${lang.en.button.markComplete} ${planItem.text}`
-                                          }
-                                          aria-pressed={!!planItem.complete}
-                                          title={
-                                            planItem.complete
-                                              ? lang.en.button.undoComplete
-                                              : lang.en.button.markComplete
-                                          }
-                                        >
-                                          {planItem.complete
-                                            ? hoveredPlanItem ===
-                                              (planItem._id ||
-                                                planItem.plan_item_id)
-                                              ? lang.en.button.undoComplete
-                                              : lang.en.button.done
-                                            : lang.en.button.markComplete}
-                                        </button>
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-                              </div>
-                              <div className="plan-item-details p-2 p-md-3">
-                                {(Number(planItem.cost) > 0 ||
-                                  Number(planItem.planning_days) > 0) && (
-                                  <div className="plan-item-meta">
-                                    {Number(planItem.cost) > 0 && (
-                                      <span className="d-flex align-items-center gap-2">
-                                        <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.cost}</Text>
-                                        {formatCurrency(planItem.cost)}
-                                      </span>
-                                    )}
-                                    {Number(planItem.planning_days) > 0 && (
-                                      <span className="d-flex align-items-center gap-2">
-                                        <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.planningDays}</Text>
-                                        {planItem.planning_days}{" "}
-                                        {planItem.planning_days === 1 ? lang.en.label.day : lang.en.label.days}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                                {/* Temporarily hiding photos in My Plan
-                                {planItem.photo && (
-                                  <div className="mt-2">
-                                    <PhotoCard
-                                      photo={planItem.photo}
-                                      user={user}
-                                      showModal={() => {}}
-                                    />
-                                  </div>
-                                )}
-                                */}
-                              </div>
-                            </div>
-                          ))}
-                        </>
-                      );
-                    })()}
-                  </div>
+                  <MyPlanTabContent
+                    selectedPlanId={selectedPlanId}
+                    user={user}
+                    idEquals={idEquals}
+                    collaborativePlans={collaborativePlans}
+                    planOwner={planOwner}
+                    planCollaborators={planCollaborators}
+                    planOwnerLoading={planOwnerLoading}
+                    planCollaboratorsLoading={planCollaboratorsLoading}
+                    hashSelecting={hashSelecting}
+                    showSyncButton={showSyncButton}
+                    showSyncAlert={showSyncAlert}
+                    dismissSyncAlert={dismissSyncAlert}
+                    loading={loading}
+                    plansLoading={plansLoading}
+                    expandedParents={expandedParents}
+                    animatingCollapse={animatingCollapse}
+                    displayedPlannedDate={displayedPlannedDate}
+                    setIsEditingDate={setIsEditingDate}
+                    setPlannedDate={setPlannedDate}
+                    setShowDatePicker={setShowDatePicker}
+                    plannedDateRef={plannedDateRef}
+                    handleSyncPlan={handleSyncPlan}
+                    handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                    handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                    openCollaboratorModal={openCollaboratorModal}
+                    toggleExpanded={toggleExpanded}
+                    setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                    setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                    handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                    onReorderPlanItems={handleReorderPlanItems}
+                    hoveredPlanItem={hoveredPlanItem}
+                    setHoveredPlanItem={setHoveredPlanItem}
+                    lang={lang}
+                  />
                 )}
               </div>
             )}
@@ -3919,9 +2756,9 @@ export default function SingleExperience() {
       />
 
       {/* Add Collaborator Modal */}
-      <Modal
+      <CollaboratorModal
         show={showCollaboratorModal}
-        onClose={() => {
+        onHide={() => {
           setShowCollaboratorModal(false);
           setCollaboratorSearch("");
           setSearchResults([]);
@@ -3932,808 +2769,59 @@ export default function SingleExperience() {
           setExistingCollaborators([]);
           setRemovedCollaborators([]);
         }}
-        title={
-          collaboratorContext === "experience"
-            ? lang.en.modal.addCollaboratorToExperience
-            : lang.en.modal.addCollaboratorToPlan
+        onSearch={handleSearchUsers}
+        onAddCollaborators={handleAddCollaborator}
+        onRemoveCollaborator={handleRemoveSelectedCollaborator}
+        onSendEmailInvite={handleSendEmailInvite}
+        context={collaboratorContext}
+        searchTerm={collaboratorSearch}
+        onSearchTermChange={setCollaboratorSearch}
+        searchResults={searchResults}
+        selectedCollaborators={selectedCollaborators}
+        onToggleCollaborator={handleSelectUser}
+        existingCollaborators={
+          collaboratorContext === "plan"
+            ? planCollaborators
+            : experienceCollaborators
         }
-        dialogClassName="responsive-modal-dialog"
-        footer={
-          collaboratorAddSuccess ? (
-            // Success footer
-            <div className="modal-footer justify-content-center">
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                onClick={() => {
-                  setCollaboratorAddSuccess(false);
-                  setAddedCollaborators([]);
-                  setActuallyRemovedCollaborators([]);
-                  openCollaboratorModal(collaboratorContext);
-                }}
-              >
-                Manage More
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => {
-                  setShowCollaboratorModal(false);
-                  setCollaboratorSearch("");
-                  setSearchResults([]);
-                  setCollaboratorAddSuccess(false);
-                  setAddedCollaborators([]);
-                  setActuallyRemovedCollaborators([]);
-                  setSelectedCollaborators([]);
-                  setExistingCollaborators([]);
-                  setRemovedCollaborators([]);
-                }}
-              >
-                Done
-              </button>
-            </div>
-          ) : (
-            // Form footer
-            <div className="modal-footer justify-content-center">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  setShowCollaboratorModal(false);
-                  setCollaboratorSearch("");
-                  setSearchResults([]);
-                  setCollaboratorAddSuccess(false);
-                  setAddedCollaborators([]);
-                  setActuallyRemovedCollaborators([]);
-                  setSelectedCollaborators([]);
-                  setExistingCollaborators([]);
-                  setRemovedCollaborators([]);
-                }}
-                disabled={loading}
-              >
-                {lang.en.button.cancel}
-              </button>
-              <button
-                type="submit"
-                form="addCollaboratorForm"
-                className="btn btn-primary"
-                disabled={loading}
-              >
-                {loading ? lang.en.button.saving : lang.en.button.saveChanges}
-              </button>
-            </div>
-          )
-        }
-      >
-        {collaboratorAddSuccess ? (
-          // Success message view
-          <div style={{ textAlign: 'center', paddingTop: '3rem', paddingBottom: '3rem' }}>
-            <div className="mb-3">
-              <BsCheckCircleFill style={{ color: 'var(--bs-success)' }} size={64} />
-            </div>
-            <h4>{lang.en.alert.changesSavedSuccessfully}</h4>
-
-            {/* Show added collaborators */}
-            {addedCollaborators.length > 0 && (
-              <div className="mb-3">
-                <p style={{ color: 'var(--bs-gray-600)' }} className="mb-2">
-                  <strong>
-                    {lang.en.alert.addedCollaborators
-                      .replace("{count}", addedCollaborators.length)
-                      .replace(
-                        "{plural}",
-                        addedCollaborators.length > 1 ? "s" : ""
-                      )}
-                  </strong>
-                </p>
-                <ul className="list-unstyled">
-                  {addedCollaborators.map((collab) => (
-                    <li key={collab._id} style={{ color: 'var(--bs-success)' }}>
-                      ✓ {collab.name}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Show removed collaborators */}
-            {actuallyRemovedCollaborators.length > 0 && (
-              <div className="mb-3">
-                <p style={{ color: 'var(--bs-gray-600)' }} className="mb-2">
-                  <strong>
-                    {lang.en.alert.removedCollaborators
-                      .replace("{count}", actuallyRemovedCollaborators.length)
-                      .replace(
-                        "{plural}",
-                        actuallyRemovedCollaborators.length > 1 ? "s" : ""
-                      )}
-                  </strong>
-                </p>
-                <ul className="list-unstyled">
-                  {actuallyRemovedCollaborators.map((collab) => (
-                    <li key={collab._id} style={{ color: 'var(--bs-danger)' }}>
-                      ✗ {collab.name}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {addedCollaborators.length === 0 &&
-              actuallyRemovedCollaborators.length === 0 && (
-                <p style={{ color: 'var(--bs-gray-600)' }}>{lang.en.alert.noChangesMade}</p>
-              )}
-          </div>
-        ) : (
-          // Form view
-          <form
-            id="addCollaboratorForm"
-            className="collaborator-modal-form"
-            onSubmit={handleAddCollaborator}
-          >
-            <p style={{ color: 'var(--bs-gray-600)' }} className="mb-3">
-              {lang.en.alert.searchCollaboratorsHelp.replace(
-                "{context}",
-                collaboratorContext
-              )}
-            </p>
-
-            {/* Selected Collaborators Display */}
-            {selectedCollaborators.length > 0 && (
-              <div className="mb-3">
-                <FormLabel>
-                  {lang.en.label.selectedCollaborators}
-                </FormLabel>
-                <div className="d-flex flex-wrap gap-2">
-                  {selectedCollaborators.map((collaborator) => (
-                    <div
-                      key={collaborator._id}
-                      className="badge bg-primary d-flex align-items-center gap-2 p-2 collaborator-badge"
-                    >
-                      <span>{collaborator.name}</span>
-                      <button
-                        type="button"
-                        className="btn btn-link p-0 collaborator-remove-btn"
-                        style={{ color: 'var(--bs-white)' }}
-                        onClick={() =>
-                          handleRemoveSelectedCollaborator(collaborator._id)
-                        }
-                        title={`Remove ${collaborator.name}`}
-                      >
-                        <FaTimes />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mb-3 position-relative">
-              <FormLabel htmlFor="collaboratorSearch">
-                Search User
-              </FormLabel>
-              <FormControl
-                type="text"
-                id="collaboratorSearch"
-                value={collaboratorSearch}
-                onChange={(e) => handleSearchUsers(e.target.value)}
-                placeholder={lang.en.placeholder.searchNameOrEmail}
-                autoComplete="off"
-              />
-              {searchResults.length > 0 && (
-                <div
-                  className="position-absolute w-100 mt-1 bg-white border rounded shadow-sm search-results-dropdown"
-                >
-                  {searchResults.map((user) => (
-                    <button
-                      key={user._id}
-                      type="button"
-                      className="btn btn-light w-100 border-0 rounded-0"
-                      style={{ textAlign: 'start' }}
-                      onClick={() => handleSelectUser(user)}
-                    >
-                      <div className="fw-semibold">{user.name}</div>
-                      <small style={{ color: 'var(--bs-gray-600)' }}>{user.email}</small>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Email Invite Toggle */}
-            <div className="mb-3">
-              <button
-                type="button"
-                className="btn btn-link"
-                style={{ textDecoration: 'none' }}
-                onClick={() => {
-                  setShowEmailInviteForm(!showEmailInviteForm);
-                  setEmailInviteError("");
-                }}
-              >
-                {showEmailInviteForm
-                  ? "← Back to search"
-                  : "✉ Invite via email (for non-users)"}
-              </button>
-            </div>
-
-            {/* Email Invite Form */}
-            {showEmailInviteForm && (
-        <div className="border rounded p-3 mb-3 bg-color-tertiary">
-                <h6 className="mb-3">Send Email Invite</h6>
-
-                {emailInviteError && (
-                  <Alert
-                    type="danger"
-                    dismissible
-                    onClose={() => setEmailInviteError("")}
-                  >
-                    {emailInviteError}
-                  </Alert>
-                )}
-
-                <div className="mb-3">
-                  <FormLabel htmlFor="inviteEmail">
-                    Email Address
-                  </FormLabel>
-                  <FormControl
-                    type="email"
-                    id="inviteEmail"
-                    value={emailInviteData.email}
-                    onChange={(e) =>
-                      setEmailInviteData((prev) => ({
-                        ...prev,
-                        email: e.target.value,
-                      }))
-                    }
-                    placeholder={lang.en.placeholder.collaboratorEmail}
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <FormLabel htmlFor="inviteName">
-                    Full Name
-                  </FormLabel>
-                  <FormControl
-                    type="text"
-                    id="inviteName"
-                    value={emailInviteData.name}
-                    onChange={(e) =>
-                      setEmailInviteData((prev) => ({
-                        ...prev,
-                        name: e.target.value,
-                      }))
-                    }
-                    placeholder="Collaborator's name"
-                  />
-                </div>
-
-                <div className="alert alert-info mb-3">
-                  <small>
-                    We'll send an email to{" "}
-                    <strong>{emailInviteData.email || "this address"}</strong>{" "}
-                    inviting them to join Biensperience and collaborate on{" "}
-                    <strong>{experience?.title || "this experience"}</strong>.
-                  </small>
-                </div>
-
-                <button
-                  type="button"
-                  className="btn btn-primary w-100"
-                  onClick={handleSendEmailInvite}
-                  disabled={
-                    emailInviteSending ||
-                    !emailInviteData.email.trim() ||
-                    !emailInviteData.name.trim()
-                  }
-                >
-                  {emailInviteSending ? "Sending..." : "Send Email Invite"}
-                </button>
-              </div>
-            )}
-          </form>
-        )}
-      </Modal>
+        removedCollaborators={removedCollaborators}
+        addSuccess={collaboratorAddSuccess}
+        addedCollaborators={addedCollaborators}
+        actuallyRemovedCollaborators={actuallyRemovedCollaborators}
+        experienceName={experience?.name || ""}
+        destinationName={experience?.destination?.name || ""}
+      />
 
       {/* Sync Plan Modal */}
-      {showSyncModal && syncChanges && (
-        <Modal
-          show={true}
-          onClose={() => {
-            setShowSyncModal(false);
-            setSyncChanges(null);
-          }}
-          title={lang.en.modal.syncPlanTitle}
-          dialogClassName="responsive-modal-dialog"
-          scrollable={true}
-          submitText="Confirm Sync"
-          cancelText={lang.en.button.cancel}
-          onSubmit={confirmSyncPlan}
-          loading={loading}
-          disableSubmit={
-            selectedSyncItems.added.length === 0 &&
-            selectedSyncItems.removed.length === 0 &&
-            selectedSyncItems.modified.length === 0
-          }
-        >
-          <>
-            <p style={{ color: 'var(--bs-gray-600)' }} className="mb-3">
-              {lang.en.alert.selectChangesToApply}
-            </p>
-
-            {/* Added Items */}
-            {syncChanges.added.length > 0 && (
-              <div className="mb-4">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <h6 style={{ color: 'var(--bs-success)' }} className="mb-0">
-                    <strong>
-                      {lang.en.label.addedItems.replace(
-                        "{count}",
-                        syncChanges.added.length
-                      )}
-                    </strong>
-                  </h6>
-                  <div className="form-check sync-modal-select-all">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="selectAllAdded"
-                      checked={
-                        selectedSyncItems.added.length ===
-                        syncChanges.added.length
-                      }
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedSyncItems((prev) => ({
-                            ...prev,
-                            added: syncChanges.added.map((_, idx) => idx),
-                          }));
-                        } else {
-                          setSelectedSyncItems((prev) => ({
-                            ...prev,
-                            added: [],
-                          }));
-                        }
-                      }}
-                    />
-                    <label
-                      className="form-check-label"
-                      htmlFor="selectAllAdded"
-                    >
-                      {lang.en.label.selectAll}
-                    </label>
-                  </div>
-                </div>
-                <div className="list-group">
-                  {syncChanges.added.map((item, idx) => (
-                    <div key={idx} className="list-group-item">
-                      <div className="d-flex align-items-start">
-                        <div className="form-check me-3 mt-1">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id={`add-${idx}`}
-                            checked={selectedSyncItems.added.includes(idx)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedSyncItems((prev) => ({
-                                  ...prev,
-                                  added: [...prev.added, idx],
-                                }));
-                              } else {
-                                setSelectedSyncItems((prev) => ({
-                                  ...prev,
-                                  added: prev.added.filter((i) => i !== idx),
-                                }));
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex-grow-1">
-                          <strong>{item.text}</strong>
-                          {item.url && (
-                            <div className="small" style={{ color: 'var(--bs-gray-600)' }}>
-                              URL:{" "}
-                              <a
-                                href={item.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {item.url}
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                        <div className="ms-2" style={{ textAlign: 'end' }}>
-                          {item.cost > 0 && (
-                            <div className="badge bg-secondary">
-                              {formatCurrency(item.cost)}
-                            </div>
-                          )}
-                          {item.planning_days > 0 && (
-                            <div className="badge bg-info ms-1">
-                              {item.planning_days}{" "}
-                              {item.planning_days === 1 ? "day" : "days"}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Removed Items */}
-            {syncChanges.removed.length > 0 && (
-              <div className="mb-4">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <h6 style={{ color: 'var(--bs-danger)' }} className="mb-0">
-                    <strong>
-                      {lang.en.label.removedItems.replace(
-                        "{count}",
-                        syncChanges.removed.length
-                      )}
-                    </strong>
-                  </h6>
-                  <div className="form-check sync-modal-select-all">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="selectAllRemoved"
-                      checked={
-                        selectedSyncItems.removed.length ===
-                        syncChanges.removed.length
-                      }
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedSyncItems((prev) => ({
-                            ...prev,
-                            removed: syncChanges.removed.map((_, idx) => idx),
-                          }));
-                        } else {
-                          setSelectedSyncItems((prev) => ({
-                            ...prev,
-                            removed: [],
-                          }));
-                        }
-                      }}
-                    />
-                    <label
-                      className="form-check-label"
-                      htmlFor="selectAllRemoved"
-                    >
-                      {lang.en.label.selectAll}
-                    </label>
-                  </div>
-                </div>
-                <div className="list-group">
-                  {syncChanges.removed.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="list-group-item list-group-item-danger"
-                    >
-                      <div className="d-flex align-items-start">
-                        <div className="form-check me-3 mt-1">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id={`remove-${idx}`}
-                            checked={selectedSyncItems.removed.includes(idx)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedSyncItems((prev) => ({
-                                  ...prev,
-                                  removed: [...prev.removed, idx],
-                                }));
-                              } else {
-                                setSelectedSyncItems((prev) => ({
-                                  ...prev,
-                                  removed: prev.removed.filter(
-                                    (i) => i !== idx
-                                  ),
-                                }));
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex-grow-1">
-                          <strong>{item.text}</strong>
-                          {item.url && (
-                            <div className="small" style={{ color: 'var(--bs-gray-600)' }}>
-                              URL: {item.url}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Modified Items */}
-            {syncChanges.modified.length > 0 && (
-              <div className="mb-4">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <h6 style={{ color: 'var(--bs-warning)' }} className="mb-0">
-                    <strong>
-                      {lang.en.label.modifiedItems.replace(
-                        "{count}",
-                        syncChanges.modified.length
-                      )}
-                    </strong>
-                  </h6>
-                  <div className="form-check sync-modal-select-all">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="selectAllModified"
-                      checked={
-                        selectedSyncItems.modified.length ===
-                        syncChanges.modified.length
-                      }
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedSyncItems((prev) => ({
-                            ...prev,
-                            modified: syncChanges.modified.map((_, idx) => idx),
-                          }));
-                        } else {
-                          setSelectedSyncItems((prev) => ({
-                            ...prev,
-                            modified: [],
-                          }));
-                        }
-                      }}
-                    />
-                    <label
-                      className="form-check-label"
-                      htmlFor="selectAllModified"
-                    >
-                      {lang.en.label.selectAll}
-                    </label>
-                  </div>
-                </div>
-                <div className="list-group">
-                  {syncChanges.modified.map((item, idx) => (
-                    <div key={idx} className="list-group-item">
-                      <div className="d-flex align-items-start">
-                        <div className="form-check me-3 mt-1">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id={`modify-${idx}`}
-                            checked={selectedSyncItems.modified.includes(idx)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedSyncItems((prev) => ({
-                                  ...prev,
-                                  modified: [...prev.modified, idx],
-                                }));
-                              } else {
-                                setSelectedSyncItems((prev) => ({
-                                  ...prev,
-                                  modified: prev.modified.filter(
-                                    (i) => i !== idx
-                                  ),
-                                }));
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex-grow-1">
-                          <strong className="d-block mb-2">{item.text}</strong>
-                          {item.modifications.map((mod, modIdx) => (
-                            <div key={modIdx} className="small mb-1">
-                              <span className="badge bg-warning me-2" style={{ color: 'var(--bs-dark)' }}>
-                                {mod.field}
-                              </span>
-                              <span className="me-2" style={{ textDecoration: 'line-through', color: 'var(--bs-gray-600)' }}>
-                                {mod.field === "cost"
-                                  ? `$${(mod.old || 0).toLocaleString("en-US", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}`
-                                  : mod.field === "days"
-                                  ? `${mod.old || 0} ${
-                                      (mod.old || 0) === 1 ? "day" : "days"
-                                    }`
-                                  : mod.old || "(empty)"}
-                              </span>
-                              →
-                              <span className="ms-2" style={{ color: 'var(--bs-success)' }}>
-                                {mod.field === "cost"
-                                  ? `$${(mod.new || 0).toLocaleString("en-US", {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}`
-                                  : mod.field === "days"
-                                  ? `${mod.new || 0} ${
-                                      (mod.new || 0) === 1 ? "day" : "days"
-                                    }`
-                                  : mod.new || "(empty)"}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {syncChanges.added.length === 0 &&
-              syncChanges.removed.length === 0 &&
-              syncChanges.modified.length === 0 && (
-                <Alert
-                  type="info"
-                  title={lang.en.alert.noChangesDetected}
-                  message={lang.en.alert.planAlreadyInSync}
-                />
-              )}
-
-            <Alert
-              type="warning"
-              className="mt-3"
-              title="Note:"
-              message={lang.en.alert.syncPreserveNote}
-            />
-          </>
-        </Modal>
-      )}
-
+      <SyncPlanModal
+        show={showSyncModal}
+        onHide={() => {
+          setShowSyncModal(false);
+          setSyncChanges(null);
+        }}
+        syncChanges={syncChanges}
+        selectedSyncItems={selectedSyncItems}
+        setSelectedSyncItems={setSelectedSyncItems}
+        onConfirmSync={confirmSyncPlan}
+        loading={loading}
+        lang={lang}
+      />
       {/* Plan Instance Item Modal */}
-      <Modal
+      <PlanItemModal
         show={showPlanItemModal}
-        onClose={() => {
+        onHide={() => {
           setShowPlanItemModal(false);
           setEditingPlanItem({});
         }}
-        title={
-          planItemFormState === 1
-            ? editingPlanItem.parent
-              ? "Add Child Plan Item"
-              : "Add Plan Item"
-            : "Edit Plan Item"
-        }
-        dialogClassName="responsive-modal-dialog"
-        onSubmit={
-          activeTab === "experience"
-            ? handleSaveExperiencePlanItem
-            : handleSavePlanInstanceItem
-        }
-        submitText={
-          loading
-            ? "Saving..."
-            : planItemFormState === 1
-            ? "Add Item"
-            : "Update Item"
-        }
-        cancelText={lang.en.button.cancel}
+        editingPlanItem={editingPlanItem}
+        setEditingPlanItem={setEditingPlanItem}
+        planItemFormState={planItemFormState}
+        activeTab={activeTab}
+        onSaveExperiencePlanItem={handleSaveExperiencePlanItem}
+        onSavePlanInstanceItem={handleSavePlanInstanceItem}
         loading={loading}
-        disableSubmit={!editingPlanItem.text}
-      >
-        <form className="plan-item-modal-form">
-          <div className="mb-3">
-            <FormLabel htmlFor="planItemText">
-              {lang.en.label.itemDescription}{" "}
-              <span style={{ color: 'var(--bs-danger)' }}>*</span>
-            </FormLabel>
-            <FormControl
-              type="text"
-              id="planItemText"
-              value={editingPlanItem.text || ""}
-              onChange={(e) =>
-                setEditingPlanItem({
-                  ...editingPlanItem,
-                  text: e.target.value,
-                })
-              }
-              placeholder={lang.en.placeholder.itemDescription}
-              required
-            />
-          </div>
-
-          <div className="mb-3">
-            <FormLabel htmlFor="planItemUrl">
-              {lang.en.label.urlOptional}
-            </FormLabel>
-            <FormControl
-              type="url"
-              id="planItemUrl"
-              value={editingPlanItem.url || ""}
-              onChange={(e) =>
-                setEditingPlanItem({
-                  ...editingPlanItem,
-                  url: e.target.value,
-                })
-              }
-              placeholder={lang.en.placeholder.urlPlaceholder}
-            />
-          </div>
-
-          <div className="mb-3">
-            <label htmlFor="planItemCost" className="form-label">
-              {lang.en.label.cost}
-            </label>
-            <div className="input-group">
-              <span className="input-group-text">$</span>
-              <input
-                type="number"
-                className="form-control"
-                id="planItemCost"
-                value={editingPlanItem.cost || ""}
-                onChange={(e) =>
-                  setEditingPlanItem({
-                    ...editingPlanItem,
-                    cost: parseFloat(e.target.value) || 0,
-                  })
-                }
-                onFocus={(e) => {
-                  if (e.target.value === "0" || e.target.value === 0) {
-                    setEditingPlanItem({
-                      ...editingPlanItem,
-                      cost: "",
-                    });
-                  }
-                }}
-                onBlur={(e) => {
-                  if (e.target.value === "") {
-                    setEditingPlanItem({
-                      ...editingPlanItem,
-                      cost: 0,
-                    });
-                  }
-                }}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-
-          <div className="mb-3">
-            <label htmlFor="planItemDays" className="form-label">
-              {lang.en.label.planningTimeLabel}
-            </label>
-            <div className="input-group">
-              <input
-                type="number"
-                className="form-control"
-                id="planItemDays"
-                value={editingPlanItem.planning_days || ""}
-                onChange={(e) =>
-                  setEditingPlanItem({
-                    ...editingPlanItem,
-                    planning_days: parseInt(e.target.value) || 0,
-                  })
-                }
-                onFocus={(e) => {
-                  if (e.target.value === "0" || e.target.value === 0) {
-                    setEditingPlanItem({
-                      ...editingPlanItem,
-                      planning_days: "",
-                    });
-                  }
-                }}
-                onBlur={(e) => {
-                  if (e.target.value === "") {
-                    setEditingPlanItem({
-                      ...editingPlanItem,
-                      planning_days: 0,
-                    });
-                  }
-                }}
-                min="0"
-                placeholder="0"
-              />
-              <span className="input-group-text">days</span>
-            </div>
-          </div>
-        </form>
-      </Modal>
+        lang={lang}
+      />
     </>
   );
 }

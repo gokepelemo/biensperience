@@ -1,161 +1,185 @@
 /**
  * PlanItemModal Component
- * Modal for adding/editing plan items
+ * Unified modal for adding or editing plan items (experience or plan instance)
+ * Handles form state, validation, and submission
  */
 
-import { useState, useEffect } from 'react';
 import { Form } from 'react-bootstrap';
 import Modal from '../../../components/Modal/Modal';
-import FormField from '../../../components/FormField/FormField';
+
+const { Label: FormLabel, Control: FormControl } = Form;
 
 export default function PlanItemModal({
+  // Modal state
   show,
   onHide,
-  onSubmit,
-  isEditing = false,
-  initialData = {},
-  parentItems = [],
-  title
+
+  // Form state
+  editingPlanItem,
+  setEditingPlanItem,
+  planItemFormState, // 1 = add, 2 = edit
+
+  // Context
+  activeTab, // "experience" or "myplan"
+
+  // Handlers
+  onSaveExperiencePlanItem,
+  onSavePlanInstanceItem,
+
+  // UI state
+  loading,
+
+  // Language strings
+  lang
 }) {
-  const [formData, setFormData] = useState({
-    text: '',
-    url: '',
-    cost_estimate: '',
-    planning_days: '',
-    parent: '',
-    ...initialData
-  });
+  const handleSubmit = activeTab === "experience"
+    ? onSaveExperiencePlanItem
+    : onSavePlanInstanceItem;
 
-  // Reset form when modal opens/closes or initial data changes
-  useEffect(() => {
-    if (show) {
-      setFormData({
-        text: '',
-        url: '',
-        cost_estimate: '',
-        planning_days: '',
-        parent: '',
-        ...initialData
-      });
-    }
-  }, [show, initialData]);
+  const modalTitle = planItemFormState === 1
+    ? (editingPlanItem.parent ? "Add Child Plan Item" : "Add Plan Item")
+    : "Edit Plan Item";
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  const handleCancel = () => {
-    setFormData({
-      text: '',
-      url: '',
-      cost_estimate: '',
-      planning_days: '',
-      parent: ''
-    });
-    onHide();
-  };
+  const submitText = loading
+    ? "Saving..."
+    : planItemFormState === 1
+    ? "Add Item"
+    : "Update Item";
 
   return (
     <Modal
       show={show}
-      onHide={handleCancel}
-      title={title || (isEditing ? 'Edit Plan Item' : 'Add Plan Item')}
-      size="lg"
+      onClose={onHide}
+      title={modalTitle}
+      dialogClassName="responsive-modal-dialog"
+      onSubmit={handleSubmit}
+      submitText={submitText}
+      cancelText={lang.en.button.cancel}
+      loading={loading}
+      disableSubmit={!editingPlanItem.text}
     >
-      <Form onSubmit={handleSubmit}>
-        <FormField
-          label="Item Description"
-          type="text"
-          name="text"
-          value={formData.text}
-          onChange={handleChange}
-          required
-          placeholder="e.g., Book flight tickets"
-          tooltipText="Describe what needs to be done for this plan item"
-        />
-
-        <FormField
-          label="URL (optional)"
-          type="url"
-          name="url"
-          value={formData.url}
-          onChange={handleChange}
-          placeholder="https://example.com"
-          tooltipText="Add a relevant link (booking site, information page, etc.)"
-        />
-
-        <FormField
-          label="Cost Estimate"
-          type="number"
-          name="cost_estimate"
-          value={formData.cost_estimate}
-          onChange={handleChange}
-          min="0"
-          step="0.01"
-          placeholder="0.00"
-          prepend="$"
-          tooltipText="Estimated cost for this item in USD"
-        />
-
-        <FormField
-          label="Planning Days"
-          type="number"
-          name="planning_days"
-          value={formData.planning_days}
-          onChange={handleChange}
-          min="0"
-          placeholder="0"
-          append="days"
-          tooltipText="How many days before the trip should this be completed?"
-        />
-
-        {parentItems && parentItems.length > 0 && (
-          <Form.Group className="mb-3">
-            <Form.Label>Parent Item (optional)</Form.Label>
-            <Form.Select
-              name="parent"
-              value={formData.parent}
-              onChange={handleChange}
-            >
-              <option value="">None (top-level item)</option>
-              {parentItems.map(item => (
-                <option key={item._id} value={item._id}>
-                  {item.text}
-                </option>
-              ))}
-            </Form.Select>
-            <Form.Text className="text-muted">
-              Make this a sub-item of another plan item
-            </Form.Text>
-          </Form.Group>
-        )}
-
-        <div className="d-flex justify-content-end gap-2">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleCancel}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={!formData.text?.trim()}
-          >
-            {isEditing ? 'Update' : 'Add'} Item
-          </button>
+      <form className="plan-item-modal-form">
+        {/* Item Description */}
+        <div className="mb-3">
+          <FormLabel htmlFor="planItemText">
+            {lang.en.label.itemDescription}{" "}
+            <span style={{ color: 'var(--bs-danger)' }}>*</span>
+          </FormLabel>
+          <FormControl
+            type="text"
+            id="planItemText"
+            value={editingPlanItem.text || ""}
+            onChange={(e) =>
+              setEditingPlanItem({
+                ...editingPlanItem,
+                text: e.target.value,
+              })
+            }
+            placeholder={lang.en.placeholder.itemDescription}
+            required
+          />
         </div>
-      </Form>
+
+        {/* URL (Optional) */}
+        <div className="mb-3">
+          <FormLabel htmlFor="planItemUrl">
+            {lang.en.label.urlOptional}
+          </FormLabel>
+          <FormControl
+            type="url"
+            id="planItemUrl"
+            value={editingPlanItem.url || ""}
+            onChange={(e) =>
+              setEditingPlanItem({
+                ...editingPlanItem,
+                url: e.target.value,
+              })
+            }
+            placeholder={lang.en.placeholder.urlPlaceholder}
+          />
+        </div>
+
+        {/* Cost */}
+        <div className="mb-3">
+          <label htmlFor="planItemCost" className="form-label">
+            {lang.en.label.cost}
+          </label>
+          <div className="input-group">
+            <span className="input-group-text">$</span>
+            <input
+              type="number"
+              className="form-control"
+              id="planItemCost"
+              value={editingPlanItem.cost || ""}
+              onChange={(e) =>
+                setEditingPlanItem({
+                  ...editingPlanItem,
+                  cost: parseFloat(e.target.value) || 0,
+                })
+              }
+              onFocus={(e) => {
+                if (e.target.value === "0" || e.target.value === 0) {
+                  setEditingPlanItem({
+                    ...editingPlanItem,
+                    cost: "",
+                  });
+                }
+              }}
+              onBlur={(e) => {
+                if (e.target.value === "") {
+                  setEditingPlanItem({
+                    ...editingPlanItem,
+                    cost: 0,
+                  });
+                }
+              }}
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+            />
+          </div>
+        </div>
+
+        {/* Planning Days */}
+        <div className="mb-3">
+          <label htmlFor="planItemDays" className="form-label">
+            {lang.en.label.planningTimeLabel}
+          </label>
+          <div className="input-group">
+            <input
+              type="number"
+              className="form-control"
+              id="planItemDays"
+              value={editingPlanItem.planning_days || ""}
+              onChange={(e) =>
+                setEditingPlanItem({
+                  ...editingPlanItem,
+                  planning_days: parseInt(e.target.value) || 0,
+                })
+              }
+              onFocus={(e) => {
+                if (e.target.value === "0" || e.target.value === 0) {
+                  setEditingPlanItem({
+                    ...editingPlanItem,
+                    planning_days: "",
+                  });
+                }
+              }}
+              onBlur={(e) => {
+                if (e.target.value === "") {
+                  setEditingPlanItem({
+                    ...editingPlanItem,
+                    planning_days: 0,
+                  });
+                }
+              }}
+              min="0"
+              placeholder="0"
+            />
+            <span className="input-group-text">days</span>
+          </div>
+        </div>
+      </form>
     </Modal>
   );
 }

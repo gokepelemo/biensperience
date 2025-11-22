@@ -30,6 +30,21 @@ const permissionSchema = new Schema({
 }, { _id: false });
 
 /**
+ * Note schema for plan item details
+ */
+const noteSchema = new Schema({
+  user: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  content: {
+    type: String,
+    required: true
+  }
+}, { timestamps: true }); // createdAt and updatedAt
+
+/**
  * Plan item snapshot schema
  * Point-in-time snapshot of plan items for this specific user's plan
  */
@@ -56,32 +71,53 @@ const planItemSnapshotSchema = new Schema({
   url: String,
   photo: { type: Schema.Types.ObjectId, ref: "Photo" },
   parent: { type: Schema.Types.ObjectId },
-  // Optional location object: plain text `address` and a GeoJSON `Point`
-  // stored at `location.geo` as { type: 'Point', coordinates: [lng, lat] }
-  location: {
-    address: { type: String },
-    geo: {
-      type: {
-        type: String,
-        enum: ['Point'],
-        default: 'Point'
+  // Plan item details (notes, location, chat, photos, documents)
+  details: {
+    type: new Schema({
+      notes: {
+        type: [noteSchema],
+        default: []
       },
-      coordinates: {
-        type: [Number], // [longitude, latitude]
-        validate: {
-          validator: function(v) {
-              // allow empty (no location), an empty array, or an array of two numbers [lng, lat]
-              // Some clients may send an empty array `[]` while location is not yet available;
-              // treat that as "no location" to avoid failing validation during interim API requests.
-              if (v == null) return true; // null or undefined
-              if (Array.isArray(v) && v.length === 0) return true; // allow empty array
-              return Array.isArray(v) && v.length === 2 && v.every(n => typeof n === 'number');
-          },
-          message: 'GeoJSON coordinates must be an array of two numbers [lng, lat]'
-        }
+      location: {
+        type: Schema.Types.Mixed, // Future: { address: String, geo: GeoJSON Point }
+        default: null
+      },
+      chat: {
+        type: [Schema.Types.Mixed], // Future: chat message schema
+        default: []
+      },
+      photos: {
+        type: [Schema.Types.ObjectId],
+        ref: 'Photo',
+        default: []
+      },
+      documents: {
+        type: [Schema.Types.Mixed], // Future: document schema
+        default: []
       }
-    }
-  }
+    }, { _id: false }),
+    default: () => ({ notes: [], location: null, chat: [], photos: [], documents: [] })
+  },
+  // Assignment to collaborator or owner
+  assignedTo: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  // NOTE: `location` is temporarily disabled at plan item level.
+  // Purpose: when enabled, this stores a plan-item level address and a
+  // GeoJSON `Point` for geocoding and spatial queries. It's commented out
+  // for now to avoid validation and migration issues while the geocoding
+  // integration and data migration strategy are finalized.
+  //
+  // Example intended shape when enabled:
+  // location: {
+  //   address: { type: String },
+  //   geo: {
+  //     type: { type: String, enum: ['Point'], default: 'Point' },
+  //     coordinates: { type: [Number] } // [lng, lat]
+  //   }
+  // }
 }, { _id: true });
 
 /**
@@ -175,7 +211,10 @@ planSchema.index({ experience: 1 });
 planSchema.index({ experience: 1, 'permissions._id': 1, 'permissions.type': 1 });  // For getExperiencePlans queries
 
 // Spatial index for plan item locations (GeoJSON Points stored on each plan item)
-planSchema.index({ 'plan.location.geo': '2dsphere' });
+// Temporarily disabled while `location` field is commented out above.
+// Re-enable this index when plan item geocoding is integrated and data
+// migration has been executed to populate `plan.location.geo.coordinates`.
+// planSchema.index({ 'plan.location.geo': '2dsphere' });
 
 /**
  * Virtual property for total cost

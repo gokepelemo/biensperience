@@ -43,7 +43,9 @@ export default function HashLink({
   className = '',
   style = {},
   disabled = false,
-  ...props
+  activitySource, // Extract to prevent passing to DOM
+  shouldShake,    // Extract to prevent passing to DOM
+  ...props        // Remaining props safe for DOM
 }) {
   const navigate = useNavigate();
 
@@ -85,12 +87,19 @@ export default function HashLink({
         if (cleanHash) {
           // Allow callers to pass metadata (e.g., activitySource or shouldShake)
           const meta = {};
-          if (props && props.activitySource) meta.activitySource = props.activitySource;
-          if (props && props.shouldShake) meta.shouldShake = true;
+          if (activitySource) meta.activitySource = activitySource;
+          if (shouldShake) meta.shouldShake = true;
 
           try {
             storeHash(cleanHash, window.location.pathname, Object.keys(meta).length ? meta : null);
+            console.log('[HashLink] ✅ Stored hash for cross-navigation:', {
+              hash: cleanHash,
+              originPath: window.location.pathname,
+              targetPath: path,
+              meta
+            });
           } catch (err) {
+            console.error('[HashLink] ❌ Failed to store hash:', err);
             try { storeHash(cleanHash, null, Object.keys(meta).length ? meta : null); } catch (e) { storeHash(cleanHash); }
           }
         }

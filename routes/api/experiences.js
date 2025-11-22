@@ -20,6 +20,7 @@ router.get('/:id', experiencesCtrl.show);
 router.post('/:experienceId/plan-item', ensureLoggedIn, modificationLimiter, experiencesCtrl.createPlanItem);
 router.delete('/:experienceId/plan-item/:planItemId', ensureLoggedIn, modificationLimiter, experiencesCtrl.deletePlanItem);
 router.put('/:experienceId/plan-item/:planItemId', ensureLoggedIn, modificationLimiter, experiencesCtrl.updatePlanItem);
+router.put('/:experienceId/reorder-plan-items', ensureLoggedIn, modificationLimiter, experiencesCtrl.reorderExperiencePlanItems);
 
 // Photo management routes
 router.post('/:id/photos', ensureLoggedIn, modificationLimiter, experiencesCtrl.addPhoto);

@@ -3,6 +3,7 @@ import { Card, Button } from 'react-bootstrap';
 import { FaClock, FaStar, FaExternalLinkAlt } from 'react-icons/fa';
 import PropTypes from 'prop-types';
 import { Heading, HashLink } from '../design-system';
+import { getUser } from '../../utilities/users-service';
 import { getActivityFeed } from '../../utilities/dashboard-api';
 import { logger } from '../../utilities/logger';
 
@@ -11,7 +12,7 @@ import { logger } from '../../utilities/logger';
  * Shows a list of recent actions with timestamps and clickable links to entities
  */
 export default function ActivityList({ title = "Recent Activity", initialActivities = [] }) {
-  const [activities, setActivities] = useState(initialActivities);
+  const [activities, setActivities] = useState([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, totalPages: 1, totalCount: 0 });
@@ -80,9 +81,13 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
       const response = await getActivityFeed(pageToLoad, pagination.limit);
 
       if (response.activities) {
-        setActivities(response.activities);
+        // Ensure we only show activities related to the current logged-in user
+        const user = getUser();
+        const filtered = user ? response.activities.filter(a => (a.actorId === user._id || a.targetId === user._id)) : response.activities;
+
+        setActivities(filtered);
         setPage(response.pagination.page || pageToLoad);
-        setPagination(response.pagination || { page: pageToLoad, limit: pagination.limit, totalPages: 1, totalCount: response.activities.length });
+        setPagination(response.pagination || { page: pageToLoad, limit: pagination.limit, totalPages: 1, totalCount: filtered.length });
       } else {
         setActivities([]);
         setPagination({ page: 1, limit: pagination.limit, totalPages: 1, totalCount: 0 });
@@ -115,8 +120,11 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
   // If initialActivities provided and server didn't include pagination yet,
   // seed the list immediately while the first page request resolves.
   useEffect(() => {
+    // If initialActivities provided, seed the list but only with items related to the current user
     if (initialActivities && initialActivities.length > 0 && activities.length === 0) {
-      setActivities(initialActivities);
+      const user = getUser();
+      const filtered = user ? initialActivities.filter(a => (a.actorId === user._id || a.targetId === user._id)) : initialActivities;
+      setActivities(filtered);
     }
   }, [initialActivities]);
 

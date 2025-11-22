@@ -345,8 +345,19 @@ async function getRecentActivity(userId, options = {}) {
       if (activity.resource?.type === 'Plan') {
         try {
           const plan = await Plan.findById(activity.resource.id).populate('experience', 'name').lean();
+
+          // Prefer an explicit plan name recorded on the activity (resource.name) if present.
+          // Fall back to the experience name when a plan-level name isn't available.
           if (plan && plan.experience) {
-            resourceName = plan.experience.name;
+            // Prefer a meaningful plan name when present. If the recorded resource name
+            // is the generic label "Plan" (or missing), prefer the experience name.
+            const recordedName = activity.resource?.name;
+            if (recordedName && typeof recordedName === 'string' && recordedName.trim().toLowerCase() !== 'plan') {
+              resourceName = recordedName;
+            } else {
+              resourceName = plan.experience.name;
+            }
+
             // Create hash-based deep link to specific plan
             resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}`;
 
@@ -358,6 +369,20 @@ async function getRecentActivity(userId, options = {}) {
                 resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}-item-${itemId}`;
               } catch (err) {
                 // ignore conversion errors and fall back to plan-level link
+              }
+            }
+          } else {
+            // Plan record might have been deleted (plan_deleted). Try to recover experience
+            // information from previousState or metadata so links still point to the experience.
+            if (activity.previousState && activity.previousState.experience) {
+              try {
+                const exp = activity.previousState.experience;
+                const expId = (typeof exp === 'object' && exp._id) ? exp._id.toString() : exp.toString();
+                const expName = (typeof exp === 'object' && exp.name) ? exp.name : activity.resource?.name || 'Experience';
+                resourceName = expName;
+                resourceLink = `/experiences/${expId}`;
+              } catch (err) {
+                backendLogger.debug('Failed to recover experience from previousState for deleted plan activity', { activityId: activity._id });
               }
             }
           }
@@ -408,7 +433,13 @@ async function getRecentActivity(userId, options = {}) {
         link: resourceLink,
         time: formatTimeAgo(activity.timestamp),
         timestamp: activity.timestamp,
-        resourceType: activity.resource?.type
+        resourceType: activity.resource?.type,
+        // Include actor/target ids so clients can filter reliably
+        actorId: activity.actor?._id?.toString(),
+        targetId: activity.target?.id?.toString(),
+        // Also include actor/target display names so UI can render them without extra lookups
+        actorName: activity.actor?.name || null,
+        targetName: targetName || activity.target?.name || null
       };
     }));
 

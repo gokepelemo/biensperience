@@ -109,10 +109,22 @@ export function DataProvider({ children }) {
   }, [experiencesFilters]);
 
   const applyDestinationsFilter = useCallback(async (filters = {}) => {
-    setDestinationsFilters(filters || {});
+    const cleanFilters = filters || {};
+    setDestinationsFilters(cleanFilters);
+
+    // Set loading state BEFORE clearing destinations
+    // This prevents "No destinations" flash while filter is being applied
+    setLoading(true);
+
     setDestinations([]);
     setDestinationsMeta({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
-    return await fetchDestinations();
+
+    try {
+      return await fetchDestinations();
+    } finally {
+      // Clear loading state after filter is applied
+      setLoading(false);
+    }
   }, [fetchDestinations]);
 
   /**
@@ -310,14 +322,34 @@ export function DataProvider({ children }) {
 
     try {
       const data = await getUserPlans();
-      setPlans(data || []);
+      // Merge canonical plans with any optimistic plan state to avoid
+      // stomping optimistic UI entries (temp plans) returned by the client.
+      let merged = Array.isArray(data) ? data.slice() : (data || []);
+      try {
+        Object.entries(optimisticPlanState || {}).forEach(([expId, entry]) => {
+          const opt = entry && entry.state ? entry.state : null;
+          if (!opt || !opt.userPlan) return;
+          const up = opt.userPlan;
+          // If optimistic userPlan already present in merged, replace it with optimistic copy
+          const idx = merged.findIndex(p => p._id && up._id && p._id.toString() === up._id.toString());
+          if (idx >= 0) {
+            merged[idx] = { ...merged[idx], ...up };
+          } else {
+            // Ensure optimistic plan appears in the canonical list so UI keeps showing it
+            merged = [up, ...merged];
+          }
+        });
+      } catch (err) {
+        logger.debug('Failed to merge optimistic plans into fetched plans', { error: err?.message });
+      }
+      setPlans(merged || []);
       setLastUpdated(prev => ({ ...prev, plans: new Date() }));
       return data || [];
     } catch (error) {
       logger.error('Failed to fetch plans', { error: error.message });
       return [];
     }
-  }, [user]);
+  }, [user, optimisticPlanState]);
 
   /**
    * Refresh all data (destinations, experiences, and plans)
@@ -563,6 +595,11 @@ export function DataProvider({ children }) {
       hasViewSpecific: cleanFilters.__viewSpecific,
       isEmpty: Object.keys(cleanFilters).length === 0
     });
+
+    // Set loading state BEFORE clearing experiences
+    // This prevents "No experiences" flash while filter is being applied
+    setLoading(true);
+
     // Reset experiences and fetch first page with filters
     setExperiences([]);
     setExperiencesMeta({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
@@ -590,6 +627,9 @@ export function DataProvider({ children }) {
     } catch (error) {
       logger.error('Failed to apply experiences filter', { error: error.message });
       return [];
+    } finally {
+      // Clear loading state after filter is applied
+      setLoading(false);
     }
   }, []);
 
@@ -622,14 +662,38 @@ export function DataProvider({ children }) {
         const detail = e?.detail || {};
         const plan = detail.plan;
         if (!plan || !plan._id) return;
-        setPlans(prev => {
-          const exists = prev.some(p => p._id && p._id.toString() === plan._id.toString());
-          if (exists) {
-            return prev.map(p => (p._id && p._id.toString() === plan._id.toString() ? plan : p));
-          }
-          return [plan, ...prev];
-        });
-        setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+        // If there's a recent optimistic marker for the experience, delay applying
+        // the canonical plan create so the optimistic UI isn't immediately overwritten.
+        const rawExp = detail.experienceId || plan?.experience?._id || plan?.experience || null;
+        const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        const opt = optimisticPlanState[expId];
+        const now = Date.now();
+        const GRACE_MS = 2000;
+        if (opt && now - (opt.at || 0) < GRACE_MS) {
+          logger.debug('[DataContext] delaying plan:create apply due to optimistic plan state', { expId, delayMs: GRACE_MS });
+          setTimeout(() => {
+            setPlans(prev => {
+              const exists = prev.some(p => p._id && p._id.toString() === plan._id.toString());
+              if (exists) {
+                return prev.map(p => (p._id && p._id.toString() === plan._id.toString() ? plan : p));
+              }
+              return [plan, ...prev];
+            });
+            setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+            // after applying canonical plan, clear optimistic marker for this experience
+            setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
+            logger.debug('[DataContext] applied delayed plan:create update', { expId, appliedAt: Date.now() });
+          }, Math.max(800, GRACE_MS));
+        } else {
+          setPlans(prev => {
+            const exists = prev.some(p => p._id && p._id.toString() === plan._id.toString());
+            if (exists) {
+              return prev.map(p => (p._id && p._id.toString() === plan._id.toString() ? plan : p));
+            }
+            return [plan, ...prev];
+          });
+          setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+        }
         // Also refresh the related experience in context so views that read
         // from DataContext don't get a stale experience after a plan change.
         (async () => {
@@ -693,8 +757,30 @@ export function DataProvider({ children }) {
         const detail = e?.detail || {};
         const plan = detail.plan;
         if (!plan || !plan._id) return;
-        setPlans(prev => prev.map(p => (p._id && plan._id && p._id.toString() === plan._id.toString() ? { ...p, ...plan } : p)));
-        setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+        // Guard plan updates by optimistic marker for the related experience
+        (async () => {
+          try {
+            const rawExp = detail.experienceId || plan?.experience?._id || plan?.experience || null;
+            const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+            const opt = optimisticPlanState[expId];
+            const now = Date.now();
+            const GRACE_MS = 2000;
+            if (opt && now - (opt.at || 0) < GRACE_MS) {
+              logger.debug('[DataContext] delaying plan:update apply due to optimistic plan state', { expId, delayMs: GRACE_MS });
+              setTimeout(() => {
+                setPlans(prev => prev.map(p => (p._id && plan._id && p._id.toString() === plan._id.toString() ? { ...p, ...plan } : p)));
+                setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+                setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
+                logger.debug('[DataContext] applied delayed plan:update', { expId, appliedAt: Date.now() });
+              }, Math.max(800, GRACE_MS));
+            } else {
+              setPlans(prev => prev.map(p => (p._id && plan._id && p._id.toString() === plan._id.toString() ? { ...p, ...plan } : p)));
+              setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+            }
+          } catch (err) {
+            logger.warn('Failed handling delayed plan:update', { error: err?.message });
+          }
+        })();
         // Keep the related experience fresh as well. Use same cautious merge strategy
         (async () => {
           try {

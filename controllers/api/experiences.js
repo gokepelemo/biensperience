@@ -1818,6 +1818,156 @@ async function transferOwnership(req, res) {
   }
 }
 
+/**
+ * PUT /api/experiences/:experienceId/reorder-plan-items
+ * Reorder experience plan items
+ */
+async function reorderExperiencePlanItems(req, res) {
+  const { experienceId } = req.params;
+  const { plan_items: reorderedItems } = req.body;
+
+  backendLogger.debug('Experience plan items reorder request received', {
+    experienceId,
+    itemCount: reorderedItems?.length,
+    userId: req.user?._id?.toString()
+  });
+
+  try {
+    // Validate experience ID
+    if (!mongoose.Types.ObjectId.isValid(experienceId)) {
+      backendLogger.warn('Invalid experience ID format', { experienceId });
+      return res.status(400).json({ error: "Invalid experience ID" });
+    }
+
+    // Validate reorderedItems
+    if (!Array.isArray(reorderedItems)) {
+      backendLogger.warn('Invalid plan items format - not an array', {
+        experienceId,
+        receivedType: typeof reorderedItems
+      });
+      return res.status(400).json({ error: "Plan items must be an array" });
+    }
+
+    let experience = await Experience.findById(experienceId);
+
+    if (!experience) {
+      backendLogger.warn('Experience not found', { experienceId });
+      return res.status(404).json({ error: "Experience not found" });
+    }
+
+    // Check permissions - must be owner or collaborator
+    const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+    const permCheck = await enforcer.canEdit({
+      userId: req.user._id,
+      resource: experience
+    });
+
+    if (!permCheck.allowed) {
+      backendLogger.warn('Insufficient permissions to reorder experience plan items', {
+        experienceId,
+        userId: req.user._id.toString(),
+        reason: permCheck.reason
+      });
+      return res.status(403).json({
+        error: "Insufficient permissions to reorder this experience's plan",
+        message: permCheck.reason
+      });
+    }
+
+    // Validate that reordered items match existing items
+    const existingIds = new Set(experience.plan_items.map(item => item._id.toString()));
+    const reorderedIds = new Set(reorderedItems.map(item => item._id.toString()));
+
+    if (existingIds.size !== reorderedIds.size) {
+      backendLogger.warn('Reordered items count mismatch', {
+        experienceId,
+        existingCount: existingIds.size,
+        reorderedCount: reorderedIds.size
+      });
+      return res.status(400).json({
+        error: "Item count mismatch",
+        message: "Reordered items must match existing items"
+      });
+    }
+
+    for (const id of existingIds) {
+      if (!reorderedIds.has(id)) {
+        backendLogger.warn('Reordered items contain unknown ID', {
+          experienceId,
+          unknownId: id
+        });
+        return res.status(400).json({
+          error: "Invalid item ID",
+          message: "Reordered items contain IDs not in original plan"
+        });
+      }
+    }
+
+    // Update the experience with reordered items
+    experience.plan_items = reorderedItems;
+    await experience.save();
+
+    // Track the update activity
+    await trackUpdate({
+      userId: req.user._id,
+      resourceType: 'Experience',
+      resourceId: experience._id,
+      changes: {
+        field: 'plan_items',
+        action: 'reordered',
+        itemCount: reorderedItems.length
+      }
+    });
+
+    backendLogger.info('Experience plan items reordered successfully', {
+      experienceId,
+      itemCount: reorderedItems.length,
+      userId: req.user._id.toString()
+    });
+
+    // Re-fetch with populated data for consistent response
+    experience = await Experience.findById(experienceId)
+      .populate("destination")
+      .populate({
+        path: "user",
+        select: "name email photo photos default_photo_id",
+        populate: [
+          {
+            path: "photo",
+            model: "Photo"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ]
+      })
+      .populate({
+        path: "permissions._id",
+        populate: [
+          {
+            path: "photo",
+            select: "url caption"
+          },
+          {
+            path: "photos",
+            model: "Photo"
+          }
+        ],
+        select: "name photo photos default_photo_id"
+      });
+
+    res.json(experience);
+  } catch (err) {
+    backendLogger.error('Error reordering experience plan items', {
+      experienceId,
+      error: err.message,
+      userId: req.user._id.toString()
+    });
+    res.status(400).json({ error: 'Failed to reorder plan items' });
+  }
+}
+
 module.exports = {
   create: createExperience,
   show: showExperience,
@@ -1829,6 +1979,7 @@ module.exports = {
   createPlanItem,
   updatePlanItem,
   deletePlanItem,
+  reorderExperiencePlanItems,
   showUserExperiences,
   showUserCreatedExperiences,
   getTagName,

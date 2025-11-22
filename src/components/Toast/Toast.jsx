@@ -128,10 +128,28 @@ export default function Toast({
       autohide={false} // We handle autohide manually
     >
       {header && (
-        <BootstrapToast.Header closeButton={showCloseButton} className={textClass}>
+        <BootstrapToast.Header
+          closeButton={showCloseButton}
+          closeVariant={['light', 'warning', 'info', 'secondary'].includes(variant) ? 'black' : 'white'}
+          className={textClass}
+        >
           {getIcon()}
           <strong className="me-auto">{header}</strong>
         </BootstrapToast.Header>
+      )}
+      {!header && showCloseButton && (
+        <button
+          type="button"
+          className={`btn-close ${['light', 'warning', 'info', 'secondary'].includes(variant) ? '' : 'btn-close-white'}`}
+          aria-label="Close"
+          onClick={handleClose}
+          style={{
+            position: 'absolute',
+            top: '0.5rem',
+            right: '0.5rem',
+            zIndex: 2
+          }}
+        />
       )}
       <BootstrapToast.Body className={textClass}>
         <div className="d-flex align-items-start">
@@ -140,7 +158,7 @@ export default function Toast({
               {getIcon()}
             </div>
           )}
-          <div className="flex-grow-1">
+          <div className="flex-grow-1 toast-message-content">
             {message}
             {actions && (
               <div className="toast-actions">
@@ -162,16 +180,6 @@ export default function Toast({
               </div>
             )}
           </div>
-          {!header && showCloseButton && (
-            <button
-              type="button"
-              className="btn-close btn-close-white"
-              aria-label="Close"
-              onClick={handleClose}
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
-          )}
         </div>
       </BootstrapToast.Body>
     </BootstrapToast>

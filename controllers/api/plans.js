@@ -136,66 +136,83 @@ const createPlan = asyncHandler(async (req, res) => {
   backendLogger.info('Plan created successfully', {
     planId: plan._id.toString(),
     experienceId: experienceId.toString(),
-    userId: req.user._id.toString()
+    userId: req.user._id.toString(),
+    planItemsCount: plan.plan?.length || 0
   });
 
-  // Add user as contributor to experience if not already owner/collaborator
-  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
-  const userRole = await enforcer.getUserRole(req.user._id, experience);
+  // OPTIMIZATION: Manually populate with data we already have in memory
+  // This avoids additional database queries and returns instantly
+  const quickPopulatedPlan = {
+    ...plan.toObject(),
+    experience: {
+      _id: experience._id,
+      name: experience.name,
+      destination: experience.destination,
+      photos: experience.photos,
+      default_photo_id: experience.default_photo_id
+    },
+    user: {
+      _id: req.user._id,
+      name: req.user.name,
+      email: req.user.email,
+      photos: req.user.photos,
+      default_photo_id: req.user.default_photo_id
+    }
+  };
 
-  // Only add as contributor if user has no existing role (SECURE)
-  if (!userRole) {
-    await enforcer.addPermission({
-      resource: experience,
-      permission: {
-        _id: req.user._id,
-        entity: 'user',
-        type: 'contributor'
-      },
-      actorId: req.user._id,
-      reason: 'User created plan for experience',
-      metadata: {
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-        requestPath: req.path,
-        requestMethod: req.method
-      },
-      allowSelfContributor: true  // Allow user to add themselves as contributor
-    });
-    // Permission saved by enforcer, no need to save again
-  }
+  // Return immediately for fast response
+  res.status(201).json(quickPopulatedPlan);
 
-  const populatedPlan = await Plan.findById(plan._id)
-    .populate('experience', 'name destination photos default_photo_id')
-    .populate({
-      path: 'user',
-      select: 'name email photos default_photo_id',
-      populate: {
-        path: 'photos',
-        select: 'url caption'
+  // Do permission enforcement and tracking asynchronously (don't block response)
+  setImmediate(async () => {
+    try {
+      const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+      const userRole = await enforcer.getUserRole(req.user._id, experience);
+
+      // Only add as contributor if user has no existing role (SECURE)
+      if (!userRole) {
+        await enforcer.addPermission({
+          resource: experience,
+          permission: {
+            _id: req.user._id,
+            entity: 'user',
+            type: 'contributor'
+          },
+          actorId: req.user._id,
+          reason: 'User created plan for experience',
+          metadata: {
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent'),
+            requestPath: req.path,
+            requestMethod: req.method
+          },
+          allowSelfContributor: true
+        });
       }
-    });
 
-  if (!populatedPlan) {
-    backendLogger.error('Plan was created but could not be found for population', {
-      planId: plan._id.toString(),
-      experienceId,
-      userId: req.user._id.toString()
-    });
-    // Return the unpopulated plan rather than failing
-    return res.status(201).json(plan);
-  }
-
-  // Track creation (non-blocking)
-  trackCreate({
-    resource: populatedPlan,
-    resourceType: 'Plan',
-    actor: req.user,
-    req,
-    reason: `Plan created for experience "${experience.name}"`
+      // Track creation (non-blocking)
+      // Populate experience for activity tracking so it shows experience name instead of "Plan"
+      const planWithExperience = {
+        ...plan.toObject(),
+        experience: {
+          _id: experience._id,
+          name: experience.name
+        }
+      };
+      trackCreate({
+        resource: planWithExperience,
+        resourceType: 'Plan',
+        actor: req.user,
+        req,
+        reason: `Plan created for experience "${experience.name}"`
+      });
+    } catch (err) {
+      backendLogger.error('Error in async post-creation tasks', {
+        planId: plan._id.toString(),
+        error: err.message
+      }, err);
+    }
   });
-
-  res.status(201).json(populatedPlan);
 });
 
 /**
@@ -409,14 +426,13 @@ const checkUserPlanForExperience = asyncHandler(async (req, res) => {
   });
 
   const ownPlan = transformedPlans.find(p => p.isOwn) || null;
-  const primary = ownPlan || transformedPlans[0];
 
-  res.json({ 
-    hasPlan: true, 
+  res.json({
+    hasPlan: !!ownPlan,  // Only true if user has their OWN plan
     plans: transformedPlans,
-    // Prefer user's own plan when returning the primary planId
-    planId: primary._id,
-    createdAt: primary.createdAt,
+    // ONLY return planId if user has their own plan (not collaborative)
+    planId: ownPlan ? ownPlan._id : null,
+    createdAt: ownPlan ? ownPlan.createdAt : null,
     // Explicit field for clients that prefer owner-only deletes
     ownPlanId: ownPlan ? ownPlan._id : null
   });
@@ -1306,11 +1322,411 @@ const deletePlanItem = asyncHandler(async (req, res) => {
   plan.plan.pull(itemId);
 
   // Remove any children (items with this item as parent)
-  plan.plan = plan.plan.filter(item => 
+  plan.plan = plan.plan.filter(item =>
     !item.parent || item.parent.toString() !== parentPlanItemId.toString()
   );
 
   await plan.save();
+
+  res.json(plan);
+});
+
+/**
+ * Reorder plan items
+ * Updates the order of plan items in the plan array
+ */
+const reorderPlanItems = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { plan: reorderedItems } = req.body;
+
+  backendLogger.debug('Plan items reorder request received', {
+    planId: id,
+    itemCount: reorderedItems?.length,
+    userId: req.user?._id?.toString()
+  });
+
+  // Validate plan ID
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    backendLogger.warn('Invalid plan ID format', { planId: id });
+    return res.status(400).json({ error: "Invalid plan ID" });
+  }
+
+  // Validate reorderedItems
+  if (!Array.isArray(reorderedItems)) {
+    backendLogger.warn('Invalid plan items format - not an array', {
+      planId: id,
+      receivedType: typeof reorderedItems
+    });
+    return res.status(400).json({ error: "Plan items must be an array" });
+  }
+
+  // Find the plan
+  const plan = await Plan.findById(id);
+
+  if (!plan) {
+    backendLogger.warn('Plan not found', { planId: id });
+    return res.status(404).json({ error: "Plan not found" });
+  }
+
+  // Check permissions - must be owner or collaborator
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    backendLogger.warn('Insufficient permissions to reorder plan items', {
+      planId: id,
+      userId: req.user._id.toString(),
+      reason: permCheck.reason
+    });
+    return res.status(403).json({
+      error: "Insufficient permissions to reorder this plan",
+      message: permCheck.reason
+    });
+  }
+
+  // Validate that reordered items match existing items
+  const existingIds = new Set(plan.plan.map(item => item._id.toString()));
+  const reorderedIds = new Set(reorderedItems.map(item =>
+    (item._id || item.plan_item_id).toString()
+  ));
+
+  // Check if all existing items are in reordered array
+  if (existingIds.size !== reorderedIds.size) {
+    backendLogger.warn('Reordered items count mismatch', {
+      planId: id,
+      existingCount: existingIds.size,
+      reorderedCount: reorderedIds.size
+    });
+    return res.status(400).json({
+      error: "Item count mismatch",
+      message: "Reordered items must match existing items"
+    });
+  }
+
+  // Check if all IDs match
+  for (const id of existingIds) {
+    if (!reorderedIds.has(id)) {
+      backendLogger.warn('Reordered items contain unknown ID', {
+        planId: id,
+        unknownId: id
+      });
+      return res.status(400).json({
+        error: "Invalid item ID",
+        message: "Reordered items contain IDs not in original plan"
+      });
+    }
+  }
+
+  // Update the plan with reordered items
+  plan.plan = reorderedItems;
+  await plan.save();
+
+  backendLogger.info('Plan items reordered successfully', {
+    planId: id,
+    itemCount: reorderedItems.length,
+    userId: req.user._id.toString()
+  });
+
+  // Populate experience for response
+  await plan.populate('experience');
+
+  res.json(plan);
+});
+
+/**
+ * Add a note to a plan item
+ * Only owner, collaborators, and super admins can add notes
+ */
+const addPlanItemNote = asyncHandler(async (req, res) => {
+  const { id, itemId } = req.params;
+  const { content } = req.body;
+
+  if (!content || !content.trim()) {
+    return res.status(400).json({ error: 'Note content is required' });
+  }
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Permission check: owner, collaborator, or super admin
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: permCheck.reason
+    });
+  }
+
+  // Find the plan item
+  const planItem = plan.plan.id(itemId);
+  if (!planItem) {
+    return res.status(404).json({ error: 'Plan item not found' });
+  }
+
+  // Initialize details if not exists
+  if (!planItem.details) {
+    planItem.details = {
+      notes: [],
+      location: null,
+      chat: [],
+      photos: [],
+      documents: []
+    };
+  }
+
+  // Add note
+  planItem.details.notes.push({
+    user: req.user._id,
+    content: content.trim()
+  });
+
+  await plan.save();
+
+  // Populate user data for response
+  await plan.populate('plan.details.notes.user', 'name email');
+  await plan.populate('experience', 'name');
+
+  backendLogger.info('Note added to plan item', {
+    planId: id,
+    itemId,
+    userId: req.user._id.toString(),
+    noteCount: planItem.details.notes.length
+  });
+
+  res.json(plan);
+});
+
+/**
+ * Update a note on a plan item
+ * Only the note author can update their own note
+ */
+const updatePlanItemNote = asyncHandler(async (req, res) => {
+  const { id, itemId, noteId } = req.params;
+  const { content } = req.body;
+
+  if (!content || !content.trim()) {
+    return res.status(400).json({ error: 'Note content is required' });
+  }
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  const planItem = plan.plan.id(itemId);
+  if (!planItem) {
+    return res.status(404).json({ error: 'Plan item not found' });
+  }
+
+  if (!planItem.details || !planItem.details.notes) {
+    return res.status(404).json({ error: 'No notes found' });
+  }
+
+  const note = planItem.details.notes.id(noteId);
+  if (!note) {
+    return res.status(404).json({ error: 'Note not found' });
+  }
+
+  // Only the note author can update
+  if (note.user.toString() !== req.user._id.toString()) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: 'You can only update your own notes'
+    });
+  }
+
+  note.content = content.trim();
+  await plan.save();
+
+  await plan.populate('plan.details.notes.user', 'name email');
+  await plan.populate('experience', 'name');
+
+  backendLogger.info('Note updated on plan item', {
+    planId: id,
+    itemId,
+    noteId,
+    userId: req.user._id.toString()
+  });
+
+  res.json(plan);
+});
+
+/**
+ * Delete a note from a plan item
+ * Only the note author can delete their own note
+ */
+const deletePlanItemNote = asyncHandler(async (req, res) => {
+  const { id, itemId, noteId } = req.params;
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  const planItem = plan.plan.id(itemId);
+  if (!planItem) {
+    return res.status(404).json({ error: 'Plan item not found' });
+  }
+
+  if (!planItem.details || !planItem.details.notes) {
+    return res.status(404).json({ error: 'No notes found' });
+  }
+
+  const note = planItem.details.notes.id(noteId);
+  if (!note) {
+    return res.status(404).json({ error: 'Note not found' });
+  }
+
+  // Only the note author can delete
+  if (note.user.toString() !== req.user._id.toString()) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: 'You can only delete your own notes'
+    });
+  }
+
+  planItem.details.notes.pull(noteId);
+  await plan.save();
+
+  await plan.populate('plan.details.notes.user', 'name email');
+  await plan.populate('experience', 'name');
+
+  backendLogger.info('Note deleted from plan item', {
+    planId: id,
+    itemId,
+    noteId,
+    userId: req.user._id.toString()
+  });
+
+  res.json(plan);
+});
+
+/**
+ * Assign a plan item to a collaborator or owner
+ * Only owner, collaborators, and super admins can assign items
+ */
+const assignPlanItem = asyncHandler(async (req, res) => {
+  const { id, itemId } = req.params;
+  const { assignedTo } = req.body;
+
+  if (!assignedTo) {
+    return res.status(400).json({ error: 'assignedTo user ID is required' });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(assignedTo)) {
+    return res.status(400).json({ error: 'Invalid user ID format' });
+  }
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Permission check: owner, collaborator, or super admin
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: permCheck.reason
+    });
+  }
+
+  // Verify assignedTo user exists and has permission on plan
+  const assignedUser = await User.findById(assignedTo);
+  if (!assignedUser) {
+    return res.status(404).json({ error: 'Assigned user not found' });
+  }
+
+  // Verify assignedTo user is owner or collaborator
+  const assignedUserPermCheck = await enforcer.canEdit({
+    userId: assignedTo,
+    resource: plan
+  });
+
+  if (!assignedUserPermCheck.allowed) {
+    return res.status(403).json({
+      error: 'Cannot assign to user',
+      message: 'User must be owner or collaborator to be assigned plan items'
+    });
+  }
+
+  const planItem = plan.plan.id(itemId);
+  if (!planItem) {
+    return res.status(404).json({ error: 'Plan item not found' });
+  }
+
+  planItem.assignedTo = assignedTo;
+  await plan.save();
+
+  await plan.populate('plan.assignedTo', 'name email');
+  await plan.populate('experience', 'name');
+
+  backendLogger.info('Plan item assigned', {
+    planId: id,
+    itemId,
+    assignedTo,
+    assignedBy: req.user._id.toString()
+  });
+
+  res.json(plan);
+});
+
+/**
+ * Unassign a plan item
+ * Only owner, collaborators, and super admins can unassign items
+ */
+const unassignPlanItem = asyncHandler(async (req, res) => {
+  const { id, itemId } = req.params;
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Permission check: owner, collaborator, or super admin
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: permCheck.reason
+    });
+  }
+
+  const planItem = plan.plan.id(itemId);
+  if (!planItem) {
+    return res.status(404).json({ error: 'Plan item not found' });
+  }
+
+  planItem.assignedTo = null;
+  await plan.save();
+
+  await plan.populate('experience', 'name');
+
+  backendLogger.info('Plan item unassigned', {
+    planId: id,
+    itemId,
+    unassignedBy: req.user._id.toString()
+  });
 
   res.json(plan);
 });
@@ -1322,11 +1738,17 @@ module.exports = {
   getExperiencePlans,
   checkUserPlanForExperience,
   updatePlan,
+  reorderPlanItems,
   deletePlan,
   addCollaborator,
   removeCollaborator,
   updatePlanItem,
   getCollaborators,
   addPlanItem,
-  deletePlanItem
+  deletePlanItem,
+  addPlanItemNote,
+  updatePlanItemNote,
+  deletePlanItemNote,
+  assignPlanItem,
+  unassignPlanItem
 };

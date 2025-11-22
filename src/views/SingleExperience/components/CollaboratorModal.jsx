@@ -90,7 +90,7 @@ export default function CollaboratorModal({
   return (
     <Modal
       show={show}
-      onHide={onHide}
+      onClose={onHide}
       title={title}
       size="lg"
       scrollable={true}

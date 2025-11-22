@@ -24,13 +24,21 @@ export function getPlanById(planId) {
  */
 export async function createPlan(experienceId, plannedDate) {
   try {
+    logger.debug('[plans-api] Calling createPlan API', {
+      timestamp: Date.now(),
+      experienceId
+    });
+
     const result = await sendRequest(`${BASE_URL}/experience/${experienceId}`, "POST", {
       planned_date: plannedDate,
     });
-    logger.info('[plans-api] Plan created', {
+
+    logger.info('[plans-api] Plan created - API response received', {
+      timestamp: Date.now(),
       planId: result._id,
       experienceId
     });
+
     // Emit events so components can react
     try {
       if (typeof window !== 'undefined' && window.dispatchEvent) {
@@ -38,13 +46,35 @@ export async function createPlan(experienceId, plannedDate) {
         const rawExp = experienceId || result?.experience?._id || result?.experience;
         const normalizedExpId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
 
+        // Generate version for this event (timestamp-based)
+        const version = Date.now();
+
+        logger.debug('[plans-api] About to dispatch bien:plan_created and plan:created events', {
+          timestamp: Date.now(),
+          planId: result._id,
+          version
+        });
+
+        // Event payload with version and data structure
+        const eventPayload = {
+          planId: result._id,
+          experienceId: normalizedExpId,
+          version,
+          data: result
+        };
+
         // Legacy event for backward compatibility (SingleExperience still uses this)
-        window.dispatchEvent(new CustomEvent('bien:plan_created', { detail: { plan: result, experienceId: normalizedExpId } }));
-        broadcastEvent('bien:plan_created', { plan: result, experienceId: normalizedExpId });
+        window.dispatchEvent(new CustomEvent('bien:plan_created', { detail: eventPayload }));
+        broadcastEvent('bien:plan_created', eventPayload);
 
         // Standardized event for DataContext
-        window.dispatchEvent(new CustomEvent('plan:created', { detail: { plan: result } }));
-        broadcastEvent('plan:created', { plan: result });
+        window.dispatchEvent(new CustomEvent('plan:created', { detail: eventPayload }));
+        broadcastEvent('plan:created', eventPayload);
+
+        logger.debug('[plans-api] Events dispatched successfully', {
+          timestamp: Date.now(),
+          version
+        });
       }
     } catch (e) {
       // ignore
@@ -87,13 +117,25 @@ export function updatePlan(planId, updates) {
           const rawExp = result?.experience?._id || result?.experience || null;
           const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
 
+          // Generate version for this event
+          const version = Date.now();
+
+          // Event payload with version and data structure
+          const eventPayload = {
+            planId,
+            experienceId,
+            version,
+            changes: updates,
+            data: result
+          };
+
           // Legacy event for backward compatibility (SingleExperience still uses this)
-          window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: result, experienceId } }));
-          broadcastEvent('bien:plan_updated', { plan: result, experienceId });
+          window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: eventPayload }));
+          broadcastEvent('bien:plan_updated', eventPayload);
 
           // Standardized event for DataContext
-          window.dispatchEvent(new CustomEvent('plan:updated', { detail: { plan: result, planId } }));
-          broadcastEvent('plan:updated', { plan: result, planId });
+          window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
+          broadcastEvent('plan:updated', eventPayload);
         }
       } catch (e) {
         // ignore
@@ -114,13 +156,24 @@ export async function deletePlan(planId) {
       const rawExp = result?.experience?._id || result?.experience || null;
       const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
 
+      // Generate version for this event
+      const version = Date.now();
+
+      // Event payload with version
+      const eventPayload = {
+        planId,
+        experienceId,
+        version,
+        data: result
+      };
+
       // Legacy event for backward compatibility (SingleExperience still uses this)
-      window.dispatchEvent(new CustomEvent('bien:plan_deleted', { detail: { plan: result, experienceId } }));
-      broadcastEvent('bien:plan_deleted', { plan: result, experienceId });
+      window.dispatchEvent(new CustomEvent('bien:plan_deleted', { detail: eventPayload }));
+      broadcastEvent('bien:plan_deleted', eventPayload);
 
       // Standardized event for DataContext
-      window.dispatchEvent(new CustomEvent('plan:deleted', { detail: { planId } }));
-      broadcastEvent('plan:deleted', { planId });
+      window.dispatchEvent(new CustomEvent('plan:deleted', { detail: eventPayload }));
+      broadcastEvent('plan:deleted', eventPayload);
     }
   } catch (e) {
     // ignore
@@ -265,4 +318,232 @@ export function removeCollaborator(planId, userId) {
     }
     return result;
   });
+}
+
+/**
+ * Reorder plan items
+ * @param {string} planId - Plan ID
+ * @param {Array} reorderedItems - Array of plan items in new order
+ */
+export async function reorderPlanItems(planId, reorderedItems) {
+  try {
+    logger.debug('[plans-api] Reordering plan items', {
+      planId,
+      itemCount: reorderedItems.length
+    });
+
+    const result = await sendRequest(
+      `${BASE_URL}/${planId}/reorder`,
+      "PUT",
+      { plan: reorderedItems }
+    );
+
+    logger.info('[plans-api] Plan items reordered successfully', {
+      planId,
+      itemCount: reorderedItems.length
+    });
+
+    // Emit events so components can react
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const rawExp = result?.experience?._id || result?.experience || null;
+        const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        const version = Date.now();
+
+        const eventPayload = {
+          planId: result._id,
+          experienceId,
+          version,
+          data: result,
+          reordered: true
+        };
+
+        // Legacy event for backward compatibility
+        window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: eventPayload }));
+        broadcastEvent('bien:plan_updated', eventPayload);
+
+        // Standardized event for DataContext
+        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
+        broadcastEvent('plan:updated', eventPayload);
+
+        logger.debug('[plans-api] Reorder events dispatched successfully', {
+          version
+        });
+      }
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch reorder events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to reorder plan items', {
+      planId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Add a note to a plan item
+ */
+export async function addPlanItemNote(planId, itemId, content) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes`, "POST", {
+      content
+    });
+
+    // Emit events
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const version = Date.now();
+        window.dispatchEvent(new CustomEvent('plan:updated', {
+          detail: { plan: result, version }
+        }));
+        broadcastEvent('plan:updated', { plan: result, version });
+      }
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch note added events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to add note to plan item', {
+      planId,
+      itemId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Update a note on a plan item
+ */
+export async function updatePlanItemNote(planId, itemId, noteId, content) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}`, "PATCH", {
+      content
+    });
+
+    // Emit events
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const version = Date.now();
+        window.dispatchEvent(new CustomEvent('plan:updated', {
+          detail: { plan: result, version }
+        }));
+        broadcastEvent('plan:updated', { plan: result, version });
+      }
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch note updated events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to update note', {
+      planId,
+      itemId,
+      noteId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a note from a plan item
+ */
+export async function deletePlanItemNote(planId, itemId, noteId) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}`, "DELETE");
+
+    // Emit events
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const version = Date.now();
+        window.dispatchEvent(new CustomEvent('plan:updated', {
+          detail: { plan: result, version }
+        }));
+        broadcastEvent('plan:updated', { plan: result, version });
+      }
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch note deleted events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to delete note', {
+      planId,
+      itemId,
+      noteId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Assign a plan item to a collaborator
+ */
+export async function assignPlanItem(planId, itemId, assignedTo) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/assign`, "POST", {
+      assignedTo
+    });
+
+    // Emit events
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const version = Date.now();
+        window.dispatchEvent(new CustomEvent('plan:updated', {
+          detail: { plan: result, version }
+        }));
+        broadcastEvent('plan:updated', { plan: result, version });
+      }
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch assign events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to assign plan item', {
+      planId,
+      itemId,
+      assignedTo,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Unassign a plan item
+ */
+export async function unassignPlanItem(planId, itemId) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/assign`, "DELETE");
+
+    // Emit events
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const version = Date.now();
+        window.dispatchEvent(new CustomEvent('plan:updated', {
+          detail: { plan: result, version }
+        }));
+        broadcastEvent('plan:updated', { plan: result, version });
+      }
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch unassign events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to unassign plan item', {
+      planId,
+      itemId,
+      error: error.message
+    }, error);
+    throw error;
+  }
 }

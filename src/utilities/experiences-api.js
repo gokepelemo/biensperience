@@ -204,3 +204,55 @@ export async function removeExperienceCollaborator(experienceId, userId) {
     "DELETE"
   );
 }
+
+/**
+ * Reorder experience plan items
+ */
+export async function reorderExperiencePlanItems(experienceId, reorderedItems) {
+  try {
+    logger.debug('[experiences-api] Reordering experience plan items', {
+      experienceId,
+      itemCount: reorderedItems.length
+    });
+
+    const result = await sendRequest(
+      `${BASE_URL}${experienceId}/reorder-plan-items`,
+      "PUT",
+      { plan_items: reorderedItems }
+    );
+
+    logger.info('[experiences-api] Experience plan items reordered successfully', {
+      experienceId,
+      itemCount: reorderedItems.length
+    });
+
+    // Emit events for cross-tab sync
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const version = Date.now();
+
+        const eventPayload = {
+          experienceId: result._id,
+          version,
+          data: result,
+          reordered: true
+        };
+
+        window.dispatchEvent(new CustomEvent('experience:updated', { detail: eventPayload }));
+        broadcastEvent('experience:updated', eventPayload);
+
+        logger.debug('[experiences-api] Reorder events dispatched successfully', { version });
+      }
+    } catch (e) {
+      logger.warn('[experiences-api] Failed to dispatch reorder events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[experiences-api] Failed to reorder experience plan items', {
+      experienceId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}

@@ -8,6 +8,21 @@
   min-width: 300px;
   max-width: 500px;
   box-shadow: var(--shadow-md);
+  position: relative;
+}
+
+/* Close button positioning for header-less toasts */
+.biensperience-toast > .btn-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 2;
+  opacity: 0.8;
+  transition: opacity var(--transition-fast, 0.2s);
+}
+
+.biensperience-toast > .btn-close:hover {
+  opacity: 1;
 }
 
 /* Compact toast body - reduce whitespace for transient elements */
@@ -15,9 +30,29 @@
   padding: var(--space-3) var(--space-4);
 }
 
+/* Add padding-right when there's no header (close button is inline) */
+.biensperience-toast:not(:has(.toast-header)) .toast-body {
+  padding-right: 3rem;
+}
+
 /* Toast body content layout */
 .biensperience-toast .toast-body .d-flex {
   gap: var(--space-2);
+}
+
+/* Modern text styling - bold and contemporary */
+.toast-message-content {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-relaxed);
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+/* Toast header strong text */
+.biensperience-toast .toast-header strong {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-base);
+  letter-spacing: var(--letter-spacing-normal);
 }
 
 /* Slide animation variant */
