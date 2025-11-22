@@ -343,11 +343,15 @@ export default function SingleExperience() {
   // We use the History API (replaceState) so this does not trigger a navigation
   // or reload — the server already exposes a route for `/plans/:planId`.
   useEffect(() => {
-    debug.log('URL management useEffect triggered', {
+    const currentHash = window.location.hash || '';
+    debug.log('🔧 URL management useEffect triggered', {
       activeTab,
       selectedPlanId,
       experienceId,
-      hash: window.location.hash
+      currentHash,
+      hasItemHash: currentHash.includes('-item-'),
+      pathname: window.location.pathname,
+      fullURL: window.location.href
     });
 
     try {
