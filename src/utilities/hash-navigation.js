@@ -100,33 +100,41 @@ export function parseHash(hash) {
  * Scroll to element and trigger shake animation
  * @param {string} elementId - DOM element ID to scroll to
  * @param {boolean} shake - Whether to trigger shake animation
+ * @param {Object} options - Scroll configuration
+ * @param {number} options.renderDelay - Delay for React render (default: 300ms)
+ * @param {number} options.anticipationDelay - Delay before scroll starts for user re-orientation (default: 250ms)
  */
-export function scrollToElement(elementId, shake = false) {
+export function scrollToElement(elementId, shake = false, options = {}) {
   if (!elementId || typeof window === 'undefined') return;
+
+  const { renderDelay = 300, anticipationDelay = 250 } = options;
 
   // Allow DOM to settle before scrolling
   setTimeout(() => {
     const element = document.getElementById(elementId);
     if (!element) return;
 
-    // Scroll to element with offset for fixed headers
-    const headerOffset = 80;
-    const elementPosition = element.getBoundingClientRect().top;
-    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    // Add anticipation delay for user re-orientation
+    setTimeout(() => {
+      // Scroll to element with offset for fixed headers
+      const headerOffset = 80;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
 
-    window.scrollTo({
-      top: offsetPosition,
-      behavior: 'smooth'
-    });
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
 
-    // Trigger shake animation if requested
-    if (shake) {
-      element.classList.add('shake-animation');
-      setTimeout(() => {
-        element.classList.remove('shake-animation');
-      }, 2000); // Match animation duration
-    }
-  }, 300); // Wait for React render
+      // Trigger shake animation if requested
+      if (shake) {
+        element.classList.add('shake-animation');
+        setTimeout(() => {
+          element.classList.remove('shake-animation');
+        }, 2000); // Match animation duration
+      }
+    }, anticipationDelay);
+  }, renderDelay); // Wait for React render
 }
 
 /**

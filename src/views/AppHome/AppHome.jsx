@@ -119,9 +119,7 @@ export default function AppHome() {
                     size="sm"
                     onClick={() => setShowAllDestinations(!showAllDestinations)}
                   >
-                    {showAllDestinations
-                      ? 'Show Less'
-                      : `Show ${destinations.length - DESTINATIONS_INITIAL_DISPLAY} More`}
+                    {showAllDestinations ? 'Show Less' : 'Show More'}
                   </Button>
                 </div>
               )}
@@ -166,9 +164,7 @@ export default function AppHome() {
                     size="sm"
                     onClick={() => setShowAllExperiences(!showAllExperiences)}
                   >
-                    {showAllExperiences
-                      ? 'Show Less'
-                      : `Show ${experiences.length - EXPERIENCES_INITIAL_DISPLAY} More`}
+                    {showAllExperiences ? 'Show Less' : 'Show More'}
                   </Button>
                 </div>
               )}

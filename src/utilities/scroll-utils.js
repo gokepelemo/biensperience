@@ -3,6 +3,7 @@
 // scroll-to-item helper that resolves when the element is found or falls back.
 
 import { logger } from './logger';
+import { scroller, animateScroll } from 'react-scroll';
 
 /**
  * Escape a string for use in querySelector.
@@ -58,16 +59,30 @@ export function highlightPlanItem(id) {
  * @param {Object} options - Configuration options
  * @param {number} options.maxAttempts - Maximum retry attempts (default: 8)
  * @param {number} options.delayMs - Delay between retries in ms (default: 200)
+ * @param {number} options.anticipationDelay - Delay before scroll starts for user re-orientation (default: 250ms)
  * @param {boolean} options.shouldHighlight - Whether to apply shake animation (default: true for deep-links, false otherwise)
  */
-export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, shouldHighlight = true } = {}) {
+export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, anticipationDelay = 250, shouldHighlight = true } = {}) {
   return new Promise((resolve) => {
     if (!itemId) {
       logger.debug('[Scroll] No itemId provided, scrolling to plan section');
       const planSection = document.querySelector('.my-plan-view');
       if (planSection) {
         logger.debug('[Scroll] Found plan section, scrolling...');
-        planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => {
+          try {
+            const elementTop = planSection.getBoundingClientRect().top + window.pageYOffset;
+            animateScroll.scrollTo(elementTop - 80, {
+              duration: 800,
+              delay: 0,
+              smooth: 'easeInOutQuart',
+              offset: -80
+            });
+          } catch (e) {
+            // Fallback to native scrollIntoView
+            planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, anticipationDelay);
       } else {
         logger.debug('[Scroll] ❌ Plan section .my-plan-view not found');
       }
@@ -89,20 +104,39 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, sh
 
       if (itemElement) {
         logger.debug('[Scroll] ✅ Found item element, scrolling...');
-        try { itemElement.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
 
-        // Only apply shake/highlight animation if requested (deep-link navigation)
-        // Skip for item completion toggles to avoid unwanted animation
-        if (shouldHighlight) {
-          logger.debug('[Scroll] Applying shake animation');
-          highlightPlanItem(itemId);
-          setTimeout(() => {
-            try {
-              const card = itemElement.closest && itemElement.closest('.plan-item-card') ? itemElement.closest('.plan-item-card') : itemElement;
-              if (card) card.style.backgroundColor = '';
-            } catch (e) {}
-          }, 2100);
-        }
+        // Use react-scroll for smoother animation with anticipation delay
+        setTimeout(() => {
+          try {
+            // Get element position for react-scroll
+            const elementTop = itemElement.getBoundingClientRect().top + window.pageYOffset;
+
+            // Scroll with react-scroll (smoother easing, configurable delay)
+            animateScroll.scrollTo(elementTop - 100, {
+              duration: 800,
+              delay: 0,
+              smooth: 'easeInOutQuart',
+              offset: -100 // Offset for headers
+            });
+          } catch (e) {
+            // Fallback to native scrollIntoView
+            logger.debug('[Scroll] react-scroll failed, using fallback');
+            try { itemElement.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (err) {}
+          }
+
+          // Only apply shake/highlight animation if requested (deep-link navigation)
+          // Skip for item completion toggles to avoid unwanted animation
+          if (shouldHighlight) {
+            logger.debug('[Scroll] Applying shake animation');
+            highlightPlanItem(itemId);
+            setTimeout(() => {
+              try {
+                const card = itemElement.closest && itemElement.closest('.plan-item-card') ? itemElement.closest('.plan-item-card') : itemElement;
+                if (card) card.style.backgroundColor = '';
+              } catch (e) {}
+            }, 2100);
+          }
+        }, anticipationDelay);
 
         return resolve(itemElement);
       }
@@ -118,7 +152,20 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, sh
       const planSection = document.querySelector('.my-plan-view');
       if (planSection) {
         logger.debug('[Scroll] Found plan section, scrolling...');
-        planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => {
+          try {
+            const elementTop = planSection.getBoundingClientRect().top + window.pageYOffset;
+            animateScroll.scrollTo(elementTop - 80, {
+              duration: 800,
+              delay: 0,
+              smooth: 'easeInOutQuart',
+              offset: -80
+            });
+          } catch (e) {
+            // Fallback to native scrollIntoView
+            planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, anticipationDelay);
       } else {
         logger.debug('[Scroll] ❌ Plan section .my-plan-view not found');
       }
