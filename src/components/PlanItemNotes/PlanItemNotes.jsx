@@ -136,44 +136,44 @@ export default function PlanItemNotes({
   return (
     <div className="plan-item-notes-chat">
       {/* Search and Add Note Header */}
-      {!disabled && (
-        <div className="notes-header">
-          <InputGroup className="notes-search">
-            <InputGroup.Text className="search-icon">
-              <FaSearch />
-            </InputGroup.Text>
-            <Form.Control
-              type="text"
-              placeholder="Search notes..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1); // Reset to first page on search
-              }}
-              className="search-input"
-            />
-            {searchQuery && (
-              <Button
-                variant="link"
-                onClick={() => setSearchQuery('')}
-                className="clear-search"
-                aria-label="Clear search"
-              >
-                <FaTimes />
-              </Button>
-            )}
-          </InputGroup>
-
-          <Button
-            variant="primary"
-            onClick={() => setShowAddNoteForm(!showAddNoteForm)}
-            className="add-note-button"
+      <div className="notes-header">
+        <InputGroup className="notes-search">
+          <InputGroup.Text className="search-icon">
+            <FaSearch />
+          </InputGroup.Text>
+          <Form.Control
+            type="text"
+            placeholder="Search notes..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1); // Reset to first page on search
+            }}
+            className="search-input"
             disabled={disabled}
-          >
-            <FaPlus /> Add Note
-          </Button>
-        </div>
-      )}
+          />
+          {searchQuery && (
+            <Button
+              variant="link"
+              onClick={() => setSearchQuery('')}
+              className="clear-search"
+              aria-label="Clear search"
+              disabled={disabled}
+            >
+              <FaTimes />
+            </Button>
+          )}
+        </InputGroup>
+
+        <Button
+          variant="primary"
+          onClick={() => setShowAddNoteForm(!showAddNoteForm)}
+          className="add-note-button"
+          disabled={disabled}
+        >
+          <FaPlus /> Add Note
+        </Button>
+      </div>
 
       {/* Add Note Form (with InteractiveTextArea) */}
       {showAddNoteForm && !disabled && (
@@ -236,19 +236,7 @@ export default function PlanItemNotes({
             {searchQuery ? (
               <p>No notes match your search.</p>
             ) : (
-              <div className="empty-state-content">
-                <p>No notes yet.</p>
-                {!disabled && !showAddNoteForm && (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => setShowAddNoteForm(true)}
-                    className="mt-2"
-                  >
-                    <FaPlus /> Add a Note
-                  </Button>
-                )}
-              </div>
+              <p>No notes yet. Click "Add Note" above to get started.</p>
             )}
           </div>
         ) : (
