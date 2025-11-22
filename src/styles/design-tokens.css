@@ -468,9 +468,14 @@
   --icon-margin-left: var(--space-1);
 }
 
-/* DARK MODE - System preference and data-theme attribute */
+/* ============================================
+   DARK MODE - Unified Implementation
+   Both system preference and manual selection use identical styles
+   ============================================ */
+
+/* System preference dark mode */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     /* Text Colors - Light on dark backgrounds */
     --color-text-primary: #f8f9fa;      /* Light gray */
     --color-text-secondary: #e9ecef;    /* Lighter gray */
@@ -516,7 +521,7 @@
     --color-info: #339af0;              /* Brighter blue for dark bg */
     --color-info-light: rgba(51, 154, 240, 0.15);
     --color-info-dark: #1c7ed6;
-    
+
     /* Semantic Color States - Dark mode versions */
     --color-info-bg: rgba(51, 154, 240, 0.15);
     --color-info-border: rgba(51, 154, 240, 0.3);
@@ -530,14 +535,14 @@
     --color-warning-bg: rgba(255, 212, 59, 0.15);
     --color-warning-border: rgba(255, 212, 59, 0.3);
     --color-warning-text: #ffe066;
-    
+
     /* Alpha Variants - Keep same for consistency */
     --color-primary-alpha-10: rgba(102, 126, 234, 0.1);
     --color-primary-alpha-20: rgba(102, 126, 234, 0.2);
     --color-primary-alpha-30: rgba(102, 126, 234, 0.3);
     --color-primary-alpha-40: rgba(102, 126, 234, 0.4);
     --color-primary-alpha-50: rgba(102, 126, 234, 0.5);
-    
+
     /* Text Placeholder */
     --color-text-placeholder: #6c757d;
 
@@ -564,58 +569,57 @@
     /* Badge Colors - Dark Mode Overrides */
     --badge-primary-bg: #7c93f7;
     --badge-primary-text: #000000;
-    
+
     --badge-success-bg: #40c057;
     --badge-success-text: #000000;
-    
+
     --badge-danger-bg: #fa5252;
     --badge-danger-text: #000000;
-    
+
     --badge-warning-bg: #ffd43b;
     --badge-warning-text: #000000;
-    
+
     --badge-info-bg: #4dabf7;
     --badge-info-text: #000000;
-    
+
     --badge-neutral-bg: #adb5bd;
     --badge-neutral-text: #000000;
-    
+
     /* Category badges - Lighter for dark backgrounds */
     --badge-nature-bg: #51cf66;
     --badge-nature-text: #000000;
-    
+
     --badge-culture-bg: #9775fa;
     --badge-culture-text: #000000;
-    
+
     --badge-food-bg: #ff922b;
     --badge-food-text: #000000;
-    
+
     --badge-adventure-bg: #ff6b6b;
     --badge-adventure-text: #000000;
-    
+
     --badge-relaxation-bg: #4dabf7;
     --badge-relaxation-text: #000000;
-    
+
     --badge-photography-bg: #ff6b9d;
     --badge-photography-text: #000000;
-    
+
     --badge-seasonal-bg: #ffd43b;
     --badge-seasonal-text: #000000;
-    
+
     --badge-nightlife-bg: #9775fa;
     --badge-nightlife-text: #000000;
-    
+
     --badge-shopping-bg: #63e6be;
     --badge-shopping-text: #000000;
-    
+
     --badge-historical-bg: #adb5bd;
     --badge-historical-text: #000000;
   }
 }
 
-/* DARK MODE - data-theme attribute (for Storybook and manual toggling) */
-/* Consolidated to match system preference dark mode for consistency */
-[data-theme="dark"] {
+/* Manual dark mode selection - uses IDENTICAL tokens */
+:root[data-theme="dark"] {
   /* Text Colors - Light on dark backgrounds */
   --color-text-primary: #f8f9fa;      /* Light gray */
   --color-text-secondary: #e9ecef;    /* Lighter gray */
