@@ -7,6 +7,7 @@
 import TagPill from '../../../components/Pill/TagPill';
 import FadeIn from '../../../components/Animation/Animation';
 import { formatDateShort, formatDateForInput } from '../../../utilities/date-utils';
+import { formatPlanningTime } from '../../../utilities/time-format';
 import './ExperienceTitleSection.css';
 
 export default function ExperienceTitleSection({
@@ -115,8 +116,7 @@ export default function ExperienceTitleSection({
           <FadeIn>
             <h2 className="h5">
               {lang.en.heading.planningTime}{" "}
-              {experience.max_planning_days}{" "}
-              {experience.max_planning_days === 1 ? "day" : "days"}
+              {formatPlanningTime(experience.max_planning_days)}
             </h2>
           </FadeIn>
         )}
