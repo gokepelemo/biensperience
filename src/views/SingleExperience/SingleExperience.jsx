@@ -9,6 +9,7 @@ import MyPlanTabContent from './components/MyPlanTabContent';
 import CollaboratorModal from './components/CollaboratorModal';
 import SyncPlanModal from './components/SyncPlanModal';
 import PlanItemModal from './components/PlanItemModal';
+import PlanItemDetailsModal from '../../components/PlanItemDetailsModal/PlanItemDetailsModal';
 import "./SingleExperience.css";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
@@ -71,6 +72,9 @@ import {
   removeCollaborator,
   addCollaborator,
   reorderPlanItems,
+  addPlanItemNote,
+  updatePlanItemNote,
+  deletePlanItemNote,
 } from "../../utilities/plans-api";
 import { reconcileState, generateOptimisticId } from "../../utilities/event-bus";
 
@@ -196,6 +200,8 @@ export default function SingleExperience() {
   const [showPlanItemModal, setShowPlanItemModal] = useState(false);
   const [planItemFormState, setPlanItemFormState] = useState(1); // 1 = add, 0 = edit
   const [editingPlanItem, setEditingPlanItem] = useState({});
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedDetailsItem, setSelectedDetailsItem] = useState(null);
 
   // Ref for dynamic font sizing on planned date metric
   const plannedDateRef = useRef(null);
@@ -1383,6 +1389,82 @@ export default function SingleExperience() {
     setPlanItemFormState(0); // Edit mode
     setShowPlanItemModal(true);
   }, []);
+
+  // Handler to open Details modal for a plan item
+  const handleViewPlanItemDetails = useCallback((planItem) => {
+    setSelectedDetailsItem(planItem);
+    setShowDetailsModal(true);
+  }, []);
+
+  // Note CRUD handlers for Details modal
+  const handleAddNoteToItem = useCallback(async (content) => {
+    if (!selectedPlanId || !selectedDetailsItem?._id || !content.trim()) return;
+
+    try {
+      const updatedPlan = await addPlanItemNote(selectedPlanId, selectedDetailsItem._id, content);
+
+      // Update collaborative plans with the new note
+      setCollaborativePlans(prevPlans =>
+        prevPlans.map(p => idEquals(p._id, selectedPlanId) ? updatedPlan : p)
+      );
+
+      // Update selected item with new note
+      const updatedItem = updatedPlan.plan.find(item => idEquals(item._id, selectedDetailsItem._id));
+      if (updatedItem) {
+        setSelectedDetailsItem(updatedItem);
+      }
+
+      success('Note added successfully');
+    } catch (error) {
+      showError(error.message || 'Failed to add note');
+    }
+  }, [selectedPlanId, selectedDetailsItem, idEquals, setCollaborativePlans, success, showError]);
+
+  const handleUpdateNoteOnItem = useCallback(async (noteId, content) => {
+    if (!selectedPlanId || !selectedDetailsItem?._id || !noteId || !content.trim()) return;
+
+    try {
+      const updatedPlan = await updatePlanItemNote(selectedPlanId, selectedDetailsItem._id, noteId, content);
+
+      // Update collaborative plans
+      setCollaborativePlans(prevPlans =>
+        prevPlans.map(p => idEquals(p._id, selectedPlanId) ? updatedPlan : p)
+      );
+
+      // Update selected item
+      const updatedItem = updatedPlan.plan.find(item => idEquals(item._id, selectedDetailsItem._id));
+      if (updatedItem) {
+        setSelectedDetailsItem(updatedItem);
+      }
+
+      success('Note updated successfully');
+    } catch (error) {
+      showError(error.message || 'Failed to update note');
+    }
+  }, [selectedPlanId, selectedDetailsItem, idEquals, setCollaborativePlans, success, showError]);
+
+  const handleDeleteNoteFromItem = useCallback(async (noteId) => {
+    if (!selectedPlanId || !selectedDetailsItem?._id || !noteId) return;
+
+    try {
+      const updatedPlan = await deletePlanItemNote(selectedPlanId, selectedDetailsItem._id, noteId);
+
+      // Update collaborative plans
+      setCollaborativePlans(prevPlans =>
+        prevPlans.map(p => idEquals(p._id, selectedPlanId) ? updatedPlan : p)
+      );
+
+      // Update selected item
+      const updatedItem = updatedPlan.plan.find(item => idEquals(item._id, selectedDetailsItem._id));
+      if (updatedItem) {
+        setSelectedDetailsItem(updatedItem);
+      }
+
+      success('Note deleted successfully');
+    } catch (error) {
+      showError(error.message || 'Failed to delete note');
+    }
+  }, [selectedPlanId, selectedDetailsItem, idEquals, setCollaborativePlans, success, showError]);
 
   const handleSavePlanInstanceItem = useCallback(
     async (e) => {
@@ -2671,6 +2753,7 @@ export default function SingleExperience() {
                     handleSyncPlan={handleSyncPlan}
                     handleAddPlanInstanceItem={handleAddPlanInstanceItem}
                     handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                    handleViewPlanItemDetails={handleViewPlanItemDetails}
                     openCollaboratorModal={openCollaboratorModal}
                     toggleExpanded={toggleExpanded}
                     setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
@@ -2802,6 +2885,31 @@ export default function SingleExperience() {
         onSavePlanInstanceItem={handleSavePlanInstanceItem}
         loading={loading}
         lang={lang}
+      />
+
+      {/* Plan Item Details Modal */}
+      <PlanItemDetailsModal
+        show={showDetailsModal}
+        onClose={() => {
+          setShowDetailsModal(false);
+          setSelectedDetailsItem(null);
+        }}
+        planItem={selectedDetailsItem}
+        plan={selectedPlan}
+        currentUser={user}
+        collaborators={planCollaborators}
+        onAddNote={handleAddNoteToItem}
+        onUpdateNote={handleUpdateNoteOnItem}
+        onDeleteNote={handleDeleteNoteFromItem}
+        onAssign={async (userId) => {
+          // TODO: Implement assignment functionality
+          console.log('Assign to user:', userId);
+        }}
+        onUnassign={async () => {
+          // TODO: Implement unassignment functionality
+          console.log('Unassign');
+        }}
+        canEdit={selectedPlan ? isOwner(selectedPlan, user) : false}
       />
     </>
   );
