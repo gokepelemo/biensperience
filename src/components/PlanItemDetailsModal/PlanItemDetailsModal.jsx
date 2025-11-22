@@ -3,7 +3,7 @@
  * Modal for viewing and managing all details of a plan item (notes, assignment, etc.)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Modal from '../Modal/Modal';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
 import './PlanItemDetailsModal.css';
@@ -26,27 +26,68 @@ export default function PlanItemDetailsModal({
   entityData = {}
 }) {
   const [activeTab, setActiveTab] = useState('notes');
+  const [isEditingAssignment, setIsEditingAssignment] = useState(false);
+  const [assignmentSearch, setAssignmentSearch] = useState('');
+  const [filteredCollaborators, setFilteredCollaborators] = useState([]);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const assignmentInputRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   // Reset to notes tab when modal opens or plan item changes
   useEffect(() => {
     if (show) {
       setActiveTab('notes');
+      setIsEditingAssignment(false);
+      setAssignmentSearch('');
     }
   }, [show, planItem?._id]);
+
+  // Filter collaborators based on search
+  useEffect(() => {
+    if (assignmentSearch.trim() === '') {
+      setFilteredCollaborators(collaborators);
+    } else {
+      const searchLower = assignmentSearch.toLowerCase();
+      const filtered = collaborators.filter(collab => {
+        const name = collab.name || collab.user?.name || '';
+        return name.toLowerCase().includes(searchLower);
+      });
+      setFilteredCollaborators(filtered);
+    }
+    setHighlightedIndex(0);
+  }, [assignmentSearch, collaborators]);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditingAssignment && assignmentInputRef.current) {
+      assignmentInputRef.current.focus();
+    }
+  }, [isEditingAssignment]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        assignmentInputRef.current &&
+        !assignmentInputRef.current.contains(event.target)
+      ) {
+        setIsEditingAssignment(false);
+        setAssignmentSearch('');
+      }
+    };
+
+    if (isEditingAssignment) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isEditingAssignment]);
 
   if (!planItem) return null;
 
   const notes = planItem.details?.notes || [];
   const assignedTo = planItem.assignedTo;
-
-  const handleAssignChange = async (e) => {
-    const userId = e.target.value;
-    if (!userId) {
-      await onUnassign();
-    } else {
-      await onAssign(userId);
-    }
-  };
 
   const getAssigneeName = () => {
     if (!assignedTo) return 'Unassigned';
@@ -58,6 +99,62 @@ export default function PlanItemDetailsModal({
     });
 
     return assignee?.name || assignee?.user?.name || 'Unknown User';
+  };
+
+  const handleAssignmentClick = () => {
+    if (canEdit) {
+      setIsEditingAssignment(true);
+      setAssignmentSearch('');
+    }
+  };
+
+  const handleSelectCollaborator = async (collaborator) => {
+    const userId = collaborator._id || collaborator.user?._id;
+    setIsEditingAssignment(false);
+    setAssignmentSearch('');
+
+    if (userId) {
+      await onAssign(userId);
+    }
+  };
+
+  const handleUnassign = async () => {
+    setIsEditingAssignment(false);
+    setAssignmentSearch('');
+    await onUnassign();
+  };
+
+  const handleKeyDown = (e) => {
+    if (!filteredCollaborators.length && highlightedIndex !== 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev < filteredCollaborators.length ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex === 0) {
+          // Unassign option
+          handleUnassign();
+        } else if (highlightedIndex <= filteredCollaborators.length) {
+          handleSelectCollaborator(filteredCollaborators[highlightedIndex - 1]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsEditingAssignment(false);
+        setAssignmentSearch('');
+        break;
+      default:
+        break;
+    }
   };
 
   return (
@@ -87,22 +184,59 @@ export default function PlanItemDetailsModal({
         <div className="assignment-section">
           <label className="assignment-label">Assigned To:</label>
           {canEdit ? (
-            <select
-              className="assignment-select"
-              value={assignedTo?._id || assignedTo || ''}
-              onChange={handleAssignChange}
-            >
-              <option value="">-- Unassigned --</option>
-              {collaborators.map((collab) => {
-                const userId = collab._id || collab.user?._id;
-                const userName = collab.name || collab.user?.name || 'Unknown User';
-                return (
-                  <option key={userId} value={userId}>
-                    {userName}
-                  </option>
-                );
-              })}
-            </select>
+            <div className="assignment-autocomplete-wrapper">
+              {!isEditingAssignment ? (
+                <button
+                  className="assignment-link"
+                  onClick={handleAssignmentClick}
+                  type="button"
+                >
+                  {getAssigneeName()}
+                </button>
+              ) : (
+                <div className="assignment-autocomplete">
+                  <input
+                    ref={assignmentInputRef}
+                    type="text"
+                    className="assignment-input"
+                    placeholder="Search collaborators..."
+                    value={assignmentSearch}
+                    onChange={(e) => setAssignmentSearch(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                  />
+                  {(isEditingAssignment && (filteredCollaborators.length > 0 || assignmentSearch)) && (
+                    <div ref={dropdownRef} className="assignment-dropdown">
+                      <div
+                        className={`assignment-option ${highlightedIndex === 0 ? 'highlighted' : ''}`}
+                        onClick={handleUnassign}
+                        onMouseEnter={() => setHighlightedIndex(0)}
+                      >
+                        <span className="assignment-option-text">-- Unassigned --</span>
+                      </div>
+                      {filteredCollaborators.map((collab, index) => {
+                        const userId = collab._id || collab.user?._id;
+                        const userName = collab.name || collab.user?.name || 'Unknown User';
+                        return (
+                          <div
+                            key={userId}
+                            className={`assignment-option ${highlightedIndex === index + 1 ? 'highlighted' : ''}`}
+                            onClick={() => handleSelectCollaborator(collab)}
+                            onMouseEnter={() => setHighlightedIndex(index + 1)}
+                          >
+                            <span className="assignment-option-text">{userName}</span>
+                          </div>
+                        );
+                      })}
+                      {filteredCollaborators.length === 0 && assignmentSearch && (
+                        <div className="assignment-option disabled">
+                          <span className="assignment-option-text">No collaborators found</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           ) : (
             <span className="assignment-value">{getAssigneeName()}</span>
           )}

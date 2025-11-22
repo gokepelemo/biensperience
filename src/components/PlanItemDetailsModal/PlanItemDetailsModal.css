@@ -58,22 +58,102 @@
   margin: 0;
 }
 
-.assignment-select {
+.assignment-autocomplete-wrapper {
   flex: 1;
+  position: relative;
+}
+
+.assignment-link {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--color-primary, #667eea);
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.2s);
+  border-radius: var(--radius-md, 0.375rem);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.assignment-link:hover {
+  background: var(--color-bg-hover, rgba(102, 126, 234, 0.1));
+  text-decoration-style: solid;
+}
+
+.assignment-autocomplete {
+  position: relative;
+  width: 100%;
+}
+
+.assignment-input {
+  width: 100%;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
-  border: 1px solid var(--color-border-light, #e2e8f0);
+  border: 1px solid var(--color-primary, #667eea);
   border-radius: var(--radius-md, 0.375rem);
   background: var(--color-bg-primary, #ffffff);
   color: var(--color-text-primary, #1a202c);
-  cursor: pointer;
   transition: border-color var(--transition-fast, 0.2s);
 }
 
-.assignment-select:focus {
+.assignment-input:focus {
   outline: none;
   border-color: var(--color-primary, #667eea);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.assignment-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.25rem;
+  background: var(--color-bg-primary, #ffffff);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+  border-radius: var(--radius-md, 0.375rem);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.assignment-option {
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-text-primary, #1a202c);
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.2s);
+  border-bottom: 1px solid var(--color-border-light, #e2e8f0);
+}
+
+.assignment-option:last-child {
+  border-bottom: none;
+}
+
+.assignment-option:hover,
+.assignment-option.highlighted {
+  background: var(--color-bg-hover, rgba(102, 126, 234, 0.1));
+  color: var(--color-primary, #667eea);
+}
+
+.assignment-option.disabled {
+  color: var(--color-text-muted, #a0aec0);
+  cursor: not-allowed;
+  font-style: italic;
+}
+
+.assignment-option.disabled:hover {
+  background: none;
+}
+
+.assignment-option-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .assignment-value {
@@ -242,10 +322,43 @@
     color: var(--color-text-primary, #e9ecef);
   }
 
-  .assignment-select {
+  .assignment-link {
+    color: #8b9cff;
+  }
+
+  .assignment-link:hover {
+    background: rgba(139, 156, 255, 0.15);
+  }
+
+  .assignment-input {
+    background: var(--color-bg-secondary, #1a202c);
+    border-color: #8b9cff;
+    color: var(--color-text-primary, #e9ecef);
+  }
+
+  .assignment-input::placeholder {
+    color: var(--color-text-muted, #a0aec0);
+  }
+
+  .assignment-dropdown {
     background: var(--color-bg-secondary, #1a202c);
     border-color: var(--color-border-medium, #4a5568);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  }
+
+  .assignment-option {
     color: var(--color-text-primary, #e9ecef);
+    border-bottom-color: var(--color-border-medium, #4a5568);
+  }
+
+  .assignment-option:hover,
+  .assignment-option.highlighted {
+    background: rgba(139, 156, 255, 0.15);
+    color: #8b9cff;
+  }
+
+  .assignment-option.disabled {
+    color: var(--color-text-muted, #718096);
   }
 
   .assignment-value {
