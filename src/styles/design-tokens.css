@@ -660,100 +660,145 @@
 }
 
 /* DARK MODE - data-theme attribute (for Storybook and manual toggling) */
+/* Consolidated to match system preference dark mode for consistency */
 [data-theme="dark"] {
-  /* Text Colors */
-  --color-text-primary: #f8f9fa;
-  --color-text-secondary: #e9ecef;
-  --color-text-tertiary: #dee2e6;
-  --color-text-muted: #adb5bd;
-  --color-text-disabled: #6c757d;
+  /* Text Colors - Light on dark backgrounds */
+  --color-text-primary: #f8f9fa;      /* Light gray */
+  --color-text-secondary: #e9ecef;    /* Lighter gray */
+  --color-text-tertiary: #dee2e6;     /* Even lighter gray */
+  --color-text-muted: #adb5bd;        /* Muted gray */
+  --color-text-disabled: #6c757d;     /* Disabled gray */
 
-  /* Background Colors */
-  --color-bg-primary: #121212;
-  --color-bg-secondary: #1e1e1e;
-  --color-bg-tertiary: #2d2d2d;
+  /* Background Colors - Dark theme */
+  --color-bg-primary: #121212;        /* Very dark gray (near black) */
+  --color-bg-secondary: #1e1e1e;      /* Dark gray */
+  --color-bg-tertiary: #2d2d2d;       /* Medium dark gray */
   --color-bg-hover: rgba(255, 255, 255, 0.05);
-  --color-bg-overlay: rgba(0, 0, 0, 0.85);
-  --color-bg-input: #2d2d2d;
+  --color-bg-overlay: rgba(0, 0, 0, 0.85); /* Much darker overlay for better focus */
+  --color-bg-input: #2d2d2d;          /* Dark input background */
 
-  /* Border Colors */
+  /* Border Colors - Subtle on dark backgrounds */
   --color-border-light: rgba(255, 255, 255, 0.1);
   --color-border-medium: rgba(255, 255, 255, 0.2);
   --color-border-dark: rgba(255, 255, 255, 0.3);
   --color-border-primary: rgba(102, 126, 234, 0.3);
 
-  /* Shadows */
+  /* Shadow Colors - Adjusted for dark theme */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.15);
   --shadow-md: 0 4px 12px rgba(102, 126, 234, 0.2);
   --shadow-lg: 0 10px 30px rgba(102, 126, 234, 0.3);
   --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.5);
+
+  /* Text Shadows - Subtle on dark backgrounds */
   --shadow-text-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-text-md: 0 2px 4px rgba(0, 0, 0, 0.7);
 
-  /* Semantic Colors */
-  --color-success: #40c057;
+  /* Semantic Colors - Slightly adjusted for dark theme */
+  --color-success: #40c057;           /* Brighter green for dark bg */
   --color-success-light: rgba(64, 192, 87, 0.15);
-  --color-danger: #fa5252;
+  --color-success-dark: #2f9e44;
+  --color-danger: #fa5252;            /* Brighter red for dark bg */
   --color-danger-light: rgba(250, 82, 82, 0.15);
-  --color-warning: #ffd43b;
+  --color-danger-dark: #e03131;
+  --color-warning: #ffd43b;           /* Brighter yellow for dark bg */
   --color-warning-light: rgba(255, 212, 59, 0.15);
-  --color-info: #339af0;
+  --color-warning-dark: #fab005;
+  --color-info: #339af0;              /* Brighter blue for dark bg */
   --color-info-light: rgba(51, 154, 240, 0.15);
+  --color-info-dark: #1c7ed6;
 
-  /* Favorite Button Colors */
-  --color-favorite-add-hover-start: #40c057;
-  --color-favorite-add-hover-end: #2f9e44;
-  --color-favorite-remove-hover-start: #fa5252;
-  --color-favorite-remove-hover-end: #e03131;
-  --color-favorite-pill-bg: #667eea;
-  --color-favorite-pill-bg-end: #764ba2;
-  --color-favorite-text: #ffffff;
+  /* Semantic Color States - Dark mode versions */
+  --color-info-bg: rgba(51, 154, 240, 0.15);
+  --color-info-border: rgba(51, 154, 240, 0.3);
+  --color-info-text: #74c0fc;
+  --color-success-bg: rgba(64, 192, 87, 0.15);
+  --color-success-border: rgba(64, 192, 87, 0.3);
+  --color-success-text: #8ce99a;
+  --color-danger-bg: rgba(250, 82, 82, 0.15);
+  --color-danger-border: rgba(250, 82, 82, 0.3);
+  --color-danger-text: #ffa8a8;
+  --color-warning-bg: rgba(255, 212, 59, 0.15);
+  --color-warning-border: rgba(255, 212, 59, 0.3);
+  --color-warning-text: #ffe066;
 
-  /* Primary Colors */
-  --color-primary-light: rgba(102, 126, 234, 0.15);
-  --color-primary-hover: #7c8ff0;
+  /* Alpha Variants - Keep same for consistency */
+  --color-primary-alpha-10: rgba(102, 126, 234, 0.1);
+  --color-primary-alpha-20: rgba(102, 126, 234, 0.2);
+  --color-primary-alpha-30: rgba(102, 126, 234, 0.3);
+  --color-primary-alpha-40: rgba(102, 126, 234, 0.4);
+  --color-primary-alpha-50: rgba(102, 126, 234, 0.5);
 
-  /* Button Tokens */
+  /* Text Placeholder */
+  --color-text-placeholder: #6c757d;
+
+  /* Favorite Button Colors - Adjusted for dark mode */
+  --color-favorite-add-hover-start: #40c057;    /* Brighter green for dark bg */
+  --color-favorite-add-hover-end: #2f9e44;      /* Darker green */
+  --color-favorite-remove-hover-start: #fa5252; /* Brighter red for dark bg */
+  --color-favorite-remove-hover-end: #e03131;   /* Darker red */
+  --color-favorite-pill-bg: #667eea;            /* Keep purple pill */
+  --color-favorite-pill-bg-end: #764ba2;        /* Keep darker purple */
+  --color-favorite-text: #ffffff;               /* Keep white text */
+
+  /* Primary Colors - Keep brand colors but adjust hover states */
+  --color-primary-light: rgba(102, 126, 234, 0.15); /* More transparent on dark */
+  --color-primary-hover: #7c8ff0;      /* Lighter hover for dark bg */
+
+  /* Button Tokens - Dark Mode Overrides */
   --btn-secondary-bg: var(--color-bg-tertiary);
   --btn-secondary-color: var(--color-text-primary);
   --btn-secondary-border: 2px solid var(--color-border-medium);
   --btn-secondary-hover-bg: rgba(255, 255, 255, 0.1);
   --btn-secondary-hover-border: 2px solid var(--color-border-dark);
 
-  /* Badge Colors - High contrast for dark mode */
+  /* Badge Colors - Dark Mode Overrides */
   --badge-primary-bg: #7c93f7;
   --badge-primary-text: #000000;
+
   --badge-success-bg: #40c057;
   --badge-success-text: #000000;
+
   --badge-danger-bg: #fa5252;
   --badge-danger-text: #000000;
+
   --badge-warning-bg: #ffd43b;
   --badge-warning-text: #000000;
+
   --badge-info-bg: #4dabf7;
   --badge-info-text: #000000;
+
   --badge-neutral-bg: #adb5bd;
   --badge-neutral-text: #000000;
 
-  /* Category Badges */
+  /* Category badges - Lighter for dark backgrounds */
   --badge-nature-bg: #51cf66;
   --badge-nature-text: #000000;
+
   --badge-culture-bg: #9775fa;
   --badge-culture-text: #000000;
+
   --badge-food-bg: #ff922b;
   --badge-food-text: #000000;
+
   --badge-adventure-bg: #ff6b6b;
   --badge-adventure-text: #000000;
-  --badge-relaxation-bg: #74c0fc;
+
+  --badge-relaxation-bg: #4dabf7;
   --badge-relaxation-text: #000000;
+
   --badge-photography-bg: #ff6b9d;
   --badge-photography-text: #000000;
+
   --badge-seasonal-bg: #ffd43b;
   --badge-seasonal-text: #000000;
+
   --badge-nightlife-bg: #9775fa;
   --badge-nightlife-text: #000000;
+
   --badge-shopping-bg: #63e6be;
   --badge-shopping-text: #000000;
+
   --badge-historical-bg: #adb5bd;
   --badge-historical-text: #000000;
 }
