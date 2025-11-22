@@ -5,7 +5,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { Form, InputGroup, Button } from 'react-bootstrap';
+import { Button } from '../../components/design-system';
 import { FaPaperPlane, FaSearch, FaPlus, FaTimes } from 'react-icons/fa';
 import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
 import { renderTextWithMentions } from '../../utilities/mentions';
@@ -137,11 +137,11 @@ export default function PlanItemNotes({
     <div className="plan-item-notes-chat">
       {/* Search and Add Note Header */}
       <div className="notes-header">
-        <InputGroup className="notes-search">
-          <InputGroup.Text className="search-icon">
-            <FaSearch />
-          </InputGroup.Text>
-          <Form.Control
+        <div className="notes-search-wrapper">
+          <div className="search-icon-container">
+            <FaSearch className="search-icon" />
+          </div>
+          <input
             type="text"
             placeholder="Search notes..."
             value={searchQuery}
@@ -151,19 +151,20 @@ export default function PlanItemNotes({
             }}
             className="search-input"
             disabled={disabled}
+            aria-label="Search notes"
           />
           {searchQuery && (
-            <Button
-              variant="link"
+            <button
+              type="button"
               onClick={() => setSearchQuery('')}
-              className="clear-search"
+              className="clear-search-button"
               aria-label="Clear search"
               disabled={disabled}
             >
               <FaTimes />
-            </Button>
+            </button>
           )}
-        </InputGroup>
+        </div>
 
         <Button
           variant="primary"

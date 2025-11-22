@@ -77,3 +77,37 @@ export function getOwner(resource) {
 
   return null;
 }
+
+/**
+ * Check if user can edit a plan (owner, collaborator, or super admin)
+ * @param {Object} user - User object to check
+ * @param {Object} plan - Plan object
+ * @returns {boolean} - True if user can edit the plan
+ */
+export function canEditPlan(user, plan) {
+  // Super admins can edit any plan
+  if (isSuperAdmin(user)) {
+    return true;
+  }
+
+  if (!user || !plan) {
+    return false;
+  }
+
+  const userIdStr = user._id.toString();
+
+  // Check permissions array for owner or collaborator role
+  if (plan.permissions && Array.isArray(plan.permissions)) {
+    const hasPermission = plan.permissions.some(p =>
+      p.entity === 'user' &&
+      (p.type === 'owner' || p.type === 'collaborator') &&
+      p._id.toString() === userIdStr
+    );
+
+    if (hasPermission) {
+      return true;
+    }
+  }
+
+  return false;
+}

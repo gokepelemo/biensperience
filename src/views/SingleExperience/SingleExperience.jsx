@@ -46,7 +46,7 @@ import {
 import { handleError } from "../../utilities/error-handler";
 import { createExpirableStorage, getCookieValue, setCookieValue } from "../../utilities/cookie-utils";
 import { formatCurrency } from "../../utilities/currency-utils";
-import { isOwner } from "../../utilities/permissions";
+import { isOwner, canEditPlan } from "../../utilities/permissions";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import usePlanManagement from "../../hooks/usePlanManagement";
 import {
@@ -2974,7 +2974,7 @@ export default function SingleExperience() {
           // TODO: Implement unassignment functionality
           console.log('Unassign');
         }}
-        canEdit={selectedPlan ? isOwner(selectedPlan, user) : false}
+        canEdit={selectedPlan ? canEditPlan(user, selectedPlan) : false}
       />
     </>
   );
