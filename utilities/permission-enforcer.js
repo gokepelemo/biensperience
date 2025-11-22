@@ -18,6 +18,11 @@ const {
   isSuperAdmin,
   resolvePermissionsWithInheritance
 } = require('./permissions');
+const {
+  emailNotVerifiedError,
+  insufficientPermissionsError,
+  notAuthenticatedError
+} = require('./error-responses');
 
 /**
  * Permission action types
@@ -127,9 +132,24 @@ class PermissionEnforcer {
 
       backendLogger.info('PERMISSION_DEBUG: action decision', { userId: userIdStr, action, role: permissionInfo.role, allowed: actionAllowed });
 
+      if (!actionAllowed) {
+        // Return structured error with actionable information
+        const errorResponse = insufficientPermissionsError(
+          this._getRequiredRoleForAction(action),
+          permissionInfo.role || 'none'
+        );
+        return {
+          allowed: false,
+          reason: errorResponse.error.userMessage,
+          code: errorResponse.error.code,
+          role: permissionInfo.role,
+          errorDetails: errorResponse.error  // Full error with action button
+        };
+      }
+
       return {
-        allowed: actionAllowed,
-        reason: actionAllowed ? null : `Insufficient permissions. Required role for ${action} not met.`,
+        allowed: true,
+        reason: null,
         role: permissionInfo.role
       };
     } catch (error) {
@@ -279,12 +299,15 @@ class PermissionEnforcer {
     return async (req, res, next) => {
       try {
         if (!req.user || !req.user._id) {
-          return res.status(401).json({ error: 'Authentication required' });
+          const errorResponse = notAuthenticatedError();
+          return res.status(errorResponse.status).json(errorResponse);
         }
 
         const resource = await resourceGetter(req);
         if (!resource) {
-          return res.status(404).json({ error: 'Resource not found' });
+          const { resourceNotFoundError } = require('./error-responses');
+          const errorResponse = resourceNotFoundError('resource', req.params.id || 'unknown');
+          return res.status(errorResponse.status).json(errorResponse);
         }
 
         const result = await this.can({
@@ -295,9 +318,22 @@ class PermissionEnforcer {
         });
 
         if (!result.allowed) {
-          return res.status(403).json({ 
-            error: 'Insufficient permissions',
-            reason: result.reason 
+          // Return structured error response with action buttons if available
+          if (result.errorDetails) {
+            return res.status(403).json({
+              success: false,
+              error: result.errorDetails
+            });
+          }
+
+          // Fallback for legacy error format
+          return res.status(403).json({
+            success: false,
+            error: {
+              code: result.code || 'INSUFFICIENT_PERMISSIONS',
+              userMessage: result.reason || 'Insufficient permissions',
+              message: result.reason || 'Insufficient permissions'
+            }
           });
         }
 
@@ -310,7 +346,9 @@ class PermissionEnforcer {
         next();
       } catch (error) {
         backendLogger.error('Permission middleware error', { error: error.message, userId: req.user?._id });
-        res.status(500).json({ error: 'Error checking permissions' });
+        const { internalServerError } = require('./error-responses');
+        const errorResponse = internalServerError();
+        res.status(errorResponse.status).json(errorResponse);
       }
     };
   }
@@ -502,6 +540,22 @@ class PermissionEnforcer {
   }
 
   /**
+   * Get required role for an action (minimum role needed)
+   * @private
+   */
+  _getRequiredRoleForAction(action) {
+    const actionRequirements = {
+      [ACTIONS.VIEW]: 'contributor',
+      [ACTIONS.CONTRIBUTE]: 'contributor',
+      [ACTIONS.EDIT]: 'collaborator',
+      [ACTIONS.DELETE]: 'owner',
+      [ACTIONS.MANAGE_PERMISSIONS]: 'owner'
+    };
+
+    return actionRequirements[action] || 'owner';
+  }
+
+  /**
    * Check if user meets email verification requirements
    * @private
    */
@@ -546,10 +600,12 @@ class PermissionEnforcer {
       // Check if email is confirmed
       if (!user.emailConfirmed) {
         backendLogger.info('PERMISSION_DEBUG: Email not confirmed - blocking action', userIdStr);
+        const errorResponse = emailNotVerifiedError(user.email);
         return {
           allowed: false,
-          reason: 'Email verification required. Please check your email for a verification link.',
-          code: 'EMAIL_NOT_VERIFIED'
+          reason: errorResponse.error.userMessage,
+          code: errorResponse.error.code,
+          errorDetails: errorResponse.error  // Full error with action button
         };
       }
 

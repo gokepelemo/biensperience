@@ -5,6 +5,8 @@
  * Implements a finite state machine pattern without external dependencies.
  */
 
+import logger from '../utilities/logger';
+
 // Plan States
 export const PLAN_STATES = {
   IDLE: 'idle',           // No plan exists
@@ -132,7 +134,7 @@ export class PlanMachine {
     const nextState = STATE_TRANSITIONS[this.state]?.[event];
 
     if (!nextState) {
-      console.warn(`[PlanMachine] Invalid transition: ${this.state} -> ${event}`);
+      logger.warn('[PlanMachine] Invalid transition', { currentState: this.state, event });
       return false;
     }
 
@@ -250,7 +252,7 @@ export class PlanMachine {
       try {
         listener(stateChange);
       } catch (err) {
-        console.error('[PlanMachine] Listener error:', err);
+        logger.error('[PlanMachine] Listener error', { error: err.message }, err);
       }
     });
   }

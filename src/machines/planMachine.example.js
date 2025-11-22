@@ -6,6 +6,7 @@
  */
 
 import { createPlanMachine, PLAN_STATES, PLAN_EVENTS } from './planMachine';
+import logger from '../utilities/logger';
 
 /**
  * Example 1: Basic plan creation flow
@@ -13,14 +14,14 @@ import { createPlanMachine, PLAN_STATES, PLAN_EVENTS } from './planMachine';
 export function examplePlanCreation() {
   const machine = createPlanMachine();
 
-  console.log('Initial state:', machine.getState()); // 'idle'
+  logger.debug('Initial state:', { state: machine.getState() }); // 'idle'
 
   // User clicks "Plan It" button
   machine.send(PLAN_EVENTS.CREATE_PLAN, {
     plannedDate: '2025-12-01',
     experienceId: 'exp123'
   });
-  console.log('After CREATE_PLAN:', machine.getState()); // 'creating'
+  logger.debug('After CREATE_PLAN:', { state: machine.getState() }); // 'creating'
 
   // API responds with created plan
   machine.send(PLAN_EVENTS.PLAN_CREATED, {
@@ -30,8 +31,8 @@ export function examplePlanCreation() {
       plan: []
     }
   });
-  console.log('After PLAN_CREATED:', machine.getState()); // 'active'
-  console.log('Plan in context:', machine.getContext().plan);
+  logger.debug('After PLAN_CREATED:', { state: machine.getState() }); // 'active'
+  logger.debug('Plan in context:', { plan: machine.getContext().plan });
 }
 
 /**
@@ -45,18 +46,18 @@ export function examplePlanUpdateWithError() {
   machine.send(PLAN_EVENTS.UPDATE_PLAN, {
     updates: { planned_date: '2025-12-15' }
   });
-  console.log('After UPDATE_PLAN:', machine.getState()); // 'updating'
+  logger.debug('After UPDATE_PLAN:', { state: machine.getState() }); // 'updating'
 
   // API fails
   machine.send(PLAN_EVENTS.ERROR, {
     error: new Error('Network timeout')
   });
-  console.log('After ERROR:', machine.getState()); // 'error'
-  console.log('Error in context:', machine.getContext().error);
+  logger.debug('After ERROR:', { state: machine.getState() }); // 'error'
+  logger.debug('Error in context:', { error: machine.getContext().error });
 
   // User retries
   machine.send(PLAN_EVENTS.RETRY);
-  console.log('After RETRY:', machine.getState()); // 'idle'
+  logger.debug('After RETRY:', { state: machine.getState() }); // 'idle'
 }
 
 /**
@@ -69,7 +70,7 @@ export function exampleEventReconciliation() {
   machine.send(PLAN_EVENTS.SYNC_PLAN, {
     reason: 'External change detected'
   });
-  console.log('After SYNC_PLAN:', machine.getState()); // 'syncing'
+  logger.debug('After SYNC_PLAN:', { state: machine.getState() }); // 'syncing'
 
   // Sync completes
   machine.send(PLAN_EVENTS.SYNC_COMPLETE, {
@@ -79,7 +80,7 @@ export function exampleEventReconciliation() {
       plan: [{ text: 'New item from collaborator' }]
     }
   });
-  console.log('After SYNC_COMPLETE:', machine.getState()); // 'active'
+  logger.debug('After SYNC_COMPLETE:', { state: machine.getState() }); // 'active'
 }
 
 /**
@@ -90,12 +91,12 @@ export function examplePlanDeletion() {
 
   // User deletes plan
   machine.send(PLAN_EVENTS.DELETE_PLAN);
-  console.log('After DELETE_PLAN:', machine.getState()); // 'deleting'
+  logger.debug('After DELETE_PLAN:', { state: machine.getState() }); // 'deleting'
 
   // API confirms deletion
   machine.send(PLAN_EVENTS.PLAN_DELETED);
-  console.log('After PLAN_DELETED:', machine.getState()); // 'idle'
-  console.log('Plan in context:', machine.getContext().plan); // null
+  logger.debug('After PLAN_DELETED:', { state: machine.getState() }); // 'idle'
+  logger.debug('Plan in context:', { plan: machine.getContext().plan }); // null
 }
 
 /**
@@ -106,12 +107,12 @@ export function exampleInvalidTransitions() {
 
   // Try to delete when no plan exists
   const result = machine.send(PLAN_EVENTS.DELETE_PLAN);
-  console.log('Can delete from idle?', result); // false
-  console.log('State unchanged:', machine.getState()); // 'idle'
+  logger.debug('Can delete from idle?', { result }); // false
+  logger.debug('State unchanged:', { state: machine.getState() }); // 'idle'
 
   // Check available transitions
   const available = machine.getAvailableTransitions();
-  console.log('Available transitions from idle:', available); // ['CREATE_PLAN', 'PLAN_CREATED']
+  logger.debug('Available transitions from idle:', { available }); // ['CREATE_PLAN', 'PLAN_CREATED']
 }
 
 /**
@@ -121,6 +122,7 @@ export function exampleReactIntegration() {
   // In a React component:
   /*
   import usePlanMachine from '../hooks/usePlanMachine';
+  import logger from '../utilities/logger';
 
   function MyPlanComponent({ planId }) {
     const {
@@ -134,7 +136,7 @@ export function exampleReactIntegration() {
     } = usePlanMachine(planId, {
       debug: true,
       onStateChange: (change) => {
-        console.log('Plan state changed:', change);
+        logger.debug('Plan state changed:', { change });
       }
     });
 
@@ -173,8 +175,11 @@ export function exampleWithListeners() {
 
   // Subscribe to all state changes
   const unsubscribe = machine.subscribe((stateChange) => {
-    console.log('State changed from', stateChange.previousState, 'to', stateChange.state);
-    console.log('Triggered by event:', stateChange.event);
+    logger.debug('State changed', {
+      from: stateChange.previousState,
+      to: stateChange.state
+    });
+    logger.debug('Triggered by event:', { event: stateChange.event });
   });
 
   // Perform some transitions
@@ -185,7 +190,7 @@ export function exampleWithListeners() {
 
   // View history
   const history = machine.getHistory();
-  console.log('Transition history:', history);
+  logger.debug('Transition history:', { history });
 
   // Cleanup
   unsubscribe();
