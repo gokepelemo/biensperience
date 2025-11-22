@@ -878,12 +878,19 @@ export default function SingleExperience() {
         });
 
         // Use stored hash if present, otherwise check URL hash
-        let planId, itemId, hashSource = null;
+        let planId, itemId, hashSource = null, fullHash = null;
         if (storedPlanId) {
           planId = storedPlanId;
           itemId = storedItemId;
+          fullHash = storedHash; // Store full hash for later restoration
           hashSource = 'storage';
-          debug.log('[SingleExperience] ✅ Using stored hash from cross-navigation:', { planId, itemId, storedHash, originPath });
+          debug.log('[SingleExperience] ✅ Using stored hash from localStorage:', {
+            planId,
+            itemId,
+            fullHash,
+            originPath,
+            meta
+          });
 
           // Don't clear the stored hash yet — wait until we've successfully
           // scrolled to the plan or item. This guard allows us to keep the
@@ -898,9 +905,15 @@ export default function SingleExperience() {
           const parts = hashContent.split('-item-');
           planId = parts[0];
           itemId = parts.length > 1 ? parts[1] : null;
+          fullHash = hash; // Store full hash for later restoration
           hashSource = 'url';
 
-          debug.log('Hash-based plan navigation detected from URL:', { planId, itemId, hash });
+          debug.log('[SingleExperience] Hash-based plan navigation detected from URL:', {
+            planId,
+            itemId,
+            fullHash,
+            originalHash: hash
+          });
         }
 
         // If no planId found from either source, nothing to do
@@ -956,8 +969,18 @@ export default function SingleExperience() {
           // 1. Always animate for direct URL navigation (hashSource === 'url')
           // 2. Always animate if HashLink explicitly requested shake (meta.shouldShake)
           // 3. For stored hashes (cross-navigation), animate if hash not previously handled
-          const targetHash = storedHash && storedHash.startsWith('#') ? storedHash : (window.location.hash || '');
+          const targetHash = fullHash && fullHash.startsWith('#') ? fullHash : (window.location.hash || '');
           const shouldAnimate = hashSource === 'url' || meta?.shouldShake === true || !handledHashesRef.current.has(targetHash);
+
+          debug.log('[SingleExperience] 📍 Hash navigation details:', {
+            planId,
+            itemId,
+            fullHash,
+            targetHash,
+            hashSource,
+            shouldAnimate
+          });
+
           setTimeout(() => attemptScrollToItem(itemId, { shouldHighlight: shouldAnimate }), 250);
 
           // Mark this hash as handled to prevent re-animation on non-HashLink actions
@@ -971,24 +994,23 @@ export default function SingleExperience() {
             // ignore
           }
 
-          // After scheduling the scroll attempts, restore the hash to the URL
-          // so the address bar reflects the deep link. The stored hash has
-          // already been cleared from localStorage above to prevent stale data.
+          // CRITICAL: Restore the FULL hash (including item portion) to the URL
+          // This happens after React Router may have stripped it or after cross-navigation
           try {
-            if (storedHash) {
-              // Replace the current history entry (created by React Router
-              // navigate) with a hash-bearing URL so the back button goes
-              // back to the originating dashboard instead of an intermediate
-              // hash-less experience URL.
-              debug.log('[SingleExperience] 🔗 Restoring hash to URL:', {
-                storedHash,
+            if (fullHash) {
+              // Replace the current history entry with the full hash-bearing URL
+              // This ensures item-level deep links are preserved in the address bar
+              debug.log('[SingleExperience] 🔗 Restoring FULL hash to URL:', {
+                fullHash,
+                planId,
+                itemId,
                 currentURL: window.location.href,
                 hashSource
               });
-              restoreHashToUrl(storedHash, { replace: true });
+              restoreHashToUrl(fullHash, { replace: true });
               debug.log('[SingleExperience] ✅ Hash restored. New URL:', window.location.href);
             } else {
-              debug.log('[SingleExperience] ⚠️ No storedHash to restore', { hashSource });
+              debug.warn('[SingleExperience] ⚠️ No fullHash to restore', { hashSource, planId, itemId });
             }
           } catch (err) {
             debug.error('[SingleExperience] ❌ Failed to restore hash to URL:', err);
