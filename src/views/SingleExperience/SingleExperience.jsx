@@ -953,6 +953,45 @@ export default function SingleExperience() {
         if (targetPlan) {
           debug.log('[Hash Navigation] ✅ Found target plan:', targetPlan._id);
           const tid = targetPlan._id && targetPlan._id.toString ? targetPlan._id.toString() : targetPlan._id;
+
+          // CRITICAL: Restore the FULL hash (including item portion) to the URL
+          // BEFORE setting state to prevent URL management useEffect from stripping it
+          // The URL management useEffect triggers when selectedPlanId changes, so we must
+          // ensure the hash is already in the URL before that happens
+          const targetHash = fullHash && fullHash.startsWith('#') ? fullHash : (window.location.hash || '');
+          const shouldAnimate = hashSource === 'url' || meta?.shouldShake === true || !handledHashesRef.current.has(targetHash);
+
+          debug.log('[SingleExperience] 📍 Hash navigation details:', {
+            planId,
+            itemId,
+            fullHash,
+            targetHash,
+            hashSource,
+            shouldAnimate,
+            willRestoreHash: !!fullHash
+          });
+
+          try {
+            if (fullHash) {
+              // Replace the current history entry with the full hash-bearing URL
+              // This ensures item-level deep links are preserved in the address bar
+              debug.log('[SingleExperience] 🔗 Restoring FULL hash to URL (BEFORE state update):', {
+                fullHash,
+                planId,
+                itemId,
+                currentURL: window.location.href,
+                hashSource
+              });
+              restoreHashToUrl(fullHash, { replace: true });
+              debug.log('[SingleExperience] ✅ Hash restored. New URL:', window.location.href);
+            } else {
+              debug.warn('[SingleExperience] ⚠️ No fullHash to restore', { hashSource, planId, itemId });
+            }
+          } catch (err) {
+            debug.error('[SingleExperience] ❌ Failed to restore hash to URL:', err);
+          }
+
+          // NOW set state - URL management useEffect will see the hash in the URL
           debug.log('[Hash Navigation] Setting selectedPlanId:', tid, 'and activeTab: myplan');
           setSelectedPlanId(tid);
           setActiveTab('myplan');
@@ -969,22 +1008,6 @@ export default function SingleExperience() {
           }
 
           // Start attempts shortly after tab switch to give React time to render
-          // Animation rules:
-          // 1. Always animate for direct URL navigation (hashSource === 'url')
-          // 2. Always animate if HashLink explicitly requested shake (meta.shouldShake)
-          // 3. For stored hashes (cross-navigation), animate if hash not previously handled
-          const targetHash = fullHash && fullHash.startsWith('#') ? fullHash : (window.location.hash || '');
-          const shouldAnimate = hashSource === 'url' || meta?.shouldShake === true || !handledHashesRef.current.has(targetHash);
-
-          debug.log('[SingleExperience] 📍 Hash navigation details:', {
-            planId,
-            itemId,
-            fullHash,
-            targetHash,
-            hashSource,
-            shouldAnimate
-          });
-
           setTimeout(() => attemptScrollToItem(itemId, { shouldHighlight: shouldAnimate }), 250);
 
           // Mark this hash as handled to prevent re-animation on non-HashLink actions
@@ -996,28 +1019,6 @@ export default function SingleExperience() {
             if (targetHash) handledHashesRef.current.add(targetHash);
           } catch (e) {
             // ignore
-          }
-
-          // CRITICAL: Restore the FULL hash (including item portion) to the URL
-          // This happens after React Router may have stripped it or after cross-navigation
-          try {
-            if (fullHash) {
-              // Replace the current history entry with the full hash-bearing URL
-              // This ensures item-level deep links are preserved in the address bar
-              debug.log('[SingleExperience] 🔗 Restoring FULL hash to URL:', {
-                fullHash,
-                planId,
-                itemId,
-                currentURL: window.location.href,
-                hashSource
-              });
-              restoreHashToUrl(fullHash, { replace: true });
-              debug.log('[SingleExperience] ✅ Hash restored. New URL:', window.location.href);
-            } else {
-              debug.warn('[SingleExperience] ⚠️ No fullHash to restore', { hashSource, planId, itemId });
-            }
-          } catch (err) {
-            debug.error('[SingleExperience] ❌ Failed to restore hash to URL:', err);
           }
         } else {
           debug.warn('[Hash Navigation] ❌ Plan ID from hash not found in collaborativePlans', {
