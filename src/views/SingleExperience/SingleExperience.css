@@ -75,6 +75,11 @@
     }
 }
 
+/* Planned date badge - match Plan It button rounded corners */
+.planned-date-badge {
+    border-radius: var(--radius-md) !important;
+}
+
 .plan-item-status {
     font-weight: var(--font-weight-semibold);
 }    

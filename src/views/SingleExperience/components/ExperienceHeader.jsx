@@ -40,7 +40,7 @@ export default function ExperienceHeader({
           {displayedPlannedDate ? (
             <TagPill
               color="primary"
-              className="cursor-pointer mb-2"
+              className="cursor-pointer mb-2 planned-date-badge"
               onClick={() => {
                 if (showDatePicker) {
                   setShowDatePicker(false);
@@ -57,7 +57,7 @@ export default function ExperienceHeader({
           ) : (
             <TagPill
               color="primary"
-              className="cursor-pointer mb-2"
+              className="cursor-pointer mb-2 planned-date-badge"
               onClick={() => {
                 if (showDatePicker) {
                   setShowDatePicker(false);
