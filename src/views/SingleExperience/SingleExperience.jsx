@@ -863,7 +863,7 @@ export default function SingleExperience() {
         // Check for stored hash from cross-navigation (e.g., from Dashboard)
         const { planId: storedPlanId, itemId: storedItemId, hash: storedHash, originPath, meta } = handleStoredHash();
 
-        console.log('[SingleExperience] 📍 Hash check:', {
+        debug.log('[SingleExperience] 📍 Hash check:', {
           storedPlanId,
           storedItemId,
           storedHash,
@@ -878,8 +878,7 @@ export default function SingleExperience() {
           planId = storedPlanId;
           itemId = storedItemId;
           hashSource = 'storage';
-          console.log('[SingleExperience] ✅ Using stored hash from cross-navigation:', { planId, itemId, storedHash, originPath });
-          debug.log('Using stored hash from cross-navigation:', { planId, itemId, storedHash, originPath });
+          debug.log('[SingleExperience] ✅ Using stored hash from cross-navigation:', { planId, itemId, storedHash, originPath });
 
           // Don't clear the stored hash yet — wait until we've successfully
           // scrolled to the plan or item. This guard allows us to keep the
@@ -919,25 +918,19 @@ export default function SingleExperience() {
         if (hashSelecting) setHashSelecting(false);
 
         // DEBUG: Log all available plans and the target planId
-        console.log('[Hash Navigation] Looking for planId:', planId);
-        console.log('[Hash Navigation] Available collaborativePlans:', collaborativePlans.map(p => ({
+        debug.log('[Hash Navigation] Looking for planId:', planId);
+        debug.log('[Hash Navigation] Available collaborativePlans:', collaborativePlans.map(p => ({
           id: p._id,
           idString: p._id?.toString(),
           isOwn: p.user?._id?.toString() === user?._id?.toString() || p.user?.toString() === user?._id?.toString()
         })));
-        debug.log('[Hash Navigation] Looking for planId:', planId);
-        debug.log('[Hash Navigation] Available collaborativePlans:', collaborativePlans.map(p => ({
-          id: p._id,
-          isOwn: p.user?._id?.toString() === user?._id?.toString() || p.user?.toString() === user?._id?.toString()
-        })));
 
         const targetPlan = collaborativePlans.find((p) => idEquals(p._id, planId));
-        console.log('[Hash Navigation] Target plan found?', !!targetPlan);
+        debug.log('[Hash Navigation] Target plan found?', !!targetPlan);
         if (targetPlan) {
-          console.log('[Hash Navigation] ✅ Found target plan:', targetPlan._id);
           debug.log('[Hash Navigation] ✅ Found target plan:', targetPlan._id);
           const tid = targetPlan._id && targetPlan._id.toString ? targetPlan._id.toString() : targetPlan._id;
-          console.log('[Hash Navigation] Setting selectedPlanId:', tid, 'and activeTab: myplan');
+          debug.log('[Hash Navigation] Setting selectedPlanId:', tid, 'and activeTab: myplan');
           setSelectedPlanId(tid);
           setActiveTab('myplan');
 
@@ -981,30 +974,25 @@ export default function SingleExperience() {
               // navigate) with a hash-bearing URL so the back button goes
               // back to the originating dashboard instead of an intermediate
               // hash-less experience URL.
-              console.log('[SingleExperience] 🔗 Restoring hash to URL:', {
+              debug.log('[SingleExperience] 🔗 Restoring hash to URL:', {
                 storedHash,
                 currentURL: window.location.href,
                 hashSource
               });
               restoreHashToUrl(storedHash, { replace: true });
-              console.log('[SingleExperience] ✅ Hash restored. New URL:', window.location.href);
-              debug.log('Restored hash to URL (deferred, replaced):', storedHash);
+              debug.log('[SingleExperience] ✅ Hash restored. New URL:', window.location.href);
             } else {
-              console.log('[SingleExperience] ⚠️ No storedHash to restore', { hashSource });
+              debug.log('[SingleExperience] ⚠️ No storedHash to restore', { hashSource });
             }
           } catch (err) {
-            console.error('[SingleExperience] ❌ Failed to restore hash to URL:', err);
-            debug.warn('Failed to restore hash to URL immediately', err);
+            debug.error('[SingleExperience] ❌ Failed to restore hash to URL:', err);
           }
         } else {
-          console.warn('[Hash Navigation] ❌ Plan ID from hash not found in collaborativePlans');
-          console.warn('[Hash Navigation] planId:', planId);
-          console.warn('[Hash Navigation] collaborativePlans count:', collaborativePlans.length);
-          console.warn('[Hash Navigation] collaborativePlans IDs:', collaborativePlans.map(p => p._id?.toString()));
-          debug.warn('[Hash Navigation] ❌ Plan ID from hash not found in collaborativePlans');
-          debug.warn('[Hash Navigation] planId:', planId);
-          debug.warn('[Hash Navigation] collaborativePlans count:', collaborativePlans.length);
-          debug.warn('[Hash Navigation] collaborativePlans IDs:', collaborativePlans.map(p => p._id));
+          debug.warn('[Hash Navigation] ❌ Plan ID from hash not found in collaborativePlans', {
+            planId,
+            collaborativePlansCount: collaborativePlans.length,
+            collaborativePlansIDs: collaborativePlans.map(p => p._id?.toString())
+          });
           // No matching plan in this experience; clear the stored hash to avoid
           // repeated failed attempts.
           try { clearStoredHash(); } catch (e) {}
