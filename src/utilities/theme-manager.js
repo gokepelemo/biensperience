@@ -109,11 +109,6 @@ function _ensureMediaListener(theme) {
       try {
         document.documentElement.setAttribute('data-theme', applied);
         try { document.documentElement.setAttribute('data-bs-theme', applied); } catch (e) { /* ignore */ }
-        // Also set root class so CSS class-based overrides take effect
-        try {
-          document.documentElement.classList.remove('theme-light', 'theme-dark');
-          document.documentElement.classList.add('theme-' + applied);
-        } catch (e) { /* ignore */ }
       } catch (e) { /* ignore */ }
 
       // Touch preferences blob to notify other tabs that effective theme changed
@@ -147,11 +142,6 @@ export function applyTheme(theme) {
 
     document.documentElement.setAttribute('data-theme', applied);
     try { document.documentElement.setAttribute('data-bs-theme', applied); } catch (e) { /* ignore */ }
-    // Also set a class on the root for stronger specificity in CSS
-    try {
-      document.documentElement.classList.remove('theme-light', 'theme-dark');
-      document.documentElement.classList.add('theme-' + applied);
-    } catch (e) { /* ignore */ }
 
     // Manage media listener based on preference
     try { _ensureMediaListener(theme); } catch (e) { /* ignore */ }

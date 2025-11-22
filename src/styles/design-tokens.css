@@ -198,53 +198,7 @@
      GRADIENTS
      ============================================ */
 
-/* ============================================
-    DARK THEME OVERRIDES
-    These variables override the defaults when a dark theme
-    is active. The app sets dark mode by applying
-    `data-theme="dark"` on the document root or by adding
-    the `.theme-dark` class to the body. These values are
-    conservative and focus on preserving contrast for tokens
-    used in the CollaboratorModal (info box, borders, text).
-    ============================================ */
-:root[data-theme="dark"], .theme-dark {
-   /* Text */
-   --color-text-primary: #E6EEF8;      /* very light */
-   --color-text-secondary: #CBD5E1;    /* light secondary */
-   --color-text-tertiary: #94A3B8;     /* muted light */
-   --color-text-muted: #94A3B8;
-
-   /* Backgrounds */
-   --color-bg-primary: #071024;        /* deep navy */
-   --color-bg-secondary: #0B1220;      /* panels / inputs */
-   --color-bg-tertiary: #0F1724;       /* subtle card background */
-   --color-bg-input: #071024;
-
-   /* Borders - slightly translucent light on dark */
-   --color-border-light: rgba(255,255,255,0.04);
-   --color-border-medium: rgba(255,255,255,0.06);
-   --color-border-dark: rgba(255,255,255,0.10);
-
-   /* Semantic tokens (info/success/danger) tuned for dark backgrounds */
-   --color-info-bg: rgba(59,130,246,0.08);
-   --color-info-border: rgba(59,130,246,0.22);
-   --color-info-text: #BFDBFE;
-
-   --color-success-bg: rgba(16,185,129,0.06);
-   --color-success-border: rgba(16,185,129,0.20);
-   --color-success-text: #86efac;
-
-   --color-danger-bg: rgba(239,68,68,0.06);
-   --color-danger-border: rgba(239,68,68,0.18);
-   --color-danger-text: #FCA5A5;
-
-   /* Primary brand - keep brand but slightly lighter for contrast */
-   --color-primary: #7c5cff;
-   --color-primary-dark: #6b47ff;
-   --color-primary-light: rgba(124,92,255,0.08);
-}
-
-  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+--gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --gradient-primary-reverse: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
   --gradient-primary-animated: linear-gradient(-45deg, #667eea, #764ba2, #667eea, #764ba2);
 

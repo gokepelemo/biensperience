@@ -306,99 +306,99 @@
   }
 
   .plan-item-link {
-    color: #8b9cff;
-    border-color: #8b9cff;
+    color: var(--color-primary);
+    border-color: var(--color-primary);
   }
 
   .plan-item-link:hover {
-    background: rgba(139, 156, 255, 0.15);
+    background: var(--color-primary-light);
   }
 
   .assignment-section {
-    background: var(--color-bg-tertiary, #2d3748);
+    background: var(--color-bg-tertiary);
   }
 
   .assignment-label {
-    color: var(--color-text-primary, #e9ecef);
+    color: var(--color-text-primary);
   }
 
   .assignment-link {
-    color: #8b9cff;
+    color: var(--color-primary);
   }
 
   .assignment-link:hover {
-    background: rgba(139, 156, 255, 0.15);
+    background: var(--color-primary-light);
   }
 
   .assignment-input {
-    background: var(--color-bg-secondary, #1a202c);
-    border-color: #8b9cff;
-    color: var(--color-text-primary, #e9ecef);
+    background: var(--color-bg-secondary);
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
   }
 
   .assignment-input::placeholder {
-    color: var(--color-text-muted, #a0aec0);
+    color: var(--color-text-muted);
   }
 
   .assignment-dropdown {
-    background: var(--color-bg-secondary, #1a202c);
-    border-color: var(--color-border-medium, #4a5568);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-medium);
+    box-shadow: var(--shadow-md);
   }
 
   .assignment-option {
-    color: var(--color-text-primary, #e9ecef);
-    border-bottom-color: var(--color-border-medium, #4a5568);
+    color: var(--color-text-primary);
+    border-bottom-color: var(--color-border-medium);
   }
 
   .assignment-option:hover,
   .assignment-option.highlighted {
-    background: rgba(139, 156, 255, 0.15);
-    color: #8b9cff;
+    background: var(--color-primary-light);
+    color: var(--color-primary);
   }
 
   .assignment-option.disabled {
-    color: var(--color-text-muted, #718096);
+    color: var(--color-text-muted);
   }
 
   .assignment-value {
-    color: var(--color-text-primary, #e9ecef);
+    color: var(--color-text-primary);
   }
 
   .details-tabs {
-    border-bottom-color: var(--color-border-medium, #4a5568);
+    border-bottom-color: var(--color-border-medium);
   }
 
   .details-tab {
-    color: var(--color-text-muted, #a0aec0);
+    color: var(--color-text-muted);
   }
 
   .details-tab:hover:not(.disabled) {
-    color: #8b9cff;
-    background: rgba(139, 156, 255, 0.1);
+    color: var(--color-primary);
+    background: var(--color-primary-light);
   }
 
   .details-tab.active {
-    color: #8b9cff;
-    border-bottom-color: #8b9cff;
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
   }
 
   .pagination {
-    border-top-color: var(--color-border-medium, #4a5568);
+    border-top-color: var(--color-border-medium);
   }
 
   .pagination-btn {
-    background: var(--color-bg-tertiary, #2d3748);
-    border-color: var(--color-border-medium, #4a5568);
-    color: #8b9cff;
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-medium);
+    color: var(--color-primary);
   }
 
   .pagination-btn:hover:not(:disabled) {
-    background: rgba(139, 156, 255, 0.15);
-    border-color: #8b9cff;
+    background: var(--color-primary-light);
+    border-color: var(--color-primary);
   }
 
   .pagination-info {
-    color: var(--color-text-primary, #e9ecef);
+    color: var(--color-text-primary);
   }
 }
