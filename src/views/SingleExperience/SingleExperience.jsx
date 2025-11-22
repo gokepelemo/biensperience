@@ -919,6 +919,12 @@ export default function SingleExperience() {
         if (hashSelecting) setHashSelecting(false);
 
         // DEBUG: Log all available plans and the target planId
+        console.log('[Hash Navigation] Looking for planId:', planId);
+        console.log('[Hash Navigation] Available collaborativePlans:', collaborativePlans.map(p => ({
+          id: p._id,
+          idString: p._id?.toString(),
+          isOwn: p.user?._id?.toString() === user?._id?.toString() || p.user?.toString() === user?._id?.toString()
+        })));
         debug.log('[Hash Navigation] Looking for planId:', planId);
         debug.log('[Hash Navigation] Available collaborativePlans:', collaborativePlans.map(p => ({
           id: p._id,
@@ -926,9 +932,12 @@ export default function SingleExperience() {
         })));
 
         const targetPlan = collaborativePlans.find((p) => idEquals(p._id, planId));
+        console.log('[Hash Navigation] Target plan found?', !!targetPlan);
         if (targetPlan) {
+          console.log('[Hash Navigation] ✅ Found target plan:', targetPlan._id);
           debug.log('[Hash Navigation] ✅ Found target plan:', targetPlan._id);
           const tid = targetPlan._id && targetPlan._id.toString ? targetPlan._id.toString() : targetPlan._id;
+          console.log('[Hash Navigation] Setting selectedPlanId:', tid, 'and activeTab: myplan');
           setSelectedPlanId(tid);
           setActiveTab('myplan');
 
@@ -988,6 +997,10 @@ export default function SingleExperience() {
             debug.warn('Failed to restore hash to URL immediately', err);
           }
         } else {
+          console.warn('[Hash Navigation] ❌ Plan ID from hash not found in collaborativePlans');
+          console.warn('[Hash Navigation] planId:', planId);
+          console.warn('[Hash Navigation] collaborativePlans count:', collaborativePlans.length);
+          console.warn('[Hash Navigation] collaborativePlans IDs:', collaborativePlans.map(p => p._id?.toString()));
           debug.warn('[Hash Navigation] ❌ Plan ID from hash not found in collaborativePlans');
           debug.warn('[Hash Navigation] planId:', planId);
           debug.warn('[Hash Navigation] collaborativePlans count:', collaborativePlans.length);
