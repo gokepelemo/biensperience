@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hash Navigation Test</title>
+</head>
+<body>
+    <h1>Hash Navigation Test</h1>
+    <p>This page tests whether React Router strips hash fragments from URLs.</p>
+
+    <div id="test-results"></div>
+
+    <script>
+        // Capture initial URL state BEFORE React Router initializes
+        const initialState = {
+            href: window.location.href,
+            pathname: window.location.pathname,
+            hash: window.location.hash,
+            search: window.location.search
+        };
+
+        // Log to console
+        console.log('Initial URL State (before React Router):', initialState);
+
+        // Display in DOM
+        const resultsDiv = document.getElementById('test-results');
+        resultsDiv.innerHTML = `
+            <h2>Initial URL State (captured before React Router)</h2>
+            <ul>
+                <li><strong>Full URL:</strong> ${initialState.href}</li>
+                <li><strong>Pathname:</strong> ${initialState.pathname}</li>
+                <li><strong>Hash:</strong> ${initialState.hash || '(empty)'}</li>
+                <li><strong>Search:</strong> ${initialState.search || '(empty)'}</li>
+            </ul>
+            <h2>Instructions</h2>
+            <ol>
+                <li>Copy this URL and add a hash fragment: <code>${window.location.origin}${window.location.pathname}#plan-12345</code></li>
+                <li>Paste it in the browser address bar</li>
+                <li>Check if the hash is preserved</li>
+            </ol>
+        `;
+
+        // Monitor hash changes
+        window.addEventListener('hashchange', (event) => {
+            console.log('Hash changed:', {
+                oldURL: event.oldURL,
+                newURL: event.newURL,
+                currentHash: window.location.hash
+            });
+        });
+
+        // Monitor popstate (React Router navigation)
+        window.addEventListener('popstate', (event) => {
+            console.log('Popstate event:', {
+                state: event.state,
+                pathname: window.location.pathname,
+                hash: window.location.hash
+            });
+        });
+    </script>
+</body>
+</html>

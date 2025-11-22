@@ -367,6 +367,26 @@ export default function SingleExperience() {
         return;
       }
 
+      // CRITICAL FIX: If there's a hash in the URL and we're on the myplan tab with a selected plan,
+      // check if the hash matches the selected plan. If it does, this is a direct URL navigation
+      // and we should NOT modify the URL (let it stay as-is).
+      const currentHash = window.location.hash || '';
+      if (currentHash.startsWith('#plan-') && activeTab === 'myplan' && selectedPlanId) {
+        // Extract planId from hash
+        const hashContent = currentHash.substring(6); // Remove '#plan-' prefix
+        const hashPlanId = hashContent.split('-item-')[0]; // Get planId (before -item- if present)
+
+        // If hash matches selected plan, this is a direct URL load - don't modify
+        if (hashPlanId === selectedPlanId.toString()) {
+          debug.log('URL management: Hash matches selected plan, preserving original URL', {
+            currentHash,
+            selectedPlanId,
+            hashPlanId
+          });
+          return; // CRITICAL: Early return to preserve URL from direct navigation
+        }
+      }
+
       // When viewing My Plan (or a collaborative plan) update the address
       // bar to a hash-based deep link that points to the experience with
       // a plan fragment. Example: `/experiences/<id>#plan/<planId>`
