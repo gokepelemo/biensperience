@@ -202,7 +202,7 @@
 .plan-items-container {
     background: var(--color-single-experience-bg-secondary);
     border-radius: var(--radius-xl);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-md);
 }
 
 /* Plan Header Row - Collaborators left, Buttons right */
@@ -250,10 +250,10 @@
 }
 
 .metric-card {
-    background: white;
+    background: var(--color-bg-primary);
     border-radius: var(--radius-lg);
     padding: var(--space-5) var(--space-6);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-sm);
     transition: all 0.2s ease;
     height: 100%;
     display: flex;
@@ -262,7 +262,7 @@
 }
 
 .metric-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-md);
     transform: translateY(-2px);
 }
 
@@ -300,15 +300,16 @@
 }
 
 .plan-item-card {
-    background: white;
+    background: var(--color-bg-primary);
     border-radius: var(--radius-lg);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-sm);
     transition: all 0.3s ease;
+    border: 1px solid var(--color-border-light);
 }
 
 .plan-item-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
 }
 
 .plan-item-header {
@@ -438,7 +439,7 @@
 .plan-item-card.dragging {
     opacity: 0.5;
     cursor: grabbing;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-lg);
     transform: rotate(2deg);
 }
 
@@ -607,13 +608,13 @@
 
 .plan-tab-button:hover {
     color: var(--color-single-experience-text-dark-secondary);
-    background: rgba(0, 0, 0, 0.02);
+    background: var(--color-bg-hover);
 }
 
 .plan-tab-button.active {
     color: var(--color-single-experience-primary);
     border-bottom-color: var(--color-single-experience-primary);
-    background: rgba(102, 126, 234, 0.05);
+    background: var(--color-primary-light);
 }
 
 .plan-tab-button:focus {
@@ -668,14 +669,14 @@
 .plan-tab-button.active.plan-tab-select {
     color: var(--color-single-experience-primary);
     border-bottom-color: var(--color-single-experience-primary);
-    background: rgba(102, 126, 234, 0.05);
+    background: var(--color-primary-light);
     border-radius: 0; /* Ensure no rounded corners on active state */
 }
 
 /* Avoid using pseudo-elements on <select> (not supported in some browsers). */
 .plan-tab-select:hover {
     color: var(--color-single-experience-text-dark-secondary);
-    background-color: rgba(0, 0, 0, 0.02);
+    background-color: var(--color-bg-hover);
 }
 
 /* Plan dropdown container - consolidate all properties */
@@ -788,7 +789,7 @@
 .plan-tab-select.active {
     color: var(--color-single-experience-primary);
     border-bottom-color: var(--color-single-experience-primary);
-    background: rgba(102, 126, 234, 0.05);
+    background: var(--color-primary-light);
 }
 
 /* When any button before the dropdown is active, make caret primary */
@@ -983,7 +984,7 @@
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--color-single-experience-border-input);
     border-radius: var(--radius-sm);
-    background: white;
+    background: var(--color-bg-primary);
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -994,9 +995,9 @@
 }
 
 .plan-dropdown:focus {
-    outline: 2px solid #667eea;
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
-    border-color: #667eea;
+    border-color: var(--color-primary);
 }
 
 /* Plan Items List Styling */
@@ -1030,19 +1031,19 @@
 }
 
 .my-plan-view .plan-item-card {
-    background: white;
-    border: 1px solid #e0e0e0;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
     border-radius: var(--radius-md);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-sm);
     transition: all 0.3s ease;
 }
 
 .my-plan-view .plan-item-card:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
 }
 
 .my-plan-view .plan-item-header {
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--color-border-light);
 }
 
 /* Regular checkboxes in plan items */
@@ -1130,7 +1131,7 @@
     }
 
     .plan-item-title a:hover {
-        color: #8b9cff;
+        color: var(--color-primary);
     }
 
     .plan-item-details {
@@ -1145,28 +1146,28 @@
     /* Plan item indicators - dark mode */
     .plan-item-assigned,
     .plan-item-notes-count {
-        background: var(--color-bg-tertiary, #2d3748);
-        color: var(--color-text-primary, #e9ecef);
+        background: var(--color-bg-tertiary);
+        color: var(--color-text-primary);
     }
 
     .plan-item-assigned {
-        border-left-color: #8b9cff;
+        border-left-color: var(--color-primary);
     }
 
     .plan-item-notes-count {
-        border-left-color: #51cf66;
+        border-left-color: var(--color-success);
     }
 
     /* Details button - dark mode */
     .btn-view-details {
-        background: var(--color-bg-tertiary, #2d3748);
-        border-color: #8b9cff;
-        color: #8b9cff;
+        background: var(--color-bg-tertiary);
+        border-color: var(--color-primary);
+        color: var(--color-primary);
     }
 
     .btn-view-details:hover {
-        background: #8b9cff;
-        color: var(--color-bg-primary, #1a202c);
+        background: var(--color-primary);
+        color: var(--color-bg-primary);
     }
 
     /* Tree Controls */
@@ -1175,11 +1176,11 @@
     }
 
     .expand-toggle:hover {
-        color: #8b9cff !important;
+        color: var(--color-primary) !important;
     }
 
     .child-arrow {
-        color: #8b9cff;
+        color: var(--color-primary);
     }
 
     .no-child-arrow {
@@ -1197,7 +1198,7 @@
     }
 
     .travel-tip-card:hover {
-        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
+        box-shadow: var(--shadow-md);
     }
 
     /* Experience Detail List */
@@ -1216,13 +1217,13 @@
 
     .plan-tab-button:hover {
         color: var(--color-text-secondary);
-        background: rgba(255, 255, 255, 0.05);
+        background: var(--color-bg-hover);
     }
 
     .plan-tab-button.active {
-        color: #8b9cff;
-        border-bottom-color: #8b9cff;
-        background: rgba(102, 126, 234, 0.1);
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+        background: var(--color-primary-light);
     }
 
     /* Use design token for caret color in dark mode */
@@ -1234,7 +1235,7 @@
        (Safari) do not support pseudo-elements on replaced elements reliably. */
     .plan-tab-select:hover {
         color: var(--color-text-secondary);
-        background-color: rgba(255, 255, 255, 0.05);
+        background-color: var(--color-bg-hover);
     }
 
     /* When disabled (single plan), hide chevron in dark mode */
@@ -1250,12 +1251,12 @@
     }
 
     .plan-dropdown:hover {
-        border-color: #8b9cff;
+        border-color: var(--color-primary);
     }
 
     .plan-dropdown:focus {
-        outline: 2px solid #8b9cff;
-        border-color: #8b9cff;
+        outline: 2px solid var(--color-primary);
+        border-color: var(--color-primary);
     }
 
     /* My Plan View */
@@ -1265,7 +1266,7 @@
     }
 
     .my-plan-view .plan-item-card:hover {
-        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+        box-shadow: var(--shadow-md);
     }
 
     .my-plan-view .plan-item-header {
@@ -1278,11 +1279,11 @@
 
     /* Cost Estimate Colors */
     .green {
-        color: #51cf66;
+        color: var(--color-success);
     }
 
     .grey {
-        color: #adb5bd;
+        color: var(--color-text-muted);
     }
 }
 

@@ -88,22 +88,22 @@
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   .plan-item-details-button {
-    background: var(--color-bg-tertiary, #2d3748);
-    border-color: var(--color-border-medium, #4a5568);
-    color: #8b9cff;
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-medium);
+    color: var(--color-primary);
   }
 
   .plan-item-details-button:hover:not(:disabled) {
-    background: rgba(139, 156, 255, 0.15);
-    border-color: #8b9cff;
+    background: var(--color-primary-light);
+    border-color: var(--color-primary);
   }
 
   .plan-item-details-dropdown {
-    background: var(--color-bg-tertiary, #2d3748);
-    border-color: var(--color-border-medium, #4a5568);
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-medium);
   }
 
   .plan-item-details-option:hover:not(.disabled) {
-    background-color: rgba(139, 156, 255, 0.15);
+    background-color: var(--color-primary-light);
   }
 }
