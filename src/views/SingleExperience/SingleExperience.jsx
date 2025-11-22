@@ -28,7 +28,7 @@ import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay
 import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
-import { Button, Container, Mobile, Desktop, FadeIn, FormLabel, FormControl, FormCheck, Text } from "../../components/design-system";
+import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import debug from "../../utilities/debug";
@@ -2552,38 +2552,19 @@ export default function SingleExperience() {
         <div>
           <div className="row experience-detail fade-in">
             <div className="col-md-6 fade-in">
-              <Mobile>
-                <ExperienceTitleSection
-                  experience={experience}
-                  h1Ref={h1Ref}
-                  user={user}
-                  userHasExperience={userHasExperience}
-                  pendingUnplan={pendingUnplan}
-                  selectedPlan={selectedPlan}
-                  showDatePicker={showDatePicker}
-                  setShowDatePicker={setShowDatePicker}
-                  setIsEditingDate={setIsEditingDate}
-                  setPlannedDate={setPlannedDate}
-                  textAlign="center"
-                  lang={lang}
-                />
-              </Mobile>
-              <Desktop>
-                <ExperienceTitleSection
-                  experience={experience}
-                  h1Ref={h1Ref}
-                  user={user}
-                  userHasExperience={userHasExperience}
-                  pendingUnplan={pendingUnplan}
-                  selectedPlan={selectedPlan}
-                  showDatePicker={showDatePicker}
-                  setShowDatePicker={setShowDatePicker}
-                  setIsEditingDate={setIsEditingDate}
-                  setPlannedDate={setPlannedDate}
-                  textAlign="start"
-                  lang={lang}
-                />
-              </Desktop>
+              <ExperienceTitleSection
+                experience={experience}
+                h1Ref={h1Ref}
+                user={user}
+                userHasExperience={userHasExperience}
+                pendingUnplan={pendingUnplan}
+                selectedPlan={selectedPlan}
+                showDatePicker={showDatePicker}
+                setShowDatePicker={setShowDatePicker}
+                setIsEditingDate={setIsEditingDate}
+                setPlannedDate={setPlannedDate}
+                lang={lang}
+              />
             </div>
             <ActionButtonsRow
               user={user}

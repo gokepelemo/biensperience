@@ -7,6 +7,7 @@
 import TagPill from '../../../components/Pill/TagPill';
 import FadeIn from '../../../components/Animation/Animation';
 import { formatDateShort, formatDateForInput } from '../../../utilities/date-utils';
+import './ExperienceTitleSection.css';
 
 export default function ExperienceTitleSection({
   // Experience data
@@ -25,9 +26,6 @@ export default function ExperienceTitleSection({
   setIsEditingDate,
   setPlannedDate,
 
-  // Text alignment
-  textAlign = 'start', // 'start' for desktop, 'center' for mobile
-
   // Language strings
   lang
 }) {
@@ -43,7 +41,7 @@ export default function ExperienceTitleSection({
   );
 
   return (
-    <div style={{ textAlign }}>
+    <div className="experience-title-section">
       <h1 ref={h1Ref} className="mt-4 h fade-in">{experience.name}</h1>
 
       {/* Planned Date Badge - Shows selectedPlan date (updates with dropdown) */}

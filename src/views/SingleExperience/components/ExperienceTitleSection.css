@@ -1,0 +1,16 @@
+/**
+ * ExperienceTitleSection Component Styles
+ * Responsive text alignment: center on mobile, left on desktop
+ */
+
+.experience-title-section {
+  /* Mobile: Center align (default) */
+  text-align: center;
+}
+
+/* Desktop: Left align */
+@media (min-width: 768px) {
+  .experience-title-section {
+    text-align: start;
+  }
+}
