@@ -1134,14 +1134,25 @@ export default function SingleExperience() {
   /**
    * Update URL hash when a plan is selected to enable direct linking
    * Creates hash-based URLs like /experiences/:id#plan-:planId
+   * IMPORTANT: Preserves item-level hashes (e.g., #plan-{planId}-item-{itemId})
    */
   useEffect(() => {
     if (activeTab === 'myplan' && selectedPlanId) {
-      const newHash = `#plan-${selectedPlanId}`;
-      // Only update if hash is different to avoid unnecessary history entries
-      if (window.location.hash !== newHash) {
-        window.history.replaceState(null, '', newHash);
+      // Check if current hash already contains the correct plan ID
+      const currentHash = window.location.hash || '';
+      const expectedPlanPrefix = `#plan-${selectedPlanId}`;
+
+      // If hash already has this plan ID (with or without item ID), don't modify it
+      // This preserves item-level deep links from hash navigation
+      if (currentHash.startsWith(expectedPlanPrefix)) {
+        debug.log('[URL Management] Hash already correct, preserving:', currentHash);
+        return;
       }
+
+      // Only update if we need to change the plan ID
+      const newHash = `#plan-${selectedPlanId}`;
+      debug.log('[URL Management] Updating hash:', { old: currentHash, new: newHash });
+      window.history.replaceState(null, '', newHash);
     } else if (activeTab === 'experience') {
       // Clear hash when viewing experience tab
       if (window.location.hash) {
