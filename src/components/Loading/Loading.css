@@ -48,22 +48,22 @@
 
 /* Overlay styles */
 .loading-overlay-light {
-  background-color: rgba(255, 255, 255, 0.9);
+  background-color: var(--color-overlay-light, rgba(255, 255, 255, 0.9));
   backdrop-filter: blur(4px);
 }
 
 .loading-overlay-dark {
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: var(--color-overlay-dark, rgba(0, 0, 0, 0.7));
   backdrop-filter: blur(4px);
 }
 
 .loading-overlay-light .loading-message,
 .loading-overlay-dark .loading-message {
-  color: var(--color-text, #2d3748);
+  color: var(--color-text-primary);
 }
 
 .loading-overlay-dark .loading-message {
-  color: #ffffff;
+  color: var(--color-on-dark, #ffffff);
 }
 
 /* Logo container */
@@ -327,12 +327,12 @@
 .loading-terse {
   display: inline-flex;
   align-items: baseline;
-  gap: 2px;
+  gap: var(--space-0-5, 2px);
 }
 
 .loading-dots {
   display: inline-flex;
-  margin-left: 2px;
+  margin-left: var(--space-0-5, 2px);
 }
 
 .loading-dots .dot {
@@ -449,19 +449,19 @@
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   .loading-svg {
-    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+    filter: drop-shadow(0 4px 12px var(--shadow-color-dark, rgba(0, 0, 0, 0.4)));
   }
 
   .loading-message {
-    color: var(--color-text-secondary, #a0aec0);
+    color: var(--color-text-secondary);
   }
 
   .loading-overlay-light {
-    background-color: rgba(26, 32, 44, 0.95);
+    background-color: var(--color-overlay-dark-strong, rgba(26, 32, 44, 0.95));
   }
 
   .loading-overlay-light .loading-message {
-    color: #ffffff;
+    color: var(--color-on-dark, #ffffff);
   }
 }
 
