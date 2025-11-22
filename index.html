@@ -62,6 +62,30 @@
         }
       })();
     </script>
+    <script>
+      // CRITICAL: Preserve hash fragments before React Router strips them
+      // React Router doesn't handle hash fragments in URLs during navigation,
+      // so we capture them here and store in localStorage for React to retrieve
+      (function() {
+        try {
+          var hash = window.location.hash || '';
+          if (hash && hash.startsWith('#plan-')) {
+            console.log('[Hash Preservation] Initial hash detected:', hash);
+            // Store hash in localStorage so React can retrieve it after Router strips it
+            var payload = JSON.stringify({
+              hash: hash,
+              originPath: window.location.pathname,
+              storedAt: Date.now(),
+              meta: { source: 'direct-url' }
+            });
+            localStorage.setItem('bien:pending_hash', payload);
+            console.log('[Hash Preservation] Hash stored in localStorage for React to retrieve');
+          }
+        } catch (e) {
+          console.error('[Hash Preservation] Failed to preserve hash:', e);
+        }
+      })();
+    </script>
     <!-- Vite entry point -->
     <script type="module" src="/src/index.jsx"></script>
   </body>
