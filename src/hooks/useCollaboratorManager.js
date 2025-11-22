@@ -1,59 +1,75 @@
+/**
+ * useCollaboratorManager Hook
+ * Manages collaborator operations for experiences and plans
+ *
+ * Features:
+ * - Search and selection UI state
+ * - Email invite form state and validation
+ * - Add/remove collaborators with optimistic updates
+ * - Permission display
+ * - Real-time collaborator presence (WebSocket ready)
+ *
+ * @param {Object} params
+ * @param {string} params.experienceId - Experience ID
+ * @param {Object} params.experience - Experience object
+ * @param {string} params.selectedPlanId - Selected plan ID
+ * @param {Object} params.userPlan - User's plan object
+ * @param {Array} params.collaborativePlans - All collaborative plans
+ * @param {Function} params.setExperience - Update experience state
+ * @param {Function} params.setUserPlan - Update user plan state
+ * @param {Function} params.setCollaborativePlans - Update collaborative plans state
+ * @param {Function} params.fetchExperience - Fetch experience data
+ * @param {Function} params.fetchPlans - Fetch user's plans
+ * @param {Function} params.fetchCollaborativePlans - Fetch collaborative plans
+ * @param {Array} params.experienceCollaborators - Experience collaborators with user data
+ * @param {Array} params.planCollaborators - Plan collaborators with user data
+ * @param {Object} params.user - Current user object
+ * @param {Function} params.success - Toast success callback
+ * @param {Function} params.showError - Toast error callback
+ */
+
 import { useState, useCallback } from 'react';
-import useOptimisticAction from './useOptimisticAction';
-import { handleError } from '../utilities/error-handler';
-import { idEquals } from '../utilities/user-roles';
 import {
   addExperienceCollaborator,
-  removeExperienceCollaborator,
-  addCollaborator,
-  removeCollaborator,
-  sendEmailInvite
+  removeExperienceCollaborator
 } from '../utilities/experiences-api';
-import { searchUsers } from '../utilities/users-service';
-import { logger } from '../utilities/logger';
+import {
+  addCollaborator,
+  removeCollaborator
+} from '../utilities/plans-api';
+import { searchUsers, sendEmailInvite } from '../utilities/users-service';
+import { handleError } from '../utilities/error-handler';
+import useOptimisticAction from './useOptimisticAction';
+import debug from '../utilities/debug';
+import { lang } from '../lang.constants';
 
-/**
- * Custom hook for managing collaborators with optimistic UI
- * Handles both experience and plan collaborator operations
- *
- * @param {Object} options
- * @param {Object} options.experience - Experience object
- * @param {Function} options.setExperience - Setter for experience
- * @param {Object} options.userPlan - User's plan object
- * @param {Function} options.setUserPlan - Setter for user plan
- * @param {Array} options.collaborativePlans - Collaborative plans array
- * @param {Function} options.setCollaborativePlans - Setter for collaborative plans
- * @param {string} options.selectedPlanId - Currently selected plan ID
- * @param {Function} options.fetchExperience - Fetch experience data
- * @param {Function} options.fetchCollaborativePlans - Fetch collaborative plans
- * @param {Function} options.fetchPlans - Fetch global plans
- * @param {Array} options.experienceCollaborators - Fetched experience collaborators
- * @param {Array} options.planCollaborators - Fetched plan collaborators
- * @param {Function} options.showError - Error display function
- * @param {Function} options.showSuccess - Success display function
- * @param {Object} options.user - Current user object
- * @param {string} options.experienceId - Experience ID
- */
+// Helper to compare IDs (handles both string and ObjectId)
+const idEquals = (id1, id2) => {
+  const str1 = id1 && id1.toString ? id1.toString() : id1;
+  const str2 = id2 && id2.toString ? id2.toString() : id2;
+  return str1 === str2;
+};
+
 export default function useCollaboratorManager({
+  experienceId,
   experience,
-  setExperience,
-  userPlan,
-  setUserPlan,
-  collaborativePlans,
-  setCollaborativePlans,
   selectedPlanId,
+  userPlan,
+  collaborativePlans,
+  setExperience,
+  setUserPlan,
+  setCollaborativePlans,
   fetchExperience,
-  fetchCollaborativePlans,
   fetchPlans,
+  fetchCollaborativePlans,
   experienceCollaborators,
   planCollaborators,
-  showError,
-  showSuccess,
   user,
-  experienceId
+  success,
+  showError
 }) {
-  // Modal state
-  const [showModal, setShowModal] = useState(false);
+  // Modal and context state
+  const [showCollaboratorModal, setShowCollaboratorModal] = useState(false);
   const [collaboratorContext, setCollaboratorContext] = useState('plan'); // 'plan' or 'experience'
 
   // Search state
@@ -61,28 +77,31 @@ export default function useCollaboratorManager({
   const [searchResults, setSearchResults] = useState([]);
 
   // Selection state
-  const [selectedCollaborators, setSelectedCollaborators] = useState([]);
-  const [existingCollaborators, setExistingCollaborators] = useState([]);
-  const [removedCollaborators, setRemovedCollaborators] = useState([]);
+  const [selectedCollaborators, setSelectedCollaborators] = useState([]); // Multiple selected collaborators
+  const [existingCollaborators, setExistingCollaborators] = useState([]); // Existing collaborators when modal opens
+  const [removedCollaborators, setRemovedCollaborators] = useState([]); // Collaborators marked for removal
 
   // Success tracking
   const [collaboratorAddSuccess, setCollaboratorAddSuccess] = useState(false);
-  const [addedCollaborators, setAddedCollaborators] = useState([]);
-  const [actuallyRemovedCollaborators, setActuallyRemovedCollaborators] = useState([]);
+  const [addedCollaborators, setAddedCollaborators] = useState([]); // Track multiple additions
+  const [actuallyRemovedCollaborators, setActuallyRemovedCollaborators] = useState([]); // Track removals
 
   // Email invite state
-  const [showEmailInviteForm, setShowEmailInviteForm] = useState(false);
-  const [emailInviteData, setEmailInviteData] = useState({ email: '', name: '' });
-  const [emailInviteSending, setEmailInviteSending] = useState(false);
-  const [emailInviteError, setEmailInviteError] = useState('');
+  const [showEmailInviteForm, setShowEmailInviteForm] = useState(false); // Toggle email invite form
+  const [emailInviteData, setEmailInviteData] = useState({
+    email: '',
+    name: ''
+  });
+  const [emailInviteSending, setEmailInviteSending] = useState(false); // Email sending state
+  const [emailInviteError, setEmailInviteError] = useState(''); // Email invite errors
 
   // Loading state
   const [loading, setLoading] = useState(false);
 
   /**
-   * Open collaborator modal
+   * Open collaborator modal for experience or plan
    */
-  const openModal = useCallback(
+  const openCollaboratorModal = useCallback(
     (context) => {
       setCollaboratorContext(context);
 
@@ -97,29 +116,13 @@ export default function useCollaboratorManager({
       setExistingCollaborators(existing);
       setSelectedCollaborators(existing);
       setRemovedCollaborators([]);
-      setShowModal(true);
+      setShowCollaboratorModal(true);
     },
     [experienceCollaborators, planCollaborators]
   );
 
   /**
-   * Close collaborator modal and reset state
-   */
-  const closeModal = useCallback(() => {
-    setShowModal(false);
-    setCollaboratorContext('plan');
-    setCollaboratorSearch('');
-    setSearchResults([]);
-    setSelectedCollaborators([]);
-    setExistingCollaborators([]);
-    setRemovedCollaborators([]);
-    setCollaboratorAddSuccess(false);
-    setAddedCollaborators([]);
-    setActuallyRemovedCollaborators([]);
-  }, []);
-
-  /**
-   * Search for users
+   * Search users for collaborator selection
    */
   const handleSearchUsers = useCallback(
     async (query) => {
@@ -148,7 +151,7 @@ export default function useCollaboratorManager({
 
         setSearchResults(filteredResults);
       } catch (err) {
-        logger.error('Error searching users:', err);
+        debug.error('Error searching users:', err);
         setSearchResults([]);
       }
     },
@@ -156,7 +159,7 @@ export default function useCollaboratorManager({
   );
 
   /**
-   * Select a user to add as collaborator
+   * Select a user as a collaborator
    */
   const handleSelectUser = useCallback((user) => {
     // Add to selected collaborators if not already selected
@@ -173,7 +176,7 @@ export default function useCollaboratorManager({
   }, []);
 
   /**
-   * Remove a selected collaborator
+   * Remove selected collaborator
    */
   const handleRemoveSelectedCollaborator = useCallback(
     (userId) => {
@@ -196,7 +199,7 @@ export default function useCollaboratorManager({
   );
 
   /**
-   * Add/remove collaborators with optimistic UI
+   * Add/remove collaborators with optimistic updates
    */
   const handleAddCollaborator = useCallback(
     async (e) => {
@@ -213,8 +216,8 @@ export default function useCollaboratorManager({
       // Compute additions vs existing
       const collaboratorsToAdd = selectedCollaborators.filter(
         (selected) =>
-          !existingCollaborators.some((existing) =>
-            idEquals(existing._id, selected._id)
+          !existingCollaborators.some(
+            (existing) => existing._id === selected._id
           )
       );
 
@@ -230,9 +233,7 @@ export default function useCollaboratorManager({
         if (isExperienceContext) {
           setExperience((prev) => {
             if (!prev) return prev;
-            const toRemoveIds = new Set(
-              removedCollaborators.map((c) => c._id)
-            );
+            const toRemoveIds = new Set(removedCollaborators.map((c) => c._id));
             const withoutRemoved = (prev.permissions || []).filter(
               (p) =>
                 !(
@@ -245,7 +246,7 @@ export default function useCollaboratorManager({
               _id: c._id,
               entity: 'user',
               type: 'collaborator',
-              granted_at: new Date().toISOString(),
+              granted_at: new Date().toISOString()
             }));
             return { ...prev, permissions: [...withoutRemoved, ...addedPerms] };
           });
@@ -253,9 +254,7 @@ export default function useCollaboratorManager({
           // Update selected plan's permissions (could be userPlan or a collaborative plan)
           const applyToPlan = (plan) => {
             if (!plan) return plan;
-            const toRemoveIds = new Set(
-              removedCollaborators.map((c) => c._id)
-            );
+            const toRemoveIds = new Set(removedCollaborators.map((c) => c._id));
             const withoutRemoved = (plan.permissions || []).filter(
               (p) =>
                 !(
@@ -268,7 +267,7 @@ export default function useCollaboratorManager({
               _id: c._id,
               entity: 'user',
               type: 'collaborator',
-              granted_at: new Date().toISOString(),
+              granted_at: new Date().toISOString()
             }));
             return { ...plan, permissions: [...withoutRemoved, ...addedPerms] };
           };
@@ -309,7 +308,10 @@ export default function useCollaboratorManager({
               await removeCollaborator(selectedPlanId, collaborator._id);
             }
           } catch (err) {
-            logger.error(`Error removing collaborator ${collaborator.name}:`, err);
+            debug.error(
+              `Error removing collaborator ${collaborator.name}:`,
+              err
+            );
             throw err;
           }
         }
@@ -322,7 +324,7 @@ export default function useCollaboratorManager({
               await addCollaborator(selectedPlanId, collaborator._id);
             }
           } catch (err) {
-            logger.error(`Error adding collaborator ${collaborator.name}:`, err);
+            debug.error(`Error adding collaborator ${collaborator.name}:`, err);
             throw err;
           }
         }
@@ -357,7 +359,7 @@ export default function useCollaboratorManager({
         rollback,
         onSuccess,
         onError,
-        context: 'Manage collaborators',
+        context: 'Manage collaborators'
       });
       await run();
     },
@@ -382,7 +384,7 @@ export default function useCollaboratorManager({
   );
 
   /**
-   * Send email invite to non-user
+   * Send email invite to non-user collaborator
    */
   const handleSendEmailInvite = useCallback(
     async (e) => {
@@ -390,7 +392,7 @@ export default function useCollaboratorManager({
 
       // Validation
       if (!emailInviteData.email.trim() || !emailInviteData.name.trim()) {
-        setEmailInviteError('Email and name are required');
+        setEmailInviteError(lang.en.label.emailAndNameRequired);
         return;
       }
 
@@ -413,11 +415,11 @@ export default function useCollaboratorManager({
           customMessage: `Join me in planning ${
             experience?.title || 'this experience'
           }!`,
-          permissionType: 'collaborator',
+          permissionType: 'collaborator'
         });
 
         // Show success
-        showSuccess(`Email invite sent successfully to ${emailInviteData.email}!`);
+        success(`Email invite sent successfully to ${emailInviteData.email}!`);
 
         // Reset form
         setEmailInviteData({ email: '', name: '' });
@@ -428,67 +430,51 @@ export default function useCollaboratorManager({
         setEmailInviteSending(false);
       }
     },
-    [emailInviteData, experienceId, experience, showSuccess]
+    [emailInviteData, experienceId, experience, success]
   );
-
-  /**
-   * Handle email invite form input changes
-   */
-  const handleEmailInviteChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setEmailInviteData((prev) => ({ ...prev, [name]: value }));
-  }, []);
-
-  /**
-   * Toggle email invite form visibility
-   */
-  const toggleEmailInviteForm = useCallback(() => {
-    setShowEmailInviteForm((prev) => !prev);
-    setEmailInviteError('');
-    setEmailInviteData({ email: '', name: '' });
-  }, []);
 
   return {
     // Modal state
-    showModal,
+    showCollaboratorModal,
+    setShowCollaboratorModal,
     collaboratorContext,
+    setCollaboratorContext,
 
     // Search state
     collaboratorSearch,
+    setCollaboratorSearch,
     searchResults,
 
     // Selection state
     selectedCollaborators,
+    setSelectedCollaborators,
     existingCollaborators,
     removedCollaborators,
 
-    // Success state
+    // Success tracking
     collaboratorAddSuccess,
+    setCollaboratorAddSuccess,
     addedCollaborators,
     actuallyRemovedCollaborators,
 
     // Email invite state
     showEmailInviteForm,
+    setShowEmailInviteForm,
     emailInviteData,
+    setEmailInviteData,
     emailInviteSending,
     emailInviteError,
 
     // Loading state
     loading,
+    setLoading,
 
     // Handlers
-    openModal,
-    closeModal,
+    openCollaboratorModal,
     handleSearchUsers,
     handleSelectUser,
     handleRemoveSelectedCollaborator,
     handleAddCollaborator,
-    handleSendEmailInvite,
-    handleEmailInviteChange,
-    toggleEmailInviteForm,
-
-    // Setters (for form control)
-    setCollaboratorSearch,
-    setSearchResults
+    handleSendEmailInvite
   };
 }
