@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { resendConfirmation } from '../utilities/users-api';
 import Toast from '../components/Toast/Toast';
+import { createToastConfig } from '../utilities/error-handler';
 
 const ToastContext = createContext();
 
@@ -181,6 +182,38 @@ export function ToastProvider({ children }) {
     return () => {
       if (typeof window !== 'undefined' && window.removeEventListener) {
         window.removeEventListener('bien:email_not_verified', handler);
+      }
+    };
+  }, [addToast]);
+
+  // Listen for global API error events emitted by send-request
+  useEffect(() => {
+    const handler = (e) => {
+      const detail = e?.detail || {};
+      const error = detail.error;
+
+      if (!error) return;
+
+      // Generate toast configuration from structured error
+      const toastConfig = createToastConfig(error);
+
+      // Add toast with configuration
+      addToast({
+        message: toastConfig.message,
+        type: toastConfig.type,
+        duration: toastConfig.duration,
+        actions: toastConfig.actions,
+        showCloseButton: toastConfig.showCloseButton
+      });
+    };
+
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('bien:api_error', handler);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined' && window.removeEventListener) {
+        window.removeEventListener('bien:api_error', handler);
       }
     };
   }, [addToast]);

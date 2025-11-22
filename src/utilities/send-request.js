@@ -3,6 +3,11 @@ import { logger } from "./logger.js"
 import { getSessionId, refreshSessionIfNeeded } from "./session-utils.js"
 import { generateTraceId } from "./trace-utils.js"
 import { broadcastEvent } from './event-bus';
+import {
+    isErrorResponse,
+    extractError,
+    handleNetworkError
+} from './error-handler';
 
 // CSRF token cache
 let csrfToken = null;
@@ -174,7 +179,41 @@ export async function sendRequest(url, method = "GET", payload = null) {
         let errorData = null;
         try {
             errorData = JSON.parse(errorText);
-            if (errorData && errorData.error) {
+
+            // Check if this is a structured error response
+            if (isErrorResponse(errorData)) {
+                const structuredError = extractError(errorData);
+                if (structuredError) {
+                    errorMessage = structuredError.userMessage || structuredError.message || errorMessage;
+
+                    // Dispatch structured error event for toast handling
+                    if (typeof window !== 'undefined' && window.dispatchEvent) {
+                        window.dispatchEvent(new CustomEvent('bien:api_error', {
+                            detail: {
+                                error: structuredError,
+                                response: errorData,
+                                url,
+                                method,
+                                status: res.status
+                            }
+                        }));
+
+                        // Broadcast to other tabs
+                        try {
+                            broadcastEvent('bien:api_error', {
+                                error: structuredError,
+                                response: errorData,
+                                url,
+                                method,
+                                status: res.status
+                            });
+                        } catch (e) {
+                            // ignore broadcast errors
+                        }
+                    }
+                }
+            } else if (errorData && errorData.error) {
+                // Legacy error format
                 errorMessage = errorData.error;
             }
         } catch (e) {
@@ -192,7 +231,7 @@ export async function sendRequest(url, method = "GET", payload = null) {
             data: errorData || { error: errorMessage }
         };
 
-        // If the backend indicates email verification is required, emit a global event
+        // Legacy event: If the backend indicates email verification is required, emit event
         try {
             if (res.status === 403 && errorData && errorData.code === 'EMAIL_NOT_VERIFIED') {
                 if (typeof window !== 'undefined' && window.dispatchEvent) {
