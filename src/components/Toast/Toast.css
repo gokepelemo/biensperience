@@ -122,8 +122,8 @@
 /* Toast action buttons */
 .toast-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
   margin-left: 0;
   flex-wrap: wrap;
 }
@@ -131,14 +131,14 @@
 .toast-action-button {
   flex: 1;
   min-width: 80px;
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--color-border-medium);
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: var(--font-size-sm);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   transition: var(--transition-fast);
 }
 
@@ -251,7 +251,7 @@
 
 .toast-cookie-consent .toast-message {
   font-size: var(--font-size-base);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 /* Responsive */
@@ -268,7 +268,7 @@
   }
 
   .toast-content {
-    padding: 12px;
+    padding: var(--space-3);
   }
 
   .toast-message {
