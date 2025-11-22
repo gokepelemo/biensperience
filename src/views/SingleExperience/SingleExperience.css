@@ -399,16 +399,27 @@
 .plan-item-actions {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-2);
     flex-shrink: 0;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast);
     opacity: 1;
     visibility: visible;
+    /* Ensure all buttons align perfectly */
+    height: 36px; /* Matches btn-sm min-height */
 }
 
 .plan-item-actions .btn {
     opacity: 1;
     visibility: visible;
+    /* Ensure consistent height for all action buttons */
+    min-height: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-tight);
 }
 
 .plan-item-card:hover .plan-item-actions {
@@ -438,17 +449,25 @@
 
 .plan-item-meta {
     display: flex;
-    gap: 2rem;
-    font-size: 0.9rem;
+    gap: var(--space-4);
+    font-size: var(--font-size-sm);
     color: var(--color-single-experience-text-grey);
     align-items: center;
     flex-wrap: wrap;
+    min-height: 36px; /* Ensure minimum height matches buttons */
 }
 
 .btn-view-details {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.8125rem;
-    font-weight: 500;
+    /* Use design system button styling for perfect alignment */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--line-height-tight);
+    min-height: 36px; /* Matches btn-sm */
     background: var(--color-bg-primary, #ffffff);
     border: 1px solid var(--color-primary, #667eea);
     border-radius: var(--radius-md, 0.375rem);
