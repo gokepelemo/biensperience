@@ -63,23 +63,32 @@
       })();
     </script>
     <script>
-      // CRITICAL: Preserve hash fragments before React Router strips them
+      // CRITICAL: Preserve hash fragments ONLY for direct URL access (page load/refresh)
       // React Router doesn't handle hash fragments in URLs during navigation,
       // so we capture them here and store in localStorage for React to retrieve
+      // This should NOT run for in-app navigation (HashLink handles that)
       (function() {
         try {
           var hash = window.location.hash || '';
+          // Only preserve hash if:
+          // 1. Hash exists and is a plan hash
+          // 2. localStorage does NOT already have a pending hash (meaning this is a direct URL, not in-app navigation)
           if (hash && hash.startsWith('#plan-')) {
-            console.log('[Hash Preservation] Initial hash detected:', hash);
-            // Store hash in localStorage so React can retrieve it after Router strips it
-            var payload = JSON.stringify({
-              hash: hash,
-              originPath: window.location.pathname,
-              storedAt: Date.now(),
-              meta: { source: 'direct-url' }
-            });
-            localStorage.setItem('bien:pending_hash', payload);
-            console.log('[Hash Preservation] Hash stored in localStorage for React to retrieve');
+            var existing = localStorage.getItem('bien:pending_hash');
+            if (!existing) {
+              console.log('[Hash Preservation] Direct URL hash detected:', hash);
+              // Store hash in localStorage so React can retrieve it after Router strips it
+              var payload = JSON.stringify({
+                hash: hash,
+                originPath: window.location.pathname,
+                storedAt: Date.now(),
+                meta: { source: 'direct-url' }
+              });
+              localStorage.setItem('bien:pending_hash', payload);
+              console.log('[Hash Preservation] Hash stored in localStorage for React to retrieve');
+            } else {
+              console.log('[Hash Preservation] Skipping - pending hash already exists (in-app navigation)');
+            }
           }
         } catch (e) {
           console.error('[Hash Preservation] Failed to preserve hash:', e);
