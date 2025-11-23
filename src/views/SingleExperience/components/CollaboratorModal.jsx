@@ -244,6 +244,9 @@ export default function CollaboratorModal({
                   entityType="user"
                   items={searchResults}
                   onSelect={(user) => onToggleCollaborator(user._id || user.id)}
+                  onSearch={onSearch}
+                  value={searchTerm}
+                  onChange={(e) => onSearchTermChange(e.target.value)}
                   showAvatar={true}
                   showStatus={true}
                   showMeta={true}
