@@ -1,0 +1,12 @@
+/**
+ * MentionedText Component Styles (SCSS Module)
+ * Migrated from MentionedText.css to MentionedText.module.scss
+ */
+
+.mentionedText {
+  /* Ensure mentions display properly in text */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Mention links styling is handled in InteractiveTextArea.module.scss */

@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { renderTextWithMentions } from '../../utilities/mentions';
+import styles from './MentionedText.module.scss';
 
 /**
  * Component for rendering text with interactive mentions
@@ -27,7 +28,7 @@ const MentionedText = ({
   if (!text) return null;
 
   return (
-    <span className={`mentioned-text ${className}`} {...props}>
+    <span className={`${styles.mentionedText} ${className}`} {...props}>
       {renderTextWithMentions(text, entities, onEntityClick)}
     </span>
   );
