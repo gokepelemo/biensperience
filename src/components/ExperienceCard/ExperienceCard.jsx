@@ -1,4 +1,4 @@
-import "./ExperienceCard.css";
+import styles from "./ExperienceCard.module.scss";
 import { Link } from "react-router-dom";
 import { useState, useCallback, useMemo, memo, useEffect } from "react";
 import TagPill from '../Pill/TagPill';
@@ -441,17 +441,17 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     <div className="d-inline-block m-2" style={{ width: 'fit-content', verticalAlign: 'top' }}>
       {experience && !isDeleted ? (
         <div
-          className={`experienceCard d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden ${isMobile ? 'mobile' : ''} ${isExpanded ? 'expanded' : ''}`}
+          className={`${styles.experienceCard} d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden ${isMobile ? 'mobile' : ''} ${isExpanded ? 'expanded' : ''}`}
           style={{ backgroundImage: getBackgroundImage }}
           onClick={handleCardClick}
         >
-          <Link to={`/experiences/${experience._id}`} className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100" style={{ textDecoration: 'none' }}>
-            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center p-3 w-100" style={{ textAlign: 'center' }}>
+          <Link to={`/experiences/${experience._id}`} className={`${styles.experienceCardLink} flex-grow-1 d-flex align-items-center justify-content-center w-100" style={{ textDecoration: 'none' }}>
+            <span className={`h4 fw-bold ${styles.experienceCardTitle} d-flex align-items-center justify-content-center p-3 w-100" style={{ textAlign: 'center' }}>
               {experience.name}
             </span>
           </Link>
           {/* tags intentionally omitted for ExperienceCard per design */}
-          <div className="experience-card-actions d-flex gap-2 flex-shrink-0">
+          <div className={`${styles.experienceCardActions} d-flex gap-2 flex-shrink-0">
             <button
               className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'} ${isLoading ? 'loading' : ''}`}
               type="button"
@@ -488,15 +488,15 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
         </div>
       ) : (
         <div
-          className="experienceCard d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden"
+          className={`${styles.experienceCard} d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden`}
           style={{ backgroundImage: getBackgroundImage }}
         >
-          <Link to="/" className="experience-card-link flex-grow-1 d-flex align-items-center justify-content-center w-100" style={{ textDecoration: 'none' }}>
-            <span className="h4 fw-bold experience-card-title d-flex align-items-center justify-content-center p-3 w-100" style={{ textAlign: 'center' }}>
+          <Link to="/" className={`${styles.experienceCardLink} flex-grow-1 d-flex align-items-center justify-content-center w-100" style={{ textDecoration: 'none' }}>
+            <span className={`h4 fw-bold ${styles.experienceCardTitle} d-flex align-items-center justify-content-center p-3 w-100" style={{ textAlign: 'center' }}>
               Dinner Party with locals at the Rhodopo Mountains in Bulgaria
             </span>
           </Link>
-          <div className="experience-card-actions d-flex gap-2 flex-shrink-0">
+          <div className={`${styles.experienceCardActions} d-flex gap-2 flex-shrink-0">
             <button
               className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'} ${isLoading ? 'loading' : ''}`}
               onClick={handleExperienceAction}
