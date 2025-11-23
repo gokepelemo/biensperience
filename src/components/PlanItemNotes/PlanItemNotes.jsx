@@ -8,6 +8,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Button } from '../../components/design-system';
 import { FaPaperPlane, FaSearch, FaPlus, FaTimes } from 'react-icons/fa';
 import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
+import UserAvatar from '../UserAvatar/UserAvatar';
 import { renderTextWithMentions } from '../../utilities/mentions';
 import './PlanItemNotes.css';
 
@@ -121,16 +122,6 @@ export default function PlanItemNotes({
 
   const isNoteAuthor = (note) => {
     return note.user?._id === currentUser?._id || note.user === currentUser?._id;
-  };
-
-  const getUserInitials = (user) => {
-    if (!user?.name) return '?';
-    return user.name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
   };
 
   return (
@@ -257,23 +248,11 @@ export default function PlanItemNotes({
               >
                 {/* Avatar for received messages */}
                 {!isAuthor && (
-                  <div
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '50%',
-                      backgroundColor: 'var(--color-primary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      fontSize: 'var(--font-size-sm)',
-                      fontWeight: 'var(--font-weight-semibold)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {getUserInitials(note.user)}
-                  </div>
+                  <UserAvatar
+                    user={note.user}
+                    size="md"
+                    linkToProfile={true}
+                  />
                 )}
 
                 {/* Message bubble */}
@@ -395,23 +374,11 @@ export default function PlanItemNotes({
 
                 {/* Avatar for sent messages */}
                 {isAuthor && (
-                  <div
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '50%',
-                      backgroundColor: 'var(--color-message-pending)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      fontSize: 'var(--font-size-sm)',
-                      fontWeight: 'var(--font-weight-semibold)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {getUserInitials(currentUser)}
-                  </div>
+                  <UserAvatar
+                    user={currentUser}
+                    size="md"
+                    linkToProfile={true}
+                  />
                 )}
               </div>
             );
