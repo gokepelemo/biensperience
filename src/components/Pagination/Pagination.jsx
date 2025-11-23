@@ -1,4 +1,4 @@
-import './Pagination.css';
+import styles from './Pagination.module.scss';
 
 /**
  * Pagination component with multiple variants
@@ -55,9 +55,9 @@ export default function Pagination({
 
   if (variant === 'dots') {
     return (
-      <div className="pagination pagination-dots">
-        <button 
-          className="pagination-arrow"
+      <div className={`${styles.pagination} ${styles.paginationDots}`}>
+        <button
+          className={styles.paginationArrow}
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
           aria-label="Previous page"
@@ -66,12 +66,12 @@ export default function Pagination({
             <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        
-        <div className="pagination-dots-container">
+
+        <div className={styles.paginationDotsContainer}>
           {Array.from({ length: totalPages }, (_, i) => (
             <button
               key={i + 1}
-              className={`pagination-dot ${i + 1 === currentPage ? 'active' : ''}`}
+              className={`${styles.paginationDot} ${i + 1 === currentPage ? styles.active : ''}`}
               onClick={() => onPageChange(i + 1)}
               aria-label={`Page ${i + 1}`}
               aria-current={i + 1 === currentPage ? 'page' : undefined}
@@ -79,8 +79,8 @@ export default function Pagination({
           ))}
         </div>
 
-        <button 
-          className="pagination-arrow"
+        <button
+          className={styles.paginationArrow}
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
           aria-label="Next page"
@@ -96,9 +96,9 @@ export default function Pagination({
   const pages = generatePageNumbers();
 
   return (
-    <div className="pagination pagination-text">
-      <button 
-        className="pagination-button pagination-prev"
+    <div className={styles.pagination}>
+      <button
+        className={styles.paginationButton}
         onClick={() => onPageChange(Math.max(1, currentPage - 1))}
         disabled={currentPage === 1}
       >
@@ -108,14 +108,14 @@ export default function Pagination({
         Previous
       </button>
 
-      <div className="pagination-numbers">
+      <div className={styles.paginationNumbers}>
         {pages.map((page, index) => (
           page === '...' ? (
-            <span key={`ellipsis-${index}`} className="pagination-ellipsis">...</span>
+            <span key={`ellipsis-${index}`} className={styles.paginationEllipsis}>...</span>
           ) : (
             <button
               key={page}
-              className={`pagination-number ${page === currentPage ? 'active' : ''}`}
+              className={`${styles.paginationNumber} ${page === currentPage ? styles.active : ''}`}
               onClick={() => onPageChange(page)}
               aria-label={`Page ${page}`}
               aria-current={page === currentPage ? 'page' : undefined}
@@ -126,8 +126,8 @@ export default function Pagination({
         ))}
       </div>
 
-      <button 
-        className="pagination-button pagination-next"
+      <button
+        className={styles.paginationButton}
         onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
         disabled={currentPage === totalPages}
       >
@@ -138,7 +138,7 @@ export default function Pagination({
       </button>
 
       {totalResults && (
-        <div className="pagination-info">
+        <div className={styles.paginationInfo}>
           Showing {resultsPerPage} of {totalResults.toLocaleString()} results
         </div>
       )}
