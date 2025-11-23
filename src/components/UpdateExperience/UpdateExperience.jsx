@@ -1,4 +1,4 @@
-import "./UpdateExperience.css";
+import "./UpdateExperience.module.scss";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { updateExperience as updateExpAPI, showExperience } from "../../utilities/experiences-api";
