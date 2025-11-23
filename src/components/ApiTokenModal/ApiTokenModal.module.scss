@@ -1,0 +1,321 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* API Token Modal Styles - Strict Design System Integration */
+
+/* Modal Header - Dark Mode Close Button Fix */
+:global(.modal-header) {
+  :global(.btn-close) {
+    background-color: var(--color-text-primary);
+    opacity: 0.5;
+    transition: opacity var(--transition-fast);
+
+    &:hover {
+      opacity: 1;
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 0.25rem var(--color-primary-light);
+      opacity: 1;
+    }
+  }
+}
+
+/* API Access Toggle Section */
+.apiAccessToggle {
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  padding: $space-5;
+  transition: all var(--transition-normal);
+
+  &:hover {
+    box-shadow: var(--shadow-sm);
+    border-color: var(--color-primary);
+  }
+
+  h5 {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-lg);
+    margin-bottom: $space-2;
+  }
+
+  p {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+  }
+
+  :global(.form-check-input) {
+    cursor: pointer;
+    /* Make a custom large toggle appearance for better visibility in dark mode */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    display: inline-block;
+    width: 56px;
+    height: 34px;
+    border-radius: 999px;
+    background: var(--color-bg-tertiary);
+    border: 3px solid rgba(255, 255, 255, 0.08);
+    position: relative;
+    transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.18s ease;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 6px;
+      transform: translateY(-50%);
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+      transition: transform 0.28s ease, background 0.28s ease;
+    }
+
+    &:checked {
+      background: linear-gradient(90deg, var(--color-success), var(--color-primary));
+      border-color: var(--color-success);
+      box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.12) inset;
+
+      &::after {
+        transform: translateY(-50%) translateX(20px);
+        background: #ffffff;
+      }
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 0.25rem var(--color-success-light);
+      border-color: var(--color-success);
+    }
+
+    &[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  @media (max-width: 576px) {
+    h5 {
+      font-size: var(--font-size-base);
+    }
+
+    :global(.small) {
+      font-size: var(--font-size-xs);
+    }
+  }
+}
+
+/* Token Creation Form */
+.tokenCreationForm {
+  margin: $space-6 0;
+  padding: 0;
+
+  h5 {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-lg);
+    margin-bottom: $space-4;
+  }
+
+  /* Fix button alignment with input field */
+  :global(.row) {
+    align-items: end;
+  }
+
+  :global(.col-auto) {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+}
+
+/* Generate Token Button - Uses design system but needs specific styling for visibility */
+.generateToken {
+  margin: 0 !important;
+  padding: clamp(0.5rem, 1.5vw, 0.75rem) clamp(1rem, 3vw, 1.5rem) !important;
+  background: var(--gradient-primary) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: var(--radius-md) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  font-size: var(--font-size-base) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: all var(--transition-normal) !important;
+
+  &:hover:not(:disabled) {
+    background: var(--gradient-primary) !important;
+    box-shadow: var(--shadow-lg) !important;
+    transform: translateY(-2px);
+    color: white !important;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+}
+
+/* Token List Section */
+.tokenListSection {
+  h5 {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-lg);
+    margin-bottom: $space-4;
+  }
+}
+
+/* Token display */
+.userSelectAll {
+  user-select: all;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: var(--font-size-sm);
+  word-break: break-all;
+}
+
+.tokenDisplay {
+  background: var(--color-bg-tertiary) !important;
+  border: 2px solid var(--color-border-medium) !important;
+  color: var(--color-text-primary) !important;
+  padding: $space-3 !important;
+  border-radius: var(--radius-md) !important;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* List group items */
+:global(.list-group-item) {
+  transition: all var(--transition-fast);
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-border-light) !important;
+  color: var(--color-text-primary) !important;
+  border-left: 4px solid var(--color-primary) !important;
+
+  &:hover {
+    background: var(--color-bg-hover) !important;
+  }
+
+  strong {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  :global(.text-muted) {
+    color: var(--color-text-muted) !important;
+  }
+
+  code {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    padding: $space-1 $space-2;
+    border-radius: var(--radius-sm);
+    font-family: 'Courier New', Courier, monospace;
+    border: 1px solid var(--color-border-medium);
+  }
+}
+
+/* Usage instructions container */
+.usageInstructions {
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  padding: $space-5;
+
+  h6 {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-base);
+    margin-bottom: $space-3;
+  }
+
+  ol {
+    color: var(--color-text-secondary);
+  }
+
+  strong {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+/* Code example block */
+.codeExample {
+  background: var(--color-bg-tertiary) !important;
+  border: 2px solid var(--color-border-medium) !important;
+  color: var(--color-text-primary) !important;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: var(--font-size-sm);
+  font-family: 'Courier New', Courier, monospace;
+  padding: $space-3 !important;
+  border-radius: var(--radius-md) !important;
+}
+
+/* Code blocks */
+:global(pre) {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: var(--font-size-sm);
+  background: var(--color-bg-tertiary);
+  border: 2px solid var(--color-border-medium);
+  padding: $space-3;
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+
+  @media (max-width: 576px) {
+    font-size: var(--font-size-xs);
+  }
+}
+
+:global(code) {
+  background: var(--color-bg-secondary);
+  padding: $space-1 $space-2;
+  border-radius: var(--radius-sm);
+  font-family: 'Courier New', Courier, monospace;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-medium);
+}
+
+/* Modal body scrolling */
+:global(.modal-body) {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* Modal Footer - Dark Mode Button Fix */
+:global(.modal-footer) {
+  :global(.btn-secondary) {
+    background-color: var(--color-bg-tertiary) !important;
+    border-color: var(--color-border-medium) !important;
+    color: var(--color-text-primary) !important;
+
+    &:hover {
+      background-color: var(--color-bg-hover) !important;
+      border-color: var(--color-border-dark) !important;
+      color: var(--color-text-primary) !important;
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 0.25rem var(--color-primary-light) !important;
+      background-color: var(--color-bg-tertiary) !important;
+      border-color: var(--color-primary) !important;
+      color: var(--color-text-primary) !important;
+    }
+
+    &:active {
+      background-color: var(--color-bg-hover) !important;
+      border-color: var(--color-border-dark) !important;
+      color: var(--color-text-primary) !important;
+    }
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  :global(.modal-xl),
+  :global(.modal-lg) {
+    max-width: 100%;
+    margin: $space-3;
+  }
+}

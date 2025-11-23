@@ -17,7 +17,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import Loading from '../Loading/Loading';
-import './ApiTokenModal.css';
+import styles from './ApiTokenModal.module.scss';
 
 export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
   const [tokens, setTokens] = useState([]);
@@ -252,7 +252,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       </Modal.Header>
       <Modal.Body>
         {/* API Access Toggle */}
-        <div className="api-access-toggle mb-4 p-3 border rounded">
+        <div className={`${styles.apiAccessToggle} mb-4 p-3 border rounded`}>
           <div className="d-flex justify-content-between align-items-center">
             <div>
               <h5 className="mb-1">API Access</h5>
@@ -288,7 +288,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                   Make sure to copy your token now. You won't be able to see it again!
                 </p>
                 <div className="d-flex align-items-center gap-2">
-                  <code className="flex-grow-1 p-2 rounded border user-select-all token-display">
+                  <code className={`flex-grow-1 p-2 rounded border ${styles.userSelectAll} ${styles.tokenDisplay}`}>
                     {newToken}
                   </code>
                   <Button
@@ -311,7 +311,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
             )}
 
             {/* Create New Token Form */}
-            <Form onSubmit={handleCreateToken} className="token-creation-form">
+            <Form onSubmit={handleCreateToken} className={styles.tokenCreationForm}>
               <h5>Create New Token</h5>
               <div className="row g-2 align-items-end">
                 <div className="col">
@@ -327,7 +327,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                   <Button
                     type="submit"
                     variant="primary"
-                    className="generate-token"
+                    className={styles.generateToken}
                     disabled={isCreating}
                   >
                     {isCreating ? 'Creating...' : 'Generate Token'}
@@ -340,7 +340,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
             </Form>
 
             {/* Existing Tokens List */}
-            <div className="token-list-section">
+            <div className={styles.tokenListSection}>
               <h5>Your Tokens</h5>
             {isLoading ? (
               <Loading size="md" message="Loading tokens..." />
@@ -391,7 +391,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
             </div>
 
             {/* Usage Instructions */}
-            <div className="usage-instructions">
+            <div className={styles.usageInstructions}>
               <h6>How to use your API token:</h6>
               <ol className="mb-0 small">
                 <li>Include the token in the <code>Authorization</code> header</li>
@@ -401,7 +401,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
               </ol>
               <div className="mt-2">
                 <strong>Example:</strong>
-                <pre className="p-2 rounded border mt-1 mb-0 code-example">
+                <pre className={`p-2 rounded border mt-1 mb-0 ${styles.codeExample}`}>
 {`curl -H "Authorization: Bearer YOUR_TOKEN" \\
   ${window.location.origin}/api/experiences`}
                 </pre>
