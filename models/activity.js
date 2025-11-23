@@ -46,7 +46,10 @@ const activitySchema = new mongoose.Schema({
       'plan_deleted',
       'plan_item_completed',
       'plan_item_uncompleted',
-      
+      'plan_item_note_added',
+      'plan_item_note_updated',
+      'plan_item_note_deleted',
+
       // Social actions
       'favorite_added',
       'favorite_removed',

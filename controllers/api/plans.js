@@ -1503,6 +1503,40 @@ const addPlanItemNote = asyncHandler(async (req, res) => {
     noteCount: planItem.details.notes.length
   });
 
+  // Log activity for note addition
+  const addedNote = planItem.details.notes[planItem.details.notes.length - 1];
+  await Activity.log({
+    action: 'plan_item_note_added',
+    actor: {
+      _id: req.user._id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role
+    },
+    resource: {
+      id: plan._id,
+      type: 'Plan',
+      name: `Plan for ${plan.experience?.name || 'Unknown Experience'}`
+    },
+    target: {
+      id: itemId,
+      type: 'PlanItem',
+      name: planItem.name || planItem.experience_name || 'Unnamed Item'
+    },
+    reason: `Added note to plan item "${planItem.name || planItem.experience_name || 'Unnamed Item'}"`,
+    metadata: {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      requestPath: req.path,
+      requestMethod: req.method
+    },
+    newState: {
+      noteId: addedNote._id,
+      content: addedNote.content.substring(0, 100), // Store first 100 chars for preview
+      noteCount: planItem.details.notes.length
+    }
+  });
+
   res.json(plan);
 });
 

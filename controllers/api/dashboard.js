@@ -361,9 +361,11 @@ async function getRecentActivity(userId, options = {}) {
             // Create hash-based deep link to specific plan
             resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}`;
 
-            // If this activity targets a specific plan item (e.g. plan_item_completed),
+            // If this activity targets a specific plan item (e.g. plan_item_completed, plan_item_note_added),
             // include the item id in the hash so the UI can deep-link directly to it.
-            if ((activity.action === 'plan_item_completed' || activity.action === 'plan_item_uncompleted') && activity.target && activity.target.id) {
+            if ((activity.action === 'plan_item_completed' || activity.action === 'plan_item_uncompleted' ||
+                 activity.action === 'plan_item_note_added' || activity.action === 'plan_item_note_updated' ||
+                 activity.action === 'plan_item_note_deleted') && activity.target && activity.target.id) {
               try {
                 const itemId = activity.target.id.toString();
                 resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}-item-${itemId}`;
@@ -401,8 +403,10 @@ async function getRecentActivity(userId, options = {}) {
         resourceLink = `/destinations/${activity.resource.id}`;
       }
 
-      // For plan item completion, show both the plan (experience) and the item
-      if ((activity.action === 'plan_item_completed' || activity.action === 'plan_item_uncompleted') && activity.target) {
+      // For plan item actions, show both the plan (experience) and the item
+      if ((activity.action === 'plan_item_completed' || activity.action === 'plan_item_uncompleted' ||
+           activity.action === 'plan_item_note_added' || activity.action === 'plan_item_note_updated' ||
+           activity.action === 'plan_item_note_deleted') && activity.target) {
         targetName = activity.target.name;
       }
 
@@ -551,6 +555,9 @@ function formatActivityAction(action) {
     'email_verified': 'Verified email address',
     'plan_item_completed': 'Marked a plan item complete on',
     'plan_item_uncompleted': 'Marked a plan item incomplete on',
+    'plan_item_note_added': 'Added a note to plan item on',
+    'plan_item_note_updated': 'Updated a note on plan item on',
+    'plan_item_note_deleted': 'Deleted a note from plan item on',
     'collaborator_added': 'Became a collaborator on',
     'collaborator_removed': 'Removed from collaboration on'
   };
