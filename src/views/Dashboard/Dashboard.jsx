@@ -15,7 +15,7 @@ import {
   MyPlans,
   Preferences,
 } from '../../components/Dashboard';
-import './Dashboard.css';
+import styles from './Dashboard.module.scss';
 
 export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);
@@ -169,7 +169,7 @@ export default function Dashboard() {
         <Row>
           <Col
             lg={2}
-            className="dashboard-sidebar-mobile-hidden"
+            className={styles.dashboardSidebarMobileHidden}
             style={{
               backgroundColor: 'var(--color-bg-secondary)',
               minHeight: '100vh',
@@ -229,7 +229,7 @@ export default function Dashboard() {
 
           <Col
             lg={10}
-            className="dashboard-main-mobile-padding"
+            className={styles.dashboardMainMobilePadding}
             style={{
               padding: 'var(--space-8)',
               display: 'flex',

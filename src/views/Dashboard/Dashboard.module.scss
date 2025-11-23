@@ -1,0 +1,16 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Dashboard view styles (minimal comments for v0.5.1) */
+
+/* Responsive adjustments */
+@media (max-width: 991px) {
+  /* Hide sidebar on mobile/tablet for better UX */
+  .dashboardSidebarMobileHidden {
+    display: none;
+  }
+
+  /* Reduce main content padding on mobile */
+  .dashboardMainMobilePadding {
+    padding: $space-4 !important;
+  }
+}
