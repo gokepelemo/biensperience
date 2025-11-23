@@ -1,4 +1,4 @@
-import "./Modal.css";
+import styles from "./Modal.module.scss";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
 import { lang } from "../../lang.constants";
@@ -38,37 +38,44 @@ export default function Modal({
     }
   };
 
+  // CSS Modules class mapping
+  const sizeClass = size === 'sm' ? styles.modalSm
+    : size === 'lg' ? styles.modalLg
+    : size === 'xl' ? styles.modalXl
+    : '';
+
   const modalDialogClasses = [
-    "modal-dialog",
-    centered && "modal-dialog-centered",
-    scrollable && "modal-dialog-scrollable",
-    size && `modal-${size}`,
+    "modal-dialog", // Bootstrap base class
+    centered && styles.modalDialogCentered,
+    scrollable && styles.modalDialogScrollable,
+    sizeClass,
     dialogClassName
   ].filter(Boolean).join(" ");
 
   const modalContentClasses = [
-    "modal-content",
+    styles.modalContent,
     contentClassName
   ].filter(Boolean).join(" ");
 
   const modalBodyClasses = [
-    "modal-body",
+    "modal-body", // Bootstrap base class
+    styles.modalBody,
     bodyClassName
   ].filter(Boolean).join(" ");
 
   const modalContent = (
-    <div className="modal show d-block modal-backdrop" tabIndex="-1">
+    <div className={`${styles.modalShow} ${styles.modalBackdrop} modal show d-block`} tabIndex="-1">
       <div className={modalDialogClasses}>
         <div className={modalContentClasses}>
           {/* Header */}
-          <div className="modal-header">
-            <h5 className="modal-title">
+          <div className={`modal-header ${styles.modalHeader}`}>
+            <h5 className={`modal-title ${styles.modalTitle}`}>
               {icon && <span className="me-2">{icon}</span>}
               {title}
             </h5>
             <button
               type="button"
-              className="btn-close"
+              className={`btn-close ${styles.btnClose}`}
               onClick={onClose}
               aria-label={lang.en.aria.close}
               disabled={loading}
@@ -84,7 +91,7 @@ export default function Modal({
 
           {/* Footer - Only render if there's a submit button or custom footer */}
           {(footer || (showSubmitButton && onSubmit)) && (
-            <div className="modal-footer">
+            <div className={`modal-footer ${styles.modalFooter}`}>
               {footer ? (
                 // Custom footer provided
                 footer

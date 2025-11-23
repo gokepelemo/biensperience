@@ -1,0 +1,124 @@
+/**
+ * Modal Component Styles (SCSS Module)
+ * Migrated from Modal.css to Modal.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+/* Modal Backdrop */
+.modalBackdrop {
+  background-color: var(--color-bg-overlay);
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: $z-index-modal-backdrop !important;
+}
+
+/* Modal Show State */
+.modalShow {
+  @include modal-base;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 1 !important;
+}
+
+/* Modal Dialog Centered */
+.modalDialogCentered {
+  margin: 0 auto;
+  position: relative;
+  z-index: $z-index-modal + 1;
+}
+
+/* Modal Content */
+.modalContent {
+  position: relative;
+  @include flex-column;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-lg;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  max-height: 90vh;
+}
+
+/* Gradient Header Variant (opt-in) */
+.modalGradientHeader {
+  .modalHeader {
+    background: var(--gradient-primary);
+    color: var(--color-white);
+    border-bottom: none;
+    padding: $space-4 $space-6;
+    border-top-left-radius: $radius-md;
+    border-top-right-radius: $radius-md;
+  }
+
+  .modalTitle {
+    color: var(--color-white);
+  }
+
+  .btnClose {
+    filter: invert(1) grayscale(100%);
+  }
+}
+
+/* Scrollable Body */
+.modalDialogScrollable {
+  .modalBody {
+    overflow-y: auto;
+    max-height: calc(90vh - 120px);
+  }
+}
+
+/* Size Variants */
+.modalSm {
+  max-width: var(--modal-width-sm);
+}
+
+.modalLg {
+  max-width: var(--modal-width-lg);
+}
+
+.modalXl {
+  max-width: var(--modal-width-xl);
+}
+
+/* Responsive Modal Sizing */
+@include breakpoint-max(sm) {
+  .modalDialog {
+    max-width: 90%;
+    margin: 0 auto;
+  }
+
+  .modalLg,
+  .modalXl {
+    max-width: 90%;
+  }
+}
+
+/* Modal Footer - Centered Button Layout */
+.modalFooter {
+  @include flex-center;
+  gap: $space-3;
+  padding: $space-4 $space-6;
+  border-top: 1px solid var(--color-border-medium);
+  background-color: var(--color-bg-secondary);
+  border-radius: 0 0 $radius-md $radius-md;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .modalFooter {
+    background-color: var(--color-bg-tertiary);
+    border-top-color: var(--color-border-dark);
+  }
+}
+
+[data-theme="dark"] {
+  .modalFooter {
+    background-color: var(--color-bg-tertiary);
+    border-top-color: var(--color-border-dark);
+  }
+}
