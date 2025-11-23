@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Toast as BootstrapToast } from 'react-bootstrap';
 import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaExclamationTriangle } from 'react-icons/fa';
-import './Toast.css';
+import styles from './Toast.module.scss';
 
 /**
  * Toast notification component with auto-dismiss and positioning support.
@@ -81,7 +81,7 @@ export default function Toast({
 
   // Calculate position styling
   const getPositionStyle = () => {
-    const styles = {
+    const positionStyles = {
       position: 'fixed',
       zIndex: 9999,
     };
@@ -91,27 +91,27 @@ export default function Toast({
 
     // Vertical positioning
     if (vertical === 'top') {
-      styles.top = `${20 + index * 85}px`;
+      positionStyles.top = `${20 + index * 85}px`;
     } else if (vertical === 'bottom') {
-      styles.bottom = `${20 + index * 85}px`;
+      positionStyles.bottom = `${20 + index * 85}px`;
     } else if (vertical === 'middle') {
-      styles.top = '50%';
-      styles.transform = 'translateY(-50%)';
+      positionStyles.top = '50%';
+      positionStyles.transform = 'translateY(-50%)';
     }
 
     // Horizontal positioning
     if (horizontal === 'start') {
-      styles.left = '20px';
+      positionStyles.left = '20px';
     } else if (horizontal === 'end') {
-      styles.right = '20px';
+      positionStyles.right = '20px';
     } else if (horizontal === 'center') {
-      styles.left = '50%';
-      styles.transform = styles.transform 
-        ? `${styles.transform} translateX(-50%)` 
+      positionStyles.left = '50%';
+      positionStyles.transform = positionStyles.transform
+        ? `${positionStyles.transform} translateX(-50%)`
         : 'translateX(-50%)';
     }
 
-    return styles;
+    return positionStyles;
   };
 
   const variant = getBootstrapVariant();
@@ -123,7 +123,7 @@ export default function Toast({
       show={show}
       onClose={handleClose}
       style={getPositionStyle()}
-      className={`biensperience-toast ${animation === 'slide' ? 'toast-slide' : ''}`}
+      className={`${styles.biensperienceToast} ${animation === 'slide' ? styles.toastSlide : ''}`}
       bg={variant}
       autohide={false} // We handle autohide manually
     >
@@ -140,7 +140,7 @@ export default function Toast({
       {!header && showCloseButton && (
         <button
           type="button"
-          className={`btn-close ${['light', 'warning', 'info', 'secondary'].includes(variant) ? '' : 'btn-close-white'}`}
+          className={`btn-close ${['light', 'warning', 'info', 'secondary'].includes(variant) ? '' : styles.btnCloseWhite}`}
           aria-label="Close"
           onClick={handleClose}
           style={{
@@ -151,17 +151,17 @@ export default function Toast({
           }}
         />
       )}
-      <BootstrapToast.Body className={textClass}>
-        <div className="d-flex align-items-start">
+      <BootstrapToast.Body className={`${styles.toastBody} ${textClass}`}>
+        <div className={`d-flex align-items-start ${styles.toastBodyFlex}`}>
           {!header && (
-            <div className="toast-icon-wrapper">
+            <div className={styles.toastIconWrapper}>
               {getIcon()}
             </div>
           )}
-          <div className="flex-grow-1 toast-message-content">
+          <div className={`flex-grow-1 ${styles.toastMessageContent}`}>
             {message}
             {actions && (
-              <div className="toast-actions">
+              <div className={styles.toastActions}>
                 {Array.isArray(actions)
                   ? actions.map((action, idx) => (
                       <button
