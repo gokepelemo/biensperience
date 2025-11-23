@@ -13,7 +13,7 @@
   max-width: 80vw !important;
   width: 80vw;
 
-  @include breakpoint-min(lg) {
+  @include breakpoint(lg) {
     max-width: 50vw !important;
     width: 50vw;
   }
@@ -22,7 +22,7 @@
 :global(.plan-item-modal-dialog) {
   max-width: 80vw !important;
 
-  @include breakpoint-min(lg) {
+  @include breakpoint(lg) {
     max-width: 50vw !important;
   }
 }
