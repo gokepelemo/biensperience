@@ -1,4 +1,4 @@
-import "./SingleDestination.css";
+import styles from "./SingleDestination.module.scss";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { showDestination } from "../../utilities/destinations-api";
@@ -270,7 +270,7 @@ export default function SingleDestination() {
         entity={destination}
         entityType="destination"
       />
-            <div className="row align-items-center single-destination-header">
+            <div className={`row align-items-center ${styles.singleDestinationHeader}`}>
               <div className="col-md-6">
                 <Mobile>
                   <div style={{ textAlign: 'center' }}>
@@ -347,7 +347,7 @@ export default function SingleDestination() {
             {destination.travel_tips?.length > 0 && (
               <div className="row my-4">
                 <div className="col-12 p-3">
-                  <div className="destination-detail-card travel-tips-card">
+                  <div className={`${styles.destinationDetailCard} ${styles.travelTipsCard}`}>
                     <TravelTipsList tips={destination.travel_tips} />
                   </div>
                 </div>
