@@ -1,4 +1,4 @@
-import "./UsersListDisplay.css";
+import styles from "./UsersListDisplay.module.scss";
 import UserAvatar from "../UserAvatar/UserAvatar";
 import { lang } from "../../lang.constants";
 import PropTypes from "prop-types";
@@ -36,11 +36,11 @@ const UsersListDisplay = ({
   // Show loading placeholder if loading
   if (loading) {
     return (
-      <div className={`users-list-display ${className}`} style={{ minHeight: '40px', minWidth: '200px', opacity: 0.5 }}>
+      <div className={`${styles.usersListDisplay} ${className}`} style={{ minHeight: '40px', minWidth: '200px', opacity: 0.5 }}>
         {/* Always show heading to prevent layout shift */}
         <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
         <div className="d-flex align-items-center">
-          <div className="users-avatar-stack">
+          <div className={styles.usersAvatarStack}>
             <div className={`user-avatar user-avatar-${size} stacked-avatar`} style={{ backgroundColor: '#e0e0e0' }}>
               <div className="avatar-initials">...</div>
             </div>
@@ -49,10 +49,10 @@ const UsersListDisplay = ({
             <div className="ms-3">
               <p className="mb-0 text-muted small">
                 Loading
-                <span className="animated-dots" aria-hidden="true">
-                  <span className="dot" />
-                  <span className="dot" />
-                  <span className="dot" />
+                <span className={styles.animatedDots} aria-hidden="true">
+                  <span className={styles.dot} />
+                  <span className={styles.dot} />
+                  <span className={styles.dot} />
                 </span>
                 <span className="visually-hidden"> Loading</span>
               </p>
@@ -66,7 +66,7 @@ const UsersListDisplay = ({
   // Reserve space if requested and no users
   if (reserveSpace && !owner && (!users || users.length === 0)) {
     return (
-      <div className={`users-list-display ${className}`} style={{ minHeight: '40px', minWidth: '200px' }}>
+      <div className={`${styles.usersListDisplay} ${className}`} style={{ minHeight: '40px', minWidth: '200px' }}>
         {/* Always show heading to prevent layout shift */}
         <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
       </div>
@@ -81,7 +81,7 @@ const UsersListDisplay = ({
   // If only owner, show single avatar without overlap
   if (users.length === 0 && owner) {
     return (
-      <div className={`users-list-display users-list-single ${className}`}>
+      <div className={`${styles.usersListDisplay} ${styles.usersListSingle} ${className}`}>
         {showHeading && (
           <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
         )}
@@ -105,18 +105,18 @@ const UsersListDisplay = ({
     : lang.en.message[pluralKey]?.replace('{count}', totalCount);
 
   return (
-    <div className={`users-list-display ${className}`}>
+    <div className={`${styles.usersListDisplay} ${className}`}>
       {showHeading && (
         <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
       )}
       <div className="d-flex align-items-center">
-        <div className="users-avatar-stack">
+        <div className={styles.usersAvatarStack}>
           {/* Loading State: Show blank avatar placeholders */}
           {loading ? (
             Array.from({ length: Math.min(expectedCount, maxVisible + (remainingCount > 0 ? 1 : 0)) }, (_, idx) => (
               <div
                 key={`loading-${idx}`}
-                className={`user-avatar user-avatar-${size} stacked-avatar loading-placeholder`}
+                className={`user-avatar user-avatar-${size} stacked-avatar ${styles.loadingPlaceholder}`}
                 title="Loading..."
               >
                 <div className="avatar-initials">?</div>
