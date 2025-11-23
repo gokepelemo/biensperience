@@ -20,6 +20,7 @@
   align-items: center !important;
   justify-content: center !important;
   opacity: 1 !important;
+  pointer-events: auto !important; /* Allow backdrop to capture clicks for onClose */
 }
 
 /* Modal Dialog Centered */
@@ -27,6 +28,7 @@
   margin: 0 auto;
   position: relative;
   z-index: $z-index-modal + 1;
+  pointer-events: auto !important; /* Ensure dialog captures clicks */
 }
 
 /* Modal Content */
@@ -38,6 +40,7 @@
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
   max-height: 90vh;
+  pointer-events: auto !important; /* Ensure content captures clicks */
 }
 
 /* Gradient Header Variant (opt-in) */
