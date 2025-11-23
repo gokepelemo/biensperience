@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { searchAll } from '../../utilities/search-api';
 import { logger } from '../../utilities/logger';
 import Autocomplete from '../Autocomplete/Autocomplete';
-import './SearchBar.css';
+import styles from './SearchBar.module.scss';
 
 /**
  * SearchBar Component
@@ -235,7 +235,7 @@ export default function SearchBar({
   }, []);
 
   return (
-    <div className={`search-bar-wrapper ${className}`}>
+    <div className={`${styles.searchBarWrapper} ${className}`}>
       <Autocomplete
         placeholder={placeholder}
         items={results}
