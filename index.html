@@ -12,7 +12,7 @@
     <meta name="theme-color" content="#6f42c1" />
     <meta
       name="description"
-      content="A React app for travelers and adventurers alike."
+      content="An experience planning app for travelers and adventurers alike."
     />
     <!-- Apple Touch Icons -->
     <link rel="apple-touch-icon" sizes="180x180" href="/icon-192x192.png?v=1.0" />
@@ -64,6 +64,11 @@
       // This should NOT run for in-app navigation (HashLink handles that)
       (function() {
         try {
+          // Simple debug logger (console.log wrapper for pre-React environment)
+          var isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          var log = isDev ? console.log.bind(console) : function() {};
+          var error = console.error.bind(console); // Always log errors
+
           var hash = window.location.hash || '';
           // Only preserve hash if:
           // 1. Hash exists and is a plan hash
@@ -71,7 +76,7 @@
           if (hash && hash.startsWith('#plan-')) {
             var existing = localStorage.getItem('bien:pending_hash');
             if (!existing) {
-              console.log('[Hash Preservation] Direct URL hash detected:', hash);
+              log('[Hash Preservation] Direct URL hash detected:', hash);
               // Store hash in localStorage so React can retrieve it after Router strips it
               var payload = JSON.stringify({
                 hash: hash,
@@ -80,13 +85,13 @@
                 meta: { source: 'direct-url' }
               });
               localStorage.setItem('bien:pending_hash', payload);
-              console.log('[Hash Preservation] Hash stored in localStorage for React to retrieve');
+              log('[Hash Preservation] Hash stored in localStorage for React to retrieve');
             } else {
-              console.log('[Hash Preservation] Skipping - pending hash already exists (in-app navigation)');
+              log('[Hash Preservation] Skipping - pending hash already exists (in-app navigation)');
             }
           }
         } catch (e) {
-          console.error('[Hash Preservation] Failed to preserve hash:', e);
+          error('[Hash Preservation] Failed to preserve hash:', e);
         }
       })();
     </script>
