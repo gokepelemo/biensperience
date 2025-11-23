@@ -1,0 +1,215 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Action Buttons - Flexbox button container with Bootstrap overrides */
+
+.actionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) 0;
+
+  &.compact {
+    gap: var(--space-1);
+    padding: 0;
+
+    :global(.action-button) {
+      min-width: 2rem;
+      padding: 0.25rem 0.5rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    justify-content: center !important;
+    width: 100%;
+  }
+
+  /* Bootstrap button overrides */
+  :global(.btn-primary) {
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+    color: white !important;
+
+    &:hover {
+      background: var(--color-primary-dark) !important;
+      border-color: var(--color-primary-dark) !important;
+      box-shadow: var(--shadow-md) !important;
+    }
+  }
+
+  :global(.btn-secondary) {
+    background: var(--color-text-secondary) !important;
+    border-color: var(--color-text-secondary) !important;
+    color: white !important;
+
+    &:hover {
+      background: var(--color-text-primary) !important;
+      border-color: var(--color-text-primary) !important;
+    }
+  }
+
+  :global(.btn-success) {
+    background: var(--color-success) !important;
+    border-color: var(--color-success) !important;
+    color: white !important;
+
+    &:hover {
+      background: var(--color-success-dark) !important;
+      border-color: var(--color-success-dark) !important;
+    }
+  }
+
+  :global(.btn-danger) {
+    background: var(--color-danger) !important;
+    border-color: var(--color-danger) !important;
+    color: white !important;
+
+    &:hover {
+      background: var(--color-danger-dark) !important;
+      border-color: var(--color-danger-dark) !important;
+    }
+  }
+
+  :global(.btn-warning) {
+    background: var(--color-warning) !important;
+    border-color: var(--color-warning) !important;
+    color: var(--color-text-primary) !important;
+
+    &:hover {
+      background: var(--color-warning-dark) !important;
+      border-color: var(--color-warning-dark) !important;
+    }
+  }
+
+  /* Outline button styles */
+  :global(.btn-outline-primary) {
+    background: transparent !important;
+    border: 2px solid var(--color-primary) !important;
+    color: var(--color-primary) !important;
+
+    &:hover {
+      background: var(--color-primary) !important;
+      border-color: var(--color-primary) !important;
+      color: white !important;
+    }
+  }
+
+  :global(.btn-outline-secondary) {
+    background: transparent !important;
+    border: 2px solid var(--color-border-medium) !important;
+    color: var(--color-text-primary) !important;
+
+    &:hover {
+      background: var(--color-bg-secondary) !important;
+      border-color: var(--color-text-secondary) !important;
+      color: var(--color-text-primary) !important;
+    }
+  }
+
+  :global(.btn-outline-success) {
+    background: transparent !important;
+    border: 2px solid var(--color-success) !important;
+    color: var(--color-success) !important;
+
+    &:hover {
+      background: var(--color-success) !important;
+      border-color: var(--color-success) !important;
+      color: white !important;
+    }
+  }
+
+  :global(.btn-outline-danger) {
+    background: transparent !important;
+    border: 2px solid var(--color-danger) !important;
+    color: var(--color-danger) !important;
+
+    &:hover {
+      background: var(--color-danger) !important;
+      border-color: var(--color-danger) !important;
+      color: white !important;
+    }
+  }
+
+  :global(.btn-outline-warning) {
+    background: transparent !important;
+    border: 2px solid var(--color-warning) !important;
+    color: var(--color-warning) !important;
+
+    &:hover {
+      background: var(--color-warning) !important;
+      border-color: var(--color-warning) !important;
+      color: var(--color-text-primary) !important;
+    }
+  }
+
+  /* Navbar integration */
+  &.fadeIn {
+    animation: fadeInSlide 0.3s ease-out;
+  }
+}
+
+/* Navbar-specific styles */
+:global(.navbar) {
+  .actionButtons {
+    margin-left: auto;
+
+    @media (max-width: 992px) {
+      width: 100%;
+      margin-top: 0.5rem;
+      justify-content: center !important;
+    }
+  }
+}
+
+/* Action Button Base Styles */
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  white-space: nowrap;
+  transition: var(--transition-normal);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+
+  :global(.button-icon) {
+    font-size: 1.1em;
+    line-height: 1;
+  }
+
+  &:global(.btn-sm) :global(.button-icon) {
+    font-size: 1em;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  @media (max-width: 768px) {
+    flex: 1 1 auto;
+    min-width: fit-content;
+  }
+}
+
+/* Keyframe animations */
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

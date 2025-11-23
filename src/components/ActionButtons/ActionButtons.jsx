@@ -1,5 +1,5 @@
 import React from 'react';
-import './ActionButtons.css';
+import styles from './ActionButtons.module.scss';
 
 /**
  * ActionButtons Component
@@ -29,7 +29,7 @@ export default function ActionButtons({
   }[align] || 'justify-content-end';
 
   return (
-    <div className={`action-buttons ${alignClass} ${compact ? 'compact' : ''} ${className}`}>
+    <div className={`${styles.actionButtons} ${alignClass} ${compact ? styles.compact : ''} ${className}`}>
       {buttons.map((button, index) => {
         const {
           label,
@@ -48,7 +48,7 @@ export default function ActionButtons({
           <button
             key={index}
             type={type}
-            className={`btn btn-${variant} action-button ${compact ? 'btn-sm' : ''} ${buttonClassName}`}
+            className={`btn btn-${variant} ${styles.actionButton} ${compact ? 'btn-sm' : ''} ${buttonClassName}`}
             onClick={onClick}
             disabled={disabled}
             title={tooltip}
