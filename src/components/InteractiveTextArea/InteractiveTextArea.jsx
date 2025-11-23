@@ -62,18 +62,31 @@ const InteractiveTextArea = ({
 
     setCursorPosition(newCursorPosition);
 
-    // Check for mention trigger (@)
+    // Check for mention triggers (@ for users, # for plan items)
     const textBeforeCursor = newValue.slice(0, newCursorPosition);
-    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+    const userMentionMatch = textBeforeCursor.match(/@(\w*)$/);
+    const planItemMentionMatch = textBeforeCursor.match(/#(\w*)$/);
 
-    if (mentionMatch) {
-      const query = mentionMatch[1].toLowerCase();
+    if (userMentionMatch) {
+      const query = userMentionMatch[1].toLowerCase();
       setMentionStart(newCursorPosition - query.length - 1);
 
-      // Filter available entities based on query
+      // Filter for users only
       const filteredEntities = availableEntities.filter(entity =>
-        entity.displayName.toLowerCase().includes(query) ||
-        entity.type.toLowerCase().includes(query)
+        entity.type === 'user' &&
+        (entity.displayName.toLowerCase().includes(query))
+      );
+
+      setSuggestions(filteredEntities.slice(0, 5)); // Limit to 5 suggestions
+      setShowSuggestions(true);
+    } else if (planItemMentionMatch) {
+      const query = planItemMentionMatch[1].toLowerCase();
+      setMentionStart(newCursorPosition - query.length - 1);
+
+      // Filter for plan items only
+      const filteredEntities = availableEntities.filter(entity =>
+        entity.type === 'plan-item' &&
+        (entity.displayName.toLowerCase().includes(query))
       );
 
       setSuggestions(filteredEntities.slice(0, 5)); // Limit to 5 suggestions
@@ -93,7 +106,8 @@ const InteractiveTextArea = ({
     if (!textareaRef.current) return;
 
     const textarea = textareaRef.current;
-    const mentionText = createMention(entity.type, entity.id);
+    // Create mention with entity/{type}/{id} format for backend storage
+    const mentionText = createMention(entity.type, entity.id, entity.displayName);
     const textBeforeMention = value.slice(0, mentionStart);
     const textAfterCursor = value.slice(cursorPosition);
 
@@ -173,6 +187,7 @@ const InteractiveTextArea = ({
                 {entity.type === MENTION_TYPES.USER && '👤'}
                 {entity.type === MENTION_TYPES.DESTINATION && '📍'}
                 {entity.type === MENTION_TYPES.EXPERIENCE && '🎯'}
+                {entity.type === 'plan-item' && '✅'}
               </div>
               <div className="mention-suggestion-content">
                 <div className="mention-suggestion-name">{entity.displayName}</div>

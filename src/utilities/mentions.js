@@ -22,19 +22,26 @@ export const MENTION_TYPES = {
 
 /**
  * Parse text for mentions and return structured data
+ * Supports both old format (@type:id) and new format (@[Name](entity/type/id) or #[Name](entity/type/id))
  * @param {string} text - Text containing mentions
  * @returns {Array} Array of text segments and mention objects
  */
 export function parseMentions(text) {
   if (!text) return [{ type: 'text', content: '' }];
 
-  // Regex to match mentions: @user:123, @destination:456, @experience:789
-  const mentionRegex = /@(\w+):(\w+)/g;
   const segments = [];
   let lastIndex = 0;
+
+  // New format: @[Name](entity/type/id) or #[Name](entity/type/id)
+  const newMentionRegex = /[@#]\[([^\]]+)\]\(entity\/([^/]+)\/([^)]+)\)/g;
+  // Old format (backward compatibility): @type:id
+  const oldMentionRegex = /@(\w+):(\w+)/g;
+
+  // Combine both patterns
+  const combinedRegex = /([@#]\[([^\]]+)\]\(entity\/([^/]+)\/([^)]+)\))|(@(\w+):(\w+))/g;
   let match;
 
-  while ((match = mentionRegex.exec(text)) !== null) {
+  while ((match = combinedRegex.exec(text)) !== null) {
     // Add text before the mention
     if (match.index > lastIndex) {
       segments.push({
@@ -43,18 +50,33 @@ export function parseMentions(text) {
       });
     }
 
-    // Add the mention
-    const entityType = match[1];
-    const entityId = match[2];
+    if (match[1]) {
+      // New format match: @[Name](entity/type/id) or #[Name](entity/type/id)
+      const displayName = match[2];
+      const entityType = match[3];
+      const entityId = match[4];
 
-    segments.push({
-      type: 'mention',
-      entityType,
-      entityId,
-      originalText: match[0]
-    });
+      segments.push({
+        type: 'mention',
+        entityType,
+        entityId,
+        displayName,
+        originalText: match[0]
+      });
+    } else if (match[5]) {
+      // Old format match: @type:id
+      const entityType = match[6];
+      const entityId = match[7];
 
-    lastIndex = mentionRegex.lastIndex;
+      segments.push({
+        type: 'mention',
+        entityType,
+        entityId,
+        originalText: match[0]
+      });
+    }
+
+    lastIndex = combinedRegex.lastIndex;
   }
 
   // Add remaining text
@@ -70,22 +92,34 @@ export function parseMentions(text) {
 
 /**
  * Convert mention to display text
- * @param {string} entityType - Type of entity (user, destination, experience)
+ * @param {string} entityType - Type of entity (user, plan-item, destination, experience)
  * @param {Object} entity - Entity data
+ * @param {string} displayName - Optional display name from parsed mention
  * @returns {string} Display text for the mention
  */
-export function getMentionDisplayText(entityType, entity) {
+export function getMentionDisplayText(entityType, entity, displayName) {
+  // If displayName is provided (from new format), use it
+  if (displayName) {
+    const prefix = entityType === 'plan-item' ? '#' : '@';
+    return `${prefix}${displayName}`;
+  }
+
+  // Fallback to entity data
   if (!entity) return `@${entityType}:unknown`;
+
+  const prefix = entityType === 'plan-item' ? '#' : '@';
 
   switch (entityType) {
     case MENTION_TYPES.USER:
-      return `@${entity.name || entity.username || 'Unknown User'}`;
+      return `${prefix}${entity.name || entity.username || 'Unknown User'}`;
+    case 'plan-item':
+      return `${prefix}${entity.name || entity.experience_name || 'Unknown Plan Item'}`;
     case MENTION_TYPES.DESTINATION:
-      return `@${entity.name || 'Unknown Destination'}`;
+      return `${prefix}${entity.name || 'Unknown Destination'}`;
     case MENTION_TYPES.EXPERIENCE:
-      return `@${entity.name || 'Unknown Experience'}`;
+      return `${prefix}${entity.name || 'Unknown Experience'}`;
     default:
-      return `@${entityType}:${entity._id || 'unknown'}`;
+      return `${prefix}${entityType}:${entity._id || 'unknown'}`;
   }
 }
 
@@ -93,12 +127,19 @@ export function getMentionDisplayText(entityType, entity) {
  * Get the URL path for an entity
  * @param {string} entityType - Type of entity
  * @param {string} entityId - Entity ID
+ * @param {Object} entity - Optional entity data for plan items (needs experienceId and planId)
  * @returns {string} URL path
  */
-export function getEntityUrl(entityType, entityId) {
+export function getEntityUrl(entityType, entityId, entity) {
   switch (entityType) {
     case MENTION_TYPES.USER:
-      return `/users/${entityId}`;
+      return `/profile/${entityId}`;
+    case 'plan-item':
+      // Deep link to plan item: /experiences/{expId}#plan-{planId}-item-{itemId}
+      if (entity && entity.experienceId && entity.planId) {
+        return `/experiences/${entity.experienceId}#plan-${entity.planId}-item-${entityId}`;
+      }
+      return '#';
     case MENTION_TYPES.DESTINATION:
       return `/destinations/${entityId}`;
     case MENTION_TYPES.EXPERIENCE:
@@ -116,9 +157,9 @@ export function getEntityUrl(entityType, entityId) {
  * @returns {ReactElement} Interactive mention link
  */
 export function renderMention(mention, entity, onEntityClick) {
-  const { entityType, entityId, originalText } = mention;
-  const displayText = getMentionDisplayText(entityType, entity);
-  const entityUrl = getEntityUrl(entityType, entityId);
+  const { entityType, entityId, displayName, originalText } = mention;
+  const displayText = getMentionDisplayText(entityType, entity, displayName);
+  const entityUrl = getEntityUrl(entityType, entityId, entity);
 
   const handleClick = (e) => {
     if (onEntityClick) {
@@ -130,7 +171,7 @@ export function renderMention(mention, entity, onEntityClick) {
   const popoverContent = (
     <Popover id={`mention-popover-${entityType}-${entityId}`}>
       <Popover.Header as="h3">
-        {getMentionDisplayText(entityType, entity)}
+        {getMentionDisplayText(entityType, entity, displayName)}
       </Popover.Header>
       <Popover.Body>
         {entity ? (
@@ -141,6 +182,15 @@ export function renderMention(mention, entity, onEntityClick) {
                 {entity.bio && <p><strong>Bio:</strong> {entity.bio}</p>}
                 <Link to={entityUrl} className="btn btn-sm btn-primary">
                   View Profile
+                </Link>
+              </>
+            )}
+            {entityType === 'plan-item' && (
+              <>
+                <p><strong>Item:</strong> {entity.name || entity.experience_name}</p>
+                {entity.description && <p><strong>Description:</strong> {entity.description.substring(0, 100)}...</p>}
+                <Link to={entityUrl} className="btn btn-sm btn-primary">
+                  View Plan Item
                 </Link>
               </>
             )}
@@ -238,12 +288,16 @@ export function mentionsToPlainText(text, entities = {}) {
 
 /**
  * Create a mention string for an entity
- * @param {string} entityType - Type of entity
+ * @param {string} entityType - Type of entity (user, plan-item, destination, experience)
  * @param {string} entityId - Entity ID
- * @returns {string} Mention string
+ * @param {string} displayName - Display name for the entity
+ * @returns {string} Mention string in format: @[Name] or #[Name] with embedded entity link
  */
-export function createMention(entityType, entityId) {
-  return `@${entityType}:${entityId}`;
+export function createMention(entityType, entityId, displayName) {
+  // Use @ for users, # for plan items
+  const prefix = entityType === 'plan-item' ? '#' : '@';
+  // Embed entity link: entity/type/id
+  return `${prefix}[${displayName}](entity/${entityType}/${entityId})`;
 }
 
 /**

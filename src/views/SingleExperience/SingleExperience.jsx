@@ -599,6 +599,17 @@ export default function SingleExperience() {
       });
     }
 
+    // Add plan items (for # mentions)
+    if (selectedPlan && selectedPlan.items && selectedPlan.items.length > 0) {
+      selectedPlan.items.forEach(item => {
+        entities.push({
+          type: 'plan-item',
+          id: item._id,
+          displayName: item.name || item.experience_name || 'Unknown Plan Item'
+        });
+      });
+    }
+
     // Add current destination
     if (experience?.destination) {
       entities.push({
@@ -618,7 +629,7 @@ export default function SingleExperience() {
     }
 
     return entities;
-  }, [planCollaborators, experience]);
+  }, [planCollaborators, selectedPlan, experience]);
 
   // Create entity data map for mention rendering
   const entityData = useMemo(() => {
@@ -632,6 +643,19 @@ export default function SingleExperience() {
           name: user.name || user.username,
           bio: user.bio,
           username: user.username
+        };
+      });
+    }
+
+    // Add plan items
+    if (selectedPlan && selectedPlan.items && selectedPlan.items.length > 0) {
+      selectedPlan.items.forEach(item => {
+        data[item._id] = {
+          _id: item._id,
+          name: item.name || item.experience_name,
+          description: item.description,
+          experienceId: experience?._id,
+          planId: selectedPlan._id
         };
       });
     }
@@ -658,7 +682,7 @@ export default function SingleExperience() {
     }
 
     return data;
-  }, [planCollaborators, experience]);
+  }, [planCollaborators, selectedPlan, experience]);
 
   const toggleExpanded = useCallback((parentId) => {
     setExpandedParents((prev) => {
