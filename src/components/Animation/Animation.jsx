@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import './Animation.css';
+import styles from './Animation.module.scss';
 
 /**
  * Animation wrapper component for applying entrance animations
@@ -44,12 +44,13 @@ export default function Animation({
   }, [trigger, delay, once, hasAnimated]);
 
   // Build className string
+  const typeClass = type === 'fade-in' ? '' : styles[`animation${type.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('')}`];
   const classes = [
-    'animation-wrapper',
-    `animation-${type}`,
-    `duration-${duration}`,
-    `easing-${easing}`,
-    isVisible && 'animation-active',
+    styles.animationWrapper,
+    typeClass,
+    styles[`duration${duration.charAt(0).toUpperCase() + duration.slice(1)}`],
+    styles[`easing${easing.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('')}`],
+    isVisible && styles.animationActive,
     className
   ].filter(Boolean).join(' ');
 

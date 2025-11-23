@@ -1,0 +1,155 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Animation Components - CSS animation utilities and entrance effects */
+
+.animationWrapper {
+  opacity: 0;
+  transform: translateY(0);
+  transition: all var(--transition-normal);
+}
+
+.animationActive {
+  opacity: 1;
+}
+
+/* Slide animations */
+.animationSlideLeft {
+  transform: translateX(20px);
+
+  &.animationActive {
+    transform: translateX(0);
+  }
+}
+
+.animationSlideRight {
+  transform: translateX(-20px);
+
+  &.animationActive {
+    transform: translateX(0);
+  }
+}
+
+/* Duration variants */
+.durationFast {
+  transition-duration: var(--transition-fast);
+}
+
+.durationNormal {
+  transition-duration: var(--transition-normal);
+}
+
+.durationSlow {
+  transition-duration: var(--transition-slow);
+}
+
+/* Easing variants */
+.easingEase {
+  transition-timing-function: ease;
+}
+
+.easingEaseIn {
+  transition-timing-function: ease-in;
+}
+
+.easingEaseOut {
+  transition-timing-function: ease-out;
+}
+
+.easingEaseInOut {
+  transition-timing-function: ease-in-out;
+}
+
+/* Staggered container */
+.staggeredContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Hover animations */
+.animationHoverScale {
+  &:hover {
+    transform: scale(1.05);
+    transition: transform var(--transition-fast);
+  }
+}
+
+.animationHoverLift {
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-fast);
+  }
+}
+
+/* Keyframe animations */
+.animationPulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animationBounce {
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40%, 43% {
+    transform: translateY(-8px);
+  }
+  70% {
+    transform: translateY(-4px);
+  }
+  90% {
+    transform: translateY(-2px);
+  }
+}
+
+.animationSpin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .animationWrapper {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .animationActive {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .animationPulse,
+  .animationBounce,
+  .animationSpin {
+    animation: none !important;
+  }
+
+  .animationHoverScale:hover,
+  .animationHoverLift:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
