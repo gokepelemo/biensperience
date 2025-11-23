@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import './Responsive.css';
+import styles from './Responsive.module.scss';
 
 /**
  * Show component that only displays content on specific screen sizes
@@ -22,8 +22,7 @@ export function Show({
   ...props
 }) {
   const classes = [
-    'responsive-show',
-    `show-${on}`,
+    styles[`show${on.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('')}`],
     className
   ].filter(Boolean).join(' ');
 
@@ -66,8 +65,7 @@ export function Hide({
   ...props
 }) {
   const classes = [
-    'responsive-hide',
-    `hide-${on}`,
+    styles[`hide${on.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('')}`],
     className
   ].filter(Boolean).join(' ');
 
