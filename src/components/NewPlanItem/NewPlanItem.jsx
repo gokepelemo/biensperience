@@ -1,4 +1,4 @@
-import "./NewPlanItem.css";
+import styles from "./NewPlanItem.module.scss";
 import { useCallback } from "react";
 import { addPlanItem, updatePlanItem } from "../../utilities/experiences-api";
 import { lang } from "../../lang.constants";
@@ -55,7 +55,7 @@ export default function NewPlanItem({
   return (
     <>
       <button
-        className="planItemVisibility btn btn-light"
+        className={`${styles.planItemVisibility} btn btn-light`}
         onClick={handleVisibility}
       >
         {formVisible ? lang.en.button.cancel : lang.en.button.addPlanItem}
@@ -65,7 +65,7 @@ export default function NewPlanItem({
           <h5 className="lead mt-3">
             {formState ? (newPlanItem.parent ? lang.en.button.addChild : lang.en.button.add) : (newPlanItem.parent ? lang.en.button.updateChild : lang.en.button.update)} {lang.en.label.title}
           </h5>
-          <form onSubmit={handleSubmit} className="newPlanItem">
+          <form onSubmit={handleSubmit} className={styles.newPlanItem}>
             <FormLabel htmlFor="text">{lang.en.label.title}</FormLabel>
             <FormControl
               type="text"

@@ -1,0 +1,27 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* New plan item form */
+.newPlanItem {
+  width: 50%;
+  min-width: 400px;
+  display: block;
+
+  button {
+    grid-column: 1 / span 2;
+    width: 25%;
+    min-width: 50px;
+  }
+
+  label {
+    font-size: $font-size-base;
+  }
+
+  * {
+    margin: $space-2 0;
+  }
+}
+
+/* Plan item visibility toggle button */
+.planItemVisibility {
+  width: fit-content;
+}
