@@ -49,7 +49,7 @@
 .logo {
   margin: 0 $space-4 0 0;
   font-size: $font-size-2xl; /* Match experience card buttons */
-  font-weight: $font-weight-regular; /* Lighter weight for better centering */
+  font-weight: $font-weight-normal; /* Lighter weight for better centering */
   padding: 0;
   line-height: $line-height-tight;
   @include flex-center;
