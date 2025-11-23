@@ -64,7 +64,7 @@ export default function Modal({
   ].filter(Boolean).join(" ");
 
   const modalContent = (
-    <div className={`${styles.modalShow} ${styles.modalBackdrop} modal show d-block`} tabIndex="-1">
+    <div className={`${styles.modalShow} modal show d-block`} tabIndex="-1">
       <div className={modalDialogClasses}>
         <div className={modalContentClasses}>
           {/* Header */}

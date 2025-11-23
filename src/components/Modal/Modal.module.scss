@@ -6,8 +6,9 @@
 
 @use '../../styles/scss/abstracts' as *;
 
-/* Modal Backdrop */
-.modalBackdrop {
+/* Modal Show State - includes backdrop styling */
+.modalShow {
+  @include modal-base;
   background-color: var(--color-bg-overlay);
   position: fixed !important;
   top: 0 !important;
@@ -15,11 +16,6 @@
   width: 100vw !important;
   height: 100vh !important;
   z-index: $z-index-modal-backdrop !important;
-}
-
-/* Modal Show State */
-.modalShow {
-  @include modal-base;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
