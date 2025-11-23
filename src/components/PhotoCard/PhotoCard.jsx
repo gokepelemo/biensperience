@@ -150,7 +150,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
     <>
       <figure className="photoFrame" role="img" aria-label={imageAlt}>
       <div
-        className={`${styles.photoCard} d-flex align-items-center justify-content-center"
+        className={`${styles.photoCard} d-flex align-items-center justify-content-center`}
         onClick={() => setShowModal(true)}
         style={{ aspectRatio: containerAspectRatio }}
         role="button"
