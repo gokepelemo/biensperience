@@ -5,7 +5,7 @@ import Alert from '../Alert/Alert';
 import { requestPasswordReset } from '../../utilities/users-api';
 import { handleError } from '../../utilities/error-handler';
 import { lang } from '../../lang.constants';
-import './ForgotPasswordModal.css';
+import styles from './ForgotPasswordModal.module.scss';
 
 export default function ForgotPasswordModal({ show, onClose }) {
   const [email, setEmail] = useState('');
@@ -63,7 +63,7 @@ export default function ForgotPasswordModal({ show, onClose }) {
           </p>
         </Alert>
       ) : (
-        <form className="forgot-password-form">
+        <form className={styles.forgotPasswordForm}>
           {error && (
             <Alert type="danger" message={error} className="mb-3" />
           )}
