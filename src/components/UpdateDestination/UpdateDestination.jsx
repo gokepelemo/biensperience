@@ -1,4 +1,3 @@
-import "./UpdateDestination.css";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { updateDestination as updateDestAPI, showDestination } from "../../utilities/destinations-api";
