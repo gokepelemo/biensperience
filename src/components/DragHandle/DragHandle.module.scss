@@ -1,0 +1,45 @@
+/**
+ * DragHandle Component Styles (SCSS Module)
+ * Migrated from DragHandle.css to DragHandle.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+.dragHandle {
+  @include flex-center;
+  width: 32px;
+  height: 32px;
+  cursor: grab;
+  color: var(--color-text-secondary, #6c757d);
+  border-radius: $radius-sm;
+  @include transition-all($transition-fast);
+  flex-shrink: 0; /* Prevent shrinking */
+
+  &:hover {
+    color: var(--color-primary, #667eea);
+    background-color: var(--color-bg-hover, rgba(102, 126, 234, 0.1));
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &.dragging {
+    cursor: grabbing;
+    opacity: 0.5;
+  }
+
+  /* Ensure handle doesn't interfere with other interactions */
+  svg {
+    pointer-events: none;
+  }
+}
+
+/* Touch-friendly sizing for mobile */
+@include breakpoint-max(md) {
+  .dragHandle {
+    width: 40px;
+    height: 40px;
+  }
+}

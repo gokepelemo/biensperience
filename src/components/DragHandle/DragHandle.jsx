@@ -6,7 +6,7 @@
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import './DragHandle.css';
+import styles from './DragHandle.module.scss';
 
 export default function DragHandle({ id, disabled = false }) {
   const {
@@ -32,7 +32,7 @@ export default function DragHandle({ id, disabled = false }) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`drag-handle ${isDragging ? 'dragging' : ''}`}
+      className={`${styles.dragHandle} ${isDragging ? styles.dragging : ''}`}
       {...attributes}
       {...listeners}
       aria-label="Drag to reorder"
