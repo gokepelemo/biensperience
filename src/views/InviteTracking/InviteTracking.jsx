@@ -21,7 +21,7 @@ import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
 import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, SpaceY, Pill } from '../../components/design-system';
-import './InviteTracking.css';
+import styles from './InviteTracking.module.scss';
 
 export default function InviteTracking() {
   const [invites, setInvites] = useState([]);
@@ -112,40 +112,40 @@ export default function InviteTracking() {
     <div>
       {/* Statistics Cards */}
       {stats && (
-        <div className="stats-grid mb-4">
-          <Card className="stat-card">
+        <div className={`${styles.statsGrid} mb-4`}>
+          <Card className={styles.statCard}>
             <Card.Body>
               <div className="stat-icon">
                 <FaQrcode />
               </div>
-              <h2 className="stat-value">{stats.totalInvites}</h2>
+              <h2 className={styles.statValue}>{stats.totalInvites}</h2>
               <p style={{ color: 'var(--bs-gray-600)' }}>Total Invites</p>
             </Card.Body>
           </Card>
-          <Card className="stat-card">
+          <Card className={styles.statCard}>
             <Card.Body>
               <div className="stat-icon text-success">
                 <FaCheckCircle />
               </div>
-              <h2 className="stat-value">{stats.activeInvites}</h2>
+              <h2 className={styles.statValue}>{stats.activeInvites}</h2>
               <p className="text-muted">Active</p>
             </Card.Body>
           </Card>
-          <Card className="stat-card">
+          <Card className={styles.statCard}>
             <Card.Body>
               <div className="stat-icon text-info">
                 <FaUsers />
               </div>
-              <h2 className="stat-value">{stats.totalRedemptions}</h2>
+              <h2 className={styles.statValue}>{stats.totalRedemptions}</h2>
               <p style={{ color: 'var(--bs-gray-600)' }}>Redemptions</p>
             </Card.Body>
           </Card>
-          <Card className="stat-card">
+          <Card className={styles.statCard}>
             <Card.Body>
               <div className="stat-icon text-danger">
                 <FaClock />
               </div>
-              <h2 className="stat-value">{stats.expiredInvites}</h2>
+              <h2 className={styles.statValue}>{stats.expiredInvites}</h2>
               <p style={{ color: 'var(--bs-gray-600)' }}>Expired</p>
             </Card.Body>
           </Card>
@@ -180,7 +180,7 @@ export default function InviteTracking() {
                   {invites.map((invite) => (
                     <tr key={invite._id}>
                       <td>
-                        <code className="invite-code">{invite.code}</code>
+                        <code className={styles.inviteCode}>{invite.code}</code>
                       </td>
                       <td>{getStatusBadge(invite)}</td>
                       <td>
@@ -239,22 +239,22 @@ export default function InviteTracking() {
           {lang.en.button.backToOverview}
         </button>
 
-        <div className="invite-details-grid">
-          <div className="invite-details-sidebar">
+        <div className={styles.inviteDetailsGrid}>
+          <div className={styles.inviteDetailsSidebar}>
             <Card className="mb-3">
               <Card.Header>
                 <h6><FaQrcode /> Invite Code Details</h6>
               </Card.Header>
               <Card.Body>
-                <div className="invite-detail-item">
+                <div className={styles.inviteDetailItem}>
                   <strong>Code:</strong>
-                  <code className="invite-code-large">{selectedInvite.code}</code>
+                  <code className={styles.inviteCodeLarge}>{selectedInvite.code}</code>
                 </div>
-                <div className="invite-detail-item">
+                <div className={styles.inviteDetailItem}>
                   <strong>Status:</strong>
                   {getStatusBadge(selectedInvite)}
                 </div>
-                <div className="invite-detail-item">
+                <div className={styles.inviteDetailItem}>
                   <strong>Usage:</strong>
                   <div>
                     <Pill variant="secondary">
@@ -268,7 +268,7 @@ export default function InviteTracking() {
                   </div>
                 </div>
                 {selectedInvite.email && (
-                  <div className="invite-detail-item">
+                  <div className={styles.inviteDetailItem}>
                     <strong>Restricted to:</strong>
                     <div>
                       <FaEnvelope className="me-1" />
@@ -276,7 +276,7 @@ export default function InviteTracking() {
                     </div>
                   </div>
                 )}
-                <div className="invite-detail-item">
+                <div className={styles.inviteDetailItem}>
                   <strong>Created:</strong>
                   <div>
                     <FaCalendar className="me-1" />
@@ -284,7 +284,7 @@ export default function InviteTracking() {
                   </div>
                 </div>
                 {selectedInvite.expiresAt && (
-                  <div className="invite-detail-item">
+                  <div className={styles.inviteDetailItem}>
                     <strong>Expires:</strong>
                     <div>
                       <FaClock className="me-1" />
@@ -305,7 +305,7 @@ export default function InviteTracking() {
                   {selectedInvite.experiences?.length > 0 && (
                     <div className="mb-3">
                       <strong>Experiences ({selectedInvite.experiences.length}):</strong>
-                      <ul className="resource-list">
+                      <ul className={styles.resourceList}>
                         {selectedInvite.experiences.map((exp) => (
                           <li key={exp._id}>
                             <Link to={`/experiences/${exp._id}`}>{exp.name}</Link>
@@ -317,7 +317,7 @@ export default function InviteTracking() {
                   {selectedInvite.destinations?.length > 0 && (
                     <div>
                       <strong>Destinations ({selectedInvite.destinations.length}):</strong>
-                      <ul className="resource-list">
+                      <ul className={styles.resourceList}>
                         {selectedInvite.destinations.map((dest) => (
                           <li key={dest._id}>
                             <Link to={`/destinations/${dest._id}`}>
@@ -333,7 +333,7 @@ export default function InviteTracking() {
             )}
           </div>
 
-          <div className="invite-details-main">
+          <div className={styles.inviteDetailsMain}>
             <Card>
               <Card.Header>
                 <h6><FaUsers /> Redeemed By ({selectedInvite.redeemedBy?.length || 0})</h6>
@@ -366,7 +366,7 @@ export default function InviteTracking() {
                                     <img
                                       src={photoUrl}
                                       alt={user.name}
-                                      className="user-avatar-small me-2"
+                                      className={`${styles.userAvatarSmall} me-2`}
                                     />
                                   )}
                                   <span>{user.name}</span>
@@ -402,50 +402,50 @@ export default function InviteTracking() {
           </Col>
         </Row>
 
-        <div className="analytics-grid mb-4">
-          <Card className="analytics-card">
+        <div className={`${styles.analyticsGrid} mb-4`}>
+          <Card className={styles.analyticsCard}>
             <Card.Body>
               <h6>Total Invites Created</h6>
-              <div className="analytics-value">{analytics.totalInvites}</div>
+              <div className={styles.analyticsValue}>{analytics.totalInvites}</div>
             </Card.Body>
           </Card>
-          <Card className="analytics-card">
+          <Card className={styles.analyticsCard}>
             <Card.Body>
               <h6>Total Redemptions</h6>
-              <div className="analytics-value">{analytics.totalRedemptions}</div>
+              <div className={styles.analyticsValue}>{analytics.totalRedemptions}</div>
             </Card.Body>
           </Card>
-          <Card className="analytics-card">
+          <Card className={styles.analyticsCard}>
             <Card.Body>
               <h6>Redemption Rate</h6>
-              <div className="analytics-value">{analytics.redemptionRate}%</div>
+              <div className={styles.analyticsValue}>{analytics.redemptionRate}%</div>
             </Card.Body>
           </Card>
-          <Card className="analytics-card">
+          <Card className={styles.analyticsCard}>
             <Card.Body>
               <h6>Avg Redemptions/Invite</h6>
-              <div className="analytics-value">{analytics.averageRedemptionsPerInvite}</div>
+              <div className={styles.analyticsValue}>{analytics.averageRedemptionsPerInvite}</div>
             </Card.Body>
           </Card>
-          <Card className="analytics-card">
+          <Card className={styles.analyticsCard}>
             <Card.Body>
               <h6>Active Invites</h6>
-              <div className="analytics-value">{analytics.activeInvites}</div>
+              <div className={styles.analyticsValue}>{analytics.activeInvites}</div>
             </Card.Body>
           </Card>
-          <Card className="analytics-card">
+          <Card className={styles.analyticsCard}>
             <Card.Body>
               <h6>Unused Invites</h6>
-              <div className="analytics-value">{analytics.unusedInvites}</div>
+              <div className={styles.analyticsValue}>{analytics.unusedInvites}</div>
             </Card.Body>
           </Card>
-        </div>        <div className="activity-grid mt-4">
+        </div>        <div className={`${styles.activityGrid} mt-4`}>
           <Card>
             <Card.Header>
               <h6>Recent Activity</h6>
             </Card.Header>
             <Card.Body>
-              <div className="analytics-item">
+              <div className={styles.analyticsItem}>
                 <strong>Last 7 Days:</strong>
                 <span className="float-end">
                   <Pill variant="info">{analytics.redemptionsLast7Days} redemptions</Pill>
@@ -454,7 +454,7 @@ export default function InviteTracking() {
                   </Pill>
                 </span>
               </div>
-              <div className="analytics-item">
+              <div className={styles.analyticsItem}>
                 <strong>Last 30 Days:</strong>
                 <span className="float-end">
                   <Pill variant="info">{analytics.redemptionsLast30Days} redemptions</Pill>
@@ -470,15 +470,15 @@ export default function InviteTracking() {
               <h6>Invite Status Breakdown</h6>
             </Card.Header>
             <Card.Body>
-              <div className="analytics-item">
+              <div className={styles.analyticsItem}>
                 <strong>Expired:</strong>
                 <Pill variant="danger" className="float-end">{analytics.expiredInvites}</Pill>
               </div>
-              <div className="analytics-item">
+              <div className={styles.analyticsItem}>
                 <strong>Fully Used:</strong>
                 <Pill variant="warning" className="float-end">{analytics.fullyUsedInvites}</Pill>
               </div>
-              <div className="analytics-item">
+              <div className={styles.analyticsItem}>
                 <strong>Email Restricted:</strong>
                 <Pill variant="secondary" className="float-end">
                   {analytics.emailRestrictedInvites}
@@ -491,13 +491,13 @@ export default function InviteTracking() {
               <h6>Pre-configured Resources</h6>
             </Card.Header>
             <Card.Body>
-              <div className="analytics-item">
+              <div className={styles.analyticsItem}>
                 <strong>With Experiences:</strong>
                 <Pill variant="info" className="float-end">
                   {analytics.invitesWithExperiences}
                 </Pill>
               </div>
-              <div className="analytics-item">
+              <div className={styles.analyticsItem}>
                 <strong>With Destinations:</strong>
                 <Pill variant="success" className="float-end">
                   {analytics.invitesWithDestinations}
