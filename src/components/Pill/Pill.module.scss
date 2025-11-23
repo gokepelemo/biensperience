@@ -1,0 +1,129 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Pill Component Styles */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1); /* Add gap for spacing between text and icons */
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+
+  /* Hover states for interactive pills */
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Focus state for accessibility */
+  &:focus {
+    outline: var(--space-0-5) solid var(--color-primary);
+    outline-offset: var(--space-0-5);
+  }
+}
+
+/* Size variants */
+.pillSm {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.pillLg {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+/* Rounded variant */
+.pillRounded {
+  border-radius: var(--radius-full);
+}
+
+/* Outline variant */
+.pillOutline {
+  background: transparent !important;
+  border: var(--border-width-thin) solid currentColor;
+}
+
+/* Color variants */
+.pillVariantPrimary {
+  background: var(--color-primary);
+  color: var(--color-white);
+
+  &.pillOutline {
+    color: var(--color-primary);
+  }
+}
+
+.pillVariantSuccess {
+  background: var(--color-success);
+  color: var(--color-white);
+
+  &.pillOutline {
+    color: var(--color-success);
+  }
+}
+
+.pillVariantWarning {
+  background: var(--color-warning);
+  color: var(--color-text-primary);
+
+  &.pillOutline {
+    color: var(--color-warning);
+  }
+}
+
+.pillVariantDanger {
+  background: var(--color-danger);
+  color: var(--color-white);
+
+  &.pillOutline {
+    color: var(--color-danger);
+  }
+}
+
+.pillVariantInfo {
+  background: var(--color-info);
+  color: var(--color-white);
+
+  &.pillOutline {
+    color: var(--color-info);
+  }
+}
+
+.pillVariantNeutral {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: var(--border-width-thin) solid var(--color-border-light);
+
+  &.pillOutline {
+    color: var(--color-text-secondary);
+    border-color: var(--color-border-light);
+  }
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .pillVariantWarning {
+    color: var(--color-text-primary);
+
+    &.pillOutline {
+      color: var(--color-warning-dark);
+    }
+  }
+
+  .pillVariantNeutral {
+    background: var(--color-bg-tertiary-dark);
+    color: var(--color-text-secondary-dark);
+    border-color: var(--color-border-light-dark);
+
+    &.pillOutline {
+      color: var(--color-text-secondary-dark);
+      border-color: var(--color-border-light-dark);
+    }
+  }
+}

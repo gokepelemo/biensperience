@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import './Pill.css';
+import styles from './Pill.module.scss';
 
 /**
  * Pill/Badge component for displaying status, tags, or labels
@@ -25,13 +25,16 @@ export default function Pill({
   style = {},
   ...props
 }) {
-  // Build className string
+  // Build className string with dynamic variant and size classes
+  const variantClass = styles[`pillVariant${variant.charAt(0).toUpperCase() + variant.slice(1)}`];
+  const sizeClass = size !== 'md' ? styles[`pill${size.charAt(0).toUpperCase() + size.slice(1)}`] : '';
+
   const classes = [
-    'pill',
-    `pill-variant-${variant}`,
-    size !== 'md' && `pill-${size}`,
-    rounded && 'pill-rounded',
-    outline && 'pill-outline',
+    styles.pill,
+    variantClass,
+    sizeClass,
+    rounded && styles.pillRounded,
+    outline && styles.pillOutline,
     className
   ].filter(Boolean).join(' ');
 
