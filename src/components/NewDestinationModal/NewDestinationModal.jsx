@@ -1,4 +1,4 @@
-import "./NewDestinationModal.css";
+import styles from "./NewDestinationModal.module.scss";
 import { useState, useEffect } from "react";
 import { Form } from "react-bootstrap";
 import Modal from "../Modal/Modal";
@@ -107,6 +107,7 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
       show={show}
       onClose={handleCancel}
       title={lang.en.modal.addNewDestination}
+      contentClassName={styles.newDestinationModal}
       footer={
         <>
           <button

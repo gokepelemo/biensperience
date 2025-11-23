@@ -1,0 +1,21 @@
+/**
+ * NewDestinationModal Component Styles (SCSS Module)
+ * Migrated from NewDestinationModal.css to NewDestinationModal.module.scss
+ */
+
+.newDestinationModal {
+  :global(.alert-info) {
+    background-color: var(--color-primary-light);
+    border-color: rgba(102, 126, 234, 0.3);
+    color: var(--color-text-secondary);
+
+    a {
+      color: var(--color-primary);
+      text-decoration: underline;
+
+      &:hover {
+        color: var(--color-primary-hover);
+      }
+    }
+  }
+}
