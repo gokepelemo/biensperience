@@ -1,0 +1,259 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* AllUsers View Styles */
+
+.allUsersContainer {
+  min-height: 100vh;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+
+  /* Ensure all headings are visible */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--color-text-primary) !important;
+  }
+
+  p {
+    color: var(--color-text-secondary);
+  }
+
+  :global(.text-muted) {
+    color: var(--color-text-muted) !important;
+  }
+
+  /* Generic card styling for dark mode */
+  :global(.card) {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  :global(.card-header) {
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border-light);
+    color: var(--color-text-primary);
+  }
+
+  :global(.card-body) {
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+  }
+
+  @media (max-width: 576px) {
+    background: var(--color-bg-primary);
+  }
+}
+
+/* Stats Cards */
+.statCard {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  padding: $space-6;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-normal);
+  @include inline-stack($space-4);
+  align-items: center;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  @media (max-width: 768px) {
+    padding: $space-4;
+  }
+
+  @media (max-width: 576px) {
+    padding: $space-3 $space-4;
+  }
+}
+
+.statCardIcon {
+  width: 60px;
+  height: 60px;
+  border-radius: $radius-full;
+  @include flex-center;
+  font-size: var(--font-size-xl);
+  flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    width: 50px;
+    height: 50px;
+    font-size: var(--font-size-lg);
+  }
+
+  @media (max-width: 576px) {
+    width: 45px;
+    height: 45px;
+    font-size: var(--font-size-lg);
+  }
+}
+
+.statCardPrimary .statCardIcon {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.statCardSuccess .statCardIcon {
+  background: var(--color-success);
+  color: var(--color-white);
+}
+
+.statCardInfo .statCardIcon {
+  background: var(--color-info);
+  color: var(--color-white);
+}
+
+.statCardContent {
+  flex: 1;
+}
+
+.statCardValue {
+  font-size: var(--font-size-2xl);
+  font-weight: $font-weight-bold;
+  color: var(--color-text-primary);
+  line-height: 1;
+
+  @media (max-width: 768px) {
+    font-size: var(--font-size-xl);
+  }
+
+  @media (max-width: 576px) {
+    font-size: var(--font-size-lg);
+  }
+}
+
+.statCardLabel {
+  font-size: $font-size-sm;
+  color: var(--color-text-muted);
+  margin-top: $space-1;
+}
+
+/* Search Box */
+.searchBox {
+  position: relative;
+
+  :global(.search-icon) {
+    position: absolute;
+    left: $space-3;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-disabled);
+    z-index: 1;
+  }
+
+  :global(.form-control) {
+    padding-left: $space-10;
+    border-radius: $radius-md;
+    border: 1px solid var(--color-border-medium);
+    background: var(--color-bg-input);
+    color: var(--color-text-primary);
+    transition: var(--transition-base);
+
+    &:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+  }
+}
+
+/* User Name Link */
+.userNameLink {
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  transition: var(--transition-base);
+
+  &:hover {
+    color: var(--color-primary);
+  }
+}
+
+/* Role Badges */
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: $space-1 $space-3;
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  white-space: nowrap;
+
+  @media (max-width: 576px) {
+    padding: $space-1 $space-2;
+    font-size: $font-size-xs;
+  }
+}
+
+.roleBadgeAdmin {
+  background: var(--color-success);
+  color: var(--color-white);
+}
+
+.roleBadgeUser {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}
+
+/* Role Buttons */
+.roleBtn {
+  padding: $space-2 $space-4;
+  border-radius: $radius-md;
+  font-weight: $font-weight-semibold;
+  font-size: $font-size-xs;
+  transition: var(--transition-base);
+  border: 2px solid transparent;
+  @include inline-stack($space-1);
+  align-items: center;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 768px) {
+    padding: $space-1 $space-2;
+    font-size: $font-size-xs;
+  }
+}
+
+.roleBtnInactive {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-medium);
+  color: var(--color-text-muted);
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+    color: var(--color-text-primary);
+    transform: translateY(-1px);
+  }
+}
+
+.roleBtnActive {
+  box-shadow: var(--shadow-sm);
+}
+
+.roleBtnAdmin.roleBtnActive {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-white);
+}
+
+.roleBtnUser.roleBtnActive {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-white);
+}
+
+/* Loading State */
+:global(.spinner-border-sm) {
+  width: $space-4;
+  height: $space-4;
+  border-width: 0.15em;
+}

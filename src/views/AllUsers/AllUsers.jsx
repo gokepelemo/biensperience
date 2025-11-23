@@ -17,7 +17,7 @@ import { logger } from "../../utilities/logger";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
 import { lang } from "../../lang.constants";
-import "./AllUsers.css";
+import styles from "./AllUsers.module.scss";
 
 export default function AllUsers() {
   const { user } = useUser();
@@ -233,35 +233,35 @@ export default function AllUsers() {
         <Container className="mb-4">
           <div className="row mb-4">
             <div className="col-md-4 mb-3 mb-md-0">
-              <div className="stat-card stat-card-primary">
-                <div className="stat-card-icon">
+              <div className={`${styles.statCard} ${styles.statCardPrimary}`}>
+                <div className={styles.statCardIcon}>
                   <FaUser />
                 </div>
-                <div className="stat-card-content">
-                  <div className="stat-card-value">{stats.total}</div>
-                  <div className="stat-card-label">{getUserLabel(stats.total, 'Total User', 'Total Users')}</div>
+                <div className={styles.statCardContent}>
+                  <div className={styles.statCardValue}>{stats.total}</div>
+                  <div className={styles.statCardLabel}>{getUserLabel(stats.total, 'Total User', 'Total Users')}</div>
                 </div>
               </div>
             </div>
             <div className="col-md-4 mb-3 mb-md-0">
-              <div className="stat-card stat-card-success">
-                <div className="stat-card-icon">
+              <div className={`${styles.statCard} ${styles.statCardSuccess}`}>
+                <div className={styles.statCardIcon}>
                   <FaUserShield />
                 </div>
-                <div className="stat-card-content">
-                  <div className="stat-card-value">{stats.superAdmins}</div>
-                  <div className="stat-card-label">{getUserLabel(stats.superAdmins, 'Super Admin', 'Super Admins')}</div>
+                <div className={styles.statCardContent}>
+                  <div className={styles.statCardValue}>{stats.superAdmins}</div>
+                  <div className={styles.statCardLabel}>{getUserLabel(stats.superAdmins, 'Super Admin', 'Super Admins')}</div>
                 </div>
               </div>
             </div>
             <div className="col-md-4">
-              <div className="stat-card stat-card-info">
-                <div className="stat-card-icon">
+              <div className={`${styles.statCard} ${styles.statCardInfo}`}>
+                <div className={styles.statCardIcon}>
                   <FaUser />
                 </div>
-                <div className="stat-card-content">
-                  <div className="stat-card-value">{stats.regularUsers}</div>
-                  <div className="stat-card-label">{getUserLabel(stats.regularUsers, 'Regular User', 'Regular Users')}</div>
+                <div className={styles.statCardContent}>
+                  <div className={styles.statCardValue}>{stats.regularUsers}</div>
+                  <div className={styles.statCardLabel}>{getUserLabel(stats.regularUsers, 'Regular User', 'Regular Users')}</div>
                 </div>
               </div>
             </div>
@@ -276,7 +276,7 @@ export default function AllUsers() {
             <Card.Body>
               <div className="row g-3">
                 <div className="col-md-6">
-                  <div className="search-box">
+                  <div className={styles.searchBox}>
                     <FaSearch className="search-icon" />
                     <FormControl
                       type="text"
@@ -354,7 +354,7 @@ export default function AllUsers() {
                               <div className="d-flex align-items-center gap-2">
                                 <Link
                                   to={`/profile/${userData._id}`}
-                                  className="user-name-link"
+                                  className={styles.userNameLink}
                                 >
                                   {userData.name}
                                 </Link>
@@ -370,10 +370,10 @@ export default function AllUsers() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <span className={`role-badge ${
+                              <span className={`${styles.roleBadge} ${
                                 userData.role === USER_ROLES.SUPER_ADMIN
-                                  ? 'role-badge-admin'
-                                  : 'role-badge-user'
+                                  ? styles.roleBadgeAdmin
+                                  : styles.roleBadgeUser
                               }`}>
                                 {userData.role === USER_ROLES.SUPER_ADMIN ? (
                                   <><FaUserShield className="me-1" /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
