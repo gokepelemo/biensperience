@@ -22,7 +22,7 @@ export const MENTION_TYPES = {
 
 /**
  * Parse text for mentions and return structured data
- * Supports both old format (@type:id) and new format (@[Name](entity/type/id) or #[Name](entity/type/id))
+ * Supports new format {type/id} and legacy formats for backward compatibility
  * @param {string} text - Text containing mentions
  * @returns {Array} Array of text segments and mention objects
  */
@@ -32,13 +32,10 @@ export function parseMentions(text) {
   const segments = [];
   let lastIndex = 0;
 
-  // New format: @[Name](entity/type/id) or #[Name](entity/type/id)
-  const newMentionRegex = /[@#]\[([^\]]+)\]\(entity\/([^/]+)\/([^)]+)\)/g;
-  // Old format (backward compatibility): @type:id
-  const oldMentionRegex = /@(\w+):(\w+)/g;
-
-  // Combine both patterns
-  const combinedRegex = /([@#]\[([^\]]+)\]\(entity\/([^/]+)\/([^)]+)\))|(@(\w+):(\w+))/g;
+  // New format: {type/id}
+  // Legacy format 1: @[Name](entity/type/id) or #[Name](entity/type/id)
+  // Legacy format 2: @type:id
+  const combinedRegex = /(\{([^/}]+)\/([^}]+)\})|([@#]\[([^\]]+)\]\(entity\/([^/]+)\/([^)]+)\))|(@(\w+):(\w+))/g;
   let match;
 
   while ((match = combinedRegex.exec(text)) !== null) {
@@ -51,10 +48,21 @@ export function parseMentions(text) {
     }
 
     if (match[1]) {
-      // New format match: @[Name](entity/type/id) or #[Name](entity/type/id)
-      const displayName = match[2];
-      const entityType = match[3];
-      const entityId = match[4];
+      // New format match: {type/id}
+      const entityType = match[2];
+      const entityId = match[3];
+
+      segments.push({
+        type: 'mention',
+        entityType,
+        entityId,
+        originalText: match[0]
+      });
+    } else if (match[4]) {
+      // Legacy format 1 match: @[Name](entity/type/id) or #[Name](entity/type/id)
+      const displayName = match[5];
+      const entityType = match[6];
+      const entityId = match[7];
 
       segments.push({
         type: 'mention',
@@ -63,10 +71,10 @@ export function parseMentions(text) {
         displayName,
         originalText: match[0]
       });
-    } else if (match[5]) {
-      // Old format match: @type:id
-      const entityType = match[6];
-      const entityId = match[7];
+    } else if (match[8]) {
+      // Legacy format 2 match: @type:id
+      const entityType = match[9];
+      const entityId = match[10];
 
       segments.push({
         type: 'mention',
@@ -290,14 +298,12 @@ export function mentionsToPlainText(text, entities = {}) {
  * Create a mention string for an entity
  * @param {string} entityType - Type of entity (user, plan-item, destination, experience)
  * @param {string} entityId - Entity ID
- * @param {string} displayName - Display name for the entity
- * @returns {string} Mention string in format: @[Name] or #[Name] with embedded entity link
+ * @param {string} displayName - Display name for the entity (not used in new format)
+ * @returns {string} Mention string in format: {entity}/{id}
  */
 export function createMention(entityType, entityId, displayName) {
-  // Use @ for users, # for plan items
-  const prefix = entityType === 'plan-item' ? '#' : '@';
-  // Embed entity link: entity/type/id
-  return `${prefix}[${displayName}](entity/${entityType}/${entityId})`;
+  // New simpler format: {entity}/{id}
+  return `{${entityType}/${entityId}}`;
 }
 
 /**
@@ -308,4 +314,47 @@ export function createMention(entityType, entityId, displayName) {
 export function extractMentions(text) {
   const segments = parseMentions(text);
   return segments.filter(segment => segment.type === 'mention');
+}
+
+/**
+ * Convert stored mention format {entity/id} to display format @{name} for editing
+ * @param {string} text - Text with {entity/id} mentions
+ * @param {Object} entities - Map of entityId -> entity data
+ * @returns {string} Text with @{name} format for display in textarea
+ */
+export function mentionsToEditableText(text, entities = {}) {
+  const segments = parseMentions(text);
+
+  return segments.map(segment => {
+    if (segment.type === 'text') {
+      return segment.content;
+    } else if (segment.type === 'mention') {
+      const entity = entities[segment.entityId];
+      const prefix = segment.entityType === 'plan-item' ? '#' : '@';
+
+      if (entity) {
+        let name = '';
+        switch (segment.entityType) {
+          case 'user':
+            name = entity.name || entity.username || 'Unknown User';
+            break;
+          case 'plan-item':
+            name = entity.name || entity.experience_name || 'Unknown Item';
+            break;
+          case 'destination':
+            name = entity.name || 'Unknown Destination';
+            break;
+          case 'experience':
+            name = entity.name || 'Unknown Experience';
+            break;
+          default:
+            name = `${segment.entityType}:${segment.entityId}`;
+        }
+        return `${prefix}${name}`;
+      }
+
+      return segment.originalText;
+    }
+    return '';
+  }).join('');
 }

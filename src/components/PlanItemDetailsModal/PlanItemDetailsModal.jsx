@@ -208,7 +208,11 @@ export default function PlanItemDetailsModal({
                     <div ref={dropdownRef} className="assignment-dropdown">
                       <div
                         className={`assignment-option ${highlightedIndex === 0 ? 'highlighted' : ''}`}
-                        onClick={handleUnassign}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleUnassign();
+                        }}
                         onMouseEnter={() => setHighlightedIndex(0)}
                       >
                         <span className="assignment-option-text">-- Unassigned --</span>
@@ -220,7 +224,11 @@ export default function PlanItemDetailsModal({
                           <div
                             key={userId}
                             className={`assignment-option ${highlightedIndex === index + 1 ? 'highlighted' : ''}`}
-                            onClick={() => handleSelectCollaborator(collab)}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleSelectCollaborator(collab);
+                            }}
                             onMouseEnter={() => setHighlightedIndex(index + 1)}
                           >
                             <span className="assignment-option-text">{userName}</span>
