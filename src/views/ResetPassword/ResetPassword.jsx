@@ -7,7 +7,7 @@ import FormField from '../../components/FormField/FormField';
 import Alert from '../../components/Alert/Alert';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
 import { Button, Container } from '../../components/design-system';
-import './ResetPassword.css';
+import styles from './ResetPassword.module.scss';
 
 export default function ResetPassword() {
   const { token } = useParams();
@@ -77,7 +77,7 @@ export default function ResetPassword() {
       <div className="container">
         <div className="row justify-content-center mt-5">
           <div className="col-md-6 col-lg-5">
-            <div className="reset-password-card card">
+            <div className={`${styles.resetPasswordCard} card`}>
               <div className="card-body p-4 p-md-5">
                 <h1 className="mb-4" style={{ textAlign: 'center' }}>Reset Password</h1>
 
