@@ -1,9 +1,0 @@
-/* MentionedText Component Styles */
-
-.mentioned-text {
-  /* Ensure mentions display properly in text */
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-}
-
-/* Mention links styling is handled in InteractiveTextArea.css */
