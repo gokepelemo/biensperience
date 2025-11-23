@@ -22,7 +22,7 @@ export const MENTION_TYPES = {
 
 /**
  * Parse text for mentions and return structured data
- * Supports new format {type/id} and legacy formats for backward compatibility
+ * Format: {type/id}
  * @param {string} text - Text containing mentions
  * @returns {Array} Array of text segments and mention objects
  */
@@ -32,13 +32,11 @@ export function parseMentions(text) {
   const segments = [];
   let lastIndex = 0;
 
-  // New format: {type/id}
-  // Legacy format 1: @[Name](entity/type/id) or #[Name](entity/type/id)
-  // Legacy format 2: @type:id
-  const combinedRegex = /(\{([^/}]+)\/([^}]+)\})|([@#]\[([^\]]+)\]\(entity\/([^/]+)\/([^)]+)\))|(@(\w+):(\w+))/g;
+  // Format: {type/id}
+  const mentionRegex = /\{([^/}]+)\/([^}]+)\}/g;
   let match;
 
-  while ((match = combinedRegex.exec(text)) !== null) {
+  while ((match = mentionRegex.exec(text)) !== null) {
     // Add text before the mention
     if (match.index > lastIndex) {
       segments.push({
@@ -47,44 +45,17 @@ export function parseMentions(text) {
       });
     }
 
-    if (match[1]) {
-      // New format match: {type/id}
-      const entityType = match[2];
-      const entityId = match[3];
+    const entityType = match[1];
+    const entityId = match[2];
 
-      segments.push({
-        type: 'mention',
-        entityType,
-        entityId,
-        originalText: match[0]
-      });
-    } else if (match[4]) {
-      // Legacy format 1 match: @[Name](entity/type/id) or #[Name](entity/type/id)
-      const displayName = match[5];
-      const entityType = match[6];
-      const entityId = match[7];
+    segments.push({
+      type: 'mention',
+      entityType,
+      entityId,
+      originalText: match[0]
+    });
 
-      segments.push({
-        type: 'mention',
-        entityType,
-        entityId,
-        displayName,
-        originalText: match[0]
-      });
-    } else if (match[8]) {
-      // Legacy format 2 match: @type:id
-      const entityType = match[9];
-      const entityId = match[10];
-
-      segments.push({
-        type: 'mention',
-        entityType,
-        entityId,
-        originalText: match[0]
-      });
-    }
-
-    lastIndex = combinedRegex.lastIndex;
+    lastIndex = mentionRegex.lastIndex;
   }
 
   // Add remaining text
@@ -102,17 +73,9 @@ export function parseMentions(text) {
  * Convert mention to display text
  * @param {string} entityType - Type of entity (user, plan-item, destination, experience)
  * @param {Object} entity - Entity data
- * @param {string} displayName - Optional display name from parsed mention
  * @returns {string} Display text for the mention
  */
-export function getMentionDisplayText(entityType, entity, displayName) {
-  // If displayName is provided (from new format), use it
-  if (displayName) {
-    const prefix = entityType === 'plan-item' ? '#' : '@';
-    return `${prefix}${displayName}`;
-  }
-
-  // Fallback to entity data
+export function getMentionDisplayText(entityType, entity) {
   if (!entity) return `@${entityType}:unknown`;
 
   const prefix = entityType === 'plan-item' ? '#' : '@';
@@ -165,8 +128,8 @@ export function getEntityUrl(entityType, entityId, entity) {
  * @returns {ReactElement} Interactive mention link
  */
 export function renderMention(mention, entity, onEntityClick) {
-  const { entityType, entityId, displayName, originalText } = mention;
-  const displayText = getMentionDisplayText(entityType, entity, displayName);
+  const { entityType, entityId } = mention;
+  const displayText = getMentionDisplayText(entityType, entity);
   const entityUrl = getEntityUrl(entityType, entityId, entity);
 
   const handleClick = (e) => {
@@ -179,7 +142,7 @@ export function renderMention(mention, entity, onEntityClick) {
   const popoverContent = (
     <Popover id={`mention-popover-${entityType}-${entityId}`}>
       <Popover.Header as="h3">
-        {getMentionDisplayText(entityType, entity, displayName)}
+        {getMentionDisplayText(entityType, entity)}
       </Popover.Header>
       <Popover.Body>
         {entity ? (
