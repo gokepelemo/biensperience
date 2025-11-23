@@ -1,4 +1,4 @@
-import "./UserAvatar.css";
+import styles from "./UserAvatar.module.scss";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 import debug from "../../utilities/debug";
@@ -6,7 +6,7 @@ import EntitySchema from "../OpenGraph/EntitySchema";
 
 /**
  * UserAvatar - Reusable component for displaying a single user's avatar
- * 
+ *
  * @param {Object} props - Component props
  * @param {Object} props.user - User object { _id, name, photo }
  * @param {string} props.size - Avatar size: 'sm' (32px), 'md' (40px), 'lg' (48px), 'xl' (64px)
@@ -16,7 +16,7 @@ import EntitySchema from "../OpenGraph/EntitySchema";
  * @param {string} props.title - Optional tooltip text (defaults to user.name)
  * @param {boolean} props.includeSchema - Whether to include schema.org markup (default: false)
  */
-const UserAvatar = ({ 
+const UserAvatar = ({
   user,
   size = 'md',
   linkToProfile = true,
@@ -41,7 +41,7 @@ const UserAvatar = ({
         return photo.url;
       }
     }
-    
+
     return null;
   };
 
@@ -53,21 +53,22 @@ const UserAvatar = ({
       {photoUrl ? (
         <img src={photoUrl} alt={user.name} />
       ) : (
-        <div className="avatar-initials">
+        <div className={styles.avatarInitials}>
           {user.name?.charAt(0).toUpperCase()}
         </div>
       )}
     </>
   );
 
-  const avatarClasses = `user-avatar user-avatar-${size} ${className}`;
+  const sizeClass = styles[`userAvatar${size.charAt(0).toUpperCase() + size.slice(1)}`];
+  const avatarClasses = `${styles.userAvatar} ${sizeClass} ${className}`;
   const avatarTitle = title || user.name;
 
   if (linkToProfile && user._id) {
     return (
       <>
-        <Link 
-          to={`/profile/${user._id}`} 
+        <Link
+          to={`/profile/${user._id}`}
           className={avatarClasses}
           title={avatarTitle}
           onClick={onClick}
@@ -83,7 +84,7 @@ const UserAvatar = ({
 
   return (
     <>
-      <div 
+      <div
         className={avatarClasses}
         title={avatarTitle}
         onClick={onClick}

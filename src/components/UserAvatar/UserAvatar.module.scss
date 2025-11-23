@@ -1,0 +1,78 @@
+/**
+ * UserAvatar Component Styles (SCSS Module)
+ * Migrated from UserAvatar.css to UserAvatar.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+.userAvatar {
+  border-radius: $radius-full;
+  border: 3px solid white;
+  overflow: hidden;
+  background: var(--gradient-primary);
+  @include flex-center;
+  position: relative;
+  transition: transform 0.2s ease, z-index 0s 0.2s;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+
+  &:hover {
+    transform: translateY(-3px) scale(1.1);
+    z-index: 10;
+    transition: transform 0.2s ease, z-index 0s;
+    text-decoration: none;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .avatarInitials {
+    color: white;
+    font-weight: $font-weight-semibold;
+    text-transform: uppercase;
+    user-select: none;
+  }
+}
+
+/* Avatar Sizes */
+.userAvatarSm {
+  width: 32px;
+  height: 32px;
+
+  .avatarInitials {
+    font-size: $font-size-xs;
+  }
+}
+
+.userAvatarMd {
+  width: 40px;
+  height: 40px;
+
+  .avatarInitials {
+    font-size: $font-size-sm;
+  }
+}
+
+.userAvatarLg {
+  width: 48px;
+  height: 48px;
+
+  .avatarInitials {
+    font-size: $font-size-base;
+  }
+}
+
+.userAvatarXl {
+  width: 64px;
+  height: 64px;
+
+  .avatarInitials {
+    font-size: $font-size-xl;
+  }
+}
