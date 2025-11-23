@@ -6,7 +6,7 @@
 import React from 'react';
 import { Alert, Button, Container } from 'react-bootstrap';
 import { logger } from '../../utilities/logger';
-import './ErrorBoundary.css';
+import styles from './ErrorBoundary.module.scss';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -70,8 +70,8 @@ class ErrorBoundary extends React.Component {
 
       // Default fallback UI
       return (
-        <Container className="error-boundary-container my-5">
-          <Alert variant="danger" className="error-boundary-alert">
+        <Container className={`${styles.errorBoundaryContainer} my-5`}>
+          <Alert variant="danger" className={styles.errorBoundaryAlert}>
             <Alert.Heading>
               {this.props.title || 'Oops! Something went wrong'}
             </Alert.Heading>
@@ -82,8 +82,8 @@ class ErrorBoundary extends React.Component {
 
             {/* Show error details in development */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details className="error-details mt-3">
-                <summary className="cursor-pointer">Error Details (Development Only)</summary>
+              <details className={`${styles.errorDetails} mt-3`}>
+                <summary className={styles.cursorPointer}>Error Details (Development Only)</summary>
                 <div className="mt-2">
                   <strong>Error:</strong>
                   <pre className="bg-color-secondary p-2 rounded">

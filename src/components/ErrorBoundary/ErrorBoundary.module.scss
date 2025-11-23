@@ -1,0 +1,35 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* ErrorBoundary Styles */
+
+.errorBoundaryContainer {
+  max-width: 800px;
+}
+
+.errorBoundaryAlert {
+  box-shadow: var(--shadow-sm);
+}
+
+.errorDetails {
+  summary {
+    cursor: pointer;
+    user-select: none;
+    color: var(--bs-danger);
+    font-weight: $font-weight-semibold;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+}
+
+.cursorPointer {
+  cursor: pointer;
+}
