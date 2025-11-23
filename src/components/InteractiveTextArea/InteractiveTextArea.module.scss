@@ -1,0 +1,177 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* InteractiveTextArea Component Styles */
+
+.interactiveTextarea {
+  position: relative;
+}
+
+.interactiveTextareaInput {
+  width: 100%;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.interactiveTextareaFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-medium);
+}
+
+.visibilitySelector {
+  font-size: var(--font-size-sm);
+}
+
+/* Mentions Suggestions */
+.mentionsSuggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: var(--space-1);
+}
+
+.mentionSuggestionItem {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-bg-secondary);
+  transition: var(--transition-fast);
+
+  &:hover {
+    background-color: var(--color-bg-secondary);
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.mentionSuggestionIcon {
+  font-size: 1.2rem;
+  margin-right: var(--space-2);
+  min-width: 24px;
+  text-align: center;
+}
+
+.mentionSuggestionContent {
+  flex: 1;
+}
+
+.mentionSuggestionName {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.mentionSuggestionType {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+}
+
+/* Mention links in rendered text */
+.mentionLink {
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: var(--font-weight-medium);
+
+  &:hover {
+    opacity: 0.85;
+    text-decoration-thickness: 2px;
+  }
+
+  /* Mention links on light backgrounds (default) */
+  &:not([data-on-dark]) {
+    color: var(--color-primary);
+
+    &:hover {
+      color: var(--color-primary-dark);
+    }
+  }
+
+  /* Mention links on dark/colored backgrounds (purple bubble, dark mode) */
+  &[data-on-dark="true"] {
+    color: #ffffff !important;
+    text-decoration-color: rgba(255, 255, 255, 0.7);
+
+    &:hover {
+      color: #ffffff !important;
+      opacity: 0.9;
+      text-decoration-color: rgba(255, 255, 255, 0.95);
+      text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+    }
+  }
+}
+
+/* Special handling for mention links within styled containers */
+:global([style*="background"][style*="var(--color-primary)"]) .mentionLink,
+:global([style*="backgroundColor: var(--color-primary)"]) .mentionLink {
+  color: #ffffff !important;
+  text-decoration-color: rgba(255, 255, 255, 0.7);
+
+  &:hover {
+    color: #ffffff !important;
+    opacity: 0.9;
+    text-decoration-color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .mentionsSuggestions {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+  }
+
+  .mentionSuggestionItem {
+    border-bottom-color: var(--color-border-dark);
+
+    &:hover {
+      background-color: var(--color-bg-tertiary);
+    }
+  }
+
+  .interactiveTextareaFooter {
+    border-top-color: var(--color-border-dark);
+  }
+
+  /* Mention links in dark mode - use lighter primary color for better contrast */
+  .mentionLink:not([data-on-dark]) {
+    color: var(--color-primary-hover); /* Lighter purple (#7c8ff0) in dark mode */
+
+    &:hover {
+      color: #8c9ff5; /* Even lighter on hover */
+      text-decoration-thickness: 2px;
+    }
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .interactiveTextareaFooter {
+    justify-content: center;
+  }
+
+  .mentionsSuggestions {
+    max-height: 150px;
+  }
+
+  .mentionSuggestionItem {
+    padding: var(--space-2) var(--space-2);
+  }
+}

@@ -16,7 +16,7 @@ import {
 import { resolveMentionsToDisplayText } from '../../utilities/mention-resolver';
 import { searchAll } from '../../utilities/search-api';
 import { logger } from '../../utilities/logger';
-import './InteractiveTextArea.css';
+import styles from './InteractiveTextArea.module.scss';
 
 /**
  * Interactive TextArea with mentions support
@@ -305,7 +305,7 @@ const InteractiveTextArea = ({
   }, []);
 
   return (
-    <div ref={containerRef} className={`interactive-textarea ${className}`}>
+    <div ref={containerRef} className={`${styles.interactiveTextarea} ${className}`}>
       <Form.Control
         ref={textareaRef}
         as="textarea"
@@ -315,44 +315,44 @@ const InteractiveTextArea = ({
         placeholder={placeholder}
         rows={rows}
         disabled={disabled}
-        className="interactive-textarea-input"
+        className={styles.interactiveTextareaInput}
         {...props}
       />
 
       {/* Suggestions dropdown */}
       {showSuggestions && (
-        <div className="mentions-suggestions">
+        <div className={styles.mentionsSuggestions}>
           {isSearching ? (
-            <div className="mention-suggestion-item">
-              <div className="mention-suggestion-icon">⏳</div>
-              <div className="mention-suggestion-content">
-                <div className="mention-suggestion-name">Searching...</div>
+            <div className={styles.mentionSuggestionItem}>
+              <div className={styles.mentionSuggestionIcon}>⏳</div>
+              <div className={styles.mentionSuggestionContent}>
+                <div className={styles.mentionSuggestionName}>Searching...</div>
               </div>
             </div>
           ) : suggestions.length > 0 ? (
             suggestions.map((entity, index) => (
               <div
                 key={`${entity.type}-${entity.id}`}
-                className="mention-suggestion-item"
+                className={styles.mentionSuggestionItem}
                 onClick={() => handleMentionSelect(entity)}
               >
-                <div className="mention-suggestion-icon">
+                <div className={styles.mentionSuggestionIcon}>
                   {entity.type === MENTION_TYPES.USER && '👤'}
                   {entity.type === MENTION_TYPES.DESTINATION && '📍'}
                   {entity.type === MENTION_TYPES.EXPERIENCE && '🎯'}
                   {entity.type === 'plan-item' && '✅'}
                 </div>
-                <div className="mention-suggestion-content">
-                  <div className="mention-suggestion-name">{entity.displayName}</div>
-                  <div className="mention-suggestion-type">{entity.type}</div>
+                <div className={styles.mentionSuggestionContent}>
+                  <div className={styles.mentionSuggestionName}>{entity.displayName}</div>
+                  <div className={styles.mentionSuggestionType}>{entity.type}</div>
                 </div>
               </div>
             ))
           ) : (
-            <div className="mention-suggestion-item">
-              <div className="mention-suggestion-icon">🔍</div>
-              <div className="mention-suggestion-content">
-                <div className="mention-suggestion-name">No results found</div>
+            <div className={styles.mentionSuggestionItem}>
+              <div className={styles.mentionSuggestionIcon}>🔍</div>
+              <div className={styles.mentionSuggestionContent}>
+                <div className={styles.mentionSuggestionName}>No results found</div>
               </div>
             </div>
           )}
@@ -360,12 +360,12 @@ const InteractiveTextArea = ({
       )}
 
       {/* Visibility selector */}
-      <div className="interactive-textarea-footer">
+      <div className={styles.interactiveTextareaFooter}>
         <Dropdown onSelect={onVisibilityChange}>
           <Dropdown.Toggle
             variant="outline-secondary"
             size="sm"
-            className="visibility-selector"
+            className={styles.visibilitySelector}
           >
             {visibilityOptions.find(opt => opt.value === visibility)?.icon}{' '}
             {visibilityOptions.find(opt => opt.value === visibility)?.label}
