@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import Autocomplete from "../Autocomplete/Autocomplete";
 import { FormGroup, FormLabel, FormControl } from "../design-system";
-import "./SortFilter.css";
+import styles from "./SortFilter.module.scss";
 
 /**
  * SortFilter
@@ -60,7 +60,7 @@ export default function SortFilter({
     switch (key) {
       case 'sort':
         return (
-          <div className="sf-field" key="sort">
+          <div className={styles.sfField} key="sort">
             <FormGroup>
               <FormLabel htmlFor="sort-select">Sort by:</FormLabel>
               <FormControl as="select" id="sort-select" value={sortBy} onChange={handleSortChange} aria-label="Sort">
@@ -82,7 +82,7 @@ export default function SortFilter({
         );
       case 'show':
         return (
-          <div className="sf-field" key="show">
+          <div className={styles.sfField} key="show">
             <FormGroup>
               <FormLabel htmlFor="filter-select">Show:</FormLabel>
               <FormControl as="select" id="filter-select" value={filterBy} onChange={handleFilterChange} aria-label={`Filter ${filterType}`}>
@@ -99,7 +99,7 @@ export default function SortFilter({
       case 'destination':
         if (filterType !== 'experiences') return null;
         return (
-          <div className="sf-field" key="destination">
+          <div className={styles.sfField} key="destination">
             <FormGroup>
               <FormLabel htmlFor="dest-filter-autocomplete">Destination:</FormLabel>
                 <Autocomplete
@@ -135,10 +135,10 @@ export default function SortFilter({
       case 'type':
         if (filterType !== 'experiences') return null;
         return (
-          <div className="sf-field" key="type">
+          <div className={styles.sfField} key="type">
             <FormGroup>
               <FormLabel htmlFor="type-filter-autocomplete">Type:</FormLabel>
-                <div className="sf-type-with-clear">
+                <div className={styles.sfTypeWithClear}>
                       <Autocomplete
                         placeholder="Search types..."
                         items={types}
@@ -197,8 +197,8 @@ export default function SortFilter({
   };
 
   return (
-    <div className="sort-filter-container" role="region" aria-label="Sort and filter options">
-      <div className="sort-filter-grid">
+    <div className={styles.sortFilterContainer} role="region" aria-label="Sort and filter options">
+      <div className={styles.sortFilterGrid}>
         {fields.map((f) => renderField(f))}
       </div>
     </div>
