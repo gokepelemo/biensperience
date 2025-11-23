@@ -22,7 +22,7 @@
   :global(.form-control) {
     &:focus {
       border-color: var(--color-primary);
-      box-shadow: 0 0 0 $space-0-5 var(--color-primary-alpha-20);
+      box-shadow: 0 0 0 0.125rem var(--color-primary-alpha-20);
       background-color: var(--color-bg-primary);
     }
 
@@ -91,11 +91,11 @@
 @media (prefers-contrast: high) {
   .collaboratorModalContent {
     :global(.btn) {
-      border-width: $space-0-5;
+      border-width: 0.125rem;
     }
 
     :global(.form-control) {
-      border-width: $space-0-5;
+      border-width: 0.125rem;
     }
   }
 }
