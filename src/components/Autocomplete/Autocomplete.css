@@ -90,7 +90,7 @@
   box-shadow: var(--shadow-lg);
   max-height: 400px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 1105; /* Above modal (1102) to prevent cutoff */
   animation: fadeInDown 0.2s ease;
 }
 
