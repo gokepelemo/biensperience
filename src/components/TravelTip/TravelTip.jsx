@@ -1,4 +1,4 @@
-import "./TravelTip.css";
+import styles from "./TravelTip.module.scss";
 import { useMemo } from 'react';
 import {
   FaLanguage, FaMoneyBillWave, FaBus, FaShieldAlt,
@@ -79,13 +79,13 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
   if (typeof tip === 'string') {
     return (
       <>
-        <div className="travel-tip travel-tip-simple" key={index}>
-          <div className="travel-tip-icon-wrapper simple">
-            <FaLightbulb className="travel-tip-fa-icon" />
+        <div className={`${styles.travelTip} ${styles.travelTipSimple}`} key={index}>
+          <div className={`${styles.travelTipIconWrapper} ${styles.simple}`}>
+            <FaLightbulb className={styles.travelTipFaIcon} />
           </div>
-          <div className="travel-tip-content-simple">
+          <div className={styles.travelTipContentSimple}>
             <span
-              className="travel-tip-text"
+              className={styles.travelTipText}
               style={{ fontSize: getSimpleTipFontSize }}
             >
               {tip}
@@ -97,7 +97,7 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
               size="sm"
               onClick={() => onDelete(index)}
               aria-label="Delete tip"
-              className="travel-tip-delete"
+              className={styles.travelTipDelete}
             >
               <FaTimes />
             </Button>
@@ -126,7 +126,7 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
   const FAIcon = TIP_FA_ICONS[type] || FaThumbtack;
   const displayCategory = category || type;
   const badgeColor = TIP_COLORS[type] || 'secondary';
-  const gradientClass = `travel-tip-icon-${type.toLowerCase()}`;
+  const gradientClass = styles[`travelTipIcon${type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()}`];
 
   // Schema.org markup attributes
   const schemaProps = schema ? {
@@ -141,19 +141,19 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
   return (
     <>
       <div
-        className={`travel-tip travel-tip-structured travel-tip-${type.toLowerCase()}`}
+        className={`${styles.travelTip} ${styles.travelTipStructured} ${styles[`travelTip${type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()}`]}`}
         {...schemaProps}
       >
-      <div className="travel-tip-header">
+      <div className={styles.travelTipHeader}>
         <div
-          className={`travel-tip-icon-wrapper ${gradientClass}`}
+          className={`${styles.travelTipIconWrapper} ${gradientClass}`}
           aria-hidden="true"
         >
-          <div className="travel-tip-emoji">{displayEmoji}</div>
-          <FAIcon className="travel-tip-fa-icon" />
+          <div className={styles.travelTipEmoji}>{displayEmoji}</div>
+          <FAIcon className={styles.travelTipFaIcon} />
         </div>
-        <div className="travel-tip-header-content">
-          <Pill variant={badgeColor} size="sm" className="travel-tip-badge">
+        <div className={styles.travelTipHeaderContent}>
+          <Pill variant={badgeColor} size="sm" className={styles.travelTipBadge}>
             <FAIcon style={{ marginRight: 'var(--space-1)' }} size="0.8em" />
             {displayCategory}
           </Pill>
@@ -164,7 +164,7 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
             size="sm"
             onClick={() => onDelete(index)}
             aria-label="Delete tip"
-            className="travel-tip-delete"
+            className={styles.travelTipDelete}
             style={{ marginLeft: 'auto' }}
           >
             <FaTimes />
@@ -172,19 +172,19 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
         )}
       </div>
 
-      <div className="travel-tip-content">
-        <div className="travel-tip-value" itemProp="value">
+      <div className={styles.travelTipContent}>
+        <div className={styles.travelTipValue} itemProp="value">
           <strong>{value}</strong>
         </div>
 
         {note && (
-          <div className="travel-tip-note" itemProp="description">
+          <div className={styles.travelTipNote} itemProp="description">
             💬 {note}
           </div>
         )}
 
         {exchangeRate && type === 'Currency' && (
-          <div className="travel-tip-exchange-rate">
+          <div className={styles.travelTipExchangeRate}>
             <small className="text-muted">
               <FaMoneyBillWave className="me-1" />
               {exchangeRate}
@@ -193,7 +193,7 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
         )}
 
         {callToAction && callToAction.url && (
-          <div className="travel-tip-cta" style={{ marginTop: 'var(--space-2)' }}>
+          <div className={styles.travelTipCta} style={{ marginTop: 'var(--space-2)' }}>
             <Button
               as="a"
               href={callToAction.url}
@@ -201,7 +201,7 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
               rel="noopener noreferrer"
               size="sm"
               variant="outline"
-              className="travel-tip-cta-button"
+              className={styles.travelTipCtaButton}
             >
               {callToAction.label || 'Learn More'}
               <FaExternalLinkAlt style={{ marginLeft: 'var(--space-1)' }} size="0.8em" />

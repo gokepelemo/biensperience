@@ -1,0 +1,342 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Travel Tip Component - Simple and structured travel tip display */
+
+.travelTip {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  margin-bottom: 0;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--color-border-light);
+  position: relative;
+  animation: slideIn var(--transition-slow) ease-out;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-border-medium);
+
+    .travelTipIconWrapper {
+      transform: scale(1.05) rotate(5deg);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .travelTipEmoji {
+      opacity: 0;
+    }
+
+    .travelTipFaIcon {
+      opacity: 1;
+    }
+  }
+
+  &:focus-within {
+    outline: 0.125rem solid var(--color-primary);
+    outline-offset: 0.125rem;
+  }
+
+  @media (max-width: 576px) {
+    padding: var(--space-3);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--gradient-dark-surface);
+    border-color: var(--color-border-light);
+  }
+}
+
+/* Simple Tip Styles */
+.travelTipSimple {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  min-height: 80px;
+
+  .travelTipIcon {
+    font-size: clamp(var(--font-size-lg), 3vw, var(--font-size-xl));
+    flex-shrink: 0;
+    line-height: var(--line-height-none);
+  }
+
+  .travelTipText {
+    flex: 1;
+    line-height: var(--line-height-normal);
+    color: var(--color-text-secondary);
+    /* Font size set dynamically via inline styles based on text length */
+    font-weight: var(--font-weight-medium);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+
+    @media (prefers-color-scheme: dark) {
+      color: var(--color-travel-tip-text-light);
+    }
+  }
+
+  .travelTipFaIcon {
+    font-size: clamp(var(--font-size-base), 2.5vw, var(--font-size-lg));
+    opacity: 1;
+    position: static;
+  }
+}
+
+.travelTipContentSimple {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+/* Structured Tip Styles */
+.travelTipStructured {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+
+  .travelTipIcon {
+    font-size: var(--font-size-xl);
+    line-height: var(--line-height-none);
+  }
+}
+
+.travelTipHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: 0;
+
+  @media (max-width: 576px) {
+    flex-wrap: wrap;
+  }
+}
+
+/* Icon Wrapper with Gradient Background */
+.travelTipIconWrapper {
+  width: var(--space-12);
+  height: var(--space-12);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-slow) ease;
+
+  &.simple {
+    background: var(--gradient-primary);
+    width: clamp(44px, 8vw, 52px);
+    height: clamp(44px, 8vw, 52px);
+    border-radius: var(--radius-lg);
+    flex-shrink: 0;
+  }
+}
+
+/* Tip Type Gradients */
+.travelTipIconLanguage {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.travelTipIconCurrency {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.travelTipIconTransportation {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.travelTipIconSafety {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.travelTipIconWeather {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+}
+
+.travelTipIconCustoms {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+}
+
+.travelTipIconFood {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+}
+
+.travelTipIconAccommodation {
+  background: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%);
+}
+
+.travelTipIconEmergency {
+  background: linear-gradient(135deg, #f85032 0%, #e73827 100%);
+}
+
+.travelTipIconCustom {
+  background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+}
+
+/* Emoji and FA Icon Display */
+.travelTipEmoji {
+  font-size: var(--font-size-lg);
+  position: absolute;
+  opacity: 1;
+  transition: opacity var(--transition-slow) ease;
+  line-height: var(--line-height-none);
+}
+
+.travelTipFaIcon {
+  font-size: var(--font-size-base);
+  color: var(--color-white);
+  opacity: 0;
+  transition: opacity var(--transition-slow) ease;
+  position: absolute;
+}
+
+.travelTipHeaderContent {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.travelTipBadge {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+  display: inline-flex;
+  align-items: center;
+}
+
+.travelTipContent {
+  padding-left: calc(var(--space-12) + var(--space-3));
+
+  @media (max-width: 576px) {
+    padding-left: 0;
+  }
+}
+
+.travelTipValue {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-3);
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-travel-tip-text-light);
+  }
+}
+
+.travelTipNote {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-travel-tip-text-muted);
+  }
+}
+
+.travelTipExchangeRate {
+  font-size: var(--font-size-xs);
+  color: var(--color-travel-tip-exchange-rate);
+  margin-bottom: var(--space-2);
+}
+
+.travelTipCta {
+  margin-top: var(--space-3);
+}
+
+.travelTipCtaButton {
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-4);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: all var(--transition-fast) ease;
+
+  &:hover {
+    transform: translateX(4px);
+  }
+
+  @media (max-width: 576px) {
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) var(--space-3);
+  }
+}
+
+/* Delete Button */
+.travelTipDelete {
+  border-radius: var(--radius-full) !important;
+  width: var(--space-7) !important;
+  height: var(--space-7) !important;
+  min-width: var(--space-7) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  flex-shrink: 0;
+  border-color: var(--color-danger) !important;
+  color: var(--color-danger) !important;
+
+  &:hover {
+    background: var(--color-danger) !important;
+    color: var(--color-white) !important;
+    transform: scale(1.1);
+    border-color: var(--color-danger) !important;
+  }
+}
+
+/* Type-Specific Border Colors */
+.travelTipLanguage {
+  border-left: var(--space-1) solid var(--color-travel-tip-border-info);
+}
+
+.travelTipCurrency {
+  border-left: var(--space-1) solid var(--color-travel-tip-border-success);
+}
+
+.travelTipTransportation {
+  border-left: var(--space-1) solid var(--color-travel-tip-border-primary);
+}
+
+.travelTipSafety {
+  border-left: var(--space-1) solid var(--color-travel-tip-border-warning);
+}
+
+.travelTipWeather {
+  border-left: var(--space-1) solid var(--color-travel-tip-border-info);
+}
+
+.travelTipCustoms {
+  border-left: var(--space-1) solid var(--color-travel-tip-border-secondary);
+}
+
+.travelTipFood {
+  border-left: var(--space-1) solid var(--color-travel-tip-border-danger);
+}
+
+.travelTipAccommodation {
+  border-left: var(--space-1) solid var(--color-travel-tip-border-dark);
+}
+
+.travelTipEmergency {
+  border-left: var(--space-1) solid var(--color-travel-tip-border-danger);
+}
+
+.travelTipCustom {
+  border-left: var(--space-1) solid var(--color-travel-tip-border-purple);
+}
+
+/* Keyframe animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
