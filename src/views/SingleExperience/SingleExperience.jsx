@@ -33,6 +33,7 @@ import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text } fr
 import Loading from "../../components/Loading/Loading";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import debug from "../../utilities/debug";
+import logger from "../../utilities/logger";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { handleStoredHash, restoreHashToUrl, clearStoredHash } from "../../utilities/hash-navigation";
 import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
@@ -75,6 +76,8 @@ import {
   addPlanItemNote,
   updatePlanItemNote,
   deletePlanItemNote,
+  assignPlanItem,
+  unassignPlanItem,
 } from "../../utilities/plans-api";
 import { reconcileState, generateOptimisticId } from "../../utilities/event-bus";
 import { searchUsers } from "../../utilities/search-api";
@@ -584,13 +587,37 @@ export default function SingleExperience() {
   const { users: planCollaborators, loading: planCollaboratorsLoading } =
     useCollaboratorUsers(planCollaboratorIds);
 
+  // Combine plan owner and collaborators for assignments and mentions
+  const allPlanCollaborators = useMemo(() => {
+    const collaboratorsList = [];
+
+    // Add owner first (if exists and not already in collaborators)
+    if (planOwner) {
+      collaboratorsList.push(planOwner);
+    }
+
+    // Add other collaborators (avoid duplicates)
+    if (planCollaborators && planCollaborators.length > 0) {
+      planCollaborators.forEach(collab => {
+        const collabId = collab._id || collab.user?._id;
+        const ownerId = planOwner?._id;
+        // Only add if not the owner
+        if (collabId !== ownerId) {
+          collaboratorsList.push(collab);
+        }
+      });
+    }
+
+    return collaboratorsList;
+  }, [planOwner, planCollaborators]);
+
   // Prepare mention entities and data for InteractiveTextArea
   const availableEntities = useMemo(() => {
     const entities = [];
 
-    // Add plan collaborators (users)
-    if (planCollaborators && planCollaborators.length > 0) {
-      planCollaborators.forEach(user => {
+    // Add all plan collaborators (including owner)
+    if (allPlanCollaborators && allPlanCollaborators.length > 0) {
+      allPlanCollaborators.forEach(user => {
         entities.push({
           type: 'user',
           id: user._id,
@@ -629,15 +656,15 @@ export default function SingleExperience() {
     }
 
     return entities;
-  }, [planCollaborators, selectedPlan, experience]);
+  }, [allPlanCollaborators, selectedPlan, experience]);
 
   // Create entity data map for mention rendering
   const entityData = useMemo(() => {
     const data = {};
 
-    // Add plan collaborators
-    if (planCollaborators && planCollaborators.length > 0) {
-      planCollaborators.forEach(user => {
+    // Add all plan collaborators (including owner)
+    if (allPlanCollaborators && allPlanCollaborators.length > 0) {
+      allPlanCollaborators.forEach(user => {
         data[user._id] = {
           _id: user._id,
           name: user.name || user.username,
@@ -682,7 +709,7 @@ export default function SingleExperience() {
     }
 
     return data;
-  }, [planCollaborators, selectedPlan, experience]);
+  }, [allPlanCollaborators, selectedPlan, experience]);
 
   const toggleExpanded = useCallback((parentId) => {
     setExpandedParents((prev) => {
@@ -3064,17 +3091,44 @@ export default function SingleExperience() {
         planItem={selectedDetailsItem}
         plan={selectedPlan}
         currentUser={user}
-        collaborators={planCollaborators}
+        collaborators={allPlanCollaborators}
         onAddNote={handleAddNoteToItem}
         onUpdateNote={handleUpdateNoteOnItem}
         onDeleteNote={handleDeleteNoteFromItem}
         onAssign={async (userId) => {
-          // TODO: Implement assignment functionality
-          console.log('Assign to user:', userId);
+          if (!selectedPlan || !selectedDetailsItem) return;
+
+          try {
+            const assignee = allPlanCollaborators.find(c => (c._id || c.user?._id) === userId);
+            const assigneeName = assignee?.name || assignee?.user?.name || 'Unknown User';
+
+            await assignPlanItem(selectedPlan._id, selectedDetailsItem._id, userId);
+
+            // Show success toast
+            success(`Assigned to ${assigneeName}`, { duration: 3000 });
+
+            // Refresh plan data
+            await fetchPlans();
+          } catch (error) {
+            logger.error('Error assigning plan item', { error: error.message, userId });
+            danger(error.message || 'Failed to assign plan item');
+          }
         }}
         onUnassign={async () => {
-          // TODO: Implement unassignment functionality
-          console.log('Unassign');
+          if (!selectedPlan || !selectedDetailsItem) return;
+
+          try {
+            await unassignPlanItem(selectedPlan._id, selectedDetailsItem._id);
+
+            // Show success toast
+            success('Unassigned plan item', { duration: 3000 });
+
+            // Refresh plan data
+            await fetchPlans();
+          } catch (error) {
+            logger.error('Error unassigning plan item', { error: error.message });
+            danger(error.message || 'Failed to unassign plan item');
+          }
         }}
         canEdit={selectedPlan ? canEditPlan(user, selectedPlan) : false}
         availableEntities={availableEntities}
