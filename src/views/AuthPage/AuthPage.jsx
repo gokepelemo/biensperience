@@ -1,4 +1,4 @@
-import "./AuthPage.css"
+import styles from "./AuthPage.module.scss"
 import SignUpForm from "../../components/SignUpForm/SignUpForm"
 import LoginForm from "../../components/LoginForm/LoginForm"
 import { useState, useEffect } from "react"
@@ -30,7 +30,7 @@ export default function AuthPage() {
                 keywords="travel, login, signup, account, authentication, travel planning"
                 noIndex={true}
             />
-            <main className="authPage">
+            <main className={styles.authPage}>
                 <h1>Biensperience</h1>
                 {signup ?
                     <SignUpForm setUser={updateUser} setSignup={setSignup} />
