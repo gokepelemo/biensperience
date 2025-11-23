@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 // Import Bootstrap CSS BEFORE our custom styles so our overrides work without !important
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
-import './index.css';
+import './index.scss';
 // Initialize cross-tab event bridge
 import './utilities/event-bus';
 import App from './views/App/App';

@@ -1,0 +1,49 @@
+/* ============================================
+   GLOBAL IMPORTS - Design System Order
+   ============================================
+   Import order matters:
+   1. Design tokens (variables)
+   2. Headings (base styles)
+   3. Utilities (atomic classes)
+   4. Theme-specific overrides
+   5. Component-specific styles
+*/
+
+/* 1. Design System Foundation */
+@use './styles/scss/abstracts' as *; /* Load SASS variables and mixins globally */
+
+/* 2. CSS Custom Properties (for runtime theming) */
+@import './styles/design-tokens.css';          /* Legacy CSS custom properties */
+
+/* 3. Global Styles - Convert to SCSS */
+@import './styles/headings.css';     /* TODO: Convert to .scss */
+@import './styles/utilities.css';    /* TODO: Convert to .scss */
+@import './styles/theme.css';        /* TODO: Convert to .scss */
+@import './styles/animations.css';   /* TODO: Convert to .scss */
+
+/* 4. Legacy Global Styles (being consolidated) */
+@import './styles/accessibility.css';
+@import './styles/alerts.css';
+@import './styles/shared/modal.css';
+@import './styles/shared/forms.css';
+@import './styles/shared/profile-dropdown-views.css';
+
+/* ============================================
+   GLOBAL BASE STYLES
+   ============================================ */
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Global link style: pointer cursor, no underline */
+a,
+.link-btn {
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
