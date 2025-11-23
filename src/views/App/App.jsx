@@ -18,6 +18,7 @@ import CookieConsent from "../../components/CookieConsent/CookieConsent";
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import { Helmet } from 'react-helmet-async';
 import { Container } from "../../components/design-system";
+import styles from './App.module.scss';
 
 // Lazy load components for better performance
 const AuthPage = lazy(() => import("../AuthPage/AuthPage"));
@@ -349,7 +350,7 @@ function AppContent() {
             Skip to main content
           </a>
         )}
-        <div className="App">
+        <div className={styles.app}>
           <CookieConsent />
           {isAuthenticated ? (
             <>

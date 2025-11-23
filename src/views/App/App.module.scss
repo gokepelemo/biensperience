@@ -1,0 +1,73 @@
+@use '../../styles/scss/abstracts' as *;
+
+:global(body) {
+  margin: 0;
+  background-color: var(--color-bg-primary);
+  height: 100vh;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--color-text-primary);
+}
+
+/* App responsive padding */
+.app {
+  padding-bottom: $space-8;
+  min-height: 100vh;
+  background-color: var(--color-bg-primary);
+
+  /* Bootstrap container override for dark mode */
+  &:global(.container),
+  :global(.container),
+  :global(.container-fluid) {
+    color: var(--color-text-primary);
+  }
+}
+
+/* Main content area */
+:global(#main-content) {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  min-height: calc(100vh - 4rem); /* Account for navbar height */
+  padding-bottom: $space-8;
+}
+
+@media (max-width: 768px) {
+  .app:global(.container) {
+    max-width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: $space-6;
+  }
+
+  /* Center top-level headings on mobile/tablet */
+  :global(#main-content > div > h1),
+  :global(.container > h1),
+  :global(.container-fluid > h1) {
+    text-align: center;
+  }
+
+  /* Center action buttons on mobile/tablet */
+  :global(.action-buttons-container),
+  :global(.btn-group),
+  :global(.button-group) {
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+/* Tablet specific adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Center top-level headings on tablet */
+  :global(#main-content > div > h1),
+  :global(.container > h1),
+  :global(.container-fluid > h1) {
+    text-align: center;
+  }
+
+  /* Center action buttons on tablet */
+  :global(.action-buttons-container),
+  :global(.btn-group),
+  :global(.button-group) {
+    justify-content: center;
+    text-align: center;
+  }
+}
