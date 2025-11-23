@@ -16,7 +16,7 @@ import { formatDateTime } from '../../utilities/date-utils';
 import { handleError } from '../../utilities/error-handler';
 import { lang } from '../../lang.constants';
 import { useToast } from '../../contexts/ToastContext';
-import './ActivityMonitor.css';
+import styles from './ActivityMonitor.module.scss';
 
 const ACTION_TYPES = [
   'permission_added', 'permission_removed', 'permission_updated', 'ownership_transferred',
@@ -196,9 +196,9 @@ export default function ActivityMonitor({ show, onHide }) {
           </Button>
         }
       >
-        <div className="activity-monitor">
+        <div className={styles.activityMonitor}>
           {/* Search and Filters */}
-          <div className="filters-section mb-4">
+          <div className={styles.filtersSection mb-4">
             <Form onSubmit={handleSearch}>
               <div className="row align-items-end">
                 {/* Search */}
@@ -430,7 +430,7 @@ export default function ActivityMonitor({ show, onHide }) {
         }
       >
           {selectedActivity && (
-            <div className="activity-details">
+            <div className={styles.activityDetails">
               <div className="row g-3">
                 <div className="col-12">
                   <h6>Basic Information</h6>
