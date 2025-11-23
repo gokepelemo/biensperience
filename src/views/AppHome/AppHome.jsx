@@ -12,7 +12,7 @@ import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
 import { Button, FlexCenter, SpaceY, Container } from "../../components/design-system";
 import { logger } from "../../utilities/logger";
-import "./AppHome.css";
+import styles from "./AppHome.module.scss";
 
 export default function AppHome() {
   const { experiences, destinations, plans, loading, applyDestinationsFilter, applyExperiencesFilter } = useData();
@@ -101,7 +101,7 @@ export default function AppHome() {
           {destinations && destinations.length > 0 ? (
             <>
               <FlexCenter className="animation-fade_in">
-                <div className="destinations-list">
+                <div className={styles.destinationsList}>
                   {(showAllDestinations ? destinations : destinations.slice(0, DESTINATIONS_INITIAL_DISPLAY))
                     .map((destination, index) => (
                       <DestinationCard
@@ -145,7 +145,7 @@ export default function AppHome() {
           {experiences && experiences.length > 0 ? (
             <>
               <FlexCenter className="animation-fade_in">
-                <div className="experiences-list">
+                <div className={styles.experiencesList}>
                   {(showAllExperiences ? experiences : experiences.slice(0, EXPERIENCES_INITIAL_DISPLAY))
                     .map((experience, index) => (
                       <ExperienceCard

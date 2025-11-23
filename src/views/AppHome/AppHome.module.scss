@@ -1,0 +1,94 @@
+@use '../../styles/scss/abstracts' as *;
+
+.appHomeEmpty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem 0;
+
+  /* Ensure buttons in the empty-state alert have breathing room */
+  :global(.btn + .btn) {
+    margin-left: 0.75rem;
+  }
+}
+
+.appHomeContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: $space-8 $space-4;
+  background: var(--color-bg-secondary);
+  min-height: 100vh;
+}
+
+.appHomeTitle {
+  font-size: clamp(var(--font-size-xl), 4vw, var(--font-size-3xl));
+  font-weight: var(--font-weight-bold);
+  margin-bottom: $space-8;
+  color: var(--color-text-primary);
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+/* Add spacing and flex layout for destination cards */
+.destinationsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-8;
+  justify-content: center;
+  align-items: stretch;
+  margin-bottom: $space-8;
+}
+
+/* Add spacing and flex layout for experience cards */
+.experiencesList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-8;
+  justify-content: center;
+  align-items: stretch;
+  margin-bottom: $space-8;
+}
+
+.cardsWrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-8;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: $space-8;
+
+  /* AppHome-specific card overrides */
+  :global(.card) {
+    min-width: 280px; /* Fixed minimum for card usability */
+    max-width: 340px; /* Fixed maximum for optimal reading */
+    margin: $space-2;
+    padding: $space-6;
+  }
+}
+
+@media (max-width: 900px) {
+  .cardsWrapper {
+    gap: $space-4;
+
+    :global(.card) {
+      min-width: 220px; /* Smaller minimum for tablets */
+      max-width: 100%;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .appHomeTitle {
+    font-size: var(--font-size-2xl); /* Fixed size for mobile readability */
+  }
+
+  .cardsWrapper {
+    flex-direction: column;
+    gap: $space-4;
+  }
+
+  :global(.card) {
+    min-width: 100%;
+    padding: $space-4;
+  }
+}
