@@ -98,13 +98,15 @@
   }
 
   :global(.navbar-brand) {
-    flex-wrap: wrap; /* Allow logo and text to wrap if needed */
+    flex-wrap: nowrap; /* Keep logo and text on same line */
     max-width: 100%; /* Prevent overflow */
+    gap: $space-2; /* Add gap between logo and text */
   }
 
   .brandText {
-    word-break: break-word; /* Break long titles gracefully */
-    overflow-wrap: break-word;
+    white-space: nowrap; /* Prevent text from wrapping */
+    overflow: hidden; /* Hide overflow text */
+    text-overflow: ellipsis; /* Show ellipsis for long text */
   }
 
   :global(.navbar-toggler) {
