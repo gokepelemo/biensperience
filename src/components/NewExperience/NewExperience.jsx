@@ -141,7 +141,8 @@ export default function NewExperience() {
       // Clear saved form data on success
       persistence.clear();
 
-      success(lang.en.success.experienceCreated);
+      const message = lang.en.notification?.experience?.created?.replace('{name}', experience.name) || `${experience.name} is now live! Start planning or invite collaborators.`;
+      success(message);
       navigate(`/experiences/${experience._id}`);
     } catch (err) {
       handleFormError(err, { context: 'Create experience' });

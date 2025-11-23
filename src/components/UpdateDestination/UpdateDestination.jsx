@@ -266,7 +266,8 @@ export default function UpdateDestination() {
 
       const updated = await updateDestAPI(destinationId, dataToUpdate);
       updateDestination(updated); // Instant UI update!
-      success(lang.en.success.destinationUpdated);
+      const message = lang.en.notification?.destination?.updated?.replace('{name}', updated.name) || `Your changes to ${updated.name} have been saved.`;
+      success(message);
       navigate(`/destinations/${destinationId}`);
     } catch (err) {
       handleFormError(err, { context: 'Update destination' });

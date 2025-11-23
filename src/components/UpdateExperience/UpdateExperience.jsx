@@ -345,7 +345,8 @@ export default function UpdateExperience() {
 
       const updated = await updateExpAPI(experienceId, dataToUpdate);
       updateExperience(updated); // Instant UI update!
-      success(lang.en.success.experienceUpdated);
+      const message = lang.en.notification?.experience?.updated?.replace('{name}', updated.name) || `Your changes to ${updated.name} have been saved.`;
+      success(message);
       navigate(`/experiences/${experienceId}`);
     } catch (err) {
       handleFormError(err, { context: 'Update experience' });

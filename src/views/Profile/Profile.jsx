@@ -321,7 +321,8 @@ export default function Profile() {
       await updateUserRole(profileId, { role: newRole });
       // ✅ MERGE only changed field - no full refetch
       mergeProfile({ role: newRole });
-      success('User role updated successfully');
+      const message = lang.en.notification?.admin?.roleUpdated?.replace('{role}', newRole) || `User role updated to ${newRole}`;
+      success(message);
     } catch (error) {
       handleError(error);
     } finally {
@@ -340,7 +341,9 @@ export default function Profile() {
       await updateUserApi(profileId, { emailConfirmed });
       // ✅ MERGE only changed field - no full refetch
       mergeProfile({ emailConfirmed });
-      success(`Email ${emailConfirmed ? 'confirmed' : 'unconfirmed'} successfully`);
+      const action = emailConfirmed ? 'confirmed' : 'unconfirmed';
+      const message = lang.en.notification?.admin?.emailConfirmed?.replace('{action}', action) || `Email ${action} successfully`;
+      success(message);
     } catch (error) {
       handleError(error);
     } finally {

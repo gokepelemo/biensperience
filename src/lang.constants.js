@@ -150,6 +150,28 @@ const en = {
       itemUncompleted: "Item marked as incomplete",
       reordered: "Your plan order has been saved",
     },
+    experience: {
+      created: "{name} is now live! Start planning or invite collaborators.",
+      updated: "Your changes to {name} have been saved.",
+      deleted: "{name} has been deleted. This action cannot be undone.",
+    },
+    destination: {
+      created: "{name} has been added to Biensperience!",
+      updated: "Your changes to {name} have been saved.",
+      deleted: "{name} has been deleted.",
+    },
+    invite: {
+      created: "Invite code created: {code}. {emailMsg}",
+      csvParsed: "Parsed {count} invites from CSV",
+      bulkCreated: "Created {count} invite codes{emailMsg}",
+      deactivated: "Invite code deactivated. It can no longer be used.",
+      emailSent: "Verification email resent. Check your inbox.",
+    },
+    admin: {
+      roleUpdated: "User role updated to {role}",
+      emailConfirmed: "Email {action} successfully",
+      stateRestored: "Your previous state has been restored",
+    },
     collaborator: {
       added: "{name} can now collaborate on this plan",
       removed: "{name} is no longer a collaborator",

@@ -2277,7 +2277,8 @@ export default function SingleExperience() {
     try {
       removeExperience(experience._id); // Instant UI update!
       await deleteExperience(experience._id);
-      success(lang.en.success.experienceDeleted);
+      const message = lang.en.notification?.experience?.deleted?.replace('{name}', experience.name) || `${experience.name} has been deleted. This action cannot be undone.`;
+      success(message);
       navigate("/experiences");
     } catch (err) {
       const errorMsg = handleError(err, { context: "Delete experience" });
@@ -2317,7 +2318,7 @@ export default function SingleExperience() {
       const onSuccess = async () => {
         fetchExperience().catch(() => {});
         fetchExperiences().catch(() => {});
-        success(lang.en.success.planItemDeleted);
+        success(lang.en.notification?.plan?.itemDeleted || 'Item removed from your plan');
       };
 
       const onError = (err, defaultMsg) => {
@@ -2456,7 +2457,7 @@ export default function SingleExperience() {
         fetchCollaborativePlans().catch(() => {});
         fetchUserPlan().catch(() => {});
         fetchPlans().catch(() => {});
-        success('Plan items reordered successfully');
+        success(lang.en.notification?.plan?.reordered || 'Your plan order has been saved');
       };
 
       const onError = (err, defaultMsg) => {
@@ -2526,7 +2527,7 @@ export default function SingleExperience() {
 
         // Refresh experience data to ensure consistency
         fetchExperience().catch(() => {});
-        success('Plan items reordered successfully');
+        success(lang.en.notification?.plan?.reordered || 'Your plan order has been saved');
       };
 
       const onError = (err, defaultMsg) => {

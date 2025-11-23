@@ -122,7 +122,8 @@ export default function NewDestination() {
       );
       addDestination(destination);
       persistence.clear();
-      success(lang.en.success.destinationCreated);
+      const message = lang.en.notification?.destination?.created?.replace('{name}', `${destination.name}, ${destination.country}`) || `${destination.name}, ${destination.country} has been added to Biensperience!`;
+      success(message);
       navigate(`/experiences/new`);
     } catch (err) {
       handleFormError(err, { context: 'Create destination' });

@@ -135,7 +135,7 @@ export default function ActivityMonitor({ show, onHide }) {
     try {
       setRollbackLoading(true);
       await restoreResourceState(activity.rollbackToken);
-      success('State restored successfully');
+      success(lang.en.notification?.admin?.stateRestored || 'Your previous state has been restored');
       fetchActivities();
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Rollback state' });

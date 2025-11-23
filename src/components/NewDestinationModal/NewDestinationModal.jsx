@@ -67,7 +67,8 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
       addDestination(createdDestination);
 
       // Show success message
-      success(`Destination "${createdDestination.name}, ${createdDestination.country}" created successfully!`);
+      const message = lang.en.notification?.destination?.created?.replace('{name}', `${createdDestination.name}, ${createdDestination.country}`) || `${createdDestination.name}, ${createdDestination.country} has been added to Biensperience!`;
+      success(message);
 
       // Reset form
       setFormData({ name: "", state: "", country: "" });

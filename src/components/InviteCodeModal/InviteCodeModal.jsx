@@ -101,7 +101,8 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
         : singleForm.sendEmail && singleForm.email && !invite.emailSent
         ? ' (email failed to send)'
         : '';
-      success(`Invite code created: ${invite.code}${emailMsg}`);
+      const message = lang.en.notification?.invite?.created?.replace('{code}', invite.code).replace('{emailMsg}', emailMsg) || `Invite code created: ${invite.code}${emailMsg}`;
+      success(message);
       setActiveTab('list');
       logger.info('Invite code created', { code: invite.code, emailSent: invite.emailSent });
     } catch (err) {
@@ -120,7 +121,8 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
     try {
       const data = await parseCsvFile(file);
       setCsvData(data);
-      success(`Parsed ${data.length} invites from CSV`);
+      const message = lang.en.notification?.invite?.csvParsed?.replace('{count}', data.length) || `Parsed ${data.length} invites from CSV`;
+      success(message);
     } catch (err) {
       logger.error('Error parsing CSV file', {}, err);
       showError(err.message || 'Failed to parse CSV file');
@@ -152,7 +154,8 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
         const emailMsg = sendBulkEmails && result.emailResults
           ? ` (${result.emailResults.sent} emails sent${result.emailResults.failed > 0 ? `, ${result.emailResults.failed} failed` : ''})`
           : '';
-        success(`Created ${result.created.length} invite codes${emailMsg}`);
+        const message = lang.en.notification?.invite?.bulkCreated?.replace('{count}', result.created.length).replace('{emailMsg}', emailMsg) || `Created ${result.created.length} invite codes${emailMsg}`;
+        success(message);
         loadInvites(); // Refresh list
       }
 
@@ -183,7 +186,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
       setInvites(invites.map(inv =>
         inv._id === inviteId ? { ...inv, isActive: false } : inv
       ));
-      success('Invite code deactivated');
+      success(lang.en.notification?.invite?.deactivated || 'Invite code deactivated. It can no longer be used.');
       logger.info('Invite code deactivated', { inviteId });
     } catch (err) {
       logger.error('Error deactivating invite code', {}, err);
