@@ -1,0 +1,362 @@
+// Design System Mixins
+// Reusable mixins for common patterns
+
+@import './variables';
+
+// ============================================================================
+// RESPONSIVE BREAKPOINTS
+// ============================================================================
+
+@mixin breakpoint($breakpoint) {
+  @if $breakpoint == xs {
+    @media (max-width: $breakpoint-sm - 1) { @content; }
+  } @else if $breakpoint == sm {
+    @media (min-width: $breakpoint-sm) { @content; }
+  } @else if $breakpoint == md {
+    @media (min-width: $breakpoint-md) { @content; }
+  } @else if $breakpoint == lg {
+    @media (min-width: $breakpoint-lg) { @content; }
+  } @else if $breakpoint == xl {
+    @media (min-width: $breakpoint-xl) { @content; }
+  } @else if $breakpoint == xxl {
+    @media (min-width: $breakpoint-xxl) { @content; }
+  }
+}
+
+@mixin breakpoint-max($breakpoint) {
+  @if $breakpoint == xs {
+    @media (max-width: $breakpoint-xs - 1) { @content; }
+  } @else if $breakpoint == sm {
+    @media (max-width: $breakpoint-sm - 1) { @content; }
+  } @else if $breakpoint == md {
+    @media (max-width: $breakpoint-md - 1) { @content; }
+  } @else if $breakpoint == lg {
+    @media (max-width: $breakpoint-lg - 1) { @content; }
+  } @else if $breakpoint == xl {
+    @media (max-width: $breakpoint-xl - 1) { @content; }
+  } @else if $breakpoint == xxl {
+    @media (max-width: $breakpoint-xxl - 1) { @content; }
+  }
+}
+
+@mixin breakpoint-between($min, $max) {
+  @media (min-width: $min) and (max-width: $max - 1) { @content; }
+}
+
+// ============================================================================
+// RESPONSIVE TYPOGRAPHY
+// ============================================================================
+
+// Fluid font size using clamp()
+// Usage: @include fluid-font-size(18px, 26px, 320px, 991px);
+@mixin fluid-font-size($min-size, $max-size, $min-vw: $breakpoint-xs, $max-vw: $breakpoint-lg) {
+  $min-size-rem: if(unit($min-size) == 'px', $min-size / 16px * 1rem, $min-size);
+  $max-size-rem: if(unit($max-size) == 'px', $max-size / 16px * 1rem, $max-size);
+
+  // Calculate viewport percentage
+  $vw-size: calc(#{$min-size-rem} + (#{strip-unit($max-size-rem)} - #{strip-unit($min-size-rem)}) * ((100vw - #{$min-vw}) / (#{strip-unit($max-vw)} - #{strip-unit($min-vw)})));
+
+  font-size: clamp(#{$min-size-rem}, #{$vw-size}, #{$max-size-rem});
+}
+
+// Simplified fluid font size with viewport units
+// Usage: @include fluid-font(1.25rem, 4.5vw, 1.625rem);
+@mixin fluid-font($min, $preferred, $max) {
+  font-size: clamp($min, $preferred, $max);
+}
+
+// Responsive heading sizes (preset for common use cases)
+@mixin heading-mobile-xl {
+  @include fluid-font(1.5rem, 5vw, 2rem);      // 24px - 32px
+  font-weight: $font-weight-bold;
+  line-height: $line-height-tight;
+}
+
+@mixin heading-mobile-lg {
+  @include fluid-font(1.25rem, 4.5vw, 1.625rem); // 20px - 26px
+  font-weight: $font-weight-semibold;
+  line-height: $line-height-snug;
+}
+
+@mixin heading-mobile-md {
+  @include fluid-font(1.125rem, 3.5vw, 1.375rem); // 18px - 22px
+  font-weight: $font-weight-semibold;
+  line-height: $line-height-normal;
+}
+
+@mixin heading-mobile-sm {
+  @include fluid-font(1rem, 2.5vw, 1.25rem);    // 16px - 20px
+  font-weight: $font-weight-medium;
+  line-height: $line-height-normal;
+}
+
+// Responsive body text
+@mixin text-mobile-lg {
+  @include fluid-font(1.125rem, 3.5vw, 1.375rem); // 18px - 22px
+  font-weight: $font-weight-medium;
+  line-height: $line-height-relaxed;
+}
+
+@mixin text-mobile-md {
+  @include fluid-font(1rem, 2.5vw, 1.125rem);   // 16px - 18px
+  font-weight: $font-weight-normal;
+  line-height: $line-height-relaxed;
+}
+
+@mixin text-mobile-sm {
+  @include fluid-font(0.875rem, 2.2vw, 1rem);   // 14px - 16px
+  font-weight: $font-weight-normal;
+  line-height: $line-height-normal;
+}
+
+// ============================================================================
+// FLEXBOX
+// ============================================================================
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-start {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+@mixin flex-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+@mixin flex-column-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+// ============================================================================
+// SPACING
+// ============================================================================
+
+// Consistent spacing between elements
+@mixin stack($gap: $space-4) {
+  display: flex;
+  flex-direction: column;
+  gap: $gap;
+}
+
+@mixin inline-stack($gap: $space-3) {
+  display: flex;
+  align-items: center;
+  gap: $gap;
+}
+
+// Responsive padding
+@mixin padding-responsive($min, $max) {
+  padding: clamp($min, 2.5vw, $max);
+}
+
+@mixin padding-x-responsive($min, $max) {
+  padding-left: clamp($min, 2.5vw, $max);
+  padding-right: clamp($min, 2.5vw, $max);
+}
+
+@mixin padding-y-responsive($min, $max) {
+  padding-top: clamp($min, 2.5vw, $max);
+  padding-bottom: clamp($min, 2.5vw, $max);
+}
+
+// Responsive margin
+@mixin margin-responsive($min, $max) {
+  margin: clamp($min, 2.5vw, $max);
+}
+
+@mixin margin-bottom-responsive($min, $max) {
+  margin-bottom: clamp($min, 2.5vw, $max);
+}
+
+// ============================================================================
+// CARDS & CONTAINERS
+// ============================================================================
+
+@mixin card {
+  background: $color-bg-primary;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
+  border: 1px solid $color-border-light;
+  transition: all $transition-normal $easing-ease;
+}
+
+@mixin card-hover {
+  box-shadow: $shadow-md;
+  transform: translateY(-2px);
+}
+
+@mixin card-interactive {
+  @include card;
+  cursor: pointer;
+
+  &:hover {
+    @include card-hover;
+  }
+}
+
+// ============================================================================
+// BUTTONS
+// ============================================================================
+
+@mixin button-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  padding: $space-3 $space-4;
+  border-radius: $radius-md;
+  font-weight: $font-weight-semibold;
+  transition: all $transition-normal $easing-ease;
+  cursor: pointer;
+  border: none;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+@mixin button-responsive {
+  @include button-base;
+  @include padding-x-responsive($space-3, $space-5);
+  @include padding-y-responsive($space-2, $space-3);
+  @include fluid-font(0.875rem, 2.2vw, 1rem);
+}
+
+// ============================================================================
+// UTILITIES
+// ============================================================================
+
+// Truncate text
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Line clamp (multi-line truncation)
+@mixin line-clamp($lines: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// Focus state
+@mixin focus-ring {
+  outline: 2px solid $color-primary;
+  outline-offset: 2px;
+}
+
+// Smooth scrolling
+@mixin smooth-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+// GPU acceleration
+@mixin gpu-accelerate {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+// Hide scrollbar
+@mixin hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+
+  &::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Opera */
+  }
+}
+
+// Custom scrollbar
+@mixin custom-scrollbar($width: 8px, $track-color: $color-bg-tertiary, $thumb-color: $color-border-dark) {
+  scrollbar-width: thin;
+  scrollbar-color: $thumb-color $track-color;
+
+  &::-webkit-scrollbar {
+    width: $width;
+    height: $width;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $track-color;
+    border-radius: $radius-full;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $thumb-color;
+    border-radius: $radius-full;
+
+    &:hover {
+      background: darken($thumb-color, 10%);
+    }
+  }
+}
+
+// ============================================================================
+// ANIMATIONS
+// ============================================================================
+
+@mixin fade-in($duration: $transition-normal) {
+  animation: fadeIn $duration $easing-ease;
+}
+
+@mixin slide-in($direction: 'up', $duration: $transition-normal) {
+  @if $direction == 'up' {
+    animation: slideInUp $duration $easing-ease;
+  } @else if $direction == 'down' {
+    animation: slideInDown $duration $easing-ease;
+  } @else if $direction == 'left' {
+    animation: slideInLeft $duration $easing-ease;
+  } @else if $direction == 'right' {
+    animation: slideInRight $duration $easing-ease;
+  }
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+// Strip unit from value
+@function strip-unit($value) {
+  @return $value / ($value * 0 + 1);
+}
+
+// Convert px to rem
+@function px-to-rem($px) {
+  @return $px / 16px * 1rem;
+}
+
+// Lighten color
+@function lighten-color($color, $percentage) {
+  @return lighten($color, $percentage);
+}
+
+// Darken color
+@function darken-color($color, $percentage) {
+  @return darken($color, $percentage);
+}

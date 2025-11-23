@@ -1,0 +1,185 @@
+// SingleExperience SCSS Module
+// Demonstration of SASS design system usage
+// This file shows how to migrate from CSS to SCSS with mixins
+
+@use '../../styles/scss/abstracts' as *;
+
+// ============================================================================
+// PLAN ITEMS - MOBILE RESPONSIVE
+// ============================================================================
+
+.planItemCard {
+  @include card-interactive;
+
+  // Mobile: Increase spacing between items
+  @include breakpoint-max(lg) {
+    margin-bottom: $space-6; // 2rem / 32px
+
+    // Increase title size
+    .planItemTitle {
+      @include heading-mobile-lg; // 20px - 26px
+    }
+
+    // Increase metadata (cost, days)
+    .planItemMeta {
+      @include text-mobile-lg; // 18px - 22px
+      gap: $space-3;
+    }
+
+    // Assigned user and notes indicators
+    .planItemAssigned,
+    .planItemNotesCount {
+      @include text-mobile-sm; // 14px - 16px
+      padding: $space-2 $space-3;
+    }
+  }
+}
+
+// ============================================================================
+// PLAN METRICS
+// ============================================================================
+
+.metricCard {
+  @include card;
+  @include stack($space-3);
+
+  @include breakpoint-max(lg) {
+    align-items: center;
+    text-align: center;
+  }
+}
+
+.metricHeader {
+  @include inline-stack($space-2);
+
+  @include breakpoint-max(lg) {
+    @include flex-column;
+    align-items: center;
+    text-align: center;
+    gap: $space-2;
+  }
+}
+
+.metricTitle {
+  font-weight: $font-weight-semibold;
+  color: $color-text-secondary;
+
+  @include breakpoint-max(lg) {
+    @include fluid-font(0.9375rem, 2.5vw, 1.0625rem); // 15px - 17px
+    text-align: center;
+  }
+}
+
+.metricValue {
+  font-size: $font-size-3xl;
+  font-weight: $font-weight-bold;
+  color: $color-primary;
+
+  @include breakpoint-max(lg) {
+    @include fluid-font(2rem, 5vw, 2.25rem); // 32px - 36px
+    text-align: center;
+    padding-right: 0;
+  }
+}
+
+// ============================================================================
+// BUTTONS
+// ============================================================================
+
+.btnViewDetails {
+  @include button-responsive;
+  background: $color-primary;
+  color: $color-text-inverse;
+
+  &:hover {
+    background: $color-primary-dark;
+    transform: translateY(-2px);
+  }
+
+  @include breakpoint-max(lg) {
+    margin-left: 0;
+    margin-top: $space-2;
+  }
+}
+
+// ============================================================================
+// PLAN TABS NAVIGATION
+// ============================================================================
+
+.planTabsNav {
+  @include inline-stack($space-2);
+
+  @include breakpoint-max(lg) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: $space-2;
+    border-bottom: 2px solid $color-border-light;
+    padding-bottom: 0;
+  }
+}
+
+.planTabButton {
+  @include button-base;
+  background: transparent;
+  color: $color-text-secondary;
+  border-bottom: 3px solid transparent;
+  transition: all $transition-normal $easing-ease;
+
+  &:hover {
+    color: $color-primary;
+    background: rgba($color-primary, 0.1);
+  }
+
+  &.active {
+    color: $color-primary;
+    border-bottom-color: $color-primary;
+    font-weight: $font-weight-bold;
+  }
+
+  @include breakpoint-max(lg) {
+    flex: 1;
+    min-width: fit-content;
+    text-align: center;
+    padding: $space-3 $space-4;
+    white-space: nowrap;
+  }
+}
+
+// ============================================================================
+// EXAMPLE: Direct mixin usage for one-off styles
+// ============================================================================
+
+.experienceHeader {
+  @include stack($space-4);
+
+  @include breakpoint-max(lg) {
+    @include stack($space-6);
+  }
+}
+
+.experienceTitle {
+  @include heading-mobile-xl; // 24px - 32px on mobile
+  color: $color-text-primary;
+
+  @include breakpoint(lg) {
+    font-size: $font-size-4xl; // 36px on desktop
+  }
+}
+
+.collaboratorsList {
+  @include inline-stack($space-2);
+  flex-wrap: wrap;
+}
+
+.collaboratorAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: $radius-full;
+  border: 2px solid $color-border-light;
+  transition: transform $transition-fast $easing-ease;
+
+  &:hover {
+    transform: scale(1.1);
+    border-color: $color-primary;
+  }
+}

@@ -1,0 +1,6 @@
+// Abstracts Index
+// Import all abstract files (variables, mixins, functions)
+// Import this in any SCSS file that needs access to design system utilities
+
+@forward './variables';
+@forward './mixins';
