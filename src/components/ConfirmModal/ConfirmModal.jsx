@@ -1,4 +1,4 @@
-import "./ConfirmModal.css";
+import "./ConfirmModal.module.scss";
 import { lang } from "../../lang.constants";
 import Modal from "../Modal/Modal";
 
