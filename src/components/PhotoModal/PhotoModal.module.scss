@@ -1,0 +1,261 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* PhotoModal Component Styles */
+
+.photoModalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  @include flex-center;
+  z-index: var(--z-index-modal);
+  cursor: pointer;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Photo Modal Content */
+.photoModalContent {
+  max-width: 90vw;
+  max-height: 90vh;
+  position: relative;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Layout shift prevention */
+  contain: layout style;
+  min-height: 400px; /* Reserve space for image loading */
+}
+
+.photoModalImage {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: $radius-md;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Close Button */
+.photoModalClose {
+  position: absolute;
+  top: -50px;
+  right: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: $radius-full;
+  color: var(--color-white);
+  font-size: $font-size-xl;
+  cursor: pointer;
+  padding: $space-2;
+  width: 40px;
+  height: 40px;
+  @include flex-center;
+  @include transition-all($transition-normal);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: rotate(90deg);
+  }
+}
+
+/* Navigation Buttons */
+.photoModalNav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: $radius-full;
+  color: var(--color-white);
+  font-size: $font-size-3xl;
+  cursor: pointer;
+  padding: $space-2;
+  width: 50px;
+  height: 50px;
+  @include flex-center;
+  @include transition-all($transition-normal);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.6);
+    transform: translateY(-50%) scale(1.1);
+  }
+}
+
+.photoModalNavPrev {
+  left: -60px;
+}
+
+.photoModalNavNext {
+  right: -60px;
+}
+
+/* Photo Counter */
+.photoModalCounter {
+  position: absolute;
+  top: -50px;
+  left: 0;
+  color: var(--color-white);
+  font-size: $font-size-sm;
+  padding: $space-2 $space-4;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: $radius-md;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-weight: $font-weight-semibold;
+}
+
+/* Photo Credits */
+.photoModalCredits {
+  position: absolute;
+  bottom: -50px;
+  left: 0;
+  color: var(--color-white);
+  font-size: $font-size-sm;
+  padding: $space-3 $space-4;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: $radius-md;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  a {
+    color: var(--color-photo-modal-link);
+    text-decoration: none;
+    font-weight: $font-weight-semibold;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--color-photo-modal-link-hover);
+      text-decoration: underline;
+    }
+  }
+}
+
+/* Thumbnail Navigation - Circular design matching PhotoCard */
+.photoModalThumbnails {
+  position: absolute;
+  bottom: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  @include inline-stack($space-3);
+  padding: $space-3 $space-4;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: $radius-lg;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  max-width: 90vw;
+  overflow-x: auto;
+}
+
+.photoModalThumbnail {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: $radius-md;
+  overflow: hidden;
+  cursor: pointer;
+  border: 3px solid transparent;
+  @include transition-all($transition-normal);
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: $radius-md;
+  }
+
+  &:hover {
+    transform: scale(1.1);
+    border-color: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+
+  &.active {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.4);
+    transform: scale(1.05);
+  }
+
+  &:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .photoModalImage {
+    max-height: 80vh;
+  }
+
+  .photoModalClose {
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  .photoModalCounter {
+    top: 10px;
+    left: 10px;
+    font-size: $font-size-xs;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .photoModalNav {
+    font-size: $font-size-2xl;
+    width: 40px;
+    height: 40px;
+  }
+
+  .photoModalNavPrev {
+    left: 10px;
+  }
+
+  .photoModalNavNext {
+    right: 10px;
+  }
+
+  .photoModalCredits {
+    position: static;
+    margin-top: $space-4;
+    font-size: $font-size-xs;
+  }
+
+  .photoModalThumbnails {
+    position: static;
+    margin-top: $space-4;
+    bottom: auto;
+    left: auto;
+    transform: none;
+    max-width: 100%;
+    padding: $space-2;
+    gap: $space-2;
+  }
+
+  .photoModalThumbnail {
+    width: 48px;
+    height: 48px;
+    border-radius: $radius-sm;
+  }
+}

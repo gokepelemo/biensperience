@@ -1,4 +1,4 @@
-import './PhotoModal.css';
+import styles from './PhotoModal.module.scss';
 import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
@@ -91,18 +91,18 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
 
   const modalContent = (
     <div
-      className="photo-modal-overlay"
+      className={styles.photoModalOverlay}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={lang.en.aria.photoViewer}
     >
       <div
-        className="photo-modal-content"
+        className={styles.photoModalContent}
         onClick={(e) => e.stopPropagation()}
       >
         <button
-          className="photo-modal-close"
+          className={styles.photoModalClose}
           onClick={onClose}
           aria-label={lang.en.aria.closePhotoViewer}
         >
@@ -113,7 +113,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
         {hasMultiplePhotos && (
           <>
             <button
-              className="photo-modal-nav photo-modal-nav-prev"
+              className={`${styles.photoModalNav} ${styles.photoModalNavPrev}`}
               onClick={(e) => {
                 e.stopPropagation();
                 goToPrevious();
@@ -123,7 +123,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
               <FaChevronLeft />
             </button>
             <button
-              className="photo-modal-nav photo-modal-nav-next"
+              className={`${styles.photoModalNav} ${styles.photoModalNavNext}`}
               onClick={(e) => {
                 e.stopPropagation();
                 goToNext();
@@ -137,7 +137,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
 
         {/* Image counter for multiple photos */}
         {hasMultiplePhotos && (
-          <div className="photo-modal-counter">
+          <div className={styles.photoModalCounter}>
             {currentIndex + 1} of {photoArray.length}
           </div>
         )}
@@ -145,16 +145,16 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
         <img
           src={currentPhoto.url}
           alt={currentPhoto.photo_credit || 'Photo'}
-          className="photo-modal-image"
+          className={styles.photoModalImage}
         />
 
         {/* Thumbnail Navigation for multiple photos */}
         {hasMultiplePhotos && (
-          <div className="photo-modal-thumbnails">
+          <div className={styles.photoModalThumbnails}>
             {photoArray.map((photo, index) => (
               <div
                 key={index}
-                className={`photo-modal-thumbnail ${index === currentIndex ? 'active' : ''}`}
+                className={`${styles.photoModalThumbnail} ${index === currentIndex ? styles.active : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setCurrentIndex(index);
@@ -181,7 +181,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
         )}
 
         {sanitizedCredit && (
-          <div className="photo-modal-credits">
+          <div className={styles.photoModalCredits}>
             <span>Photo by: </span>
             {sanitizedCreditUrl ? (
               <a
