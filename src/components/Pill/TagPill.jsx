@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { FaTimes } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
-import './TagPill.css';
+import styles from './TagPill.module.scss';
 
 export default function TagPill({
   children,
@@ -18,23 +18,26 @@ export default function TagPill({
   href, // anchor href
   ...props
 }) {
+  const colorClass = styles[`tagPill${color.charAt(0).toUpperCase() + color.slice(1)}`];
+  const sizeClass = styles[`tagPill${size.charAt(0).toUpperCase() + size.slice(1)}`];
+
   const classes = [
-    'tag-pill',
-    `tag-pill-${color}`,
-    gradient && 'tag-pill-gradient',
-    rounded && 'tag-pill-rounded',
-    `tag-pill-${size}`,
+    styles.tagPill,
+    colorClass,
+    gradient && styles.tagPillGradient,
+    rounded && styles.tagPillRounded,
+    sizeClass,
     className
   ].filter(Boolean).join(' ');
 
   const content = (
     <>
-      <span className="tag-pill-content">{children}</span>
+      <span className={styles.tagPillContent}>{children}</span>
       {removable && (
         <button
           type="button"
           aria-label="remove"
-          className="tag-pill-remove"
+          className={styles.tagPillRemove}
           onClick={(e) => { e.stopPropagation(); onRemove && onRemove(e); }}
         >
           <FaTimes />
