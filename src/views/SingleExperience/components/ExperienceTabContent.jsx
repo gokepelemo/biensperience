@@ -162,26 +162,24 @@ function SortableExperiencePlanItem({
           )}
         </div>
       </div>
-      <div className="plan-item-details p-2 p-md-3">
-        {(Number(planItem.cost_estimate) > 0 ||
-          Number(planItem.planning_days) > 0) && (
+      {(Number(planItem.cost_estimate) > 0 ||
+        Number(planItem.planning_days) > 0) && (
+        <div className="plan-item-details p-2 p-md-3">
           <div className="plan-item-meta">
             {Number(planItem.cost_estimate) > 0 && (
-              <span className="d-flex align-items-center gap-2">
-                <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.cost}</Text>
-                {formatCurrency(planItem.cost_estimate)}
+              <span className="plan-item-cost" title="Estimated Cost">
+                💰 {formatCurrency(planItem.cost_estimate)}
               </span>
             )}
             {Number(planItem.planning_days) > 0 && (
-              <span className="d-flex align-items-center gap-2">
-                <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.planningDays}</Text>
-                {planItem.planning_days}{" "}
+              <span className="plan-item-days" title="Planning Days">
+                📅 {planItem.planning_days}{" "}
                 {planItem.planning_days === 1 ? lang.en.label.day : lang.en.label.days}
               </span>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -276,6 +274,30 @@ export default function ExperienceTabContent({
       const children = childrenMap.get(parent._id.toString()) || [];
       reorderedItems.push(...children);
     });
+
+    // Validate before calling API
+    if (reorderedItems.length === 0) {
+      debug.warn('[ExperienceDrag] Cannot reorder - empty reorderedItems array');
+      return;
+    }
+
+    if (reorderedItems.length !== experience.plan_items.length) {
+      debug.error('[ExperienceDrag] Item count mismatch', {
+        reorderedCount: reorderedItems.length,
+        originalCount: experience.plan_items.length
+      });
+      return;
+    }
+
+    // Validate all items have _id
+    const missingIds = reorderedItems.filter(item => !item._id);
+    if (missingIds.length > 0) {
+      debug.error('[ExperienceDrag] Items missing _id', {
+        missingCount: missingIds.length,
+        sample: missingIds[0]
+      });
+      return;
+    }
 
     if (onReorderExperiencePlanItems) {
       onReorderExperiencePlanItems(experience._id, reorderedItems, active.id.toString());

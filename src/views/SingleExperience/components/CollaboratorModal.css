@@ -5,11 +5,11 @@
 
 .collaborator-modal-content .btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-sm);
 }
 
 .collaborator-modal-content .btn:disabled {
-  opacity: 0.5;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
   transform: none;
 }
@@ -17,13 +17,13 @@
 /* Form input styles */
 .collaborator-modal-content .form-control:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 0.2rem var(--color-primary-alpha-20);
+  box-shadow: 0 0 0 var(--space-0-5) var(--color-primary-alpha-20);
   background-color: var(--color-bg-primary);
 }
 
 .collaborator-modal-content .form-control::placeholder {
   color: var(--color-text-placeholder);
-  opacity: 0.6;
+  opacity: var(--opacity-disabled);
 }
 
 /* List group styles */
@@ -47,7 +47,7 @@
 
 /* Button group active state */
 .collaborator-modal-content .btn-group .btn.active {
-  box-shadow: 0 2px 8px var(--color-primary-alpha-30);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Info alert styling (overrides Bootstrap) */
@@ -85,10 +85,10 @@
 /* High contrast mode support */
 @media (prefers-contrast: high) {
   .collaborator-modal-content .btn {
-    border-width: 2px;
+    border-width: var(--space-0-5);
   }
-  
+
   .collaborator-modal-content .form-control {
-    border-width: 2px;
+    border-width: var(--space-0-5);
   }
 }

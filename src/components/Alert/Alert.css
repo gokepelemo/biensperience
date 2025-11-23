@@ -16,7 +16,7 @@
 }
 
 .alert-icon {
-  font-size: 1.25rem;
+  font-size: var(--font-size-xl);
   flex-shrink: 0;
   line-height: 1;
 }
@@ -27,7 +27,7 @@
 }
 
 .alert-title {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   margin-bottom: var(--space-1);
 }
 
@@ -51,12 +51,12 @@
 }
 
 .alert-lg .alert-icon {
-  font-size: 1.5rem;
+  font-size: var(--font-size-2xl);
 }
 
 /* Dismissible Alerts */
 .alert-dismissible {
-  padding-right: 3rem;
+  padding-right: var(--space-12);
 }
 
 .alert-dismissible .btn-close {
@@ -184,11 +184,11 @@
 /* Responsive Adjustments */
 @media (max-width: 768px) {
   .alert {
-    padding: 0.875rem 1rem;
+    padding: var(--space-3-5) var(--space-4);
   }
 
   .alert-dismissible {
-    padding-right: 2.5rem;
+    padding-right: var(--space-10);
   }
 
   .alert-dismissible .btn-close {
@@ -201,7 +201,7 @@
   }
 
   .alert-icon {
-    font-size: 1.1rem;
+    font-size: var(--font-size-lg);
   }
 }
 

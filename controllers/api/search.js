@@ -22,7 +22,7 @@ function isSuperAdmin(user) {
 const SEARCH_CONFIG = {
   defaultLimit: 10,
   maxLimit: 50,
-  minQueryLength: 2,
+  minQueryLength: 1, // Allow single character searches for better UX
   // Future: Add Algolia/Elasticsearch configuration here
   externalService: null, // Set to 'algolia', 'elasticsearch', etc. when ready
 };

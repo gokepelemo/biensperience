@@ -5,12 +5,17 @@
  * @module InteractiveTextArea
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Form, Dropdown } from 'react-bootstrap';
 import {
   createMention,
-  MENTION_TYPES
+  MENTION_TYPES,
+  parseMentions,
+  editableTextToMentions
 } from '../../utilities/mentions';
+import { resolveMentionsToDisplayText } from '../../utilities/mention-resolver';
+import { searchAll } from '../../utilities/search-api';
+import { logger } from '../../utilities/logger';
 import './InteractiveTextArea.css';
 
 /**
@@ -45,7 +50,10 @@ const InteractiveTextArea = ({
   const [suggestions, setSuggestions] = useState([]);
   const [cursorPosition, setCursorPosition] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
+  const [isSearching, setIsSearching] = useState(false);
   const textareaRef = useRef(null);
+  const containerRef = useRef(null);
+  const searchDebounceRef = useRef(null);
 
   const visibilityOptions = [
     { value: 'public', label: 'Public', icon: '🌐' },
@@ -53,37 +61,125 @@ const InteractiveTextArea = ({
     { value: 'private', label: 'Private', icon: '🔒' }
   ];
 
+  // Convert stored format {entity/id} to display format @Name or #Name for initial display
+  // After that, we work entirely in display format until submit
+  const [internalValue, setInternalValue] = useState('');
+  const [isResolvingMentions, setIsResolvingMentions] = useState(false);
+
+  // Sync with external value changes (e.g., when editing an existing note)
+  // Fetch entity names from API to convert {entity/id} to @Name
+  useEffect(() => {
+    const resolveMentions = async () => {
+      if (!value) {
+        setInternalValue('');
+        return;
+      }
+
+      setIsResolvingMentions(true);
+      try {
+        // Build plan items map from entityData for efficiency
+        const planItemsMap = {};
+        if (entityData) {
+          Object.entries(entityData).forEach(([id, entity]) => {
+            if (entity.type === 'plan-item' || entity.experience_name) {
+              planItemsMap[id] = entity;
+            }
+          });
+        }
+
+        // Resolve mentions via API
+        const displayText = await resolveMentionsToDisplayText(value, planItemsMap);
+        setInternalValue(displayText);
+      } catch (error) {
+        console.error('[InteractiveTextArea] Failed to resolve mentions:', error);
+        // Fallback: show raw storage format
+        setInternalValue(value);
+      } finally {
+        setIsResolvingMentions(false);
+      }
+    };
+
+    resolveMentions();
+  }, [value, entityData]);
+
   /**
    * Handle textarea input changes
+   * User sees display format (@Name), but we emit storage format ({entity/id})
    */
   const handleInputChange = useCallback((e) => {
-    const newValue = e.target.value;
+    const newDisplayValue = e.target.value;
     const newCursorPosition = e.target.selectionStart;
 
     setCursorPosition(newCursorPosition);
+    setInternalValue(newDisplayValue);
 
     // Check for mention triggers (@ for users, # for plan items)
-    const textBeforeCursor = newValue.slice(0, newCursorPosition);
+    const textBeforeCursor = newDisplayValue.slice(0, newCursorPosition);
     const userMentionMatch = textBeforeCursor.match(/@(\w*)$/);
     const planItemMentionMatch = textBeforeCursor.match(/#(\w*)$/);
 
     if (userMentionMatch) {
-      const query = userMentionMatch[1].toLowerCase();
+      const query = userMentionMatch[1];
       setMentionStart(newCursorPosition - query.length - 1);
 
-      // Filter for users only
-      const filteredEntities = availableEntities.filter(entity =>
-        entity.type === 'user' &&
-        (entity.displayName.toLowerCase().includes(query))
-      );
+      // Clear existing debounce timer
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
 
-      setSuggestions(filteredEntities.slice(0, 5)); // Limit to 5 suggestions
-      setShowSuggestions(true);
+      // If query is empty, show empty suggestions (but don't return early)
+      if (!query.trim()) {
+        setSuggestions([]);
+        setShowSuggestions(true);
+      } else {
+        // Debounce global search for @ mentions (users, destinations, experiences)
+        setIsSearching(true);
+        searchDebounceRef.current = setTimeout(async () => {
+          try {
+            logger.debug('[InteractiveTextArea] Searching for entities', { query });
+
+            // First, filter local availableEntities by query
+            const localMatches = (availableEntities || [])
+              .filter(entity =>
+                entity.type !== 'plan-item' && // Exclude plan items from @ search
+                entity.displayName?.toLowerCase().includes(query.toLowerCase())
+              );
+
+            // Then get global search results
+            const results = await searchAll(query, {
+              types: ['user', 'destination', 'experience'],
+              limit: 5
+            });
+
+            // Transform global search results to entity format
+            const globalEntities = results.map(result => ({
+              type: result.type,
+              id: result._id,
+              displayName: result.type === 'user'
+                ? (result.name || result.username || 'Unknown User')
+                : (result.name || 'Unknown')
+            }));
+
+            // Merge: local matches first, then global results (removing duplicates)
+            const localIds = new Set(localMatches.map(e => e.id));
+            const uniqueGlobalEntities = globalEntities.filter(e => !localIds.has(e.id));
+            const mergedEntities = [...localMatches, ...uniqueGlobalEntities];
+
+            setSuggestions(mergedEntities);
+            setShowSuggestions(true);
+            setIsSearching(false);
+          } catch (error) {
+            logger.error('[InteractiveTextArea] Entity search failed', { query }, error);
+            setSuggestions([]);
+            setIsSearching(false);
+          }
+        }, 300); // 300ms debounce
+      }
     } else if (planItemMentionMatch) {
       const query = planItemMentionMatch[1].toLowerCase();
       setMentionStart(newCursorPosition - query.length - 1);
 
-      // Filter for plan items only
+      // Filter for plan items only (# prefix) - uses local availableEntities
       const filteredEntities = availableEntities.filter(entity =>
         entity.type === 'plan-item' &&
         (entity.displayName.toLowerCase().includes(query))
@@ -92,39 +188,76 @@ const InteractiveTextArea = ({
       setSuggestions(filteredEntities.slice(0, 5)); // Limit to 5 suggestions
       setShowSuggestions(true);
     } else {
+      // Clear suggestions if no mention trigger
       setShowSuggestions(false);
       setMentionStart(-1);
+
+      // Clear debounce timer
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
     }
 
-    onChange(newValue);
+    // Convert display format back to storage format before emitting
+    // This ensures parent always receives {entity/id} format
+    const storageValue = editableTextToMentions(newDisplayValue, availableEntities);
+    onChange(storageValue);
   }, [onChange, availableEntities]);
 
   /**
    * Handle mention selection from suggestions
+   * Insert storage format {entity/id} which will be displayed as @Name or #Name
    */
-  const handleMentionSelect = useCallback((entity) => {
+  const handleMentionSelect = useCallback(async (entity) => {
     if (!textareaRef.current) return;
 
     const textarea = textareaRef.current;
-    // Create mention with entity/{type}/{id} format for backend storage
-    const mentionText = createMention(entity.type, entity.id, entity.displayName);
+
+    // Create storage format: {entity/id}
+    const storageMention = createMention(entity.type, entity.id, entity.displayName);
+
     const textBeforeMention = value.slice(0, mentionStart);
     const textAfterCursor = value.slice(cursorPosition);
 
-    const newText = textBeforeMention + mentionText + ' ' + textAfterCursor;
-    const newCursorPosition = textBeforeMention.length + mentionText.length + 1;
+    // Insert the storage format into the actual value
+    const newStorageValue = textBeforeMention + storageMention + ' ' + textAfterCursor;
 
-    onChange(newText);
+    // Pass storage format to parent immediately
+    onChange(newStorageValue);
 
-    // Update cursor position
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-    }, 0);
+    // Resolve the new value to display format
+    setIsResolvingMentions(true);
+    try {
+      const planItemsMap = {};
+      if (entityData) {
+        Object.entries(entityData).forEach(([id, entity]) => {
+          if (entity.type === 'plan-item' || entity.experience_name) {
+            planItemsMap[id] = entity;
+          }
+        });
+      }
+
+      const displayText = await resolveMentionsToDisplayText(newStorageValue, planItemsMap);
+      setInternalValue(displayText);
+
+      // Calculate cursor position in display text
+      const displayBeforeMention = await resolveMentionsToDisplayText(textBeforeMention, planItemsMap);
+      const newCursorPosition = displayBeforeMention.length + (entity.type === 'plan-item' ? '#' : '@').length + entity.displayName.length + 1;
+
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+      }, 0);
+    } catch (error) {
+      console.error('[InteractiveTextArea] Failed to resolve mention after selection:', error);
+      setInternalValue(newStorageValue);
+    } finally {
+      setIsResolvingMentions(false);
+    }
 
     setShowSuggestions(false);
     setMentionStart(-1);
-  }, [value, mentionStart, cursorPosition, onChange]);
+  }, [value, mentionStart, cursorPosition, onChange, entityData]);
 
   /**
    * Handle keyboard navigation in suggestions
@@ -149,7 +282,8 @@ const InteractiveTextArea = ({
    */
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (textareaRef.current && !textareaRef.current.contains(event.target)) {
+      // Check if click is outside the entire container (including suggestions dropdown)
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
         setShowSuggestions(false);
         setMentionStart(-1);
       }
@@ -159,12 +293,23 @@ const InteractiveTextArea = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  /**
+   * Cleanup debounce timer on unmount
+   */
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <div className={`interactive-textarea ${className}`}>
+    <div ref={containerRef} className={`interactive-textarea ${className}`}>
       <Form.Control
         ref={textareaRef}
         as="textarea"
-        value={value}
+        value={internalValue}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
@@ -175,26 +320,42 @@ const InteractiveTextArea = ({
       />
 
       {/* Suggestions dropdown */}
-      {showSuggestions && suggestions.length > 0 && (
+      {showSuggestions && (
         <div className="mentions-suggestions">
-          {suggestions.map((entity, index) => (
-            <div
-              key={`${entity.type}-${entity.id}`}
-              className="mention-suggestion-item"
-              onClick={() => handleMentionSelect(entity)}
-            >
-              <div className="mention-suggestion-icon">
-                {entity.type === MENTION_TYPES.USER && '👤'}
-                {entity.type === MENTION_TYPES.DESTINATION && '📍'}
-                {entity.type === MENTION_TYPES.EXPERIENCE && '🎯'}
-                {entity.type === 'plan-item' && '✅'}
-              </div>
+          {isSearching ? (
+            <div className="mention-suggestion-item">
+              <div className="mention-suggestion-icon">⏳</div>
               <div className="mention-suggestion-content">
-                <div className="mention-suggestion-name">{entity.displayName}</div>
-                <div className="mention-suggestion-type">{entity.type}</div>
+                <div className="mention-suggestion-name">Searching...</div>
               </div>
             </div>
-          ))}
+          ) : suggestions.length > 0 ? (
+            suggestions.map((entity, index) => (
+              <div
+                key={`${entity.type}-${entity.id}`}
+                className="mention-suggestion-item"
+                onClick={() => handleMentionSelect(entity)}
+              >
+                <div className="mention-suggestion-icon">
+                  {entity.type === MENTION_TYPES.USER && '👤'}
+                  {entity.type === MENTION_TYPES.DESTINATION && '📍'}
+                  {entity.type === MENTION_TYPES.EXPERIENCE && '🎯'}
+                  {entity.type === 'plan-item' && '✅'}
+                </div>
+                <div className="mention-suggestion-content">
+                  <div className="mention-suggestion-name">{entity.displayName}</div>
+                  <div className="mention-suggestion-type">{entity.type}</div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="mention-suggestion-item">
+              <div className="mention-suggestion-icon">🔍</div>
+              <div className="mention-suggestion-content">
+                <div className="mention-suggestion-name">No results found</div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

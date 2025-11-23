@@ -19,7 +19,7 @@
     font-size: var(--font-size-base);
     padding: var(--space-3);
     border-radius: var(--radius-md);
-    border: 2px solid var(--color-border-medium);
+    border: var(--space-0-5) solid var(--color-border-medium);
     background: var(--color-bg-input);
     color: var(--color-text-primary);
     width: 100%;
@@ -29,7 +29,7 @@
 .uploadPhoto input[type="text"]:focus,
 .uploadPhoto input[type="url"]:focus {
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 0.2rem var(--color-primary-alpha);
+    box-shadow: 0 0 0 var(--space-0-5) var(--color-primary-alpha);
     outline: none;
 }
 
@@ -105,7 +105,7 @@
     font-size: var(--btn-gradient-font-size);
     font-weight: var(--btn-gradient-font-weight);
     border-radius: var(--btn-gradient-border-radius);
-    border: 2px solid transparent;
+    border: var(--space-0-5) solid transparent;
     cursor: pointer;
     transition: all var(--transition-base);
     min-height: var(--btn-gradient-min-height);
@@ -132,7 +132,7 @@
 }
 
 .upload-btn:disabled {
-    opacity: 0.6;
+    opacity: var(--opacity-disabled);
     cursor: not-allowed;
 }
 
@@ -160,7 +160,7 @@
 .uploaded-photos-list {
     margin-top: var(--space-6);
     padding-top: var(--space-6);
-    border-top: 2px solid var(--color-border-medium);
+    border-top: var(--space-0-5) solid var(--color-border-medium);
 }
 
 .uploaded-photos-list h5 {
@@ -180,7 +180,7 @@
 
 .photo-item {
     position: relative;
-    border: 2px solid var(--color-border-medium);
+    border: var(--space-0-5) solid var(--color-border-medium);
     border-radius: var(--radius-lg);
     padding: var(--space-3);
     background: var(--color-bg-secondary);
@@ -201,7 +201,7 @@
 .photo-item-disabled {
     border-color: var(--color-error);
     background: var(--color-bg-tertiary);
-    opacity: 0.7;
+    opacity: var(--opacity-disabled);
 }
 
 .photo-item-disabled::before {
@@ -211,8 +211,8 @@
     right: var(--space-2);
     background: var(--color-error);
     color: var(--color-text-inverse);
-    width: 32px;
-    height: 32px;
+    width: var(--space-8);
+    height: var(--space-8);
     border-radius: var(--radius-full);
     display: flex;
     align-items: center;
@@ -258,12 +258,12 @@
 /* Badge color overrides for proper contrast */
 .photo-item-info .badge.bg-primary {
     background: var(--color-primary) !important;
-    color: #ffffff !important;
+    color: var(--color-white) !important;
 }
 
 .photo-item-info .badge.bg-danger {
     background: var(--color-danger) !important;
-    color: #ffffff !important;
+    color: var(--color-white) !important;
 }
 
 .photo-item-actions {
@@ -279,7 +279,7 @@
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-md);
     font-weight: var(--font-weight-medium);
-    border-width: 2px;
+    border-width: var(--space-0-5);
     transition: all var(--transition-base);
     /* Prevent layout shifts */
     transform: none !important;
@@ -287,7 +287,7 @@
 
 /* URL Queue Styles - Design System Compliant */
 .url-queue {
-    border: 2px solid var(--color-border-medium);
+    border: var(--space-0-5) solid var(--color-border-medium);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
     background: var(--color-bg-secondary);
@@ -307,7 +307,7 @@
     justify-content: space-between;
     padding: var(--space-3);
     background: var(--color-bg-input);
-    border: 2px solid var(--color-border-light);
+    border: var(--space-0-5) solid var(--color-border-light);
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all var(--transition-base);
@@ -356,8 +356,8 @@
 
 .url-queue-item-remove {
     flex-shrink: 0;
-    width: 36px;
-    height: 36px;
+    width: var(--space-9);
+    height: var(--space-9);
     padding: 0;
     display: flex;
     align-items: center;
@@ -365,7 +365,7 @@
     border-radius: var(--radius-full);
     font-size: var(--font-size-xl);
     line-height: 1;
-    border-width: 2px;
+    border-width: var(--space-0-5);
     transition: all var(--transition-base);
     /* Prevent layout shifts */
     transform: none !important;
@@ -397,7 +397,7 @@
 
 .input-group .btn-outline-primary {
     border-radius: 0 var(--radius-md) var(--radius-md) 0;
-    border-left: 2px solid var(--color-border-medium);
+    border-left: var(--space-0-5) solid var(--color-border-medium);
     font-size: var(--font-size-lg);
     font-weight: var(--font-weight-bold);
     padding: var(--space-2) var(--space-4);
@@ -454,8 +454,8 @@
 
     .url-queue-item-remove {
         align-self: flex-end;
-        width: 32px;
-        height: 32px;
+        width: var(--space-8);
+        height: var(--space-8);
     }
 
     .upload-btn,
@@ -488,6 +488,6 @@
     }
 
     .url-queue-item.editing {
-        background: rgba(102, 126, 234, 0.15);
+        background: var(--color-primary-alpha);
     }
 }

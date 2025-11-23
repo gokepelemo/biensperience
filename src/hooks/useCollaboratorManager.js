@@ -37,7 +37,8 @@ import {
   addCollaborator,
   removeCollaborator
 } from '../utilities/plans-api';
-import { searchUsers, sendEmailInvite } from '../utilities/users-service';
+import { searchUsers } from '../utilities/users-api';
+import { sendEmailInvite } from '../utilities/invites-api';
 import { handleError } from '../utilities/error-handler';
 import useOptimisticAction from './useOptimisticAction';
 import debug from '../utilities/debug';
@@ -184,15 +185,12 @@ export default function useCollaboratorManager({
         prev.filter((u) => !idEquals(u._id, userId))
       );
 
-      // If this was an existing collaborator, add to removed list
+      // If this was an existing collaborator, add their ID to removed list
       const wasExisting = existingCollaborators.some((u) =>
         idEquals(u._id, userId)
       );
       if (wasExisting) {
-        const collaborator = existingCollaborators.find((u) =>
-          idEquals(u._id, userId)
-        );
-        setRemovedCollaborators((prev) => [...prev, collaborator]);
+        setRemovedCollaborators((prev) => [...prev, userId]);
       }
     },
     [existingCollaborators]
@@ -233,7 +231,7 @@ export default function useCollaboratorManager({
         if (isExperienceContext) {
           setExperience((prev) => {
             if (!prev) return prev;
-            const toRemoveIds = new Set(removedCollaborators.map((c) => c._id));
+            const toRemoveIds = new Set(removedCollaborators);
             const withoutRemoved = (prev.permissions || []).filter(
               (p) =>
                 !(
@@ -254,7 +252,7 @@ export default function useCollaboratorManager({
           // Update selected plan's permissions (could be userPlan or a collaborative plan)
           const applyToPlan = (plan) => {
             if (!plan) return plan;
-            const toRemoveIds = new Set(removedCollaborators.map((c) => c._id));
+            const toRemoveIds = new Set(removedCollaborators);
             const withoutRemoved = (plan.permissions || []).filter(
               (p) =>
                 !(
@@ -300,16 +298,16 @@ export default function useCollaboratorManager({
 
       const apiCall = async () => {
         // Perform removals first, then additions
-        for (const collaborator of removedCollaborators) {
+        for (const collaboratorId of removedCollaborators) {
           try {
             if (isExperienceContext) {
-              await removeExperienceCollaborator(experienceId, collaborator._id);
+              await removeExperienceCollaborator(experienceId, collaboratorId);
             } else {
-              await removeCollaborator(selectedPlanId, collaborator._id);
+              await removeCollaborator(selectedPlanId, collaboratorId);
             }
           } catch (err) {
             debug.error(
-              `Error removing collaborator ${collaborator.name}:`,
+              `Error removing collaborator ${collaboratorId}:`,
               err
             );
             throw err;

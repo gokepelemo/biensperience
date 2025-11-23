@@ -81,14 +81,43 @@
 
 /* Mention links in rendered text */
 .mention-link {
-  color: var(--color-primary) !important;
-  text-decoration: underline !important;
-  cursor: pointer !important;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
   transition: var(--transition-fast);
+  font-weight: var(--font-weight-medium);
 }
 
 .mention-link:hover {
-  opacity: 0.8;
+  opacity: 0.85;
+  text-decoration-thickness: 2px;
+}
+
+/* Mention links on light backgrounds (default) */
+.mention-link:not([data-on-dark]) {
+  color: var(--color-primary);
+}
+
+.mention-link:not([data-on-dark]):hover {
+  color: var(--color-primary-dark);
+}
+
+/* Mention links on dark/colored backgrounds (purple bubble, dark mode) */
+/* Use light color for visibility and accessibility on purple gradient */
+[style*="background"][style*="var(--color-primary)"] .mention-link,
+[style*="backgroundColor: var(--color-primary)"] .mention-link,
+.mention-link[data-on-dark="true"] {
+  color: #ffffff !important;
+  text-decoration-color: rgba(255, 255, 255, 0.7);
+}
+
+[style*="background"][style*="var(--color-primary)"] .mention-link:hover,
+[style*="backgroundColor: var(--color-primary)"] .mention-link:hover,
+.mention-link[data-on-dark="true"]:hover {
+  color: #ffffff !important;
+  opacity: 0.9;
+  text-decoration-color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
 }
 
 /* Dark mode support */
@@ -108,6 +137,16 @@
 
   .interactive-textarea-footer {
     border-top-color: var(--color-border-dark);
+  }
+
+  /* Mention links in dark mode - use lighter primary color for better contrast */
+  .mention-link:not([data-on-dark]) {
+    color: var(--color-primary-hover); /* Lighter purple (#7c8ff0) in dark mode */
+  }
+
+  .mention-link:not([data-on-dark]):hover {
+    color: #8c9ff5; /* Even lighter on hover */
+    text-decoration-thickness: 2px;
   }
 }
 

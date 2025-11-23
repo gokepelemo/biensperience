@@ -39,7 +39,7 @@
 .btn-outline {
   background: transparent;
   color: var(--color-primary);
-  border: 2px solid var(--color-primary);
+  border: var(--space-0-5) solid var(--color-primary);
 }
 
 /* Link-style button (text-only) */
@@ -47,7 +47,7 @@
   background: transparent;
   color: var(--color-primary);
   border: none;
-  padding: 0.25rem 0.5rem;
+  padding: var(--space-1) var(--space-2);
   min-height: auto;
   height: auto;
   line-height: 1;
@@ -60,7 +60,7 @@
 
 .btn-outline:hover:not(:disabled) {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-white);
   border-color: var(--color-primary);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
@@ -102,7 +102,7 @@
 
 /* Disabled state */
 .btn-custom:disabled {
-  opacity: 0.6;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
@@ -110,8 +110,8 @@
 
 /* Focus state for accessibility */
 .btn-custom:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: var(--space-0-5) solid var(--color-primary);
+  outline-offset: var(--space-0-5);
 }
 
 /* Dark mode adjustments */

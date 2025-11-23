@@ -1,6 +1,7 @@
 /**
  * MyPlanTabContent Component
  * Displays user's plan with CRUD operations, metrics, and collaborative features
+ * Updated to match The Plan tab design for cost and planning days display
  */
 
 import { Link } from 'react-router-dom';
@@ -261,63 +262,64 @@ function SortablePlanItem({
           })()}
         </div>
       </div>
+      {/* Always show details section for View Details button */}
       <div className="plan-item-details p-2 p-md-3">
-        <div className="plan-item-meta">
-          {Number(planItem.cost) > 0 && (
-            <span className="plan-item-cost" title="Estimated Cost">
-              💰 {formatCurrency(planItem.cost)}
-            </span>
-          )}
-          {Number(planItem.planning_days) > 0 && (
-            <span className="plan-item-days" title="Planning Days">
-              📅 {planItem.planning_days}{" "}
-              {planItem.planning_days === 1 ? lang.en.label.day : lang.en.label.days}
-            </span>
-          )}
+          <div className="plan-item-meta">
+            {Number(planItem.cost) > 0 && (
+              <span className="plan-item-cost" title="Estimated Cost">
+                💰 {formatCurrency(planItem.cost)}
+              </span>
+            )}
+            {Number(planItem.planning_days) > 0 && (
+              <span className="plan-item-days" title="Planning Days">
+                📅 {planItem.planning_days}{" "}
+                {planItem.planning_days === 1 ? lang.en.label.day : lang.en.label.days}
+              </span>
+            )}
 
-          {/* Assignment indicator */}
-          {planItem.assignedTo && (() => {
-            const assigneeId = planItem.assignedTo._id || planItem.assignedTo;
-            const assignee = [planOwner, ...planCollaborators].find(c => {
-              const collabId = c?._id || c?.user?._id;
-              return collabId === assigneeId;
-            });
-            const assigneeName = assignee?.name || assignee?.user?.name || 'Assigned';
+            {/* Assignment indicator */}
+            {planItem.assignedTo && (() => {
+              const assigneeId = planItem.assignedTo._id || planItem.assignedTo;
+              const assignee = [planOwner, ...planCollaborators].find(c => {
+                const collabId = c?._id || c?.user?._id;
+                return collabId === assigneeId;
+              });
+              const assigneeName = assignee?.name || assignee?.user?.name || 'Assigned';
 
-            return (
-              <Link
-                to={`/profile/${assigneeId}`}
-                className="plan-item-assigned"
-                title={`Assigned to ${assigneeName} - Click to view profile`}
-                style={{ textDecoration: 'none', color: 'inherit' }}
+              return (
+                <Link
+                  to={`/profile/${assigneeId}`}
+                  className="plan-item-assigned"
+                  title={`Assigned to ${assigneeName} - Click to view profile`}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
+                  👤 {assigneeName}
+                </Link>
+              );
+            })()}
+
+            {/* Notes count indicator - clickable to open details modal with notes tab */}
+            {planItem.details?.notes?.length > 0 && (
+              <span
+                className="plan-item-notes-count"
+                title="Click to view notes"
+                style={{ cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleViewPlanItemDetails(planItem, 'notes');
+                }}
               >
-                👤 {assigneeName}
-              </Link>
-            );
-          })()}
+                📝 {planItem.details.notes.length}
+              </span>
+            )}
 
-          {/* Notes count indicator - clickable to open details modal with notes tab */}
-          {planItem.details?.notes?.length > 0 && (
-            <span
-              className="plan-item-notes-count"
-              title="Click to view notes"
-              style={{ cursor: 'pointer' }}
+            {/* View Details button - always visible */}
+            <button
+              className="btn-view-details"
               onClick={(e) => {
                 e.stopPropagation();
-                handleViewPlanItemDetails(planItem, 'notes');
+                handleViewPlanItemDetails(planItem);
               }}
-            >
-              📝 {planItem.details.notes.length}
-            </span>
-          )}
-
-          {/* View Details button - always visible */}
-          <button
-            className="btn-view-details"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewPlanItemDetails(planItem);
-            }}
             type="button"
             title="View notes, assignments, and other details"
           >

@@ -188,17 +188,13 @@ export default function CollaboratorModal({
                   gap: 'var(--space-2)',
                   marginBottom: 'var(--space-3)'
                 }}>
-                  {existingCollaborators.map(collab => {
-                    const isRemoved = removedCollaborators.includes(collab._id);
-                    return (
+                  {existingCollaborators
+                    .filter(collab => !removedCollaborators.includes(collab._id))
+                    .map(collab => (
                       <Pill
                         key={collab._id}
-                        variant={isRemoved ? 'danger' : 'primary'}
+                        variant="primary"
                         size="md"
-                        style={{
-                          opacity: isRemoved ? 0.6 : 1,
-                          textDecoration: isRemoved ? 'line-through' : 'none',
-                        }}
                       >
                         {collab.name}
                         <FaTimes
@@ -206,12 +202,10 @@ export default function CollaboratorModal({
                           style={{
                             cursor: 'pointer',
                             marginLeft: 'var(--space-2)',
-                            opacity: isRemoved ? 0.5 : 1,
                           }}
                         />
                       </Pill>
-                    );
-                  })}
+                    ))}
                 </div>
               )}
             </div>

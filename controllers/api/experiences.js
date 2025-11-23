@@ -837,20 +837,6 @@ async function createPlanItem(req, res) {
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate({
-        path: "user",
-        select: "name email photo photos default_photo_id",
-        populate: [
-          {
-            path: "photo",
-            model: "Photo"
-          },
-          {
-            path: "photos",
-            model: "Photo"
-          }
-        ]
-      })
-      .populate({
         path: "permissions._id",
         populate: [
           {
@@ -862,7 +848,11 @@ async function createPlanItem(req, res) {
             model: "Photo"
           }
         ],
-        select: "name photo photos default_photo_id"
+        select: "name email photo photos default_photo_id"
+      })
+      .populate({
+        path: "photos",
+        model: "Photo"
       });
     
     if (!experience) {
@@ -893,20 +883,6 @@ async function createPlanItem(req, res) {
     experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate({
-        path: "user",
-        select: "name email photo photos default_photo_id",
-        populate: [
-          {
-            path: "photo",
-            model: "Photo"
-          },
-          {
-            path: "photos",
-            model: "Photo"
-          }
-        ]
-      })
-      .populate({
         path: "permissions._id",
         populate: [
           {
@@ -918,7 +894,11 @@ async function createPlanItem(req, res) {
             model: "Photo"
           }
         ],
-        select: "name photo photos default_photo_id"
+        select: "name email photo photos default_photo_id"
+      })
+      .populate({
+        path: "photos",
+        model: "Photo"
       });
 
     res.status(201).json(experience);
@@ -941,20 +921,6 @@ async function updatePlanItem(req, res) {
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate({
-        path: "user",
-        select: "name email photo photos default_photo_id",
-        populate: [
-          {
-            path: "photo",
-            model: "Photo"
-          },
-          {
-            path: "photos",
-            model: "Photo"
-          }
-        ]
-      })
-      .populate({
         path: "permissions._id",
         populate: [
           {
@@ -966,7 +932,11 @@ async function updatePlanItem(req, res) {
             model: "Photo"
           }
         ],
-        select: "name photo photos default_photo_id"
+        select: "name email photo photos default_photo_id"
+      })
+      .populate({
+        path: "photos",
+        model: "Photo"
       });
     
     if (!experience) {
@@ -974,16 +944,19 @@ async function updatePlanItem(req, res) {
     }
     
     // Check if user has permission to edit using PermissionEnforcer
+    // Use canEdit() for proper permission check including email verification
+    // Email verification IS required for modifying experience content
     const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canEdit({
       userId: req.user._id,
       resource: experience
     });
-    
+
     if (!permCheck.allowed) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'Not authorized to modify plan items',
-        message: permCheck.reason || 'You must be the owner or a collaborator to update plan items.'
+        message: permCheck.reason || 'You must be the owner or a collaborator to update plan items.',
+        code: permCheck.reason?.includes('verify') ? 'EMAIL_NOT_VERIFIED' : 'FORBIDDEN'
       });
     }
     
@@ -1002,20 +975,6 @@ async function updatePlanItem(req, res) {
     experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate({
-        path: "user",
-        select: "name email photo photos default_photo_id",
-        populate: [
-          {
-            path: "photo",
-            model: "Photo"
-          },
-          {
-            path: "photos",
-            model: "Photo"
-          }
-        ]
-      })
-      .populate({
         path: "permissions._id",
         populate: [
           {
@@ -1027,7 +986,11 @@ async function updatePlanItem(req, res) {
             model: "Photo"
           }
         ],
-        select: "name photo photos default_photo_id"
+        select: "name email photo photos default_photo_id"
+      })
+      .populate({
+        path: "photos",
+        model: "Photo"
       });
 
     res.status(200).json(experience);
@@ -1050,20 +1013,6 @@ async function deletePlanItem(req, res) {
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate({
-        path: "user",
-        select: "name email photo photos default_photo_id",
-        populate: [
-          {
-            path: "photo",
-            model: "Photo"
-          },
-          {
-            path: "photos",
-            model: "Photo"
-          }
-        ]
-      })
-      .populate({
         path: "permissions._id",
         populate: [
           {
@@ -1075,7 +1024,11 @@ async function deletePlanItem(req, res) {
             model: "Photo"
           }
         ],
-        select: "name photo photos default_photo_id"
+        select: "name email photo photos default_photo_id"
+      })
+      .populate({
+        path: "photos",
+        model: "Photo"
       });
     
     if (!experience) {
@@ -1108,20 +1061,6 @@ async function deletePlanItem(req, res) {
     experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate({
-        path: "user",
-        select: "name email photo photos default_photo_id",
-        populate: [
-          {
-            path: "photo",
-            model: "Photo"
-          },
-          {
-            path: "photos",
-            model: "Photo"
-          }
-        ]
-      })
-      .populate({
         path: "permissions._id",
         populate: [
           {
@@ -1133,7 +1072,11 @@ async function deletePlanItem(req, res) {
             model: "Photo"
           }
         ],
-        select: "name photo photos default_photo_id"
+        select: "name email photo photos default_photo_id"
+      })
+      .populate({
+        path: "photos",
+        model: "Photo"
       });
     
     res.status(200).json(experience);
@@ -1829,7 +1772,12 @@ async function reorderExperiencePlanItems(req, res) {
   backendLogger.debug('Experience plan items reorder request received', {
     experienceId,
     itemCount: reorderedItems?.length,
-    userId: req.user?._id?.toString()
+    userId: req.user?._id?.toString(),
+    firstItemSample: reorderedItems?.[0] ? {
+      hasId: !!reorderedItems[0]._id,
+      idType: typeof reorderedItems[0]._id,
+      keys: Object.keys(reorderedItems[0])
+    } : null
   });
 
   try {
@@ -1846,6 +1794,21 @@ async function reorderExperiencePlanItems(req, res) {
         receivedType: typeof reorderedItems
       });
       return res.status(400).json({ error: "Plan items must be an array" });
+    }
+
+    // Validate that all items have _id
+    const itemsWithoutId = reorderedItems.filter(item => !item._id);
+    if (itemsWithoutId.length > 0) {
+      backendLogger.warn('Reordered items missing _id', {
+        experienceId,
+        missingCount: itemsWithoutId.length,
+        totalCount: reorderedItems.length,
+        sampleItem: itemsWithoutId[0]
+      });
+      return res.status(400).json({
+        error: "Invalid plan items",
+        message: "All plan items must have an _id field"
+      });
     }
 
     let experience = await Experience.findById(experienceId);
@@ -1909,9 +1872,11 @@ async function reorderExperiencePlanItems(req, res) {
 
     // Track the update activity
     await trackUpdate({
-      userId: req.user._id,
+      resource: experience,
       resourceType: 'Experience',
-      resourceId: experience._id,
+      actor: req.user,
+      req,
+      reason: 'Experience plan items reordered',
       changes: {
         field: 'plan_items',
         action: 'reordered',
@@ -1929,20 +1894,6 @@ async function reorderExperiencePlanItems(req, res) {
     experience = await Experience.findById(experienceId)
       .populate("destination")
       .populate({
-        path: "user",
-        select: "name email photo photos default_photo_id",
-        populate: [
-          {
-            path: "photo",
-            model: "Photo"
-          },
-          {
-            path: "photos",
-            model: "Photo"
-          }
-        ]
-      })
-      .populate({
         path: "permissions._id",
         populate: [
           {
@@ -1954,7 +1905,11 @@ async function reorderExperiencePlanItems(req, res) {
             model: "Photo"
           }
         ],
-        select: "name photo photos default_photo_id"
+        select: "name email photo photos default_photo_id"
+      })
+      .populate({
+        path: "photos",
+        model: "Photo"
       });
 
     res.json(experience);

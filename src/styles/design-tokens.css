@@ -112,7 +112,13 @@
   --color-bg-tertiary: #e9ecef;
   --color-bg-hover: rgba(102, 126, 234, 0.05);
   --color-bg-overlay: rgba(0, 0, 0, 0.75);
+  --color-bg-overlay-light: rgba(255, 255, 255, 0.15);
+  --color-border-overlay: rgba(255, 255, 255, 0.25);
   --color-bg-input: #ffffff;
+
+  /* Shimmer/Loading Colors */
+  --color-shimmer-light: rgba(255, 255, 255, 0.4);
+  --color-shimmer-dark: rgba(255, 255, 255, 0.1);
 
   /* Semantic Colors */
   --color-success: #28a745;

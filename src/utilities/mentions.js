@@ -75,8 +75,13 @@ export function parseMentions(text) {
  * @param {Object} entity - Entity data
  * @returns {string} Display text for the mention
  */
-export function getMentionDisplayText(entityType, entity) {
-  if (!entity) return `@${entityType}:unknown`;
+export function getMentionDisplayText(entityType, entity, entityId) {
+  // If entity not found, provide a more descriptive fallback
+  if (!entity) {
+    const prefix = entityType === 'plan-item' ? '#' : '@';
+    const typeLabel = entityType.charAt(0).toUpperCase() + entityType.slice(1);
+    return `${prefix}${typeLabel} (not found)`;
+  }
 
   const prefix = entityType === 'plan-item' ? '#' : '@';
 
@@ -129,7 +134,7 @@ export function getEntityUrl(entityType, entityId, entity) {
  */
 export function renderMention(mention, entity, onEntityClick) {
   const { entityType, entityId } = mention;
-  const displayText = getMentionDisplayText(entityType, entity);
+  const displayText = getMentionDisplayText(entityType, entity, entityId);
   const entityUrl = getEntityUrl(entityType, entityId, entity);
 
   const handleClick = (e) => {
@@ -142,7 +147,7 @@ export function renderMention(mention, entity, onEntityClick) {
   const popoverContent = (
     <Popover id={`mention-popover-${entityType}-${entityId}`}>
       <Popover.Header as="h3">
-        {getMentionDisplayText(entityType, entity)}
+        {getMentionDisplayText(entityType, entity, entityId)}
       </Popover.Header>
       <Popover.Body>
         {entity ? (
@@ -185,7 +190,10 @@ export function renderMention(mention, entity, onEntityClick) {
             )}
           </div>
         ) : (
-          <p>Entity not found or loading...</p>
+          <div>
+            <p><em>This {entityType} was mentioned but is no longer available. It may have been deleted or moved.</em></p>
+            <p className="text-muted small">ID: {entityId}</p>
+          </div>
         )}
       </Popover.Body>
     </Popover>
@@ -225,6 +233,16 @@ export function renderTextWithMentions(text, entities = {}, onEntityClick) {
           return <span key={index}>{segment.content}</span>;
         } else if (segment.type === 'mention') {
           const entity = entities[segment.entityId];
+
+          // Log missing entities for debugging (can be removed in production)
+          if (!entity) {
+            logger.debug('[renderTextWithMentions] Entity not found in current context', {
+              entityId: segment.entityId,
+              entityType: segment.entityType,
+              note: 'This entity may have been deleted, moved, or referenced from another context'
+            });
+          }
+
           return (
             <span key={index}>
               {renderMention(segment, entity, onEntityClick)}
@@ -320,4 +338,55 @@ export function mentionsToEditableText(text, entities = {}) {
     }
     return '';
   }).join('');
+}
+
+/**
+ * Convert display format @{name} or #{name} back to stored format {entity/id}
+ * @param {string} text - Text with @{name} or #{name} mentions
+ * @param {Array} availableEntities - Array of entity objects with {id, type, displayName}
+ * @returns {string} Text with {entity/id} format for storage
+ */
+export function editableTextToMentions(text, availableEntities = []) {
+  if (!text) return '';
+
+  // Build a map of displayName -> entity for quick lookup
+  const nameToEntity = {};
+  availableEntities.forEach(entity => {
+    const key = `${entity.type}:${entity.displayName}`;
+    nameToEntity[key] = entity;
+  });
+
+  // Match @Name or #Name patterns
+  // Use word boundary and allow spaces, hyphens, and apostrophes in names
+  const mentionRegex = /(@|#)([A-Za-z0-9\s\-']+)/g;
+
+  return text.replace(mentionRegex, (match, prefix, name) => {
+    const trimmedName = name.trim();
+
+    // Determine entity type based on prefix
+    const entityType = prefix === '#' ? 'plan-item' : 'user';
+
+    // Try to find the entity
+    const entityKey = `${entityType}:${trimmedName}`;
+    const entity = nameToEntity[entityKey];
+
+    if (entity) {
+      // Convert to stored format
+      return createMention(entity.type, entity.id, entity.displayName);
+    }
+
+    // If not found, try other types (for @ prefix, also check destinations and experiences)
+    if (prefix === '@') {
+      for (const type of ['destination', 'experience']) {
+        const key = `${type}:${trimmedName}`;
+        const foundEntity = nameToEntity[key];
+        if (foundEntity) {
+          return createMention(foundEntity.type, foundEntity.id, foundEntity.displayName);
+        }
+      }
+    }
+
+    // If still not found, return the original text
+    return match;
+  });
 }

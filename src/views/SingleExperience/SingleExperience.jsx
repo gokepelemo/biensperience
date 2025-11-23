@@ -22,6 +22,7 @@ import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useCollaboratorUsers } from "../../hooks/useCollaboratorUsers";
+import useCollaboratorManager from "../../hooks/useCollaboratorManager";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
@@ -84,6 +85,10 @@ import { searchUsers } from "../../utilities/search-api";
 import { sendEmailInvite } from "../../utilities/invites-api";
 
 export default function SingleExperience() {
+  // ============================================================================
+  // CONSTANTS & HELPER FUNCTIONS
+  // ============================================================================
+
   // Constants for sync alert cookie management
   const SYNC_ALERT_COOKIE = "planSyncAlertDismissed";
   const SYNC_ALERT_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
@@ -105,6 +110,11 @@ export default function SingleExperience() {
       debug.warn('setSyncAlertCookie failed', err);
     }
   }
+
+  // ============================================================================
+  // CONTEXT HOOKS & ROUTER
+  // ============================================================================
+
   const { user } = useUser();
   const { removeExperience, fetchExperiences, fetchPlans, experiences: ctxExperiences, updateExperience: updateExperienceInContext, setOptimisticPlanStateForExperience, clearOptimisticPlanStateForExperience } = useData();
   const {
@@ -124,6 +134,10 @@ export default function SingleExperience() {
     hash: window.location.hash,
     href: window.location.href
   });
+
+  // ============================================================================
+  // CUSTOM HOOKS
+  // ============================================================================
 
   // Plan management hook - replaces plan-related state and functions
   const {
@@ -152,62 +166,54 @@ export default function SingleExperience() {
     deletePlan: deletePlanViaHook
   } = usePlanManagement(experienceId, user?._id);
 
+  // ============================================================================
+  // COMPONENT STATE
+  // ============================================================================
+
+  // Core experience data
   const [experience, setExperience] = useState(null);
   const [travelTips, setTravelTips] = useState([]);
-  const [favHover, setFavHover] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // UI state
+  const [favHover, setFavHover] = useState(false);
   const [hoveredPlanItem, setHoveredPlanItem] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isEditingDate, setIsEditingDate] = useState(false);
+  const [activeTab, setActiveTab] = useState("experience"); // "experience" or "myplan"
+  const [hashSelecting, setHashSelecting] = useState(false);
+  const [pendingUnplan, setPendingUnplan] = useState(false); // Hide planned date immediately when user clicks Remove (before confirm)
+
+  // Plan item UI state
   const [expandedParents, setExpandedParents] = useState(new Set());
   const [animatingCollapse, setAnimatingCollapse] = useState(null);
-  const [isEditingDate, setIsEditingDate] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showRemoveModal, setShowRemoveModal] = useState(false);
-  const [showPlanDeleteModal, setShowPlanDeleteModal] = useState(false);
-  const [planItemToDelete, setPlanItemToDelete] = useState(null);
-  const [showPlanInstanceDeleteModal, setShowPlanInstanceDeleteModal] =
-    useState(false);
-  const [planInstanceItemToDelete, setPlanInstanceItemToDelete] =
-    useState(null);
-  // Hide planned date immediately when user clicks Remove (before confirm)
-  const [pendingUnplan, setPendingUnplan] = useState(false);
-  const [activeTab, setActiveTab] = useState("experience"); // "experience" or "myplan"
-  const planButtonRef = useRef(null);
-  const [planBtnWidth, setPlanBtnWidth] = useState(null);
-  const [hashSelecting, setHashSelecting] = useState(false);
+
+  // Sync state
   const [showSyncButton, setShowSyncButton] = useState(false);
-  const [showSyncAlert, setShowSyncAlert] = useState(true); // Separate state for alert visibility
+  const [showSyncAlert, setShowSyncAlert] = useState(true);
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncChanges, setSyncChanges] = useState(null);
-  const [selectedSyncItems, setSelectedSyncItems] = useState({
-    added: [],
-    removed: [],
-    modified: [],
-  });
-  const [showCollaboratorModal, setShowCollaboratorModal] = useState(false);
-  const [collaboratorContext, setCollaboratorContext] = useState("plan"); // 'plan' or 'experience'
-  const [collaboratorSearch, setCollaboratorSearch] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [selectedCollaborators, setSelectedCollaborators] = useState([]); // Multiple selected collaborators
-  const [existingCollaborators, setExistingCollaborators] = useState([]); // Existing collaborators when modal opens
-  const [removedCollaborators, setRemovedCollaborators] = useState([]); // Collaborators marked for removal
-  const [collaboratorAddSuccess, setCollaboratorAddSuccess] = useState(false);
-  const [addedCollaborators, setAddedCollaborators] = useState([]); // Track multiple additions
-  const [actuallyRemovedCollaborators, setActuallyRemovedCollaborators] =
-    useState([]); // Track actually removed for success message
-  const [showEmailInviteForm, setShowEmailInviteForm] = useState(false); // Toggle email invite form
-  const [emailInviteData, setEmailInviteData] = useState({
-    email: "",
-    name: "",
-  }); // Email invite form data
-  const [emailInviteSending, setEmailInviteSending] = useState(false); // Email sending state
-  const [emailInviteError, setEmailInviteError] = useState(""); // Email invite errors
+  const [selectedSyncItems, setSelectedSyncItems] = useState({ added: [], removed: [], modified: [] });
+
+  // Modal state - Delete/Remove modals
+  const [showDeleteModal, setShowDeleteModal] = useState(false); // Delete experience
+  const [showRemoveModal, setShowRemoveModal] = useState(false); // Remove from my plan
+  const [showPlanDeleteModal, setShowPlanDeleteModal] = useState(false); // Delete plan item from experience
+  const [planItemToDelete, setPlanItemToDelete] = useState(null);
+  const [showPlanInstanceDeleteModal, setShowPlanInstanceDeleteModal] = useState(false); // Delete plan item from instance
+  const [planInstanceItemToDelete, setPlanInstanceItemToDelete] = useState(null);
+
+  // Modal state - Plan item modals
   const [showPlanItemModal, setShowPlanItemModal] = useState(false);
   const [planItemFormState, setPlanItemFormState] = useState(1); // 1 = add, 0 = edit
   const [editingPlanItem, setEditingPlanItem] = useState({});
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedDetailsItem, setSelectedDetailsItem] = useState(null);
   const [detailsModalInitialTab, setDetailsModalInitialTab] = useState('notes');
+
+  // Refs
+  const planButtonRef = useRef(null);
+  const [planBtnWidth, setPlanBtnWidth] = useState(null);
 
   // Ref for dynamic font sizing on planned date metric
   const plannedDateRef = useRef(null);
@@ -233,6 +239,10 @@ export default function SingleExperience() {
       isUnmountingRef.current = true;
     };
   }, []);
+
+  // ============================================================================
+  // MEMOIZED VALUES & COMPUTED STATE
+  // ============================================================================
 
   // Helper to compare IDs safely (ObjectId or string)
   const idEquals = useCallback((a, b) => {
@@ -300,6 +310,10 @@ export default function SingleExperience() {
       ),
     [currentPlan]
   );
+
+  // ============================================================================
+  // SIDE EFFECTS & EVENT LISTENERS
+  // ============================================================================
 
   // Keep local `experience` in sync when DataContext's `experiences` is updated
   useEffect(() => {
@@ -640,10 +654,18 @@ export default function SingleExperience() {
 
     // Add current destination
     if (experience?.destination) {
+      // Handle both populated object and string ID
+      const destId = typeof experience.destination === 'string'
+        ? experience.destination
+        : experience.destination._id;
+      const destName = typeof experience.destination === 'object'
+        ? (experience.destination.name || 'Unknown Destination')
+        : 'Unknown Destination';
+
       entities.push({
         type: 'destination',
-        id: experience.destination._id,
-        displayName: experience.destination.name || 'Unknown Destination'
+        id: destId,
+        displayName: destName
       });
     }
 
@@ -690,13 +712,26 @@ export default function SingleExperience() {
 
     // Add destination
     if (experience?.destination) {
-      data[experience.destination._id] = {
-        _id: experience.destination._id,
-        name: experience.destination.name,
-        city: experience.destination.city,
-        country: experience.destination.country,
-        description: experience.destination.description
-      };
+      // Handle both populated object and string ID
+      if (typeof experience.destination === 'object') {
+        const destId = experience.destination._id;
+        data[destId] = {
+          _id: destId,
+          name: experience.destination.name,
+          city: experience.destination.city,
+          country: experience.destination.country,
+          description: experience.destination.description
+        };
+      } else {
+        // Destination is just an ID string - add minimal data
+        data[experience.destination] = {
+          _id: experience.destination,
+          name: 'Destination',
+          city: null,
+          country: null,
+          description: null
+        };
+      }
     }
 
     // Add experience
@@ -890,6 +925,30 @@ export default function SingleExperience() {
 
   // fetchUserPlan, fetchCollaborativePlans, and fetchPlans are now provided by usePlanManagement hook
 
+  // Collaborator management hook (must be after fetchExperience is defined)
+  const collaboratorManager = useCollaboratorManager({
+    experienceId,
+    experience,
+    selectedPlanId,
+    userPlan,
+    collaborativePlans,
+    setExperience,
+    setUserPlan,
+    setCollaborativePlans,
+    fetchExperience,
+    fetchPlans,
+    fetchCollaborativePlans,
+    experienceCollaborators,
+    planCollaborators,
+    user,
+    success,
+    showError
+  });
+
+  // ============================================================================
+  // CALLBACK FUNCTIONS & EVENT HANDLERS
+  // ============================================================================
+
   const checkPlanDivergence = useCallback((plan, experience) => {
     // Defensive guards: ensure both plan.plan and experience.plan_items are arrays
     if (!plan || !experience || !Array.isArray(experience.plan_items) || !Array.isArray(plan.plan)) {
@@ -975,20 +1034,7 @@ export default function SingleExperience() {
     setPlanItemToDelete(null);
     setShowPlanInstanceDeleteModal(false);
     setPlanInstanceItemToDelete(null);
-    setShowCollaboratorModal(false);
-    setCollaboratorContext("plan");
-    setCollaboratorSearch("");
-    setSearchResults([]);
-    setSelectedCollaborators([]);
-    setExistingCollaborators([]);
-    setRemovedCollaborators([]);
-    setCollaboratorAddSuccess(false);
-    setAddedCollaborators([]);
-    setActuallyRemovedCollaborators([]);
-    setShowEmailInviteForm(false);
-    setEmailInviteData({ email: "", name: "" });
-    setEmailInviteSending(false);
-    setEmailInviteError("");
+    // Collaborator state is now managed by useCollaboratorManager hook
     setShowPlanItemModal(false);
     setPlanItemFormState(1);
     setEditingPlanItem({});
@@ -1941,299 +1987,7 @@ export default function SingleExperience() {
     }
   }, [plansLoading, collaborativePlans, selectedPlanId, hashSelecting, user._id, idEquals, handlePlanChange]);
 
-  const handleAddCollaborator = useCallback(
-    async (e) => {
-      e.preventDefault();
-      setLoading(true);
-      // Determine which entity to add/remove collaborators
-      const isExperienceContext = collaboratorContext === "experience";
-      if (!isExperienceContext && !selectedPlanId) {
-        setLoading(false);
-        return;
-      }
-
-      // Compute additions vs existing
-      const collaboratorsToAdd = selectedCollaborators.filter(
-        (selected) =>
-          !existingCollaborators.some((existing) => existing._id === selected._id)
-      );
-
-      // Snapshot previous state for rollback
-      const prevExperience = experience ? { ...experience } : null;
-      const prevUserPlan = userPlan ? { ...userPlan } : null;
-      const prevCollaborativePlans = collaborativePlans
-        ? collaborativePlans.map((p) => ({ ...p }))
-        : [];
-
-      const apply = () => {
-        // Optimistically update permissions arrays so collaborator chips update immediately
-        if (isExperienceContext) {
-          setExperience((prev) => {
-            if (!prev) return prev;
-            const toRemoveIds = new Set(removedCollaborators.map((c) => c._id));
-            const withoutRemoved = (prev.permissions || []).filter(
-              (p) => !(p.entity === "user" && p.type === "collaborator" && toRemoveIds.has(p._id))
-            );
-            const addedPerms = collaboratorsToAdd.map((c) => ({
-              _id: c._id,
-              entity: "user",
-              type: "collaborator",
-              granted_at: new Date().toISOString(),
-            }));
-            return { ...prev, permissions: [...withoutRemoved, ...addedPerms] };
-          });
-        } else {
-          // Update selected plan's permissions (could be userPlan or a collaborative plan)
-          const applyToPlan = (plan) => {
-            if (!plan) return plan;
-            const toRemoveIds = new Set(removedCollaborators.map((c) => c._id));
-            const withoutRemoved = (plan.permissions || []).filter(
-              (p) => !(p.entity === "user" && p.type === "collaborator" && toRemoveIds.has(p._id))
-            );
-            const addedPerms = collaboratorsToAdd.map((c) => ({
-              _id: c._id,
-              entity: "user",
-              type: "collaborator",
-              granted_at: new Date().toISOString(),
-            }));
-            return { ...plan, permissions: [...withoutRemoved, ...addedPerms] };
-          };
-
-          if (userPlan && idEquals(userPlan._id, selectedPlanId)) {
-            setUserPlan((prev) => applyToPlan(prev));
-          } else {
-            setCollaborativePlans((prev) =>
-              prev.map((p) => (idEquals(p._id, selectedPlanId) ? applyToPlan(p) : p))
-            );
-          }
-        }
-      };
-
-      const rollback = () => {
-        if (isExperienceContext) {
-          setExperience(prevExperience);
-        } else {
-          // Restore both possible containers
-          if (prevUserPlan && idEquals(prevUserPlan._id, selectedPlanId)) {
-            setUserPlan(prevUserPlan);
-          }
-          if (prevCollaborativePlans?.length) {
-            setCollaborativePlans(prevCollaborativePlans);
-          }
-        }
-      };
-
-      const apiCall = async () => {
-        // Perform removals first, then additions
-        for (const collaborator of removedCollaborators) {
-          try {
-            if (isExperienceContext) {
-              await removeExperienceCollaborator(experienceId, collaborator._id);
-            } else {
-              await removeCollaborator(selectedPlanId, collaborator._id);
-            }
-          } catch (err) {
-            debug.error(`Error removing collaborator ${collaborator.name}:`, err);
-            throw err;
-          }
-        }
-
-        for (const collaborator of collaboratorsToAdd) {
-          try {
-            if (isExperienceContext) {
-              await addExperienceCollaborator(experienceId, collaborator._id);
-            } else {
-              await addCollaborator(selectedPlanId, collaborator._id);
-            }
-          } catch (err) {
-            debug.error(`Error adding collaborator ${collaborator.name}:`, err);
-            throw err;
-          }
-        }
-      };
-
-      const onSuccess = async () => {
-        try {
-          if (isExperienceContext) {
-            await fetchExperience();
-          } else {
-            await fetchCollaborativePlans();
-            await fetchPlans();
-          }
-          // Track the added and removed collaborators for success message
-          setAddedCollaborators(collaboratorsToAdd);
-          setActuallyRemovedCollaborators(removedCollaborators);
-          setCollaboratorAddSuccess(true);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      const onError = (err) => {
-        const errorMsg = handleError(err, { context: "Manage collaborators" });
-        showError(errorMsg);
-        setLoading(false);
-      };
-
-      const run = useOptimisticAction({
-        apply,
-        apiCall,
-        rollback,
-        onSuccess,
-        onError,
-        context: "Manage collaborators",
-      });
-      await run();
-    },
-    [
-      selectedCollaborators,
-      existingCollaborators,
-      removedCollaborators,
-      selectedPlanId,
-      collaboratorContext,
-      experienceId,
-      fetchCollaborativePlans,
-      fetchExperience,
-      userPlan,
-      collaborativePlans,
-      fetchPlans,
-    ]
-  );
-
-  const handleSendEmailInvite = useCallback(
-    async (e) => {
-      e.preventDefault();
-
-      // Validation
-      if (!emailInviteData.email.trim() || !emailInviteData.name.trim()) {
-        setEmailInviteError(lang.en.label.emailAndNameRequired);
-        return;
-      }
-
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(emailInviteData.email)) {
-        setEmailInviteError("Please enter a valid email address");
-        return;
-      }
-
-      setEmailInviteSending(true);
-      setEmailInviteError("");
-
-      try {
-        await sendEmailInvite({
-          email: emailInviteData.email,
-          name: emailInviteData.name,
-          resourceType: "experience",
-          resourceId: experienceId,
-          resourceName: experience?.title || "this experience",
-          customMessage: `Join me in planning ${
-            experience?.title || "this experience"
-          }!`,
-          permissionType: "collaborator",
-        });
-
-        // Show success
-        success(`Email invite sent successfully to ${emailInviteData.email}!`);
-
-        // Reset form
-        setEmailInviteData({ email: "", name: "" });
-        setShowEmailInviteForm(false);
-      } catch (error) {
-        setEmailInviteError(error.message || "Failed to send email invite");
-      } finally {
-        setEmailInviteSending(false);
-      }
-    },
-    [emailInviteData, experienceId, experience, success]
-  );
-
-  const handleSelectUser = useCallback((user) => {
-    // Add to selected collaborators if not already selected
-    setSelectedCollaborators((prev) => {
-      if (prev.some((u) => idEquals(u._id, user._id))) {
-        return prev; // Already selected
-      }
-      return [...prev, user];
-    });
-
-    // Clear search
-    setCollaboratorSearch("");
-    setSearchResults([]);
-  }, []);
-
-  const handleRemoveSelectedCollaborator = useCallback(
-    (userId) => {
-      // Remove from newly selected collaborators
-      setSelectedCollaborators((prev) => prev.filter((u) => !idEquals(u._id, userId)));
-
-      // If this was an existing collaborator, toggle in removed list
-      const wasExisting = existingCollaborators.some((u) => idEquals(u._id, userId));
-      if (wasExisting) {
-        setRemovedCollaborators((prev) => {
-          // Toggle: if already marked for removal, un-mark it; otherwise mark it
-          const isAlreadyRemoved = prev.includes(userId);
-          if (isAlreadyRemoved) {
-            return prev.filter(id => id !== userId);
-          } else {
-            return [...prev, userId];
-          }
-        });
-      }
-    },
-    [existingCollaborators]
-  );
-
-  const openCollaboratorModal = useCallback(
-    (context) => {
-      setCollaboratorContext(context);
-
-      // Get existing collaborators based on context - use the fetched user data
-      let existing = [];
-      if (context === "experience") {
-        existing = experienceCollaborators || [];
-      } else {
-        existing = planCollaborators || [];
-      }
-
-      setExistingCollaborators(existing);
-      setSelectedCollaborators(existing);
-      setRemovedCollaborators([]);
-      setShowCollaboratorModal(true);
-    },
-    [experienceCollaborators, planCollaborators]
-  );
-
-  const handleSearchUsers = useCallback(
-    async (query) => {
-      setCollaboratorSearch(query);
-
-      if (query.length < 2) {
-        setSearchResults([]);
-        return;
-      }
-
-      try {
-        const results = await searchUsers(query);
-
-        // Filter out users that are already selected or are the current user (owner)
-        const filteredResults = results.filter((result) => {
-            // Don't show current user
-            if (idEquals(result._id, user._id)) return false;
-
-            // Don't show users that are already selected
-            const alreadySelected = selectedCollaborators.some((collab) => idEquals(collab._id, result._id));
-
-          return !alreadySelected;
-        });
-
-        setSearchResults(filteredResults);
-      } catch (err) {
-        debug.error("Error searching users:", err);
-        setSearchResults([]);
-      }
-    },
-    [selectedCollaborators, user]
-  );
+  // Collaborator handlers now provided by useCollaboratorManager hook
 
   // Memoized dollarSigns function for cost display
   const dollarSigns = useCallback((n) => {
@@ -2797,6 +2551,10 @@ export default function SingleExperience() {
     ]
   );
 
+  // ============================================================================
+  // MAIN COMPONENT RENDER
+  // ============================================================================
+
   return (
     <>
       {experience && (
@@ -2921,7 +2679,7 @@ export default function SingleExperience() {
                     animatingCollapse={animatingCollapse}
                     handleAddExperiencePlanItem={handleAddExperiencePlanItem}
                     handleEditExperiencePlanItem={handleEditExperiencePlanItem}
-                    openCollaboratorModal={openCollaboratorModal}
+                    openCollaboratorModal={collaboratorManager.openCollaboratorModal}
                     toggleExpanded={toggleExpanded}
                     setPlanItemToDelete={setPlanItemToDelete}
                     setShowPlanDeleteModal={setShowPlanDeleteModal}
@@ -2958,7 +2716,7 @@ export default function SingleExperience() {
                     handleAddPlanInstanceItem={handleAddPlanInstanceItem}
                     handleEditPlanInstanceItem={handleEditPlanInstanceItem}
                     handleViewPlanItemDetails={handleViewPlanItemDetails}
-                    openCollaboratorModal={openCollaboratorModal}
+                    openCollaboratorModal={collaboratorManager.openCollaboratorModal}
                     toggleExpanded={toggleExpanded}
                     setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
                     setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
@@ -3025,37 +2783,31 @@ export default function SingleExperience() {
 
       {/* Add Collaborator Modal */}
       <CollaboratorModal
-        show={showCollaboratorModal}
+        show={collaboratorManager.showCollaboratorModal}
         onHide={() => {
-          setShowCollaboratorModal(false);
-          setCollaboratorSearch("");
-          setSearchResults([]);
-          setCollaboratorAddSuccess(false);
-          setAddedCollaborators([]);
-          setActuallyRemovedCollaborators([]);
-          setSelectedCollaborators([]);
-          setExistingCollaborators([]);
-          setRemovedCollaborators([]);
+          collaboratorManager.setShowCollaboratorModal(false);
+          collaboratorManager.setCollaboratorSearch("");
+          collaboratorManager.setCollaboratorAddSuccess(false);
         }}
-        onSearch={handleSearchUsers}
-        onAddCollaborators={handleAddCollaborator}
-        onRemoveCollaborator={handleRemoveSelectedCollaborator}
-        onSendEmailInvite={handleSendEmailInvite}
-        context={collaboratorContext}
-        searchTerm={collaboratorSearch}
-        onSearchTermChange={setCollaboratorSearch}
-        searchResults={searchResults}
-        selectedCollaborators={selectedCollaborators}
-        onToggleCollaborator={handleSelectUser}
+        onSearch={collaboratorManager.handleSearchUsers}
+        onAddCollaborators={collaboratorManager.handleAddCollaborator}
+        onRemoveCollaborator={collaboratorManager.handleRemoveSelectedCollaborator}
+        onSendEmailInvite={collaboratorManager.handleSendEmailInvite}
+        context={collaboratorManager.collaboratorContext}
+        searchTerm={collaboratorManager.collaboratorSearch}
+        onSearchTermChange={collaboratorManager.setCollaboratorSearch}
+        searchResults={collaboratorManager.searchResults}
+        selectedCollaborators={collaboratorManager.selectedCollaborators}
+        onToggleCollaborator={collaboratorManager.handleSelectUser}
         existingCollaborators={
-          collaboratorContext === "plan"
+          collaboratorManager.collaboratorContext === "plan"
             ? planCollaborators
             : experienceCollaborators
         }
-        removedCollaborators={removedCollaborators}
-        addSuccess={collaboratorAddSuccess}
-        addedCollaborators={addedCollaborators}
-        actuallyRemovedCollaborators={actuallyRemovedCollaborators}
+        removedCollaborators={collaboratorManager.removedCollaborators}
+        addSuccess={collaboratorManager.collaboratorAddSuccess}
+        addedCollaborators={collaboratorManager.addedCollaborators}
+        actuallyRemovedCollaborators={collaboratorManager.actuallyRemovedCollaborators}
         experienceName={experience?.name || ""}
         destinationName={experience?.destination?.name || ""}
       />
@@ -3110,35 +2862,171 @@ export default function SingleExperience() {
         onAssign={async (userId) => {
           if (!selectedPlan || !selectedDetailsItem) return;
 
-          try {
-            const assignee = allPlanCollaborators.find(c => (c._id || c.user?._id) === userId);
-            const assigneeName = assignee?.name || assignee?.user?.name || 'Unknown User';
+          const assignee = allPlanCollaborators.find(c => (c._id || c.user?._id) === userId);
+          const assigneeName = assignee?.name || assignee?.user?.name || 'Unknown User';
 
+          // Store previous state for rollback
+          const previousAssignedTo = selectedDetailsItem.assigned_to;
+
+          try {
+            // Optimistic update: Update local state immediately
+            const updatePlanItemAssignment = (plans, planId, itemId, newAssignedTo) => {
+              return plans.map(plan => {
+                if (plan._id === planId) {
+                  return {
+                    ...plan,
+                    plan: plan.plan.map(item => {
+                      if (item._id === itemId) {
+                        return { ...item, assignedTo: newAssignedTo, assigned_to: newAssignedTo };
+                      }
+                      return item;
+                    })
+                  };
+                }
+                return plan;
+              });
+            };
+
+            // Update userPlan if it's the selected plan
+            if (userPlan?._id === selectedPlan._id) {
+              setUserPlan(prev => prev ? {
+                ...prev,
+                plan: prev.plan.map(item =>
+                  item._id === selectedDetailsItem._id
+                    ? { ...item, assignedTo: userId, assigned_to: userId }
+                    : item
+                )
+              } : prev);
+            }
+
+            // Update collaborativePlans if it's in there
+            setCollaborativePlans(prev => updatePlanItemAssignment(prev, selectedPlan._id, selectedDetailsItem._id, userId));
+
+            // Update selectedDetailsItem for the modal (both camelCase and snake_case for compatibility)
+            setSelectedDetailsItem(prev => prev ? { ...prev, assignedTo: userId, assigned_to: userId } : prev);
+
+            // Call API
             await assignPlanItem(selectedPlan._id, selectedDetailsItem._id, userId);
 
             // Show success toast
             success(`Assigned to ${assigneeName}`, { duration: 3000 });
 
-            // Refresh plan data
-            await fetchPlans();
+            // Note: No fetchPlans() call here - optimistic update is sufficient
+            // The plan will sync via WebSocket events or on next natural refresh
           } catch (error) {
             logger.error('Error assigning plan item', { error: error.message, userId });
+
+            // Rollback optimistic update on error
+            if (userPlan?._id === selectedPlan._id) {
+              setUserPlan(prev => prev ? {
+                ...prev,
+                plan: prev.plan.map(item =>
+                  item._id === selectedDetailsItem._id
+                    ? { ...item, assignedTo: previousAssignedTo, assigned_to: previousAssignedTo }
+                    : item
+                )
+              } : prev);
+            }
+
+            setCollaborativePlans(prev => prev.map(plan => {
+              if (plan._id === selectedPlan._id) {
+                return {
+                  ...plan,
+                  plan: plan.plan.map(item => {
+                    if (item._id === selectedDetailsItem._id) {
+                      return { ...item, assignedTo: previousAssignedTo, assigned_to: previousAssignedTo };
+                    }
+                    return item;
+                  })
+                };
+              }
+              return plan;
+            }));
+
+            // Rollback selectedDetailsItem for the modal (both camelCase and snake_case)
+            setSelectedDetailsItem(prev => prev ? { ...prev, assignedTo: previousAssignedTo, assigned_to: previousAssignedTo } : prev);
+
             showError(error.message || 'Failed to assign plan item');
           }
         }}
         onUnassign={async () => {
           if (!selectedPlan || !selectedDetailsItem) return;
 
+          // Store previous state for rollback
+          const previousAssignedTo = selectedDetailsItem.assigned_to;
+
           try {
+            // Optimistic update: Remove assignment immediately
+            if (userPlan?._id === selectedPlan._id) {
+              setUserPlan(prev => prev ? {
+                ...prev,
+                plan: prev.plan.map(item =>
+                  item._id === selectedDetailsItem._id
+                    ? { ...item, assignedTo: null, assigned_to: null }
+                    : item
+                )
+              } : prev);
+            }
+
+            setCollaborativePlans(prev => prev.map(plan => {
+              if (plan._id === selectedPlan._id) {
+                return {
+                  ...plan,
+                  plan: plan.plan.map(item => {
+                    if (item._id === selectedDetailsItem._id) {
+                      return { ...item, assignedTo: null, assigned_to: null };
+                    }
+                    return item;
+                  })
+                };
+              }
+              return plan;
+            }));
+
+            // Update selectedDetailsItem for the modal (both camelCase and snake_case)
+            setSelectedDetailsItem(prev => prev ? { ...prev, assignedTo: null, assigned_to: null } : prev);
+
+            // Call API
             await unassignPlanItem(selectedPlan._id, selectedDetailsItem._id);
 
             // Show success toast
             success('Unassigned plan item', { duration: 3000 });
 
-            // Refresh plan data
-            await fetchPlans();
+            // Note: No fetchPlans() call here - optimistic update is sufficient
+            // The plan will sync via WebSocket events or on next natural refresh
           } catch (error) {
             logger.error('Error unassigning plan item', { error: error.message });
+
+            // Rollback optimistic update on error
+            if (userPlan?._id === selectedPlan._id) {
+              setUserPlan(prev => prev ? {
+                ...prev,
+                plan: prev.plan.map(item =>
+                  item._id === selectedDetailsItem._id
+                    ? { ...item, assignedTo: previousAssignedTo, assigned_to: previousAssignedTo }
+                    : item
+                )
+              } : prev);
+            }
+
+            setCollaborativePlans(prev => prev.map(plan => {
+              if (plan._id === selectedPlan._id) {
+                return {
+                  ...plan,
+                  plan: plan.plan.map(item => {
+                    if (item._id === selectedDetailsItem._id) {
+                      return { ...item, assignedTo: previousAssignedTo, assigned_to: previousAssignedTo };
+                    }
+                    return item;
+                  })
+                };
+              }
+              return plan;
+            }));
+
+            // Rollback selectedDetailsItem for the modal (both camelCase and snake_case)
+            setSelectedDetailsItem(prev => prev ? { ...prev, assignedTo: previousAssignedTo, assigned_to: previousAssignedTo } : prev);
+
             showError(error.message || 'Failed to unassign plan item');
           }
         }}

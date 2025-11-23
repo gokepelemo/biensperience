@@ -32,13 +32,13 @@
 /* Outline variant */
 .pill-outline {
   background: transparent !important;
-  border: 1px solid currentColor;
+  border: var(--border-width-thin) solid currentColor;
 }
 
 /* Color variants */
 .pill-variant-primary {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-white);
 }
 
 .pill-outline.pill-variant-primary {
@@ -47,7 +47,7 @@
 
 .pill-variant-success {
   background: var(--color-success);
-  color: white;
+  color: var(--color-white);
 }
 
 .pill-outline.pill-variant-success {
@@ -65,7 +65,7 @@
 
 .pill-variant-danger {
   background: var(--color-danger);
-  color: white;
+  color: var(--color-white);
 }
 
 .pill-outline.pill-variant-danger {
@@ -74,7 +74,7 @@
 
 .pill-variant-info {
   background: var(--color-info);
-  color: white;
+  color: var(--color-white);
 }
 
 .pill-outline.pill-variant-info {
@@ -84,7 +84,7 @@
 .pill-variant-neutral {
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
-  border: 1px solid var(--color-border-light);
+  border: var(--border-width-thin) solid var(--color-border-light);
 }
 
 .pill-outline.pill-variant-neutral {
@@ -100,8 +100,8 @@
 
 /* Focus state for accessibility */
 .pill:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: var(--space-0-5) solid var(--color-primary);
+  outline-offset: var(--space-0-5);
 }
 
 /* Dark mode adjustments */

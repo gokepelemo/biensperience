@@ -212,7 +212,12 @@ export async function reorderExperiencePlanItems(experienceId, reorderedItems) {
   try {
     logger.debug('[experiences-api] Reordering experience plan items', {
       experienceId,
-      itemCount: reorderedItems.length
+      itemCount: reorderedItems.length,
+      firstItemSample: reorderedItems[0] ? {
+        _id: reorderedItems[0]._id,
+        name: reorderedItems[0].name,
+        hasAllFields: !!(reorderedItems[0]._id && reorderedItems[0].name)
+      } : null
     });
 
     const result = await sendRequest(

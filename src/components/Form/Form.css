@@ -44,7 +44,7 @@ input [type="checkbox"], .form-check-input {
 .form-control:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.1);
+  box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
 }
 
 .form-control::placeholder {
@@ -98,7 +98,7 @@ input [type="checkbox"], .form-check-input {
 
 .form-check-input:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.1);
+  box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
 }
 
 .form-check-input[type="radio"] {
@@ -133,7 +133,7 @@ input [type="checkbox"], .form-check-input {
 
   .form-control:focus {
     border-color: var(--color-primary-dark);
-    box-shadow: 0 0 0 3px rgba(var(--color-primary-dark-rgb), 0.1);
+    box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
   }
 
   .form-control::placeholder {
@@ -160,7 +160,7 @@ input [type="checkbox"], .form-check-input {
   }
 
   .form-check-input:focus {
-    box-shadow: 0 0 0 3px rgba(var(--color-primary-dark-rgb), 0.1);
+    box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
   }
 
   .form-label {

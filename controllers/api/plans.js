@@ -125,12 +125,20 @@ const createPlan = asyncHandler(async (req, res) => {
     user: req.user._id,
     planned_date: normalizedPlannedDate,
     plan: planSnapshot,
-    permissions: [{
-      _id: req.user._id,
-      entity: 'user',
-      type: 'owner',
-      granted_by: req.user._id
-    }]
+    permissions: [
+      {
+        _id: req.user._id,
+        entity: 'user',
+        type: 'owner',
+        granted_by: req.user._id
+      },
+      {
+        _id: experienceId,
+        entity: 'experience',
+        type: 'collaborator', // Inherit experience permissions
+        granted_by: req.user._id
+      }
+    ]
   });
 
   backendLogger.info('Plan created successfully', {
@@ -1674,9 +1682,16 @@ const assignPlanItem = asyncHandler(async (req, res) => {
   });
 
   // Diagnostic logging: plan permissions and assigned user's role
-  backendLogger.info('ASSIGN_PLAN_ITEM_DEBUG', {
+  backendLogger.info('ASSIGN_PLAN_ITEM_DEBUG: Plan details', {
     planId: plan._id.toString(),
-    permissions: plan.permissions,
+    planUser: plan.user.toString(),
+    experienceId: plan.experience.toString(),
+    permissionsCount: plan.permissions?.length || 0,
+    permissions: plan.permissions?.map(p => ({
+      _id: p._id.toString(),
+      entity: p.entity,
+      type: p.type
+    })),
     assignedTo,
     assignedBy: req.user._id.toString()
   });
@@ -1700,15 +1715,20 @@ const assignPlanItem = asyncHandler(async (req, res) => {
   }
 
   // Verify assignedTo user is owner or collaborator
-  const assignedUserPermCheck = await enforcer.canEdit({
+  // Use hasPermission() instead of canEdit() to skip email verification check
+  // Email verification is for content creation, not for being assigned to tasks
+  const assignedUserPermCheck = await enforcer.hasPermission({
     userId: assignedTo,
     resource: plan
   });
 
   backendLogger.info('ASSIGN_PLAN_ITEM_DEBUG: Assigned user permission check', {
     assignedTo,
+    assignedToString: assignedTo.toString(),
     allowed: assignedUserPermCheck.allowed,
-    reason: assignedUserPermCheck.reason
+    reason: assignedUserPermCheck.reason,
+    role: assignedUserPermCheck.role,
+    fullCheck: assignedUserPermCheck
   });
 
   if (!assignedUserPermCheck.allowed) {

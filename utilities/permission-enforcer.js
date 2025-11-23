@@ -235,6 +235,54 @@ class PermissionEnforcer {
   }
 
   /**
+   * Check if user has ANY permission on a resource (without email verification)
+   * This is useful for checking if someone can be assigned to tasks, etc.
+   * @param {Object} params - Parameters object
+   * @param {string} params.userId - User ID to check
+   * @param {Object} params.resource - Resource to check
+   * @param {Object} params.context - Optional context
+   * @returns {Promise<Object>} - { allowed: boolean, reason: string|null, role: string|null }
+   */
+  async hasPermission({ userId, resource, context = {} }) {
+    try {
+      if (!userId || !resource) {
+        return {
+          allowed: false,
+          reason: 'Missing required parameters: userId or resource',
+          role: null
+        };
+      }
+
+      const userIdStr = userId.toString ? userId.toString() : userId;
+
+      // Get user's permissions WITHOUT email verification check
+      const permissionInfo = await this._getUserPermissions(userIdStr, resource, context);
+
+      if (permissionInfo.role) {
+        return {
+          allowed: true,
+          reason: null,
+          role: permissionInfo.role,
+          inherited: permissionInfo.inherited || false
+        };
+      }
+
+      return {
+        allowed: false,
+        reason: 'User has no permission on this resource',
+        role: null
+      };
+    } catch (error) {
+      backendLogger.error('Error in hasPermission', { error: error.message, userId, resourceId: resource?._id });
+      return {
+        allowed: false,
+        reason: 'Error checking permissions',
+        role: null
+      };
+    }
+  }
+
+  /**
    * Filter a list of resources to only include those the user can view
    * @param {string} userId - User ID (null for anonymous)
    * @param {Array} resources - Array of resources

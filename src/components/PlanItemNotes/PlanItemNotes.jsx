@@ -11,7 +11,83 @@ import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import { renderTextWithMentions } from '../../utilities/mentions';
+import useEntityResolver from '../../hooks/useEntityResolver';
 import './PlanItemNotes.css';
+
+/**
+ * NoteMessage Component
+ * Individual note message with entity resolution for mentions
+ */
+function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, formatDate }) {
+  // Resolve any missing entities in this note's content
+  const { entityData: mergedEntityData } = useEntityResolver(note.content, entityData);
+
+  return (
+    <div
+      style={{
+        padding: 'var(--space-4) var(--space-5)',
+        backgroundColor: isAuthor ? 'var(--color-primary)' : 'var(--color-bg-secondary)',
+        color: isAuthor ? 'white' : 'var(--color-text-primary)',
+        borderRadius: isAuthor
+          ? 'var(--radius-2xl) var(--radius-2xl) var(--radius-sm) var(--radius-2xl)'
+          : 'var(--radius-2xl) var(--radius-2xl) var(--radius-2xl) var(--radius-sm)',
+        boxShadow: 'var(--shadow-sm)',
+        fontSize: 'var(--font-size-base)',
+        lineHeight: 'var(--line-height-relaxed)',
+        wordWrap: 'break-word'
+      }}
+    >
+      {renderTextWithMentions(note.content, mergedEntityData)}
+
+      {/* Timestamp and actions */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 'var(--space-2)',
+        fontSize: 'var(--font-size-xs)',
+        opacity: 0.8
+      }}>
+        <span>{formatDate(note.createdAt || note.updatedAt)}</span>
+
+        {isAuthor && (
+          <div style={{ display: 'flex', gap: 'var(--space-2)', marginLeft: 'var(--space-3)' }}>
+            <button
+              onClick={() => onStartEdit(note)}
+              type="button"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'inherit',
+                cursor: 'pointer',
+                padding: 0,
+                textDecoration: 'underline',
+                fontSize: 'inherit'
+              }}
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => onDelete(note._id)}
+              type="button"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'inherit',
+                cursor: 'pointer',
+                padding: 0,
+                textDecoration: 'underline',
+                fontSize: 'inherit'
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function PlanItemNotes({
   notes = [],
@@ -61,6 +137,7 @@ export default function PlanItemNotes({
 
     setIsAdding(true);
     try {
+      // newNoteContent is already in storage format {entity/id} from InteractiveTextArea
       await onAddNote(newNoteContent.trim(), newNoteVisibility);
       setNewNoteContent('');
       setNewNoteVisibility('public');
@@ -88,6 +165,7 @@ export default function PlanItemNotes({
     if (!editContent.trim()) return;
 
     try {
+      // editContent is already in storage format {entity/id} from InteractiveTextArea
       await onUpdateNote(noteId, editContent.trim(), editVisibility);
       setEditingNoteId(null);
       setEditContent('');
@@ -320,70 +398,15 @@ export default function PlanItemNotes({
                       </div>
                     </div>
                   ) : (
-                    // View mode
-                    <div
-                      style={{
-                        padding: 'var(--space-4) var(--space-5)',
-                        backgroundColor: isAuthor ? 'var(--color-primary)' : 'var(--color-bg-secondary)',
-                        color: isAuthor ? 'white' : 'var(--color-text-primary)',
-                        borderRadius: isAuthor
-                          ? 'var(--radius-2xl) var(--radius-2xl) var(--radius-sm) var(--radius-2xl)'
-                          : 'var(--radius-2xl) var(--radius-2xl) var(--radius-2xl) var(--radius-sm)',
-                        boxShadow: 'var(--shadow-sm)',
-                        fontSize: 'var(--font-size-base)',
-                        lineHeight: 'var(--line-height-relaxed)',
-                        wordWrap: 'break-word'
-                      }}
-                    >
-                      {renderTextWithMentions(note.content, entityData)}
-
-                      {/* Timestamp and actions */}
-                      <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginTop: 'var(--space-2)',
-                        fontSize: 'var(--font-size-xs)',
-                        opacity: 0.8
-                      }}>
-                        <span>{formatDate(note.createdAt || note.updatedAt)}</span>
-
-                        {isAuthor && (
-                          <div style={{ display: 'flex', gap: 'var(--space-2)', marginLeft: 'var(--space-3)' }}>
-                            <button
-                              onClick={() => handleStartEdit(note)}
-                              type="button"
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'inherit',
-                                cursor: 'pointer',
-                                padding: 0,
-                                textDecoration: 'underline',
-                                fontSize: 'inherit'
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteNote(note._id)}
-                              type="button"
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'inherit',
-                                cursor: 'pointer',
-                                padding: 0,
-                                textDecoration: 'underline',
-                                fontSize: 'inherit'
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    // View mode with entity resolution
+                    <NoteMessage
+                      note={note}
+                      entityData={entityData}
+                      isAuthor={isAuthor}
+                      onStartEdit={handleStartEdit}
+                      onDelete={handleDeleteNote}
+                      formatDate={formatDate}
+                    />
                   )}
                 </div>
 
