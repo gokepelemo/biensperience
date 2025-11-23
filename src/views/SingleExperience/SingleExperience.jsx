@@ -78,7 +78,7 @@ import {
 } from "../../utilities/plans-api";
 import { reconcileState, generateOptimisticId } from "../../utilities/event-bus";
 import { searchUsers } from "../../utilities/search-api";
-import { sendEmailInvite } from "../../utilities/users-api";
+import { sendEmailInvite } from "../../utilities/invites-api";
 
 export default function SingleExperience() {
   // Constants for sync alert cookie management
