@@ -1,9 +1,9 @@
-import "./AlertModal.css";
+import styles from "./AlertModal.module.scss";
 import Modal from "../Modal/Modal";
 
 /**
  * AlertModal - A reusable modal for displaying alert messages
- * 
+ *
  * @param {boolean} show - Controls modal visibility
  * @param {function} onClose - Callback when modal is closed
  * @param {string} title - Modal title
@@ -43,6 +43,7 @@ export default function AlertModal({
       showCancelButton={false}
       submitVariant="primary"
       centered={true}
+      contentClassName={styles.alertModal}
     >
       <div className={`alert ${variantClass} mb-0`}>
         {message}

@@ -1,0 +1,14 @@
+/**
+ * AlertModal Component Styles (SCSS Module)
+ * Migrated from AlertModal.css to AlertModal.module.scss
+ * Uses SASS variables for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+.alertModal {
+  :global(.modal-body .alert) {
+    border: none;
+    font-size: $font-size-base;
+  }
+}
