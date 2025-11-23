@@ -1,4 +1,4 @@
-import "./NewExperience.css";
+import "./NewExperience.module.scss";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";

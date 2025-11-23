@@ -1,0 +1,30 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Modal animations - using :global() for Bootstrap classes */
+:global(.modal.fade.show) {
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+:global(.modal-dialog-centered) {
+  animation: modalSlideUp 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
