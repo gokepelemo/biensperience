@@ -27,6 +27,7 @@
     cursor: pointer;
     box-shadow: var(--shadow-sm);
     border: none;
+    margin: var(--space-2); /* Default margin for all buttons */
 }
 
 /* Button sizes */
