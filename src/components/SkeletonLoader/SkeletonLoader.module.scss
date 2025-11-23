@@ -1,0 +1,102 @@
+/**
+ * SkeletonLoader Component Styles (SCSS Module)
+ * Migrated from SkeletonLoader.css to SkeletonLoader.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+.skeletonLoader {
+  background: var(--color-bg-tertiary);
+  border-radius: $radius-sm;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animation */
+.skeletonAnimate::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-shimmer-light),
+    transparent
+  );
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Text variant */
+.skeletonText {
+  height: $font-size-base;
+  border-radius: $radius-sm;
+}
+
+/* Circle variant */
+.skeletonCircle {
+  border-radius: $radius-full;
+  aspect-ratio: 1;
+}
+
+/* Rectangle variant */
+.skeletonRectangle {
+  border-radius: $radius-md;
+}
+
+/* Text group container */
+.skeletonTextGroup {
+  @include flex-column;
+}
+
+/* Size variants */
+.skeletonText.skeletonSm {
+  height: $font-size-sm;
+}
+
+.skeletonText.skeletonLg {
+  height: $font-size-lg;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .skeletonLoader {
+    background: var(--color-bg-tertiary-dark);
+  }
+
+  .skeletonAnimate::before {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--color-shimmer-dark),
+      transparent
+    );
+  }
+}
+
+[data-theme="dark"] {
+  .skeletonLoader {
+    background: var(--color-bg-tertiary-dark);
+  }
+
+  .skeletonAnimate::before {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--color-shimmer-dark),
+      transparent
+    );
+  }
+}

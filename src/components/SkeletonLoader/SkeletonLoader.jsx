@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import './SkeletonLoader.css';
+import styles from './SkeletonLoader.module.scss';
 
 /**
  * SkeletonLoader component for displaying loading states
@@ -24,11 +24,12 @@ export default function SkeletonLoader({
   style = {},
   ...props
 }) {
-  // Build className string
+  // Build className string with CSS Modules
+  const variantClass = styles[`skeleton${variant.charAt(0).toUpperCase() + variant.slice(1)}`];
   const classes = [
-    'skeleton-loader',
-    `skeleton-${variant}`,
-    animate && 'skeleton-animate',
+    styles.skeletonLoader,
+    variantClass,
+    animate && styles.skeletonAnimate,
     className
   ].filter(Boolean).join(' ');
 
@@ -42,7 +43,7 @@ export default function SkeletonLoader({
   // Render multiple lines for text variant
   if (variant === 'text' && lines > 1) {
     return (
-      <div className="skeleton-text-group" style={style}>
+      <div className={styles.skeletonTextGroup} style={style}>
         {Array.from({ length: lines }, (_, index) => (
           <div
             key={index}
