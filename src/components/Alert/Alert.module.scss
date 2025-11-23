@@ -183,7 +183,7 @@
 /* Responsive Adjustments */
 @include breakpoint-max(md) {
   .alert {
-    padding: $space-3-5 $space-4;
+    padding: var(--space-3-5, 0.875rem) $space-4;
   }
 
   .alertDismissible {
