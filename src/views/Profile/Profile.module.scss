@@ -1,0 +1,299 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Profile View Styles */
+
+/* Dropdown z-index fix */
+:global(.dropdown) {
+  position: relative;
+}
+
+.normalizeCheckbox > input[type="checkbox"] {
+  margin: 0 !important;
+}
+
+:global(.dropdown-menu) {
+  z-index: 1070 !important;
+  position: absolute !important;
+
+  &.show {
+    z-index: 1070 !important;
+  }
+}
+
+/* Profile header row to ensure proper stacking context */
+.profileHeaderRow {
+  position: relative;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  margin: $space-8 0;
+
+  :global(.col-md-6) {
+    display: flex;
+    align-items: center;
+
+    &:first-child {
+      justify-content: flex-start;
+    }
+
+    &:last-child {
+      position: relative;
+      z-index: 1065;
+      justify-content: flex-end;
+
+      :global(.d-flex) {
+        position: relative;
+        z-index: 1070;
+      }
+    }
+  }
+
+  @media (max-width: 991px) {
+    flex-direction: column;
+    align-items: center;
+    gap: $space-4;
+
+    :global(.col-md-6) {
+      &:first-child,
+      &:last-child {
+        justify-content: center !important;
+        width: 100%;
+      }
+
+      &:last-child :global(.d-flex) {
+        justify-content: center !important;
+      }
+    }
+
+    h1 {
+      text-align: center;
+    }
+  }
+}
+
+/* Pills - Using unified design system utility class */
+.profilePill {
+  &.inactive {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    box-shadow: none;
+  }
+}
+
+/* Profile Detail Card */
+.profileDetailCard {
+  background: var(--color-bg-surface, transparent);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 1;
+}
+
+.profileDetailSection {
+  padding: $space-8;
+  border-bottom: 1px solid var(--color-border-light);
+  background: transparent;
+  color: var(--color-text-primary);
+  transition: all var(--transition-normal);
+  margin-bottom: 0;
+
+  &:first-child {
+    background: var(--gradient-primary);
+    box-shadow: var(--shadow-sm);
+
+    .profileDetailSectionTitle {
+      color: var(--color-white);
+    }
+
+    p,
+    a {
+      color: var(--color-white);
+    }
+
+    a:hover {
+      color: var(--color-white);
+    }
+
+    a.profilePill {
+      background: var(--color-white) !important;
+      color: var(--color-primary) !important;
+      box-shadow: var(--shadow-sm);
+      font-weight: $font-weight-semibold;
+      border: none !important;
+
+      &:hover {
+        background: var(--color-white) !important;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        color: var(--color-primary-dark) !important;
+      }
+
+      :global(.icon),
+      svg {
+        color: var(--color-primary) !important;
+      }
+    }
+
+    /* Pagination button styling on gradient background */
+    :global(.btn-link) {
+      color: var(--color-white) !important;
+      font-weight: $font-weight-semibold;
+      text-decoration: none;
+      transition: all var(--transition-normal);
+
+      &:hover {
+        color: var(--color-white) !important;
+        text-decoration: underline;
+        text-underline-offset: 4px;
+        transform: translateY(-1px);
+      }
+    }
+
+    /* Prominent link styling for "add some favorite destinations" */
+    .noFavoriteDestinations a.fw-bold {
+      padding: $space-1;
+      border-radius: $radius-sm;
+      text-decoration: none;
+      font-weight: $font-weight-bold;
+      display: inline-block;
+      transition: all var(--transition-normal);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      box-shadow: var(--shadow-sm);
+      color: var(--color-white);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.6);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        color: var(--color-white);
+      }
+    }
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.profileDetailSectionTitle {
+  font-weight: $font-weight-bold;
+  font-size: var(--font-size-xl);
+  margin: 0 0 $space-5 0;
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.profileDetailContent {
+  background: transparent;
+  color: var(--color-text-primary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-3;
+  justify-content: center;
+  padding-bottom: $space-2;
+}
+
+.noFavoriteDestinations {
+  text-align: center;
+  margin: $space-4 0;
+  padding: $space-6;
+  background: var(--color-bg-surface-variant, rgba(102, 126, 234, 0.05));
+  border-radius: var(--radius-lg);
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: var(--color-text-primary);
+
+  /* Button styling */
+  :global(.btn) {
+    display: inline-block;
+    margin-top: $space-3;
+    padding: $space-3 $space-6;
+    font-weight: $font-weight-semibold;
+    font-size: var(--font-size-base);
+    border-radius: $radius-md;
+    transition: all var(--transition-normal);
+    text-decoration: none;
+    border: none;
+  }
+
+  :global(.btn-primary) {
+    background: var(--gradient-primary);
+    color: var(--color-white) !important;
+    box-shadow: var(--shadow-sm);
+
+    &:hover {
+      background: var(--gradient-primary);
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-2px);
+      color: var(--color-white) !important;
+    }
+  }
+
+  /* Legacy link styling (if not using btn class) */
+  a:not(:global(.btn)) {
+    display: inline-block;
+    margin-top: $space-2;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: $font-weight-semibold;
+    transition: all var(--transition-base);
+    padding: $space-1 $space-2;
+    border-radius: $radius-sm;
+
+    &:hover {
+      background: rgba(102, 126, 234, 0.1);
+      color: var(--color-primary-dark);
+      transform: translateY(-1px);
+    }
+  }
+}
+
+.profileDestinations {
+  a {
+    text-decoration: none;
+  }
+}
+
+.badgeNav {
+  width: fit-content;
+  margin: 0 auto;
+  font-size: clamp(1rem, 2.25vw, 1.5rem);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+  border: 2px solid var(--color-border-medium);
+  padding: 0 !important;
+  overflow: hidden;
+  display: flex;
+  border-radius: $radius-full;
+
+  span {
+    padding: $space-2 $space-8;
+    font-weight: $font-weight-normal;
+    cursor: pointer;
+    color: var(--color-text-primary);
+    transition: all var(--transition-normal);
+    position: relative;
+
+    &:first-child {
+      border-radius: $radius-full 0 0 $radius-full;
+    }
+
+    &:last-child {
+      border-radius: 0 $radius-full $radius-full 0;
+    }
+
+    &:hover {
+      background: var(--color-primary-light);
+    }
+
+    &.activeTab {
+      background: var(--gradient-primary);
+      color: var(--color-white);
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+  }
+}

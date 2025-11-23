@@ -1,7 +1,7 @@
 import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye } from "react-icons/fa";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import "./Profile.css";
+import styles from "./Profile.module.scss";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
@@ -634,23 +634,23 @@ export default function Profile() {
           )}
         </div>
         <div className="col-md-6 p-3 animation-fade_in">
-          <div className="profile-detail-card animation-fade_in">
-            <div className="profile-detail-section">
-              <Heading level={3} className="profile-detail-section-title">
+          <div className={`${styles.profileDetailCard} animation-fade_in`}>
+            <div className={styles.profileDetailSection}>
+              <Heading level={3} className={styles.profileDetailSectionTitle}>
                 {lang.en.heading.favoriteDestinations}
               </Heading>
-              <div className="profile-detail-content profileDestinations">
+              <div className={`${styles.profileDetailContent} ${styles.profileDestinations}`}>
                 {isLoadingProfile ? (
                   <Loading size="md" message="Loading favorite destinations..." />
                 ) : favoriteDestinations.length > 0 ? (
                     favoriteDestinations.map((destination) => (
-                      <TagPill key={destination._id} className="profile-pill" color="primary" to={`/destinations/${destination._id}`}>
+                      <TagPill key={destination._id} className={styles.profilePill} color="primary" to={`/destinations/${destination._id}`}>
                         <span className="icon"><FaPassport /></span>
                         {destination.name}
                       </TagPill>
                   ))
                 ) : (
-                  <div className="noFavoriteDestinations animation-fade_in">
+                  <div className={`${styles.noFavoriteDestinations} animation-fade_in`}>
                     {isOwner ? (
                       <>
                         <p className="mb-3">{lang.en.message.noFavoriteDestinations}</p>
@@ -669,17 +669,17 @@ export default function Profile() {
                 </div>
               )}
             </div>
-            <div className="profile-detail-section">
-              <Heading level={3} className="profile-detail-section-title">
+            <div className={styles.profileDetailSection}>
+              <Heading level={3} className={styles.profileDetailSectionTitle}>
                 {lang.en.heading.preferredExperienceTypes}
               </Heading>
-              <div className="profile-detail-content">
+              <div className={styles.profileDetailContent}>
                 {(isLoadingProfile || (isOwner && userExperiences.length === 0)) ? (
                   <Loading size="md" message="Loading preferred experience types..." />
                 ) : userExperienceTypes.length > 0 ? (
                   <>
                     {(showAllExperienceTypes ? userExperienceTypes : userExperienceTypes.slice(0, EXPERIENCE_TYPES_INITIAL_DISPLAY)).map((type) => (
-                      <TagPill key={type} className="profile-pill" color="primary" size="sm" gradient={false} to={`/experience-types/${createUrlSlug(type)}`}>
+                      <TagPill key={type} className={styles.profilePill} color="primary" size="sm" gradient={false} to={`/experience-types/${createUrlSlug(type)}`}>
                         <span className="icon"><FaUser /></span>
                         {type}
                       </TagPill>
@@ -722,9 +722,9 @@ export default function Profile() {
         </div>
       </div>
       <div className="row my-4 animation-fade_in">
-        <h4 className="badge rounded-pill badge-nav my-4 animation-fade_in">
+        <h4 className={`badge rounded-pill ${styles.badgeNav} my-4 animation-fade_in`}>
           <span
-            className={uiState.experiences ? "fw-bold animation-fade_in active-tab" : "animation-fade_in"}
+            className={uiState.experiences ? `fw-bold animation-fade_in ${styles.activeTab}` : "animation-fade_in"}
             onClick={() => {
               handleExpNav('experiences');
               try { window.history.pushState(null, '', `${window.location.pathname}#experiences`); } catch (e) {}
