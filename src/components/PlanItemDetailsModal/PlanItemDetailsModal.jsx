@@ -23,9 +23,11 @@ export default function PlanItemDetailsModal({
   canEdit = false,
   // For mentions support
   availableEntities = [],
-  entityData = {}
+  entityData = {},
+  // Initial tab to display when modal opens
+  initialTab = 'notes'
 }) {
-  const [activeTab, setActiveTab] = useState('notes');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditingAssignment, setIsEditingAssignment] = useState(false);
   const [assignmentSearch, setAssignmentSearch] = useState('');
   const [filteredCollaborators, setFilteredCollaborators] = useState([]);
@@ -33,14 +35,14 @@ export default function PlanItemDetailsModal({
   const assignmentInputRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  // Reset to notes tab when modal opens or plan item changes
+  // Reset to specified initial tab when modal opens or plan item changes
   useEffect(() => {
     if (show) {
-      setActiveTab('notes');
+      setActiveTab(initialTab);
       setIsEditingAssignment(false);
       setAssignmentSearch('');
     }
-  }, [show, planItem?._id]);
+  }, [show, planItem?._id, initialTab]);
 
   // Filter collaborators based on search
   useEffect(() => {

@@ -207,6 +207,7 @@ export default function SingleExperience() {
   const [editingPlanItem, setEditingPlanItem] = useState({});
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedDetailsItem, setSelectedDetailsItem] = useState(null);
+  const [detailsModalInitialTab, setDetailsModalInitialTab] = useState('notes');
 
   // Ref for dynamic font sizing on planned date metric
   const plannedDateRef = useRef(null);
@@ -1585,8 +1586,9 @@ export default function SingleExperience() {
   }, []);
 
   // Handler to open Details modal for a plan item
-  const handleViewPlanItemDetails = useCallback((planItem) => {
+  const handleViewPlanItemDetails = useCallback((planItem, initialTab = 'notes') => {
     setSelectedDetailsItem(planItem);
+    setDetailsModalInitialTab(initialTab);
     setShowDetailsModal(true);
   }, []);
 
@@ -3095,6 +3097,7 @@ export default function SingleExperience() {
         onClose={() => {
           setShowDetailsModal(false);
           setSelectedDetailsItem(null);
+          setDetailsModalInitialTab('notes');
         }}
         planItem={selectedDetailsItem}
         plan={selectedPlan}
@@ -3103,6 +3106,7 @@ export default function SingleExperience() {
         onAddNote={handleAddNoteToItem}
         onUpdateNote={handleUpdateNoteOnItem}
         onDeleteNote={handleDeleteNoteFromItem}
+        initialTab={detailsModalInitialTab}
         onAssign={async (userId) => {
           if (!selectedPlan || !selectedDetailsItem) return;
 

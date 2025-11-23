@@ -304,7 +304,7 @@ function SortablePlanItem({
               style={{ cursor: 'pointer' }}
               onClick={(e) => {
                 e.stopPropagation();
-                onEditPlanItem(planItem, 'notes');
+                handleViewPlanItemDetails(planItem, 'notes');
               }}
             >
               📝 {planItem.details.notes.length}
