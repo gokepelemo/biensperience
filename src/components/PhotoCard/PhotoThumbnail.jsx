@@ -1,4 +1,4 @@
-import "./PhotoThumbnail.css";
+import styles from "./PhotoThumbnail.module.scss";
 import { useMemo, useState, useEffect } from "react";
 import { lang } from "../../lang.constants";
 import { sanitizeText } from "../../utilities/sanitize";
@@ -115,7 +115,7 @@ export default function PhotoThumbnail({
 
   return (
     <div
-      className={`photo-thumbnail ${photoIndex === selectedIndex ? 'active' : ''}`}
+      className={`${styles.photoThumbnail} ${photoIndex === selectedIndex ? styles.active : ''}`}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -123,15 +123,15 @@ export default function PhotoThumbnail({
       aria-label={`View photo ${photoIndex + 1}${showDefaultBadge ? ' (default)' : ''}`}
     >
       <div
-        className="photo-thumbnail-container d-flex align-items-center justify-content-center"
+        className={`${styles.photoThumbnailContainer} d-flex align-items-center justify-content-center`}
         style={{
           cursor: 'pointer',
           aspectRatio: aspectRatio
         }}
       >
         {imageLoading && (
-          <div className="photo-thumbnail-loader">
-            <div className="thumbnail-loading-spinner"></div>
+          <div className={styles.photoThumbnailLoader}>
+            <div className={styles.thumbnailLoadingSpinner}></div>
           </div>
         )}
         <img
@@ -153,7 +153,7 @@ export default function PhotoThumbnail({
       </div>
 
       {showDefaultBadge && currentIndex === defaultIndex && (
-        <span className="thumbnail-default-badge" aria-label="Default photo">★</span>
+        <span className={styles.thumbnailDefaultBadge} aria-label="Default photo">★</span>
       )}
     </div>
   );
