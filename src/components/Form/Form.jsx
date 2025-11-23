@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import './Form.css';
+import styles from './Form.module.scss';
 
 /**
  * Form component with unified styling for form elements
@@ -26,7 +26,7 @@ export default function Form({
     }
   };
 
-  const classes = ['form-unified', className].filter(Boolean).join(' ');
+  const classes = [styles.formUnified, className].filter(Boolean).join(' ');
 
   return (
     <form
@@ -51,7 +51,7 @@ Form.propTypes = {
  * FormGroup component for grouping form elements with labels
  */
 export function FormGroup({ children, className = '', style = {}, ...props }) {
-  const classes = ['form-group', className].filter(Boolean).join(' ');
+  const classes = [styles.formGroup, className].filter(Boolean).join(' ');
 
   return (
     <div className={classes} style={style} {...props}>
@@ -70,7 +70,7 @@ FormGroup.propTypes = {
  * FormLabel component for form labels
  */
 export function FormLabel({ children, htmlFor, required = false, className = '', style = {}, ...props }) {
-  const classes = ['form-label', className].filter(Boolean).join(' ');
+  const classes = [styles.formLabel, className].filter(Boolean).join(' ');
 
   return (
     <label
@@ -80,7 +80,7 @@ export function FormLabel({ children, htmlFor, required = false, className = '',
       {...props}
     >
       {children}
-      {required && <span className="form-required" aria-label="required">*</span>}
+      {required && <span className={styles.formRequired} aria-label="required">*</span>}
     </label>
   );
 }
@@ -103,7 +103,7 @@ export function FormControl({
   style = {},
   ...props
 }) {
-  const classes = ['form-control', className].filter(Boolean).join(' ');
+  const classes = [styles.formControl, className].filter(Boolean).join(' ');
 
   return (
     <Component
@@ -133,17 +133,17 @@ export function FormCheck({
   style = {},
   ...props
 }) {
-  const classes = ['form-check', className].filter(Boolean).join(' ');
+  const classes = [styles.formCheck, className].filter(Boolean).join(' ');
 
   return (
     <div className={classes} style={style}>
       <input
         type={type}
-        className="form-check-input"
+        className={styles.formCheckInput}
         id={id}
         {...props}
       />
-      <label className="form-check-label" htmlFor={id}>
+      <label className={styles.formCheckLabel} htmlFor={id}>
         {children}
       </label>
     </div>
@@ -163,8 +163,8 @@ FormCheck.propTypes = {
  */
 export function FormText({ children, muted = false, className = '', style = {}, ...props }) {
   const classes = [
-    'form-text',
-    muted && 'form-text-muted',
+    styles.formText,
+    muted && styles.formTextMuted,
     className
   ].filter(Boolean).join(' ');
 

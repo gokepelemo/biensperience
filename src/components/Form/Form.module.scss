@@ -1,0 +1,221 @@
+/**
+ * Form Component Styles (SCSS Module)
+ * Migrated from Form.css to Form.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+/* Fix checkbox margin issue */
+input[type="checkbox"],
+.formCheckInput {
+  margin: 0 !important;
+}
+
+/* Form Unified */
+.formUnified {
+  @include flex-column;
+  gap: $space-4;
+}
+
+/* Form Group */
+.formGroup {
+  @include flex-column;
+  gap: $space-2;
+}
+
+/* Form Label */
+.formLabel {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+  margin-bottom: 0;
+}
+
+.formRequired {
+  color: var(--color-danger);
+  margin-left: $space-1;
+}
+
+/* Form Control */
+.formControl {
+  @include form-control;
+}
+
+.formControl:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
+}
+
+.formControl::placeholder {
+  color: var(--color-text-muted);
+}
+
+.formControl:disabled {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* Select specific styling */
+.formControl select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right $space-3 center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: $space-10;
+  appearance: none;
+}
+
+/* Textarea specific styling */
+.formControl textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Form Check (Checkbox/Radio) */
+.formCheck {
+  @include flex-center-vertical;
+  gap: $space-3;
+}
+
+.formCheckInput {
+  width: 1.2em;
+  height: 1.2em;
+  margin: 0;
+  border: 1px solid var(--color-border-medium);
+  border-radius: $radius-sm;
+  background: var(--color-bg-primary);
+  cursor: pointer;
+  @include transition-all($transition-fast);
+}
+
+.formCheckInput:checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.formCheckInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
+}
+
+.formCheckInput[type="radio"] {
+  border-radius: $radius-full;
+}
+
+.formCheckLabel {
+  font-size: $font-size-base;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+/* Form Text */
+.formText {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  margin-top: $space-1;
+}
+
+.formTextMuted {
+  color: var(--color-text-muted);
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .formControl {
+    background: var(--color-bg-primary-dark);
+    border-color: var(--color-border-medium-dark);
+    color: var(--color-text-primary-dark);
+
+    &:focus {
+      border-color: var(--color-primary-dark);
+      box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
+    }
+
+    &::placeholder {
+      color: var(--color-text-muted-dark);
+    }
+
+    &:disabled {
+      background: var(--color-bg-secondary-dark);
+      color: var(--color-text-muted-dark);
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    }
+  }
+
+  .formCheckInput {
+    background: var(--color-bg-primary-dark);
+    border-color: var(--color-border-medium-dark);
+
+    &:checked {
+      background: var(--color-primary-dark);
+      border-color: var(--color-primary-dark);
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
+    }
+  }
+
+  .formLabel {
+    color: var(--color-text-primary-dark);
+  }
+
+  .formCheckLabel {
+    color: var(--color-text-primary-dark);
+  }
+}
+
+[data-theme="dark"] {
+  .formControl {
+    background: var(--color-bg-primary-dark);
+    border-color: var(--color-border-medium-dark);
+    color: var(--color-text-primary-dark);
+
+    &:focus {
+      border-color: var(--color-primary-dark);
+      box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
+    }
+
+    &::placeholder {
+      color: var(--color-text-muted-dark);
+    }
+
+    &:disabled {
+      background: var(--color-bg-secondary-dark);
+      color: var(--color-text-muted-dark);
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    }
+  }
+
+  .formCheckInput {
+    background: var(--color-bg-primary-dark);
+    border-color: var(--color-border-medium-dark);
+
+    &:checked {
+      background: var(--color-primary-dark);
+      border-color: var(--color-primary-dark);
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
+    }
+  }
+
+  .formLabel {
+    color: var(--color-text-primary-dark);
+  }
+
+  .formCheckLabel {
+    color: var(--color-text-primary-dark);
+  }
+}
