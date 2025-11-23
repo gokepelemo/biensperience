@@ -1,4 +1,4 @@
-import "./PhotoCard.css";
+import styles from "./PhotoCard.module.scss";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { lang } from "../../lang.constants";
 import PhotoModal from "../PhotoModal/PhotoModal";
@@ -150,7 +150,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
     <>
       <figure className="photoFrame" role="img" aria-label={imageAlt}>
       <div
-        className="photoCard d-flex align-items-center justify-content-center"
+        className={`${styles.photoCard} d-flex align-items-center justify-content-center"
         onClick={() => setShowModal(true)}
         style={{ aspectRatio: containerAspectRatio }}
         role="button"
@@ -163,7 +163,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
         aria-label="Click to view full size photo"
       >
         {imageLoading && (
-          <div className="photo-loader">
+          <div className={styles.photoLoader}>
             <Loading size="md" showMessage={false} />
           </div>
         )}
@@ -183,10 +183,10 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
 
       {/* Thumbnails - only show when there's more than 1 photo */}
       {hasRealPhotos && photoArray.length > 1 && (
-        <div className="photo-thumbnails-container">
+        <div className={styles.photoThumbnailsContainer}>
           {showScrollButtons && (
             <button
-              className="thumbnail-scroll-button thumbnail-scroll-left"
+              className={`${styles.thumbnailScrollButton} ${styles.thumbnailScrollLeft}`}
               onClick={() => scrollThumbnails('left')}
               aria-label="Scroll thumbnails left"
               type="button"
@@ -194,7 +194,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
               ‹
             </button>
           )}
-          <div className="photo-thumbnails" ref={thumbnailsRef}>
+          <div className={styles.photoThumbnails} ref={thumbnailsRef}>
             {photoArray.map((photo, index) => (
               <PhotoThumbnail
                 key={index}
@@ -210,7 +210,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
           </div>
           {showScrollButtons && (
             <button
-              className="thumbnail-scroll-button thumbnail-scroll-right"
+              className={`${styles.thumbnailScrollButton} ${styles.thumbnailScrollRight}`}
               onClick={() => scrollThumbnails('right')}
               aria-label="Scroll thumbnails right"
               type="button"
@@ -223,7 +223,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
 
       {/* Photo credit - only show for real photos with credit info */}
       {hasRealPhotos && sanitizedCredit && sanitizedCredit !== "undefined" && (
-        <figcaption className="photo-credit-block">
+        <figcaption className={styles.photoCreditBlock}>
           <small>
             Photo by{" "}
             {sanitizedCreditUrl ? (
