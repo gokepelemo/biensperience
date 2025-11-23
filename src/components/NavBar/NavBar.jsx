@@ -192,7 +192,7 @@ export default function NavBar() {
   return (
     <nav
       ref={navbarRef}
-      className={`navbar navbar-expand-lg border-bottom border-body ${isScrolled ? 'sticky' : ''}`}
+      className={`${styles.navbar} navbar navbar-expand-lg border-bottom border-body ${isScrolled ? styles.sticky : ''}`}
       data-bs-theme="dark"
       role="navigation"
       aria-label={lang.en.aria.mainNavigation}
