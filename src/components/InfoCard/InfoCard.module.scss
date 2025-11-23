@@ -1,0 +1,106 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* InfoCard Component */
+.infoCard {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  animation: fadeIn var(--transition-slow) ease-out;
+}
+
+.infoCardHeader {
+  background: var(--gradient-primary);
+  color: white;
+  padding: $space-6 $space-8;
+  border-bottom: none;
+}
+
+.infoCardTitle {
+  margin: 0;
+  font-weight: $font-weight-bold;
+  font-size: clamp(var(--font-size-xl), 3vw, var(--font-size-2xl));
+  text-align: center;
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-tight);
+  color: white;
+}
+
+.infoCardHeaderContent {
+  margin-top: $space-4;
+  text-align: center;
+}
+
+.infoCardSection {
+  padding: $space-6 $space-8;
+  border-bottom: 1px solid var(--color-border-light);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.infoCardSectionTitle {
+  font-weight: $font-weight-bold;
+  font-size: clamp(var(--font-size-lg), 2.5vw, var(--font-size-xl));
+  margin: 0 0 $space-4 0;
+  color: var(--color-text-secondary);
+  text-align: center;
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-tight);
+}
+
+.infoCardContent {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  align-items: center;
+
+  /* Center tags/pills within their container */
+  > div:has(:global(.tag-pill)) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: $space-1;
+  }
+}
+
+.infoCardLink {
+  text-decoration: none;
+  color: var(--color-primary);
+  font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-base));
+  line-height: var(--line-height-relaxed);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-fast) ease;
+  padding: $space-2;
+  border-radius: $radius-md;
+  text-align: center;
+
+  &:hover {
+    background: var(--color-primary-light);
+    color: var(--color-primary-dark);
+    transform: translateX(4px);
+  }
+}
+
+.infoCardMap {
+  padding: $space-6 $space-8;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.infoCardTitleLink {
+  text-decoration: none;
+  color: inherit;
+  transition: opacity var(--transition-fast) ease;
+
+  &:hover {
+    opacity: 0.8;
+    text-decoration: none;
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: $radius-md;
+  }
+}

@@ -1,4 +1,4 @@
-import "./InfoCard.css";
+import styles from "./InfoCard.module.scss";
 import { Link } from "react-router-dom";
 
 /**
@@ -21,18 +21,18 @@ export default function InfoCard({
   className = ""
 }) {
   return (
-    <div className={`info-card ${className}`}>
+    <div className={`${styles.infoCard} ${className}`}>
       {title && (
-        <div className="info-card-header">
+        <div className={styles.infoCardHeader}>
           {titleLink ? (
-            <Link to={titleLink} className="info-card-title-link">
-              <h4 className="info-card-title">{title}</h4>
+            <Link to={titleLink} className={styles.infoCardTitleLink}>
+              <h4 className={styles.infoCardTitle}>{title}</h4>
             </Link>
           ) : (
-            <h4 className="info-card-title">{title}</h4>
+            <h4 className={styles.infoCardTitle}>{title}</h4>
           )}
           {headerContent && (
-            <div className="info-card-header-content">
+            <div className={styles.infoCardHeaderContent}>
               {headerContent}
             </div>
           )}
@@ -40,18 +40,18 @@ export default function InfoCard({
       )}
 
       {sections.map((section, index) => (
-        <div key={index} className="info-card-section">
+        <div key={index} className={styles.infoCardSection}>
           {section.title && (
-            <h5 className="info-card-section-title">{section.title}</h5>
+            <h5 className={styles.infoCardSectionTitle}>{section.title}</h5>
           )}
-          <div className="info-card-content">
+          <div className={styles.infoCardContent}>
             {section.content}
           </div>
         </div>
       ))}
 
       {map && (
-        <div className="info-card-map">
+        <div className={styles.infoCardMap}>
           {map}
         </div>
       )}
