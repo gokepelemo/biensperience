@@ -16,10 +16,10 @@
 @import './styles/design-tokens.css';          /* Legacy CSS custom properties */
 
 /* 3. Global Styles - Convert to SCSS */
-@import './styles/headings.scss';     /* TODO: Convert to .scss */
-@import './styles/utilities.scss';    /* TODO: Convert to .scss */
-@import './styles/theme.scss';        /* TODO: Convert to .scss */
-@import './styles/animations.scss';   /* TODO: Convert to .scss */
+@import './styles/headings.scss';     
+@import './styles/utilities.scss';    
+@import './styles/theme.scss';        
+@import './styles/animations.scss';   
 
 /* 4. Legacy Global Styles (being consolidated) */
 @import './styles/accessibility.css';
