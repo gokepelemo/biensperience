@@ -1,0 +1,120 @@
+@use '../../styles/scss/abstracts' as *;
+
+.stepper {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-4;
+  padding: $space-6;
+}
+
+.stepperItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  position: relative;
+}
+
+.stepperMarker {
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-full;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: $font-weight-semibold;
+  font-size: $font-size-sm;
+  transition: all var(--transition-standard);
+  z-index: 1;
+  background: var(--color-bg-primary);
+  border: 2px solid var(--color-border-medium);
+  color: var(--color-text-muted);
+}
+
+/* Status-based styles */
+.stepperItemActive .stepperMarker {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+}
+
+.stepperItemCompleted .stepperMarker {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+}
+
+.stepperItemError .stepperMarker {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: white;
+}
+
+/* Color variants */
+.stepperItemSuccess.stepperItemActive .stepperMarker,
+.stepperItemSuccess.stepperItemCompleted .stepperMarker {
+  border-color: var(--color-success);
+  background: var(--color-success);
+}
+
+.stepperItemDanger.stepperItemActive .stepperMarker,
+.stepperItemDanger.stepperItemCompleted .stepperMarker {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+}
+
+.stepperItemWarning.stepperItemActive .stepperMarker,
+.stepperItemWarning.stepperItemCompleted .stepperMarker {
+  border-color: var(--color-warning);
+  background: var(--color-warning);
+}
+
+.stepperConnector {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--color-border-medium);
+  transform: translateX(0);
+}
+
+.stepperItemCompleted .stepperConnector,
+.stepperItemActive .stepperConnector {
+  background: var(--color-primary);
+}
+
+.stepperContent {
+  margin-top: $space-2;
+  text-align: center;
+}
+
+.stepperTitle {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin-bottom: $space-1;
+}
+
+.stepperDescription {
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+}
+
+/* Compact variant */
+.stepperCompact .stepperItem {
+  flex-direction: row;
+  gap: $space-2;
+}
+
+.stepperCompact .stepperMarker {
+  width: 24px;
+  height: 24px;
+  font-size: $font-size-xs;
+}
+
+.stepperCompact .stepperConnector {
+  top: 12px;
+  left: calc(50% + 12px);
+  width: calc(100% - 24px);
+}
