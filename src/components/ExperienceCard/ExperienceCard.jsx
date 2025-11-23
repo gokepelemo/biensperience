@@ -451,7 +451,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
             </span>
           </Link>
           {/* tags intentionally omitted for ExperienceCard per design */}
-          <div className={`${styles.experienceCardActions} d-flex gap-2 flex-shrink-0">
+          <div className={`${styles.experienceCardActions} d-flex gap-2 flex-shrink-0`}>
             <button
               className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'} ${isLoading ? 'loading' : ''}`}
               type="button"
@@ -496,7 +496,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
               Dinner Party with locals at the Rhodopo Mountains in Bulgaria
             </span>
           </Link>
-          <div className={`${styles.experienceCardActions} d-flex gap-2 flex-shrink-0">
+          <div className={`${styles.experienceCardActions} d-flex gap-2 flex-shrink-0`}>
             <button
               className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'} ${isLoading ? 'loading' : ''}`}
               onClick={handleExperienceAction}
