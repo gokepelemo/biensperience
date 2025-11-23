@@ -1,0 +1,164 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Text Components - Typography utilities and text variants */
+
+.textComponent {
+  margin: 0;
+  line-height: var(--line-height-normal);
+}
+
+/* Variants */
+.textBody {
+  color: var(--color-text-primary);
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-primary-dark);
+  }
+}
+
+.textLead {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-relaxed);
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-primary-dark);
+  }
+}
+
+.textCaption {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-secondary-dark);
+  }
+}
+
+.textGradient {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.textMuted {
+  color: var(--color-text-muted);
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-muted-dark);
+  }
+}
+
+/* Size variants */
+.textXs {
+  font-size: var(--font-size-xs);
+}
+
+.textSm {
+  font-size: var(--font-size-sm);
+}
+
+.textBase {
+  font-size: var(--font-size-base);
+}
+
+.textLg {
+  font-size: var(--font-size-lg);
+}
+
+.textXl {
+  font-size: var(--font-size-xl);
+}
+
+.text2xl {
+  font-size: var(--font-size-2xl);
+}
+
+.text3xl {
+  font-size: var(--font-size-3xl);
+}
+
+/* Heading sizes */
+.textHeading1 {
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-tight);
+
+  @media (max-width: 640px) {
+    font-size: var(--font-size-2xl);
+  }
+}
+
+.textHeading2 {
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+
+  @media (max-width: 640px) {
+    font-size: var(--font-size-xl);
+  }
+}
+
+.textHeading3 {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+
+  @media (max-width: 640px) {
+    font-size: var(--font-size-lg);
+  }
+}
+
+.textHeading4 {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+
+.textHeading5 {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-tight);
+}
+
+.textHeading6 {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
+}
+
+/* Weight variants */
+.weightLight {
+  font-weight: var(--font-weight-light);
+}
+
+.weightNormal {
+  font-weight: var(--font-weight-normal);
+}
+
+.weightMedium {
+  font-weight: var(--font-weight-medium);
+}
+
+.weightSemibold {
+  font-weight: var(--font-weight-semibold);
+}
+
+.weightBold {
+  font-weight: var(--font-weight-bold);
+}
+
+/* Alignment variants */
+.textCenter {
+  text-align: center;
+}
+
+.textRight {
+  text-align: right;
+}
+
+.textJustify {
+  text-align: justify;
+}
+
+/* Dark mode - textColorSecondary variant */
+.textColorSecondary {
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-secondary-dark) !important;
+  }
+}

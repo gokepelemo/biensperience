@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import './Text.css';
+import styles from './Text.module.scss';
 
 /**
  * Text component with typography variants and effects
@@ -36,16 +36,24 @@ export default function Text({
   ...props
 }) {
   // Build className string
+  const variantClass = styles[`text${variant.charAt(0).toUpperCase() + variant.slice(1)}`];
+  const sizeClass = size.includes('-')
+    ? styles[`text${size.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('')}`]
+    : styles[`text${size.charAt(0).toUpperCase() + size.slice(1)}`];
+  const weightClass = styles[`weight${weight.charAt(0).toUpperCase() + weight.slice(1)}`];
+  const alignClass = align !== 'left' ? styles[`text${align.charAt(0).toUpperCase() + align.slice(1)}`] : '';
+  const colorClass = color ? styles[`textColor${color.charAt(0).toUpperCase() + color.slice(1)}`] : '';
+
   const classes = [
-    'text-component',
-    `text-${variant}`,
-    `text-${size}`,
-    `weight-${weight}`,
-    gradient && 'text-gradient-primary',
-    shadow && 'text-shadow-md',
-    truncate > 0 && `text-truncate-${truncate}`,
-    align !== 'left' && `text-${align}`,
-    color && `text-color-${color}`,
+    styles.textComponent,
+    variantClass,
+    sizeClass,
+    weightClass,
+    gradient && 'text-gradient-primary', // From utilities.css
+    shadow && 'text-shadow-md', // From utilities.css
+    truncate > 0 && `text-truncate-${truncate}`, // From utilities.css
+    alignClass,
+    colorClass,
     className
   ].filter(Boolean).join(' ');
 
