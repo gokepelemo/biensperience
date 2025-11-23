@@ -1,10 +1,10 @@
 import React from 'react';
 import RBAccordion from 'react-bootstrap/Accordion';
-import './Accordion.css';
+import styles from './Accordion.module.scss';
 
 // Thin wrapper around react-bootstrap Accordion that applies design-system styles
 const Accordion = ({ className = '', children, ...props }) => (
-  <RBAccordion className={`ds-accordion ${className}`} {...props}>
+  <RBAccordion className={`${styles.dsAccordion} ${className}`} {...props}>
     {children}
   </RBAccordion>
 );

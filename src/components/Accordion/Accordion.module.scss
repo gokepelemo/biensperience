@@ -1,0 +1,37 @@
+/**
+ * Accordion Component Styles (SCSS Module)
+ * Migrated from Accordion.css to Accordion.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+.dsAccordion {
+  --accordion-bg: var(--color-bg-secondary);
+  --accordion-border: var(--color-border-light);
+  --accordion-radius: $radius-md;
+
+  :global(.accordion-item) {
+    background: var(--accordion-bg);
+    border: 1px solid var(--accordion-border);
+    border-radius: var(--accordion-radius);
+    margin-bottom: $space-3;
+  }
+
+  :global(.accordion-button) {
+    background: transparent;
+    color: var(--color-text-primary);
+    font-weight: $font-weight-semibold;
+
+    &:not(.collapsed) {
+      background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-600) 100%);
+      color: white;
+    }
+  }
+
+  :global(.accordion-body) {
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    border-top: 1px dashed var(--accordion-border);
+  }
+}
