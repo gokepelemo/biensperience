@@ -9,6 +9,7 @@ import { Button } from '../../components/design-system';
 import { FaPaperPlane, FaSearch, FaPlus, FaTimes } from 'react-icons/fa';
 import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
 import UserAvatar from '../UserAvatar/UserAvatar';
+import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import { renderTextWithMentions } from '../../utilities/mentions';
 import './PlanItemNotes.css';
 
@@ -33,6 +34,8 @@ export default function PlanItemNotes({
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const notesPerPage = 5;
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState(null);
 
   // Filtered and paginated notes
   const filteredNotes = useMemo(() => {
@@ -94,15 +97,27 @@ export default function PlanItemNotes({
     }
   }, [editContent, editVisibility, onUpdateNote]);
 
-  const handleDeleteNote = useCallback(async (noteId) => {
-    if (!window.confirm('Are you sure you want to delete this note?')) return;
+  const handleDeleteNote = useCallback((noteId) => {
+    setNoteToDelete(noteId);
+    setShowDeleteConfirm(true);
+  }, []);
+
+  const confirmDeleteNote = useCallback(async () => {
+    if (!noteToDelete) return;
 
     try {
-      await onDeleteNote(noteId);
+      await onDeleteNote(noteToDelete);
+      setShowDeleteConfirm(false);
+      setNoteToDelete(null);
     } catch (error) {
       console.error('[PlanItemNotes] Failed to delete note:', error);
     }
-  }, [onDeleteNote]);
+  }, [noteToDelete, onDeleteNote]);
+
+  const cancelDeleteNote = useCallback(() => {
+    setShowDeleteConfirm(false);
+    setNoteToDelete(null);
+  }, []);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -415,6 +430,18 @@ export default function PlanItemNotes({
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        show={showDeleteConfirm}
+        onClose={cancelDeleteNote}
+        onConfirm={confirmDeleteNote}
+        title="Delete Note"
+        message="Are you sure you want to delete this note? This action cannot be undone."
+        confirmText="Delete"
+        confirmVariant="danger"
+        cancelText="Cancel"
+      />
     </div>
   );
 }

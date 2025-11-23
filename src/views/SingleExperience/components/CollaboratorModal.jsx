@@ -262,33 +262,30 @@ export default function CollaboratorModal({
                     Selected ({selectedCollaborators.length}):
                   </strong>
                   <div className="flex-wrap-gap">
-                    {selectedCollaborators.map(userId => {
-                      const user = searchResults.find(u => u._id === userId || u.id === userId);
-                      return user ? (
-                        <Badge 
-                          key={userId} 
-                          bg="primary" 
-                          style={{ 
-                            padding: 'var(--space-2) var(--space-3)',
-                            backgroundColor: 'var(--color-primary)',
-                            color: 'white',
-                            borderRadius: 'var(--radius-full)',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 'var(--space-2)',
+                    {selectedCollaborators.map(user => (
+                      <Badge
+                        key={user._id || user.id}
+                        bg="primary"
+                        style={{
+                          padding: 'var(--space-2) var(--space-3)',
+                          backgroundColor: 'var(--color-primary)',
+                          color: 'white',
+                          borderRadius: 'var(--radius-full)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 'var(--space-2)',
+                        }}
+                      >
+                        {user.name}
+                        <FaTimes
+                          onClick={() => onToggleCollaborator(user._id || user.id)}
+                          style={{
+                            cursor: 'pointer',
+                            marginLeft: 'var(--space-1)',
                           }}
-                        >
-                          {user.name}
-                          <FaTimes
-                            onClick={() => onToggleCollaborator(userId)}
-                            style={{ 
-                              cursor: 'pointer',
-                              marginLeft: 'var(--space-1)',
-                            }}
-                          />
-                        </Badge>
-                      ) : null;
-                    })}
+                        />
+                      </Badge>
+                    ))}
                   </div>
                 </div>
               )}

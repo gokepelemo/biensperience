@@ -82,37 +82,29 @@ export default function Modal({
             {children}
           </div>
 
-          {/* Footer */}
-          <div className="modal-footer">
-            {footer ? (
-              // Custom footer provided
-              footer
-            ) : (
-              // Default footer with buttons
-              <>
-                {showCancelButton && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={onClose}
-                    disabled={loading}
-                  >
-                    {cancelText}
-                  </button>
-                )}
-                {showSubmitButton && onSubmit && (
-                  <button
-                    type="button"
-                    className={`btn btn-${submitVariant}`}
-                    onClick={handleSubmit}
-                    disabled={disableSubmit || loading}
-                  >
-                    {loading ? "Loading..." : submitText}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
+          {/* Footer - Only render if there's a submit button or custom footer */}
+          {(footer || (showSubmitButton && onSubmit)) && (
+            <div className="modal-footer">
+              {footer ? (
+                // Custom footer provided
+                footer
+              ) : (
+                // Default footer with submit button only (Close X in header handles cancellation)
+                <>
+                  {showSubmitButton && onSubmit && (
+                    <button
+                      type="button"
+                      className={`btn btn-${submitVariant}`}
+                      onClick={handleSubmit}
+                      disabled={disableSubmit || loading}
+                    >
+                      {loading ? "Loading..." : submitText}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
