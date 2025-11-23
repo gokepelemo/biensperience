@@ -12,13 +12,16 @@
 
 .loadingContainer {
   @include flex-column;
+  @include flex-center; // Always center in viewport
   gap: $space-4;
   padding: $space-4;
   box-sizing: border-box;
+  contain: layout style; // Prevent layout shifts
 }
 
 .loadingContent {
   @include flex-column;
+  @include flex-center; // Center content within container
   gap: $space-4;
 }
 
