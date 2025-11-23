@@ -11,6 +11,7 @@
   border-radius: $radius-sm;
   position: relative;
   overflow: hidden;
+  contain: layout style; // Prevent layout shifts
 }
 
 /* Animation */
