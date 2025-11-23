@@ -1,5 +1,5 @@
 import React from 'react';
-import './Divider.css';
+import styles from './Divider.module.scss';
 
 /**
  * Divider with centered label and tokenized shadow.
@@ -9,9 +9,11 @@ import './Divider.css';
  * - className: string
  */
 export default function Divider({ label = 'Or continue with', shadow = 'sm', className = '' }) {
+  const shadowClass = styles[`bpDividerShadow${shadow.charAt(0).toUpperCase() + shadow.slice(1)}`];
+
   return (
-    <div className={`bp-divider ${className} bp-divider-shadow-${shadow}`}>
-      <span className="bp-divider-label">{label}</span>
+    <div className={`${styles.bpDivider} ${className} ${shadowClass}`}>
+      <span className={styles.bpDividerLabel}>{label}</span>
     </div>
   );
 }
