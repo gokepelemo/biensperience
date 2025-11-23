@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import "./TagInput.css";
+import styles from "./TagInput.module.scss";
 import TagPill from "../Pill/TagPill";
 import { logger } from "../../utilities/logger";
 import { getExperienceTags } from "../../utilities/experiences-api";
@@ -131,8 +131,8 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
   };
 
   return (
-    <div className="tag-input-container" ref={wrapperRef}>
-      <div className="tags-wrapper">
+    <div className={styles.tagInputContainer} ref={wrapperRef}>
+      <div className={styles.tagsWrapper}>
         {tags.map((tag, index) => (
           <TagPill
             key={index}
@@ -140,14 +140,14 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
             size="sm"
             color="neutral"
             onRemove={() => removeTag(index)}
-            className="tag"
+            className={styles.tag}
           >
             {tag}
           </TagPill>
         ))}
         <input
           type="text"
-          className="tag-input"
+          className={styles.tagInput}
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -156,11 +156,11 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
         />
       </div>
       {showSuggestions && suggestions.length > 0 && (
-        <ul className="tag-suggestions">
+        <ul className={styles.tagSuggestions}>
           {suggestions.map((suggestion, index) => (
             <li
               key={suggestion}
-              className={`tag-suggestion-item ${index === selectedSuggestionIndex ? "selected" : ""}`}
+              className={`${styles.tagSuggestionItem} ${index === selectedSuggestionIndex ? styles.selected : ""}`}
               onMouseDown={(e) => {
                 e.preventDefault(); // Prevent input blur
                 addTagFromSuggestion(suggestion);
