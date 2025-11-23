@@ -1,0 +1,26 @@
+/**
+ * StarRating Component Styles (SCSS Module)
+ * Migrated from StarRating.css to StarRating.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+.starRating {
+  display: inline-flex;
+  gap: $space-1; /* 0.25rem */
+  align-items: center;
+}
+
+.star {
+  display: inline-flex;
+  line-height: 1;
+
+  svg {
+    display: block;
+  }
+}
+
+.starHalf {
+  transform: translateY(0);
+}

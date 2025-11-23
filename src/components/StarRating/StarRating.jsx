@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { FaStar, FaRegStar, FaStarHalfAlt } from 'react-icons/fa';
-import './StarRating.css';
+import styles from './StarRating.module.scss';
 
 export default function StarRating({ value = 0, max = 5, size = 16, color = '#f59e0b', className = '' }) {
   const stars = [];
@@ -16,9 +16,13 @@ export default function StarRating({ value = 0, max = 5, size = 16, color = '#f5
   }
 
   return (
-    <div className={`star-rating ${className}`} aria-hidden>
+    <div className={`${styles.starRating} ${className}`} aria-hidden>
       {stars.map((s, idx) => (
-        <span key={idx} className={`star star-${s}`} style={{ color, fontSize: size }}>
+        <span
+          key={idx}
+          className={`${styles.star} ${s === 'half' ? styles.starHalf : ''}`}
+          style={{ color, fontSize: size }}
+        >
           {s === 'full' && <FaStar />}
           {s === 'half' && <FaStarHalfAlt />}
           {s === 'empty' && <FaRegStar />}
