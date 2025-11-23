@@ -35,6 +35,10 @@ export default function DocumentViewerModal({
   onDownload,
   ...modalProps
 }) {
+  const [document, setDocument] = useState(null);
+  const [viewableContent, setViewableContent] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [pdfDocument, setPdfDocument] = useState(null);
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
@@ -112,6 +116,15 @@ export default function DocumentViewerModal({
   const goToNextPage = useCallback(() => {
     setPageNumber(prevPageNumber => Math.min(numPages, prevPageNumber + 1));
   }, [numPages]);
+
+  const handleDownload = useCallback(() => {
+    if (onDownload) {
+      onDownload();
+    } else if (documentUrl) {
+      // Default download behavior: open in new tab
+      window.open(documentUrl, '_blank');
+    }
+  }, [onDownload, documentUrl]);
 
   const renderDocumentContent = () => {
     if (loading) {
