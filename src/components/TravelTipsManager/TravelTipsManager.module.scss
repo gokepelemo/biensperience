@@ -1,0 +1,216 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Helper text override for better contrast */
+.travelTipsHelper {
+  color: var(--color-text-secondary);
+  font-size: $font-size-sm;
+  line-height: 1.4;
+}
+
+.structuredTipForm {
+  border: var(--border-width-thin) solid var(--color-border-medium);
+  border-radius: $radius-md;
+  padding: $space-4;
+  background-color: var(--color-bg-secondary);
+  transition: background-color var(--transition-base), border-color var(--transition-base);
+}
+
+.structuredTipPreview {
+  padding: $space-4;
+
+  :global(.badge) {
+    font-size: $font-size-xs;
+    padding: $space-1 $space-2;
+  }
+
+  :global(strong) {
+    font-size: $font-size-base;
+    color: var(--color-text-primary);
+  }
+
+  :global(.text-muted) {
+    font-size: $font-size-sm;
+    color: var(--color-text-muted);
+  }
+}
+
+/* Mode toggle buttons - Design system compliant with layout stability */
+:global(.btn-group) {
+  /* Contain layout shifts within button group */
+  contain: layout;
+
+  :global(.btn) {
+    font-size: $font-size-sm;
+    /* Prevent focus/active state from causing layout shifts */
+    box-sizing: border-box;
+    /* Use padding that accounts for border changes */
+    padding: $space-2 $space-3;
+    /* Reserve space for focus border by using consistent border */
+    border-width: var(--space-0-5);
+    border-style: solid;
+    transition: background-color var(--transition-base),
+                color var(--transition-base),
+                border-color var(--transition-base);
+    /* Prevent any transform on interaction */
+    transform: none !important;
+    /* Lock vertical alignment */
+    vertical-align: middle;
+    /* Prevent outline from extending outside */
+    outline-offset: -2px;
+  }
+
+  /* Primary button state */
+  :global(.btn.btn-primary) {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary);
+    color: var(--color-text-inverse);
+  }
+
+  /* Outline button state */
+  :global(.btn.btn-outline-secondary) {
+    border-color: var(--color-border-medium);
+    background-color: transparent;
+    color: var(--color-text-secondary);
+
+    &:hover {
+      border-color: var(--color-border-dark);
+      background-color: var(--color-bg-secondary);
+      color: var(--color-text-primary);
+    }
+  }
+
+  /* Focus states - use border color change only */
+  :global(.btn:focus),
+  :global(.btn:focus-visible) {
+    /* Keep same border width - only change color */
+    border-color: var(--color-primary);
+    /* Use inset box-shadow instead of outline */
+    box-shadow: inset 0 0 0 var(--border-width-thin) var(--color-primary);
+    outline: none;
+    /* Lock position - no movement */
+    transform: none !important;
+    /* Prevent any size changes */
+    padding: $space-2 $space-3;
+    margin: 0;
+  }
+
+  /* Active state */
+  :global(.btn:active) {
+    transform: none !important;
+    box-shadow: none;
+    /* Slightly darker on click but no movement */
+    filter: brightness(0.95);
+  }
+
+  /* Hover state */
+  :global(.btn:hover) {
+    transform: none !important;
+  }
+
+  /* Override any Bootstrap defaults that might cause shifts */
+  :global(.btn.btn-primary:hover),
+  :global(.btn.btn-primary:focus),
+  :global(.btn.btn-primary:active),
+  :global(.btn.btn-outline-secondary:hover),
+  :global(.btn.btn-outline-secondary:focus),
+  :global(.btn.btn-outline-secondary:active) {
+    transform: none !important;
+    box-shadow: none;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .structuredTipForm {
+    padding: $space-3;
+  }
+
+  .structuredTipPreview {
+    padding: $space-3;
+  }
+}
+
+/* Drag and drop styles */
+.dragHandle {
+  cursor: grab;
+  color: var(--color-text-muted);
+  font-size: $font-size-lg;
+  margin-right: $space-2;
+  user-select: none;
+  transition: color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text-secondary);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.dragging {
+  opacity: 0.5;
+  transform: rotate(5deg);
+  box-shadow: var(--shadow-md);
+}
+
+.dragOver {
+  border-top: var(--space-0-5) solid var(--color-primary);
+  background-color: var(--color-bg-tertiary);
+  transition: background-color var(--transition-fast);
+}
+
+/* Dark mode specific adjustments */
+@media (prefers-color-scheme: dark) {
+  .structuredTipForm {
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border-light);
+  }
+
+  .dragOver {
+    background-color: var(--color-bg-secondary);
+  }
+
+  .callToActionSection {
+    background-color: var(--color-bg-tertiary);
+  }
+}
+
+/* Call to Action Section - Design System Compliant */
+.callToActionSection {
+  border: var(--space-0-5) solid var(--color-border-medium);
+  border-radius: $radius-lg;
+  padding: $space-4;
+  margin-bottom: $space-3;
+  background-color: var(--color-bg-secondary);
+  transition: background-color var(--transition-base), border-color var(--transition-base);
+
+  :global(.form-label) {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-medium);
+    font-size: $font-size-base;
+    margin-bottom: $space-2;
+  }
+
+  :global(.form-control) {
+    background-color: var(--color-bg-input);
+    border-color: var(--color-border-medium);
+    color: var(--color-text-primary);
+
+    &:focus {
+      background-color: var(--color-bg-input);
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 var(--space-0-5) var(--color-primary-alpha);
+    }
+
+    &::placeholder {
+      color: var(--color-text-placeholder);
+    }
+  }
+
+  :global(.form-text) {
+    color: var(--color-text-muted);
+    font-size: $font-size-sm;
+    margin-top: $space-2;
+  }
+}
