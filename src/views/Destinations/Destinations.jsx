@@ -1,4 +1,4 @@
-import "./Destinations.css";
+import styles from "./Destinations.module.scss";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
@@ -85,7 +85,7 @@ export default function Destinations() {
         ogDescription={`Browse ${processedDestinations?.length || 'hundreds of'} incredible travel destinations worldwide. Plan your perfect trip today.`}
       />
 
-      <Container className="destinations-header">
+      <Container className={styles.destinationsHeader}>
         <div className="col-md-6">
           <Mobile>
             <h1 className="my-4" style={{ textAlign: 'center' }}>Destinations</h1>
@@ -118,7 +118,7 @@ export default function Destinations() {
         />
       ) : (
         <Container className="my-4 animation-fade_in">
-          <div className="destinations-list animation-fade_in">
+          <div className={`${styles.destinationsList} animation-fade_in`}>
             {processedDestinations.length > 0 ? (
               processedDestinations.map((destination, index) => (
                 <DestinationCard
