@@ -361,16 +361,18 @@ async function searchPlansInternal(query, limit, user) {
  */
 async function searchUsersInternal(query, limit, user) {
   try {
-    // Only super admins can search all users
-    if (!isSuperAdmin(user)) {
-      return [];
-    }
-
+    // All authenticated users can search for other users (for collaboration purposes)
+    // Super admins get additional fields like role and email
     const searchQuery = buildRegexSearchQuery(query, ['name', 'email']);
+
+    // Select fields based on user role
+    const selectFields = isSuperAdmin(user)
+      ? 'name email role photos default_photo_id'
+      : 'name photos default_photo_id';
 
     const users = await User.find(searchQuery)
       .limit(limit)
-      .select('name email role profilePhoto')
+      .select(selectFields)
       .lean();
 
     return users.map(u => ({
@@ -468,15 +470,12 @@ async function searchPlans(req, res) {
 }
 
 /**
- * Search users endpoint (admin only)
+ * Search users endpoint
  * GET /api/search/users?q=query&limit=10
+ * Available to all authenticated users for collaboration purposes
  */
 async function searchUsers(req, res) {
   try {
-    if (!isSuperAdmin(req.user)) {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
-
     const { q: query, limit = SEARCH_CONFIG.defaultLimit } = req.query;
 
     if (!query || query.trim().length < SEARCH_CONFIG.minQueryLength) {
