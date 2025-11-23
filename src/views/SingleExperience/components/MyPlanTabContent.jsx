@@ -125,7 +125,7 @@ function SortablePlanItem({
             <span className="child-arrow">↳</span>
           )}
         </div>
-        <div className="plan-item-title flex-grow-1 fw-semibold fs-5">
+        <div className="plan-item-title flex-grow-1 fw-semibold">
           {planItem.url ? (
             <Link
               to={planItem.url}
