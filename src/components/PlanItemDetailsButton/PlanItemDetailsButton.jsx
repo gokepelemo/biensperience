@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import './PlanItemDetailsButton.css';
+import styles from './PlanItemDetailsButton.module.scss';
 
 export default function PlanItemDetailsButton({ onSelectDetailType, disabled = false }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -40,9 +40,9 @@ export default function PlanItemDetailsButton({ onSelectDetailType, disabled = f
   ];
 
   return (
-    <div ref={dropdownRef} className="plan-item-details-button-container">
+    <div ref={dropdownRef} className={styles.planItemDetailsButtonContainer}>
       <button
-        className="plan-item-details-button"
+        className={styles.planItemDetailsButton}
         onClick={(e) => {
           e.stopPropagation();
           setDropdownOpen(!dropdownOpen);
@@ -56,18 +56,18 @@ export default function PlanItemDetailsButton({ onSelectDetailType, disabled = f
       </button>
 
       {dropdownOpen && (
-        <div className="plan-item-details-dropdown">
+        <div className={styles.planItemDetailsDropdown}>
           {detailOptions.map((option) => (
             <button
               key={option.type}
-              className={`plan-item-details-option ${option.disabled ? 'disabled' : ''}`}
+              className={`${styles.planItemDetailsOption} ${option.disabled ? 'disabled' : ''}`}
               onClick={() => !option.disabled && handleOptionClick(option.type)}
               disabled={option.disabled}
               type="button"
             >
-              <span className="option-icon">{option.icon}</span>
-              <span className="option-label">{option.label.replace(/^.+ /, '')}</span>
-              {option.disabled && <span className="coming-soon">(Coming Soon)</span>}
+              <span className={styles.optionIcon}>{option.icon}</span>
+              <span className={styles.optionLabel}>{option.label.replace(/^.+ /, '')}</span>
+              {option.disabled && <span className={styles.comingSoon}>(Coming Soon)</span>}
             </button>
           ))}
         </div>
