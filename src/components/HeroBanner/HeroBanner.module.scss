@@ -1,0 +1,37 @@
+@use '../../styles/scss/abstracts' as *;
+
+:root {
+  --hero: no-repeat center/100%
+    url(https://images.unsplash.com/photo-1545150665-c72a8f0cf311);
+}
+
+.heroBanner {
+  background: var(--hero);
+  height: clamp(200px, 40vw, 400px);
+}
+
+.heroBannerTitle {
+  display: none;
+  font-size: clamp(var(--font-size-2xl), 7vw, var(--font-size-4xl));
+  font-weight: var(--font-weight-extrabold);
+  color: white;
+  text-shadow: var(--shadow-text-sm);
+  margin-bottom: $space-4;
+}
+
+.tagline {
+  width: 50%;
+  height: 100%;
+  display: flex;
+  color: white;
+  padding: 0 $space-5;
+  font-size: clamp(var(--font-size-xl), 3.5vw, var(--font-size-3xl));
+  font-weight: $font-weight-semibold;
+  line-height: var(--line-height-snug);
+  letter-spacing: var(--letter-spacing-tight);
+  min-width: 250px;
+  align-items: center;
+  justify-content: flex-start;
+  text-shadow: var(--shadow-text-md);
+  contain: layout style;
+}
