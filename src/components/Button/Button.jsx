@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import './Button.css';
+import styles from './Button.module.scss';
 
 /**
  * Button component with multiple variants and styling options
@@ -40,13 +40,23 @@ export default function Button({
   let normalizedVariant = variant;
   if (variant === 'primary') normalizedVariant = 'gradient';
 
-  // Build className string
+  // Build className string with CSS Modules
+  // Convert kebab-case to camelCase for SCSS modules
+  const variantClass = normalizedVariant === 'gradient' ? styles.btnGradient
+    : normalizedVariant === 'outline' ? styles.btnOutline
+    : normalizedVariant === 'link' ? styles.btnLink
+    : '';
+
+  const sizeClass = size === 'sm' ? styles.btnSm
+    : size === 'lg' ? styles.btnLg
+    : '';
+
   const classes = [
-    'btn-custom',
-    `btn-${normalizedVariant}`,
-    rounded && 'btn-rounded',
-    shadow && 'btn-shadow',
-    size !== 'md' && `btn-${size}`,
+    styles.btnCustom,
+    variantClass,
+    rounded && styles.btnRounded,
+    shadow && styles.btnShadow,
+    sizeClass,
     normalizedVariant === 'bootstrap' && `btn btn-${bootstrapVariant}`,
     className
   ].filter(Boolean).join(' ');

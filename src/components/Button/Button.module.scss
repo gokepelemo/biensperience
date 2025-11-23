@@ -1,0 +1,134 @@
+/**
+ * Button Component Styles (SCSS Module)
+ * Migrated from Button.css to Button.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+/* Base Button Styles */
+.btnCustom {
+  @include button-base;
+  min-height: 44px; /* Accessibility: minimum touch target */
+  position: relative;
+  overflow: hidden;
+}
+
+/* Gradient Button Variant */
+.btnGradient {
+  @include button-variant($color-primary, var(--btn-gradient-color, white));
+  background: var(--gradient-primary);
+  box-shadow: $shadow-sm;
+
+  &:hover:not(:disabled) {
+    @include hover-lift(-1px, $shadow-md);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: $shadow-sm;
+  }
+}
+
+/* Outline Button Variant */
+.btnOutline {
+  background: transparent;
+  color: $color-primary;
+  border: 2px solid $color-primary;
+
+  &:hover:not(:disabled) {
+    background: $color-primary;
+    color: var(--color-white, white);
+    border-color: $color-primary;
+    transform: translateY(-1px);
+    box-shadow: $shadow-sm;
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+
+/* Link-style Button (text-only) */
+.btnLink {
+  background: transparent;
+  color: $color-primary;
+  border: none;
+  padding: $space-1 $space-2;
+  min-height: auto;
+  height: auto;
+  line-height: 1;
+
+  &:hover:not(:disabled) {
+    text-decoration: underline;
+    transform: none;
+  }
+}
+
+/* Bootstrap Button Variant */
+/* Inherits Bootstrap button styles */
+/* No additional styles needed - uses Bootstrap classes directly */
+
+/* Rounded Variant */
+.btnRounded {
+  border-radius: $radius-full;
+}
+
+/* Shadow Variant */
+.btnShadow {
+  box-shadow: $shadow-md;
+
+  &:hover:not(:disabled) {
+    box-shadow: $shadow-lg;
+  }
+}
+
+/* Size Variants */
+.btnSm {
+  padding: $space-2 $space-3;
+  font-size: $font-size-sm;
+  min-height: 36px;
+}
+
+.btnLg {
+  padding: $space-4 $space-6;
+  font-size: $font-size-lg;
+  min-height: 52px;
+}
+
+/* Disabled State */
+.btnCustom:disabled {
+  opacity: var(--opacity-disabled, 0.6);
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Focus State for Accessibility */
+.btnCustom:focus {
+  @include focus-ring;
+}
+
+/* Dark Mode Adjustments */
+@media (prefers-color-scheme: dark) {
+  .btnOutline {
+    border-color: $color-primary-dark;
+    color: $color-primary-dark;
+
+    &:hover:not(:disabled) {
+      background: $color-primary-dark;
+    }
+  }
+}
+
+/* Manual dark mode toggle */
+[data-theme="dark"] {
+  .btnOutline {
+    border-color: $color-primary-dark;
+    color: $color-primary-dark;
+
+    &:hover:not(:disabled) {
+      background: $color-primary-dark;
+    }
+  }
+}
