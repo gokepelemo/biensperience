@@ -5,7 +5,7 @@ import { lang } from "../../lang.constants";
 import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
 import ForgotPasswordModal from "../ForgotPasswordModal/ForgotPasswordModal";
 import { FormControl } from "../../components/design-system";
-import "./LoginForm.css";
+import styles from "./LoginForm.module.scss";
 
 /**
  * Login form component for user authentication.
@@ -106,13 +106,13 @@ export default function LoginForm({ setUser }) {
     }, []);
 
     return (
-        <div className="login-bg center-login">
-            <div className="login-form-wrapper center-login">
+        <div className={styles.loginBg}>
+            <div className={styles.loginFormWrapper}>
                 <div className="login-logo"></div>
-                <h2 className="login-title">{lang.en.heading.signInToAccount}</h2>
-                <form className="login-form" onSubmit={handleSubmit}>
+                <h2 className={styles.loginTitle}>{lang.en.heading.signInToAccount}</h2>
+                <form className={styles.loginForm} onSubmit={handleSubmit}>
                     <FormControl
-                        className="login-input"
+                        className={styles.loginInput}
                         autoComplete="email"
                         type="email"
                         name="email"
@@ -123,7 +123,7 @@ export default function LoginForm({ setUser }) {
                         required
                     />
                     <FormControl
-                        className="login-input"
+                        className={styles.loginInput}
                         autoComplete="current-password"
                         type="password"
                         name="password"
@@ -135,7 +135,7 @@ export default function LoginForm({ setUser }) {
                         placeholder={lang.en.placeholder.password}
                         required
                     />
-                    <button className="login-btn btn btn-light" type="submit">
+                    <button className={`${styles.loginBtn} btn btn-light`} type="submit">
                         {lang.en.button.signInArrow}
                     </button>
                 </form>
@@ -145,7 +145,7 @@ export default function LoginForm({ setUser }) {
                     <div className="text-center mb-3" style={{ marginTop: '-0.5rem' }}>
                         <button
                             type="button"
-                            className="link-btn text-muted"
+                            className={`${styles.linkBtn} text-muted`}
                             onClick={() => setShowForgotPassword(true)}
                             style={{ fontSize: '0.9rem', textDecoration: 'underline' }}
                         >
@@ -157,14 +157,14 @@ export default function LoginForm({ setUser }) {
                 {/* Error message */}
                 {error && (
                     <div className="mb-3">
-                        <p className="error-message text-center mb-0">{error}</p>
+                        <p className={`${styles.errorMessage} text-center mb-0`}>{error}</p>
                     </div>
                 )}
 
                 <SocialLoginButtons />
 
-                <div className="login-signup center-login">
-                    <span>{lang.en.message.dontHaveAccount}</span> <button type="button" className="signup-link link-btn" onClick={() => navigate('/signup')}>{lang.en.button.signup}</button>
+                <div className={styles.loginSignup}>
+                    <span>{lang.en.message.dontHaveAccount}</span> <button type="button" className={`${styles.signupLink} ${styles.linkBtn}`} onClick={() => navigate('/signup')}>{lang.en.button.signup}</button>
                 </div>
             </div>
 
