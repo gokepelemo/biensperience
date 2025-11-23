@@ -17,6 +17,22 @@
 .navbar {
   background: #1e1e1e !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+  /* Align all navbar items to bottom on desktop */
+  :global(.container-fluid) {
+    display: flex;
+    align-items: flex-end; /* Align all items to bottom */
+  }
+
+  /* Ensure navbar-collapse also aligns to bottom */
+  :global(.navbar-collapse) {
+    align-items: flex-end;
+  }
+
+  /* Ensure navbar-nav ul aligns items to bottom */
+  :global(.navbar-nav) {
+    align-items: flex-end;
+  }
 }
 
 /* Sticky navbar */
@@ -74,6 +90,7 @@
 /* Navbar brand wrapper for dynamic text */
 .navbarBrandWrapper {
   @include flex-start;
+  align-items: flex-end; /* Align brand to bottom */
 }
 
 .brandText {
@@ -245,7 +262,7 @@
 :global(.navbar-brand) {
   display: flex; /* Ensure flex layout */
   flex-wrap: nowrap; /* Keep logo and text on same line */
-  align-items: center; /* Vertically center logo and text */
+  align-items: flex-end; /* Align logo and text to bottom */
   gap: $space-2; /* Add gap between logo and text */
   padding: $space-2 $space-4;
   @include transition-all($transition-normal);
