@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import Modal from '../Modal/Modal';
-import './AssignPlanItemModal.css';
+import styles from './AssignPlanItemModal.module.scss';
 
 export default function AssignPlanItemModal({
   show,
@@ -53,15 +53,15 @@ export default function AssignPlanItemModal({
       title="Assign Plan Item"
       size="md"
     >
-      <div className="assign-plan-item-modal">
-        <div className="modal-description">
+      <div className={styles.assignPlanItemModal}>
+        <div className={styles.modalDescription}>
           <p>Assign <strong>{planItem?.text || 'this item'}</strong> to a collaborator.</p>
         </div>
 
-        <div className="collaborators-list">
-          <label className="form-label">Select Assignee</label>
+        <div className={styles.collaboratorsList}>
+          <label className={styles.formLabel}>Select Assignee</label>
           <select
-            className="form-control"
+            className={styles.formControl}
             value={selectedUserId}
             onChange={(e) => setSelectedUserId(e.target.value)}
             disabled={isSubmitting}
@@ -81,9 +81,9 @@ export default function AssignPlanItemModal({
           </select>
         </div>
 
-        <div className="modal-actions">
+        <div className={styles.modalActions}>
           <button
-            className="btn-assign"
+            className={styles.btnAssign}
             onClick={handleAssign}
             disabled={!selectedUserId || isSubmitting}
             type="button"
@@ -93,7 +93,7 @@ export default function AssignPlanItemModal({
 
           {currentAssignee && (
             <button
-              className="btn-unassign"
+              className={styles.btnUnassign}
               onClick={handleUnassign}
               disabled={isSubmitting}
               type="button"
@@ -103,7 +103,7 @@ export default function AssignPlanItemModal({
           )}
 
           <button
-            className="btn-cancel"
+            className={styles.btnCancel}
             onClick={onClose}
             disabled={isSubmitting}
             type="button"
