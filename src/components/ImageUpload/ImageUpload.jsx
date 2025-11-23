@@ -369,9 +369,9 @@ export default function ImageUpload({ data, setData }) {
   }
 
   return (
-    <div className="uploadPhoto" role="region" aria-label={lang.en.aria.photoUpload}>
+    <div className={styles.uploadPhoto} role="region" aria-label={lang.en.aria.photoUpload}>
       {/* Upload Form */}
-      <div className="upload-form-section">
+      <div className={styles.uploadFormSection}>
         {/* Photo Credit Fields - One Per Line */}
         <div className="mb-3">
           <label htmlFor="photo_credit" className="visually-hidden">
@@ -472,7 +472,7 @@ export default function ImageUpload({ data, setData }) {
                     </button>
                   )}
                 </div>
-                <div className="url-queue-list">
+                <div className={styles.urlQueueList}>
                   {urlQueue.map((item, index) => (
                     <div
                       key={index}
@@ -488,9 +488,9 @@ export default function ImageUpload({ data, setData }) {
                       }}
                       aria-label={`Edit URL ${index + 1}: ${item.url}`}
                     >
-                      <div className="url-queue-item-content">
-                        <div className="url-queue-item-url">{item.url}</div>
-                        <div className="url-queue-item-credit">
+                      <div className={styles.urlQueueItemContent}>
+                        <div className={styles.urlQueueItemUrl}>{item.url}</div>
+                        <div className={styles.urlQueueItemCredit}>
                           <small className="text-muted">
                             {item.photo_credit} {item.photo_credit_url && `• ${item.photo_credit_url}`}
                           </small>
@@ -545,7 +545,7 @@ export default function ImageUpload({ data, setData }) {
 
       {/* Uploaded Photos List */}
       {photos.length > 0 && (
-        <div className="uploaded-photos-list" role="region" aria-label={lang.en.aria.uploadedPhotos}>
+        <div className={styles.uploadedPhotosList} role="region" aria-label={lang.en.aria.uploadedPhotos}>
           <h5 className="mt-4 mb-3">
             Photos ({photos.filter((_, idx) => !disabledPhotos.has(idx)).length} active, {disabledPhotos.size} disabled)
           </h5>
@@ -559,7 +559,7 @@ export default function ImageUpload({ data, setData }) {
             </Alert>
           )}
           
-          <div className="photos-grid">
+          <div className={styles.photosGrid}>
             {photos.map((photo, index) => {
               const isDisabled = disabledPhotos.has(index);
               const isDefault = index === defaultPhotoIndex && !isDisabled;
@@ -575,12 +575,12 @@ export default function ImageUpload({ data, setData }) {
                   <img
                     src={photo.url}
                     alt={sanitizedCredit || `Photo ${index + 1}`}
-                    className="photo-item-preview"
+                    className={styles.photoItemPreview}
                     loading="lazy"
                     style={{ filter: isDisabled ? 'grayscale(100%)' : 'none' }}
                   />
-                  <div className="photo-item-info">
-                    <small className="photo-item-credit">{sanitizedCredit}</small>
+                  <div className={styles.photoItemInfo}>
+                    <small className={styles.photoItemCredit}>{sanitizedCredit}</small>
                     {isDefault && (
                       <span className="badge pill pill-variant-primary">Default</span>
                     )}
@@ -588,7 +588,7 @@ export default function ImageUpload({ data, setData }) {
                       <span className="badge pill pill-variant-danger">Disabled</span>
                     )}
                   </div>
-                  <div className="photo-item-actions">
+                  <div className={styles.photoItemActions}>
                     <button
                       className={`btn btn-sm ${isDisabled ? 'btn-success' : 'btn-warning'}`}
                       onClick={() => togglePhotoAtIndex(index)}
