@@ -1,0 +1,43 @@
+@use '../../styles/scss/abstracts' as *;
+
+.confirmEmailCard {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: none;
+  border-radius: $radius-lg;
+
+  :global(h1) {
+    color: var(--primary-purple);
+    font-weight: $font-weight-semibold;
+  }
+
+  :global(.btn-primary) {
+    background: linear-gradient(135deg, var(--primary-purple) 0%, var(--secondary-purple) 100%);
+    border: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+
+    &:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+    }
+  }
+
+  :global(.spinner-border) {
+    width: 3rem;
+    height: 3rem;
+  }
+}
+
+/* Center the confirm email card in the viewport */
+.confirmEmailWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh; /* full viewport height to center vertically */
+  padding: $space-8 $space-4; /* spacing on small screens */
+
+  /* Ensure inner column doesn't inherit extra margins that break centering */
+  :global(.col-md-6),
+  :global(.col-lg-5) {
+    margin: 0 auto;
+  }
+}

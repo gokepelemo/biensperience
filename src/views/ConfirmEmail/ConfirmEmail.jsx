@@ -6,7 +6,7 @@ import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
 import { Button, Container } from '../../components/design-system';
-import './ConfirmEmail.css';
+import styles from './ConfirmEmail.module.scss';
 
 export default function ConfirmEmail() {
   const { token } = useParams();
@@ -46,10 +46,10 @@ export default function ConfirmEmail() {
         keywords="confirm email, email verification, account activation"
       />
 
-      <div className="confirm-email-wrapper container">
+      <div className={`${styles.confirmEmailWrapper} container`}>
         <Container className="justify-content-center">
           <div className="col-md-6 col-lg-5">
-            <div className="confirm-email-card card">
+            <div className={`${styles.confirmEmailCard} card`}>
               <div className="card-body p-4 p-md-5">
                 <h1 className="text-center mb-4">Email Confirmation</h1>
 
