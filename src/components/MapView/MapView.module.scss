@@ -1,0 +1,145 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* MapView - Interactive map component with controls and legend */
+
+.mapView {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  height: 100%;
+}
+
+.mapContainer {
+  position: relative;
+  width: 100%;
+  border-radius: var(--border-radius-xl);
+  overflow: hidden;
+  background: var(--color-bg-secondary);
+  box-shadow: var(--shadow-sm);
+
+  iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  @media (max-width: 768px) {
+    height: 300px;
+  }
+}
+
+/* Map Controls */
+.mapControls {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--color-bg-primary);
+  border-radius: var(--border-radius-lg);
+  padding: var(--space-2);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+
+  @media (max-width: 768px) {
+    top: var(--space-2);
+    right: var(--space-2);
+    padding: var(--space-1);
+    gap: var(--space-1);
+  }
+}
+
+.mapControlBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-standard);
+
+  &:hover {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-medium);
+    color: var(--color-text-primary);
+  }
+
+  @media (max-width: 768px) {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+.mapLocationBtn {
+  position: absolute;
+  bottom: var(--space-4);
+  right: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: 50%;
+  color: var(--color-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-standard);
+
+  &:hover {
+    background: var(--color-primary-light);
+    border-color: var(--color-border-primary);
+    color: var(--color-primary-hover);
+    transform: scale(1.1);
+  }
+
+  @media (max-width: 768px) {
+    bottom: var(--space-2);
+    right: var(--space-2);
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Map Legend */
+.mapLegend {
+  display: flex;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-primary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-xs);
+  border: 1px solid var(--color-border-light);
+
+  @media (max-width: 768px) {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.legendMarker {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.legendLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}

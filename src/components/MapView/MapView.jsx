@@ -1,5 +1,5 @@
 import GoogleMap from '../GoogleMap/GoogleMap';
-import './MapView.css';
+import styles from './MapView.module.scss';
 
 /**
  * MapView - Interactive Google Maps component for destination browsing
@@ -20,8 +20,8 @@ export default function MapView({
   markers = []
 }) {
   return (
-    <div className="map-view">
-      <div className="map-container" style={{ height: `${height}px` }}>
+    <div className={styles.mapView}>
+      <div className={styles.mapContainer} style={{ height: `${height}px` }}>
         {/* Google Maps Embed via GoogleMap component */}
         <GoogleMap
           location={location}
@@ -35,9 +35,9 @@ export default function MapView({
         {showControls && (
           <>
             {/* Map Controls */}
-            <div className="map-controls">
-              <button 
-                className="map-control-btn" 
+            <div className={styles.mapControls}>
+              <button
+                className={styles.mapControlBtn} 
                 aria-label="Zoom in"
                 title="Zoom in"
               >
@@ -45,8 +45,8 @@ export default function MapView({
                   <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </button>
-              <button 
-                className="map-control-btn" 
+              <button
+                className={styles.mapControlBtn}
                 aria-label="Zoom out"
                 title="Zoom out"
               >
@@ -54,8 +54,8 @@ export default function MapView({
                   <path d="M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </button>
-              <button 
-                className="map-control-btn" 
+              <button
+                className={styles.mapControlBtn}
                 aria-label="Center map"
                 title="Center map"
               >
@@ -67,8 +67,8 @@ export default function MapView({
             </div>
 
             {/* Location Button */}
-            <button 
-              className="map-location-btn" 
+            <button
+              className={styles.mapLocationBtn} 
               aria-label="My location"
               title="My location"
             >
@@ -83,18 +83,18 @@ export default function MapView({
 
       {/* Map Legend - Only show if markers provided */}
       {markers && markers.length > 0 && (
-        <div className="map-legend">
-          <div className="legend-item">
-            <div className="legend-marker" style={{ background: 'var(--color-primary)' }}></div>
-            <span className="legend-label">Hotels ({markers.filter(m => m.type === 'hotel').length})</span>
+        <div className={styles.mapLegend}>
+          <div className={styles.legendItem}>
+            <div className={styles.legendMarker} style={{ background: 'var(--color-primary)' }}></div>
+            <span className={styles.legendLabel}>Hotels ({markers.filter(m => m.type === 'hotel').length})</span>
           </div>
-          <div className="legend-item">
-            <div className="legend-marker" style={{ background: 'var(--color-success)' }}></div>
-            <span className="legend-label">Restaurants ({markers.filter(m => m.type === 'restaurant').length})</span>
+          <div className={styles.legendItem}>
+            <div className={styles.legendMarker} style={{ background: 'var(--color-success)' }}></div>
+            <span className={styles.legendLabel}>Restaurants ({markers.filter(m => m.type === 'restaurant').length})</span>
           </div>
-          <div className="legend-item">
-            <div className="legend-marker" style={{ background: 'var(--color-warning)' }}></div>
-            <span className="legend-label">Attractions ({markers.filter(m => m.type === 'attraction').length})</span>
+          <div className={styles.legendItem}>
+            <div className={styles.legendMarker} style={{ background: 'var(--color-warning)' }}></div>
+            <span className={styles.legendLabel}>Attractions ({markers.filter(m => m.type === 'attraction').length})</span>
           </div>
         </div>
       )}
