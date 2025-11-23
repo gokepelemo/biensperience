@@ -125,7 +125,7 @@ export default function Dashboard() {
 
   if (!dashboardData) {
     return (
-      <Container style={{ padding: 'var(--space-8) 0' }}>
+      <Container className={styles.errorContainer}>
         <Card
           style={{
             backgroundColor: 'var(--color-bg-primary)',
@@ -135,13 +135,13 @@ export default function Dashboard() {
             textAlign: 'center',
           }}
         >
-          <div style={{ color: 'var(--color-text-error)', marginBottom: 'var(--space-4)' }}>
+          <div className={styles.errorIcon}>
             <FaStar size={48} />
           </div>
-          <Heading level={2} style={{ marginBottom: 'var(--space-2)' }}>
+          <Heading level={2} className={styles.errorTitle}>
             Dashboard Unavailable
           </Heading>
-          <Text style={{ marginBottom: 'var(--space-4)' }}>{error || 'We were unable to load your dashboard data.'}</Text>
+          <Text className={styles.errorMessage}>{error || 'We were unable to load your dashboard data.'}</Text>
           <Button onClick={fetchDashboardData} variant="primary">
             Try Again
           </Button>
@@ -158,34 +158,14 @@ export default function Dashboard() {
   const totalSpentValue = typeof stats.totalSpent === 'number' ? stats.totalSpent : 0;
 
   return (
-    <div
-      style={{
-        backgroundColor: 'var(--color-bg-primary)',
-        minHeight: '100vh',
-        padding: 'var(--space-8) 0',
-      }}
-    >
+    <div className={styles.dashboardContainer}>
       <Container fluid>
         <Row>
           <Col
             lg={2}
-            className={styles.dashboardSidebarMobileHidden}
-            style={{
-              backgroundColor: 'var(--color-bg-secondary)',
-              minHeight: '100vh',
-              padding: 'var(--space-6)',
-              borderRight: '1px solid var(--color-border-light)',
-            }}
+            className={`${styles.dashboardSidebar} ${styles.dashboardSidebarMobileHidden}`}
           >
-            <Heading
-              level={2}
-              style={{
-                fontSize: 'var(--font-size-xl)',
-                fontWeight: 'var(--font-weight-bold)',
-                color: 'var(--color-text-primary)',
-                marginBottom: 'var(--space-8)',
-              }}
-            >
+            <Heading level={2} className={styles.sidebarTitle}>
               Dashboard
             </Heading>
             <nav>
@@ -210,15 +190,7 @@ export default function Dashboard() {
                         try { window.history.pushState(null, '', `${window.location.pathname}#${item.key}`); } catch (e) {}
                       }
                     }}
-                    style={{
-                      padding: 'var(--space-3)',
-                      marginBottom: 'var(--space-2)',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: isActive ? 'var(--color-primary)' : 'transparent',
-                      color: isActive ? 'white' : 'var(--color-text-primary)',
-                      cursor: 'pointer',
-                      fontWeight: isActive ? 'var(--font-weight-semibold)' : 'var(--font-weight-medium)',
-                    }}
+                    className={`${styles.sidebarNavItem} ${isActive ? styles.sidebarNavItemActive : ''}`}
                   >
                     {item.label}
                   </div>
@@ -229,40 +201,20 @@ export default function Dashboard() {
 
           <Col
             lg={10}
-            className={styles.dashboardMainMobilePadding}
-            style={{
-              padding: 'var(--space-8)',
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: '100vh',
-              overflow: 'hidden',
-            }}
+            className={`${styles.dashboardMain} ${styles.dashboardMainMobilePadding}`}
           >
             {activeTab === 'overview' && (
               <>
-                <div style={{ marginBottom: 'var(--space-8)' }}>
-                  <Heading
-                    level={1}
-                    style={{
-                      fontSize: 'var(--font-size-3xl)',
-                      fontWeight: 'var(--font-weight-bold)',
-                      color: 'var(--color-text-primary)',
-                      marginBottom: 'var(--space-2)',
-                    }}
-                  >
+                <div className={styles.welcomeSection}>
+                  <Heading level={1} className={styles.welcomeTitle}>
                     Welcome back, {user?.name?.split(' ')[0] || 'Traveler'}! 👋
                   </Heading>
-                  <Text
-                    style={{
-                      fontSize: 'var(--font-size-lg)',
-                      color: 'var(--color-text-secondary)',
-                    }}
-                  >
+                  <Text className={styles.welcomeSubtitle}>
                     Here's what's happening with your travel plans
                   </Text>
                 </div>
 
-                <Row style={{ marginBottom: 'var(--space-8)' }}>
+                <Row className={styles.statsRow}>
                   <ActivePlansCard stats={dashboardData.stats} loading={loading} />
                   {[
                     { label: 'Experiences', value: experiencesValue, color: 'var(--color-success)', icon: <FaStar /> },
@@ -273,17 +225,17 @@ export default function Dashboard() {
                   ))}
                 </Row>
 
-                <Row style={{ flex: 1, overflow: 'hidden' }}>
-                  <Col lg={8} style={{ marginBottom: 'var(--space-6)', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <Row className={styles.mainContentRow}>
+                  <Col lg={8} className={styles.activityColumn}>
                     <ActivityList initialActivities={recentActivity} />
                   </Col>
 
-                  <Col lg={4} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                    <div style={{ marginBottom: 'var(--space-6)' }} ref={quickActionsRef}>
+                  <Col lg={4} className={styles.sideColumn}>
+                    <div className={styles.quickActionsWrapper} ref={quickActionsRef}>
                       <QuickActions />
                     </div>
 
-                    <div style={{ flex: 1, overflow: 'auto' }} ref={upcomingPlansRef}>
+                    <div className={styles.upcomingPlansWrapper} ref={upcomingPlansRef}>
                       <UpcomingPlans plans={upcomingPlans} />
                     </div>
                   </Col>
@@ -294,7 +246,7 @@ export default function Dashboard() {
             {/* My Experiences removed from dashboard per request */}
 
             {activeTab === 'plans' && (
-              <div style={{ flex: 1, overflow: 'auto' }}>
+              <div className={styles.tabContentFlex}>
                 <MyPlans />
               </div>
             )}
@@ -302,7 +254,7 @@ export default function Dashboard() {
             {/* Favorites tab removed per design — no rendering block */}
 
             {activeTab === 'preferences' && (
-              <div style={{ flex: 1, overflow: 'auto' }}>
+              <div className={styles.tabContentFlex}>
                 <Preferences />
               </div>
             )}
@@ -315,37 +267,31 @@ export default function Dashboard() {
 
 function DashboardSkeleton() {
   return (
-    <div
-      style={{
-        backgroundColor: 'var(--color-bg-primary)',
-        minHeight: '100vh',
-        padding: 'var(--space-8) 0',
-      }}
-    >
+    <div className={styles.dashboardContainer}>
       <Container fluid>
         <Row>
-          <Col lg={2} style={{ backgroundColor: 'var(--color-bg-secondary)', minHeight: '100vh', padding: 'var(--space-6)', borderRight: '1px solid var(--color-border-light)' }}>
-            <SkeletonLoader variant="text" width="120px" style={{ marginBottom: 'var(--space-8)' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <Col lg={2} className={styles.skeletonSidebar}>
+            <SkeletonLoader variant="text" width="120px" className={styles.skeletonSidebarTitle} />
+            <div className={styles.skeletonNavItems}>
               {Array.from({ length: 6 }).map((_, i) => (
                 <SkeletonLoader key={i} variant="text" width="100%" height="20px" />
               ))}
             </div>
           </Col>
 
-          <Col lg={10} style={{ padding: 'var(--space-8)' }}>
-            <Row style={{ marginBottom: 'var(--space-6)' }}>
+          <Col lg={10} className={styles.skeletonMain}>
+            <Row className={styles.skeletonWelcomeRow}>
               <Col lg={8}>
                 <SkeletonLoader variant="text" width="60%" height={36} />
-                <SkeletonLoader variant="text" width="40%" height={20} style={{ marginTop: 'var(--space-2)' }} />
+                <SkeletonLoader variant="text" width="40%" height={20} className={styles.skeletonWelcomeTitle} />
               </Col>
             </Row>
 
             <Row>
               <Col lg={8}>
-                <Card style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
-                  <SkeletonLoader variant="text" width="150px" height={24} style={{ marginBottom: 'var(--space-6)' }} />
-                  <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+                <Card className={styles.skeletonCard}>
+                  <SkeletonLoader variant="text" width="150px" height={24} className={styles.skeletonCardTitle} />
+                  <div className={styles.skeletonStatsGrid}>
                     <SkeletonLoader variant="rectangle" height={80} width="100%" />
                     <SkeletonLoader variant="rectangle" height={80} width="100%" />
                     <SkeletonLoader variant="rectangle" height={80} width="100%" />
@@ -354,18 +300,18 @@ function DashboardSkeleton() {
               </Col>
 
               <Col lg={4}>
-                <Card style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
-                  <SkeletonLoader variant="text" width="120px" height={24} style={{ marginBottom: 'var(--space-6)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                <Card className={styles.skeletonCard}>
+                  <SkeletonLoader variant="text" width="120px" height={24} className={styles.skeletonCardTitle} />
+                  <div className={styles.skeletonNavList}>
                     {Array.from({ length: 3 }).map((_, i) => (
                       <SkeletonLoader key={i} variant="rectangle" height="40px" />
                     ))}
                   </div>
                 </Card>
 
-                <Card style={{ padding: 'var(--space-6)' }}>
-                  <SkeletonLoader variant="text" width="130px" height={24} style={{ marginBottom: 'var(--space-6)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <Card className={styles.skeletonCard}>
+                  <SkeletonLoader variant="text" width="130px" height={24} className={styles.skeletonCardTitle} />
+                  <div className={styles.skeletonUpcomingList}>
                     {Array.from({ length: 3 }).map((_, i) => (
                       <SkeletonLoader key={i} variant="rectangle" height="50px" />
                     ))}

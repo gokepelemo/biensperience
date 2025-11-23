@@ -1,6 +1,200 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Dashboard view styles (minimal comments for v0.5.1) */
+/* Dashboard view styles */
+
+/* Main container */
+.dashboardContainer {
+  background-color: var(--color-bg-primary);
+  min-height: 100vh;
+  padding: 0; // Removed top padding as requested
+}
+
+/* Error state container */
+.errorContainer {
+  padding: 0; // Removed top padding
+}
+
+.errorCard {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: $space-6;
+  text-align: center;
+}
+
+.errorIcon {
+  color: var(--color-text-error);
+  margin-bottom: $space-4;
+}
+
+.errorTitle {
+  margin-bottom: $space-2;
+}
+
+.errorMessage {
+  margin-bottom: $space-4;
+}
+
+/* Sidebar */
+.dashboardSidebar {
+  background-color: var(--color-bg-secondary);
+  min-height: 100vh;
+  padding: $space-6;
+  border-right: 1px solid var(--color-border-light);
+}
+
+.sidebarTitle {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: $space-8;
+}
+
+.sidebarNavItem {
+  padding: $space-3;
+  margin-bottom: $space-2;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+
+  &:not(.sidebarNavItemActive) {
+    background-color: transparent;
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &.sidebarNavItemActive {
+    background-color: var(--color-primary);
+    color: white;
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+/* Main content area */
+.dashboardMain {
+  padding: $space-8;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* Welcome section */
+.welcomeSection {
+  margin-bottom: $space-8;
+}
+
+.welcomeTitle {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: $space-2;
+}
+
+.welcomeSubtitle {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+}
+
+/* Stats row */
+.statsRow {
+  margin-bottom: $space-8;
+}
+
+/* Main content row */
+.mainContentRow {
+  flex: 1;
+  overflow: hidden;
+}
+
+.activityColumn {
+  margin-bottom: $space-6;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.quickActionsWrapper {
+  margin-bottom: $space-6;
+}
+
+.upcomingPlansWrapper {
+  flex: 1;
+  overflow: auto;
+}
+
+/* Tab content containers */
+.tabContentFlex {
+  flex: 1;
+  overflow: auto;
+}
+
+/* Skeleton loader */
+.skeletonContainer {
+  background-color: var(--color-bg-primary);
+  min-height: 100vh;
+  padding: 0; // Removed top padding
+}
+
+.skeletonSidebar {
+  background-color: var(--color-bg-secondary);
+  min-height: 100vh;
+  padding: $space-6;
+  border-right: 1px solid var(--color-border-light);
+}
+
+.skeletonSidebarTitle {
+  margin-bottom: $space-8;
+}
+
+.skeletonNavItems {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.skeletonMain {
+  padding: $space-8;
+}
+
+.skeletonWelcomeRow {
+  margin-bottom: $space-6;
+}
+
+.skeletonWelcomeTitle {
+  margin-top: $space-2;
+}
+
+.skeletonCard {
+  padding: $space-6;
+  margin-bottom: $space-6;
+}
+
+.skeletonCardTitle {
+  margin-bottom: $space-6;
+}
+
+.skeletonStatsGrid {
+  display: flex;
+  gap: $space-4;
+}
+
+.skeletonNavList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.skeletonUpcomingList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
 
 /* Responsive adjustments */
 @media (max-width: 991px) {
