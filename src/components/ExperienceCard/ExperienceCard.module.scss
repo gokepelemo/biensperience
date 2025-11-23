@@ -95,7 +95,7 @@
   height: 44px;
   @include flex-center;
   padding: 0;
-  @include transition-all($transition-base);
+  @include transition-all($transition-normal);
 }
 
 /* Custom button classes for experience cards - extend Bootstrap */
