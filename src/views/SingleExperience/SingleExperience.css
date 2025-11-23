@@ -880,6 +880,30 @@
 
 /* Responsive - Mobile and Tablet */
 @media (max-width: 991px) {
+    /* Increase plan item title size on mobile for better readability */
+    .plan-item-title {
+        font-size: clamp(1.125rem, 3.5vw, 1.375rem); /* 18px - 22px */
+        font-weight: var(--font-weight-semibold);
+        line-height: 1.4;
+    }
+
+    .plan-item-title a {
+        font-size: inherit;
+    }
+
+    /* Increase cost estimate and planning days font size */
+    .plan-item-meta {
+        font-size: clamp(0.9375rem, 2.5vw, 1.0625rem); /* 15px - 17px */
+        gap: var(--space-3);
+    }
+
+    /* Make assigned user and notes count more prominent */
+    .plan-item-assigned,
+    .plan-item-notes-count {
+        font-size: clamp(0.875rem, 2.2vw, 1rem); /* 14px - 16px */
+        padding: var(--space-2) var(--space-3);
+    }
+
     /* Center plan metric cards */
     .metric-card {
         align-items: center;
@@ -895,11 +919,13 @@
 
     .metric-title {
         text-align: center;
+        font-size: clamp(0.9375rem, 2.5vw, 1.0625rem); /* Slightly larger on mobile */
     }
 
     .metric-value {
         text-align: center;
         padding-right: 0;
+        font-size: clamp(2rem, 5vw, 2.25rem); /* Larger metric values on mobile */
     }
 
     /* Center plan item title and metadata */
@@ -916,7 +942,6 @@
 
     .plan-item-meta {
         flex-direction: column;
-        gap: 0.5rem;
         align-items: center;
         justify-content: center;
         text-align: center;
@@ -926,6 +951,8 @@
     .btn-view-details {
         margin-left: 0;
         margin-top: 0.5rem;
+        font-size: clamp(0.875rem, 2.2vw, 1rem); /* Slightly larger on mobile */
+        padding: var(--space-2) var(--space-4);
     }
 
     .plan-item-tree {
