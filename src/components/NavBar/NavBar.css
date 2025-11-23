@@ -69,8 +69,6 @@ nav {
 .navbar-brand-wrapper {
     display: flex;
     align-items: center;
-    flex: 1; /* Allow wrapper to grow and push toggler to the right */
-    min-width: 0; /* Allow shrinking below content size */
 }
 
 .brand-text {
@@ -89,7 +87,7 @@ nav {
     }
 
     .navbar-brand-wrapper {
-        flex: 1;
+        flex: 1; /* Only expand on mobile to push toggler right */
         min-width: 0;
         margin-right: var(--space-2); /* Small gap between brand and toggler */
     }
