@@ -1,0 +1,541 @@
+/**
+ * Loading Component Styles (SCSS Module)
+ * Migrated from Loading.css to Loading.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+/* ============================================
+   BASE CONTAINER STYLES
+   ============================================ */
+
+.loadingContainer {
+  @include flex-column;
+  gap: $space-4;
+  padding: $space-4;
+  box-sizing: border-box;
+}
+
+.loadingContent {
+  @include flex-column;
+  gap: $space-4;
+}
+
+/* ============================================
+   VARIANT STYLES
+   ============================================ */
+
+/* Variant: Inline (default) */
+.loadingVariantInline {
+  position: relative;
+  width: 100%;
+  min-height: 100px;
+}
+
+/* Variant: Centered (centers in parent container) */
+.loadingVariantCentered {
+  position: relative;
+  width: 100%;
+  min-height: 300px;
+}
+
+/* Variant: Fullscreen (fixed overlay) */
+.loadingVariantFullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  padding: 0;
+}
+
+/* ============================================
+   OVERLAY STYLES
+   ============================================ */
+
+.loadingOverlayLight {
+  background-color: var(--color-overlay-light, rgba(255, 255, 255, 0.9));
+  backdrop-filter: blur(4px);
+
+  .loadingMessage {
+    color: var(--color-text-primary);
+  }
+}
+
+.loadingOverlayDark {
+  background-color: var(--color-overlay-dark, rgba(0, 0, 0, 0.7));
+  backdrop-filter: blur(4px);
+
+  .loadingMessage {
+    color: var(--color-on-dark, #ffffff);
+  }
+}
+
+/* ============================================
+   LOGO CONTAINER
+   ============================================ */
+
+.loadingLogo {
+  @include flex-center;
+}
+
+/* SVG animation */
+.loadingSvg {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+  will-change: transform, opacity;
+}
+
+/* Default: No animation class means pulse */
+:global(.loading-logo:not([class*="loading-animation-"])) .loadingSvg,
+.loadingAnimationPulse .loadingSvg {
+  animation: pulse-logo 2s ease-in-out infinite;
+}
+
+/* ============================================
+   SIZE VARIANTS
+   ============================================ */
+
+.loadingSm {
+  width: 32px;
+  height: 32px;
+
+  .loadingSvg {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+.loadingMd {
+  width: 64px;
+  height: 64px;
+
+  .loadingSvg {
+    width: 64px;
+    height: 64px;
+  }
+}
+
+.loadingLg {
+  width: 96px;
+  height: 96px;
+
+  .loadingSvg {
+    width: 96px;
+    height: 96px;
+  }
+}
+
+.loadingXl {
+  width: 128px;
+  height: 128px;
+
+  .loadingSvg {
+    width: 128px;
+    height: 128px;
+  }
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+/* Pulse animation - reduces then increases size and opacity */
+@keyframes pulse-logo {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.85);
+    opacity: 0.6;
+  }
+}
+
+/* Spin Animation - Entire logo rotates continuously */
+.loadingAnimationSpin .loadingSvg {
+  animation: spin-logo 2s linear infinite;
+}
+
+@keyframes spin-logo {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fan Animation - Plus sign rotates like a starting fan (slow to fast) */
+.loadingAnimationFan :global(.loading-plus) {
+  transform-origin: center;
+  animation: fan-spin 3s ease-in-out infinite;
+}
+
+@keyframes fan-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(90deg);
+  }
+  40% {
+    transform: rotate(180deg);
+  }
+  60% {
+    transform: rotate(360deg);
+  }
+  75% {
+    transform: rotate(540deg);
+  }
+  85% {
+    transform: rotate(720deg);
+  }
+  95% {
+    transform: rotate(900deg);
+  }
+  100% {
+    transform: rotate(1080deg);
+  }
+}
+
+/* Orbit Animation - Gradient trails orbit around the icon */
+.loadingAnimationOrbit :global(.loading-orbit-trail) {
+  stroke-dasharray: 50 314;
+  stroke-linecap: round;
+}
+
+.loadingAnimationOrbit .loadingSvg {
+  animation: orbit-pulse 2s ease-in-out infinite;
+}
+
+@keyframes orbit-pulse {
+  0%, 100% {
+    transform: scale(0.95);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Breathe Animation - Gentle breathing effect with scale and glow */
+.loadingAnimationBreathe .loadingSvg {
+  animation: breathe-logo 4s ease-in-out infinite;
+}
+
+.loadingAnimationBreathe :global(.loading-bg) {
+  filter: url(#glow-md-inline);
+  animation: breathe-glow 4s ease-in-out infinite;
+}
+
+@keyframes breathe-logo {
+  0%, 100% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes breathe-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px rgba(125, 136, 242, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(125, 136, 242, 0.6));
+  }
+}
+
+/* Bounce Animation - Playful bouncing animation */
+.loadingAnimationBounce .loadingSvg {
+  animation: bounce-logo 1.5s cubic-bezier(0.28, 0.84, 0.42, 1) infinite;
+}
+
+@keyframes bounce-logo {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  25% {
+    transform: translateY(-20px) scale(1.05, 0.95);
+  }
+  50% {
+    transform: translateY(0) scale(1);
+  }
+  60% {
+    transform: translateY(-10px) scale(1.02, 0.98);
+  }
+  75% {
+    transform: translateY(0) scale(1);
+  }
+  85% {
+    transform: translateY(-5px) scale(1.01, 0.99);
+  }
+}
+
+/* Shake Animation - Subtle shake for error/attention states */
+.loadingAnimationShake .loadingSvg {
+  animation: shake-logo 0.5s ease-in-out infinite;
+}
+
+@keyframes shake-logo {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-5px) rotate(-2deg);
+  }
+  75% {
+    transform: translateX(5px) rotate(2deg);
+  }
+}
+
+/* Wave Animation - Smooth wave-like motion */
+.loadingAnimationWave .loadingSvg {
+  animation: wave-logo 2s ease-in-out infinite;
+}
+
+@keyframes wave-logo {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-10px) rotate(5deg);
+  }
+  50% {
+    transform: translateY(0) rotate(0deg);
+  }
+  75% {
+    transform: translateY(10px) rotate(-5deg);
+  }
+}
+
+/* Engine Animation - Plus morphing into airplane engine with spinning fan */
+.loadingAnimationEngine :global(.loading-plus-engine),
+.loadingAnimationEngine :global(.loading-engine) {
+  transform-origin: 128px 128px;
+}
+
+.loadingAnimationEngine :global(.loading-plus-engine) {
+  animation: engine-plus-cycle 6s ease-in-out infinite;
+}
+
+.loadingAnimationEngine :global(.loading-engine) {
+  animation: engine-cycle 6s ease-in-out infinite;
+}
+
+.loadingAnimationEngine :global(.loading-engine-fan) {
+  transform-origin: 128px 128px;
+  animation: engine-fan-spin 0.7s linear infinite;
+}
+
+@keyframes engine-plus-cycle {
+  0%, 25% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  35%, 90% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes engine-cycle {
+  0%, 25% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  35%, 85% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@keyframes engine-fan-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================
+   LOADING MESSAGE
+   ============================================ */
+
+.loadingMessage {
+  color: var(--color-text-secondary, #4a5568);
+  font-size: var(--font-size-base, 1rem);
+  font-weight: var(--font-weight-medium, 500);
+  text-align: center;
+  animation: fade-in-message 0.3s ease-in;
+  margin-top: $space-2;
+  max-width: 300px;
+}
+
+@keyframes fade-in-message {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Terse ellipsis animation (dots appear one by one and loop) */
+.loadingTerse {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.loadingDots {
+  display: inline-flex;
+  margin-left: 2px;
+}
+
+.loadingDots :global(.dot) {
+  display: inline-block;
+  width: 4px;
+  height: 1em; /* align baseline */
+  line-height: 1em;
+  color: currentColor;
+  opacity: 0.2;
+  animation: loading-dot 1.2s infinite;
+}
+
+.loadingDots :global(.dot-1) { animation-delay: 0s; }
+.loadingDots :global(.dot-2) { animation-delay: 0.2s; }
+.loadingDots :global(.dot-3) { animation-delay: 0.4s; }
+
+@keyframes loading-dot {
+  0%, 20% { opacity: 0.2; }
+  40% { opacity: 0.5; }
+  60% { opacity: 0.8; }
+  80%, 100% { opacity: 1; }
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@include breakpoint-max(sm) {
+  .loadingContainer {
+    padding: $space-3;
+  }
+
+  .loadingMessage {
+    font-size: $font-size-sm;
+  }
+
+  /* Smaller sizes on mobile */
+  .loadingXl {
+    width: 96px;
+    height: 96px;
+
+    .loadingSvg {
+      width: 96px;
+      height: 96px;
+    }
+  }
+
+  .loadingLg {
+    width: 80px;
+    height: 80px;
+
+    .loadingSvg {
+      width: 80px;
+      height: 80px;
+    }
+  }
+}
+
+/* ============================================
+   DARK MODE SUPPORT
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .loadingSvg {
+    filter: drop-shadow(0 4px 12px var(--shadow-color-dark, rgba(0, 0, 0, 0.4)));
+  }
+
+  .loadingMessage {
+    color: var(--color-text-secondary);
+  }
+
+  .loadingOverlayLight {
+    background-color: var(--color-overlay-dark-strong, rgba(26, 32, 44, 0.95));
+
+    .loadingMessage {
+      color: var(--color-on-dark, #ffffff);
+    }
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .loadingSvg,
+  :global(.loading-plus),
+  :global(.loading-bg),
+  :global(.loading-orbit-trail),
+  :global(.loading-plus-engine),
+  :global(.loading-engine),
+  :global(.loading-engine-fan) {
+    animation: none !important;
+  }
+
+  .loadingMessage {
+    animation: none;
+  }
+
+  /* Show a simple fade instead */
+  .loadingSvg {
+    opacity: 0.9;
+  }
+
+  /* For orbit animation, show static circle */
+  :global(.loading-orbit-trail) {
+    stroke-dasharray: none;
+    opacity: 0.3;
+  }
+
+  /* For engine animation, show only plus (no morphing) */
+  :global(.loading-plus-engine) {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+  }
+
+  :global(.loading-engine) {
+    opacity: 0 !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .loadingMessage {
+    font-weight: $font-weight-semibold;
+  }
+
+  .loadingSvg {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  }
+}

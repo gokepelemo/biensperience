@@ -1,4 +1,4 @@
-import "./Loading.css";
+import styles from "./Loading.module.scss";
 
 /**
  * Loading - A reusable loading component with multiple animation variations
@@ -47,14 +47,17 @@ export default function Loading({
   overlay = "none",
   allowCustomMessage = false, // If false, show terse animated ellipsis instead of verbose messages
 }) {
-  const containerClass = `loading-container loading-variant-${variant} ${overlay !== 'none' ? `loading-overlay-${overlay}` : ''} ${className}`;
-  const animationClass = `loading-animation-${animation}`;
+  const variantClass = styles[`loadingVariant${variant.charAt(0).toUpperCase() + variant.slice(1)}`];
+  const overlayClass = overlay !== 'none' ? styles[`loadingOverlay${overlay.charAt(0).toUpperCase() + overlay.slice(1)}`] : '';
+  const containerClass = `${styles.loadingContainer} ${variantClass} ${overlayClass} ${className}`;
+  const animationClass = styles[`loadingAnimation${animation.charAt(0).toUpperCase() + animation.slice(1)}`];
+  const sizeClass = styles[`loading${size.charAt(0).toUpperCase() + size.slice(1)}`];
   const useTerse = showMessage && !allowCustomMessage; // global preference: minimal loading message
 
   return (
     <div className={containerClass}>
-      <div className="loading-content">
-        <div className={`loading-logo loading-${size} ${animationClass}`}>
+      <div className={styles.loadingContent}>
+        <div className={`${styles.loadingLogo} ${sizeClass} ${animationClass}`}>
           <svg
             width="256"
             height="256"
@@ -62,7 +65,7 @@ export default function Loading({
             xmlns="http://www.w3.org/2000/svg"
             role="img"
             aria-label="Biensperience logo"
-            className="loading-svg"
+            className={styles.loadingSvg}
           >
             <defs>
               <linearGradient id={`grad-${size}-${variant}`} x1="0" x2="1" y1="0" y2="1">
@@ -165,11 +168,11 @@ export default function Loading({
           </svg>
         </div>
         {showMessage && (
-          <div className="loading-message">
+          <div className={styles.loadingMessage}>
             {useTerse ? (
-              <span className="loading-terse">
+              <span className={styles.loadingTerse}>
                 Loading
-                <span className="loading-dots">
+                <span className={styles.loadingDots}>
                   <span className="dot dot-1">.</span>
                   <span className="dot dot-2">.</span>
                   <span className="dot dot-3">.</span>
