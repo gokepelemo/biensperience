@@ -1,0 +1,23 @@
+/**
+ * Test SCSS Module
+ * Verifies SASS compilation and HMR work correctly
+ */
+
+@use './abstracts' as *;
+@use './base';
+@use './layout';
+
+.testContainer {
+  @include card;
+  @include padding-responsive($space-4, $space-6);
+
+  .testHeading {
+    @include heading-mobile-lg;
+    color: $color-primary;
+  }
+
+  .testFlex {
+    @include flex-center;
+    gap: $space-4;
+  }
+}

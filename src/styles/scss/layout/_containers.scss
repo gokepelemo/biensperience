@@ -1,0 +1,191 @@
+/**
+ * Container Patterns
+ * Responsive container and wrapper utilities
+ */
+
+@use '../abstracts' as *;
+
+// =============================================================================
+// CONTAINER WIDTHS
+// =============================================================================
+
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: $space-4;
+  padding-right: $space-4;
+
+  // Small container
+  &-sm {
+    max-width: 640px;
+  }
+
+  // Medium container
+  &-md {
+    max-width: 768px;
+  }
+
+  // Large container
+  &-lg {
+    max-width: 1024px;
+  }
+
+  // Extra large container
+  &-xl {
+    max-width: 1280px;
+  }
+
+  // Full width (no max-width)
+  &-fluid {
+    max-width: none;
+  }
+
+  // Narrow container (for reading)
+  &-narrow {
+    max-width: 65ch; // Optimal reading line length
+  }
+}
+
+// Default container with responsive max-width
+.container:not([class*='-']) {
+  @include breakpoint(sm) {
+    max-width: 540px;
+  }
+
+  @include breakpoint(md) {
+    max-width: 720px;
+  }
+
+  @include breakpoint(lg) {
+    max-width: 960px;
+  }
+
+  @include breakpoint(xl) {
+    max-width: 1140px;
+  }
+}
+
+// =============================================================================
+// SECTION SPACING
+// =============================================================================
+
+.section {
+  @include padding-y-responsive($space-8, $space-12);
+
+  &-sm {
+    @include padding-y-responsive($space-4, $space-6);
+  }
+
+  &-lg {
+    @include padding-y-responsive($space-10, $space-16);
+  }
+}
+
+// =============================================================================
+// WRAPPER UTILITIES
+// =============================================================================
+
+// Centered wrapper
+.wrapper {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+// Full bleed (break out of container)
+.full-bleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+}
+
+// =============================================================================
+// ASPECT RATIO CONTAINERS
+// =============================================================================
+
+.aspect-ratio {
+  position: relative;
+  width: 100%;
+
+  &::before {
+    content: '';
+    display: block;
+    padding-bottom: 100%; // 1:1 default
+  }
+
+  & > * {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  // Common aspect ratios
+  &-16-9::before {
+    padding-bottom: 56.25%; // 16:9
+  }
+
+  &-4-3::before {
+    padding-bottom: 75%; // 4:3
+  }
+
+  &-3-2::before {
+    padding-bottom: 66.666%; // 3:2
+  }
+
+  &-square::before {
+    padding-bottom: 100%; // 1:1
+  }
+}
+
+// =============================================================================
+// CARD LAYOUTS
+// =============================================================================
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+  gap: $space-4;
+
+  @include breakpoint(md) {
+    gap: $space-6;
+  }
+}
+
+// =============================================================================
+// SIDEBAR LAYOUTS
+// =============================================================================
+
+.sidebar-layout {
+  display: grid;
+  gap: $space-6;
+
+  @include breakpoint(lg) {
+    grid-template-columns: 250px 1fr;
+  }
+
+  &-right {
+    @include breakpoint(lg) {
+      grid-template-columns: 1fr 250px;
+    }
+  }
+}
+
+// =============================================================================
+// PANEL LAYOUTS
+// =============================================================================
+
+.panel-group {
+  display: grid;
+  gap: $space-4;
+
+  @include breakpoint(md) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @include breakpoint(lg) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

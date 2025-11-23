@@ -1,0 +1,241 @@
+/**
+ * Reset & Normalize Styles
+ * Provides consistent cross-browser baseline
+ */
+
+@use '../abstracts' as *;
+
+// =============================================================================
+// BOX SIZING
+// =============================================================================
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+// =============================================================================
+// DOCUMENT & ROOT
+// =============================================================================
+
+:root {
+  // Improve font rendering
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  // Prevent font size adjustments
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+
+  // Enable smooth scrolling (respects prefers-reduced-motion)
+  @media (prefers-reduced-motion: no-preference) {
+    scroll-behavior: smooth;
+  }
+}
+
+html {
+  // Consistent line height
+  line-height: 1.5;
+
+  // Tab size for code blocks
+  tab-size: 4;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+
+  // Prevent horizontal scroll
+  overflow-x: hidden;
+
+  // Better text rendering
+  text-rendering: optimizeLegibility;
+
+  // Minimum height for sticky footers
+  min-height: 100vh;
+}
+
+// =============================================================================
+// HEADINGS
+// =============================================================================
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin-top: 0;
+  margin-bottom: $space-3;
+  font-weight: $font-weight-bold;
+  line-height: 1.3;
+}
+
+// =============================================================================
+// PARAGRAPHS & TEXT
+// =============================================================================
+
+p {
+  margin-top: 0;
+  margin-bottom: $space-4;
+}
+
+// Remove default margins
+address,
+blockquote,
+dl,
+dd,
+figure,
+pre {
+  margin: 0;
+}
+
+// =============================================================================
+// LISTS
+// =============================================================================
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// =============================================================================
+// LINKS
+// =============================================================================
+
+a {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// =============================================================================
+// IMAGES & MEDIA
+// =============================================================================
+
+img,
+svg,
+video,
+canvas,
+audio,
+iframe,
+embed,
+object {
+  display: block;
+  max-width: 100%;
+}
+
+img,
+video {
+  height: auto;
+}
+
+// =============================================================================
+// FORMS
+// =============================================================================
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+button,
+select {
+  text-transform: none;
+}
+
+button,
+[type='button'],
+[type='reset'],
+[type='submit'] {
+  -webkit-appearance: button;
+  cursor: pointer;
+}
+
+button:disabled,
+[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+// Remove default button styles
+button {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+// =============================================================================
+// TABLES
+// =============================================================================
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+// =============================================================================
+// INTERACTIVE ELEMENTS
+// =============================================================================
+
+summary {
+  cursor: pointer;
+}
+
+// =============================================================================
+// ACCESSIBILITY
+// =============================================================================
+
+// Hide visually but keep for screen readers
+.sr-only,
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+// Focus visible for keyboard navigation
+:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+// Remove outline for mouse users
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+// =============================================================================
+// REDUCED MOTION
+// =============================================================================
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

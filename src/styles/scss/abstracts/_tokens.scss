@@ -1,0 +1,227 @@
+/**
+ * Design Tokens - Hybrid SASS/CSS Custom Properties
+ *
+ * This file generates CSS custom properties from SASS variables.
+ * Benefits:
+ * - SASS variables for compile-time calculations and mixins
+ * - CSS custom properties for runtime theming (dark mode, user preferences)
+ * - Single source of truth (SASS variables)
+ *
+ * Usage in SCSS files:
+ *   @use '../abstracts' as *;
+ *   .my-class {
+ *     color: $color-primary;           // SASS variable (compile-time)
+ *     background: var(--color-primary); // CSS custom property (runtime)
+ *   }
+ *
+ * Migration from design-tokens.css:
+ * - Keep existing CSS custom properties for backward compatibility
+ * - Generate new properties from SASS variables
+ * - Maintain structure: typography, spacing, colors, shadows, etc.
+ */
+
+@use './variables' as *;
+
+// ============================================================================
+// GENERATE CSS CUSTOM PROPERTIES FROM SASS VARIABLES
+// ============================================================================
+
+:root {
+  /* ============================================
+     TYPOGRAPHY
+     ============================================ */
+
+  /* Font Families */
+  --font-family-base: #{$font-family-base};
+  --font-family-heading: #{$font-family-heading};
+  --font-family-mono: #{$font-family-mono};
+
+  /* Font Weights */
+  --font-weight-light: #{$font-weight-light};
+  --font-weight-normal: #{$font-weight-normal};
+  --font-weight-medium: #{$font-weight-medium};
+  --font-weight-semibold: #{$font-weight-semibold};
+  --font-weight-bold: #{$font-weight-bold};
+  --font-weight-extrabold: #{$font-weight-extrabold};
+
+  /* Font Sizes */
+  --font-size-xs: #{$font-size-xs};
+  --font-size-sm: #{$font-size-sm};
+  --font-size-base: #{$font-size-base};
+  --font-size-lg: #{$font-size-lg};
+  --font-size-xl: #{$font-size-xl};
+  --font-size-2xl: #{$font-size-2xl};
+  --font-size-3xl: #{$font-size-3xl};
+  --font-size-4xl: #{$font-size-4xl};
+  --font-size-5xl: #{$font-size-5xl};
+
+  /* Line Heights */
+  --line-height-none: #{$line-height-none};
+  --line-height-tight: #{$line-height-tight};
+  --line-height-snug: #{$line-height-snug};
+  --line-height-normal: #{$line-height-normal};
+  --line-height-relaxed: #{$line-height-relaxed};
+  --line-height-loose: #{$line-height-loose};
+
+  /* Letter Spacing */
+  --letter-spacing-tighter: #{$letter-spacing-tighter};
+  --letter-spacing-tight: #{$letter-spacing-tight};
+  --letter-spacing-normal: #{$letter-spacing-normal};
+  --letter-spacing-wide: #{$letter-spacing-wide};
+  --letter-spacing-wider: #{$letter-spacing-wider};
+  --letter-spacing-widest: #{$letter-spacing-widest};
+
+  /* ============================================
+     SPACING
+     ============================================ */
+
+  --space-0: #{$space-0};
+  --space-1: #{$space-1};
+  --space-2: #{$space-2};
+  --space-3: #{$space-3};
+  --space-4: #{$space-4};
+  --space-5: #{$space-5};
+  --space-6: #{$space-6};
+  --space-8: #{$space-8};
+  --space-10: #{$space-10};
+  --space-12: #{$space-12};
+
+  /* ============================================
+     COLORS
+     ============================================ */
+
+  /* Brand Colors */
+  --color-primary: #{$color-primary};
+  --color-primary-light: #{$color-primary-light};
+  --color-primary-dark: #{$color-primary-dark};
+  --color-secondary: #{$color-secondary};
+  --color-accent: #{$color-accent};
+
+  /* Semantic Colors */
+  --color-success: #{$color-success};
+  --color-warning: #{$color-warning};
+  --color-danger: #{$color-danger};
+  --color-info: #{$color-info};
+
+  /* Text Colors */
+  --color-text-primary: #{$color-text-primary};
+  --color-text-secondary: #{$color-text-secondary};
+  --color-text-muted: #{$color-text-muted};
+  --color-text-inverse: #{$color-text-inverse};
+
+  /* Background Colors */
+  --color-bg-primary: #{$color-bg-primary};
+  --color-bg-secondary: #{$color-bg-secondary};
+  --color-bg-tertiary: #{$color-bg-tertiary};
+  --color-bg-hover: #{$color-bg-hover};
+
+  /* Border Colors */
+  --color-border-light: #{$color-border-light};
+  --color-border-medium: #{$color-border-medium};
+  --color-border-dark: #{$color-border-dark};
+
+  /* ============================================
+     SHADOWS
+     ============================================ */
+
+  --shadow-xs: #{$shadow-xs};
+  --shadow-sm: #{$shadow-sm};
+  --shadow-md: #{$shadow-md};
+  --shadow-lg: #{$shadow-lg};
+  --shadow-xl: #{$shadow-xl};
+  --shadow-2xl: #{$shadow-2xl};
+
+  /* ============================================
+     BORDER RADIUS
+     ============================================ */
+
+  --radius-none: #{$radius-none};
+  --radius-sm: #{$radius-sm};
+  --radius-md: #{$radius-md};
+  --radius-lg: #{$radius-lg};
+  --radius-xl: #{$radius-xl};
+  --radius-2xl: #{$radius-2xl};
+  --radius-full: #{$radius-full};
+
+  /* ============================================
+     TRANSITIONS
+     ============================================ */
+
+  --transition-fast: #{$transition-fast};
+  --transition-normal: #{$transition-normal};
+  --transition-slow: #{$transition-slow};
+
+  --easing-linear: #{$easing-linear};
+  --easing-ease: #{$easing-ease};
+  --easing-ease-in: #{$easing-ease-in};
+  --easing-ease-out: #{$easing-ease-out};
+  --easing-ease-in-out: #{$easing-ease-in-out};
+
+  /* ============================================
+     Z-INDEX SCALE
+     ============================================ */
+
+  --z-index-dropdown: #{$z-index-dropdown};
+  --z-index-sticky: #{$z-index-sticky};
+  --z-index-fixed: #{$z-index-fixed};
+  --z-index-modal-backdrop: #{$z-index-modal-backdrop};
+  --z-index-modal: #{$z-index-modal};
+  --z-index-popover: #{$z-index-popover};
+  --z-index-tooltip: #{$z-index-tooltip};
+
+  /* ============================================
+     BREAKPOINTS (for reference, use mixins in SCSS)
+     ============================================ */
+
+  --breakpoint-xs: #{$breakpoint-xs};
+  --breakpoint-sm: #{$breakpoint-sm};
+  --breakpoint-md: #{$breakpoint-md};
+  --breakpoint-lg: #{$breakpoint-lg};
+  --breakpoint-xl: #{$breakpoint-xl};
+  --breakpoint-xxl: #{$breakpoint-xxl};
+}
+
+// ============================================================================
+// DARK MODE OVERRIDES
+// ============================================================================
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Text Colors (Dark Mode) */
+    --color-text-primary: #f7fafc;
+    --color-text-secondary: #e2e8f0;
+    --color-text-muted: #a0aec0;
+    --color-text-inverse: #1a202c;
+
+    /* Background Colors (Dark Mode) */
+    --color-bg-primary: #1a202c;
+    --color-bg-secondary: #2d3748;
+    --color-bg-tertiary: #4a5568;
+    --color-bg-hover: #718096;
+
+    /* Border Colors (Dark Mode) */
+    --color-border-light: #4a5568;
+    --color-border-medium: #718096;
+    --color-border-dark: #a0aec0;
+  }
+}
+
+/* Manual dark mode toggle (data-theme attribute) */
+[data-theme="dark"] {
+  /* Text Colors (Dark Mode) */
+  --color-text-primary: #f7fafc;
+  --color-text-secondary: #e2e8f0;
+  --color-text-muted: #a0aec0;
+  --color-text-inverse: #1a202c;
+
+  /* Background Colors (Dark Mode) */
+  --color-bg-primary: #1a202c;
+  --color-bg-secondary: #2d3748;
+  --color-bg-tertiary: #4a5568;
+  --color-bg-hover: #718096;
+
+  /* Border Colors (Dark Mode) */
+  --color-border-light: #4a5568;
+  --color-border-medium: #718096;
+  --color-border-dark: #a0aec0;
+}

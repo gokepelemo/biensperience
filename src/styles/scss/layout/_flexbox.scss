@@ -1,0 +1,263 @@
+/**
+ * Flexbox Utilities
+ * Common flexbox patterns and utilities
+ */
+
+@use '../abstracts' as *;
+
+// =============================================================================
+// FLEX CONTAINER
+// =============================================================================
+
+.flex {
+  display: flex;
+
+  // Responsive gap
+  &-gap-sm {
+    gap: $space-2;
+  }
+
+  &-gap-md {
+    gap: $space-4;
+  }
+
+  &-gap-lg {
+    gap: $space-6;
+  }
+
+  &-gap-xl {
+    gap: $space-8;
+  }
+}
+
+// =============================================================================
+// FLEX DIRECTION
+// =============================================================================
+
+.flex-row {
+  flex-direction: row;
+}
+
+.flex-row-reverse {
+  flex-direction: row-reverse;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.flex-col-reverse {
+  flex-direction: column-reverse;
+}
+
+// Responsive direction
+@include breakpoint-max(md) {
+  .flex-col-mobile {
+    flex-direction: column;
+  }
+}
+
+@include breakpoint(md) {
+  .flex-row-desktop {
+    flex-direction: row;
+  }
+}
+
+// =============================================================================
+// FLEX WRAP
+// =============================================================================
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.flex-nowrap {
+  flex-wrap: nowrap;
+}
+
+.flex-wrap-reverse {
+  flex-wrap: wrap-reverse;
+}
+
+// =============================================================================
+// JUSTIFY CONTENT
+// =============================================================================
+
+.justify-start {
+  justify-content: flex-start;
+}
+
+.justify-end {
+  justify-content: flex-end;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.justify-around {
+  justify-content: space-around;
+}
+
+.justify-evenly {
+  justify-content: space-evenly;
+}
+
+// =============================================================================
+// ALIGN ITEMS
+// =============================================================================
+
+.items-start {
+  align-items: flex-start;
+}
+
+.items-end {
+  align-items: flex-end;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.items-baseline {
+  align-items: baseline;
+}
+
+.items-stretch {
+  align-items: stretch;
+}
+
+// =============================================================================
+// ALIGN CONTENT
+// =============================================================================
+
+.content-start {
+  align-content: flex-start;
+}
+
+.content-end {
+  align-content: flex-end;
+}
+
+.content-center {
+  align-content: center;
+}
+
+.content-between {
+  align-content: space-between;
+}
+
+.content-around {
+  align-content: space-around;
+}
+
+// =============================================================================
+// FLEX ITEM
+// =============================================================================
+
+.flex-1 {
+  flex: 1 1 0%;
+}
+
+.flex-auto {
+  flex: 1 1 auto;
+}
+
+.flex-initial {
+  flex: 0 1 auto;
+}
+
+.flex-none {
+  flex: none;
+}
+
+// Flex grow
+.flex-grow {
+  flex-grow: 1;
+}
+
+.flex-grow-0 {
+  flex-grow: 0;
+}
+
+// Flex shrink
+.flex-shrink {
+  flex-shrink: 1;
+}
+
+.flex-shrink-0 {
+  flex-shrink: 0;
+}
+
+// =============================================================================
+// ALIGN SELF
+// =============================================================================
+
+.self-start {
+  align-self: flex-start;
+}
+
+.self-end {
+  align-self: flex-end;
+}
+
+.self-center {
+  align-self: center;
+}
+
+.self-stretch {
+  align-self: stretch;
+}
+
+.self-baseline {
+  align-self: baseline;
+}
+
+// =============================================================================
+// COMMON FLEX PATTERNS
+// =============================================================================
+
+// Center everything
+.flex-center {
+  @include flex-center;
+}
+
+// Space between with centered items
+.flex-between {
+  @include flex-between;
+}
+
+// Flex column with center alignment
+.flex-col-center {
+  @include flex-column-center;
+}
+
+// Stack with gap (vertical)
+.stack {
+  @include stack($space-4);
+
+  &-sm {
+    @include stack($space-2);
+  }
+
+  &-lg {
+    @include stack($space-6);
+  }
+}
+
+// Inline stack with gap (horizontal)
+.inline-stack {
+  @include inline-stack($space-4);
+
+  &-sm {
+    @include inline-stack($space-2);
+  }
+
+  &-lg {
+    @include inline-stack($space-6);
+  }
+}

@@ -1,0 +1,161 @@
+/**
+ * Grid System
+ * Responsive grid layout utilities using CSS Grid
+ */
+
+@use '../abstracts' as *;
+
+// =============================================================================
+// GRID CONTAINER
+// =============================================================================
+
+.grid {
+  display: grid;
+  gap: $space-4;
+
+  // Responsive gap
+  &-gap-sm {
+    gap: $space-2;
+  }
+
+  &-gap-md {
+    gap: $space-4;
+  }
+
+  &-gap-lg {
+    gap: $space-6;
+  }
+
+  &-gap-xl {
+    gap: $space-8;
+  }
+}
+
+// =============================================================================
+// GRID COLUMNS
+// =============================================================================
+
+// Auto-fit columns with minimum width
+.grid-auto-fit {
+  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+}
+
+// Auto-fill columns with minimum width
+.grid-auto-fill {
+  grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr));
+}
+
+// Fixed column counts
+.grid-cols-1 {
+  grid-template-columns: repeat(1, 1fr);
+}
+
+.grid-cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-cols-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.grid-cols-5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.grid-cols-6 {
+  grid-template-columns: repeat(6, 1fr);
+}
+
+// Responsive columns
+@include breakpoint(sm) {
+  .grid-cols-sm-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-cols-sm-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@include breakpoint(md) {
+  .grid-cols-md-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-cols-md-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .grid-cols-md-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@include breakpoint(lg) {
+  .grid-cols-lg-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .grid-cols-lg-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .grid-cols-lg-5 {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+// =============================================================================
+// GRID ITEM SPANNING
+// =============================================================================
+
+.col-span-2 {
+  grid-column: span 2;
+}
+
+.col-span-3 {
+  grid-column: span 3;
+}
+
+.col-span-4 {
+  grid-column: span 4;
+}
+
+.col-span-full {
+  grid-column: 1 / -1;
+}
+
+// =============================================================================
+// GRID ALIGNMENT
+// =============================================================================
+
+.grid-center {
+  place-items: center;
+}
+
+.grid-start {
+  place-items: start;
+}
+
+.grid-end {
+  place-items: end;
+}
+
+// =============================================================================
+// MASONRY LAYOUT (using grid)
+// =============================================================================
+
+.grid-masonry {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+  grid-auto-rows: minmax(100px, auto);
+  gap: $space-4;
+
+  @supports (grid-template-rows: masonry) {
+    grid-template-rows: masonry;
+  }
+}

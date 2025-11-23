@@ -1,0 +1,237 @@
+/**
+ * Base Typography Styles
+ * Sets foundational font properties for the entire application
+ */
+
+@use '../abstracts' as *;
+
+// =============================================================================
+// BODY TEXT
+// =============================================================================
+
+body {
+  font-family: $font-family-base;
+  font-size: $font-size-base;
+  font-weight: $font-weight-normal;
+  line-height: $line-height-normal;
+  color: var(--color-text-primary, #2d3748);
+}
+
+// =============================================================================
+// HEADINGS
+// =============================================================================
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: $font-family-heading;
+  font-weight: $font-weight-bold;
+  line-height: $line-height-tight;
+  letter-spacing: -0.02em;
+  color: var(--color-text-dark, #1a202c);
+}
+
+h1 {
+  @include fluid-font(1.75rem, 4vw, 2.5rem); // 28px - 40px
+  margin-bottom: $space-6;
+}
+
+h2 {
+  @include fluid-font(1.5rem, 3.5vw, 2rem); // 24px - 32px
+  margin-bottom: $space-5;
+}
+
+h3 {
+  @include fluid-font(1.25rem, 3vw, 1.75rem); // 20px - 28px
+  margin-bottom: $space-4;
+}
+
+h4 {
+  @include fluid-font(1.125rem, 2.5vw, 1.5rem); // 18px - 24px
+  margin-bottom: $space-4;
+}
+
+h5 {
+  @include fluid-font(1rem, 2vw, 1.25rem); // 16px - 20px
+  margin-bottom: $space-3;
+}
+
+h6 {
+  @include fluid-font(0.875rem, 1.5vw, 1.125rem); // 14px - 18px
+  margin-bottom: $space-3;
+}
+
+// =============================================================================
+// TEXT ELEMENTS
+// =============================================================================
+
+p {
+  line-height: $line-height-relaxed;
+  margin-bottom: $space-4;
+}
+
+strong,
+b {
+  font-weight: $font-weight-bold;
+}
+
+em,
+i {
+  font-style: italic;
+}
+
+small {
+  font-size: $font-size-sm;
+}
+
+// =============================================================================
+// CODE & PREFORMATTED TEXT
+// =============================================================================
+
+code,
+kbd,
+samp,
+pre {
+  font-family: $font-family-mono;
+  font-size: 0.9em;
+}
+
+code {
+  padding: 0.125rem 0.25rem;
+  background-color: var(--color-bg-secondary, #f7fafc);
+  border-radius: $radius-sm;
+  color: var(--color-text-primary, #2d3748);
+}
+
+pre {
+  padding: $space-4;
+  overflow-x: auto;
+  background-color: var(--color-bg-secondary, #f7fafc);
+  border-radius: $radius-md;
+  line-height: $line-height-relaxed;
+
+  code {
+    padding: 0;
+    background-color: transparent;
+  }
+}
+
+// =============================================================================
+// BLOCKQUOTES
+// =============================================================================
+
+blockquote {
+  margin: $space-6 0;
+  padding-left: $space-4;
+  border-left: 4px solid var(--color-primary, #667eea);
+  font-style: italic;
+  color: var(--color-text-secondary, #4a5568);
+}
+
+// =============================================================================
+// LINKS
+// =============================================================================
+
+a {
+  color: var(--color-primary, #667eea);
+  text-decoration: none;
+  transition: color $transition-fast;
+
+  &:hover {
+    color: var(--color-primary-dark, #5568d3);
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary, #667eea);
+    outline-offset: 2px;
+    border-radius: $radius-sm;
+  }
+}
+
+// =============================================================================
+// LISTS
+// =============================================================================
+
+ul:not([class]),
+ol:not([class]) {
+  padding-left: $space-6;
+  margin-bottom: $space-4;
+
+  li {
+    margin-bottom: $space-2;
+    line-height: $line-height-relaxed;
+  }
+
+  ul,
+  ol {
+    margin-top: $space-2;
+    margin-bottom: $space-2;
+  }
+}
+
+ul:not([class]) {
+  list-style-type: disc;
+}
+
+ol:not([class]) {
+  list-style-type: decimal;
+}
+
+// =============================================================================
+// HORIZONTAL RULES
+// =============================================================================
+
+hr {
+  border: 0;
+  height: 1px;
+  background-color: var(--color-border-light, #e2e8f0);
+  margin: $space-6 0;
+}
+
+// =============================================================================
+// UTILITY CLASSES
+// =============================================================================
+
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-uppercase {
+  text-transform: uppercase;
+}
+
+.text-lowercase {
+  text-transform: lowercase;
+}
+
+.text-capitalize {
+  text-transform: capitalize;
+}
+
+.font-bold {
+  font-weight: $font-weight-bold;
+}
+
+.font-semibold {
+  font-weight: $font-weight-semibold;
+}
+
+.font-normal {
+  font-weight: $font-weight-normal;
+}
+
+.font-light {
+  font-weight: $font-weight-light;
+}

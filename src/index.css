@@ -10,7 +10,8 @@
 */
 
 /* 1. Design System Foundation */
-@import './styles/design-tokens.css';
+@import './styles/design-tokens.css';          /* Legacy CSS custom properties */
+@import './styles/scss/abstracts/_tokens.scss'; /* SASS-generated custom properties */
 @import './styles/headings.css';
 @import './styles/utilities.css';
 
