@@ -3,7 +3,7 @@ import { Form, Dropdown } from 'react-bootstrap';
 import { FaSearch, FaUser, FaMapMarkerAlt, FaStar, FaGlobe } from 'react-icons/fa';
 import Loading from '../Loading/Loading';
 import { Pill } from '../design-system';
-import './Autocomplete.css';
+import styles from './Autocomplete.module.scss';
 
 /**
  * Unified Autocomplete Component
@@ -233,8 +233,8 @@ export default function Autocomplete({
   return (
   <div className={`autocomplete-wrapper autocomplete-size-${size} ${isOpen ? 'autocomplete-open' : ''}`}>
       {/* Search Input */}
-      <div className="autocomplete-input-wrapper">
-        <FaSearch className="autocomplete-search-icon" />
+      <div className={styles.autocompleteInputWrapper}>
+        <FaSearch className={styles.autocompleteSearchIcon} />
         <Form.Control
           ref={inputRef}
           type="text"
@@ -249,12 +249,12 @@ export default function Autocomplete({
           }}
           onKeyDown={handleKeyDown}
           disabled={disabled}
-          className="autocomplete-input"
+          className={styles.autocompleteInput}
           autoComplete="off"
         />
       </div>
       {multi && selectedItems && selectedItems.length > 0 && (
-        <div className="autocomplete-selected-chips">
+        <div className={styles.autocompleteSelectedChips}>
           {selectedItems.map((si, idx) => (
             <Pill
               key={si._id || si.id || `${si.name}-${idx}`}
@@ -266,10 +266,10 @@ export default function Autocomplete({
               size="sm"
               className={`autocomplete-chip-pill ${entityType === 'destination' ? 'destination-chip' : ''}`}
             >
-              <span className="chip-label">{si.name || si.label || si.value}</span>
+              <span className={styles.chipLabel}>{si.name || si.label || si.value}</span>
               <button
                 type="button"
-                className="chip-remove"
+                className={styles.chipRemove}
                 onClick={() => handleRemoveSelected(si)}
                 aria-label={`Remove ${si.name || si.label || si.value}`}
               >
@@ -282,9 +282,9 @@ export default function Autocomplete({
 
       {/* Dropdown Results */}
       {isOpen && (
-        <div ref={dropdownRef} className="autocomplete-dropdown">
+        <div ref={dropdownRef} className={styles.autocompleteDropdown}>
           {loading ? (
-            <div className="autocomplete-loading">
+            <div className={styles.autocompleteLoading}>
               <Loading 
                 size="sm" 
                 animation="engine" 
@@ -293,11 +293,11 @@ export default function Autocomplete({
               />
             </div>
           ) : filteredItems.length === 0 ? (
-            <div className="autocomplete-empty">
+            <div className={styles.autocompleteEmpty}>
               {emptyMessage}
             </div>
           ) : (
-            <div className="autocomplete-items">
+            <div className={styles.autocompleteItems}>
               {filteredItems.map((item, index) => (
                 <AutocompleteItem
                   key={item.id || item.username || index}
@@ -399,32 +399,32 @@ function UserItem({ item, showAvatar, showStatus, showMeta }) {
   const shouldShowRole = item.role === 'super_admin';
   
   return (
-    <div className="autocomplete-user">
+    <div className={styles.autocompleteUser}>
       {showAvatar && (
-        <div className="user-avatar-wrapper">
+        <div className={styles.userAvatarWrapper}>
           {item.avatar ? (
-            <img src={item.avatar} alt={item.name} className="user-avatar" />
+            <img src={item.avatar} alt={item.name} className={styles.userAvatar} />
           ) : (
-            <div className="user-avatar-placeholder">
+            <div className={styles.userAvatarPlaceholder}>
               <FaUser />
             </div>
           )}
           {showStatus && item.isOnline && (
-            <span className="user-status-indicator online" />
+            <span className={`${styles.userStatusIndicator} ${styles.online}`} />
           )}
         </div>
       )}
-      <div className="user-info">
-        <div className="user-name">{item.name}</div>
+      <div className={styles.userInfo}>
+        <div className={styles.userName}>{item.name}</div>
         {showMeta && item.username && (
-          <div className="user-meta">@{item.username}</div>
+          <div className={styles.userMeta}>@{item.username}</div>
         )}
         {showMeta && false && item.email && !item.username && (
-          <div className="user-meta">{item.email}</div>
+          <div className={styles.userMeta}>{item.email}</div>
         )}
       </div>
       {showMeta && shouldShowRole && (
-        <div className="user-badge">
+        <div className={styles.userBadge}>
           <span className={`badge badge-${item.role}`}>{formatRole(item.role)}</span>
         </div>
       )}
@@ -434,15 +434,15 @@ function UserItem({ item, showAvatar, showStatus, showMeta }) {
 
 function DestinationItem({ item, showMeta }) {
   return (
-    <div className="autocomplete-destination">
-      <div className="destination-icon">
+    <div className={styles.autocompleteDestination}>
+      <div className={styles.destinationIcon}>
         <FaMapMarkerAlt />
       </div>
-      <div className="destination-info">
-        <div className="destination-name">{item.name}</div>
+      <div className={styles.destinationInfo}>
+        <div className={styles.destinationName}>{item.name}</div>
         {showMeta && item.country && (
-          <div className="destination-meta">
-            {item.flag && <span className="destination-flag">{item.flag}</span>}
+          <div className={styles.destinationMeta}>
+            {item.flag && <span className={styles.destinationFlag}>{item.flag}</span>}
             {item.country}
           </div>
         )}
@@ -454,16 +454,16 @@ function DestinationItem({ item, showMeta }) {
 
 function ExperienceItem({ item, showMeta }) {
   return (
-    <div className="autocomplete-experience">
-      <div className="experience-icon">
+    <div className={styles.autocompleteExperience}>
+      <div className={styles.experienceIcon}>
         <FaStar />
       </div>
-      <div className="experience-info">
-        <div className="experience-name">{item.name}</div>
+      <div className={styles.experienceInfo}>
+        <div className={styles.experienceName}>{item.name}</div>
         {showMeta && (
-          <div className="experience-meta">
+          <div className={styles.experienceMeta}>
             {item.destination && (
-              <span className="experience-location">
+              <span className={styles.experienceLocation}>
                 <FaMapMarkerAlt /> {item.destination}
               </span>
             )}
@@ -471,7 +471,7 @@ function ExperienceItem({ item, showMeta }) {
         )}
       </div>
       {showMeta && item.category && (
-        <div className="experience-badge">
+        <div className={styles.experienceBadge}>
           <span className="badge">{item.category}</span>
         </div>
       )}
@@ -481,11 +481,11 @@ function ExperienceItem({ item, showMeta }) {
 
 function CountryItem({ item }) {
   return (
-    <div className="autocomplete-country">
-      {item.flag && <span className="country-flag">{item.flag}</span>}
-      <div className="country-info">
-        <div className="country-name">{item.name}</div>
-        {item.code && <div className="country-code">{item.code}</div>}
+    <div className={styles.autocompleteCountry}>
+      {item.flag && <span className={styles.countryFlag}>{item.flag}</span>}
+      <div className={styles.countryInfo}>
+        <div className={styles.countryName}>{item.name}</div>
+        {item.code && <div className={styles.countryCode}>{item.code}</div>}
       </div>
     </div>
   );
@@ -493,17 +493,17 @@ function CountryItem({ item }) {
 
 function CategoryItem({ item }) {
   return (
-    <div className="autocomplete-category">
-      {item.icon && <span className="category-icon">{item.icon}</span>}
-      <div className="category-name">{item.name || item.label}</div>
+    <div className={styles.autocompleteCategory}>
+      {item.icon && <span className={styles.categoryIcon}>{item.icon}</span>}
+      <div className={styles.categoryName}>{item.name || item.label}</div>
     </div>
   );
 }
 
 function DefaultItem({ item }) {
   return (
-    <div className="autocomplete-default">
-      <div className="default-name">{item.name || item.label || item.value}</div>
+    <div className={styles.autocompleteDefault}>
+      <div className={styles.defaultName}>{item.name || item.label || item.value}</div>
     </div>
   );
 }
