@@ -1,4 +1,4 @@
-import "./Experiences.css";
+import styles from "./Experiences.module.scss";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useUser } from "../../contexts/UserContext";
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -554,7 +554,7 @@ export default function Experiences() {
   ogDescription={`Explore ${displayedExperiences?.length || 'hundreds of'} curated travel experiences worldwide. Start planning your next adventure today.`}
       />
 
-      <Container className="experiences-header">
+      <Container className={styles.experiencesHeader}>
         <Mobile>
           <div style={{ textAlign: 'center' }}>
             <h1 className="my-4">Experiences</h1>
@@ -742,7 +742,7 @@ export default function Experiences() {
         />
       ) : (
         <FadeIn>
-          <div className="experiences-list">
+          <div className={styles.experiencesList}>
             {displayedExperiences.length > 0 ? (
               displayedExperiences.map((experience, index) => (
                 <FadeIn key={experience._id || index} delay={index * 0.1}>
