@@ -1,7 +1,7 @@
 // Design System Mixins
 // Reusable mixins for common patterns
 
-@import './variables';
+@use './variables' as *;
 
 // ============================================================================
 // RESPONSIVE BREAKPOINTS
