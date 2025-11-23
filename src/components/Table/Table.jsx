@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import './Table.css';
+import styles from './Table.module.scss';
 
 /**
  * Table component with unified styling and hover states
@@ -27,13 +27,15 @@ export default function Table({
   style = {},
   ...props
 }) {
-  // Build className string
+  // Build className string with dynamic size classes
+  const sizeClass = size !== 'md' ? styles[`table${size.charAt(0).toUpperCase() + size.slice(1)}`] : '';
+
   const classes = [
-    'table-unified',
-    hover && 'table-hover',
-    striped && 'table-striped',
-    bordered && 'table-bordered',
-    size !== 'md' && `table-${size}`,
+    styles.tableUnified,
+    hover && styles.tableHover,
+    striped && styles.tableStriped,
+    bordered && styles.tableBordered,
+    sizeClass,
     className
   ].filter(Boolean).join(' ');
 
@@ -49,7 +51,7 @@ export default function Table({
 
   if (responsive) {
     return (
-      <div className="table-responsive">
+      <div className={styles.tableResponsive}>
         {tableElement}
       </div>
     );
@@ -73,7 +75,7 @@ Table.propTypes = {
  * TableHead component for table header
  */
 export function TableHead({ children, className = '', style = {}, ...props }) {
-  const classes = ['table-head', className].filter(Boolean).join(' ');
+  const classes = [styles.tableHead, className].filter(Boolean).join(' ');
 
   return (
     <thead className={classes} style={style} {...props}>
@@ -92,7 +94,7 @@ TableHead.propTypes = {
  * TableBody component for table body
  */
 export function TableBody({ children, className = '', style = {}, ...props }) {
-  const classes = ['table-body', className].filter(Boolean).join(' ');
+  const classes = [styles.tableBody, className].filter(Boolean).join(' ');
 
   return (
     <tbody className={classes} style={style} {...props}>
@@ -111,7 +113,7 @@ TableBody.propTypes = {
  * TableRow component for table rows
  */
 export function TableRow({ children, className = '', style = {}, ...props }) {
-  const classes = ['table-row', className].filter(Boolean).join(' ');
+  const classes = [styles.tableRow, className].filter(Boolean).join(' ');
 
   return (
     <tr className={classes} style={style} {...props}>
@@ -136,7 +138,7 @@ export function TableCell({
   style = {},
   ...props
 }) {
-  const classes = ['table-cell', className].filter(Boolean).join(' ');
+  const classes = [styles.tableCell, className].filter(Boolean).join(' ');
   const Component = header ? 'th' : 'td';
 
   return (

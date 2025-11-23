@@ -1,0 +1,137 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Table Component Styles */
+.tableUnified {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+
+  th,
+  td {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: var(--border-width-thin) solid var(--color-border-light);
+  }
+
+  th {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    background: var(--color-bg-secondary);
+    border-bottom: var(--space-0-5) solid var(--color-border-medium);
+  }
+}
+
+/* Hover effect */
+.tableHover tbody tr:hover {
+  background: var(--color-bg-hover);
+}
+
+/* Striped rows */
+.tableStriped tbody tr:nth-child(odd) {
+  background: var(--color-bg-secondary);
+}
+
+/* Bordered table */
+.tableBordered {
+  border: var(--border-width-thin) solid var(--color-border-medium);
+
+  th,
+  td {
+    border-right: var(--border-width-thin) solid var(--color-border-light);
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+}
+
+/* Size variants */
+.tableSm {
+  th,
+  td {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+}
+
+.tableLg {
+  th,
+  td {
+    padding: var(--space-4) var(--space-5);
+    font-size: var(--font-size-lg);
+  }
+}
+
+/* Responsive wrapper */
+.tableResponsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  .tableUnified {
+    min-width: 600px;
+  }
+}
+
+/* Table head styling */
+.tableHead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Table row styling */
+.tableRow {
+  transition: background-color var(--transition-fast);
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .tableUnified {
+    th,
+    td {
+      border-bottom-color: var(--color-border-light-dark);
+    }
+
+    th {
+      color: var(--color-text-secondary-dark);
+      background: var(--color-bg-secondary-dark);
+      border-bottom-color: var(--color-border-medium-dark);
+    }
+  }
+
+  .tableHover tbody tr:hover {
+    background: var(--color-bg-hover-dark);
+  }
+
+  .tableStriped tbody tr:nth-child(odd) {
+    background: var(--color-bg-secondary-dark);
+  }
+
+  .tableBordered {
+    border-color: var(--color-border-medium-dark);
+
+    th,
+    td {
+      border-right-color: var(--color-border-light-dark);
+    }
+  }
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .tableUnified {
+    th,
+    td {
+      padding: var(--space-2);
+      font-size: var(--font-size-sm);
+    }
+  }
+
+  .tableResponsive {
+    border: var(--border-width-thin) solid var(--color-border-light);
+    border-radius: var(--radius-md);
+  }
+}
