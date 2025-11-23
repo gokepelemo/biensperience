@@ -1,0 +1,39 @@
+/**
+ * RoundedTextarea Component Styles (SCSS Module)
+ * Migrated from RoundedTextarea.css to RoundedTextarea.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+.roundedTextarea {
+  @include flex-column;
+  gap: $space-2;
+}
+
+.roundedTextareaLabel {
+  font-weight: $font-weight-semibold;
+  color: var(--text-muted, #334155);
+}
+
+.roundedTextareaInput {
+  width: 100%;
+  border-radius: 16px;
+  padding: $space-4;
+  border: 1px solid var(--form-field-border, #e6edf3);
+  background: var(--form-field-bg, #fff);
+  font-size: $font-size-sm;
+  min-height: 88px;
+  resize: vertical;
+}
+
+.roundedTextareaFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .helper,
+  .counter {
+    color: var(--muted, #94a3b8);
+  }
+}

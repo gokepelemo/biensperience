@@ -1,7 +1,7 @@
 import React, { useState, forwardRef } from 'react';
 import PropTypes from 'prop-types';
 import FormField from '../FormField/FormField';
-import './RoundedTextarea.css';
+import styles from './RoundedTextarea.module.scss';
 
 /**
  * RoundedTextarea now implemented as a variation of FormField.
@@ -18,10 +18,10 @@ const RoundedTextarea = forwardRef(function RoundedTextarea(
   };
 
   // Provide a class to FormField so the underlying Form.Control can receive rounded styling
-  const fieldClass = ['rounded-textarea-input', rounded && 'rounded-textarea-input--rounded', variant && `rounded-textarea--${variant}`, className].filter(Boolean).join(' ');
+  const fieldClass = [styles.roundedTextareaInput, rounded && `${styles.roundedTextareaInput}--rounded`, variant && `${styles.roundedTextarea}--${variant}`, className].filter(Boolean).join(' ');
 
   return (
-    <div className={`rounded-textarea ${className}`}>
+    <div className={`${styles.roundedTextarea} ${className}`}>
       <FormField
         name={props.name}
         label={label}
@@ -36,9 +36,9 @@ const RoundedTextarea = forwardRef(function RoundedTextarea(
         ref={ref}
       />
 
-      <div className="rounded-textarea-footer">
-        <small className="helper">{helper}</small>
-        <small className="counter">{text.length}/{maxLength}</small>
+      <div className={styles.roundedTextareaFooter}>
+        <small className={styles.helper}>{helper}</small>
+        <small className={styles.counter}>{text.length}/{maxLength}</small>
       </div>
     </div>
   );
