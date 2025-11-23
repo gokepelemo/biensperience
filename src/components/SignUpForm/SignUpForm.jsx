@@ -5,7 +5,7 @@ import { validateInviteCode } from "../../utilities/invite-codes-service";
 import { lang } from "../../lang.constants";
 import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
 import { FormControl } from "../../components/design-system";
-import "./SignUpForm.css";
+import styles from "./SignUpForm.module.scss";
 
 /**
  * Sign up form component for user registration.
@@ -210,7 +210,7 @@ function SignUpForm(props) {
               </small>
             )}
           </div>
-          <button type="submit" className="login-btn btn btn-light" disabled={disable}>
+          <button type="submit" className={`${styles.loginBtn} btn btn-light`} disabled={disable}>
             {lang.en.button.signup}
           </button>
         </form>
@@ -218,8 +218,8 @@ function SignUpForm(props) {
         
         <SocialLoginButtons actionType="signup" />
         
-        <div className="login-signup center-login">
-          <span>{lang.en.message.alreadyHaveAccount}</span> <button type="button" className="signup-link link-btn" onClick={handleLoginClick}>{lang.en.button.signIn}</button>
+        <div className={`${styles.loginSignup} center-login`}>
+          <span>{lang.en.message.alreadyHaveAccount}</span> <button type="button" className={`${styles.signupLink} link-btn`} onClick={handleLoginClick}>{lang.en.button.signIn}</button>
         </div>
       </div>
     </div>

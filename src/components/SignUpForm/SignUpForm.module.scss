@@ -1,0 +1,25 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Login button styling */
+.loginBtn {
+  text-transform: none;
+  font-size: var(--font-size-base);
+  width: 100%;
+  max-width: 360px;
+  height: 48px;
+  margin: $space-2 auto 0 auto;
+  border-radius: $radius-full;
+}
+
+/* Login/signup container */
+.loginSignup {
+  span {
+    font-size: var(--font-size-base);
+  }
+}
+
+/* Signup link button */
+.signupLink {
+  text-transform: none;
+  font-size: var(--font-size-base);
+}
