@@ -1,0 +1,35 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Import and forward Experiences styles */
+@forward '../Experiences/Experiences.module.scss';
+
+/* Additional specific styles for tagged experiences (currently unused in JSX) */
+.experiencesByTagHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-8;
+}
+
+.tagBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-2 $space-4;
+  background: var(--gradient-primary);
+  color: white;
+  border-radius: var(--radius-full);
+  font-weight: var(--font-weight-semibold);
+  margin-left: $space-4;
+}
+
+.alertInfo {
+  :global(h5) {
+    margin-bottom: $space-3;
+    font-weight: var(--font-weight-bold);
+  }
+
+  :global(p) {
+    margin-bottom: $space-4;
+  }
+}

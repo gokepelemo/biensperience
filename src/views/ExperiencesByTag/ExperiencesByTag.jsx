@@ -1,4 +1,4 @@
-import "./ExperiencesByTag.css";
+import "./ExperiencesByTag.module.scss";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
