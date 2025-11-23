@@ -22,7 +22,9 @@ export async function searchAll(query, options = {}) {
     params.append('types', types.join(','));
   }
 
-  return sendRequest(`${BASE_URL}?${params.toString()}`);
+  const response = await sendRequest(`${BASE_URL}?${params.toString()}`);
+  // Backend returns { results: [...] }, extract the results array
+  return response.results || [];
 }
 
 /**
