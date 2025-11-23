@@ -1,0 +1,131 @@
+@use '../../styles/scss/abstracts' as *;
+
+.socialLoginContainer {
+  margin: 0;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: $space-6 0;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--color-border-light);
+  }
+}
+
+.dividerText {
+  padding: 0 $space-4;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+  font-size: $font-size-sm;
+}
+
+.socialButtons {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  width: 100%;
+}
+
+.socialBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-3;
+  padding: $space-4 $space-6;
+  border-radius: $radius-full;
+  border: 1px solid var(--color-border-medium);
+  font-size: $font-size-base;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  width: 100%;
+  box-shadow: var(--shadow-sm);
+  background: var(--color-bg-secondary);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-xs);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+
+    &:hover {
+      transform: none;
+      box-shadow: var(--shadow-sm);
+    }
+  }
+}
+
+.socialIcon {
+  font-size: $font-size-xl;
+}
+
+/* Facebook Brand Colors */
+.facebookBtn {
+  color: white;
+  background: #0a58ca;
+  border-color: #0a58ca;
+
+  &:hover {
+    filter: brightness(1.05);
+  }
+}
+
+/* Google Brand Colors */
+.googleBtn {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+
+  &:hover {
+    background: var(--color-bg-primary);
+  }
+
+  .socialIcon {
+    background: var(--color-social-google-icon-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+/* X (formerly Twitter) Brand Colors */
+.twitterBtn {
+  background: #000;
+  color: #fff;
+  border-color: #222;
+
+  &:hover {
+    filter: brightness(1.1);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .socialBtn {
+    padding: $space-3 $space-5;
+    font-size: $font-size-sm;
+  }
+
+  .socialIcon {
+    font-size: $font-size-lg;
+  }
+}
