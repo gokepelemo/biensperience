@@ -98,9 +98,7 @@
   }
 
   :global(.navbar-brand) {
-    flex-wrap: nowrap; /* Keep logo and text on same line */
     max-width: 100%; /* Prevent overflow */
-    gap: $space-2; /* Add gap between logo and text */
   }
 
   .brandText {
@@ -245,6 +243,10 @@
 
 /* Navbar brand */
 :global(.navbar-brand) {
+  display: flex; /* Ensure flex layout */
+  flex-wrap: nowrap; /* Keep logo and text on same line */
+  align-items: center; /* Vertically center logo and text */
+  gap: $space-2; /* Add gap between logo and text */
   padding: $space-2 $space-4;
   @include transition-all($transition-normal);
   color: white !important;
