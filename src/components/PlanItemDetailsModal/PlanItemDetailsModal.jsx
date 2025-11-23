@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Modal from '../Modal/Modal';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
-import './PlanItemDetailsModal.css';
+import styles from './PlanItemDetailsModal.module.scss';
 
 export default function PlanItemDetailsModal({
   show,
@@ -166,16 +166,16 @@ export default function PlanItemDetailsModal({
       title="Plan Item Details"
       size="lg"
     >
-      <div className="plan-item-details-modal">
+      <div className={styles.planItemDetailsModal}>
         {/* Plan item header */}
-        <div className="plan-item-header">
-          <h3 className="plan-item-title">{planItem.text || 'Plan Item'}</h3>
+        <div className={styles.planItemHeader}>
+          <h3 className={styles.planItemTitle}>{planItem.text || 'Plan Item'}</h3>
           {planItem.url && (
             <a
               href={planItem.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="plan-item-link"
+              className={styles.planItemLink}
             >
               🔗 View Link
             </a>
@@ -183,33 +183,33 @@ export default function PlanItemDetailsModal({
         </div>
 
         {/* Assignment section */}
-        <div className="assignment-section">
-          <label className="assignment-label">Assigned To:</label>
+        <div className={styles.assignmentSection}>
+          <label className={styles.assignmentLabel}>Assigned To:</label>
           {canEdit ? (
-            <div className="assignment-autocomplete-wrapper">
+            <div className={styles.assignmentAutocompleteWrapper}>
               {!isEditingAssignment ? (
                 <button
-                  className="assignment-link"
+                  className={styles.assignmentLink}
                   onClick={handleAssignmentClick}
                   type="button"
                 >
                   {getAssigneeName()}
                 </button>
               ) : (
-                <div className="assignment-autocomplete">
+                <div className={styles.assignmentAutocomplete}>
                   <input
                     ref={assignmentInputRef}
                     type="text"
-                    className="assignment-input"
+                    className={styles.assignmentInput}
                     placeholder="Search collaborators..."
                     value={assignmentSearch}
                     onChange={(e) => setAssignmentSearch(e.target.value)}
                     onKeyDown={handleKeyDown}
                   />
                   {(isEditingAssignment && (filteredCollaborators.length > 0 || assignmentSearch)) && (
-                    <div ref={dropdownRef} className="assignment-dropdown">
+                    <div ref={dropdownRef} className={styles.assignmentDropdown}>
                       <div
-                        className={`assignment-option ${highlightedIndex === 0 ? 'highlighted' : ''}`}
+                        className={`${styles.assignmentOption} ${highlightedIndex === 0 ? styles.highlighted : ''}`}
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -217,7 +217,7 @@ export default function PlanItemDetailsModal({
                         }}
                         onMouseEnter={() => setHighlightedIndex(0)}
                       >
-                        <span className="assignment-option-text">-- Unassigned --</span>
+                        <span className={styles.assignmentOptionText}>-- Unassigned --</span>
                       </div>
                       {filteredCollaborators.map((collab, index) => {
                         const userId = collab._id || collab.user?._id;
@@ -225,7 +225,7 @@ export default function PlanItemDetailsModal({
                         return (
                           <div
                             key={userId}
-                            className={`assignment-option ${highlightedIndex === index + 1 ? 'highlighted' : ''}`}
+                            className={`${styles.assignmentOption} ${highlightedIndex === index + 1 ? styles.highlighted : ''}`}
                             onMouseDown={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -233,13 +233,13 @@ export default function PlanItemDetailsModal({
                             }}
                             onMouseEnter={() => setHighlightedIndex(index + 1)}
                           >
-                            <span className="assignment-option-text">{userName}</span>
+                            <span className={styles.assignmentOptionText}>{userName}</span>
                           </div>
                         );
                       })}
                       {filteredCollaborators.length === 0 && assignmentSearch && (
-                        <div className="assignment-option disabled">
-                          <span className="assignment-option-text">No collaborators found</span>
+                        <div className={`${styles.assignmentOption} ${styles.disabled}`}>
+                          <span className={styles.assignmentOptionText}>No collaborators found</span>
                         </div>
                       )}
                     </div>
@@ -248,42 +248,42 @@ export default function PlanItemDetailsModal({
               )}
             </div>
           ) : (
-            <span className="assignment-value">{getAssigneeName()}</span>
+            <span className={styles.assignmentValue}>{getAssigneeName()}</span>
           )}
         </div>
 
         {/* Tabs for different detail types */}
-        <div className="details-tabs">
+        <div className={styles.detailsTabs}>
           <button
-            className={`details-tab ${activeTab === 'notes' ? 'active' : ''}`}
+            className={`${styles.detailsTab} ${activeTab === 'notes' ? styles.active : ''}`}
             onClick={() => setActiveTab('notes')}
             type="button"
           >
             📝 Notes {notes.length > 0 && `(${notes.length})`}
           </button>
           <button
-            className="details-tab disabled"
+            className={`${styles.detailsTab} ${styles.disabled}`}
             disabled
             type="button"
           >
             📍 Location
           </button>
           <button
-            className="details-tab disabled"
+            className={`${styles.detailsTab} ${styles.disabled}`}
             disabled
             type="button"
           >
             💬 Chat
           </button>
           <button
-            className="details-tab disabled"
+            className={`${styles.detailsTab} ${styles.disabled}`}
             disabled
             type="button"
           >
             📷 Photos
           </button>
           <button
-            className="details-tab disabled"
+            className={`${styles.detailsTab} ${styles.disabled}`}
             disabled
             type="button"
           >
@@ -292,7 +292,7 @@ export default function PlanItemDetailsModal({
         </div>
 
         {/* Tab content */}
-        <div className="details-content">
+        <div className={styles.detailsContent}>
           {activeTab === 'notes' && (
             <PlanItemNotes
               notes={notes}
@@ -307,25 +307,25 @@ export default function PlanItemDetailsModal({
           )}
 
           {activeTab === 'location' && (
-            <div className="coming-soon-message">
+            <div className={styles.comingSoonMessage}>
               Location details will be available soon.
             </div>
           )}
 
           {activeTab === 'chat' && (
-            <div className="coming-soon-message">
+            <div className={styles.comingSoonMessage}>
               Chat functionality will be available soon.
             </div>
           )}
 
           {activeTab === 'photos' && (
-            <div className="coming-soon-message">
+            <div className={styles.comingSoonMessage}>
               Photo attachments will be available soon.
             </div>
           )}
 
           {activeTab === 'documents' && (
-            <div className="coming-soon-message">
+            <div className={styles.comingSoonMessage}>
               Document attachments will be available soon.
             </div>
           )}

@@ -1,0 +1,400 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Plan Item Details Modal - Comprehensive modal for plan item details */
+
+.planItemDetailsModal {
+  padding: $space-2 0;
+}
+
+/* Plan item header */
+.planItemHeader {
+  padding-bottom: $space-4;
+  margin-bottom: $space-4;
+  border-bottom: 1px solid var(--color-border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: $space-4;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.planItemTitle {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin: 0;
+  flex: 1;
+  word-break: break-word;
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-primary);
+  }
+}
+
+.planItemLink {
+  font-size: $font-size-sm;
+  color: var(--color-primary);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: $space-2 $space-3;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  @include transition-all($transition-fast);
+
+  &:hover {
+    background: var(--color-bg-hover);
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 768px) {
+    align-self: flex-end;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+
+    &:hover {
+      background: var(--color-primary-light);
+    }
+  }
+}
+
+/* Assignment section */
+.assignmentSection {
+  padding: $space-4;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  margin-bottom: $space-6;
+  display: flex;
+  align-items: center;
+  gap: $space-4;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-tertiary);
+  }
+}
+
+.assignmentLabel {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin: 0;
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-primary);
+  }
+}
+
+.assignmentAutocompleteWrapper {
+  flex: 1;
+  position: relative;
+}
+
+.assignmentLink {
+  width: 100%;
+  padding: $space-2 $space-3;
+  font-size: 0.9375rem;
+  color: var(--color-primary);
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  @include transition-all($transition-fast);
+  border-radius: var(--radius-md);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    text-decoration-style: solid;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-primary);
+
+    &:hover {
+      background: var(--color-primary-light);
+    }
+  }
+}
+
+.assignmentAutocomplete {
+  position: relative;
+  width: 100%;
+}
+
+.assignmentInput {
+  width: 100%;
+  padding: $space-2 $space-3;
+  font-size: $font-size-sm;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast);
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+
+    &::placeholder {
+      color: var(--color-text-muted);
+    }
+  }
+}
+
+.assignmentSelect {
+  @media (max-width: 768px) {
+    width: 100%;
+  }
+}
+
+.assignmentDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: $space-1;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-medium);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.assignmentOption {
+  padding: 0.625rem $space-3;
+  font-size: $font-size-sm;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  @include transition-all($transition-fast);
+  border-bottom: 1px solid var(--color-border-light);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover,
+  &.highlighted {
+    background: var(--color-bg-hover);
+    color: var(--color-primary);
+  }
+
+  &.disabled {
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+    font-style: italic;
+
+    &:hover {
+      background: none;
+    }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-primary);
+    border-bottom-color: var(--color-border-medium);
+
+    &:hover,
+    &.highlighted {
+      background: var(--color-primary-light);
+      color: var(--color-primary);
+    }
+
+    &.disabled {
+      color: var(--color-text-muted);
+    }
+  }
+}
+
+.assignmentOptionText {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.assignmentValue {
+  flex: 1;
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-primary);
+  }
+}
+
+/* Details tabs */
+.detailsTabs {
+  display: flex;
+  gap: $space-2;
+  border-bottom: 2px solid var(--color-border-light);
+  margin-bottom: $space-4;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: 768px) {
+    gap: $space-1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    border-bottom-color: var(--color-border-medium);
+  }
+}
+
+.detailsTab {
+  padding: $space-3 $space-4;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  @include transition-all($transition-fast);
+  white-space: nowrap;
+  position: relative;
+  bottom: -2px;
+
+  &:hover:not(.disabled) {
+    color: var(--color-primary);
+    background: rgba(102, 126, 234, 0.05);
+  }
+
+  &.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: $font-weight-semibold;
+  }
+
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    color: var(--color-text-muted);
+  }
+
+  @media (max-width: 768px) {
+    padding: $space-2 $space-3;
+    font-size: 0.8125rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-muted);
+
+    &:hover:not(.disabled) {
+      color: var(--color-primary);
+      background: var(--color-primary-light);
+    }
+
+    &.active {
+      color: var(--color-primary);
+      border-bottom-color: var(--color-primary);
+    }
+  }
+}
+
+/* Details content */
+.detailsContent {
+  min-height: 300px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding: $space-4 0;
+}
+
+.comingSoonMessage {
+  @include flex-center;
+  height: 200px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 0.9375rem;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $space-4 0 $space-2;
+  margin-top: $space-4;
+  border-top: 1px solid var(--color-border-light);
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: $space-3;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    border-top-color: var(--color-border-medium);
+  }
+}
+
+.paginationBtn {
+  padding: $space-2 $space-4;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  cursor: pointer;
+  @include transition-all($transition-fast);
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-hover);
+    border-color: var(--color-primary);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-medium);
+    color: var(--color-primary);
+
+    &:hover:not(:disabled) {
+      background: var(--color-primary-light);
+      border-color: var(--color-primary);
+    }
+  }
+}
+
+.paginationInfo {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+
+  @media (max-width: 768px) {
+    order: -1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-primary);
+  }
+}
