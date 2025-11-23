@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import './Layout.css';
+import styles from './Layout.module.scss';
 
 /**
  * FlexBetween component for flexbox with space-between alignment
@@ -24,10 +24,10 @@ export function FlexBetween({
   ...props
 }) {
   const classes = [
-    'flex-between',
-    `align-${align}`,
-    `gap-${gap}`,
-    wrap && 'flex-wrap',
+    styles.flexBetween,
+    styles[`align${align.charAt(0).toUpperCase() + align.slice(1)}`],
+    styles[`gap${gap.charAt(0).toUpperCase() + gap.slice(1)}`],
+    wrap && styles.flexWrap,
     className
   ].filter(Boolean).join(' ');
 
@@ -67,9 +67,9 @@ export function FlexCenter({
   ...props
 }) {
   const classes = [
-    'flex-center',
-    `direction-${direction}`,
-    wrap && 'flex-wrap',
+    styles.flexCenter,
+    styles[`direction${direction.charAt(0).toUpperCase() + direction.slice(1)}`],
+    wrap && styles.flexWrap,
     className
   ].filter(Boolean).join(' ');
 
@@ -145,9 +145,9 @@ export function Container({
   ...props
 }) {
   const classes = [
-    'container',
-    `container-${size}`,
-    center && 'container-center',
+    styles.container,
+    styles[`container${size.charAt(0).toUpperCase() + size.slice(1)}`],
+    center && styles.containerCenter,
     className
   ].filter(Boolean).join(' ');
 
@@ -186,9 +186,9 @@ export function Stack({
   ...props
 }) {
   const classes = [
-    'stack',
-    `stack-spacing-${spacing}`,
-    `stack-align-${align}`,
+    styles.stack,
+    styles[`stackSpacing${spacing.charAt(0).toUpperCase() + spacing.slice(1)}`],
+    styles[`stackAlign${align.charAt(0).toUpperCase() + align.slice(1)}`],
     className
   ].filter(Boolean).join(' ');
 
