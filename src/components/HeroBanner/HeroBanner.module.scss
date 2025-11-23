@@ -35,3 +35,12 @@
   text-shadow: var(--shadow-text-md);
   contain: layout style;
 }
+
+/* Center text on mobile/tablet viewports */
+@media (max-width: 991px) {
+  .tagline {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+}
