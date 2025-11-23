@@ -880,6 +880,11 @@
 
 /* Responsive - Mobile and Tablet */
 @media (max-width: 991px) {
+    /* Increase spacing between plan items on mobile */
+    .plan-item-card.mb-3 {
+        margin-bottom: var(--space-5) !important; /* 1.5rem / 24px */
+    }
+
     /* Increase plan item title size on mobile for better readability */
     .plan-item-title {
         font-size: clamp(1.125rem, 3.5vw, 1.375rem); /* 18px - 22px */
