@@ -1,0 +1,59 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Invite Code Modal Styles */
+
+.codeDisplay {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.1rem;
+  letter-spacing: var(--letter-spacing-wider);
+  color: var(--color-primary);
+}
+
+/* List group items - using :global() for Bootstrap classes */
+:global(.list-group-item) {
+  transition: var(--transition-fast);
+
+  &:hover {
+    background-color: var(--color-bg-secondary);
+  }
+}
+
+/* Tabs - using :global() for Bootstrap classes */
+:global(.nav-tabs) {
+  :global(.nav-link) {
+    color: var(--color-text-muted);
+
+    &:global(.active) {
+      color: var(--color-primary);
+      font-weight: $font-weight-semibold;
+    }
+  }
+}
+
+/* Form selects for multi-select - using :global() for Bootstrap classes */
+:global(.form-select[multiple]) {
+  option {
+    padding: $space-3;
+
+    &:checked {
+      background-color: var(--color-primary);
+      color: white;
+    }
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  :global(.modal-xl) {
+    max-width: 100%;
+    margin: $space-3;
+  }
+
+  .codeDisplay {
+    font-size: 0.95rem;
+  }
+
+  :global(.form-select[multiple]) {
+    height: 80px !important;
+  }
+}

@@ -22,7 +22,7 @@ import {
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 import Loading from '../Loading/Loading';
-import './InviteCodeModal.css';
+import styles from './InviteCodeModal.module.scss';
 
 export default function InviteCodeModal({ show, onHide, experiences = [], destinations = [] }) {
   const [invites, setInvites] = useState([]);
@@ -283,7 +283,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                   >
                     <div className="flex-grow-1">
                       <div className="d-flex align-items-center gap-2 mb-1">
-                        <strong className="code-display">{invite.code}</strong>
+                        <strong className={styles.codeDisplay}>{invite.code}</strong>
                         {invite.isActive ? (
                           <Badge className="badge badge-success">Active</Badge>
                         ) : (
