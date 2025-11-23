@@ -1,0 +1,101 @@
+@use '../../../styles/scss/abstracts' as *;
+
+/* CollaboratorModal component styles */
+.collaboratorModalContent {
+  /* Button styles */
+  :global(.btn) {
+    transition: all var(--transition-normal);
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    &:disabled {
+      opacity: var(--opacity-disabled);
+      cursor: not-allowed;
+      transform: none;
+    }
+  }
+
+  /* Form input styles */
+  :global(.form-control) {
+    &:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 $space-0-5 var(--color-primary-alpha-20);
+      background-color: var(--color-bg-primary);
+    }
+
+    &::placeholder {
+      color: var(--color-text-placeholder);
+      opacity: var(--opacity-disabled);
+    }
+  }
+
+  /* List group styles */
+  :global(.list-group-item) {
+    transition: all var(--transition-fast);
+
+    &:hover {
+      background-color: var(--color-bg-tertiary);
+      transform: translateX(2px);
+    }
+  }
+
+  /* Badge hover effects */
+  :global(.badge) {
+    transition: all var(--transition-fast);
+
+    &:hover {
+      filter: brightness(1.1);
+    }
+  }
+
+  /* Button group active state */
+  :global(.btn-group .btn.active) {
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Info alert styling (overrides Bootstrap) */
+  :global(.alert-info) {
+    background-color: var(--color-info-bg);
+    border-color: var(--color-info-border);
+    color: var(--color-info-text);
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 576px) {
+    padding: $space-3 !important;
+
+    :global(.btn-group) {
+      flex-direction: column;
+
+      :global(.btn) {
+        width: 100%;
+        border-radius: var(--radius-md) !important;
+        margin-bottom: $space-2;
+      }
+    }
+  }
+}
+
+/* Accessibility enhancements */
+@media (prefers-reduced-motion: reduce) {
+  .collaboratorModalContent :global(*) {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .collaboratorModalContent {
+    :global(.btn) {
+      border-width: $space-0-5;
+    }
+
+    :global(.form-control) {
+      border-width: $space-0-5;
+    }
+  }
+}

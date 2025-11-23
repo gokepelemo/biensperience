@@ -12,7 +12,7 @@ import Alert from '../../../components/Alert/Alert';
 import FormField from '../../../components/FormField/FormField';
 import { Button as DSButton, Pill } from '../../../components/design-system';
 import { logger } from '../../../utilities/logger';
-import './CollaboratorModal.css';
+import styles from './CollaboratorModal.module.scss';
 
 export default function CollaboratorModal({
   show,
@@ -121,8 +121,8 @@ export default function CollaboratorModal({
       size="lg"
       scrollable={true}
     >
-      <div 
-        className="collaborator-modal-content modal-content-styled"
+      <div
+        className={`${styles.collaboratorModalContent} modal-content-styled`}
       >
         {/* Success Messages */}
         {addSuccess && addedCollaborators.length > 0 && (
