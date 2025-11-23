@@ -13,7 +13,7 @@ import {
   isSupportedDocument
 } from '../../utilities/document-viewer';
 import * as FaIcons from 'react-icons/fa';
-import './DocumentViewerModal.css';
+import styles from './DocumentViewerModal.module.scss';
 
 // Dynamic import for react-pdf to avoid loading it unnecessarily
 let Document = null;
@@ -116,7 +116,7 @@ export default function DocumentViewerModal({
   const renderDocumentContent = () => {
     if (loading) {
       return (
-        <div className="document-viewer-loading">
+        <div className={styles.documentViewerLoading}>
           <Loading size="lg" />
           <p>Loading document...</p>
         </div>
@@ -125,7 +125,7 @@ export default function DocumentViewerModal({
 
     if (error) {
       return (
-        <Alert type="danger" className="document-viewer-error">
+        <Alert type="danger" className={styles.documentViewerError}>
           <strong>Error loading document:</strong> {error}
         </Alert>
       );
@@ -133,8 +133,8 @@ export default function DocumentViewerModal({
 
     if (!viewableContent) {
       return (
-        <div className="document-viewer-placeholder">
-          <FaIcons.FaFile className="document-icon" />
+        <div className={styles.documentViewerPlaceholder}>
+          <FaIcons.FaFile className={styles.documentIcon} />
           <p>No document to display</p>
         </div>
       );
@@ -146,7 +146,7 @@ export default function DocumentViewerModal({
       case 'pdf':
         if (!Document || !Page) {
           return (
-            <div className="document-viewer-loading">
+            <div className={styles.documentViewerLoading}>
               <Loading size="lg" />
               <p>Loading PDF viewer...</p>
             </div>
@@ -154,15 +154,15 @@ export default function DocumentViewerModal({
         }
 
         return (
-          <div className="document-viewer-pdf">
+          <div className={styles.documentViewerPdf}>
             {pdfError && (
-              <Alert type="warning" className="document-viewer-pdf-error">
+              <Alert type="warning" className={styles.documentViewerPdfError}>
                 <strong>PDF Error:</strong> {pdfError}
                 <br />
                 Falling back to iframe viewer.
               </Alert>
             )}
-            <div className="pdf-controls">
+            <div className={styles.pdfControls}>
               <Button
                 variant="outline-secondary"
                 size="sm"
@@ -171,7 +171,7 @@ export default function DocumentViewerModal({
               >
                 <FaIcons.FaChevronLeft />
               </Button>
-              <span className="pdf-page-info">
+              <span className={styles.pdfPageInfo}>
                 Page {pageNumber} of {numPages || '?'}
               </span>
               <Button
@@ -183,19 +183,19 @@ export default function DocumentViewerModal({
                 <FaIcons.FaChevronRight />
               </Button>
             </div>
-            <div className="pdf-content">
+            <div className={styles.pdfContent}>
               <Document
                 file={url}
                 onLoadSuccess={onPdfLoadSuccess}
                 onLoadError={onPdfLoadError}
                 loading={
-                  <div className="document-viewer-loading">
+                  <div className={styles.documentViewerLoading}>
                     <Loading size="lg" />
                     <p>Loading PDF...</p>
                   </div>
                 }
                 error={
-                  <div className="document-viewer-error">
+                  <div className={styles.documentViewerError}>
                     <Alert type="danger">
                       <strong>Failed to load PDF:</strong> {pdfError}
                     </Alert>
@@ -215,9 +215,9 @@ export default function DocumentViewerModal({
 
       case 'html':
         return (
-          <div className="document-viewer-html">
+          <div className={styles.documentViewerHtml}>
             <div
-              className="document-content"
+              className={styles.documentContent}
               dangerouslySetInnerHTML={{ __html: content }}
             />
           </div>
@@ -225,15 +225,15 @@ export default function DocumentViewerModal({
 
       case 'text':
         return (
-          <div className="document-viewer-text">
-            <pre className="document-text-content">{content}</pre>
+          <div className={styles.documentViewerText}>
+            <pre className={styles.documentTextContent}>{content}</pre>
           </div>
         );
 
       default:
         return (
-          <div className="document-viewer-unsupported">
-            <FaIcons.FaFile className="document-icon" />
+          <div className={styles.documentViewerUnsupported}>
+            <FaIcons.FaFile className={styles.documentIcon} />
             <p>This document type is not supported for inline viewing.</p>
             <p>Please download the file to view it.</p>
           </div>
@@ -253,23 +253,23 @@ export default function DocumentViewerModal({
     const iconName = getDocumentIcon(document.docType);
     const IconComponent = FaIcons[iconName];
 
-    return IconComponent ? <IconComponent className="document-type-icon" /> : null;
+    return IconComponent ? <IconComponent className={styles.documentTypeIcon} /> : null;
   };
 
   const modalFooter = (
-    <div className="document-viewer-footer">
+    <div className={styles.documentViewerFooter}>
       {document && (
-        <div className="document-info">
+        <div className={styles.documentInfo}>
           {getDocumentIconComponent()}
-          <span className="document-details">
+          <span className={styles.documentDetails}>
             {document.fileName}
             {document.contentLength > 0 && (
-              <span className="document-size">({formatFileSize(document.contentLength)})</span>
+              <span className={styles.documentSize}>({formatFileSize(document.contentLength)})</span>
             )}
           </span>
         </div>
       )}
-      <div className="document-actions">
+      <div className={styles.documentActions}>
         <Button
           variant="outline-secondary"
           onClick={handleDownload}
@@ -297,9 +297,9 @@ export default function DocumentViewerModal({
       size="xl"
       scrollable={false}
       footer={modalFooter}
-      dialogClassName="document-viewer-modal"
-      contentClassName="document-viewer-content"
-      bodyClassName="document-viewer-body"
+      dialogClassName={styles.documentViewerModal}
+      contentClassName={styles.documentViewerContent}
+      bodyClassName={styles.documentViewerBody}
       {...modalProps}
     >
       {renderDocumentContent()}
