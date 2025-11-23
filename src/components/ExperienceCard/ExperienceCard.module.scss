@@ -105,7 +105,7 @@
   border-color: transparent;
   color: white;
   font-size: $font-size-2xl;
-  font-weight: $font-weight-regular; /* Lighter weight for better centering */
+  font-weight: $font-weight-normal; /* Lighter weight for better centering */
   line-height: 1;
   @include flex-center;
   padding: 0;
