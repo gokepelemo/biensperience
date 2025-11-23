@@ -198,7 +198,7 @@ export default function ActivityMonitor({ show, onHide }) {
       >
         <div className={styles.activityMonitor}>
           {/* Search and Filters */}
-          <div className={styles.filtersSection mb-4">
+          <div className={`${styles.filtersSection} mb-4`}>
             <Form onSubmit={handleSearch}>
               <div className="row align-items-end">
                 {/* Search */}

@@ -179,3 +179,1128 @@
     }
   }
 }
+
+/* ==============================================
+   PLAN ITEMS SECTION
+   ============================================== */
+
+/* Plan Items Container */
+:global(.plan-items-container) {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  padding: clamp(1rem, 3vw, 1.5rem);
+  margin-bottom: $space-6;
+}
+
+/* Plan Metrics */
+:global(.plan-metrics-container) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+  margin-bottom: $space-6;
+}
+
+:global(.metric-card) {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  padding: $space-5 $space-6;
+  box-shadow: var(--shadow-sm);
+  @include transition-all($transition-fast);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+}
+
+:global(.metric-header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+}
+
+:global(.metric-title) {
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  font-weight: $font-weight-medium;
+  color: var(--color-single-experience-text-grey);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+  margin: 0;
+  line-height: 1.3;
+}
+
+:global(.metric-icon) {
+  font-size: clamp(1.25rem, 3vw, 1.5rem);
+  color: var(--color-single-experience-primary);
+  flex-shrink: 0;
+}
+
+:global(.metric-value) {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--color-single-experience-text-primary);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* Plan Item Card */
+:global(.plan-item-card) {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  @include transition-all($transition-normal);
+  border: 1px solid var(--color-border-light);
+  padding: clamp(0.75rem, 2.5vw, 1.5rem);
+  margin-bottom: $space-3;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-border-medium);
+  }
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+:global(.plan-item-header) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+  padding-bottom: clamp(0.75rem, 2vw, 1.25rem);
+  border-bottom: 1px solid var(--color-border-light);
+  flex-wrap: wrap;
+}
+
+:global(.plan-item-title) {
+  margin-right: 1rem;
+  font-size: 2rem; // Fixed at 2rem (32px)
+  font-weight: $font-weight-semibold;
+  line-height: 1.3;
+  flex: 1;
+  min-width: 200px;
+
+  a {
+    color: var(--color-single-experience-text-dark);
+    text-decoration: none;
+    @include transition-all($transition-fast);
+
+    &:hover {
+      color: var(--color-single-experience-primary);
+      text-decoration: underline;
+    }
+  }
+}
+
+:global(.plan-item-actions) {
+  display: flex;
+  gap: clamp(0.375rem, 1.5vw, 0.75rem);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+:global(.plan-item-meta) {
+  display: flex;
+  gap: clamp(0.5rem, 2vw, 1rem);
+  font-size: clamp(0.875rem, 2.5vw, 1.125rem);
+  color: var(--color-single-experience-text-grey);
+  align-items: center;
+  flex-wrap: wrap;
+  min-height: clamp(36px, 8vw, 44px);
+  font-weight: $font-weight-medium;
+}
+
+:global(.plan-item-cost),
+:global(.plan-item-days) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: clamp(0.375rem, 1.5vw, 0.625rem) clamp(0.625rem, 2.5vw, 1rem);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-full);
+  font-weight: $font-weight-medium;
+  white-space: nowrap;
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
+  color: var(--color-single-experience-text-grey);
+}
+
+:global(.plan-item-assigned),
+:global(.plan-item-notes-count) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: clamp(0.375rem, 1.5vw, 0.5rem) clamp(0.625rem, 2.5vw, 0.875rem);
+  background: var(--color-bg-primary);
+  border-left: 3px solid;
+  border-radius: $radius-sm;
+  font-size: clamp(0.8125rem, 2vw, 0.9375rem);
+  font-weight: $font-weight-medium;
+  color: var(--color-single-experience-text-grey);
+}
+
+:global(.plan-item-assigned) {
+  border-left-color: var(--color-single-experience-primary);
+}
+
+:global(.plan-item-notes-count) {
+  border-left-color: var(--color-single-experience-success);
+}
+
+:global(.btn-view-details) {
+  padding: clamp(0.375rem, 1.5vw, 0.5rem) clamp(0.75rem, 2.5vw, 1.25rem);
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
+  background: var(--color-bg-primary);
+  color: var(--color-single-experience-primary);
+  border: 1px solid var(--color-single-experience-primary);
+  border-radius: $radius-md;
+  @include transition-all($transition-fast);
+  font-weight: $font-weight-medium;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--color-single-experience-primary);
+    color: var(--color-text-inverse);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+:global(.plan-item-details) {
+  padding-top: clamp(0.75rem, 2.5vw, 1.25rem);
+  margin-top: clamp(0.75rem, 2.5vw, 1.25rem);
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg-primary);
+}
+
+/* Tree Controls */
+:global(.plan-item-tree) {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-2;
+}
+
+:global(.expand-toggle) {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-right: $space-2;
+  color: var(--color-single-experience-text-secondary) !important;
+  @include transition-all($transition-fast);
+
+  &:hover {
+    color: var(--color-single-experience-primary) !important;
+    transform: scale(1.1);
+  }
+}
+
+:global(.child-arrow) {
+  font-size: 1.25rem;
+  color: var(--color-single-experience-primary);
+  margin-left: $space-2;
+}
+
+:global(.no-child-arrow) {
+  font-size: 1.25rem;
+  color: var(--color-single-experience-text-disabled);
+  margin-left: $space-2;
+  opacity: 0.3;
+}
+
+/* Plan Button Styling */
+:global(.btn-plan-add),
+:global(.btn-plan-edit),
+:global(.btn-plan-complete),
+:global(.btn-plan-remove) {
+  padding: clamp(0.375rem, 1.5vw, 0.5rem) clamp(0.75rem, 2.5vw, 1.25rem);
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
+  border-radius: $radius-md;
+  @include transition-all($transition-fast);
+  font-weight: $font-weight-medium;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+:global(.btn-plan-add) {
+  background: var(--color-single-experience-success);
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: var(--color-single-experience-success-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+:global(.btn-plan-edit) {
+  background: var(--color-single-experience-info);
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: var(--color-single-experience-info-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+:global(.btn-plan-complete) {
+  background: var(--color-single-experience-primary);
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: var(--color-single-experience-primary-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+:global(.btn-plan-remove) {
+  background: var(--color-single-experience-danger);
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: var(--color-single-experience-danger-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+:global(.btn-plan-add.loading),
+:global(.btn-plan-edit.loading),
+:global(.btn-plan-complete.loading),
+:global(.btn-plan-remove.loading) {
+  animation: planPulse 0.8s ease-in-out infinite;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+@keyframes planPulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Plan Tabs Navigation */
+:global(.plan-tabs-nav) {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+  border-bottom: 2px solid var(--color-single-experience-border-light);
+  padding-bottom: 0;
+  margin-bottom: 1.5rem;
+  overflow: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+:global(.plan-tab-button) {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: $space-3 $space-6;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-single-experience-text-secondary);
+  cursor: pointer;
+  @include transition-all($transition-normal);
+  position: relative;
+  bottom: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 120px;
+
+  &:hover {
+    color: var(--color-single-experience-text-dark-secondary);
+    background: var(--color-bg-hover);
+  }
+
+  &:global(.active) {
+    color: var(--color-single-experience-primary);
+    border-bottom-color: var(--color-single-experience-primary);
+    background: var(--color-primary-light);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-single-experience-primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 1;
+    cursor: pointer;
+    background-image: none;
+    padding-right: $space-6;
+  }
+}
+
+/* Plan Tab Select */
+:global(.plan-tab-select) {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: none;
+  padding-right: 2.5rem;
+  min-width: 120px;
+  width: auto;
+  flex-shrink: 0;
+  position: relative;
+  border-radius: 0;
+  padding: $space-3 $space-6;
+  font-size: var(--font-size-lg) !important;
+  font-weight: 600;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-single-experience-text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  @include transition-all($transition-normal);
+
+  &:global(.active) {
+    color: var(--color-single-experience-primary);
+    border-bottom-color: var(--color-single-experience-primary);
+    background: var(--color-primary-light);
+    border-radius: 0;
+  }
+
+  &:hover {
+    color: var(--color-single-experience-text-dark-secondary);
+    background-color: var(--color-bg-hover);
+  }
+
+  &::-ms-expand {
+    display: none;
+  }
+}
+
+/* Plan Dropdown Container */
+:global(.plan-tab-dropdown-container) {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  padding: 0;
+  margin: 0;
+  min-width: 120px;
+  gap: 0;
+
+  :global(.plan-tab-button) {
+    position: relative;
+    z-index: 1;
+  }
+
+  &::after {
+    display: none;
+  }
+
+  select {
+    padding-right: 2.25rem;
+    position: relative;
+    z-index: 1;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: none !important;
+  }
+
+  :global(.plan-tab-select),
+  select {
+    font-size: var(--font-size-lg) !important;
+    line-height: 1 !important;
+    font-family: inherit !important;
+    height: auto !important;
+  }
+}
+
+/* Caret Icon */
+:global(.plan-tab-caret) {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1em;
+  height: 1em;
+  pointer-events: none;
+  color: var(--color-single-experience-text-secondary);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: 1em;
+    height: 1em;
+    display: block;
+    color: inherit;
+  }
+}
+
+:global(.plan-tab-dropdown-container.active .plan-tab-caret svg),
+:global(.plan-tab-button.active ~ .plan-tab-dropdown-container .plan-tab-caret svg) {
+  color: var(--color-single-experience-primary);
+}
+
+/* Caret Button */
+:global(.plan-tab-caret-button) {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-single-experience-text-secondary);
+  @include transition-all($transition-fast);
+  margin-left: 0.25rem;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  pointer-events: auto;
+
+  &:hover {
+    color: var(--color-single-experience-primary);
+  }
+}
+
+:global(.plan-tab-dropdown-container.active .plan-tab-caret-button),
+:global(.plan-tab-dropdown-container.dropdown-open .plan-tab-caret-button) {
+  color: var(--color-single-experience-primary);
+}
+
+/* Dropdown Menu */
+:global(.plan-tab-dropdown-menu) {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: auto;
+  background: var(--color-bg-primary, #ffffff);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+  border-radius: var(--radius-md, 0.375rem);
+  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
+  margin-top: 0;
+  z-index: 1050;
+  min-width: 180px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+:global(.plan-tab-dropdown-item) {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  color: var(--color-text-primary, #1a202c);
+  @include transition-all($transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  &:hover {
+    background-color: var(--color-bg-hover, rgba(102, 126, 234, 0.1));
+  }
+
+  &:global(.selected) {
+    color: var(--color-single-experience-primary);
+    font-weight: 600;
+  }
+
+  :global(.checkmark) {
+    margin-left: 0.5rem;
+    color: var(--color-single-experience-primary);
+    font-weight: bold;
+  }
+}
+
+/* Legacy Plan Dropdown */
+:global(.plan-dropdown) {
+  padding: $space-2 $space-3;
+  border: 1px solid var(--color-single-experience-border-input);
+  border-radius: $radius-sm;
+  background: var(--color-bg-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  @include transition-all($transition-fast);
+
+  &:hover {
+    border-color: var(--color-single-experience-primary);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-color: var(--color-primary);
+  }
+}
+
+/* Plan Items List */
+:global(.plan-items-list) {
+  margin-top: 1rem;
+}
+
+/* Plan Metadata */
+:global(.plan-metadata) {
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+
+  :global(.row) {
+    justify-content: center;
+    text-align: center;
+  }
+
+  :global(.col-md-3) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    @media (max-width: 768px) {
+      margin-bottom: 1rem;
+    }
+  }
+}
+
+/* My Plan View */
+:global(.my-plan-view) {
+  :global(.plan-item-card) {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: $radius-md;
+    box-shadow: var(--shadow-sm);
+    @include transition-all($transition-normal);
+
+    &:hover {
+      box-shadow: var(--shadow-md);
+    }
+  }
+
+  :global(.plan-item-header) {
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  :global(.form-check-input) {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.75rem;
+    cursor: pointer;
+
+    &:checked {
+      background-color: var(--color-success);
+      border-color: var(--color-success);
+    }
+  }
+
+  :global(.plan-item-details) {
+    background: var(--color-bg-primary);
+  }
+
+  :global(.alert) {
+    border-radius: $radius-md;
+    animation: slideIn 0.3s ease;
+  }
+}
+
+/* Sync Modal Select All */
+:global(.sync-modal-select-all) {
+  :global(.form-check-input) {
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-top: 0.15rem;
+    cursor: pointer;
+  }
+
+  :global(.form-check-label) {
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-left: 0.35rem;
+  }
+}
+
+/* Slide In Animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Set Date Link */
+:global(.set-date-link) {
+  cursor: pointer;
+  color: var(--badge-primary-bg);
+  text-decoration: underline;
+
+  &:hover {
+    color: var(--badge-primary-bg);
+    text-decoration: none;
+  }
+}
+
+/* Collaborator Badge */
+:global(.collaborator-badge) {
+  font-size: var(--font-size-sm);
+}
+
+/* Collaborator Remove Button */
+:global(.collaborator-remove-btn) {
+  text-decoration: none;
+  line-height: 1;
+  font-size: var(--font-size-base);
+}
+
+/* Search Results Dropdown */
+:global(.search-results-dropdown) {
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Metric Badge */
+:global(.metric-badge) {
+  font-size: 16px;
+  padding: $space-2 $space-3;
+  border-radius: var(--radius-full);
+}
+
+/* Experience Tag Pills */
+:global(.experience-tag-pill) {
+  background: white !important;
+  color: var(--color-primary) !important;
+  box-shadow: var(--shadow-sm);
+  font-weight: $font-weight-semibold;
+  border: none !important;
+
+  &:hover {
+    background: white !important;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    color: var(--color-primary-dark) !important;
+  }
+
+  &:global(.inactive) {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    box-shadow: none;
+  }
+}
+
+/* Experience Tag Pills in InfoCard Header */
+:global(.info-card-header) {
+  a:global(.experience-tag-pill) {
+    background: white !important;
+    color: var(--color-primary) !important;
+    box-shadow: var(--shadow-sm);
+    font-weight: $font-weight-semibold;
+    border: none !important;
+
+    &:hover {
+      background: white !important;
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      color: var(--color-primary-dark) !important;
+    }
+
+    :global(.icon),
+    svg {
+      color: var(--color-primary) !important;
+    }
+  }
+}
+
+/* Shake Animation for Deep Link Navigation */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-4px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(4px);
+  }
+}
+
+:global(.shake-animation) {
+  animation: shake 2s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  background-color: var(--color-primary-light, #e0e7ff) !important;
+}
+
+/* ==============================================
+   RESPONSIVE - MOBILE AND TABLET
+   ============================================== */
+
+@media (max-width: 991px) {
+  /* Increase spacing between plan items on mobile */
+  :global(.plan-item-card.mb-3) {
+    margin-bottom: $space-6 !important;
+  }
+
+  /* Consistent spacing for plan metrics container */
+  :global(.plan-metrics-container) {
+    margin-bottom: $space-6 !important;
+  }
+
+  /* Increase plan item title size on mobile */
+  :global(.plan-item-title) {
+    font-size: clamp(1.25rem, 4.5vw, 1.625rem); // 20px - 26px
+    font-weight: $font-weight-semibold;
+    line-height: 1.3;
+    text-align: center;
+    margin-right: 0;
+
+    a {
+      font-size: inherit;
+    }
+  }
+
+  /* Increase cost estimate and planning days font size */
+  :global(.plan-item-meta) {
+    font-size: clamp(1.125rem, 3.5vw, 1.375rem); // 18px - 22px
+    gap: $space-3;
+    font-weight: $font-weight-medium;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: $space-2;
+  }
+
+  /* Make assigned user and notes count more prominent */
+  :global(.plan-item-assigned),
+  :global(.plan-item-notes-count) {
+    font-size: clamp(0.875rem, 2.2vw, 1rem); // 14px - 16px
+    padding: $space-2 $space-3;
+  }
+
+  /* Center plan metric cards */
+  :global(.metric-card) {
+    align-items: center;
+    text-align: center;
+  }
+
+  :global(.metric-header) {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.5rem;
+  }
+
+  :global(.metric-title) {
+    text-align: center;
+    font-size: clamp(0.9375rem, 2.5vw, 1.0625rem);
+  }
+
+  :global(.metric-value) {
+    text-align: center;
+    padding-right: 0;
+    font-size: clamp(2rem, 5vw, 2.25rem);
+  }
+
+  /* Center plan item title and metadata */
+  :global(.plan-item-header) {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* Force Details button onto new line */
+  :global(.btn-view-details) {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-basis: 100%;
+    width: auto;
+    margin-top: $space-3;
+    font-size: clamp(0.875rem, 2.2vw, 1rem);
+    padding: $space-2 $space-4;
+  }
+
+  :global(.plan-item-tree) {
+    margin-bottom: 0.5rem;
+  }
+
+  /* Plan tabs navigation */
+  :global(.plan-tabs-nav) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-bottom: 2px solid var(--color-single-experience-border-light);
+    padding-bottom: 0;
+  }
+
+  :global(.plan-tab-button) {
+    flex: 1;
+    min-width: fit-content;
+    border-bottom: 3px solid transparent;
+    border-left: none;
+    text-align: center;
+    padding: $space-3 $space-4;
+    bottom: -2px;
+    white-space: nowrap;
+
+    &:global(.active) {
+      border-left-color: transparent;
+      border-bottom-color: var(--color-single-experience-primary);
+    }
+  }
+
+  :global(.plan-tab-select) {
+    flex: 0 0 auto;
+    min-width: fit-content;
+    max-width: max-content;
+    padding: $space-3 $space-4;
+    padding-right: 2.5rem;
+  }
+
+  :global(.plan-tab-dropdown-container) {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  :global(.plan-dropdown) {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* ==============================================
+   DARK MODE SUPPORT
+   ============================================== */
+
+@media (prefers-color-scheme: dark) {
+  /* Plan Items Container */
+  :global(.plan-items-container) {
+    background: var(--color-bg-secondary);
+  }
+
+  /* Metric Cards */
+  :global(.metric-card) {
+    background: var(--color-bg-tertiary);
+  }
+
+  :global(.metric-title) {
+    color: var(--color-text-muted);
+  }
+
+  :global(.metric-value) {
+    color: var(--color-text-primary);
+  }
+
+  /* Plan Item Cards */
+  :global(.plan-item-card) {
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-light);
+
+    &:hover {
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+    }
+  }
+
+  :global(.plan-item-title) {
+    a {
+      color: var(--color-text-primary);
+
+      &:hover {
+        color: var(--color-primary);
+      }
+    }
+  }
+
+  :global(.plan-item-details) {
+    border-top: 1px solid var(--color-border-medium);
+    background: var(--color-bg-secondary);
+  }
+
+  :global(.plan-item-meta) {
+    color: var(--color-text-muted);
+  }
+
+  /* Plan Item Indicators */
+  :global(.plan-item-assigned),
+  :global(.plan-item-notes-count) {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+  }
+
+  :global(.plan-item-assigned) {
+    border-left-color: var(--color-primary);
+  }
+
+  :global(.plan-item-notes-count) {
+    border-left-color: var(--color-success);
+  }
+
+  /* Details Button */
+  :global(.btn-view-details) {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+
+    &:hover {
+      background: var(--color-primary);
+      color: var(--color-bg-primary);
+    }
+  }
+
+  /* Tree Controls */
+  :global(.expand-toggle) {
+    color: var(--color-text-muted) !important;
+
+    &:hover {
+      color: var(--color-primary) !important;
+    }
+  }
+
+  :global(.child-arrow) {
+    color: var(--color-primary);
+  }
+
+  :global(.no-child-arrow) {
+    color: var(--color-text-disabled);
+  }
+
+  /* Travel Tips */
+  :global(.travel-tips-box) {
+    background: var(--color-bg-secondary);
+  }
+
+  :global(.travel-tip-card) {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+
+    &:hover {
+      box-shadow: var(--shadow-md);
+    }
+  }
+
+  /* Experience Detail List */
+  :global(.experience-detail) {
+    :global(.list-group-item:hover:not(.fw-bold)) {
+      background: var(--color-bg-tertiary);
+    }
+  }
+
+  /* Plan Tabs */
+  :global(.plan-tabs-nav) {
+    border-bottom: 2px solid var(--color-border-medium);
+  }
+
+  :global(.plan-tab-button) {
+    color: var(--color-text-muted);
+
+    &:hover {
+      color: var(--color-text-secondary);
+      background: var(--color-bg-hover);
+    }
+
+    &:global(.active) {
+      color: var(--color-primary);
+      border-bottom-color: var(--color-primary);
+      background: var(--color-primary-light);
+    }
+
+    &:disabled {
+      background-image: none;
+    }
+  }
+
+  /* Plan Tab Dropdown */
+  :global(.plan-tab-dropdown-container) {
+    --plan-caret-color: var(--color-text-secondary, #e9ecef);
+  }
+
+  :global(.plan-tab-select) {
+    &:hover {
+      color: var(--color-text-secondary);
+      background-color: var(--color-bg-hover);
+    }
+  }
+
+  /* Plan Dropdown */
+  :global(.plan-dropdown) {
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-medium);
+    color: var(--color-text-primary);
+
+    &:hover {
+      border-color: var(--color-primary);
+    }
+
+    &:focus {
+      outline: 2px solid var(--color-primary);
+      border-color: var(--color-primary);
+    }
+  }
+
+  /* My Plan View */
+  :global(.my-plan-view) {
+    :global(.plan-item-card) {
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-medium);
+
+      &:hover {
+        box-shadow: var(--shadow-md);
+      }
+    }
+
+    :global(.plan-item-header) {
+      border-bottom: 1px solid var(--color-border-medium);
+    }
+
+    :global(.plan-item-details) {
+      background: var(--color-bg-secondary);
+    }
+  }
+
+  /* Cost Estimate Colors */
+  :global(.green) {
+    color: var(--color-success);
+  }
+
+  :global(.grey) {
+    color: var(--color-text-muted);
+  }
+}
