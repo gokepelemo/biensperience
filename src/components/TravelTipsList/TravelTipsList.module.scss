@@ -1,0 +1,88 @@
+@use '../../styles/scss/abstracts' as *;
+
+.travelTipsList {
+  margin: $space-8 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+
+  /* Empty State */
+  &:empty {
+    display: none;
+  }
+}
+
+.textMuted {
+  color: var(--color-text-muted);
+}
+
+.travelTipsHeading {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  font-size: clamp(var(--font-size-2xl), 3.5vw, var(--font-size-3xl));
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: $space-6;
+  padding-bottom: $space-4;
+  border-bottom: 2px solid var(--color-border-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-tight);
+}
+
+.travelTipsIcon {
+  font-size: clamp(var(--font-size-2xl), 3.5vw, var(--font-size-3xl));
+  line-height: var(--line-height-none);
+  flex-shrink: 0;
+}
+
+/* Grid Layout for Tips */
+.travelTipsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $space-5;
+}
+
+/* Responsive Grid */
+@media (min-width: 768px) {
+  .travelTipsGrid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: $space-5;
+  }
+}
+
+@media (min-width: 1200px) {
+  .travelTipsGrid {
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: $space-6;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .travelTipsList {
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+  }
+
+  .travelTipsHeading {
+    color: var(--color-text-secondary);
+    border-bottom-color: var(--color-primary-light);
+  }
+}
+
+/* Print Styles */
+@media print {
+  .travelTipsList {
+    background: transparent;
+    border: none;
+    page-break-inside: avoid;
+  }
+
+  .travelTipsGrid {
+    grid-template-columns: 1fr;
+  }
+}

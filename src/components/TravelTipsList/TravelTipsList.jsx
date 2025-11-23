@@ -1,4 +1,4 @@
-import "./TravelTipsList.css";
+import styles from "./TravelTipsList.module.scss";
 import TravelTip from '../TravelTip/TravelTip';
 
 export default function TravelTipsList({ tips, editable = false, onDeleteTip }) {
@@ -7,12 +7,12 @@ export default function TravelTipsList({ tips, editable = false, onDeleteTip }) 
   }
 
   return (
-    <div className="travel-tips-list">
-      <h3 className="travel-tips-heading">
-        <span className="travel-tips-icon" aria-hidden="true">💡</span>
+    <div className={styles.travelTipsList}>
+      <h3 className={styles.travelTipsHeading}>
+        <span className={styles.travelTipsIcon} aria-hidden="true">💡</span>
         Travel Tips & Information
       </h3>
-      <div className="travel-tips-grid">
+      <div className={styles.travelTipsGrid}>
         {tips.map((tip, index) => (
           <TravelTip
             key={index}
