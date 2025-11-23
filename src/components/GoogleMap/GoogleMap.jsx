@@ -1,4 +1,4 @@
-import './GoogleMap.css';
+import styles from './GoogleMap.module.scss';
 
 /**
  * GoogleMap - Reusable Google Maps Embed component
@@ -24,11 +24,11 @@ export default function GoogleMap({
 }) {
   if (!location) {
     return (
-      <div 
-        className={`google-map-placeholder ${className}`}
+      <div
+        className={`${styles.googleMapPlaceholder} ${className}`}
         style={{ height: `${height}px`, ...style }}
       >
-        <p className="map-placeholder-text">Location not available</p>
+        <p className={styles.mapPlaceholderText}>Location not available</p>
       </div>
     );
   }
@@ -40,7 +40,7 @@ export default function GoogleMap({
       width={width}
       height={height}
       title={title || `Map of ${location}`}
-      className={`google-map ${className}`}
+      className={`${styles.googleMap} ${className}`}
       style={{
         border: 0,
         borderRadius: "var(--border-radius-md)",

@@ -1,0 +1,36 @@
+@use '../../styles/scss/abstracts' as *;
+
+.googleMap {
+  display: block;
+  width: 100%;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-standard);
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.googleMapPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-secondary);
+  border: 2px dashed var(--color-border-medium);
+  border-radius: $radius-md;
+}
+
+.mapPlaceholderText {
+  margin: 0;
+  padding: $space-4;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .googleMap {
+    border-radius: $radius-sm;
+  }
+}
