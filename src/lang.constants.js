@@ -140,7 +140,7 @@ const en = {
   notification: {
     plan: {
       created: "You're planning this experience! Check out your plan in the My Plan tab.",
-      removed: "Removed from your plan. You can add it back anytime.",
+      removed: "Removed from your plans. You can add it back anytime.",
       dateUpdated: "Your planned date has been updated",
       syncComplete: "Your plan is now in sync with the experience",
       itemAdded: "New item added to your plan",

@@ -97,8 +97,15 @@ Description:
     * 70% public, 30% private profiles
   - 90 destinations worldwide with structured travel tips (configurable with --destinations)
   - 270 experiences with collaborators and plan items (configurable with --experiences)
+  - 450 user plans with advanced features (configurable with --plans):
+    * 30% have child plan items (nested sub-tasks)
+    * 50% have plan item notes from collaborators
+    * 40% have GeoJSON location data with addresses
+    * 60% have assigned plan items to specific users
+    * 40% have additional collaborators beyond the owner
+    * 70% have planned dates set
+    * 40% of plan items are marked complete
   - 600 photos from Unsplash (configurable with --photos)
-  - 450 user plans with varying completion levels (configurable with --plans)
   - 60 invite codes with various configurations (configurable with --invites)
   - 300 activity log entries (last 30 days) with metadata (configurable with --activities)
 
@@ -1210,7 +1217,111 @@ class DataGenerator {
   }
 
   /**
-   * Generate plans
+   * Generate realistic plan item notes with mentions
+   */
+  generatePlanItemNotes(count, users) {
+    const noteTemplates = [
+      "Don't forget to check opening hours before visiting!",
+      "I found a great deal on tickets at {url}",
+      "This activity is best experienced in the morning",
+      "Bring comfortable shoes - lots of walking involved",
+      "Book at least 2 weeks in advance during peak season",
+      "Ask for a window seat for the best views",
+      "Try to arrive 30 minutes early to avoid lines",
+      "This is family-friendly and suitable for kids",
+      "Photography is allowed but no flash inside",
+      "Local guides are highly recommended here",
+      "Dress code: smart casual required",
+      "Reservations are mandatory for this experience",
+      "Weather-dependent - check forecast before going",
+      "Accessible for wheelchairs and strollers",
+      "Bring your own water bottle to save money"
+    ];
+
+    const notes = [];
+    const noteCount = Math.min(count, randomBetween(1, 3));
+
+    for (let i = 0; i < noteCount; i++) {
+      const author = getRandomElement(users);
+      const template = getRandomElement(noteTemplates);
+
+      // 20% chance to include a URL in notes
+      const content = Math.random() < 0.2
+        ? template.replace('{url}', `https://example.com/deals/${randomBetween(1000, 9999)}`)
+        : template;
+
+      notes.push({
+        user: author._id,
+        content
+      });
+    }
+
+    return notes;
+  }
+
+  /**
+   * Generate GeoJSON location data for plan items
+   */
+  generateLocation(destinationName) {
+    // Major cities with approximate coordinates
+    const cityCoordinates = {
+      'Paris': [2.3522, 48.8566],
+      'Tokyo': [139.6503, 35.6762],
+      'New York': [-74.0060, 40.7128],
+      'London': [-0.1276, 51.5074],
+      'Barcelona': [2.1734, 41.3851],
+      'Rome': [12.4964, 41.9028],
+      'Dubai': [55.2708, 25.2048],
+      'Sydney': [151.2093, -33.8688],
+      'Bangkok': [100.5018, 13.7563],
+      'Istanbul': [28.9784, 41.0082],
+      'Lisbon': [-9.1393, 38.7223],
+      'Amsterdam': [4.9041, 52.3676],
+      'Singapore': [103.8198, 1.3521],
+      'Berlin': [13.4050, 52.5200],
+      'Prague': [14.4378, 50.0755]
+    };
+
+    // Try to find matching city
+    const cityMatch = Object.keys(cityCoordinates).find(city =>
+      destinationName.includes(city)
+    );
+
+    // Use city coordinates or generate random nearby coordinates
+    const baseCoords = cityMatch
+      ? cityCoordinates[cityMatch]
+      : [randomBetween(-180, 180), randomBetween(-90, 90)];
+
+    // Add slight random offset for variety (within ~5km)
+    const [baseLng, baseLat] = baseCoords;
+    const lngOffset = (Math.random() - 0.5) * 0.05; // ~5km
+    const latOffset = (Math.random() - 0.5) * 0.05;
+
+    const addresses = [
+      `${randomBetween(1, 999)} Main Street`,
+      `${randomBetween(1, 99)} Central Avenue`,
+      `${randomBetween(1, 500)} Market Square`,
+      `${randomBetween(1, 200)} Historic District`,
+      `${randomBetween(1, 150)} Cultural Center`,
+      `${randomBetween(1, 300)} Museum Quarter`,
+      `${randomBetween(1, 50)} Old Town`,
+      `${randomBetween(1, 100)} Riverside Walk`
+    ];
+
+    return {
+      address: `${getRandomElement(addresses)}, ${destinationName}`,
+      geo: {
+        type: 'Point',
+        coordinates: [
+          Number((baseLng + lngOffset).toFixed(6)),
+          Number((baseLat + latOffset).toFixed(6))
+        ]
+      }
+    };
+  }
+
+  /**
+   * Generate plans with comprehensive features
    */
   generatePlans(count = 450, experiences = [], users = []) {
     const plans = [];
@@ -1225,37 +1336,129 @@ class DataGenerator {
       );
       if (existingPlan) continue;
 
-      // Generate plan items with completion status
-      const planItems = experience.plan_items.map(item => ({
-        plan_item_id: item._id,
-        complete: Math.random() < 0.4, // 40% chance of completion
-        cost: item.cost_estimate + randomBetween(-10, 20), // Slight variation
-        planning_days: item.planning_days,
-        text: item.text,
-        url: item.url || null
-      }));
+      // Get destination name for location generation
+      const destinationName = experience.destination?.name || experience.destination || 'Unknown Location';
+
+      // Generate base plan items with completion status
+      const planItems = experience.plan_items.map(item => {
+        const planItem = {
+          plan_item_id: item._id,
+          complete: Math.random() < 0.4, // 40% chance of completion
+          cost: item.cost_estimate + randomBetween(-10, 20), // Slight variation
+          planning_days: item.planning_days,
+          text: item.text,
+          url: item.url || null,
+          details: {
+            notes: [],
+            location: null,
+            chat: [],
+            photos: [],
+            documents: []
+          }
+        };
+
+        // 50% of plan items have notes from collaborators
+        if (Math.random() < 0.5) {
+          planItem.details.notes = this.generatePlanItemNotes(3, users);
+        }
+
+        // 40% of plan items have location data
+        if (Math.random() < 0.4) {
+          planItem.details.location = this.generateLocation(destinationName);
+        }
+
+        return planItem;
+      });
+
+      // 30% of plans have child plan items (nested sub-tasks)
+      if (Math.random() < 0.3 && planItems.length > 0) {
+        const parentItems = getRandomElements(planItems, Math.min(2, planItems.length));
+
+        parentItems.forEach(parentItem => {
+          const childCount = randomBetween(1, 3);
+          for (let c = 0; c < childCount; c++) {
+            const childTexts = [
+              `Research options for ${parentItem.text}`,
+              `Book tickets for ${parentItem.text}`,
+              `Confirm reservation for ${parentItem.text}`,
+              `Prepare materials for ${parentItem.text}`,
+              `Review requirements for ${parentItem.text}`,
+              `Compare prices for ${parentItem.text}`,
+              `Read reviews about ${parentItem.text}`,
+              `Check availability for ${parentItem.text}`
+            ];
+
+            planItems.push({
+              plan_item_id: new mongoose.Types.ObjectId(),
+              complete: Math.random() < 0.3, // Fewer child items complete
+              cost: randomBetween(5, 50), // Child items typically have smaller costs
+              planning_days: randomBetween(1, 3),
+              text: getRandomElement(childTexts),
+              url: null,
+              parent: parentItem.plan_item_id,
+              details: {
+                notes: [],
+                location: null,
+                chat: [],
+                photos: [],
+                documents: []
+              }
+            });
+          }
+        });
+      }
+
+      // Base permissions: owner + experience inheritance
+      const permissions = [
+        {
+          _id: user._id,
+          entity: 'user',
+          type: 'owner',
+          granted_at: new Date(),
+          granted_by: user._id
+        },
+        {
+          _id: experience._id,
+          entity: 'experience',
+          type: 'collaborator', // Inherit experience permissions
+          granted_at: new Date(),
+          granted_by: user._id
+        }
+      ];
+
+      // 40% of plans have additional collaborators
+      let collaborators = [user];
+      if (Math.random() < 0.4) {
+        const additionalCollaborators = getRandomElements(
+          users.filter(u => !u.isSuperAdmin && u._id !== user._id),
+          randomBetween(1, 2)
+        );
+
+        additionalCollaborators.forEach(collab => {
+          permissions.push({
+            _id: collab._id,
+            entity: 'user',
+            type: 'collaborator',
+            granted_at: new Date(),
+            granted_by: user._id
+          });
+          collaborators.push(collab);
+        });
+      }
+
+      // 60% of plan items are assigned to collaborators
+      planItems.forEach(item => {
+        if (Math.random() < 0.6 && !item.complete) {
+          item.assignedTo = getRandomElement(collaborators)._id;
+        }
+      });
 
       plans.push({
         experience: experience._id,
         user: user._id,
         planned_date: Math.random() < 0.7 ? randomFutureDate() : null, // 70% have planned dates
         plan: planItems,
-        permissions: [
-          {
-            _id: user._id,
-            entity: 'user',
-            type: 'owner',
-            granted_at: new Date(),
-            granted_by: user._id
-          },
-          {
-            _id: experience._id,
-            entity: 'experience',
-            type: 'collaborator', // Inherit experience permissions
-            granted_at: new Date(),
-            granted_by: user._id
-          }
-        ]
+        permissions
       });
     }
 
