@@ -1,4 +1,4 @@
-import "./FavoriteDestination.css";
+import styles from "./FavoriteDestination.module.scss";
 import { useState } from "react";
 import { lang } from "../../lang.constants";
 import {
@@ -37,9 +37,9 @@ export default function FavoriteDestination({ destination, user, getData, includ
   }
   return (
     <>
-      <div className="favorite-destination-wrapper">
+      <div className={styles.favoriteDestinationWrapper}>
         <button
-          className={`btn btn-sm btn-icon my-4 ${isUserFavorite ? 'btn-favorite-remove' : 'btn-favorite-add'} ${loading ? 'loading' : ''}`}
+          className={`btn btn-sm btn-icon my-4 ${isUserFavorite ? styles.btnFavoriteRemove : styles.btnFavoriteAdd} ${loading ? 'loading' : ''}`}
           onClick={handleAddToFavorites}
           onMouseEnter={() => setFavHover(true)}
           onMouseLeave={() => setFavHover(false)}
@@ -57,7 +57,7 @@ export default function FavoriteDestination({ destination, user, getData, includ
       {includeSchema && destination && (
         <EntitySchema entity={destination} entityType="destination" />
       )}
-      
+
       <AlertModal
         show={showAlertModal}
         onClose={() => setShowAlertModal(false)}
