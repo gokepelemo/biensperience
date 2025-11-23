@@ -10,7 +10,7 @@ import CollaboratorModal from './components/CollaboratorModal';
 import SyncPlanModal from './components/SyncPlanModal';
 import PlanItemModal from './components/PlanItemModal';
 import PlanItemDetailsModal from '../../components/PlanItemDetailsModal/PlanItemDetailsModal';
-import "./SingleExperience.css";
+import styles from "./SingleExperience.module.scss";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";

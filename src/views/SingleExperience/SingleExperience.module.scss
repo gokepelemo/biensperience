@@ -1,185 +1,181 @@
-// SingleExperience SCSS Module
-// Demonstration of SASS design system usage
-// This file shows how to migrate from CSS to SCSS with mixins
+/**
+ * SingleExperience View Styles (SCSS Module)
+ * Migrated from SingleExperience.css to SingleExperience.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ *
+ * Note: Most classes use :global() to maintain compatibility with existing JSX
+ */
 
 @use '../../styles/scss/abstracts' as *;
 
-// ============================================================================
-// PLAN ITEMS - MOBILE RESPONSIVE
-// ============================================================================
+/* Modal Responsive Sizing */
+:global(.responsive-modal-dialog) {
+  max-width: 80vw !important;
+  width: 80vw;
 
-.planItemCard {
-  @include card-interactive;
+  @include breakpoint-min(lg) {
+    max-width: 50vw !important;
+    width: 50vw;
+  }
+}
 
-  // Mobile: Increase spacing between items
-  @include breakpoint-max(lg) {
-    margin-bottom: $space-6; // 2rem / 32px
+:global(.plan-item-modal-dialog) {
+  max-width: 80vw !important;
 
-    // Increase title size
-    .planItemTitle {
-      @include heading-mobile-lg; // 20px - 26px
-    }
+  @include breakpoint-min(lg) {
+    max-width: 50vw !important;
+  }
+}
 
-    // Increase metadata (cost, days)
-    .planItemMeta {
-      @include text-mobile-lg; // 18px - 22px
-      gap: $space-3;
-    }
+/* Modal Form Styles */
+:global(.plan-item-modal-form) {
+  display: block !important;
+  grid-template-columns: unset !important;
 
-    // Assigned user and notes indicators
-    .planItemAssigned,
-    .planItemNotesCount {
-      @include text-mobile-sm; // 14px - 16px
-      padding: $space-2 $space-3;
+  :global(.form-label) {
+    display: block;
+    margin-bottom: $space-2;
+    font-size: $font-size-lg;
+  }
+
+  :global(.form-control) {
+    width: 100%;
+  }
+
+  :global(.input-group) {
+    display: flex !important;
+
+    :global(.form-control) {
+      flex: 1;
     }
   }
 }
 
-// ============================================================================
-// PLAN METRICS
-// ============================================================================
+:global(.collaborator-modal-form) {
+  display: block !important;
+  grid-template-columns: unset !important;
 
-.metricCard {
-  @include card;
-  @include stack($space-3);
+  :global(.form-label) {
+    display: block;
+    margin-bottom: $space-2;
+    font-size: $font-size-base;
+  }
 
-  @include breakpoint-max(lg) {
-    align-items: center;
-    text-align: center;
+  :global(.form-control) {
+    width: 100%;
   }
 }
 
-.metricHeader {
-  @include inline-stack($space-2);
+/* Plan Item Styles */
+:global(.plan-item-title) {
+  a::before {
+    content: "🔗 ";
+  }
+}
 
-  @include breakpoint-max(lg) {
-    @include flex-column;
-    align-items: center;
-    text-align: center;
+:global(.experience-header-grid) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-4;
+  margin-bottom: $space-4;
+
+  @include breakpoint-max(md) {
+    grid-template-columns: 1fr;
     gap: $space-2;
   }
 }
 
-.metricTitle {
+/* Planned Date Badge */
+:global(.planned-date-badge) {
+  border-radius: $radius-md !important;
+}
+
+/* Plan Item Status */
+:global(.plan-item-status) {
   font-weight: $font-weight-semibold;
-  color: $color-text-secondary;
+}
 
-  @include breakpoint-max(lg) {
-    @include fluid-font(0.9375rem, 2.5vw, 1.0625rem); // 15px - 17px
-    text-align: center;
+:global(.green) {
+  color: var(--color-single-experience-success);
+}
+
+:global(.grey) {
+  color: var(--color-single-experience-secondary);
+}
+
+:global(.plan-item-card.collapsed) {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.95);
+  @include transition-all($transition-normal);
+}
+
+/* Date Picker Modal */
+:global(.date-picker-modal) {
+  :global(.alert-info) {
+    background: var(--gradient-primary);
+    color: white;
+    border: none;
+    border-radius: $radius-md;
+    padding: $space-3;
+  }
+
+  :global(.form-control:focus) {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-shadow-light);
+  }
+
+  :global(.alert-warning) {
+    background: var(--color-warning-light);
+    color: var(--color-warning-dark);
+    border: 1px solid var(--color-warning);
+    border-radius: $radius-md;
+    padding: $space-3;
   }
 }
 
-.metricValue {
-  font-size: $font-size-3xl;
-  font-weight: $font-weight-bold;
-  color: $color-primary;
-
-  @include breakpoint-max(lg) {
-    @include fluid-font(2rem, 5vw, 2.25rem); // 32px - 36px
-    text-align: center;
-    padding-right: 0;
-  }
+/* Travel Tips */
+:global(.travel-tips-box) {
+  margin-top: $space-4;
+  padding: $space-4;
+  background: var(--color-bg-secondary);
+  border-radius: $radius-lg;
 }
 
-// ============================================================================
-// BUTTONS
-// ============================================================================
+:global(.travel-tip-card) {
+  padding: $space-3;
+  background: var(--color-bg-primary);
+  border-radius: $radius-md;
+  margin-bottom: $space-3;
+  @include transition-all($transition-fast);
 
-.btnViewDetails {
-  @include button-responsive;
-  background: $color-primary;
-  color: $color-text-inverse;
+  &:last-child {
+    margin-bottom: 0;
+  }
 
   &:hover {
-    background: $color-primary-dark;
+    box-shadow: var(--shadow-sm);
     transform: translateY(-2px);
   }
-
-  @include breakpoint-max(lg) {
-    margin-left: 0;
-    margin-top: $space-2;
-  }
 }
 
-// ============================================================================
-// PLAN TABS NAVIGATION
-// ============================================================================
-
-.planTabsNav {
-  @include inline-stack($space-2);
-
-  @include breakpoint-max(lg) {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: $space-2;
-    border-bottom: 2px solid $color-border-light;
-    padding-bottom: 0;
-  }
-}
-
-.planTabButton {
-  @include button-base;
-  background: transparent;
-  color: $color-text-secondary;
-  border-bottom: 3px solid transparent;
-  transition: all $transition-normal $easing-ease;
-
-  &:hover {
-    color: $color-primary;
-    background: rgba($color-primary, 0.1);
+/* Experience Detail */
+:global(.experience-detail) {
+  :global(.list-group) {
+    border-radius: $radius-lg;
   }
 
-  &.active {
-    color: $color-primary;
-    border-bottom-color: $color-primary;
-    font-weight: $font-weight-bold;
-  }
+  :global(.list-group-item) {
+    border-color: var(--color-border-light);
+    @include transition-all($transition-fast);
 
-  @include breakpoint-max(lg) {
-    flex: 1;
-    min-width: fit-content;
-    text-align: center;
-    padding: $space-3 $space-4;
-    white-space: nowrap;
-  }
-}
+    &:global(.fw-bold) {
+      background: var(--color-bg-secondary);
+      font-weight: $font-weight-semibold;
 
-// ============================================================================
-// EXAMPLE: Direct mixin usage for one-off styles
-// ============================================================================
-
-.experienceHeader {
-  @include stack($space-4);
-
-  @include breakpoint-max(lg) {
-    @include stack($space-6);
-  }
-}
-
-.experienceTitle {
-  @include heading-mobile-xl; // 24px - 32px on mobile
-  color: $color-text-primary;
-
-  @include breakpoint(lg) {
-    font-size: $font-size-4xl; // 36px on desktop
-  }
-}
-
-.collaboratorsList {
-  @include inline-stack($space-2);
-  flex-wrap: wrap;
-}
-
-.collaboratorAvatar {
-  width: 40px;
-  height: 40px;
-  border-radius: $radius-full;
-  border: 2px solid $color-border-light;
-  transition: transform $transition-fast $easing-ease;
-
-  &:hover {
-    transform: scale(1.1);
-    border-color: $color-primary;
+      &:hover {
+        background: var(--color-bg-tertiary);
+      }
+    }
   }
 }
