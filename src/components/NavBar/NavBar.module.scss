@@ -18,20 +18,20 @@
   background: #1e1e1e !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 
-  /* Align all navbar items to bottom on desktop */
+  /* Align all navbar items to text baseline for pixel-perfect alignment */
   :global(.container-fluid) {
     display: flex;
-    align-items: flex-end; /* Align all items to bottom */
+    align-items: baseline; /* Align all items to text baseline */
   }
 
-  /* Ensure navbar-collapse also aligns to bottom */
+  /* Ensure navbar-collapse also aligns to baseline */
   :global(.navbar-collapse) {
-    align-items: flex-end;
+    align-items: baseline;
   }
 
-  /* Ensure navbar-nav ul aligns items to bottom */
+  /* Ensure navbar-nav ul aligns items to baseline */
   :global(.navbar-nav) {
-    align-items: flex-end;
+    align-items: baseline;
   }
 }
 
@@ -90,7 +90,7 @@
 /* Navbar brand wrapper for dynamic text */
 .navbarBrandWrapper {
   @include flex-start;
-  align-items: flex-end; /* Align brand to bottom */
+  align-items: baseline; /* Align brand to text baseline */
 }
 
 .brandText {
@@ -262,7 +262,7 @@
 :global(.navbar-brand) {
   display: flex; /* Ensure flex layout */
   flex-wrap: nowrap; /* Keep logo and text on same line */
-  align-items: flex-end; /* Align logo and text to bottom */
+  align-items: baseline; /* Align logo and text to text baseline for pixel-perfect alignment */
   gap: $space-2; /* Add gap between logo and text */
   padding: $space-2 $space-4;
   @include transition-all($transition-normal);
