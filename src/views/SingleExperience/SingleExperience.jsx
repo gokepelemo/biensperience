@@ -33,7 +33,7 @@ import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text } fr
 import Loading from "../../components/Loading/Loading";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import debug from "../../utilities/debug";
-import logger from "../../utilities/logger";
+import { logger } from "../../utilities/logger";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { handleStoredHash, restoreHashToUrl, clearStoredHash } from "../../utilities/hash-navigation";
 import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
