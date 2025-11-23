@@ -1,0 +1,90 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Tokenized Checkbox */
+.bpCheckbox {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-3;
+  cursor: pointer;
+  user-select: none;
+
+  &.isDisabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* Hidden native input, but accessible */
+.bpCheckboxInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+
+  /* Focus and checked states */
+  &:focus + .bpCheckboxBox,
+  &:hover + .bpCheckboxBox {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+  }
+
+  &:checked + .bpCheckboxBox {
+    border-color: transparent;
+    background: var(--gradient-primary);
+
+    .bpCheckboxCheck {
+      opacity: 1;
+    }
+  }
+}
+
+/* Size variants */
+.bpCheckboxMd .bpCheckboxBox {
+  width: 24px;
+  height: 24px;
+}
+
+.bpCheckboxSm .bpCheckboxBox {
+  width: 20px;
+  height: 20px;
+}
+
+.bpCheckboxLg .bpCheckboxBox {
+  width: 28px;
+  height: 28px;
+}
+
+/* Checkbox box */
+.bpCheckboxBox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-border-medium);
+  background: var(--color-bg-primary);
+  color: #fff;
+  border-radius: $radius-md;
+  transition: all var(--transition-base);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* Hover state for parent */
+.bpCheckbox:hover .bpCheckboxBox {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+}
+
+/* Checkmark SVG */
+.bpCheckboxCheck {
+  width: 16px;
+  height: 16px;
+  stroke: white;
+  transform: scale(0.6) translateY(1px);
+  opacity: 0;
+  transition: opacity var(--transition-fast) ease;
+}
+
+/* Label */
+.bpCheckboxLabel {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
