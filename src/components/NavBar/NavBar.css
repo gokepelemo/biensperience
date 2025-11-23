@@ -69,6 +69,8 @@ nav {
 .navbar-brand-wrapper {
     display: flex;
     align-items: center;
+    flex: 1; /* Allow wrapper to grow and push toggler to the right */
+    min-width: 0; /* Allow shrinking below content size */
 }
 
 .brand-text {
@@ -76,6 +78,37 @@ nav {
     display: inline-block;
     color: white !important;
     font-weight: var(--font-weight-bold);
+}
+
+/* Mobile: Allow brand text to wrap, keep hamburger aligned right */
+@media (max-width: 992px) {
+    .navbar > .container-fluid {
+        display: flex;
+        flex-wrap: nowrap; /* Prevent hamburger from wrapping to new line */
+        align-items: flex-start; /* Align items to top when text wraps */
+    }
+
+    .navbar-brand-wrapper {
+        flex: 1;
+        min-width: 0;
+        margin-right: var(--space-2); /* Small gap between brand and toggler */
+    }
+
+    .navbar-brand {
+        flex-wrap: wrap; /* Allow logo and text to wrap if needed */
+        max-width: 100%; /* Prevent overflow */
+    }
+
+    .brand-text {
+        word-break: break-word; /* Break long titles gracefully */
+        overflow-wrap: break-word;
+    }
+
+    .navbar-toggler {
+        flex-shrink: 0; /* Prevent hamburger from shrinking */
+        align-self: flex-start; /* Keep hamburger at top */
+        margin-left: auto; /* Push to the right */
+    }
 }
 
 /* Nav link styling with theme colors and padding */

@@ -126,15 +126,18 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
 
           // Only apply shake/highlight animation if requested (deep-link navigation)
           // Skip for item completion toggles to avoid unwanted animation
+          // Delay animation until after scroll completes (800ms duration + 200ms buffer)
           if (shouldHighlight) {
-            logger.debug('[Scroll] Applying shake animation');
-            highlightPlanItem(itemId);
+            logger.debug('[Scroll] Scheduling shake animation after scroll completes');
             setTimeout(() => {
-              try {
-                const card = itemElement.closest && itemElement.closest('.plan-item-card') ? itemElement.closest('.plan-item-card') : itemElement;
-                if (card) card.style.backgroundColor = '';
-              } catch (e) {}
-            }, 2100);
+              highlightPlanItem(itemId);
+              setTimeout(() => {
+                try {
+                  const card = itemElement.closest && itemElement.closest('.plan-item-card') ? itemElement.closest('.plan-item-card') : itemElement;
+                  if (card) card.style.backgroundColor = '';
+                } catch (e) {}
+              }, 2100);
+            }, 1000); // Wait for scroll to complete (800ms scroll + 200ms buffer)
           }
         }, anticipationDelay);
 
