@@ -1673,7 +1673,19 @@ const assignPlanItem = asyncHandler(async (req, res) => {
     resource: plan
   });
 
+  // Diagnostic logging: plan permissions and assigned user's role
+  backendLogger.info('ASSIGN_PLAN_ITEM_DEBUG', {
+    planId: plan._id.toString(),
+    permissions: plan.permissions,
+    assignedTo,
+    assignedBy: req.user._id.toString()
+  });
+
   if (!permCheck.allowed) {
+    backendLogger.warn('ASSIGN_PLAN_ITEM_DEBUG: Requesting user lacks permission', {
+      userId: req.user._id.toString(),
+      reason: permCheck.reason
+    });
     return res.status(403).json({
       error: 'Insufficient permissions',
       message: permCheck.reason
@@ -1683,6 +1695,7 @@ const assignPlanItem = asyncHandler(async (req, res) => {
   // Verify assignedTo user exists and has permission on plan
   const assignedUser = await User.findById(assignedTo);
   if (!assignedUser) {
+    backendLogger.warn('ASSIGN_PLAN_ITEM_DEBUG: Assigned user not found', { assignedTo });
     return res.status(404).json({ error: 'Assigned user not found' });
   }
 
@@ -1692,10 +1705,25 @@ const assignPlanItem = asyncHandler(async (req, res) => {
     resource: plan
   });
 
+  backendLogger.info('ASSIGN_PLAN_ITEM_DEBUG: Assigned user permission check', {
+    assignedTo,
+    allowed: assignedUserPermCheck.allowed,
+    reason: assignedUserPermCheck.reason
+  });
+
   if (!assignedUserPermCheck.allowed) {
+    backendLogger.warn('ASSIGN_PLAN_ITEM_DEBUG: Assigned user lacks permission', {
+      assignedTo,
+      reason: assignedUserPermCheck.reason
+    });
     return res.status(403).json({
       error: 'Cannot assign to user',
-      message: 'User must be owner or collaborator to be assigned plan items'
+      message: 'User must be owner or collaborator to be assigned plan items',
+      debug: {
+        permissions: plan.permissions,
+        assignedTo,
+        assignedUserPermCheck
+      }
     });
   }
 

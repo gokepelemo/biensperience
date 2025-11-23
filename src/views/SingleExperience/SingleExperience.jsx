@@ -2161,13 +2161,21 @@ export default function SingleExperience() {
 
   const handleRemoveSelectedCollaborator = useCallback(
     (userId) => {
-  setSelectedCollaborators((prev) => prev.filter((u) => !idEquals(u._id, userId)));
+      // Remove from newly selected collaborators
+      setSelectedCollaborators((prev) => prev.filter((u) => !idEquals(u._id, userId)));
 
-      // If this was an existing collaborator, add to removed list
-  const wasExisting = existingCollaborators.some((u) => idEquals(u._id, userId));
+      // If this was an existing collaborator, toggle in removed list
+      const wasExisting = existingCollaborators.some((u) => idEquals(u._id, userId));
       if (wasExisting) {
-        const collaborator = existingCollaborators.find((u) => idEquals(u._id, userId));
-        setRemovedCollaborators((prev) => [...prev, collaborator]);
+        setRemovedCollaborators((prev) => {
+          // Toggle: if already marked for removal, un-mark it; otherwise mark it
+          const isAlreadyRemoved = prev.includes(userId);
+          if (isAlreadyRemoved) {
+            return prev.filter(id => id !== userId);
+          } else {
+            return [...prev, userId];
+          }
+        });
       }
     },
     [existingCollaborators]
@@ -3111,7 +3119,7 @@ export default function SingleExperience() {
             await fetchPlans();
           } catch (error) {
             logger.error('Error assigning plan item', { error: error.message, userId });
-            danger(error.message || 'Failed to assign plan item');
+            showError(error.message || 'Failed to assign plan item');
           }
         }}
         onUnassign={async () => {
@@ -3127,7 +3135,7 @@ export default function SingleExperience() {
             await fetchPlans();
           } catch (error) {
             logger.error('Error unassigning plan item', { error: error.message });
-            danger(error.message || 'Failed to unassign plan item');
+            showError(error.message || 'Failed to unassign plan item');
           }
         }}
         canEdit={selectedPlan ? canEditPlan(user, selectedPlan) : false}

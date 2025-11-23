@@ -129,7 +129,7 @@ export default function CollaboratorModal({
           <Alert
             type="success"
             dismissible
-            onClose={() => {}}
+            onDismiss={() => {}}
           >
             Successfully added {addedCollaborators.length} collaborator{addedCollaborators.length > 1 ? 's' : ''}!
           </Alert>
@@ -139,7 +139,7 @@ export default function CollaboratorModal({
           <Alert
             type="info"
             dismissible
-            onClose={() => {}}
+            onDismiss={() => {}}
           >
             Successfully removed {actuallyRemovedCollaborators.length} collaborator{actuallyRemovedCollaborators.length > 1 ? 's' : ''}!
           </Alert>
@@ -149,7 +149,7 @@ export default function CollaboratorModal({
           <Alert
             type="success"
             dismissible
-            onClose={() => setEmailSuccess(false)}
+            onDismiss={() => setEmailSuccess(false)}
           >
             Email invite sent successfully! They will receive an invitation to join Biensperience and collaborate on this {context}.
           </Alert>
@@ -159,7 +159,7 @@ export default function CollaboratorModal({
           <Alert
             type="danger"
             dismissible
-            onClose={() => setEmailError('')}
+            onDismiss={() => setEmailError('')}
           >
             {emailError}
           </Alert>

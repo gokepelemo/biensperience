@@ -264,36 +264,49 @@ function SortablePlanItem({
       <div className="plan-item-details p-2 p-md-3">
         <div className="plan-item-meta">
           {Number(planItem.cost) > 0 && (
-            <span className="d-flex align-items-center gap-2">
-              <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.cost}</Text>
-              {formatCurrency(planItem.cost)}
+            <span className="plan-item-cost" title="Estimated Cost">
+              💰 {formatCurrency(planItem.cost)}
             </span>
           )}
           {Number(planItem.planning_days) > 0 && (
-            <span className="d-flex align-items-center gap-2">
-              <Text as="span" size="sm" weight="semibold" className="me-1 text-muted">{lang.en.label.planningDays}</Text>
-              {planItem.planning_days}{" "}
+            <span className="plan-item-days" title="Planning Days">
+              📅 {planItem.planning_days}{" "}
               {planItem.planning_days === 1 ? lang.en.label.day : lang.en.label.days}
             </span>
           )}
 
           {/* Assignment indicator */}
-          {planItem.assignedTo && (
-            <span className="plan-item-assigned" title="Assigned to">
-              👤 {(() => {
-                const assigneeId = planItem.assignedTo._id || planItem.assignedTo;
-                const assignee = [planOwner, ...planCollaborators].find(c => {
-                  const collabId = c?._id || c?.user?._id;
-                  return collabId === assigneeId;
-                });
-                return assignee?.name || assignee?.user?.name || 'Assigned';
-              })()}
-            </span>
-          )}
+          {planItem.assignedTo && (() => {
+            const assigneeId = planItem.assignedTo._id || planItem.assignedTo;
+            const assignee = [planOwner, ...planCollaborators].find(c => {
+              const collabId = c?._id || c?.user?._id;
+              return collabId === assigneeId;
+            });
+            const assigneeName = assignee?.name || assignee?.user?.name || 'Assigned';
 
-          {/* Notes count indicator */}
+            return (
+              <Link
+                to={`/profile/${assigneeId}`}
+                className="plan-item-assigned"
+                title={`Assigned to ${assigneeName} - Click to view profile`}
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                👤 {assigneeName}
+              </Link>
+            );
+          })()}
+
+          {/* Notes count indicator - clickable to open details modal with notes tab */}
           {planItem.details?.notes?.length > 0 && (
-            <span className="plan-item-notes-count" title="Number of notes">
+            <span
+              className="plan-item-notes-count"
+              title="Click to view notes"
+              style={{ cursor: 'pointer' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditPlanItem(planItem, 'notes');
+              }}
+            >
               📝 {planItem.details.notes.length}
             </span>
           )}
