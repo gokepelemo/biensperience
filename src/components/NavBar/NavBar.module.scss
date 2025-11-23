@@ -139,12 +139,12 @@
   position: relative;
   color: white !important;
   opacity: 0.75;
+  font-weight: $font-weight-bold; /* All nav items bold */
 
   &:hover,
   &:focus {
-    color: var(--color-primary) !important;
-    background: var(--color-primary-light);
-    border-radius: $radius-md;
+    color: white !important; /* Same color as site title */
+    background: transparent; /* No background change */
     opacity: 1;
   }
 
@@ -193,9 +193,9 @@
   &:hover,
   &:focus,
   &[aria-expanded="true"] {
-    color: var(--color-primary) !important;
-    background: var(--color-primary-light);
-    border-radius: $radius-md;
+    color: white !important; /* Same color as site title */
+    background: transparent; /* No background change */
+    opacity: 1;
   }
 
   &:focus-visible {
@@ -207,6 +207,7 @@
 :global(.dropdown-item) {
   padding: $space-3 $space-5;
   @include transition-all($transition-normal);
+  font-weight: $font-weight-bold; /* All dropdown items bold */
 
   /* First item should have rounded top corners */
   &:first-child {
@@ -222,8 +223,9 @@
 
   &:hover,
   &:focus {
-    background: var(--gradient-primary);
-    color: white !important;
+    background: transparent; /* No background change */
+    color: white !important; /* Same color as site title */
+    transform: translateY(-2px); /* Slightly raised effect */
   }
 
   /* First item hover should maintain top corners, remove bottom corners */
