@@ -1,0 +1,318 @@
+/**
+ * NavBar Component Styles (SCSS Module)
+ * Migrated from NavBar.css to NavBar.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+/* ============================================
+   NAVBAR BACKGROUND - Always Dark Exception
+   ============================================
+   The navbar is ALWAYS dark with light text, regardless of
+   light/dark mode. This is the only exception to the theme system.
+   ============================================ */
+
+/* Always dark navbar background (both light and dark mode) */
+.navbar {
+  background: #1e1e1e !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Sticky navbar */
+.navbar.sticky {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-index-fixed);
+  box-shadow: var(--shadow-sm);
+  animation: slideDown $transition-normal ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Add padding to body when navbar is sticky to prevent content jump */
+:global(body:has(.navbar.sticky)) {
+  padding-top: 70px; /* Fixed value for layout stability */
+}
+
+.logo {
+  margin: 0 $space-4 0 0;
+  font-size: $font-size-2xl; /* Match experience card buttons */
+  font-weight: $font-weight-regular; /* Lighter weight for better centering */
+  padding: 0;
+  line-height: $line-height-tight;
+  @include flex-center;
+  width: 44px; /* WCAG minimum touch target */
+  height: 44px; /* WCAG minimum touch target */
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+  @include transition-all($transition-normal);
+  font-family: var(--font-family-base);
+
+  &:hover {
+    background: var(--gradient-primary);
+    transform: scale(1.1);
+  }
+}
+
+:global(nav) {
+  font-weight: $font-weight-bold;
+}
+
+/* Navbar brand wrapper for dynamic text */
+.navbarBrandWrapper {
+  @include flex-start;
+}
+
+.brandText {
+  @include transition-all($transition-normal);
+  display: inline-block;
+  color: white !important;
+  font-weight: $font-weight-bold;
+}
+
+/* Mobile: Allow brand text to wrap, keep hamburger aligned right */
+@include breakpoint-max(lg) {
+  .navbar > :global(.container-fluid) {
+    display: flex;
+    flex-wrap: nowrap; /* Prevent hamburger from wrapping to new line */
+    align-items: flex-start; /* Align items to top when text wraps */
+  }
+
+  .navbarBrandWrapper {
+    flex: 1; /* Only expand on mobile to push toggler right */
+    min-width: 0;
+    margin-right: $space-2; /* Small gap between brand and toggler */
+  }
+
+  :global(.navbar-brand) {
+    flex-wrap: wrap; /* Allow logo and text to wrap if needed */
+    max-width: 100%; /* Prevent overflow */
+  }
+
+  .brandText {
+    word-break: break-word; /* Break long titles gracefully */
+    overflow-wrap: break-word;
+  }
+
+  :global(.navbar-toggler) {
+    flex-shrink: 0; /* Prevent hamburger from shrinking */
+    align-self: flex-start; /* Keep hamburger at top */
+    margin-left: auto; /* Push to the right */
+  }
+}
+
+/* Nav link styling with theme colors and padding */
+.navbar :global(.nav-link) {
+  padding: $space-3 $space-4;
+  margin: 0 $space-1;
+  @include transition-all($transition-normal);
+  position: relative;
+  color: white !important;
+  opacity: 0.75;
+
+  &:hover,
+  &:focus {
+    color: var(--color-primary) !important;
+    background: var(--color-primary-light);
+    border-radius: $radius-md;
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Dropdown items */
+:global(.dropdown-menu) {
+  border-radius: $radius-md;
+  box-shadow: var(--shadow-md);
+  padding: 0;
+  overflow: hidden;
+  transform-origin: top;
+  will-change: opacity, transform;
+  display: none;
+}
+
+/* Dropdown toggle button styling */
+.navbar :global(.dropdown-toggle) {
+  padding: $space-3 $space-4;
+  margin: 0 $space-1;
+  color: white !important;
+  opacity: 0.75;
+  text-decoration: none !important;
+  border: none;
+  background: transparent;
+  font-weight: $font-weight-bold;
+  @include inline-stack($space-2);
+  @include transition-all($transition-normal);
+
+  /* Ensure dropdown arrow is properly positioned */
+  &::after {
+    display: inline-block;
+    margin-left: 0;
+    vertical-align: middle;
+    content: "";
+    border-top: 0.3em solid;
+    border-right: 0.3em solid transparent;
+    border-bottom: 0;
+    border-left: 0.3em solid transparent;
+  }
+
+  &:hover,
+  &:focus,
+  &[aria-expanded="true"] {
+    color: var(--color-primary) !important;
+    background: var(--color-primary-light);
+    border-radius: $radius-md;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+:global(.dropdown-item) {
+  padding: $space-3 $space-5;
+  @include transition-all($transition-normal);
+
+  /* First item should have rounded top corners */
+  &:first-child {
+    border-top-left-radius: $radius-md;
+    border-top-right-radius: $radius-md;
+  }
+
+  /* Last item should have rounded bottom corners */
+  &:last-child {
+    border-bottom-left-radius: $radius-md;
+    border-bottom-right-radius: $radius-md;
+  }
+
+  &:hover,
+  &:focus {
+    background: var(--gradient-primary);
+    color: white !important;
+  }
+
+  /* First item hover should maintain top corners, remove bottom corners */
+  &:first-child:hover,
+  &:first-child:focus {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  /* Last item hover should maintain bottom corners, remove top corners */
+  &:last-child:hover,
+  &:last-child:focus {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+
+  &.active,
+  &:active {
+    background: var(--gradient-primary) !important;
+    color: white !important;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+}
+
+/* Dropdown divider styling */
+:global(.dropdown-menu .dropdown-divider) {
+  margin: 0;
+  opacity: 0.2; /* Custom opacity for subtle divider */
+}
+
+/* Navbar brand */
+:global(.navbar-brand) {
+  padding: $space-2 $space-4;
+  @include transition-all($transition-normal);
+  color: white !important;
+
+  &:hover,
+  &:focus {
+    color: white !important;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: $radius-md;
+  }
+}
+
+/* Custom collapse transitions for mobile menu */
+:global(.navbar-collapse.collapsing) {
+  height: 0;
+  overflow: hidden;
+  transition: height 0.35s ease; /* Custom timing for collapse animation */
+}
+
+:global(.navbar-collapse.collapse:not(.show)) {
+  display: none;
+}
+
+:global(.navbar-collapse.collapse.show) {
+  display: block;
+}
+
+/* Navbar search integration */
+.navbarSearch {
+  flex: 0 1 400px;
+  max-width: 400px;
+  margin-left: $space-4;
+  margin-right: $space-4;
+}
+
+@include breakpoint-max(lg) {
+  .navbarSearch {
+    flex: 1 1 100%;
+    max-width: 100%;
+    margin: $space-2 0;
+  }
+}
+
+/* Navbar actions container */
+.navbarActions {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+@include breakpoint-max(lg) {
+  .navbarActions {
+    width: 100%;
+    margin-top: $space-2;
+  }
+}
+
+/* Mobile menu toggle button - always visible on dark navbar */
+:global(.navbar-toggler) {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  padding: $space-2;
+
+  &:focus {
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.5);
+  }
+}
+
+:global(.navbar-toggler-icon) {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.85)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+}

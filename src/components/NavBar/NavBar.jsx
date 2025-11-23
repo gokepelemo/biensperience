@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import "./NavBar.css"
+import styles from "./NavBar.module.scss";
 import { useEffect, useRef } from "react";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
@@ -198,14 +198,14 @@ export default function NavBar() {
       aria-label={lang.en.aria.mainNavigation}
     >
       <div className="container-fluid">
-        <div className="navbar-brand-wrapper">
+        <div className={styles.navbarBrandWrapper}>
           <NavLink
             className="navbar-brand"
             to="/"
             aria-label={lang.en.aria.biensperienceHome}
           >
-            <button className="btn btn-light btn-sm logo" aria-hidden="true">✚</button>
-            <span className="brand-text">
+            <button className={`btn btn-light btn-sm ${styles.logo}`} aria-hidden="true">✚</button>
+            <span className={styles.brandText}>
               {getBrandText()}
             </span>
           </NavLink>
@@ -342,13 +342,13 @@ export default function NavBar() {
           </ul>
 
           {/* Search Bar */}
-          <div className="navbar-search">
+          <div className={styles.navbarSearch}>
             <SearchBar placeholder="Search..." className="navbar-search-input" />
           </div>
 
           {/* Dynamic Action Buttons - shown when scrolled past h1 */}
           {showActionButtons && actionButtons.length > 0 && (
-            <div className="navbar-actions animation-fade_in">
+            <div className={`${styles.navbarActions} animation-fade_in`}>
               <ActionButtons buttons={actionButtons} compact={true} />
             </div>
           )}
