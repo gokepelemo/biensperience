@@ -1,0 +1,285 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Plan Item Notes - Chat-style interface with search, pagination, and InteractiveTextArea */
+
+.planItemNotesChat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 400px;
+  max-height: 700px;
+
+  @media (max-width: 768px) {
+    min-height: 300px;
+    max-height: 600px;
+  }
+}
+
+/* Search and Add Note Header */
+.notesHeader {
+  @inline-stack($space-3);
+  padding: $space-4;
+  background-color: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border-light);
+  align-items: center;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background-color: var(--color-bg-primary);
+    border-bottom-color: var(--color-border-dark);
+  }
+}
+
+/* Search wrapper - input group replacement */
+.notesSearchWrapper {
+  flex: 1;
+  max-width: 400px;
+  position: relative;
+  @inline-stack(0);
+  align-items: center;
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-medium);
+  border-radius: $radius-md;
+  transition: border-color var(--transition-fast);
+
+  &:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.15);
+  }
+
+  @media (max-width: 768px) {
+    max-width: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background-color: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+
+    &:focus-within {
+      border-color: var(--color-primary);
+    }
+  }
+}
+
+.searchIconContainer {
+  @include flex-center;
+  padding: 0 $space-3;
+  color: var(--color-text-muted);
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-muted);
+  }
+}
+
+.searchIcon {
+  font-size: var(--font-size-base);
+}
+
+.searchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: $space-2 $space-2;
+  color: var(--color-text-primary);
+  font-size: $font-size-sm;
+  outline: none;
+
+  &::placeholder {
+    color: var(--color-text-muted);
+
+    @media (prefers-color-scheme: dark) {
+      color: var(--color-text-muted);
+    }
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-primary);
+  }
+}
+
+.clearSearchButton {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  padding: $space-2 $space-3;
+  cursor: pointer;
+  @include flex-center;
+  transition: color var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    color: var(--color-text-primary);
+
+    @media (prefers-color-scheme: dark) {
+      color: var(--color-text-primary);
+    }
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-muted);
+  }
+}
+
+.addNoteButton {
+  white-space: nowrap;
+  @inline-stack($space-2);
+  align-items: center;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Add Note Form */
+.addNoteForm {
+  padding: $space-4;
+  background-color: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+
+  @media (prefers-color-scheme: dark) {
+    background-color: var(--color-bg-secondary);
+    border-bottom-color: var(--color-border-dark);
+  }
+}
+
+.formHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $space-3;
+
+  h4 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: $font-weight-semibold;
+    color: var(--color-text-primary);
+  }
+}
+
+.closeFormButton {
+  color: var(--color-text-muted);
+  padding: $space-1;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: $space-2;
+  margin-top: $space-3;
+}
+
+/* Chat messages area */
+.chatMessages {
+  flex: 1;
+  overflow-y: auto;
+  padding: $space-6;
+  background-color: var(--color-bg-secondary);
+
+  @media (max-width: 768px) {
+    padding: $space-4;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background-color: var(--color-bg-primary);
+  }
+
+  /* Scrollbar styling */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--color-bg-secondary);
+
+    @media (prefers-color-scheme: dark) {
+      background: var(--color-bg-primary);
+    }
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border-medium);
+    border-radius: $radius-full;
+
+    &:hover {
+      background: var(--color-border-dark);
+    }
+  }
+}
+
+/* Empty state */
+.emptyState {
+  @include flex-center;
+  height: 100%;
+  min-height: 200px;
+
+  p {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-base);
+    text-align: center;
+  }
+}
+
+.emptyStateContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-2;
+}
+
+/* Pagination Controls */
+.paginationControls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $space-4;
+  background-color: var(--color-bg-primary);
+  border-top: 1px solid var(--color-border-light);
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: $space-2;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background-color: var(--color-bg-primary);
+    border-top-color: var(--color-border-dark);
+  }
+}
+
+.paginationInfo {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+
+  @media (max-width: 768px) {
+    text-align: center;
+  }
+}
+
+.paginationButtons {
+  @inline-stack($space-3);
+  align-items: center;
+}
+
+.pageIndicator {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  padding: 0 $space-2;
+}

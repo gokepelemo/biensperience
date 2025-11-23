@@ -12,7 +12,7 @@ import UserAvatar from '../UserAvatar/UserAvatar';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import { renderTextWithMentions } from '../../utilities/mentions';
 import useEntityResolver from '../../hooks/useEntityResolver';
-import './PlanItemNotes.css';
+import styles from './PlanItemNotes.module.scss';
 
 /**
  * NoteMessage Component
@@ -218,12 +218,12 @@ export default function PlanItemNotes({
   };
 
   return (
-    <div className="plan-item-notes-chat">
+    <div className={styles.planItemNotesChat}>
       {/* Search and Add Note Header */}
-      <div className="notes-header">
-        <div className="notes-search-wrapper">
-          <div className="search-icon-container">
-            <FaSearch className="search-icon" />
+      <div className={styles.notesHeader}>
+        <div className={styles.notesSearchWrapper}>
+          <div className={styles.searchIconContainer}>
+            <FaSearch className={styles.searchIcon} />
           </div>
           <input
             type="text"
@@ -233,7 +233,7 @@ export default function PlanItemNotes({
               setSearchQuery(e.target.value);
               setCurrentPage(1); // Reset to first page on search
             }}
-            className="search-input"
+            className={styles.searchInput}
             disabled={disabled}
             aria-label="Search notes"
           />
@@ -241,7 +241,7 @@ export default function PlanItemNotes({
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="clear-search-button"
+              className={styles.clearSearchButton}
               aria-label="Clear search"
               disabled={disabled}
             >
@@ -253,7 +253,7 @@ export default function PlanItemNotes({
         <Button
           variant="primary"
           onClick={() => setShowAddNoteForm(!showAddNoteForm)}
-          className="add-note-button"
+          className={styles.addNoteButton}
           disabled={disabled}
         >
           <FaPlus /> Add Note
@@ -262,8 +262,8 @@ export default function PlanItemNotes({
 
       {/* Add Note Form (with InteractiveTextArea) */}
       {showAddNoteForm && !disabled && (
-        <div className="add-note-form">
-          <div className="form-header">
+        <div className={styles.addNoteForm}>
+          <div className={styles.formHeader}>
             <h4>Add a Note</h4>
             <Button
               variant="link"
@@ -273,7 +273,7 @@ export default function PlanItemNotes({
                 setNewNoteContent('');
                 setNewNoteVisibility('public');
               }}
-              className="close-form-button"
+              className={styles.closeFormButton}
             >
               <FaTimes />
             </Button>
@@ -291,7 +291,7 @@ export default function PlanItemNotes({
             disabled={isAdding}
           />
 
-          <div className="form-actions">
+          <div className={styles.formActions}>
             <Button
               variant="secondary"
               onClick={() => {
@@ -315,9 +315,9 @@ export default function PlanItemNotes({
       )}
 
       {/* Chat messages area */}
-      <div className="chat-messages">
+      <div className={styles.chatMessages}>
         {filteredNotes.length === 0 ? (
-          <div className="empty-state">
+          <div className={styles.emptyState}>
             {searchQuery ? (
               <p>No notes match your search.</p>
             ) : (
@@ -426,11 +426,11 @@ export default function PlanItemNotes({
 
       {/* Pagination Controls */}
       {filteredNotes.length > notesPerPage && (
-        <div className="pagination-controls">
-          <div className="pagination-info">
+        <div className={styles.paginationControls}>
+          <div className={styles.paginationInfo}>
             Showing {((currentPage - 1) * notesPerPage) + 1} - {Math.min(currentPage * notesPerPage, filteredNotes.length)} of {filteredNotes.length} notes
           </div>
-          <div className="pagination-buttons">
+          <div className={styles.paginationButtons}>
             <Button
               size="sm"
               variant="outline-secondary"
@@ -439,7 +439,7 @@ export default function PlanItemNotes({
             >
               Previous
             </Button>
-            <span className="page-indicator">
+            <span className={styles.pageIndicator}>
               Page {currentPage} of {totalPages}
             </span>
             <Button
