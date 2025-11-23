@@ -243,7 +243,7 @@ export default function CollaboratorModal({
                   placeholder="Search by name or email..."
                   entityType="user"
                   items={searchResults}
-                  onSelect={(user) => onToggleCollaborator(user._id || user.id)}
+                  onSelect={(user) => onToggleCollaborator(user)}
                   onSearch={onSearch}
                   value={searchTerm}
                   onChange={(e) => onSearchTermChange(e.target.value)}
