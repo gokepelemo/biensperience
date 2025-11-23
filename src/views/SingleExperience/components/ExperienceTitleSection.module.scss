@@ -1,0 +1,16 @@
+@use '../../../styles/scss/abstracts' as *;
+
+/**
+ * ExperienceTitleSection Component Styles
+ * Responsive text alignment: center on mobile, left on desktop
+ */
+
+.experienceTitleSection {
+  /* Mobile: Center align (default) */
+  text-align: center;
+
+  /* Desktop: Left align */
+  @media (min-width: 768px) {
+    text-align: start;
+  }
+}

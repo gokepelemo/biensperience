@@ -8,7 +8,7 @@ import TagPill from '../../../components/Pill/TagPill';
 import FadeIn from '../../../components/Animation/Animation';
 import { formatDateShort, formatDateForInput } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/time-format';
-import './ExperienceTitleSection.css';
+import styles from './ExperienceTitleSection.module.scss';
 
 export default function ExperienceTitleSection({
   // Experience data
@@ -42,7 +42,7 @@ export default function ExperienceTitleSection({
   );
 
   return (
-    <div className="experience-title-section">
+    <div className={styles.experienceTitleSection}>
       <h1 ref={h1Ref} className="mt-4 h fade-in">{experience.name}</h1>
 
       {/* Planned Date Badge - Shows selectedPlan date (updates with dropdown) */}
