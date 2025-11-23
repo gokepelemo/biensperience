@@ -582,6 +582,82 @@ export default function SingleExperience() {
   const { users: planCollaborators, loading: planCollaboratorsLoading } =
     useCollaboratorUsers(planCollaboratorIds);
 
+  // Prepare mention entities and data for InteractiveTextArea
+  const availableEntities = useMemo(() => {
+    const entities = [];
+
+    // Add plan collaborators (users)
+    if (planCollaborators && planCollaborators.length > 0) {
+      planCollaborators.forEach(user => {
+        entities.push({
+          type: 'user',
+          id: user._id,
+          displayName: user.name || user.username || 'Unknown User'
+        });
+      });
+    }
+
+    // Add current destination
+    if (experience?.destination) {
+      entities.push({
+        type: 'destination',
+        id: experience.destination._id,
+        displayName: experience.destination.name || 'Unknown Destination'
+      });
+    }
+
+    // Add current experience
+    if (experience) {
+      entities.push({
+        type: 'experience',
+        id: experience._id,
+        displayName: experience.name || 'Unknown Experience'
+      });
+    }
+
+    return entities;
+  }, [planCollaborators, experience]);
+
+  // Create entity data map for mention rendering
+  const entityData = useMemo(() => {
+    const data = {};
+
+    // Add plan collaborators
+    if (planCollaborators && planCollaborators.length > 0) {
+      planCollaborators.forEach(user => {
+        data[user._id] = {
+          _id: user._id,
+          name: user.name || user.username,
+          bio: user.bio,
+          username: user.username
+        };
+      });
+    }
+
+    // Add destination
+    if (experience?.destination) {
+      data[experience.destination._id] = {
+        _id: experience.destination._id,
+        name: experience.destination.name,
+        city: experience.destination.city,
+        country: experience.destination.country,
+        description: experience.destination.description
+      };
+    }
+
+    // Add experience
+    if (experience) {
+      data[experience._id] = {
+        _id: experience._id,
+        name: experience.name,
+        description: experience.description,
+        destination: experience.destination
+      };
+    }
+
+    return data;
+  }, [planCollaborators, experience]);
+
   const toggleExpanded = useCallback((parentId) => {
     setExpandedParents((prev) => {
       const newSet = new Set(prev);
@@ -2975,6 +3051,8 @@ export default function SingleExperience() {
           console.log('Unassign');
         }}
         canEdit={selectedPlan ? canEditPlan(user, selectedPlan) : false}
+        availableEntities={availableEntities}
+        entityData={entityData}
       />
     </>
   );
