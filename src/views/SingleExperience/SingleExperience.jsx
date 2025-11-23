@@ -1656,7 +1656,7 @@ export default function SingleExperience() {
         setSelectedDetailsItem(updatedItem);
       }
 
-      success('Note added successfully');
+      success(lang.en.notification?.note?.added || 'Your note has been added and is visible to collaborators');
     } catch (error) {
       showError(error.message || 'Failed to add note');
     }
@@ -1679,7 +1679,7 @@ export default function SingleExperience() {
         setSelectedDetailsItem(updatedItem);
       }
 
-      success('Note updated successfully');
+      success(lang.en.notification?.note?.updated || 'Note updated. All collaborators can see your changes.');
     } catch (error) {
       showError(error.message || 'Failed to update note');
     }
@@ -1702,7 +1702,7 @@ export default function SingleExperience() {
         setSelectedDetailsItem(updatedItem);
       }
 
-      success('Note deleted successfully');
+      success(lang.en.notification?.note?.deleted || 'Note deleted');
     } catch (error) {
       showError(error.message || 'Failed to delete note');
     }
@@ -2062,6 +2062,7 @@ export default function SingleExperience() {
       // Delete plan - hook handles ALL optimistic updates (userHasExperience, userPlan, etc.)
       await deletePlan(userPlan._id);
       debug.log("Plan deleted successfully");
+      success(lang.en.notification?.plan?.removed || "Removed from your plan. You can add it back anytime.");
 
       setPendingUnplan(false);
     } catch (err) {
@@ -2123,7 +2124,7 @@ export default function SingleExperience() {
 
           // Success feedback
           try {
-            success(lang.en.success?.experienceCreated || "Planned");
+            success(lang.en.notification?.plan?.created || "You're planning this experience! Check out your plan in the My Plan tab.");
           } catch (e) {
             // ignore toast failures
           }
@@ -2909,7 +2910,8 @@ export default function SingleExperience() {
             await assignPlanItem(selectedPlan._id, selectedDetailsItem._id, userId);
 
             // Show success toast
-            success(`Assigned to ${assigneeName}`, { duration: 3000 });
+            const message = lang.en.notification?.collaborator?.assigned?.replace('{name}', assigneeName) || `${assigneeName} is now responsible for this item`;
+            success(message, { duration: 3000 });
 
             // Note: No fetchPlans() call here - optimistic update is sufficient
             // The plan will sync via WebSocket events or on next natural refresh
@@ -2990,7 +2992,7 @@ export default function SingleExperience() {
             await unassignPlanItem(selectedPlan._id, selectedDetailsItem._id);
 
             // Show success toast
-            success('Unassigned plan item', { duration: 3000 });
+            success(lang.en.notification?.collaborator?.unassigned || 'This item is no longer assigned to anyone', { duration: 3000 });
 
             // Note: No fetchPlans() call here - optimistic update is sufficient
             // The plan will sync via WebSocket events or on next natural refresh

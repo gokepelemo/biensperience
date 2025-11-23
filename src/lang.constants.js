@@ -136,6 +136,61 @@ const en = {
     resendConfirmation: "Verification email sent. Please check your inbox.",
   },
 
+  // User-friendly notifications (actionable and context-aware)
+  notification: {
+    plan: {
+      created: "You're planning this experience! Check out your plan in the My Plan tab.",
+      removed: "Removed from your plan. You can add it back anytime.",
+      dateUpdated: "Your planned date has been updated",
+      syncComplete: "Your plan is now in sync with the experience",
+      itemAdded: "New item added to your plan",
+      itemUpdated: "Plan item updated",
+      itemDeleted: "Item removed from your plan",
+      itemCompleted: "Item marked as complete! Nice work!",
+      itemUncompleted: "Item marked as incomplete",
+      reordered: "Your plan order has been saved",
+    },
+    collaborator: {
+      added: "{name} can now collaborate on this plan",
+      removed: "{name} is no longer a collaborator",
+      invited: "Invite sent to {email}. They'll receive an email with instructions to join.",
+      assigned: "{name} is now responsible for this item",
+      unassigned: "This item is no longer assigned to anyone",
+    },
+    profile: {
+      updated: "Your profile has been updated. Changes are now visible to others.",
+      photoUpdated: "Your profile photo has been updated",
+      emailConfirmed: "Email confirmed! You now have full access to all features.",
+      passwordChanged: "Your password has been changed successfully",
+    },
+    auth: {
+      signedIn: "Welcome back!",
+      signedOut: "You've been signed out. See you next time!",
+      oauthSuccess: "Welcome back! You're signed in with {provider}.",
+    },
+    note: {
+      added: "Your note has been added and is visible to collaborators",
+      updated: "Note updated. All collaborators can see your changes.",
+      deleted: "Note deleted",
+    },
+    photo: {
+      uploaded: "Photo uploaded successfully",
+      deleted: "Photo removed",
+      setDefault: "Default photo updated",
+    },
+    favorite: {
+      added: "{name} added to your favorites",
+      removed: "{name} removed from your favorites",
+    },
+    api: {
+      tokenCreated: "Your new API token is ready. Copy it now - you won't see it again!",
+      tokenCopied: "Token copied! Paste it in your application to connect.",
+      tokenRevoked: "Token revoked. It can no longer be used to access your data.",
+      accessEnabled: "API access enabled. You can now create tokens below.",
+      accessDisabled: "API access disabled. All existing tokens have been revoked for security.",
+    },
+  },
+
   modal: {
     confirmDelete: "Delete Experience",
     confirmDeleteMessage:

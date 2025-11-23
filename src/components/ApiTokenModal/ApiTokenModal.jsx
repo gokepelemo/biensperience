@@ -102,9 +102,9 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       }
 
       if (result.apiEnabled) {
-        success('API access enabled');
+        success(lang.en.notification?.api?.accessEnabled || 'API access enabled. You can now create tokens below.');
       } else {
-        success('API access disabled and all tokens revoked');
+        success(lang.en.notification?.api?.accessDisabled || 'API access disabled. All existing tokens have been revoked for security.');
         setTokens([]); // Clear tokens list
       }
 
@@ -144,7 +144,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       setNewToken(result.token); // Store plain token for display
       setTokens([...tokens, result.tokenData]);
       setNewTokenName('');
-      success(lang.en.success.apiTokenCreated);
+      success(lang.en.notification?.api?.tokenCreated || "Your new API token is ready. Copy it now - you won't see it again!");
       logger.info('API token created', { tokenId: result.tokenData._id });
     } catch (err) {
       if (!isMountedRef.current) return;
@@ -161,7 +161,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
   const handleCopyToken = async (token) => {
     try {
       await navigator.clipboard.writeText(token);
-      success('Token copied to clipboard');
+      success(lang.en.notification?.api?.tokenCopied || 'Token copied! Paste it in your application to connect.');
     } catch (err) {
       logger.error('Error copying token', {}, err);
       showError('Failed to copy token');
@@ -181,7 +181,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       if (!isMountedRef.current) return;
 
       setTokens(tokens.filter(t => t._id !== tokenId));
-      success('Token revoked successfully');
+      success(lang.en.notification?.api?.tokenRevoked || 'Token revoked. It can no longer be used to access your data.');
       logger.info('API token deleted', { tokenId });
     } catch (err) {
       if (!isMountedRef.current) return;

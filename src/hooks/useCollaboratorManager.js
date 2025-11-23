@@ -417,7 +417,8 @@ export default function useCollaboratorManager({
         });
 
         // Show success
-        success(`Email invite sent successfully to ${emailInviteData.email}!`);
+        const message = lang.en.notification?.collaborator?.invited?.replace('{email}', emailInviteData.email) || `Invite sent to ${emailInviteData.email}. They'll receive an email with instructions to join.`;
+        success(message);
 
         // Reset form
         setEmailInviteData({ email: '', name: '' });

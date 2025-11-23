@@ -286,7 +286,7 @@ export default function UpdateProfile() {
       if (isAdminMode) {
         // Admin mode: use admin API
         response = await updateUserAsAdmin(userId, dataToUpdate);
-        success(lang.en.success.userProfileUpdated);
+        success(lang.en.notification?.profile?.updated || "Your profile has been updated. Changes are now visible to others.");
         navigate(`/profile/${userId}`);
       } else {
         // Self mode: use regular API
@@ -302,7 +302,7 @@ export default function UpdateProfile() {
         }
 
         updateUserContext(updatedUser); // Instant UI update!
-        success(lang.en.success.profileUpdated);
+        success(lang.en.notification?.profile?.updated || "Your profile has been updated. Changes are now visible to others.");
         navigate('/profile');
       }
     } catch (err) {

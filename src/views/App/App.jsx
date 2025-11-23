@@ -329,7 +329,8 @@ function AppContent() {
         if (result) {
           const { user: oauthUser, provider } = result;
           updateUser(oauthUser);
-          success(`Successfully signed in with ${provider}!`);
+          const message = lang.en.notification?.auth?.oauthSuccess?.replace('{provider}', provider) || `Welcome back! You're signed in with ${provider}.`;
+          success(message);
         }
       } catch (err) {
         showError(err.message || 'Authentication failed');
