@@ -1,4 +1,4 @@
-import "./DestinationCard.css";
+import styles from "./DestinationCard.module.scss";
 import { Link } from "react-router-dom";
 import { useMemo, memo, useRef, useEffect } from "react";
 import EntitySchema from "../OpenGraph/EntitySchema";
@@ -23,7 +23,7 @@ function DestinationCard({ destination, includeSchema = false }) {
     if (!destination) {
       return `url(https://picsum.photos/400?rand=${rand})`;
     }
-    
+
     // If photos array exists and has items, use the default one
     if (destination.photos && destination.photos.length > 0) {
       let defaultPhoto;
@@ -36,12 +36,12 @@ function DestinationCard({ destination, includeSchema = false }) {
       }
       return `url(${defaultPhoto.url})`;
     }
-    
+
     // If single photo exists
     if (destination.photo && destination.photo.url) {
       return `url(${destination.photo.url})`;
     }
-    
+
     // Fallback to placeholder
     return `url(https://picsum.photos/400?rand=${rand})`;
   }, [destination, rand]);
@@ -85,22 +85,22 @@ function DestinationCard({ destination, includeSchema = false }) {
       <div className="d-inline-block m-2 width-fit-content">
       {destination ? (
         <div
-          className="destinationCard d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden"
+          className={`${styles.destinationCard} d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden`}
           style={{ backgroundImage: getBackgroundImage }}
         >
-          <Link to={`/destinations/${destination._id}`} className="destination-card-link d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none">
-            <span ref={titleRef} className="h3 fw-bold destination-card-title d-flex align-items-center justify-content-center text-center p-3 w-100">
+          <Link to={`/destinations/${destination._id}`} className={`${styles.destinationCardLink} d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none`}>
+            <span ref={titleRef} className={`h3 fw-bold ${styles.destinationCardTitle} d-flex align-items-center justify-content-center text-center p-3 w-100`}>
               {destination.name}
             </span>
           </Link>
         </div>
       ) : (
         <div
-          className="destinationCard d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden"
+          className={`${styles.destinationCard} d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden`}
           style={{ backgroundImage: getBackgroundImage }}
         >
-          <Link to="/" className="destination-card-link d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none">
-            <span ref={titleRef} className="h3 fw-bold destination-card-title d-flex align-items-center justify-content-center text-center p-3 w-100">
+          <Link to="/" className={`${styles.destinationCardLink} d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none`}>
+            <span ref={titleRef} className={`h3 fw-bold ${styles.destinationCardTitle} d-flex align-items-center justify-content-center text-center p-3 w-100`}>
               New York
             </span>
           </Link>

@@ -1,0 +1,42 @@
+/**
+ * DestinationCard Component Styles (SCSS Module)
+ * Migrated from DestinationCard.css to DestinationCard.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+/* Destination Card Layout */
+.destinationCard {
+  width: 12rem;
+  height: 8rem;
+  background-size: cover;
+  background-position: center;
+  border-radius: $radius-2xl;
+  position: relative;
+}
+
+.destinationCardLink {
+  z-index: 1;
+}
+
+.destinationCardTitle {
+  background-color: var(--color-bg-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: $radius-md;
+  padding: $space-2;
+  overflow: hidden;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+  max-height: 100%;
+  line-height: $line-height-snug;
+  font-size: $font-size-lg;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  text-overflow: ellipsis;
+  color: var(--btn-gradient-color);
+}
