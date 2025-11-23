@@ -430,7 +430,7 @@ export default function ActivityMonitor({ show, onHide }) {
         }
       >
           {selectedActivity && (
-            <div className={styles.activityDetails">
+            <div className={styles.activityDetails}>
               <div className="row g-3">
                 <div className="col-12">
                   <h6>Basic Information</h6>
