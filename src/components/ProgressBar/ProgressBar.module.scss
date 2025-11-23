@@ -1,0 +1,90 @@
+/**
+ * ProgressBar Component Styles (SCSS Module)
+ * Migrated from ProgressBar.css to ProgressBar.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+.progressBarWrapper {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  width: 100%;
+}
+
+.progressBar {
+  flex: 1;
+  background: var(--color-bg-tertiary);
+  border-radius: $radius-full;
+  overflow: hidden;
+}
+
+/* Size variants */
+.progressBarSm {
+  height: 4px;
+}
+
+.progressBarMd {
+  height: 8px;
+}
+
+.progressBarLg {
+  height: 12px;
+}
+
+.progressBarFill {
+  height: 100%;
+  border-radius: $radius-full;
+  @include transition-all($transition-normal);
+}
+
+/* Animated stripes variant */
+.progressBarAnimated {
+  background-size: 1rem 1rem;
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.15) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.15) 75%,
+    transparent 75%,
+    transparent
+  );
+  animation: progress-bar-stripes 1s linear infinite;
+}
+
+@keyframes progress-bar-stripes {
+  0% {
+    background-position: 1rem 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* Color variants */
+.progressBarPrimary {
+  background: var(--color-primary);
+}
+
+.progressBarSuccess {
+  background: var(--color-success);
+}
+
+.progressBarDanger {
+  background: var(--color-danger);
+}
+
+.progressBarWarning {
+  background: var(--color-warning);
+}
+
+.progressBarPercentage {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  min-width: 45px;
+  text-align: right;
+}
