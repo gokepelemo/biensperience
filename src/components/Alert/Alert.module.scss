@@ -1,0 +1,234 @@
+/**
+ * Alert Component Styles (SCSS Module)
+ * Migrated from Alert.css to Alert.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+/* Alert Base */
+.alert {
+  position: relative;
+  padding: $space-4 $space-5;
+  margin-bottom: $space-4;
+  border-radius: $radius-md;
+  border: 1px solid transparent;
+}
+
+/* Alert Content Layout */
+.alertContent {
+  @include flex-start;
+  gap: $space-3;
+}
+
+.alertIcon {
+  font-size: $font-size-xl;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.alertText {
+  flex: 1;
+  min-width: 0; /* Allow text to shrink */
+}
+
+.alertTitle {
+  font-weight: $font-weight-semibold;
+  margin-bottom: $space-1;
+}
+
+.alertMessage {
+  margin: 0;
+}
+
+/* Alert Sizes */
+.alertSm {
+  padding: $space-2 $space-3;
+  font-size: $font-size-sm;
+
+  .alertIcon {
+    font-size: $font-size-base;
+  }
+}
+
+.alertLg {
+  padding: $space-6 $space-8;
+  font-size: $font-size-lg;
+
+  .alertIcon {
+    font-size: $font-size-2xl;
+  }
+}
+
+/* Dismissible Alerts */
+.alertDismissible {
+  padding-right: $space-12;
+
+  .btnClose {
+    position: absolute;
+    top: $space-3;
+    right: $space-3;
+    padding: $space-2;
+    z-index: 2;
+  }
+}
+
+/* Bordered Variant */
+.alertBordered {
+  border-width: 2px;
+  border-style: solid;
+}
+
+/* Alert Types - Bootstrap-compatible */
+.alertPrimary {
+  background-color: var(--color-alert-primary-bg);
+  border-color: var(--color-alert-primary-border);
+  color: var(--color-alert-primary-text);
+}
+
+.alertBordered.alertPrimary {
+  border-color: var(--color-alert-primary-text);
+}
+
+.alertSecondary {
+  background-color: var(--color-alert-secondary-bg);
+  border-color: var(--color-alert-secondary-border);
+  color: var(--color-alert-secondary-text);
+}
+
+.alertBordered.alertSecondary {
+  border-color: var(--color-alert-secondary-text);
+}
+
+.alertSuccess {
+  background-color: var(--color-alert-success-bg);
+  border-color: var(--color-alert-success-border);
+  color: var(--color-alert-success-text);
+}
+
+.alertBordered.alertSuccess {
+  border-color: var(--color-alert-success-text);
+}
+
+.alertDanger {
+  background-color: var(--color-alert-danger-bg);
+  border-color: var(--color-alert-danger-border);
+  color: var(--color-alert-danger-text);
+}
+
+.alertBordered.alertDanger {
+  border-color: var(--color-alert-danger-text);
+}
+
+.alertWarning {
+  background-color: var(--color-alert-warning-bg);
+  border-color: var(--color-alert-warning-border);
+  color: var(--color-alert-warning-text);
+}
+
+.alertBordered.alertWarning {
+  border-color: var(--color-alert-warning-text);
+}
+
+.alertInfo {
+  background-color: var(--color-alert-info-bg);
+  border-color: var(--color-alert-info-border);
+  color: var(--color-alert-info-text);
+}
+
+.alertBordered.alertInfo {
+  border-color: var(--color-alert-info-text);
+}
+
+.alertLight {
+  background-color: var(--color-alert-light-bg);
+  border-color: var(--color-alert-light-border);
+  color: var(--color-alert-light-text);
+}
+
+.alertBordered.alertLight {
+  border-color: var(--color-alert-light-text);
+}
+
+.alertDark {
+  background-color: var(--color-alert-dark-bg);
+  border-color: var(--color-alert-dark-border);
+  color: var(--color-alert-dark-text);
+}
+
+.alertBordered.alertDark {
+  border-color: var(--color-alert-dark-text);
+}
+
+/* Centered Alert Content */
+.alert.alertCentered {
+  .alertContent {
+    justify-content: center;
+  }
+
+  .alertText {
+    text-align: center;
+  }
+}
+
+/* Alert Actions - Centered Button Layout */
+.alertActions {
+  margin-top: $space-4;
+  padding-top: $space-4;
+  border-top: 1px solid var(--color-border-medium);
+  @include flex-center;
+  gap: $space-3;
+}
+
+/* Responsive Adjustments */
+@include breakpoint-max(md) {
+  .alert {
+    padding: $space-3-5 $space-4;
+  }
+
+  .alertDismissible {
+    padding-right: $space-10;
+
+    .btnClose {
+      top: $space-2;
+      right: $space-2;
+    }
+  }
+
+  .alertContent {
+    gap: $space-2;
+  }
+
+  .alertIcon {
+    font-size: $font-size-lg;
+  }
+}
+
+/* Animation for dismissible alerts */
+@keyframes alertFadeOut {
+  from {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  to {
+    opacity: 0;
+    transform: scaleY(0.9);
+  }
+}
+
+.alert.dismissing {
+  animation: alertFadeOut 0.3s $easing-ease-out forwards;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .alertActions {
+    border-top-color: var(--color-border-dark);
+  }
+}
+
+[data-theme="dark"] {
+  .alertActions {
+    border-top-color: var(--color-border-dark);
+  }
+}
