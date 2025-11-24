@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import CollaboratorModal from '@views/SingleExperience/components/CollaboratorModal';
+import CollaboratorModal from '../../views/SingleExperience/components/CollaboratorModal';
 
 export default {
   title: 'Components/CollaboratorModal',

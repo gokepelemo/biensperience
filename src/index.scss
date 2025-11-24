@@ -24,9 +24,12 @@
 /* 4. Legacy Global Styles (being consolidated) */
 @import './styles/accessibility.css';
 @import './styles/alerts.css';
-@import './styles/shared/modal.css';
-@import './styles/shared/forms.css';
-@import './styles/shared/profile-dropdown-views.css';
+
+/* 5. SASS Components Layer */
+@import './styles/scss/components/forms';
+@import './styles/scss/components/modal';
+@import './styles/scss/components/profile-dropdown-views';
+@import './styles/scss/components/text-legibility';
 
 /* ============================================
    GLOBAL BASE STYLES

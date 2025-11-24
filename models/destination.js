@@ -35,6 +35,9 @@ const destinationSchema = new Schema(
     state: {
       type: String,
     },
+    description: {
+      type: String,
+    },
     map_location: { type: String },
     users_favorite: [{ type: Schema.Types.ObjectId, ref: "User" }],
     photos: {

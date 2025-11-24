@@ -63,8 +63,8 @@ export default function ActionButtonsRow({
           style={planBtnWidth ? {
             width: `${planBtnWidth}px`,
             minWidth: `${planBtnWidth}px`,
-            height: '40px',
-            minHeight: '40px',
+            height: '44px',
+            minHeight: '44px',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center'

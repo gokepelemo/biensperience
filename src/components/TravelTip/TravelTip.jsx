@@ -57,21 +57,25 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
 
     const length = tip.length;
 
-    // Short tips (< 50 chars): Larger font
-    if (length < 50) {
-      return 'clamp(1.125rem, 2vw, 1.375rem)'; // 18px - 22px
+    // Very short tips (< 30 chars): Largest font to fill space
+    if (length < 30) {
+      return 'clamp(1.75rem, 4vw, 2.25rem)'; // 28px - 36px
     }
-    // Medium tips (50-100 chars): Medium font
+    // Short tips (30-60 chars): Large font
+    else if (length < 60) {
+      return 'clamp(1.25rem, 3vw, 1.75rem)'; // 20px - 28px
+    }
+    // Medium tips (60-100 chars): Medium font
     else if (length < 100) {
-      return 'clamp(1rem, 1.75vw, 1.25rem)'; // 16px - 20px
+      return 'clamp(1rem, 2.25vw, 1.25rem)'; // 16px - 20px
     }
-    // Long tips (100-150 chars): Standard font
+    // Long tips (100-150 chars): Smaller font
     else if (length < 150) {
-      return 'clamp(0.9375rem, 1.5vw, 1.125rem)'; // 15px - 18px
+      return 'clamp(0.875rem, 1.75vw, 1rem)'; // 14px - 16px
     }
-    // Very long tips (>150 chars): Smaller font
+    // Very long tips (>150 chars): Smallest font
     else {
-      return 'clamp(0.875rem, 1.25vw, 1rem)'; // 14px - 16px
+      return 'clamp(0.75rem, 1.25vw, 0.875rem)'; // 12px - 14px
     }
   }, [tip]);
 

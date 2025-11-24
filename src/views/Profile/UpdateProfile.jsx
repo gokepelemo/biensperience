@@ -1,4 +1,4 @@
-import "./Profile.css";
+import styles from "./Profile.module.scss";
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";

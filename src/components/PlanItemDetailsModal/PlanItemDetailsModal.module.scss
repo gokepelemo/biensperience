@@ -1,98 +1,85 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Plan Item Details Modal - Comprehensive modal for plan item details */
+/* Plan Item Details Modal - Modern dark theme design */
 
 .planItemDetailsModal {
-  padding: $space-2 0;
+  padding: 0;
+  background: var(--color-bg-dark, #1a1a1a);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
 /* Plan item header */
 .planItemHeader {
-  padding-bottom: $space-4;
-  margin-bottom: $space-4;
-  border-bottom: 1px solid var(--color-border-light);
+  padding: $space-5 $space-6;
+  margin-bottom: 0;
+  background: var(--color-bg-dark, #1a1a1a);
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: $space-4;
+  border-bottom: none;
 
   @media (max-width: 768px) {
     flex-direction: column;
     align-items: flex-start;
+    padding: $space-4;
   }
 }
 
 .planItemTitle {
-  font-size: $font-size-xl;
+  @include fluid-font($font-size-xl, 3vw, $font-size-2xl);
   font-weight: $font-weight-semibold;
-  color: var(--color-text-primary);
+  color: var(--color-white);
   margin: 0;
   flex: 1;
   word-break: break-word;
-
-  @media (prefers-color-scheme: dark) {
-    color: var(--color-text-primary);
-  }
 }
 
 .planItemLink {
+  @include button-base;
   font-size: $font-size-sm;
   color: var(--color-primary);
+  background: transparent;
+  border: 2px solid var(--color-primary);
   text-decoration: none;
   white-space: nowrap;
-  padding: $space-2 $space-3;
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius-md);
-  @include transition-all($transition-fast);
+  padding: $space-2 $space-4;
 
   &:hover {
-    background: var(--color-bg-hover);
+    background: var(--color-primary);
+    color: var(--color-white);
     transform: translateY(-1px);
   }
 
   @media (max-width: 768px) {
     align-self: flex-end;
   }
-
-  @media (prefers-color-scheme: dark) {
-    color: var(--color-primary);
-    border-color: var(--color-primary);
-
-    &:hover {
-      background: var(--color-primary-light);
-    }
-  }
 }
 
 /* Assignment section */
 .assignmentSection {
-  padding: $space-4;
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-md);
-  margin-bottom: $space-6;
+  padding: $space-5 $space-6;
+  background: var(--color-bg-tertiary, #2a2a2a);
+  margin-bottom: 0;
   display: flex;
   align-items: center;
-  gap: $space-4;
+  gap: $space-3;
+  border-top: 1px solid var(--color-border-dark);
+  border-bottom: 1px solid var(--color-border-dark);
 
   @media (max-width: 768px) {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    background: var(--color-bg-tertiary);
+    padding: $space-4;
   }
 }
 
 .assignmentLabel {
   font-size: $font-size-sm;
   font-weight: $font-weight-semibold;
-  color: var(--color-text-primary);
+  color: var(--color-text-muted);
   margin: 0;
-
-  @media (prefers-color-scheme: dark) {
-    color: var(--color-text-primary);
-  }
 }
 
 .assignmentAutocompleteWrapper {
@@ -103,10 +90,10 @@
 .assignmentLink {
   width: 100%;
   padding: $space-2 $space-3;
-  font-size: 0.9375rem;
+  font-size: $font-size-base;
   color: var(--color-primary);
   text-align: left;
-  background: none;
+  background: transparent;
   border: none;
   cursor: pointer;
   @include transition-all($transition-fast);
@@ -115,16 +102,8 @@
   text-decoration-style: dotted;
 
   &:hover {
-    background: var(--color-bg-hover);
+    background: rgba(var(--color-primary-rgb), 0.1);
     text-decoration-style: solid;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    color: var(--color-primary);
-
-    &:hover {
-      background: var(--color-primary-light);
-    }
   }
 }
 
@@ -134,29 +113,21 @@
 }
 
 .assignmentInput {
+  @include form-control;
   width: 100%;
   padding: $space-2 $space-3;
   font-size: $font-size-sm;
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  transition: border-color var(--transition-fast);
+  background: var(--color-bg-dark);
+  color: var(--color-white);
+  border-color: var(--color-border-medium);
 
-  &:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  &::placeholder {
+    color: var(--color-text-muted);
   }
 
-  @media (prefers-color-scheme: dark) {
-    background: var(--color-bg-secondary);
-    border-color: var(--color-primary);
-    color: var(--color-text-primary);
-
-    &::placeholder {
-      color: var(--color-text-muted);
-    }
+  &:focus {
+    @include focus-ring;
+    background: var(--color-bg-dark);
   }
 }
 
@@ -172,28 +143,22 @@
   left: 0;
   right: 0;
   margin-top: $space-1;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-medium);
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-lg);
   max-height: 200px;
   overflow-y: auto;
   z-index: 1000;
-
-  @media (prefers-color-scheme: dark) {
-    background: var(--color-bg-secondary);
-    border-color: var(--color-border-medium);
-    box-shadow: var(--shadow-md);
-  }
 }
 
 .assignmentOption {
-  padding: 0.625rem $space-3;
+  padding: $space-2 $space-3;
   font-size: $font-size-sm;
-  color: var(--color-text-primary);
+  color: var(--color-white);
   cursor: pointer;
   @include transition-all($transition-fast);
-  border-bottom: 1px solid var(--color-border-light);
+  border-bottom: 1px solid var(--color-border-dark);
 
   &:last-child {
     border-bottom: none;
@@ -201,7 +166,7 @@
 
   &:hover,
   &.highlighted {
-    background: var(--color-bg-hover);
+    background: rgba(var(--color-primary-rgb), 0.2);
     color: var(--color-primary);
   }
 
@@ -211,78 +176,54 @@
     font-style: italic;
 
     &:hover {
-      background: none;
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
-    color: var(--color-text-primary);
-    border-bottom-color: var(--color-border-medium);
-
-    &:hover,
-    &.highlighted {
-      background: var(--color-primary-light);
-      color: var(--color-primary);
-    }
-
-    &.disabled {
-      color: var(--color-text-muted);
+      background: transparent;
     }
   }
 }
 
 .assignmentOptionText {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  @include text-ellipsis;
 }
 
 .assignmentValue {
   flex: 1;
-  font-size: 0.9375rem;
-  color: var(--color-text-secondary);
-
-  @media (prefers-color-scheme: dark) {
-    color: var(--color-text-primary);
-  }
+  font-size: $font-size-base;
+  color: var(--color-white);
 }
 
 /* Details tabs */
 .detailsTabs {
   display: flex;
-  gap: $space-2;
-  border-bottom: 2px solid var(--color-border-light);
-  margin-bottom: $space-4;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border-dark);
+  margin-bottom: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  padding: 0 $space-6;
+  background: var(--color-bg-dark);
 
   @media (max-width: 768px) {
-    gap: $space-1;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    border-bottom-color: var(--color-border-medium);
+    padding: 0 $space-4;
   }
 }
 
 .detailsTab {
-  padding: $space-3 $space-4;
+  padding: $space-4 $space-5;
   font-size: $font-size-sm;
   font-weight: $font-weight-medium;
   border: none;
-  background: none;
-  color: var(--color-text-secondary);
+  background: transparent;
+  color: var(--color-text-muted);
   cursor: pointer;
-  border-bottom: 3px solid transparent;
+  border-bottom: 2px solid transparent;
   @include transition-all($transition-fast);
   white-space: nowrap;
   position: relative;
-  bottom: -2px;
+  bottom: -1px;
 
   &:hover:not(.disabled) {
     color: var(--color-primary);
-    background: rgba(102, 126, 234, 0.05);
+    background: rgba(var(--color-primary-rgb), 0.05);
   }
 
   &.active {
@@ -292,37 +233,29 @@
   }
 
   &.disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
     color: var(--color-text-muted);
   }
 
   @media (max-width: 768px) {
-    padding: $space-2 $space-3;
-    font-size: 0.8125rem;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    color: var(--color-text-muted);
-
-    &:hover:not(.disabled) {
-      color: var(--color-primary);
-      background: var(--color-primary-light);
-    }
-
-    &.active {
-      color: var(--color-primary);
-      border-bottom-color: var(--color-primary);
-    }
+    padding: $space-3 $space-4;
+    font-size: $font-size-xs;
   }
 }
 
 /* Details content */
 .detailsContent {
-  min-height: 300px;
-  max-height: 500px;
+  min-height: 500px;
+  max-height: 70vh; /* 70% of viewport height for better document/notes viewing */
   overflow-y: auto;
-  padding: $space-4 0;
+  padding: $space-6;
+  background: var(--color-bg-dark);
+
+  @media (max-width: 768px) {
+    padding: $space-4;
+    max-height: 60vh; /* Slightly less on mobile to keep modal controls visible */
+  }
 }
 
 .comingSoonMessage {
@@ -330,7 +263,7 @@
   height: 200px;
   color: var(--color-text-muted);
   font-style: italic;
-  font-size: 0.9375rem;
+  font-size: $font-size-base;
 }
 
 /* Pagination */
@@ -338,63 +271,44 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: $space-4 0 $space-2;
+  padding: $space-4 $space-6;
   margin-top: $space-4;
-  border-top: 1px solid var(--color-border-light);
+  border-top: 1px solid var(--color-border-dark);
+  background: var(--color-bg-dark);
 
   @media (max-width: 768px) {
     flex-direction: column;
     gap: $space-3;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    border-top-color: var(--color-border-medium);
+    padding: $space-4;
   }
 }
 
 .paginationBtn {
+  @include button-base;
+  background: transparent;
+  border: 2px solid var(--color-border-medium);
+  color: var(--color-text-primary);
   padding: $space-2 $space-4;
   font-size: $font-size-sm;
-  font-weight: $font-weight-medium;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  color: var(--color-primary);
-  cursor: pointer;
-  @include transition-all($transition-fast);
 
   &:hover:not(:disabled) {
+    @include hover-lift;
     background: var(--color-bg-hover);
     border-color: var(--color-primary);
-    transform: translateY(-1px);
+    color: var(--color-primary);
   }
 
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    background: var(--color-bg-tertiary);
-    border-color: var(--color-border-medium);
-    color: var(--color-primary);
-
-    &:hover:not(:disabled) {
-      background: var(--color-primary-light);
-      border-color: var(--color-primary);
-    }
   }
 }
 
 .paginationInfo {
   font-size: $font-size-sm;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
 
   @media (max-width: 768px) {
     order: -1;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    color: var(--color-text-primary);
   }
 }

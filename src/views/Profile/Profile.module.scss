@@ -71,12 +71,40 @@
   }
 }
 
-/* Pills - Using unified design system utility class */
+/* Pills - Experience Type Tags */
 .profilePill {
+  background: var(--color-white) !important; /* Override TagPill color variants */
+  color: var(--color-primary) !important;
+  box-shadow: var(--shadow-sm);
+  font-weight: $font-weight-semibold;
+  border: none;
+  padding: $space-2 $space-3;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--color-white) !important; /* Retain white background on hover, override gradients */
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    color: var(--color-primary-dark) !important;
+  }
+
   &.inactive {
     background: var(--color-bg-tertiary);
     color: var(--color-text-secondary);
     box-shadow: none;
+  }
+
+  /* Icon inside pill */
+  .icon,
+  svg {
+    display: inline-flex;
+    align-items: center;
+    font-size: var(--font-size-sm);
+    color: currentColor;
   }
 }
 
@@ -99,7 +127,9 @@
   transition: all var(--transition-normal);
   margin-bottom: 0;
 
-  &:first-child {
+  /* Gradient background sections - first and second child */
+  &:first-child,
+  &:nth-child(2) {
     background: var(--gradient-primary);
     box-shadow: var(--shadow-sm);
 
@@ -116,25 +146,8 @@
       color: var(--color-white);
     }
 
-    a.profilePill {
-      background: var(--color-white) !important;
-      color: var(--color-primary) !important;
-      box-shadow: var(--shadow-sm);
-      font-weight: $font-weight-semibold;
-      border: none !important;
-
-      &:hover {
-        background: var(--color-white) !important;
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-md);
-        color: var(--color-primary-dark) !important;
-      }
-
-      :global(.icon),
-      svg {
-        color: var(--color-primary) !important;
-      }
-    }
+    /* Profile pills in gradient sections use base .profilePill styles */
+    /* Note: Inherits from .profilePill above - no overrides needed */
 
     /* Pagination button styling on gradient background */
     :global(.btn-link) {

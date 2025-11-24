@@ -4,12 +4,37 @@
 
 .interactiveTextarea {
   position: relative;
+  width: 100%;
 }
 
 .interactiveTextareaInput {
-  width: 100%;
+  width: 100% !important;
   resize: vertical;
   min-height: 100px;
+  box-sizing: border-box;
+
+  // Override RichTextarea's inline width calculation
+  > div {
+    width: 100% !important;
+    display: block !important;
+  }
+
+  // Ensure RichTextarea's internal elements are also full width
+  :global(textarea) {
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  :global(.rich-textarea__overlay) {
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  // Override any position: absolute on textarea
+  textarea {
+    position: relative !important;
+    width: 100% !important;
+  }
 }
 
 .interactiveTextareaFooter {

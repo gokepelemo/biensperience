@@ -3,7 +3,6 @@ import {
   Heading,
   Text,
   Button,
-  Accordion,
   Container,
   Stack,
   FlexBetween,
@@ -11,13 +10,15 @@ import {
   SkeletonLoader,
   HashLink
 } from '../design-system';
-import { FaCheckCircle } from 'react-icons/fa';
+import { FaCheckCircle, FaCalendar, FaTasks, FaChevronRight } from 'react-icons/fa';
 import { getUserPlans } from '../../utilities/plans-api';
 import { formatCurrency } from '../../utilities/currency-utils';
+import './MyPlans.css';
 
 export default function MyPlans() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [expandedPlanId, setExpandedPlanId] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -29,6 +30,10 @@ export default function MyPlans() {
         // API may return { data: [...] } or an array
         const list = (resp && resp.data) ? resp.data : (Array.isArray(resp) ? resp : (resp?.plans || []));
         setPlans(list);
+        // Auto-expand first plan only (default collapsed state)
+        if (list.length > 0) {
+          setExpandedPlanId(list[0]._id);
+        }
       } catch (e) {
         // ignore
       } finally {
@@ -39,11 +44,47 @@ export default function MyPlans() {
     return () => { mounted = false; };
   }, []);
 
+  // Listen for plan updates (e.g., plan item completion changes)
+  useEffect(() => {
+    const handlePlanUpdated = (event) => {
+      const { plan } = event.detail || {};
+      if (!plan || !plan._id) return;
+
+      // Update the plan in local state with fresh data from server
+      setPlans((prevPlans) => {
+        return prevPlans.map((p) => {
+          if (p._id === plan._id) {
+            // Merge updated plan data, ensuring we keep the virtual properties
+            return {
+              ...p,
+              ...plan,
+              // Ensure completion_percentage is updated
+              completion_percentage: plan.completion_percentage !== undefined
+                ? plan.completion_percentage
+                : p.completion_percentage
+            };
+          }
+          return p;
+        });
+      });
+    };
+
+    window.addEventListener('plan:updated', handlePlanUpdated);
+    return () => window.removeEventListener('plan:updated', handlePlanUpdated);
+  }, []);
+
+  const togglePlan = (planId) => {
+    // If clicking already expanded plan, collapse it
+    // Otherwise, expand the clicked plan (collapsing any other)
+    setExpandedPlanId(expandedPlanId === planId ? null : planId);
+  };
+
   return (
     <FadeIn>
-      <Container
+      <div
         className="my-plans-card"
         style={{
+          width: '100%',
           height: '100%',
           padding: 'var(--space-6)',
           borderRadius: 'var(--radius-lg)',
@@ -53,218 +94,208 @@ export default function MyPlans() {
         }}
       >
         <Heading level={4} className="mb-2">My Plans</Heading>
-        <Text size="sm" variant="secondary" className="mb-4">
+        <Text size="sm" variant="muted" className="mb-4">
           Your saved plans with progress and cost estimates
         </Text>
 
         {loading && (
-          <Stack spacing="3">
-            <SkeletonLoader variant="text" width="100%" height="60px" />
-            <SkeletonLoader variant="text" width="100%" height="60px" />
-            <SkeletonLoader variant="text" width="100%" height="60px" />
+          <Stack spacing="md">
+            <SkeletonLoader variant="text" width="100%" height="80px" />
+            <SkeletonLoader variant="text" width="100%" height="80px" />
+            <SkeletonLoader variant="text" width="100%" height="80px" />
           </Stack>
         )}
 
         {!loading && plans.length === 0 && (
-          <div
-            style={{
-              padding: 'var(--space-8)',
-              textAlign: 'center',
-              background: 'var(--color-bg-secondary)',
-              borderRadius: 'var(--radius-md)',
-              border: '2px dashed var(--color-border-medium)'
-            }}
-          >
-            <Text size="base" variant="secondary">
+          <div className="empty-state">
+            <Text size="base" variant="muted">
               No plans yet. Plan an experience to get started.
             </Text>
           </div>
         )}
 
         {!loading && plans.length > 0 && (
-          <Accordion defaultActiveKey={plans[0]._id} flush>
-            {plans.map((plan) => (
-              <Accordion.Item eventKey={plan._id} key={plan._id}>
-                <Accordion.Header>
-                  <FlexBetween style={{ width: '100%', gap: 'var(--space-4)' }}>
-                    <div style={{ flex: 1 }}>
-                      <Heading level={5} style={{ margin: 0 }}>
-                        <HashLink
-                          to={`/experiences/${plan.experience?._id || plan.experience}#plan-${plan._id}`}
-                          style={{
-                            color: 'inherit',
-                            textDecoration: 'none',
-                            transition: 'color var(--transition-fast)'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-primary)'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = 'inherit'}
-                        >
-                          {plan.experience?.name || plan.experience}
-                        </HashLink>
-                      </Heading>
-                      <Text size="sm" variant="secondary">
-                        {(plan.plan || []).length} items • {plan.completion_percentage || 0}% complete
-                      </Text>
-                    </div>
-                    <div style={{ textAlign: 'right', minWidth: 'fit-content', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)' }}>
-                      <Heading level={6} style={{ margin: 0 }}>
-                        {formatCurrency(plan.total_cost || 0)}
-                      </Heading>
-                      <Text size="sm" variant="secondary">
-                        {plan.planned_date ? new Date(plan.planned_date).toLocaleDateString() : 'No date'}
-                      </Text>
-                    </div>
-                  </FlexBetween>
-                </Accordion.Header>
-                <Accordion.Body>
-                  {/* Progress Bar */}
-                  <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <div
-                      style={{
-                        height: '8px',
-                        background: 'var(--color-bg-tertiary)',
-                        borderRadius: 'var(--radius-sm)',
-                        overflow: 'hidden'
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${plan.completion_percentage || 0}%`,
-                          height: '100%',
-                          background: 'var(--gradient-primary)',
-                          transition: 'width var(--transition-normal)'
-                        }}
-                      />
-                    </div>
-                  </div>
+          <Stack spacing="md">
+            {plans.map((plan) => {
+              const isExpanded = expandedPlanId === plan._id;
+              const itemCount = (plan.plan || []).length;
+              const completedCount = (plan.plan || []).filter(item => item.complete).length;
 
-                  {/* Plan Items */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                      gap: 'var(--space-4)',
-                      marginTop: 'var(--space-1)'
-                    }}
-                  >
-                    {(plan.plan || []).map((item) => {
-                      const isCompleted = item.complete || false;
+              // Debug logging
+              console.log('Plan Progress Debug:', {
+                planId: plan._id,
+                experienceName: plan.experience?.name,
+                itemCount,
+                completedCount,
+                serverPercentage: plan.completion_percentage,
+                localPercentage: itemCount > 0 ? Math.round((completedCount / itemCount) * 100) : 0,
+                items: (plan.plan || []).map(item => ({
+                  text: item.text?.substring(0, 30),
+                  complete: item.complete
+                }))
+              });
 
-                      return (
-                      <div
-                        key={item.plan_item_id || item._id}
-                        style={{
-                          padding: 'var(--space-5)',
-                          background: isCompleted
-                            ? 'linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(25, 135, 84, 0.05) 100%)'
-                            : 'var(--color-bg-secondary)',
-                          borderRadius: 'var(--radius-md)',
-                          border: isCompleted
-                            ? '2px solid var(--color-success)'
-                            : '1px solid var(--color-border-light)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 'var(--space-3)',
-                          minHeight: '140px',
-                          position: 'relative',
-                          transition: 'all var(--transition-normal)',
-                          transform: isCompleted ? 'scale(0.98)' : 'scale(1)',
-                          opacity: isCompleted ? 0.85 : 1
-                        }}
-                      >
-                        {/* Completion badge */}
-                        {isCompleted && (
-                          <div style={{
-                            position: 'absolute',
-                            top: 'var(--space-3)',
-                            right: 'var(--space-3)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 'var(--space-2)',
-                            padding: 'var(--space-1) var(--space-3)',
-                            background: 'var(--color-success)',
-                            color: 'white',
-                            borderRadius: 'var(--radius-full)',
-                            fontSize: 'var(--font-size-xs)',
-                            fontWeight: 'var(--font-weight-semibold)',
-                            boxShadow: 'var(--shadow-sm)'
-                          }}>
-                            <FaCheckCircle size={12} />
-                            <span>Done</span>
-                          </div>
-                        )}
+              // Use server-calculated completion percentage (virtual property)
+              // Fallback to local calculation if not available
+              const completionPercentage = plan.completion_percentage !== undefined
+                ? plan.completion_percentage
+                : (itemCount > 0 ? Math.round((completedCount / itemCount) * 100) : 0);
 
-                        <div style={{ flex: 1, paddingRight: isCompleted ? 'var(--space-10)' : 0 }}>
-                          <Text
-                            weight="semibold"
-                            className="mb-2"
-                            style={{
-                              lineHeight: '1.4',
-                              textDecoration: isCompleted ? 'line-through' : 'none',
-                              color: isCompleted ? 'var(--color-text-muted)' : 'inherit'
-                            }}
-                          >
-                            {item.text}
-                          </Text>
-                          {Number(item.cost) > 0 && (
-                            <Text size="sm" variant="secondary">
-                              {formatCurrency(item.cost)}
-                            </Text>
+              return (
+                <div
+                  key={plan._id}
+                  className={`plan-card ${isExpanded ? 'expanded' : ''}`}
+                  onClick={() => togglePlan(plan._id)}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  aria-label={`${isExpanded ? 'Collapse' : 'Expand'} plan for ${plan.experience?.name || 'Unnamed Experience'}`}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      togglePlan(plan._id);
+                    }
+                  }}
+                >
+                  {/* Plan Header - Always Visible */}
+                  <div className="plan-header">
+                    <div className="plan-header-content">
+                      <div className="plan-title-section">
+                        <Heading level={5} className="plan-title">
+                          {plan.experience?.name || 'Unnamed Experience'}
+                        </Heading>
+                        <div className="plan-meta">
+                          <span className="meta-item">
+                            <FaTasks size={12} />
+                            {completedCount}/{itemCount} items
+                          </span>
+                          {plan.planned_date && (
+                            <span className="meta-item">
+                              <FaCalendar size={12} />
+                              {new Date(plan.planned_date).toLocaleDateString()}
+                            </span>
                           )}
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'auto' }}>
-                          <HashLink
-                            to={`/experiences/${plan.experience?._id || plan.experience}#plan-${plan._id}-item-${item.plan_item_id || item._id}`}
-                          >
-                            <Button
-                              variant="gradient"
-                              size="sm"
-                              rounded
-                              style={{ minWidth: '100px' }}
-                            >
-                              Open
-                            </Button>
-                          </HashLink>
+                      </div>
+
+                      <div className="plan-header-right">
+                        <div className="plan-cost">
+                          <Text weight="bold" size="lg">
+                            {formatCurrency(plan.total_cost || 0)}
+                          </Text>
+                        </div>
+                        <div className={`expand-icon ${isExpanded ? 'rotated' : ''}`}>
+                          <FaChevronRight size={16} />
                         </div>
                       </div>
-                      );
-                    })}
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="progress-bar-container">
+                      <div className="progress-bar">
+                        <div
+                          className="progress-fill"
+                          style={{ width: `${completionPercentage}%` }}
+                          role="progressbar"
+                          aria-valuenow={completionPercentage}
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                        />
+                      </div>
+                      <Text size="xs" variant="muted" className="progress-text">
+                        {completionPercentage}% complete
+                      </Text>
+                    </div>
                   </div>
 
-                  {/* Additional Costs */}
-                  {plan.costs && plan.costs.length > 0 && (
-                    <div style={{ marginTop: 'var(--space-5)' }}>
-                      <Heading level={6} className="mb-3">Additional Costs</Heading>
-                      <Stack spacing="2">
-                        {plan.costs.map((c) => (
-                          <FlexBetween
-                            key={c._id || `${c.title}-${c.cost}`}
-                            style={{
-                              padding: 'var(--space-2)',
-                              borderRadius: 'var(--radius-sm)',
-                              background: 'var(--color-bg-tertiary)'
-                            }}
-                          >
-                            <div style={{ flex: 1 }}>
-                              <Text weight="semibold">{c.title}</Text>
-                              {c.description && (
-                                <Text size="sm" variant="secondary">{c.description}</Text>
+                  {/* Plan Body - Collapsible */}
+                  {isExpanded && (
+                    <div className="plan-body">
+                      {/* Plan Items Grid */}
+                      <div className="plan-items-grid">
+                        {(plan.plan || []).map((item) => {
+                          const isCompleted = item.complete || false;
+                          const itemLink = `/experiences/${plan.experience?._id || plan.experience}#plan-${plan._id}-item-${item.plan_item_id || item._id}`;
+
+                          return (
+                            <HashLink
+                              key={item.plan_item_id || item._id}
+                              to={itemLink}
+                              className={`plan-item ${isCompleted ? 'completed' : ''}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {/* Completion Badge */}
+                              {isCompleted && (
+                                <div className="completion-badge">
+                                  <FaCheckCircle size={12} />
+                                  <span>Done</span>
+                                </div>
                               )}
-                            </div>
-                            <Text weight="semibold">
-                              {formatCurrency(c.cost || 0, c.currency || 'USD')}
-                            </Text>
-                          </FlexBetween>
-                        ))}
-                      </Stack>
+
+                              {/* Item Content */}
+                              <div className="item-content">
+                                <Text
+                                  weight="semibold"
+                                  className="item-text"
+                                  style={{
+                                    textDecoration: isCompleted ? 'line-through' : 'none',
+                                    color: isCompleted ? 'var(--color-text-muted)' : 'inherit'
+                                  }}
+                                >
+                                  {item.text}
+                                </Text>
+                                {Number(item.cost) > 0 && (
+                                  <Text size="sm" variant="muted" className="item-cost">
+                                    {formatCurrency(item.cost)}
+                                  </Text>
+                                )}
+                              </div>
+                            </HashLink>
+                          );
+                        })}
+                      </div>
+
+                      {/* Additional Costs */}
+                      {plan.costs && plan.costs.length > 0 && (
+                        <div className="additional-costs">
+                          <Heading level={6} className="mb-3">Additional Costs</Heading>
+                          <Stack spacing="sm">
+                            {plan.costs.map((c) => (
+                              <FlexBetween
+                                key={c._id || `${c.title}-${c.cost}`}
+                                className="cost-item"
+                              >
+                                <div className="cost-info">
+                                  <Text weight="semibold">{c.title}</Text>
+                                  {c.description && (
+                                    <Text size="sm" variant="muted">{c.description}</Text>
+                                  )}
+                                </div>
+                                <Text weight="semibold">
+                                  {formatCurrency(c.cost || 0, c.currency || 'USD')}
+                                </Text>
+                              </FlexBetween>
+                            ))}
+                          </Stack>
+                        </div>
+                      )}
+
+                      {/* View Full Experience Button */}
+                      <div className="plan-footer">
+                        <HashLink to={`/experiences/${plan.experience?._id || plan.experience}#plan-${plan._id}`}>
+                          <Button variant="outline" size="md" style={{ width: '100%' }}>
+                            View Full Experience
+                          </Button>
+                        </HashLink>
+                      </div>
                     </div>
                   )}
-                </Accordion.Body>
-              </Accordion.Item>
-            ))}
-          </Accordion>
+                </div>
+              );
+            })}
+          </Stack>
         )}
-      </Container>
+      </div>
     </FadeIn>
   );
 }

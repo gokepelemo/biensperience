@@ -1,0 +1,305 @@
+/**
+ * Responsive Form Styles - Accessibility & Dark Mode
+ * Uses clamp() for responsive sizing at any viewport
+ */
+
+@use '../abstracts' as *;
+
+/* ============================================
+   FORM CONTAINERS
+   ============================================ */
+
+form,
+.form-container {
+  width: clamp(300px, 90%, 800px);
+  margin: 0 auto;
+  padding: clamp($space-2, 2vw, $space-6);
+}
+
+/* Specific form classes */
+form.newExperience,
+form.new-experience-form,
+form.update-experience-form,
+form.new-destination-form,
+form.update-destination-form,
+form.update-profile-form,
+.login-form,
+.signup-form {
+  width: clamp(300px, 90%, 800px);
+  min-width: 300px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+input[type="checkbox"] {
+  margin: 0 !important;
+}
+
+/* ============================================
+   FORM LABELS
+   ============================================ */
+
+.form-label,
+form label,
+.new-experience-form label,
+.new-experience-form .form-label,
+.update-experience-form label,
+.update-experience-form .form-label {
+  font-size: clamp($font-size-sm, 2vw, $font-size-xl);
+  font-weight: $font-weight-semibold;
+  margin-bottom: clamp($space-1, 1vw, $space-2);
+  color: var(--color-text-primary);
+  line-height: $line-height-snug;
+}
+
+/* ============================================
+   FORM CONTROLS
+   ============================================ */
+
+.form-control,
+.form-select,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="url"],
+textarea,
+select {
+  font-size: clamp($font-size-sm, 1.5vw, $font-size-lg) !important;
+  padding: clamp($space-2, 1.5vw, $space-3) clamp($space-3, 2vw, $space-5);
+  min-height: clamp(2.5rem, 6vw, 3.5rem);
+  line-height: $line-height-normal;
+  border-radius: clamp($radius-md, 1vw, $radius-lg);
+  border: 2px solid var(--color-border-medium);
+  transition: all $transition-normal;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Specific overrides for form-specific styles */
+.new-experience-form .form-control,
+.new-experience-form .form-select,
+.update-experience-form .form-control,
+.update-experience-form .form-select {
+  font-size: clamp($font-size-sm, 1.5vw, $font-size-lg) !important;
+  padding: clamp($space-2, 1.5vw, $space-3) clamp($space-3, 2vw, $space-5) !important;
+  min-height: clamp(2.5rem, 6vw, 3.5rem);
+}
+
+/* Textareas - additional height consideration */
+textarea.form-control {
+  min-height: clamp(4rem, 10vw, 8rem);
+  resize: vertical;
+}
+
+/* ============================================
+   INPUT GROUPS
+   ============================================ */
+
+.input-group {
+  gap: clamp($space-1, 1vw, $space-2);
+  flex-wrap: wrap; /* Allow wrapping on very small screens */
+}
+
+.input-group .form-control,
+.input-group .form-select {
+  flex: 1 1 auto;
+  min-width: clamp(150px, 40%, 300px);
+}
+
+.input-group-text {
+  font-size: clamp($font-size-xs, 1.5vw, $font-size-base);
+  padding: clamp($space-2, 1.5vw, $space-3) clamp($space-2, 1.5vw, $space-3);
+  background: transparent;
+  border: none;
+}
+
+.input-group .btn {
+  min-height: clamp(2.5rem, 6vw, 3.5rem);
+  padding: clamp($space-2, 1.5vw, $space-3) clamp($space-3, 2vw, $space-6);
+  font-size: clamp($font-size-xs, 1.5vw, $font-size-base);
+  white-space: nowrap;
+}
+
+.new-experience-form .input-group,
+.update-experience-form .input-group {
+  padding: clamp($space-3, 2vw, $space-5);
+  margin-bottom: clamp($space-2, 1.5vw, $space-4);
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+form button,
+form .btn,
+.btn {
+  font-size: clamp($font-size-sm, 1.5vw, $font-size-base);
+  padding: clamp($space-2, 1.5vw, $space-3) clamp($space-4, 2.5vw, $space-6);
+  min-height: clamp(2.5rem, 6vw, 3rem);
+  border-radius: clamp($radius-md, 1vw, $radius-lg);
+}
+
+/* Submit buttons - slightly wider min-width */
+form button[type="submit"],
+form .btn-primary {
+  min-width: clamp(120px, 30%, 200px);
+}
+
+/* Button groups */
+.btn-group .btn {
+  min-width: clamp(80px, 20%, 120px);
+}
+
+/* ============================================
+   HELPER TEXT & VALIDATION
+   ============================================ */
+
+.form-text,
+small.form-text {
+  font-size: clamp($font-size-xs, 1.25vw, $font-size-sm);
+  margin-top: clamp($space-1, 0.5vw, $space-2);
+  display: block;
+  line-height: 1.4;
+}
+
+.invalid-feedback,
+.valid-feedback {
+  font-size: clamp($font-size-xs, 1.25vw, $font-size-sm);
+  margin-top: clamp($space-1, 0.5vw, $space-2);
+  display: block;
+}
+
+/* ============================================
+   FORM GROUPS & SPACING
+   ============================================ */
+
+.form-group,
+.mb-3,
+.mb-4 {
+  margin-bottom: clamp($space-3, 2vw, $space-6) !important;
+}
+
+.row {
+  row-gap: clamp($space-3, 2vw, $space-4);
+}
+
+/* ============================================
+   FOCUS STATES
+   ============================================ */
+
+.form-control:focus,
+.form-select:focus,
+.input-group:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: $shadow-sm;
+  outline: none;
+}
+
+/* High contrast focus for accessibility */
+@media (prefers-contrast: high) {
+  .form-control:focus,
+  .form-select:focus {
+    outline: 3px solid currentColor;
+    outline-offset: 2px;
+  }
+}
+
+/* ============================================
+   CHECKBOX AND RADIO BUTTONS
+   ============================================ */
+
+.form-check {
+  padding-left: 0;
+  margin-bottom: $space-4;
+}
+
+.form-check-input {
+  margin-right: $space-3;
+  margin-top: $space-1;
+  float: left;
+}
+
+.form-check-label {
+  display: inline-block;
+  padding-left: 0;
+  margin-left: 2rem;
+}
+
+.form-check .form-check-input + .form-check-label {
+  margin-left: 0;
+  padding-left: $space-2;
+}
+
+/* ============================================
+   RESPONSIVE BREAKPOINTS
+   ============================================ */
+
+/* Mobile Overrides (< 576px) */
+@media (max-width: 575.98px) {
+  form,
+  .form-container,
+  form.newExperience,
+  form.new-experience-form,
+  form.update-experience-form {
+    width: 95%;
+    min-width: 280px;
+    padding: $space-3;
+  }
+
+  .input-group {
+    flex-direction: column;
+  }
+
+  .input-group .form-control,
+  .input-group .btn {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  form button,
+  form .btn {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .form-label,
+  form label {
+    font-size: $font-size-sm;
+  }
+}
+
+/* Tablet Overrides (576px - 991px) */
+@media (min-width: 576px) and (max-width: 991.98px) {
+  form,
+  .form-container {
+    width: 85%;
+  }
+}
+
+/* Desktop Overrides (>= 992px) */
+@media (min-width: 992px) {
+  form,
+  .form-container {
+    width: 75%;
+    max-width: 800px;
+  }
+
+  .input-group {
+    flex-wrap: nowrap;
+  }
+}
+
+/* ============================================
+   REDUCED MOTION SUPPORT
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .form-control,
+  .form-select,
+  .btn,
+  .input-group {
+    transition: none;
+  }
+}

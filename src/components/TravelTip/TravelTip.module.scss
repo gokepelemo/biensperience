@@ -1,34 +1,70 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Travel Tip Component - Simple and structured travel tip display */
+/* Travel Tip Component - Modern card design with improved visual hierarchy */
 
 .travelTip {
   background: var(--color-bg-surface);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: var(--space-5);
   margin-bottom: 0;
-  box-shadow: var(--shadow-sm);
-  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid var(--color-border-light);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   position: relative;
   animation: slideIn var(--transition-slow) ease-out;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-    border-color: var(--color-border-medium);
+  // Hover for desktop, :active for mobile tap
+  &:hover,
+  &:active {
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.1);
+    z-index: 10; // Bring to front when hovering/tapping
+    overflow: visible; // Allow content to expand beyond container
+    height: auto; // Expand to fit content
+    position: absolute; // Remove from layout flow
+    width: 100%; // Keep same width as container
+    min-height: 100%; // At least as tall as original
+
+    // Easing animation for smooth height expansion
+    transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     .travelTipIconWrapper {
-      transform: scale(1.05) rotate(5deg);
-      box-shadow: var(--shadow-lg);
+      transform: scale(1.08);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .travelTipEmoji {
       opacity: 0;
+      transform: scale(0.8);
+      transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .travelTipFaIcon {
       opacity: 1;
+      transform: scale(1);
+      transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .travelTipContent {
+      max-height: none; // Remove height restriction
+      overflow-y: visible; // Show all content
+      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  }
+
+  // Mobile-specific tap interaction
+  @media (max-width: 768px) {
+    // Enable tap to expand
+    touch-action: manipulation;
+
+    &:active {
+      transform: scale(1.02); // Slight scale on tap for feedback
     }
   }
 
@@ -38,47 +74,53 @@
   }
 
   @media (max-width: 576px) {
-    padding: var(--space-3);
+    padding: var(--space-4);
   }
 
   @media (prefers-color-scheme: dark) {
-    background: var(--gradient-dark-surface);
-    border-color: var(--color-border-light);
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4), 0 8px 16px rgba(0, 0, 0, 0.3);
+    }
   }
 }
 
-/* Simple Tip Styles */
+/* Simple Tip Styles - Clean minimal design */
 .travelTipSimple {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-6);
-  min-height: 80px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  height: 100%;
 
   .travelTipIcon {
-    font-size: clamp(var(--font-size-lg), 3vw, var(--font-size-xl));
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
     flex-shrink: 0;
-    line-height: var(--line-height-none);
+    line-height: 1;
   }
 
   .travelTipText {
     flex: 1;
-    line-height: var(--line-height-normal);
-    color: var(--color-text-secondary);
-    /* Font size set dynamically via inline styles based on text length */
-    font-weight: var(--font-weight-medium);
+    line-height: 1.6;
+    color: var(--color-text-primary);
+    font-weight: 500;
     word-wrap: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
 
     @media (prefers-color-scheme: dark) {
-      color: var(--color-travel-tip-text-light);
+      color: rgba(255, 255, 255, 0.9);
     }
   }
 
   .travelTipFaIcon {
-    font-size: clamp(var(--font-size-base), 2.5vw, var(--font-size-lg));
+    font-size: clamp(1.25rem, 2.5vw, 1.5rem);
     opacity: 1;
     position: static;
   }
@@ -86,9 +128,11 @@
 
 .travelTipContentSimple {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
   flex: 1;
+  overflow: hidden; /* Prevent content overflow */
 }
 
 /* Structured Tip Styles */
@@ -96,9 +140,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  height: 100%; /* Fill parent container (280px from slider) */
+  overflow: hidden; /* Prevent overflow */
 
   .travelTipIcon {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
     line-height: var(--line-height-none);
   }
 }
@@ -114,24 +160,24 @@
   }
 }
 
-/* Icon Wrapper with Gradient Background */
+/* Icon Wrapper with Gradient Background - Refined styling */
 .travelTipIconWrapper {
-  width: var(--space-12);
-  height: var(--space-12);
+  width: 52px;
+  height: 52px;
   border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  box-shadow: var(--shadow-md);
-  transition: all var(--transition-slow) ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
 
   &.simple {
     background: var(--gradient-primary);
-    width: clamp(44px, 8vw, 52px);
-    height: clamp(44px, 8vw, 52px);
+    width: 48px;
+    height: 48px;
     border-radius: var(--radius-lg);
-    flex-shrink: 0;
   }
 }
 
@@ -178,7 +224,7 @@
 
 /* Emoji and FA Icon Display */
 .travelTipEmoji {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-base);
   position: absolute;
   opacity: 1;
   transition: opacity var(--transition-slow) ease;
@@ -186,7 +232,7 @@
 }
 
 .travelTipFaIcon {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   color: var(--color-white);
   opacity: 0;
   transition: opacity var(--transition-slow) ease;
@@ -201,15 +247,25 @@
 
 .travelTipBadge {
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-wide);
   display: inline-flex;
   align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.05);
+
+  @media (prefers-color-scheme: dark) {
+    background: rgba(255, 255, 255, 0.1);
+  }
 }
 
 .travelTipContent {
-  padding-left: calc(var(--space-12) + var(--space-3));
+  padding-left: calc(var(--space-10) + var(--space-3));
+  flex: 1;
+  overflow-y: auto; /* Allow scrolling if content is very long */
+  max-height: 100%; /* Don't exceed container */
 
   @media (max-width: 576px) {
     padding-left: 0;
@@ -222,6 +278,8 @@
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
   margin-bottom: var(--space-3);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 
   @media (prefers-color-scheme: dark) {
     color: var(--color-travel-tip-text-light);
@@ -232,7 +290,10 @@
   font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
   color: var(--color-text-secondary);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  font-style: italic;
 
   @media (prefers-color-scheme: dark) {
     color: var(--color-travel-tip-text-muted);
@@ -246,45 +307,69 @@
 }
 
 .travelTipCta {
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
+  display: flex;
+  justify-content: center;
 }
 
 .travelTipCtaButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--font-size-sm);
-  padding: var(--space-2) var(--space-4);
-  font-weight: var(--font-weight-medium);
+  padding: var(--space-3) var(--space-5);
+  font-weight: var(--font-weight-semibold);
   text-decoration: none;
-  transition: all var(--transition-fast) ease;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 100%);
+  color: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all var(--transition-normal) ease;
 
   &:hover {
-    transform: translateX(4px);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    text-decoration: none;
+    color: white;
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 
   @media (max-width: 576px) {
     font-size: var(--font-size-xs);
-    padding: var(--space-1) var(--space-3);
+    padding: var(--space-2) var(--space-4);
   }
 }
 
 /* Delete Button */
 .travelTipDelete {
   border-radius: var(--radius-full) !important;
-  width: var(--space-7) !important;
-  height: var(--space-7) !important;
-  min-width: var(--space-7) !important;
+  width: var(--space-8) !important;
+  height: var(--space-8) !important;
+  min-width: var(--space-8) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   padding: 0 !important;
   flex-shrink: 0;
-  border-color: var(--color-danger) !important;
+  border: 2px solid var(--color-danger) !important;
   color: var(--color-danger) !important;
+  background: transparent !important;
+  transition: all var(--transition-normal) ease !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
   &:hover {
     background: var(--color-danger) !important;
     color: var(--color-white) !important;
-    transform: scale(1.1);
+    transform: scale(1.08);
     border-color: var(--color-danger) !important;
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+  }
+
+  &:active {
+    transform: scale(1);
   }
 }
 

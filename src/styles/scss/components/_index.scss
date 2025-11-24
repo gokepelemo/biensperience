@@ -1,0 +1,11 @@
+/**
+ * Components Layer - Shared Component Styles
+ *
+ * This layer contains reusable component patterns that are used
+ * across multiple views and components in the application.
+ */
+
+@forward 'forms';
+@forward 'modal';
+@forward 'profile-dropdown-views';
+@forward 'text-legibility';

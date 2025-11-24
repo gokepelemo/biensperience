@@ -4,6 +4,7 @@ export { default as Pill } from './Pill';
 export { default as TagPill } from './Pill/TagPill';
 export { default as SkeletonLoader } from './SkeletonLoader';
 export { default as HashLink } from './HashLink/HashLink';
+export { default as Banner } from './Banner';
 export { Form, FormGroup, FormLabel, FormControl, FormCheck, FormText } from './Form';
 export { Table, TableHead, TableBody, TableRow, TableCell } from './Table';
 export { FlexBetween, FlexCenter, SpaceY, Container, Stack } from './Layout';

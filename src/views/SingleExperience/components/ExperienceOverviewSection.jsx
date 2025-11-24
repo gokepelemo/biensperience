@@ -9,6 +9,7 @@ import InfoCard from '../../../components/InfoCard/InfoCard';
 import GoogleMap from '../../../components/GoogleMap/GoogleMap';
 import TagPill from '../../../components/Pill/TagPill';
 import { createUrlSlug } from '../../../utilities/url-utils';
+import styles from '../SingleExperience.module.scss';
 
 export default function ExperienceOverviewSection({
   // Experience data
@@ -57,11 +58,11 @@ export default function ExperienceOverviewSection({
                 ? {
                     title: lang.en.label.experienceType,
                     content: (
-                      <div>
+                      <div className="experience-tags-container">
                         {experience.experience_type.map((type) => (
                           <TagPill
                             key={type}
-                            className="experience-tag-pill"
+                            className={styles.experienceTagPill}
                             color="primary"
                             size="sm"
                             gradient={false}

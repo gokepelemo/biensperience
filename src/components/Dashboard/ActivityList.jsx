@@ -24,7 +24,7 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
    * Render the activity description with proper formatting and links
    */
   const renderActivityDescription = (activity) => {
-    const { action, item, targetItem, link } = activity;
+    const { action, item, targetItem, link, targetLink } = activity;
 
     // For plan item completions, show more descriptive text
     // "Marked a plan item complete on {experience}" with item name as secondary detail
@@ -46,7 +46,18 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
           )}
           {' '}
           <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9em' }}>
-            ({targetItem})
+            ({targetLink ? (
+              <HashLink
+                to={targetLink}
+                activitySource="dashboard"
+                shouldShake={true}
+                style={{ color: 'var(--color-primary)', textDecoration: 'none' }}
+              >
+                {targetItem}
+              </HashLink>
+            ) : (
+              targetItem
+            )})
           </span>
         </>
       );
@@ -59,6 +70,7 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
         {link ? (
           <HashLink
             to={link}
+            activitySource="dashboard"
             style={{ fontWeight: 'bold', color: 'var(--color-primary)', textDecoration: 'none' }}
           >
             {item}
@@ -149,8 +161,11 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
       </Heading>
       <div ref={scrollRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', flex: 1, overflow: 'auto' }}>
         {activities.length > 0 ? activities.map((activity) => (
-          <div
+          <HashLink
             key={activity.id}
+            to={activity.link}
+            activitySource="dashboard"
+            shouldShake={true}
             style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -158,6 +173,24 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
               padding: 'var(--space-4)',
               backgroundColor: 'var(--color-bg-secondary)',
               borderRadius: 'var(--radius-md)',
+              textDecoration: 'none',
+              color: 'inherit',
+              transition: 'all var(--transition-normal)',
+              cursor: activity.link ? 'pointer' : 'default',
+            }}
+            onMouseEnter={(e) => {
+              if (activity.link) {
+                e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activity.link) {
+                e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }
             }}
           >
             <div style={{ flex: 1 }}>
@@ -177,7 +210,7 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
               </div>
             </div>
             {activity.link && (
-              <HashLink to={activity.link} activitySource="dashboard" shouldShake={true}>
+              <div onClick={(e) => e.stopPropagation()}>
                 <Button
                   variant="outline-secondary"
                   size="sm"
@@ -190,9 +223,9 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
                 >
                   View <FaExternalLinkAlt size={12} />
                 </Button>
-              </HashLink>
+              </div>
             )}
-          </div>
+          </HashLink>
         )) : (
           <div style={{
             textAlign: 'center',
@@ -289,7 +322,8 @@ ActivityList.propTypes = {
     action: PropTypes.string.isRequired,
     item: PropTypes.string.isRequired,
     targetItem: PropTypes.string, // For plan item completions
-    link: PropTypes.string, // Link to the resource
+    link: PropTypes.string, // Link to the primary resource
+    targetLink: PropTypes.string, // Link to the target item (e.g., plan item)
     time: PropTypes.string.isRequired,
     timestamp: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
     resourceType: PropTypes.string,

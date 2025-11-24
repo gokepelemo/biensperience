@@ -4,14 +4,17 @@
 .usersListDisplay {
   flex: 1;
   min-width: 250px;
+  display: flex;
+  flex-direction: column;
 
   :global(h6) {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     font-weight: $font-weight-semibold;
-    color: #495057;
+    color: var(--color-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: $space-2;
+    line-height: 1;
   }
 }
 

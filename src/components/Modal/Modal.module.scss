@@ -73,15 +73,16 @@
 
 /* Size Variants */
 .modalSm {
-  max-width: var(--modal-width-sm);
+  max-width: 400px; /* Small modal for simple dialogs */
 }
 
 .modalLg {
-  max-width: var(--modal-width-lg);
+  max-width: 800px; /* Standard large modal */
 }
 
 .modalXl {
-  max-width: var(--modal-width-xl);
+  max-width: 1200px; /* Extra large modal for notes, documents, complex content */
+  width: 95%; /* Use most of viewport width on smaller screens */
 }
 
 /* Responsive Modal Sizing */

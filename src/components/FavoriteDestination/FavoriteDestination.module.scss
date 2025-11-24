@@ -51,6 +51,12 @@
   /* Fit content width with comfortable padding */
   width: fit-content;
   white-space: nowrap;
+  /* Match SingleExperience action button height */
+  height: 40px !important;
+  min-height: 40px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 /* Turn green when hovering on add state */

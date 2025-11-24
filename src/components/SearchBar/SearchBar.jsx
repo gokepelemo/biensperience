@@ -34,14 +34,15 @@ export default function SearchBar({
     try {
       const trimmed = query.trim();
       const searchResults = await searchAll(trimmed);
-      
+
       // Transform results to match Autocomplete component format
       // Group by type to maintain visual separation
-      
+
       // First, collect destination experienceCounts for use in experiences
       const destinationCounts = {};
       // Prefer backend-provided order; if no score, we'll compute a simple fallback below
-      const rawResults = Array.isArray(searchResults.results) ? [...searchResults.results] : [];
+      // searchAll() returns an array directly, not { results: [...] }
+      const rawResults = Array.isArray(searchResults) ? [...searchResults] : [];
 
       // If backend didn't already sort by score, sort locally by basic relevance as fallback
       if (rawResults.length > 0 && rawResults.every(r => typeof r.score !== 'number')) {

@@ -38,7 +38,71 @@
   flex-shrink: 0;
 }
 
-/* Grid Layout for Tips */
+/* Slider Container */
+.travelTipsSlider {
+  position: relative;
+  margin: 0 -#{$space-4}; /* Negative margin to allow slides to peek */
+  padding: $space-2 $space-4; /* Add top padding for hover lift */
+  overflow: visible; /* Ensure cards aren't clipped on hover */
+
+  /* Slick track needs visible overflow too */
+  :global(.slick-list) {
+    overflow: visible;
+  }
+
+  :global(.slick-track) {
+    display: flex;
+  }
+
+  /* Slick slider arrow customization */
+  :global(.slick-prev),
+  :global(.slick-next) {
+    width: 40px;
+    height: 40px;
+    z-index: 10;
+    background: var(--color-primary);
+    border-radius: $radius-full;
+    transition: background-color var(--transition-fast);
+    transform: translateY(0); /* Prevent layout shifts */
+
+    &:before {
+      font-size: 20px;
+      opacity: 1;
+    }
+
+    &:hover {
+      background: var(--color-primary-dark);
+      transform: translateY(0) !important; /* Override any global hover transforms */
+    }
+  }
+
+  :global(.slick-prev) {
+    left: -10px;
+  }
+
+  :global(.slick-next) {
+    right: -10px;
+  }
+
+  :global(.slick-disabled) {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
+/* Individual slide wrapper */
+.travelTipSlide {
+  padding: $space-2 $space-3; /* Add top padding for hover lift + horizontal spacing */
+  box-sizing: border-box;
+  height: 290px; /* Fixed height for all slides (increased to accommodate padding) */
+
+  /* Ensure the TravelTip component fills the slide */
+  > * {
+    height: 100%;
+  }
+}
+
+/* Grid Layout for Tips (fallback for editable mode) */
 .travelTipsGrid {
   display: grid;
   grid-template-columns: 1fr;

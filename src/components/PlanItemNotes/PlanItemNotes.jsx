@@ -5,13 +5,16 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
+import { Dropdown } from 'react-bootstrap';
 import { Button } from '../../components/design-system';
 import { FaPaperPlane, FaSearch, FaPlus, FaTimes } from 'react-icons/fa';
 import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
-import { renderTextWithMentions } from '../../utilities/mentions';
+import FormField from '../FormField/FormField';
+import { renderTextWithMentions, mentionsToPlainText } from '../../utilities/mentions';
 import useEntityResolver from '../../hooks/useEntityResolver';
+import { createFilter } from '../../utilities/trie';
 import styles from './PlanItemNotes.module.scss';
 
 /**
@@ -100,6 +103,13 @@ export default function PlanItemNotes({
   availableEntities = [],
   entityData = {}
 }) {
+  // Visibility options for notes
+  const visibilityOptions = [
+    { value: 'public', label: 'Public', icon: '🌐' },
+    { value: 'contributors', label: 'Contributors Only', icon: '👥' },
+    { value: 'private', label: 'Private', icon: '🔒' }
+  ];
+
   const [newNoteContent, setNewNoteContent] = useState('');
   const [newNoteVisibility, setNewNoteVisibility] = useState('public');
   const [editingNoteId, setEditingNoteId] = useState(null);
@@ -108,21 +118,56 @@ export default function PlanItemNotes({
   const [isAdding, setIsAdding] = useState(false);
   const [showAddNoteForm, setShowAddNoteForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const notesPerPage = 5;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState(null);
 
-  // Filtered and paginated notes
-  const filteredNotes = useMemo(() => {
-    if (!searchQuery.trim()) return notes;
+  // Build generic TrieFilter index for fast searching (memoized)
+  // Supports filtering by content (high priority), author name (medium), and date (low)
+  const notesFilter = useMemo(() => {
+    return createFilter({
+      fields: [
+        {
+          path: 'content',
+          score: 100, // Note content gets highest priority
+          // Transform mentions from {entity/id} to @EntityName for searchability
+          transform: (content) => {
+            // Convert mentions to plain text so searching for "Paris" finds "{destination/123}"
+            return mentionsToPlainText(content, entityData);
+          }
+        },
+        { path: 'user.name', score: 50 }, // Author name gets medium priority
+        {
+          path: 'createdAt',
+          score: 20,
+          // Transform date to searchable strings
+          transform: (date) => {
+            const d = new Date(date);
+            return [
+              d.toLocaleDateString(), // "11/23/2025"
+              d.toLocaleString('en-US', { month: 'short' }), // "Nov"
+              d.toLocaleString('en-US', { month: 'long' }), // "November"
+              d.getFullYear().toString() // "2025"
+            ];
+          }
+        }
+      ]
+    }).buildIndex(notes);
+  }, [notes, entityData]);
 
-    const query = searchQuery.toLowerCase();
-    return notes.filter(note =>
-      note.content?.toLowerCase().includes(query) ||
-      note.user?.name?.toLowerCase().includes(query)
-    );
-  }, [notes, searchQuery]);
+  // Get autocomplete suggestions using generic utility
+  const searchSuggestions = useMemo(() => {
+    if (!searchQuery.trim() || searchQuery.length < 2) return [];
+    return notesFilter.getSuggestions(searchQuery, 5);
+  }, [searchQuery, notesFilter]);
+
+  // Trie-based search with O(m) lookup complexity where m = query length
+  // Real-time filtering as user types using generic TrieFilter
+  const filteredNotes = useMemo(() => {
+    return notesFilter.filter(searchQuery);
+  }, [searchQuery, notesFilter]);
 
   const paginatedNotes = useMemo(() => {
     const startIndex = (currentPage - 1) * notesPerPage;
@@ -221,32 +266,43 @@ export default function PlanItemNotes({
     <div className={styles.planItemNotesChat}>
       {/* Search and Add Note Header */}
       <div className={styles.notesHeader}>
-        <div className={styles.notesSearchWrapper}>
-          <div className={styles.searchIconContainer}>
-            <FaSearch className={styles.searchIcon} />
-          </div>
-          <input
+        <div className={styles.searchContainer}>
+          <FormField
+            name="searchNotes"
             type="text"
-            placeholder="Search notes..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setCurrentPage(1); // Reset to first page on search
+              setShowSuggestions(true);
             }}
-            className={styles.searchInput}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+            placeholder="Search notes..."
+            prepend={<FaSearch />}
             disabled={disabled}
-            aria-label="Search notes"
           />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className={styles.clearSearchButton}
-              aria-label="Clear search"
-              disabled={disabled}
-            >
-              <FaTimes />
-            </button>
+
+          {/* Autocomplete suggestions dropdown */}
+          {showSuggestions && searchSuggestions.length > 0 && (
+            <div className={styles.searchSuggestions}>
+              {searchSuggestions.map((suggestion, index) => (
+                <div
+                  key={index}
+                  className={styles.suggestionItem}
+                  onClick={() => {
+                    // Replace last word with suggestion
+                    const words = searchQuery.split(/\s+/);
+                    words[words.length - 1] = suggestion.word;
+                    setSearchQuery(words.join(' '));
+                    setShowSuggestions(false);
+                  }}
+                >
+                  <FaSearch className={styles.suggestionIcon} />
+                  <span className={styles.suggestionText}>{suggestion.word}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -332,12 +388,7 @@ export default function PlanItemNotes({
             return (
               <div
                 key={note._id}
-                style={{
-                  display: 'flex',
-                  justifyContent: isAuthor ? 'flex-end' : 'flex-start',
-                  marginBottom: 'var(--space-4)',
-                  gap: 'var(--space-2)'
-                }}
+                className={`${styles.messageRow} ${isAuthor ? styles.messageRowAuthor : styles.messageRowReceived}`}
               >
                 {/* Avatar for received messages */}
                 {!isAuthor && (
@@ -349,52 +400,72 @@ export default function PlanItemNotes({
                 )}
 
                 {/* Message bubble */}
-                <div style={{ maxWidth: '70%', minWidth: '120px' }}>
+                <div className={`${styles.messageBubble} ${isEditing ? styles.messageBubbleEdit : styles.messageBubbleView}`}>
                   {/* User name header (for received messages) */}
                   {!isAuthor && (
-                    <div style={{
-                      fontSize: 'var(--font-size-xs)',
-                      color: 'var(--color-text-muted)',
-                      marginBottom: 'var(--space-1)',
-                      paddingLeft: 'var(--space-3)'
-                    }}>
+                    <div className={styles.messageUserName}>
                       {note.user?.name || 'Unknown User'}
                     </div>
                   )}
 
                   {isEditing ? (
                     // Edit mode with InteractiveTextArea
-                    <div style={{
-                      backgroundColor: 'var(--color-bg-secondary)',
-                      borderRadius: 'var(--radius-xl)',
-                      padding: 'var(--space-3)',
-                    }}>
-                      <InteractiveTextArea
-                        value={editContent}
-                        onChange={setEditContent}
-                        visibility={editVisibility}
-                        onVisibilityChange={setEditVisibility}
-                        availableEntities={availableEntities}
-                        entityData={entityData}
-                        placeholder="Edit your note..."
-                        rows={3}
-                      />
-                      <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end', marginTop: 'var(--space-2)' }}>
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={() => handleSaveEdit(note._id)}
-                          disabled={!editContent.trim()}
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={handleCancelEdit}
-                        >
-                          Cancel
-                        </Button>
+                    <div className={styles.editNoteContainer}>
+                      <div className={styles.editNoteTextareaWrapper}>
+                        <InteractiveTextArea
+                          value={editContent}
+                          onChange={setEditContent}
+                          visibility={editVisibility}
+                          onVisibilityChange={setEditVisibility}
+                          availableEntities={availableEntities}
+                          entityData={entityData}
+                          placeholder="Edit your note..."
+                          rows={3}
+                          showFooter={false}
+                        />
+                      </div>
+                      {/* Custom footer row with Visibility on left, Save/Cancel on right */}
+                      <div className={styles.editNoteFooter}>
+                        {/* Visibility selector on the left */}
+                        <Dropdown onSelect={setEditVisibility}>
+                          <Dropdown.Toggle
+                            variant="outline-secondary"
+                            size="sm"
+                            className={styles.visibilitySelector}
+                          >
+                            {visibilityOptions.find(opt => opt.value === editVisibility)?.icon}{' '}
+                            {visibilityOptions.find(opt => opt.value === editVisibility)?.label}
+                          </Dropdown.Toggle>
+                          <Dropdown.Menu>
+                            {visibilityOptions.map(option => (
+                              <Dropdown.Item
+                                key={option.value}
+                                eventKey={option.value}
+                                active={editVisibility === option.value}
+                              >
+                                {option.icon} {option.label}
+                              </Dropdown.Item>
+                            ))}
+                          </Dropdown.Menu>
+                        </Dropdown>
+                        {/* Save/Cancel buttons on the right */}
+                        <div className={styles.editNoteActions}>
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => handleSaveEdit(note._id)}
+                            disabled={!editContent.trim()}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={handleCancelEdit}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ) : (

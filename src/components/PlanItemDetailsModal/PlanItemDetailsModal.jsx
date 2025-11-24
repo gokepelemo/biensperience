@@ -164,7 +164,7 @@ export default function PlanItemDetailsModal({
       show={show}
       onClose={onClose}
       title="Plan Item Details"
-      size="lg"
+      size="xl"
     >
       <div className={styles.planItemDetailsModal}>
         {/* Plan item header */}

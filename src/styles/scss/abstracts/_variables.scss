@@ -20,11 +20,26 @@ $space-1: 0.25rem;   // 4px
 $space-2: 0.5rem;    // 8px
 $space-3: 0.75rem;   // 12px
 $space-4: 1rem;      // 16px
-$space-5: 1.5rem;    // 24px
-$space-6: 2rem;      // 32px
-$space-8: 3rem;      // 48px
-$space-10: 4rem;     // 64px
-$space-12: 6rem;     // 96px
+$space-5: 1.25rem;   // 20px
+$space-6: 1.5rem;    // 24px
+$space-7: 1.75rem;   // 28px
+$space-8: 2rem;      // 32px
+$space-10: 2.5rem;   // 40px
+$space-12: 3rem;     // 48px
+$space-16: 4rem;     // 64px
+$space-20: 5rem;     // 80px
+$space-24: 6rem;     // 96px
+
+// Mobile-optimized spacing
+$space-mobile-xs: 0.5rem;   // 8px
+$space-mobile-sm: 0.75rem;  // 12px
+$space-mobile-md: 1rem;     // 16px
+$space-mobile-lg: 1.5rem;   // 24px
+$space-mobile-xl: 2rem;     // 32px
+
+// Container padding
+$container-padding: 1rem;
+$container-padding-mobile: 0.75rem;
 
 // ============================================================================
 // TYPOGRAPHY
@@ -43,16 +58,23 @@ $font-weight-semibold: 600;
 $font-weight-bold: 700;
 $font-weight-extrabold: 800;
 
-// Font Sizes (base scale)
-$font-size-xs: 0.75rem;    // 12px
-$font-size-sm: 0.875rem;   // 14px
-$font-size-base: 1rem;     // 16px
-$font-size-lg: 1.125rem;   // 18px
-$font-size-xl: 1.25rem;    // 20px
-$font-size-2xl: 1.5rem;    // 24px
-$font-size-3xl: 1.875rem;  // 30px
-$font-size-4xl: 2.25rem;   // 36px
-$font-size-5xl: 3rem;      // 48px
+// Font Sizes (responsive with clamp for fluid scaling)
+$font-size-xs: clamp(0.75rem, 1vw, 0.875rem);        // 12px - 14px
+$font-size-sm: clamp(0.875rem, 1.25vw, 1rem);        // 14px - 16px
+$font-size-base: clamp(0.9375rem, 1.5vw, 1.0625rem); // 15px - 17px
+$font-size-lg: clamp(1.0625rem, 2vw, 1.3125rem);     // 17px - 21px
+$font-size-xl: clamp(1.25rem, 2.5vw, 1.5rem);        // 20px - 24px
+$font-size-2xl: clamp(1.5rem, 3vw, 1.875rem);        // 24px - 30px
+$font-size-3xl: clamp(1.875rem, 4vw, 2.25rem);       // 30px - 36px
+$font-size-4xl: clamp(2.25rem, 5vw, 3rem);           // 36px - 48px
+$font-size-5xl: clamp(3rem, 6vw, 4rem);              // 48px - 64px
+
+// Mobile-specific font sizes
+$font-size-mobile-sm: 0.875rem;    // 14px
+$font-size-mobile-base: 1rem;      // 16px
+$font-size-mobile-lg: 1.125rem;    // 18px
+$font-size-mobile-xl: 1.5rem;      // 24px
+$font-size-mobile-2xl: 2rem;       // 32px
 
 // Line Heights
 $line-height-none: 1;
@@ -76,71 +98,110 @@ $letter-spacing-widest: 0.1em;
 
 // Brand Colors
 $color-primary: #667eea;
-$color-primary-light: #7c8ff0;
-$color-primary-dark: #5568d3;
+$color-primary-light: rgba(102, 126, 234, 0.1);
+$color-primary-dark: #764ba2;
+$color-primary-hover: #5a67d8;
 $color-secondary: #764ba2;
 $color-accent: #f093fb;
 
 // Semantic Colors
-$color-success: #10b981;
-$color-warning: #f59e0b;
-$color-danger: #ef4444;
-$color-info: #3b82f6;
+$color-success: #28a745;
+$color-success-light: rgba(40, 167, 69, 0.1);
+$color-success-dark: #218838;
+$color-warning: #ffc107;
+$color-warning-light: rgba(255, 193, 7, 0.1);
+$color-warning-dark: #e0a800;
+$color-danger: #dc3545;
+$color-danger-light: rgba(220, 53, 69, 0.1);
+$color-danger-dark: #c82333;
+$color-info: #17a2b8;
+$color-info-light: rgba(23, 162, 184, 0.1);
+$color-info-dark: #138496;
+
+// Text Colors on Colored Backgrounds
+$color-on-primary: #ffffff;
+$color-on-success: #ffffff;
+$color-on-warning: #1a202c;
+$color-on-danger: #ffffff;
+$color-on-info: #ffffff;
 
 // Text Colors
 $color-text-primary: #1a202c;
-$color-text-secondary: #4a5568;
-$color-text-muted: #a0aec0;
+$color-text-secondary: #2d3748;
+$color-text-tertiary: #4a5568;
+$color-text-muted: #5a6370;
+$color-text-disabled: #9ca3af;
 $color-text-inverse: #ffffff;
 
 // Background Colors
 $color-bg-primary: #ffffff;
-$color-bg-secondary: #f7fafc;
-$color-bg-tertiary: #edf2f7;
-$color-bg-hover: #e2e8f0;
+$color-bg-secondary: #f8f9fa;
+$color-bg-tertiary: #e9ecef;
+$color-bg-hover: rgba(102, 126, 234, 0.05);
+$color-bg-overlay: rgba(0, 0, 0, 0.75);
+$color-bg-overlay-light: rgba(255, 255, 255, 0.15);
+$color-bg-input: #ffffff;
 
 // Border Colors
-$color-border-light: #e2e8f0;
-$color-border-medium: #cbd5e0;
-$color-border-dark: #a0aec0;
+$color-border-light: rgba(0, 0, 0, 0.05);
+$color-border-medium: rgba(0, 0, 0, 0.1);
+$color-border-dark: rgba(0, 0, 0, 0.2);
+$color-border-primary: rgba(102, 126, 234, 0.2);
+$color-border-overlay: rgba(255, 255, 255, 0.25);
 
 // ============================================================================
 // SHADOWS
 // ============================================================================
-$shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-$shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+// Box Shadows
+$shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+$shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.1);
+$shadow-md: 0 4px 12px rgba(102, 126, 234, 0.15);
+$shadow-lg: 0 10px 30px rgba(102, 126, 234, 0.2);
+$shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.25);
 $shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+// Text Shadows
+$shadow-text-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+$shadow-text-md: 0 2px 4px rgba(0, 0, 0, 0.1);
 
 // ============================================================================
 // BORDER RADIUS
 // ============================================================================
 $radius-none: 0;
-$radius-sm: 0.25rem;   // 4px
-$radius-md: 0.5rem;    // 8px
-$radius-lg: 0.75rem;   // 12px
-$radius-xl: 1rem;      // 16px
-$radius-2xl: 1.5rem;   // 24px
+$radius-sm: 0.375rem;   // 6px (standardized from design-tokens.css)
+$radius-md: 0.5rem;     // 8px
+$radius-lg: 0.75rem;    // 12px
+$radius-xl: 1rem;       // 16px
+$radius-2xl: 1.5rem;    // 24px
 $radius-full: 9999px;
 
 // ============================================================================
 // TRANSITIONS
 // ============================================================================
-$transition-fast: 150ms;
-$transition-normal: 250ms;
-$transition-slow: 350ms;
-
+// Easing curves (for use with transition durations)
 $easing-linear: linear;
 $easing-ease: ease;
 $easing-ease-in: ease-in;
 $easing-ease-out: ease-out;
 $easing-ease-in-out: ease-in-out;
+$easing-custom: cubic-bezier(0.4, 0, 0.2, 1);
+
+// Transition durations (use with easing curves)
+$transition-fast: 150ms;
+$transition-base: 200ms;
+$transition-normal: 300ms;
+$transition-slow: 500ms;
+
+// Combined transitions (duration + easing) - for CSS custom properties
+$transition-fast-smooth: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-base-smooth: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-normal-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-slow-smooth: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 
 // ============================================================================
 // Z-INDEX SCALE
 // ============================================================================
+$z-index-base: 0;
 $z-index-dropdown: 1000;
 $z-index-sticky: 1020;
 $z-index-fixed: 1030;

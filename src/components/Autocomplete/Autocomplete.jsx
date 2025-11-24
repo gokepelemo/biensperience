@@ -230,6 +230,13 @@ export default function Autocomplete({
     }
   }, [highlightedIndex]);
 
+  // Open dropdown when items arrive from API (if user has typed something)
+  useEffect(() => {
+    if (items.length > 0 && currentValue.trim().length > 0 && !isOpen) {
+      setIsOpen(true);
+    }
+  }, [items, currentValue, isOpen]);
+
   return (
   <div className={`autocomplete-wrapper autocomplete-size-${size} ${isOpen ? 'autocomplete-open' : ''}`}>
       {/* Search Input */}

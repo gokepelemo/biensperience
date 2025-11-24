@@ -21,11 +21,13 @@
   padding: $space-4;
   background-color: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border-light);
-  align-items: center;
+  align-items: center; /* Center align items vertically */
+  justify-content: space-between; /* Push button to the right */
+  flex-wrap: nowrap; /* Keep items on same line */
 
   @media (max-width: 768px) {
-    flex-direction: column;
-    align-items: stretch;
+    gap: $space-2; /* Reduce gap on mobile */
+    padding: $space-3;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -34,103 +36,79 @@
   }
 }
 
-/* Search wrapper - input group replacement */
-.notesSearchWrapper {
+// Search container inside header
+.searchContainer {
   flex: 1;
   max-width: 400px;
   position: relative;
-  @inline-stack(0);
-  align-items: center;
-  background-color: var(--color-bg-primary);
-  border: 1px solid var(--color-border-medium);
-  border-radius: $radius-md;
-  transition: border-color var(--transition-fast);
-
-  &:focus-within {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.15);
-  }
+  min-width: 0; /* Allow flex item to shrink below content size */
 
   @media (max-width: 768px) {
     max-width: none;
   }
+}
+
+// Add Note Button
+.addNoteButton {
+  flex-shrink: 0; /* Prevent button from shrinking */
+  white-space: nowrap; /* Keep button text on one line */
+}
+
+/* Autocomplete Search Suggestions */
+.searchSuggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: $space-1;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-medium);
+  border-radius: $radius-md;
+  box-shadow: var(--shadow-lg);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
 
   @media (prefers-color-scheme: dark) {
-    background-color: var(--color-bg-secondary);
+    background: var(--color-bg-tertiary);
     border-color: var(--color-border-dark);
-
-    &:focus-within {
-      border-color: var(--color-primary);
-    }
   }
 }
 
-.searchIconContainer {
-  @include flex-center;
-  padding: 0 $space-3;
-  color: var(--color-text-muted);
-
-  @media (prefers-color-scheme: dark) {
-    color: var(--color-text-muted);
-  }
-}
-
-.searchIcon {
-  font-size: var(--font-size-base);
-}
-
-.searchInput {
-  flex: 1;
-  border: none;
-  background: transparent;
-  padding: $space-2 $space-2;
-  color: var(--color-text-primary);
-  font-size: $font-size-sm;
-  outline: none;
-
-  &::placeholder {
-    color: var(--color-text-muted);
-
-    @media (prefers-color-scheme: dark) {
-      color: var(--color-text-muted);
-    }
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    color: var(--color-text-primary);
-  }
-}
-
-.clearSearchButton {
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
+.suggestionItem {
+  @inline-stack($space-2);
   padding: $space-2 $space-3;
   cursor: pointer;
-  @include flex-center;
-  transition: color var(--transition-fast);
+  transition: background-color var(--transition-fast);
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-light);
 
-  &:hover:not(:disabled) {
-    color: var(--color-text-primary);
-
-    @media (prefers-color-scheme: dark) {
-      color: var(--color-text-primary);
-    }
+  &:last-child {
+    border-bottom: none;
   }
 
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
+  &:hover {
+    background: var(--color-bg-hover);
   }
 
   @media (prefers-color-scheme: dark) {
-    color: var(--color-text-muted);
+    border-bottom-color: var(--color-border-dark);
+
+    &:hover {
+      background: rgba(var(--color-primary-rgb), 0.1);
+    }
   }
+}
+
+.suggestionIcon {
+  color: var(--color-text-muted);
+  font-size: $font-size-sm;
+}
+
+.suggestionText {
+  color: var(--color-text-primary);
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
 }
 
 .addNoteButton {
@@ -282,4 +260,97 @@
   font-size: $font-size-sm;
   color: var(--color-text-secondary);
   padding: 0 $space-2;
+}
+
+/* Edit Note Container */
+.editNoteContainer {
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-xl);
+  padding: $space-3;
+  position: relative;
+}
+
+.editNoteTextareaWrapper {
+  position: relative;
+
+  /* Move the InteractiveTextArea's footer content to position absolute
+     so we can integrate it with our custom footer */
+  :global(.interactiveTextarea) {
+    /* Remove bottom margin/padding from textarea */
+    margin-bottom: 0;
+  }
+}
+
+.editNoteFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: $space-2;
+  margin-top: $space-2;
+  border-top: 1px solid var(--color-border-light);
+
+  @media (prefers-color-scheme: dark) {
+    border-top-color: var(--color-border-dark);
+  }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $space-2;
+  }
+}
+
+.editNoteActions {
+  display: flex;
+  gap: $space-2;
+  align-items: center;
+  justify-content: flex-end; /* Align to right */
+
+  @media (max-width: 768px) {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+.visibilitySelector {
+  font-size: $font-size-sm;
+  white-space: nowrap;
+}
+
+/* Message Row - chat message container */
+.messageRow {
+  display: flex;
+  margin-bottom: var(--space-4);
+  gap: var(--space-2);
+
+  &.messageRowAuthor {
+    justify-content: flex-end;
+  }
+
+  &.messageRowReceived {
+    justify-content: flex-start;
+  }
+}
+
+/* Message Bubble - content container */
+.messageBubble {
+  min-width: 120px;
+
+  &.messageBubbleView {
+    max-width: 70%;
+    width: auto;
+  }
+
+  &.messageBubbleEdit {
+    flex: 1; /* Take remaining space in flex container */
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+.messageUserName {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+  padding-left: var(--space-3);
 }

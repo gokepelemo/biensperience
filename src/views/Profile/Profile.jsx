@@ -525,7 +525,8 @@ export default function Profile() {
                   {!isLoadingProfile && (
                     <div className="dropdown">
                       <Button
-                        variant="outline-secondary"
+                        variant="bootstrap"
+                        bootstrapVariant="outline-secondary"
                         type="button"
                         data-bs-toggle="dropdown"
                         aria-expanded="false"

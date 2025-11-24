@@ -33,38 +33,8 @@ const UsersListDisplay = ({
   loading = false,
   reserveSpace = false
 }) => {
-  // Show loading placeholder if loading
-  if (loading) {
-    return (
-      <div className={`${styles.usersListDisplay} ${className}`} style={{ minHeight: '40px', minWidth: '200px', opacity: 0.5 }}>
-        {/* Always show heading to prevent layout shift */}
-        <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
-        <div className="d-flex align-items-center">
-          <div className={styles.usersAvatarStack}>
-            <div className={`user-avatar user-avatar-${size} stacked-avatar`} style={{ backgroundColor: '#e0e0e0' }}>
-              <div className="avatar-initials">...</div>
-            </div>
-          </div>
-          {showMessage && (
-            <div className="ms-3">
-              <p className="mb-0 text-muted small">
-                Loading
-                <span className={styles.animatedDots} aria-hidden="true">
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
-                </span>
-                <span className="visually-hidden"> Loading</span>
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Reserve space if requested and no users
-  if (reserveSpace && !owner && (!users || users.length === 0)) {
+  // Reserve space if requested and no users (and not loading)
+  if (!loading && reserveSpace && !owner && (!users || users.length === 0)) {
     return (
       <div className={`${styles.usersListDisplay} ${className}`} style={{ minHeight: '40px', minWidth: '200px' }}>
         {/* Always show heading to prevent layout shift */}
@@ -73,13 +43,13 @@ const UsersListDisplay = ({
     );
   }
 
-  // Don't render if there's no owner and no users (0 people total)
-  if (!owner && (!users || users.length === 0)) {
+  // Don't render if there's no owner and no users (0 people total) and not loading
+  if (!loading && !owner && (!users || users.length === 0)) {
     return null;
   }
 
-  // If only owner, show single avatar without overlap
-  if (users.length === 0 && owner) {
+  // If only owner, show single avatar without overlap (and not loading)
+  if (!loading && users.length === 0 && owner) {
     return (
       <div className={`${styles.usersListDisplay} ${styles.usersListSingle} ${className}`}>
         {showHeading && (
@@ -91,16 +61,18 @@ const UsersListDisplay = ({
   }
 
   // Calculate expected count for loading placeholders
-  const expectedCount = loading ? Math.max(1, users.length + (owner ? 1 : 0)) : users.length + (owner ? 1 : 0);
+  const expectedCount = loading ? Math.max(1, (users?.length || 0) + (owner ? 1 : 0)) : (users?.length || 0) + (owner ? 1 : 0);
   const totalCount = expectedCount;
   const remainingCount = Math.max(0, expectedCount - maxVisible);
   
   // Get singular and plural message keys
   const singularKey = `person${messageKey}`;
   const pluralKey = `people${messageKey}`;
-  
+
   // Get message from lang constants
-  const message = totalCount === 1
+  const message = loading
+    ? "Loading..." // Show loading message when loading
+    : totalCount === 1
     ? lang.en.message[singularKey]?.replace('{count}', totalCount)
     : lang.en.message[pluralKey]?.replace('{count}', totalCount);
 
@@ -109,60 +81,61 @@ const UsersListDisplay = ({
       {showHeading && (
         <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
       )}
-      <div className="d-flex align-items-center">
-        <div className={styles.usersAvatarStack}>
-          {/* Loading State: Show blank avatar placeholders */}
-          {loading ? (
-            Array.from({ length: Math.min(expectedCount, maxVisible + (remainingCount > 0 ? 1 : 0)) }, (_, idx) => (
+
+      {/* Loading State: Show only "Loading..." text with animated dots */}
+      {loading ? (
+        <div className="d-flex align-items-center">
+          <p className="mb-0 text-muted small">
+            Loading
+            <span className={styles.animatedDots} aria-hidden="true">
+              <span className={styles.dot} />
+              <span className={styles.dot} />
+              <span className={styles.dot} />
+            </span>
+            <span className="visually-hidden"> Loading</span>
+          </p>
+        </div>
+      ) : (
+        <div className="d-flex align-items-center">
+          <div className={styles.usersAvatarStack}>
+            {/* Owner Avatar */}
+            {owner && (
+              <UserAvatar
+                user={owner}
+                size={size}
+                className="stacked-avatar"
+              />
+            )}
+
+            {/* Additional User Avatars */}
+            {users.slice(0, maxVisible).map((user, idx) => (
+              <UserAvatar
+                key={user._id || idx}
+                user={user}
+                size={size}
+                className="stacked-avatar"
+              />
+            ))}
+
+            {/* +N Badge */}
+            {remainingCount > 0 && (
               <div
-                key={`loading-${idx}`}
-                className={`user-avatar user-avatar-${size} stacked-avatar ${styles.loadingPlaceholder}`}
-                title="Loading..."
+                className={`user-avatar user-avatar-${size} avatar-more stacked-avatar`}
+                title={`${remainingCount} more`}
               >
-                <div className="avatar-initials">?</div>
+                <div className="avatar-initials">+{remainingCount}</div>
               </div>
-            ))
-          ) : (
-            <>
-              {/* Owner Avatar */}
-              {owner && (
-                <UserAvatar 
-                  user={owner} 
-                  size={size}
-                  className="stacked-avatar"
-                />
-              )}
-              
-              {/* Additional User Avatars */}
-              {users.slice(0, maxVisible).map((user, idx) => (
-                <UserAvatar 
-                  key={user._id || idx}
-                  user={user} 
-                  size={size}
-                  className="stacked-avatar"
-                />
-              ))}
-              
-              {/* +N Badge */}
-              {remainingCount > 0 && (
-                <div 
-                  className={`user-avatar user-avatar-${size} avatar-more stacked-avatar`}
-                  title={`${remainingCount} more`}
-                >
-                  <div className="avatar-initials">+{remainingCount}</div>
-                </div>
-              )}
-            </>
+            )}
+          </div>
+
+          {/* Count Message */}
+          {showMessage && message && (
+            <div className="ms-3">
+              <p className="mb-0 text-muted small">{message}</p>
+            </div>
           )}
         </div>
-        
-        {/* Count Message */}
-        {showMessage && message && (
-          <div className="ms-3">
-            <p className="mb-0 text-muted small">{message}</p>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };

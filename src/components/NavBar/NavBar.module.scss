@@ -128,6 +128,66 @@
     flex-shrink: 0; /* Prevent hamburger from shrinking */
     align-self: flex-start; /* Keep hamburger at top */
     margin-left: auto; /* Push to the right */
+    /* Strongly enforce right alignment on small screens in case other
+       global styles or third-party CSS change the default flow. */
+    order: 2;
+    margin-left: auto !important;
+  }
+
+  /* Ensure collapse content (nav links, search, actions) stacks below the
+     toggler on small screens so the toggler remains at the right edge. */
+  :global(.navbar-collapse) {
+    order: 3;
+    width: 100%;
+  }
+
+  .navbarBrandWrapper {
+    order: 1;
+    flex: 1; /* Keep brand expansive to push toggler to the right */
+  }
+
+  /* Use absolute positioning as a stronger enforcement for right-edge
+     positioning on narrow viewports. Position relative on the container
+     ensures the toggler stays inside the navbar container. */
+  .navbar > :global(.container-fluid) {
+    position: relative;
+  }
+
+  :global(.navbar-toggler) {
+    /* Absolute-right placement with safe offset; stays on top of content */
+    position: absolute;
+    right: $space-3;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 20; /* Above other navbar content */
+  }
+
+  /* Prevent brand or other elements from being covered by the absolute toggler */
+  .navbarBrandWrapper {
+    padding-right: calc(#{$space-6} + 8px);
+  }
+
+  /* When the mobile menu is open, position it below the navbar so it
+     does not cover the navbar content. This makes the dropdown "drop"
+     under the bar rather than overlaying it. */
+  :global(.navbar-collapse.collapse.show) {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background: #1e1e1e; /* Match navbar background */
+    z-index: 15; /* Below the toggler but above page content */
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    padding: $space-3 0;
+  }
+
+  /* Ensure collapse children stack vertically and have expected spacing */
+  :global(.navbar-collapse .navbar-nav) {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: 0 $space-3;
   }
 }
 
@@ -146,6 +206,12 @@
     color: white !important; /* Same color as site title */
     background: transparent; /* No background change */
     opacity: 1;
+  }
+
+  /* Active state - full opacity to show current section */
+  &.active {
+    opacity: 1;
+    color: white !important;
   }
 
   &:focus-visible {
@@ -242,10 +308,16 @@
     border-top-right-radius: 0;
   }
 
-  &.active,
-  &:active {
+  /* Active state - NO background highlight for previous item */
+  &.active {
     background: var(--gradient-primary) !important;
     color: white !important;
+  }
+
+  /* Disable Bootstrap blue highlight on click/active */
+  &:active {
+    background: transparent !important;
+    color: inherit !important;
   }
 
   &:focus-visible {

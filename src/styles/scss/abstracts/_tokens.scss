@@ -44,7 +44,7 @@
   --font-weight-bold: #{$font-weight-bold};
   --font-weight-extrabold: #{$font-weight-extrabold};
 
-  /* Font Sizes */
+  /* Font Sizes - Responsive with clamp() */
   --font-size-xs: #{$font-size-xs};
   --font-size-sm: #{$font-size-sm};
   --font-size-base: #{$font-size-base};
@@ -54,6 +54,13 @@
   --font-size-3xl: #{$font-size-3xl};
   --font-size-4xl: #{$font-size-4xl};
   --font-size-5xl: #{$font-size-5xl};
+
+  /* Mobile-specific font sizes */
+  --font-size-mobile-sm: #{$font-size-mobile-sm};
+  --font-size-mobile-base: #{$font-size-mobile-base};
+  --font-size-mobile-lg: #{$font-size-mobile-lg};
+  --font-size-mobile-xl: #{$font-size-mobile-xl};
+  --font-size-mobile-2xl: #{$font-size-mobile-2xl};
 
   /* Line Heights */
   --line-height-none: #{$line-height-none};
@@ -82,9 +89,24 @@
   --space-4: #{$space-4};
   --space-5: #{$space-5};
   --space-6: #{$space-6};
+  --space-7: #{$space-7};
   --space-8: #{$space-8};
   --space-10: #{$space-10};
   --space-12: #{$space-12};
+  --space-16: #{$space-16};
+  --space-20: #{$space-20};
+  --space-24: #{$space-24};
+
+  /* Mobile-optimized spacing */
+  --space-mobile-xs: #{$space-mobile-xs};
+  --space-mobile-sm: #{$space-mobile-sm};
+  --space-mobile-md: #{$space-mobile-md};
+  --space-mobile-lg: #{$space-mobile-lg};
+  --space-mobile-xl: #{$space-mobile-xl};
+
+  /* Container padding */
+  --container-padding: #{$container-padding};
+  --container-padding-mobile: #{$container-padding-mobile};
 
   /* ============================================
      COLORS
@@ -94,19 +116,37 @@
   --color-primary: #{$color-primary};
   --color-primary-light: #{$color-primary-light};
   --color-primary-dark: #{$color-primary-dark};
+  --color-primary-hover: #{$color-primary-hover};
   --color-secondary: #{$color-secondary};
   --color-accent: #{$color-accent};
 
   /* Semantic Colors */
   --color-success: #{$color-success};
+  --color-success-light: #{$color-success-light};
+  --color-success-dark: #{$color-success-dark};
   --color-warning: #{$color-warning};
+  --color-warning-light: #{$color-warning-light};
+  --color-warning-dark: #{$color-warning-dark};
   --color-danger: #{$color-danger};
+  --color-danger-light: #{$color-danger-light};
+  --color-danger-dark: #{$color-danger-dark};
   --color-info: #{$color-info};
+  --color-info-light: #{$color-info-light};
+  --color-info-dark: #{$color-info-dark};
+
+  /* Text Colors on Colored Backgrounds */
+  --color-on-primary: #{$color-on-primary};
+  --color-on-success: #{$color-on-success};
+  --color-on-warning: #{$color-on-warning};
+  --color-on-danger: #{$color-on-danger};
+  --color-on-info: #{$color-on-info};
 
   /* Text Colors */
   --color-text-primary: #{$color-text-primary};
   --color-text-secondary: #{$color-text-secondary};
+  --color-text-tertiary: #{$color-text-tertiary};
   --color-text-muted: #{$color-text-muted};
+  --color-text-disabled: #{$color-text-disabled};
   --color-text-inverse: #{$color-text-inverse};
 
   /* Background Colors */
@@ -114,22 +154,32 @@
   --color-bg-secondary: #{$color-bg-secondary};
   --color-bg-tertiary: #{$color-bg-tertiary};
   --color-bg-hover: #{$color-bg-hover};
+  --color-bg-overlay: #{$color-bg-overlay};
+  --color-bg-overlay-light: #{$color-bg-overlay-light};
+  --color-bg-input: #{$color-bg-input};
 
   /* Border Colors */
   --color-border-light: #{$color-border-light};
   --color-border-medium: #{$color-border-medium};
   --color-border-dark: #{$color-border-dark};
+  --color-border-primary: #{$color-border-primary};
+  --color-border-overlay: #{$color-border-overlay};
 
   /* ============================================
      SHADOWS
      ============================================ */
 
+  /* Box Shadows */
   --shadow-xs: #{$shadow-xs};
   --shadow-sm: #{$shadow-sm};
   --shadow-md: #{$shadow-md};
   --shadow-lg: #{$shadow-lg};
   --shadow-xl: #{$shadow-xl};
   --shadow-2xl: #{$shadow-2xl};
+
+  /* Text Shadows */
+  --shadow-text-sm: #{$shadow-text-sm};
+  --shadow-text-md: #{$shadow-text-md};
 
   /* ============================================
      BORDER RADIUS
@@ -147,20 +197,25 @@
      TRANSITIONS
      ============================================ */
 
-  --transition-fast: #{$transition-fast};
-  --transition-normal: #{$transition-normal};
-  --transition-slow: #{$transition-slow};
+  /* Combined transitions (duration + easing) - recommended for use */
+  --transition-fast: #{$transition-fast-smooth};
+  --transition-base: #{$transition-base-smooth};
+  --transition-normal: #{$transition-normal-smooth};
+  --transition-slow: #{$transition-slow-smooth};
 
+  /* Individual easing curves (for custom transitions) */
   --easing-linear: #{$easing-linear};
   --easing-ease: #{$easing-ease};
   --easing-ease-in: #{$easing-ease-in};
   --easing-ease-out: #{$easing-ease-out};
   --easing-ease-in-out: #{$easing-ease-in-out};
+  --easing-custom: #{$easing-custom};
 
   /* ============================================
      Z-INDEX SCALE
      ============================================ */
 
+  --z-index-base: #{$z-index-base};
   --z-index-dropdown: #{$z-index-dropdown};
   --z-index-sticky: #{$z-index-sticky};
   --z-index-fixed: #{$z-index-fixed};

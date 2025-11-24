@@ -165,9 +165,6 @@ export default function Dashboard() {
             lg={2}
             className={`${styles.dashboardSidebar} ${styles.dashboardSidebarMobileHidden}`}
           >
-            <Heading level={2} className={styles.sidebarTitle}>
-              Dashboard
-            </Heading>
             <nav>
               {[
                 { key: 'overview', label: 'Overview' },

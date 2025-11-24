@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Form, Dropdown } from 'react-bootstrap';
+import { Dropdown } from 'react-bootstrap';
+import { RichTextarea } from 'rich-textarea';
 import {
   createMention,
   MENTION_TYPES,
@@ -31,6 +32,7 @@ import styles from './InteractiveTextArea.module.scss';
  * @param {Array} props.availableEntities - Available entities for mentions
  * @param {Object} props.entityData - Map of entityId -> entity data for popovers
  * @param {boolean} props.disabled - Whether the textarea is disabled
+ * @param {boolean} props.showFooter - Whether to show the visibility footer (default: true)
  * @param {string} props.className - Additional CSS classes
  */
 const InteractiveTextArea = ({
@@ -43,6 +45,7 @@ const InteractiveTextArea = ({
   availableEntities = [],
   entityData = {},
   disabled = false,
+  showFooter = true,
   className = '',
   ...props
 }) => {
@@ -65,6 +68,21 @@ const InteractiveTextArea = ({
   // After that, we work entirely in display format until submit
   const [internalValue, setInternalValue] = useState('');
   const [isResolvingMentions, setIsResolvingMentions] = useState(false);
+
+  // Force full width on RichTextarea wrapper to override library's inline width calculation
+  useEffect(() => {
+    if (containerRef.current) {
+      // Find the RichTextarea's wrapper div (first child of the component with our class)
+      const richTextareaContainer = containerRef.current.querySelector('[class*="interactiveTextareaInput"]');
+      if (richTextareaContainer) {
+        const wrapper = richTextareaContainer.querySelector('div');
+        if (wrapper) {
+          wrapper.style.width = '100%';
+          wrapper.style.display = 'block';
+        }
+      }
+    }
+  }, [internalValue, value]); // Re-run when content changes
 
   // Sync with external value changes (e.g., when editing an existing note)
   // Fetch entity names from API to convert {entity/id} to @Name
@@ -304,18 +322,36 @@ const InteractiveTextArea = ({
     };
   }, []);
 
+  // Style function for rich-textarea to make mentions bold
+  const mentionStyle = useCallback((value) => {
+    // Match @Name or #Name patterns (mentions in display format)
+    const mentionRegex = /(@|#)([A-Za-z0-9\s\-']+)/g;
+    const matches = [];
+    let match;
+
+    while ((match = mentionRegex.exec(value)) !== null) {
+      matches.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        style: { fontWeight: 'bold' }
+      });
+    }
+
+    return matches;
+  }, []);
+
   return (
     <div ref={containerRef} className={`${styles.interactiveTextarea} ${className}`}>
-      <Form.Control
+      <RichTextarea
         ref={textareaRef}
-        as="textarea"
         value={internalValue}
-        onChange={handleInputChange}
+        onChange={(e) => handleInputChange(e)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         rows={rows}
         disabled={disabled}
         className={styles.interactiveTextareaInput}
+        style={mentionStyle}
         {...props}
       />
 
@@ -360,29 +396,31 @@ const InteractiveTextArea = ({
       )}
 
       {/* Visibility selector */}
-      <div className={styles.interactiveTextareaFooter}>
-        <Dropdown onSelect={onVisibilityChange}>
-          <Dropdown.Toggle
-            variant="outline-secondary"
-            size="sm"
-            className={styles.visibilitySelector}
-          >
-            {visibilityOptions.find(opt => opt.value === visibility)?.icon}{' '}
-            {visibilityOptions.find(opt => opt.value === visibility)?.label}
-          </Dropdown.Toggle>
-          <Dropdown.Menu>
-            {visibilityOptions.map(option => (
-              <Dropdown.Item
-                key={option.value}
-                eventKey={option.value}
-                active={visibility === option.value}
-              >
-                {option.icon} {option.label}
+      {showFooter && (
+        <div className={styles.interactiveTextareaFooter}>
+          <Dropdown onSelect={onVisibilityChange}>
+            <Dropdown.Toggle
+              variant="outline-secondary"
+              size="sm"
+              className={styles.visibilitySelector}
+            >
+              {visibilityOptions.find(opt => opt.value === visibility)?.icon}{' '}
+              {visibilityOptions.find(opt => opt.value === visibility)?.label}
+            </Dropdown.Toggle>
+            <Dropdown.Menu>
+              {visibilityOptions.map(option => (
+                <Dropdown.Item
+                  key={option.value}
+                  eventKey={option.value}
+                  active={visibility === option.value}
+                >
+                  {option.icon} {option.label}
               </Dropdown.Item>
             ))}
           </Dropdown.Menu>
         </Dropdown>
-      </div>
+        </div>
+      )}
     </div>
   );
 };

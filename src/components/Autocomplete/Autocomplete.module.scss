@@ -108,7 +108,7 @@
   box-shadow: var(--shadow-lg);
   max-height: 400px;
   overflow-y: auto;
-  z-index: 1105; /* Above modal (1102) to prevent cutoff */
+  z-index: 1055; /* Above modal content (1051) to allow dropdown interaction inside modals */
   animation: fadeInDown 0.2s ease;
 
   @media (max-width: 576px) {

@@ -1,5 +1,4 @@
 import TagPill from '../../components/Pill/TagPill';
-import ExperienceTitleSection from './components/ExperienceTitleSection';
 import ActionButtonsRow from './components/ActionButtonsRow';
 import DatePickerSection from './components/DatePickerSection';
 import ExperienceOverviewSection from './components/ExperienceOverviewSection';
@@ -1135,7 +1134,15 @@ export default function SingleExperience() {
           // The URL management useEffect triggers when selectedPlanId changes, so we must
           // ensure the hash is already in the URL before that happens
           const targetHash = fullHash && fullHash.startsWith('#') ? fullHash : (window.location.hash || '');
-          const shouldAnimate = hashSource === 'url' || meta?.shouldShake === true || !handledHashesRef.current.has(targetHash);
+          // Always animate for:
+          // 1. Direct link navigation (hashSource === 'url')
+          // 2. Cross-view navigation with shake metadata (meta?.shouldShake)
+          // 3. Cross-view navigation from storage (hashSource === 'storage' and originPath exists)
+          // 4. First time seeing this hash (!handledHashesRef.current.has(targetHash))
+          const shouldAnimate = hashSource === 'url' ||
+                               meta?.shouldShake === true ||
+                               (hashSource === 'storage' && originPath) ||
+                               !handledHashesRef.current.has(targetHash);
 
           debug.log('[SingleExperience] 📍 Hash navigation details:', {
             planId,
@@ -2596,15 +2603,104 @@ export default function SingleExperience() {
       )}
       {experience ? (
         <div>
-          <div className="row experience-detail fade-in">
-            <div className="col-md-6 fade-in">
-              <ExperienceTitleSection
-                experience={experience}
-                h1Ref={h1Ref}
+          {/* Title row - full width, centered on mobile/tablet */}
+          <div className="row fade-in">
+            <div className="col-12 text-center text-md-start">
+              <h1 ref={h1Ref} className="mt-4 h fade-in">{experience.name}</h1>
+            </div>
+          </div>
+
+          {/* Planned date badge and action buttons row */}
+          <div className="row align-items-center fade-in mb-3">
+            {/* Planned date badge column - centered on mobile/tablet, left-aligned on desktop */}
+            <div className="col-md-6 mb-3 mb-md-0">
+              <div className="planned-date-badge-container">
+                {selectedPlan && !pendingUnplan && (
+                  <FadeIn>
+                    {selectedPlan.planned_date ? (
+                      <TagPill
+                        color="primary"
+                        rounded={false}
+                        className={`planned-date-badge ${
+                          selectedPlan && user && (
+                            selectedPlan.user?._id?.toString() === user._id?.toString() ||
+                            selectedPlan.user?.toString() === user._id?.toString()
+                          ) ? "cursor-pointer" : ""
+                        }`}
+                      onClick={() => {
+                        // Only allow editing if user owns this plan
+                        const userOwnsSelectedPlan = selectedPlan && user && (
+                          selectedPlan.user?._id?.toString() === user._id?.toString() ||
+                          selectedPlan.user?.toString() === user._id?.toString()
+                        );
+
+                        if (!userOwnsSelectedPlan) return;
+
+                        if (showDatePicker) {
+                          setShowDatePicker(false);
+                        } else {
+                          setIsEditingDate(true);
+                          setPlannedDate(formatDateForInput(selectedPlan.planned_date));
+                          setShowDatePicker(true);
+                        }
+                      }}
+                      title={
+                        selectedPlan && user && (
+                          selectedPlan.user?._id?.toString() === user._id?.toString() ||
+                          selectedPlan.user?.toString() === user._id?.toString()
+                        )
+                          ? (showDatePicker ? "Click to close date picker" : "Click to update planned date")
+                          : "Collaborative plan date (view only)"
+                      }
+                    >
+                      Planned for {formatDateShort(selectedPlan.planned_date)}
+                    </TagPill>
+                  ) : (
+                    selectedPlan && user && (
+                      selectedPlan.user?._id?.toString() === user._id?.toString() ||
+                      selectedPlan.user?.toString() === user._id?.toString()
+                    ) && (
+                      <TagPill
+                        color="primary"
+                        rounded={false}
+                        className="planned-date-badge cursor-pointer"
+                        onClick={() => {
+                          if (showDatePicker) {
+                            setShowDatePicker(false);
+                          } else {
+                            setIsEditingDate(false);
+                            setPlannedDate("");
+                            setShowDatePicker(true);
+                          }
+                        }}
+                        title={showDatePicker ? "Click to close date picker" : "Click to add a planned date"}
+                      >
+                        {lang.en.label.plannedDate}: {lang.en.label.setOneNow}
+                      </TagPill>
+                    )
+                  )}
+                </FadeIn>
+              )}
+              </div>
+            </div>
+
+            {/* Action buttons column - right-aligned on desktop, centered on mobile */}
+            <div className="col-md-6 d-flex align-items-center justify-content-center justify-content-md-end">
+              <ActionButtonsRow
                 user={user}
+                experience={experience}
+                experienceId={experienceId}
                 userHasExperience={userHasExperience}
-                pendingUnplan={pendingUnplan}
+                loading={loading}
+                plansLoading={plansLoading}
+                displayedPlannedDate={displayedPlannedDate}
                 selectedPlan={selectedPlan}
+                planButtonRef={planButtonRef}
+                planBtnWidth={planBtnWidth}
+                favHover={favHover}
+                setFavHover={setFavHover}
+                handleExperience={handleExperience}
+                setShowDeleteModal={setShowDeleteModal}
                 showDatePicker={showDatePicker}
                 setShowDatePicker={setShowDatePicker}
                 setIsEditingDate={setIsEditingDate}
@@ -2612,27 +2708,9 @@ export default function SingleExperience() {
                 lang={lang}
               />
             </div>
-            <ActionButtonsRow
-              user={user}
-              experience={experience}
-              experienceId={experienceId}
-              userHasExperience={userHasExperience}
-              loading={loading}
-              plansLoading={plansLoading}
-              displayedPlannedDate={displayedPlannedDate}
-              selectedPlan={selectedPlan}
-              planButtonRef={planButtonRef}
-              planBtnWidth={planBtnWidth}
-              favHover={favHover}
-              setFavHover={setFavHover}
-              handleExperience={handleExperience}
-              setShowDeleteModal={setShowDeleteModal}
-              showDatePicker={showDatePicker}
-              setShowDatePicker={setShowDatePicker}
-              setIsEditingDate={setIsEditingDate}
-              setPlannedDate={setPlannedDate}
-              lang={lang}
-            />
+          </div>
+
+          <div className="row experience-detail fade-in">
             <DatePickerSection
               showDatePicker={showDatePicker}
               experience={experience}

@@ -1,5 +1,5 @@
 import React from 'react';
-import '../styles/utilities.css';
+import '../styles/utilities.scss';
 import '../styles/design-tokens.css';
 
 export default {

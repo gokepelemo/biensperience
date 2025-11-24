@@ -227,7 +227,11 @@ export default function NavBar() {
             <li className="nav-item" role="none">
               <NavLink
                 to="/destinations"
-                className="nav-link"
+                className={({ isActive }) => {
+                  // Active if on /destinations or any /destinations/* route
+                  const isDestinationsRoute = location.pathname.startsWith('/destinations');
+                  return `nav-link ${isDestinationsRoute ? 'active' : ''}`;
+                }}
                 role="menuitem"
                 aria-label={lang.en.aria.browseDestinations}
               >
@@ -237,7 +241,11 @@ export default function NavBar() {
             <li className="nav-item" role="none">
               <NavLink
                 to="/experiences"
-                className="nav-link"
+                className={({ isActive }) => {
+                  // Active if on /experiences or any /experiences/* route
+                  const isExperiencesRoute = location.pathname.startsWith('/experiences');
+                  return `nav-link ${isExperiencesRoute ? 'active' : ''}`;
+                }}
                 role="menuitem"
                 aria-label={lang.en.aria.browseExperiences}
               >

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import "./ImageUpload.css";
+import styles from "./ImageUpload.module.scss";
 import { uploadPhoto, uploadPhotoBatch, uploadPhotoUrl, deletePhoto } from "../../utilities/photos-api";
 import { handleError } from "../../utilities/error-handler";
 import { createUrlSlug } from "../../utilities/url-utils";

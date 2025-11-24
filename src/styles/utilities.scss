@@ -254,14 +254,23 @@
    ============================================ */
 
 .mention-link {
-  color: var(--color-primary);
+  color: white !important; /* Force white on purple gradient backgrounds */
+  font-weight: bold;
   text-decoration: underline;
+  text-decoration-style: dotted;
   cursor: pointer;
-  transition: color var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .mention-link:hover {
-  color: var(--color-primary-alpha-70);
+  color: white !important; /* Keep white on hover */
+  text-decoration-style: solid;
+  opacity: 0.9;
+}
+
+/* Ensure visited links also stay white */
+.mention-link:visited {
+  color: white !important;
 }
 
 /* ============================================

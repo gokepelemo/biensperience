@@ -6,10 +6,16 @@
  * Does NOT override existing working component styles.
  */
 
+@use '../abstracts' as *;
+
 /*
  * This file intentionally minimal to avoid breaking existing styles.
  * Component-specific fixes should be added to component CSS files.
  */
+
+/* ============================================
+   ALLUSER TABLE LEGIBILITY
+   ============================================ */
 
 /* AllUsers table - ensure table headers and cells are visible */
 .all-users-container table thead th {
@@ -19,6 +25,10 @@
 .all-users-container table tbody td {
   color: var(--color-text-tertiary) !important;
 }
+
+/* ============================================
+   FORM PLACEHOLDER VISIBILITY
+   ============================================ */
 
 /* Ensure form placeholders are visible globally */
 ::placeholder {

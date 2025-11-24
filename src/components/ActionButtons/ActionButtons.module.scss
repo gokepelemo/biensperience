@@ -171,6 +171,9 @@
   font-weight: 500;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+  height: 40px; /* Match SingleExperience action buttons */
+  min-height: 40px;
+  justify-content: center;
 
   :global(.button-icon) {
     font-size: 1.1em;

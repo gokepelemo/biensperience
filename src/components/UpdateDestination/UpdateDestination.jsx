@@ -371,6 +371,18 @@ export default function UpdateDestination() {
               </div>
             </div>
 
+            <FormField
+              name="description"
+              label="Description"
+              type="textarea"
+              value={destination?.description || ''}
+              onChange={handleChange}
+              placeholder={lang.en.placeholder.destinationDescription}
+              rows={4}
+              tooltip={lang.en.helper.descriptionOptional}
+              tooltipPlacement="top"
+            />
+
             <div className="mb-4">
               <Form.Label>
                 Photos

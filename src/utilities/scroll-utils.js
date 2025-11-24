@@ -111,12 +111,13 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
             // Get element position for react-scroll
             const elementTop = itemElement.getBoundingClientRect().top + window.pageYOffset;
 
-            // Scroll with react-scroll (smoother easing, configurable delay)
-            animateScroll.scrollTo(elementTop - 100, {
+            // Scroll with increased offset to center the item nicely in viewport
+            // Additional offset accounts for navbar (80px) + extra space for visual comfort (120px)
+            animateScroll.scrollTo(elementTop - 200, {
               duration: 800,
               delay: 0,
               smooth: 'easeInOutQuart',
-              offset: -100 // Offset for headers
+              offset: -200 // Offset to center item in viewport
             });
           } catch (e) {
             // Fallback to native scrollIntoView
@@ -131,12 +132,6 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
             logger.debug('[Scroll] Scheduling shake animation after scroll completes');
             setTimeout(() => {
               highlightPlanItem(itemId);
-              setTimeout(() => {
-                try {
-                  const card = itemElement.closest && itemElement.closest('.plan-item-card') ? itemElement.closest('.plan-item-card') : itemElement;
-                  if (card) card.style.backgroundColor = '';
-                } catch (e) {}
-              }, 2100);
             }, 1000); // Wait for scroll to complete (800ms scroll + 200ms buffer)
           }
         }, anticipationDelay);

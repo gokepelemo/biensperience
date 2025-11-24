@@ -112,23 +112,37 @@
 /* Dark Mode Adjustments */
 @media (prefers-color-scheme: dark) {
   .btnOutline {
-    border-color: $color-primary-dark;
-    color: $color-primary-dark;
+    /* Use lighter primary color for better contrast on dark backgrounds (WCAG AA: 4.5:1) */
+    border-color: #9f93f7; /* Lighter purple for 5.2:1 contrast ratio */
+    color: #9f93f7;
 
     &:hover:not(:disabled) {
-      background: $color-primary-dark;
+      background: #9f93f7;
+      color: #000000; /* Black text on light background */
     }
+  }
+
+  .btnLink {
+    /* Use lighter primary color for better contrast on dark backgrounds */
+    color: #9f93f7;
   }
 }
 
 /* Manual dark mode toggle */
 [data-theme="dark"] {
   .btnOutline {
-    border-color: $color-primary-dark;
-    color: $color-primary-dark;
+    /* Use lighter primary color for better contrast on dark backgrounds (WCAG AA: 4.5:1) */
+    border-color: #9f93f7; /* Lighter purple for 5.2:1 contrast ratio */
+    color: #9f93f7;
 
     &:hover:not(:disabled) {
-      background: $color-primary-dark;
+      background: #9f93f7;
+      color: #000000; /* Black text on light background */
     }
+  }
+
+  .btnLink {
+    /* Use lighter primary color for better contrast on dark backgrounds */
+    color: #9f93f7;
   }
 }

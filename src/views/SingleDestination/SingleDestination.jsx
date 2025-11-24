@@ -16,8 +16,10 @@ import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { isOwner } from "../../utilities/permissions";
-import { Container, Mobile, Desktop, Button, SkeletonLoader } from "../../components/design-system";
+import { Container, Button, SkeletonLoader } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
+import ActionButtonsRow from "./components/ActionButtonsRow";
+import { toggleUserFavoriteDestination } from "../../utilities/destinations-api";
 
 export default function SingleDestination() {
   const { user } = useUser();
@@ -32,6 +34,11 @@ export default function SingleDestination() {
   const [isLoading, setIsLoading] = useState(true);
   const h1Ref = useRef(null);
   const loadMoreRef = useRef(null);
+
+  // Favorite functionality state
+  const [favHover, setFavHover] = useState(false);
+  const [favLoading, setFavLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   /**
    * Merge helper function to update destination state without full replacement
@@ -60,6 +67,52 @@ export default function SingleDestination() {
       setIsLoading(false);
     }
   }, [destinationId, fetchDestinations, mergeDestination]);
+
+  // Handle favorite/unfavorite destination with optimistic UI
+  const handleFavorite = useCallback(async () => {
+    if (favLoading) return;
+
+    // Store previous state for error recovery
+    const previousState = {
+      isFavorite: destination.users_favorite?.includes(user._id),
+      usersFavorite: [...(destination.users_favorite || [])]
+    };
+
+    setFavLoading(true);
+
+    try {
+      // Optimistic update: Update local state immediately
+      const updatedUsersFavorite = previousState.isFavorite
+        ? destination.users_favorite.filter(id => id !== user._id) // Remove user
+        : [...destination.users_favorite, user._id]; // Add user
+
+      setDestination(prev => ({
+        ...prev,
+        users_favorite: updatedUsersFavorite
+      }));
+
+      // Make API call
+      await toggleUserFavoriteDestination(destination._id, user._id);
+
+      // Update DataContext without full refresh
+      if (typeof mergeDestination === 'function') {
+        mergeDestination({
+          _id: destination._id,
+          users_favorite: updatedUsersFavorite
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to toggle favorite', { destinationId: destination._id, error: error.message });
+
+      // Rollback to previous state on error
+      setDestination(prev => ({
+        ...prev,
+        users_favorite: previousState.usersFavorite
+      }));
+    } finally {
+      setFavLoading(false);
+    }
+  }, [favLoading, destination, user, mergeDestination]);
 
   // Update local state when global destinations or experiences change
   useEffect(() => {
@@ -259,6 +312,9 @@ export default function SingleDestination() {
     );
   }
 
+  // Compute favorite status
+  const isUserFavorite = destination?.users_favorite?.includes(user?._id) || false;
+
   return (
     <>
       <PageOpenGraph
@@ -270,45 +326,47 @@ export default function SingleDestination() {
         entity={destination}
         entityType="destination"
       />
-            <div className={`row align-items-center ${styles.singleDestinationHeader}`}>
-              <div className="col-md-6">
-                <Mobile>
-                  <div style={{ textAlign: 'center' }}>
-                    <h1 ref={h1Ref} className="my-4 h">
-                      {destination.name},{" "}
-                      {!destination.state
-                        ? destination.country
-                        : destination.state === destination.name
-                        ? destination.country
-                        : destination.state}
-                    </h1>
-                  </div>
-                </Mobile>
-                <Desktop>
-                  <div style={{ textAlign: 'start' }}>
-                    <h1 ref={h1Ref} className="my-4 h">
-                      {destination.name},{" "}
-                      {!destination.state
-                        ? destination.country
-                        : destination.state === destination.name
-                        ? destination.country
-                        : destination.state}
-                    </h1>
-                  </div>
-                </Desktop>
+            <div className={`${styles.singleDestinationHeader}`}>
+              {/* Title row - full width, centered on mobile/tablet */}
+              <div className="row">
+                <div className="col-12 text-center text-md-start">
+                  <h1 ref={h1Ref} className="my-4">
+                    {destination.name},{" "}
+                    {!destination.state
+                      ? destination.country
+                      : destination.state === destination.name
+                      ? destination.country
+                      : destination.state}
+                  </h1>
+                </div>
               </div>
-              <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center gap-3">
-                {user && <FavoriteDestination destination={destination} user={user} getData={getData} />}
-                {user && isOwner(user, destination) && (
-                  <button
-                    className="btn btn-icon my-4"
-                    onClick={() => navigate(`/destinations/${destination._id}/update`)}
-                    aria-label={lang.en.aria.editDestination}
-                    title={lang.en.aria.editDestination}
-                  >
-                    ✏️
-                  </button>
-                )}
+
+              {/* Description and action buttons row */}
+              <div className="row align-items-center">
+                {/* Description column */}
+                <div className="col-md-6 mb-3 mb-md-0 d-flex align-items-center">
+                  <div>
+                    {destination.description && (
+                      <p className="mb-0">{destination.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action buttons column - right-aligned on desktop, centered on mobile */}
+                <div className="col-md-6 d-flex align-items-center justify-content-center justify-content-md-end">
+                  <ActionButtonsRow
+                    user={user}
+                    destination={destination}
+                    destinationId={destinationId}
+                    isUserFavorite={isUserFavorite}
+                    loading={favLoading}
+                    favHover={favHover}
+                    setFavHover={setFavHover}
+                    handleFavorite={handleFavorite}
+                    setShowDeleteModal={setShowDeleteModal}
+                    lang={lang}
+                  />
+                </div>
               </div>
             </div>
             <div className="row my-4">

@@ -68,13 +68,16 @@
   @include transition-all($transition-normal);
   /* Prevent layout shift during image swap */
   transform: translateZ(0);
+  position: relative;
 
   &.loading {
     opacity: 0;
+    z-index: 0; /* Behind loading indicator */
   }
 
   &.loaded {
     opacity: 1;
+    z-index: 2; /* Above loading indicator (which has z-index: 1) */
   }
 }
 

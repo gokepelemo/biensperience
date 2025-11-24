@@ -1,0 +1,466 @@
+/**
+ * Banner Component Styles (SCSS Module)
+ * Reusable banner component with auto-expiry and dark mode support
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+/* Banner Base */
+.banner {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: $space-4;
+  padding: $space-4 $space-5;
+  border-radius: $radius-xl;
+  border: 2px solid transparent;
+  margin-bottom: $space-4;
+  transition: all $transition-normal;
+  overflow: hidden;
+  /* CSS variables to make contrast adjustments easy and themeable */
+  --banner-text: var(--color-text-primary);
+  --banner-icon-bg: var(--color-primary);
+  --banner-icon-color: white;
+  --banner-button-text: inherit;
+  --banner-button-bg: transparent;
+  --banner-button-border: transparent;
+
+  color: var(--banner-text);
+  // Dark mode adjustments
+  @media (prefers-color-scheme: dark) {
+    border-color: var(--color-border-heavy);
+  }
+}
+
+/* Banner Content Layout */
+.bannerContent {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-4;
+  width: 100%;
+  min-width: 0; // Allow shrinking
+}
+
+.bannerIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: $radius-full;
+  font-size: $font-size-xl;
+  line-height: 1;
+  background-color: var(--banner-icon-bg);
+  color: var(--banner-icon-color);
+}
+
+.bannerIconEmoji {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.bannerText {
+  flex: 1;
+  min-width: 0;
+}
+
+.bannerTitle,
+.bannerMessage {
+  color: var(--banner-text);
+}
+
+.bannerTitle {
+  font-size: $font-size-base;
+  font-weight: $font-weight-semibold;
+  margin-bottom: $space-1;
+  line-height: 1.4;
+}
+
+.bannerMessage {
+  font-size: $font-size-sm;
+  line-height: 1.5;
+  opacity: 0.9;
+}
+
+.bannerActions {
+  flex-shrink: 0;
+}
+
+.bannerButton {
+  white-space: nowrap;
+}
+
+/* Ensure inner button elements used by the Button component are legible on banners
+   We target the actual <button> element rendered by Button to override low-specificity rules.
+*/
+.bannerButton button {
+  color: var(--banner-button-text) !important;
+  background: var(--banner-button-bg) !important;
+  border-color: var(--banner-button-border) !important;
+}
+
+.bannerClose {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: $space-2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-sm;
+  opacity: 0.7;
+  transition: all $transition-fast;
+
+  &:hover {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.1);
+
+    // Dark mode hover
+    @media (prefers-color-scheme: dark) {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* Banner Sizes */
+.bannerSm {
+  padding: $space-3 $space-4;
+  gap: $space-3;
+
+  .bannerIcon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .bannerIconEmoji {
+    font-size: 1rem;
+  }
+
+  .bannerTitle {
+    font-size: $font-size-sm;
+  }
+
+  .bannerMessage {
+    font-size: $font-size-xs;
+  }
+}
+
+.bannerLg {
+  padding: $space-6 $space-8;
+  gap: $space-5;
+
+  .bannerIcon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .bannerIconEmoji {
+    font-size: 1.5rem;
+  }
+
+  .bannerTitle {
+    font-size: $font-size-lg;
+  }
+
+  .bannerMessage {
+    font-size: $font-size-base;
+  }
+}
+
+/* Banner Variants */
+.bannerSolid {
+  color: white;
+
+  .bannerMessage {
+    opacity: 0.95;
+  }
+
+  .bannerClose {
+    color: white;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+  }
+}
+
+/* Light variant helper class (module needs explicit class for JS mapping) */
+.bannerLight {
+  /* Intentionally left blank — used as a variant hook for light styles */
+}
+
+.bannerBordered {
+  border-width: 3px;
+}
+
+/* Banner Types */
+.bannerInfo {
+  background-color: rgba(23, 162, 184, 0.1);
+  border-color: var(--color-info);
+  color: var(--color-text-primary);
+
+  /* vars for contrast */
+  --banner-icon-bg: var(--color-info);
+  --banner-icon-color: white;
+  --banner-text: var(--color-text-primary);
+  --banner-button-text: var(--color-primary);
+  --banner-button-border: var(--color-info);
+
+  .bannerIcon {
+    background-color: var(--banner-icon-bg);
+    color: var(--banner-icon-color);
+  }
+
+  &.bannerSolid {
+    background-color: var(--color-info);
+    border-color: var(--color-info);
+    --banner-text: white;
+    --banner-button-text: white;
+    --banner-button-bg: rgba(255,255,255,0.08);
+    color: var(--banner-text);
+  }
+
+  &.bannerBordered {
+    border-color: var(--color-info);
+  }
+}
+
+.bannerSuccess {
+  background-color: rgba(40, 167, 69, 0.1);
+  border-color: var(--color-success);
+  color: var(--color-text-primary);
+
+  --banner-icon-bg: var(--color-success);
+  --banner-icon-color: white;
+  --banner-text: var(--color-text-primary);
+  --banner-button-text: var(--color-success);
+  --banner-button-border: var(--color-success);
+
+  .bannerIcon {
+    background-color: var(--banner-icon-bg);
+    color: var(--banner-icon-color);
+  }
+
+  &.bannerSolid {
+    background-color: var(--color-success);
+    border-color: var(--color-success);
+    --banner-text: white;
+    --banner-button-text: white;
+    --banner-button-bg: rgba(255,255,255,0.08);
+    color: var(--banner-text);
+  }
+
+  &.bannerBordered {
+    border-color: var(--color-success);
+  }
+}
+
+.bannerWarning {
+  background-color: rgba(255, 193, 7, 0.1);
+  border-color: var(--color-warning);
+  color: var(--color-text-primary);
+
+  --banner-icon-bg: var(--color-warning);
+  --banner-icon-color: black;
+  --banner-text: var(--color-text-primary);
+  --banner-button-text: var(--color-warning);
+  --banner-button-border: var(--color-warning);
+
+  .bannerIcon {
+    background-color: var(--banner-icon-bg);
+    color: var(--banner-icon-color);
+  }
+
+  &.bannerSolid {
+    background-color: var(--color-warning);
+    border-color: var(--color-warning);
+    --banner-text: var(--color-text-primary);
+    --banner-button-text: var(--color-text-primary);
+    color: var(--banner-text);
+  }
+
+  &.bannerBordered {
+    border-color: var(--color-warning);
+  }
+}
+
+.bannerDanger {
+  background-color: rgba(220, 53, 69, 0.1);
+  border-color: var(--color-danger);
+  color: var(--color-text-primary);
+
+  --banner-icon-bg: var(--color-danger);
+  --banner-icon-color: white;
+  --banner-text: var(--color-text-primary);
+  --banner-button-text: var(--color-danger);
+  --banner-button-border: var(--color-danger);
+
+  .bannerIcon {
+    background-color: var(--banner-icon-bg);
+    color: var(--banner-icon-color);
+  }
+
+  &.bannerSolid {
+    background-color: var(--color-danger);
+    border-color: var(--color-danger);
+    --banner-text: white;
+    --banner-button-text: white;
+    --banner-button-bg: rgba(255,255,255,0.08);
+    color: var(--banner-text);
+  }
+
+  &.bannerBordered {
+    border-color: var(--color-danger);
+  }
+}
+
+.bannerNeutral {
+  background-color: var(--color-bg-secondary);
+  border-color: var(--color-border-heavy);
+  color: var(--color-text-primary);
+
+  --banner-icon-bg: var(--color-text-secondary);
+  --banner-icon-color: white;
+  --banner-text: var(--color-text-primary);
+  --banner-button-text: var(--color-text-primary);
+  --banner-button-border: var(--color-border-heavy);
+
+  .bannerIcon {
+    background-color: var(--banner-icon-bg);
+    color: var(--banner-icon-color);
+  }
+
+  &.bannerSolid {
+    background-color: var(--color-text-primary);
+    border-color: var(--color-text-primary);
+    color: var(--color-bg-primary);
+  }
+
+  &.bannerBordered {
+    border-color: var(--color-border-heavy);
+  }
+}
+
+/* Ensure buttons inside solid banners remain legible
+   We target the Button component's CSS module classes using :global
+   so these rules apply regardless of CSS module name mangling. */
+
+/* Solid banners: outline buttons should use white text on dark/colored backgrounds */
+.bannerSolid :global(.btnOutline) {
+  color: var(--color-white, #ffffff);
+  border-color: rgba(255,255,255,0.16);
+}
+
+.bannerSuccess.bannerSolid :global(.btnOutline) {
+  color: var(--color-white, #ffffff);
+  border-color: rgba(255,255,255,0.18);
+}
+
+.bannerInfo.bannerSolid :global(.btnOutline) {
+  color: var(--color-white, #ffffff);
+  border-color: rgba(255,255,255,0.16);
+}
+
+.bannerWarning.bannerSolid :global(.btnOutline) {
+  color: var(--color-text-primary);
+  border-color: rgba(0,0,0,0.08);
+}
+
+.bannerDanger.bannerSolid :global(.btnOutline) {
+  color: var(--color-white, #ffffff);
+  border-color: rgba(255,255,255,0.18);
+}
+
+/* Ensure hover states preserve contrast */
+.bannerSolid :global(.btnOutline:hover) {
+  color: var(--color-white, #ffffff) !important;
+  background: rgba(255,255,255,0.06) !important;
+}
+
+/* For solid banners, ensure gradient/primary buttons also use accessible text color */
+.bannerSolid :global(.btnGradient) {
+  color: var(--color-white, #ffffff);
+}
+
+/* For bordered and light variants on dark backgrounds, adjust outline buttons */
+.bannerNeutral.bannerBordered :global(.btnOutline),
+.bannerNeutral.bannerLight :global(.btnOutline) {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-heavy);
+}
+
+/* Expiry Animation */
+.bannerExpiring {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.3s ease-out;
+}
+
+/* Dark Mode Overrides */
+@media (prefers-color-scheme: dark) {
+  .bannerInfo.bannerLight {
+    background-color: rgba(23, 162, 184, 0.15);
+    color: var(--color-text-primary);
+  }
+
+  .bannerSuccess.bannerLight {
+    background-color: rgba(40, 167, 69, 0.15);
+    color: var(--color-text-primary);
+  }
+
+  .bannerWarning.bannerLight {
+    background-color: rgba(255, 193, 7, 0.15);
+    color: var(--color-text-primary);
+  }
+
+  .bannerDanger.bannerLight {
+    background-color: rgba(220, 53, 69, 0.15);
+    color: var(--color-text-primary);
+  }
+
+  .bannerNeutral.bannerLight {
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border-light);
+  }
+
+  .bannerWarning.bannerSolid {
+    color: var(--color-text-primary);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .banner {
+    padding: $space-3 $space-4;
+    gap: $space-3;
+  }
+
+  .bannerSm {
+    padding: $space-2 $space-3;
+  }
+
+  .bannerLg {
+    padding: $space-4 $space-6;
+  }
+
+  .bannerText {
+    flex: 1;
+  }
+
+  .bannerActions {
+    flex-shrink: 1;
+  }
+
+  .bannerButton {
+    font-size: $font-size-xs;
+    padding: $space-1 $space-3;
+  }
+}

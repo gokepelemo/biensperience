@@ -238,7 +238,9 @@ const getUserPlans = asyncHandler(async (req, res) => {
     })
     .sort({ updatedAt: -1 });
 
-  res.json(plans);
+  // Explicitly convert to JSON to ensure virtuals are included
+  const plansWithVirtuals = plans.map(plan => plan.toJSON());
+  res.json(plansWithVirtuals);
 });
 
 /**
@@ -1138,7 +1140,8 @@ const updatePlanItem = asyncHandler(async (req, res) => {
       });
     }
 
-    return res.json(updatedPlan);
+    // Explicitly convert to JSON to ensure virtuals are included
+    return res.json(updatedPlan.toJSON());
   }
 
   // Otherwise apply changes to the in-memory document and save (runs full validation)
@@ -1184,7 +1187,8 @@ const updatePlanItem = asyncHandler(async (req, res) => {
     });
   }
 
-  res.json(plan);
+  // Explicitly convert to JSON to ensure virtuals are included
+  res.json(plan.toJSON());
 });
 
 /**

@@ -1,5 +1,30 @@
 @use '../../styles/scss/abstracts' as *;
 
+/* Default Pill Colors */
+:root {
+  --pill-bg: #f3f4f6; /* Light gray background */
+  --pill-color: #0f172a; /* Dark text */
+  --color-neutral: #eef2ff; /* Light purple background */
+  --color-on-neutral: #0f172a; /* Dark text */
+}
+
+/* Dark Mode Overrides */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --pill-bg: #2d2d2d; /* Dark gray background */
+    --pill-color: #f8f9fa; /* Light text */
+    --color-neutral: #4a5568; /* Medium dark gray */
+    --color-on-neutral: #f8f9fa; /* Light text */
+  }
+}
+
+[data-theme="dark"] {
+  --pill-bg: #2d2d2d; /* Dark gray background */
+  --pill-color: #f8f9fa; /* Light text */
+  --color-neutral: #4a5568; /* Medium dark gray */
+  --color-on-neutral: #f8f9fa; /* Light text */
+}
+
 .tagPill {
   display: inline-flex;
   align-items: center;
@@ -8,8 +33,8 @@
   font-size: 0.9rem;
   font-weight: $font-weight-semibold;
   border-radius: $radius-full;
-  background: var(--pill-bg, #f3f4f6);
-  color: var(--pill-color, #0f172a);
+  background: var(--pill-bg);
+  color: var(--pill-color);
   box-shadow: 0 1px 2px rgba(2, 6, 23, 0.04);
 }
 
@@ -48,8 +73,8 @@
 }
 
 .tagPillNeutral {
-  background: var(--color-neutral, #eef2ff);
-  color: var(--color-on-neutral, #0f172a);
+  background: var(--color-neutral);
+  color: var(--color-on-neutral);
 }
 
 .tagPillSm {
