@@ -8,42 +8,54 @@
   padding: var(--space-5);
   margin-bottom: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid rgba(0, 0, 0, 0.06);
   position: relative;
   animation: slideIn var(--transition-slow) ease-out;
-  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 
-  // Expanded state (controlled by JavaScript)
-  &.expanded {
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
-    border-color: rgba(0, 0, 0, 0.1);
-    overflow: visible; // Allow content to expand beyond container
+  // Default height using CSS variable (set by JavaScript)
+  height: var(--collapsed-height, 100%);
+  width: var(--card-width, 100%);
+  min-width: var(--card-width, auto);
+  max-width: var(--card-width, 100%);
 
-    .travelTipIconWrapper {
-      transform: scale(1.08);
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
+  // Smooth transition for height and box-shadow
+  transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    .travelTipEmoji {
-      opacity: 0;
-      transform: scale(0.8);
-      transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
+  // Overflow cards expand and come forward
+  &[data-has-overflow="true"] {
+    &.expanded {
+      height: var(--expanded-height, auto);
+      position: absolute;
+      z-index: 10;
+      left: 0;
+      top: 0;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
+      border-color: rgba(0, 0, 0, 0.1);
+      overflow: visible;
 
-    .travelTipFaIcon {
-      opacity: 1;
-      transform: scale(1);
-      transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      .travelTipIconWrapper {
+        transform: scale(1.08);
+      }
+
+      .travelTipEmoji {
+        opacity: 0;
+        transform: scale(0.8);
+      }
+
+      .travelTipFaIcon {
+        opacity: 1;
+        transform: scale(1);
+      }
     }
   }
 
   // Mobile-specific tap interaction
   @media (max-width: 768px) {
-    // Enable tap to expand
     touch-action: manipulation;
   }
 
@@ -111,7 +123,13 @@
   align-items: flex-start;
   gap: var(--space-2);
   flex: 1;
-  overflow: hidden; /* Prevent content overflow */
+  overflow: hidden;
+  max-height: 100%;
+
+  .travelTip.expanded & {
+    overflow: visible;
+    max-height: none;
+  }
 }
 
 /* Structured Tip Styles */
@@ -243,8 +261,13 @@
 .travelTipContent {
   padding-left: calc(var(--space-10) + var(--space-3));
   flex: 1;
-  overflow-y: auto; /* Allow scrolling if content is very long */
-  max-height: 100%; /* Don't exceed container */
+  overflow-y: auto;
+  max-height: 100%;
+
+  .travelTip.expanded & {
+    overflow-y: visible;
+    max-height: none;
+  }
 
   @media (max-width: 576px) {
     padding-left: 0;
