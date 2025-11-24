@@ -77,11 +77,20 @@ const InteractiveTextArea = ({
       // Find the RichTextarea's wrapper div
       const richTextareaContainer = containerRef.current.querySelector('[class*="interactiveTextareaInput"]');
       if (richTextareaContainer) {
-        // Get all divs within the RichTextarea (library creates multiple wrapper divs)
-        const wrappers = richTextareaContainer.querySelectorAll('div');
-        wrappers.forEach(wrapper => {
+        // Target the FIRST child div - this is the library's main wrapper with inline width
+        // This div has style="display: inline-block; position: relative; width: XXXpx;"
+        const firstChildDiv = richTextareaContainer.querySelector(':scope > div:first-child');
+        if (firstChildDiv) {
+          // Force width and display on the first child (the one with inline-block and fixed width)
+          firstChildDiv.style.setProperty('width', '100%', 'important');
+          firstChildDiv.style.setProperty('display', 'block', 'important');
+          firstChildDiv.style.setProperty('box-sizing', 'border-box', 'important');
+        }
+
+        // Also get all nested divs for good measure
+        const allDivs = richTextareaContainer.querySelectorAll('div');
+        allDivs.forEach(wrapper => {
           wrapper.style.setProperty('width', '100%', 'important');
-          wrapper.style.setProperty('display', 'block', 'important');
           wrapper.style.setProperty('box-sizing', 'border-box', 'important');
         });
 
