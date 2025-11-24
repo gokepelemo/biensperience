@@ -349,7 +349,7 @@ export default function PlanItemNotes({
 
           <div className={styles.formActions}>
             <Button
-              variant="secondary"
+              variant="outline"
               onClick={() => {
                 setShowAddNoteForm(false);
                 setNewNoteContent('');
@@ -460,7 +460,7 @@ export default function PlanItemNotes({
                           </Button>
                           <Button
                             size="sm"
-                            variant="secondary"
+                            variant="outline"
                             onClick={handleCancelEdit}
                           >
                             Cancel
