@@ -57,25 +57,38 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
   const [isExpanded, setIsExpanded] = useState(false);
   const [collapsedHeight, setCollapsedHeight] = useState(null);
   const [expandedHeight, setExpandedHeight] = useState(null);
+  const [cardWidth, setCardWidth] = useState(null);
 
   // Detect if content has overflow
   useEffect(() => {
-    if (!contentRef.current) return;
+    if (!contentRef.current || !cardRef.current) return;
 
     const checkOverflow = () => {
       const content = contentRef.current;
+      const card = cardRef.current;
       const hasVerticalOverflow = content.scrollHeight > content.clientHeight;
       setHasOverflow(hasVerticalOverflow);
 
-      // Store collapsed and expanded heights for animation
-      if (hasVerticalOverflow && cardRef.current) {
-        setCollapsedHeight(cardRef.current.offsetHeight);
+      // Store collapsed and expanded heights AND width for animation
+      if (hasVerticalOverflow && card) {
+        // Capture the exact rendered width (including padding, border, etc.)
+        const computedStyle = window.getComputedStyle(card);
+        const width = card.offsetWidth;
+        setCardWidth(width);
+        setCollapsedHeight(card.offsetHeight);
+
         // Temporarily expand to measure full height
         const originalOverflow = content.style.overflow;
         const originalMaxHeight = content.style.maxHeight;
+        const originalPosition = card.style.position;
+
+        // Measure expanded height WITHOUT changing position
+        // (to avoid layout shifts during measurement)
         content.style.overflow = 'visible';
         content.style.maxHeight = 'none';
-        setExpandedHeight(cardRef.current.scrollHeight);
+        setExpandedHeight(card.scrollHeight);
+
+        // Restore original styles
         content.style.overflow = originalOverflow;
         content.style.maxHeight = originalMaxHeight;
       }
@@ -94,8 +107,12 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
     if (hasOverflow) setIsExpanded(false);
   };
 
-  const handleTouchStart = () => {
-    if (hasOverflow) setIsExpanded(!isExpanded);
+  const handleTouchStart = (e) => {
+    if (hasOverflow) {
+      // Prevent mouse events from also firing
+      e.preventDefault();
+      setIsExpanded(!isExpanded);
+    }
   };
 
   // Calculate dynamic font size based on text length for simple tips
@@ -142,7 +159,9 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
             transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             position: isExpanded ? 'absolute' : 'relative',
             zIndex: isExpanded ? 10 : 1,
-            width: '100%'
+            width: isExpanded && cardWidth ? `${cardWidth}px` : '100%',
+            minWidth: isExpanded && cardWidth ? `${cardWidth}px` : 'auto',
+            maxWidth: isExpanded && cardWidth ? `${cardWidth}px` : '100%'
           }}
         >
           <div className={`${styles.travelTipIconWrapper} ${styles.simple}`}>
@@ -223,7 +242,9 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
           transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           position: isExpanded ? 'absolute' : 'relative',
           zIndex: isExpanded ? 10 : 1,
-          width: '100%'
+          width: isExpanded && cardWidth ? `${cardWidth}px` : '100%',
+          minWidth: isExpanded && cardWidth ? `${cardWidth}px` : 'auto',
+          maxWidth: isExpanded && cardWidth ? `${cardWidth}px` : '100%'
         }}
         {...schemaProps}
       >
