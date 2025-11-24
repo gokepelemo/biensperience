@@ -71,17 +71,43 @@ const InteractiveTextArea = ({
 
   // Force full width on RichTextarea wrapper to override library's inline width calculation
   useEffect(() => {
-    if (containerRef.current) {
-      // Find the RichTextarea's wrapper div (first child of the component with our class)
+    if (!containerRef.current) return;
+
+    const forceFullWidth = () => {
+      // Find the RichTextarea's wrapper div
       const richTextareaContainer = containerRef.current.querySelector('[class*="interactiveTextareaInput"]');
       if (richTextareaContainer) {
-        const wrapper = richTextareaContainer.querySelector('div');
-        if (wrapper) {
-          wrapper.style.width = '100%';
-          wrapper.style.display = 'block';
-        }
+        // Get all divs within the RichTextarea (library creates multiple wrapper divs)
+        const wrappers = richTextareaContainer.querySelectorAll('div');
+        wrappers.forEach(wrapper => {
+          wrapper.style.setProperty('width', '100%', 'important');
+          wrapper.style.setProperty('display', 'block', 'important');
+          wrapper.style.setProperty('box-sizing', 'border-box', 'important');
+        });
+
+        // Also force the container itself
+        richTextareaContainer.style.setProperty('width', '100%', 'important');
       }
-    }
+    };
+
+    // Initial force
+    forceFullWidth();
+
+    // Use MutationObserver to catch when library adds inline styles
+    const observer = new MutationObserver(forceFullWidth);
+    observer.observe(containerRef.current, {
+      attributes: true,
+      attributeFilter: ['style'],
+      subtree: true
+    });
+
+    // Re-run on window resize (library might recalculate)
+    window.addEventListener('resize', forceFullWidth);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', forceFullWidth);
+    };
   }, [internalValue, value]); // Re-run when content changes
 
   // Sync with external value changes (e.g., when editing an existing note)
