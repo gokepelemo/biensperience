@@ -17,22 +17,11 @@
   flex-direction: column;
   overflow: hidden;
 
-  // Hover for desktop, :active for mobile tap
-  &:hover,
-  &:active {
+  // Expanded state (controlled by JavaScript)
+  &.expanded {
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
     border-color: rgba(0, 0, 0, 0.1);
-    z-index: 10; // Bring to front when hovering/tapping
     overflow: visible; // Allow content to expand beyond container
-    height: max-content; // Expand ONLY to fit content (no extra space)
-    position: absolute; // Remove from layout flow
-    width: 100%; // Keep same width as container
-    min-height: 100%; // At least as tall as original
-
-    // Easing animation for smooth height expansion
-    transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     .travelTipIconWrapper {
       transform: scale(1.08);
@@ -50,23 +39,12 @@
       transform: scale(1);
       transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
-
-    .travelTipContent {
-      max-height: max-content; // Remove height restriction, fit content exactly
-      overflow-y: visible; // Show all content (remove scrollbar)
-      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                  overflow-y 0s linear 0.4s; // Delay overflow change until height expands
-    }
   }
 
   // Mobile-specific tap interaction
   @media (max-width: 768px) {
     // Enable tap to expand
     touch-action: manipulation;
-
-    &:active {
-      transform: scale(1.02); // Slight scale on tap for feedback
-    }
   }
 
   &:focus-within {

@@ -1,5 +1,5 @@
 import styles from "./TravelTip.module.scss";
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import {
   FaLanguage, FaMoneyBillWave, FaBus, FaShieldAlt,
   FaCloudSun, FaHandshake, FaUtensils, FaHotel,
@@ -51,6 +51,53 @@ const TIP_COLORS = {
 };
 
 export default function TravelTip({ tip, index, onDelete, editable = false, includeSchema = false }) {
+  const cardRef = useRef(null);
+  const contentRef = useRef(null);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [collapsedHeight, setCollapsedHeight] = useState(null);
+  const [expandedHeight, setExpandedHeight] = useState(null);
+
+  // Detect if content has overflow
+  useEffect(() => {
+    if (!contentRef.current) return;
+
+    const checkOverflow = () => {
+      const content = contentRef.current;
+      const hasVerticalOverflow = content.scrollHeight > content.clientHeight;
+      setHasOverflow(hasVerticalOverflow);
+
+      // Store collapsed and expanded heights for animation
+      if (hasVerticalOverflow && cardRef.current) {
+        setCollapsedHeight(cardRef.current.offsetHeight);
+        // Temporarily expand to measure full height
+        const originalOverflow = content.style.overflow;
+        const originalMaxHeight = content.style.maxHeight;
+        content.style.overflow = 'visible';
+        content.style.maxHeight = 'none';
+        setExpandedHeight(cardRef.current.scrollHeight);
+        content.style.overflow = originalOverflow;
+        content.style.maxHeight = originalMaxHeight;
+      }
+    };
+
+    checkOverflow();
+    window.addEventListener('resize', checkOverflow);
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [tip]);
+
+  const handleMouseEnter = () => {
+    if (hasOverflow) setIsExpanded(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (hasOverflow) setIsExpanded(false);
+  };
+
+  const handleTouchStart = () => {
+    if (hasOverflow) setIsExpanded(!isExpanded);
+  };
+
   // Calculate dynamic font size based on text length for simple tips
   const getSimpleTipFontSize = useMemo(() => {
     if (typeof tip !== 'string') return null;
@@ -83,11 +130,32 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
   if (typeof tip === 'string') {
     return (
       <>
-        <div className={`${styles.travelTip} ${styles.travelTipSimple}`} key={index}>
+        <div
+          ref={cardRef}
+          className={`${styles.travelTip} ${styles.travelTipSimple} ${hasOverflow ? styles.hasOverflow : ''} ${isExpanded ? styles.expanded : ''}`}
+          key={index}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          style={{
+            height: isExpanded && expandedHeight ? `${expandedHeight}px` : (collapsedHeight ? `${collapsedHeight}px` : '100%'),
+            transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            position: isExpanded ? 'absolute' : 'relative',
+            zIndex: isExpanded ? 10 : 1,
+            width: '100%'
+          }}
+        >
           <div className={`${styles.travelTipIconWrapper} ${styles.simple}`}>
             <FaLightbulb className={styles.travelTipFaIcon} />
           </div>
-          <div className={styles.travelTipContentSimple}>
+          <div
+            ref={contentRef}
+            className={styles.travelTipContentSimple}
+            style={{
+              overflow: isExpanded ? 'visible' : 'hidden',
+              maxHeight: isExpanded ? 'none' : '100%'
+            }}
+          >
             <span
               className={styles.travelTipText}
               style={{ fontSize: getSimpleTipFontSize }}
@@ -145,7 +213,18 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
   return (
     <>
       <div
-        className={`${styles.travelTip} ${styles.travelTipStructured} ${styles[`travelTip${type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()}`]}`}
+        ref={cardRef}
+        className={`${styles.travelTip} ${styles.travelTipStructured} ${styles[`travelTip${type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()}`]} ${hasOverflow ? styles.hasOverflow : ''} ${isExpanded ? styles.expanded : ''}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onTouchStart={handleTouchStart}
+        style={{
+          height: isExpanded && expandedHeight ? `${expandedHeight}px` : (collapsedHeight ? `${collapsedHeight}px` : '100%'),
+          transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          position: isExpanded ? 'absolute' : 'relative',
+          zIndex: isExpanded ? 10 : 1,
+          width: '100%'
+        }}
         {...schemaProps}
       >
       <div className={styles.travelTipHeader}>
@@ -176,7 +255,14 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
         )}
       </div>
 
-      <div className={styles.travelTipContent}>
+      <div
+        ref={contentRef}
+        className={styles.travelTipContent}
+        style={{
+          overflow: isExpanded ? 'visible' : 'auto',
+          maxHeight: isExpanded ? 'none' : '100%'
+        }}
+      >
         <div className={styles.travelTipValue} itemProp="value">
           <strong>{value}</strong>
         </div>
