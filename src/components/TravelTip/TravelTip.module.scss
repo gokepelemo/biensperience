@@ -24,7 +24,7 @@
     border-color: rgba(0, 0, 0, 0.1);
     z-index: 10; // Bring to front when hovering/tapping
     overflow: visible; // Allow content to expand beyond container
-    height: auto; // Expand to fit content
+    height: max-content; // Expand ONLY to fit content (no extra space)
     position: absolute; // Remove from layout flow
     width: 100%; // Keep same width as container
     min-height: 100%; // At least as tall as original
@@ -52,9 +52,10 @@
     }
 
     .travelTipContent {
-      max-height: none; // Remove height restriction
-      overflow-y: visible; // Show all content
-      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      max-height: max-content; // Remove height restriction, fit content exactly
+      overflow-y: visible; // Show all content (remove scrollbar)
+      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                  overflow-y 0s linear 0.4s; // Delay overflow change until height expands
     }
   }
 
