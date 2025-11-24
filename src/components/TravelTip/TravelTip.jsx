@@ -74,6 +74,16 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
         // Capture the exact rendered width (including padding, border, etc.)
         const computedStyle = window.getComputedStyle(card);
         const width = card.offsetWidth;
+        const boundingRect = card.getBoundingClientRect();
+
+        console.log('[TravelTip Overflow Detection]', {
+          hasOverflow: true,
+          offsetWidth: width,
+          boundingWidth: boundingRect.width,
+          computedWidth: computedStyle.width,
+          offsetHeight: card.offsetHeight
+        });
+
         setCardWidth(width);
         setCollapsedHeight(card.offsetHeight);
 
@@ -100,11 +110,22 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
   }, [tip]);
 
   const handleMouseEnter = () => {
-    if (hasOverflow) setIsExpanded(true);
+    if (hasOverflow) {
+      console.log('[TravelTip Expand]', {
+        cardWidth,
+        collapsedHeight,
+        expandedHeight,
+        hasOverflow
+      });
+      setIsExpanded(true);
+    }
   };
 
   const handleMouseLeave = () => {
-    if (hasOverflow) setIsExpanded(false);
+    if (hasOverflow) {
+      console.log('[TravelTip Collapse]');
+      setIsExpanded(false);
+    }
   };
 
   const handleTouchStart = (e) => {
@@ -159,9 +180,11 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
             transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             position: isExpanded ? 'absolute' : 'relative',
             zIndex: isExpanded ? 10 : 1,
-            width: isExpanded && cardWidth ? `${cardWidth}px` : '100%',
-            minWidth: isExpanded && cardWidth ? `${cardWidth}px` : 'auto',
-            maxWidth: isExpanded && cardWidth ? `${cardWidth}px` : '100%'
+            width: cardWidth ? `${cardWidth}px` : '100%',
+            minWidth: cardWidth ? `${cardWidth}px` : 'auto',
+            maxWidth: cardWidth ? `${cardWidth}px` : '100%',
+            left: isExpanded ? 0 : 'auto',
+            top: isExpanded ? 0 : 'auto'
           }}
         >
           <div className={`${styles.travelTipIconWrapper} ${styles.simple}`}>
@@ -242,9 +265,11 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
           transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           position: isExpanded ? 'absolute' : 'relative',
           zIndex: isExpanded ? 10 : 1,
-          width: isExpanded && cardWidth ? `${cardWidth}px` : '100%',
-          minWidth: isExpanded && cardWidth ? `${cardWidth}px` : 'auto',
-          maxWidth: isExpanded && cardWidth ? `${cardWidth}px` : '100%'
+          width: cardWidth ? `${cardWidth}px` : '100%',
+          minWidth: cardWidth ? `${cardWidth}px` : 'auto',
+          maxWidth: cardWidth ? `${cardWidth}px` : '100%',
+          left: isExpanded ? 0 : 'auto',
+          top: isExpanded ? 0 : 'auto'
         }}
         {...schemaProps}
       >
