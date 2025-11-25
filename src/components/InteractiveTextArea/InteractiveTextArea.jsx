@@ -51,6 +51,7 @@ const InteractiveTextArea = ({
 }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsStyle, setSuggestionsStyle] = useState({});
   const [cursorPosition, setCursorPosition] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
   const [isSearching, setIsSearching] = useState(false);
@@ -74,28 +75,49 @@ const InteractiveTextArea = ({
     if (!containerRef.current) return;
 
     const forceFullWidth = () => {
-      // Find the RichTextarea's wrapper div
-      const richTextareaContainer = containerRef.current.querySelector('[class*="interactiveTextareaInput"]');
-      if (richTextareaContainer) {
-        // Target the FIRST child div - this is the library's main wrapper with inline width
-        // This div has style="display: inline-block; position: relative; width: XXXpx;"
-        const firstChildDiv = richTextareaContainer.querySelector(':scope > div:first-child');
-        if (firstChildDiv) {
-          // Force width and display on the first child (the one with inline-block and fixed width)
-          firstChildDiv.style.setProperty('width', '100%', 'important');
-          firstChildDiv.style.setProperty('display', 'block', 'important');
-          firstChildDiv.style.setProperty('box-sizing', 'border-box', 'important');
+      // Robustly find the rendered textarea (library output) by class
+      const textareaEl = containerRef.current.querySelector('textarea[class*="interactiveTextareaInput"]');
+      if (textareaEl && textareaEl.parentElement) {
+        const wrapper = textareaEl.parentElement; // This is the inline-block wrapper the library creates
+
+        // Force the wrapper (first child) to be full width
+        try {
+          wrapper.style.setProperty('width', '100%', 'important');
+          wrapper.style.setProperty('display', 'block', 'important');
+          wrapper.style.setProperty('box-sizing', 'border-box', 'important');
+        } catch (err) {
+          // ignore
         }
 
-        // Also get all nested divs for good measure
-        const allDivs = richTextareaContainer.querySelectorAll('div');
-        allDivs.forEach(wrapper => {
-          wrapper.style.setProperty('width', '100%', 'important');
-          wrapper.style.setProperty('box-sizing', 'border-box', 'important');
-        });
+        // Force the wrapper's first child (the inner absolutely-positioned div) to full width as well
+        const innerFirst = wrapper.querySelector(':scope > div:first-child');
+        if (innerFirst) {
+          innerFirst.style.setProperty('width', '100%', 'important');
+          innerFirst.style.setProperty('box-sizing', 'border-box', 'important');
+        }
 
-        // Also force the container itself
-        richTextareaContainer.style.setProperty('width', '100%', 'important');
+        // Also ensure the actual textarea is full width
+        try {
+          textareaEl.style.setProperty('width', '100%', 'important');
+          textareaEl.style.setProperty('box-sizing', 'border-box', 'important');
+        } catch (err) {}
+      } else {
+        // Fallback: try previous selector if textarea not found
+        const richTextareaContainer = containerRef.current.querySelector('[class*="interactiveTextareaInput"]');
+        if (richTextareaContainer) {
+          const firstChildDiv = richTextareaContainer.querySelector(':scope > div:first-child');
+          if (firstChildDiv) {
+            firstChildDiv.style.setProperty('width', '100%', 'important');
+            firstChildDiv.style.setProperty('display', 'block', 'important');
+            firstChildDiv.style.setProperty('box-sizing', 'border-box', 'important');
+          }
+          const allDivs = richTextareaContainer.querySelectorAll('div');
+          allDivs.forEach(wrapper => {
+            wrapper.style.setProperty('width', '100%', 'important');
+            wrapper.style.setProperty('box-sizing', 'border-box', 'important');
+          });
+          richTextareaContainer.style.setProperty('width', '100%', 'important');
+        }
       }
     };
 
@@ -168,8 +190,9 @@ const InteractiveTextArea = ({
 
     // Check for mention triggers (@ for users, # for plan items)
     const textBeforeCursor = newDisplayValue.slice(0, newCursorPosition);
-    const userMentionMatch = textBeforeCursor.match(/@(\w*)$/);
-    const planItemMentionMatch = textBeforeCursor.match(/#(\w*)$/);
+    // Allow spaces, hyphens and apostrophes in mention queries (matches like "@John", "@New York", "#Plan Item")
+    const userMentionMatch = textBeforeCursor.match(/@([A-Za-z0-9\s\-']*)$/);
+    const planItemMentionMatch = textBeforeCursor.match(/#([A-Za-z0-9\s\-']*)$/);
 
     if (userMentionMatch) {
       const query = userMentionMatch[1];
@@ -233,13 +256,56 @@ const InteractiveTextArea = ({
       setMentionStart(newCursorPosition - query.length - 1);
 
       // Filter for plan items only (# prefix) - uses local availableEntities
-      const filteredEntities = availableEntities.filter(entity =>
+      const localMatches = (availableEntities || []).filter(entity =>
         entity.type === 'plan-item' &&
-        (entity.displayName.toLowerCase().includes(query))
+        (entity.displayName || '').toLowerCase().includes(query)
       );
 
-      setSuggestions(filteredEntities.slice(0, 5)); // Limit to 5 suggestions
-      setShowSuggestions(true);
+      if (localMatches.length > 0) {
+        setSuggestions(localMatches.slice(0, 5)); // Limit to 5 suggestions
+        setShowSuggestions(true);
+      } else {
+        // Debounce global search for # mentions (plan items)
+        setIsSearching(true);
+        searchDebounceRef.current = setTimeout(async () => {
+          try {
+            logger.debug('[InteractiveTextArea] Searching for plan items', { query });
+
+            // First, filter local availableEntities by query
+            const localPlanItems = (availableEntities || [])
+              .filter(entity =>
+                entity.type === 'plan-item' &&
+                entity.displayName?.toLowerCase().includes(query.toLowerCase())
+              );
+
+            // Then get global search results for plans
+            const results = await searchAll(query, {
+              types: ['plan'],
+              limit: 5
+            });
+
+            // Transform global search results to plan-item entity format
+            const globalEntities = results.map(result => ({
+              type: 'plan-item',
+              id: result._id,
+              displayName: result.name || result.experience_name || 'Unknown Plan Item'
+            }));
+
+            // Merge: local matches first, then global results (removing duplicates)
+            const localIds = new Set(localPlanItems.map(e => e.id));
+            const uniqueGlobalEntities = globalEntities.filter(e => !localIds.has(e.id));
+            const mergedEntities = [...localPlanItems, ...uniqueGlobalEntities];
+
+            setSuggestions(mergedEntities);
+            setShowSuggestions(true);
+            setIsSearching(false);
+          } catch (error) {
+            logger.error('[InteractiveTextArea] Plan item search failed', { query }, error);
+            setSuggestions([]);
+            setIsSearching(false);
+          }
+        }, 300); // 300ms debounce
+      }
     } else {
       // Clear suggestions if no mention trigger
       setShowSuggestions(false);
@@ -266,51 +332,68 @@ const InteractiveTextArea = ({
 
     const textarea = textareaRef.current;
 
-    // Create storage format: {entity/id}
-    const storageMention = createMention(entity.type, entity.id, entity.displayName);
-
-    const textBeforeMention = value.slice(0, mentionStart);
-    const textAfterCursor = value.slice(cursorPosition);
-
-    // Insert the storage format into the actual value
-    const newStorageValue = textBeforeMention + storageMention + ' ' + textAfterCursor;
-
-    // Pass storage format to parent immediately
-    onChange(newStorageValue);
-
-    // Resolve the new value to display format
-    setIsResolvingMentions(true);
+    // Insert into the display text (`internalValue`) at the mentionStart position.
+    // This avoids mapping display->storage offsets and preserves anchors for multiple mentions.
     try {
-      const planItemsMap = {};
-      if (entityData) {
-        Object.entries(entityData).forEach(([id, entity]) => {
-          if (entity.type === 'plan-item' || entity.experience_name) {
-            planItemsMap[id] = entity;
-          }
-        });
-      }
+      const displayBefore = internalValue.slice(0, Math.max(0, mentionStart));
+      const displayAfter = internalValue.slice(cursorPosition || displayBefore.length);
+      const prefix = entity.type === 'plan-item' ? '#' : '@';
+      const inserted = `${prefix}${entity.displayName}`;
+      const newDisplayValue = `${displayBefore}${inserted} ${displayAfter}`;
 
-      const displayText = await resolveMentionsToDisplayText(newStorageValue, planItemsMap);
-      setInternalValue(displayText);
+      // Update local display state immediately
+      setInternalValue(newDisplayValue);
 
-      // Calculate cursor position in display text
-      const displayBeforeMention = await resolveMentionsToDisplayText(textBeforeMention, planItemsMap);
-      const newCursorPosition = displayBeforeMention.length + (entity.type === 'plan-item' ? '#' : '@').length + entity.displayName.length + 1;
+      // Convert to storage format and emit to parent
+      const storage = editableTextToMentions(newDisplayValue, availableEntities);
+      onChange(storage);
 
+      // Move cursor to just after the inserted mention
+      const newCursorPosition = displayBefore.length + inserted.length + 1;
       setTimeout(() => {
         textarea.focus();
-        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        try {
+          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        } catch (err) {}
       }, 0);
-    } catch (error) {
-      console.error('[InteractiveTextArea] Failed to resolve mention after selection:', error);
-      setInternalValue(newStorageValue);
-    } finally {
-      setIsResolvingMentions(false);
+    } catch (err) {
+      console.error('[InteractiveTextArea] Error inserting mention:', err);
     }
 
     setShowSuggestions(false);
     setMentionStart(-1);
   }, [value, mentionStart, cursorPosition, onChange, entityData]);
+
+  // Position suggestions dropdown directly under the textarea element
+  const updateSuggestionsPosition = useCallback(() => {
+    if (!textareaRef.current || !containerRef.current) return;
+
+    try {
+      const textareaRect = textareaRef.current.getBoundingClientRect();
+      const containerRect = containerRef.current.getBoundingClientRect();
+
+      const top = textareaRect.bottom - containerRect.top;
+      const left = textareaRect.left - containerRect.left;
+      const width = textareaRect.width;
+
+      setSuggestionsStyle({ position: 'absolute', top: `${top}px`, left: `${left}px`, width: `${width}px` });
+    } catch (err) {
+      // ignore measurement errors
+    }
+  }, []);
+
+  // Update position when suggestions visibility changes, on resize, or when content changes
+  useEffect(() => {
+    if (!showSuggestions) return;
+    updateSuggestionsPosition();
+
+    window.addEventListener('resize', updateSuggestionsPosition);
+    window.addEventListener('scroll', updateSuggestionsPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateSuggestionsPosition);
+      window.removeEventListener('scroll', updateSuggestionsPosition, true);
+    };
+  }, [showSuggestions, internalValue, updateSuggestionsPosition]);
 
   /**
    * Handle keyboard navigation in suggestions
@@ -365,10 +448,34 @@ const InteractiveTextArea = ({
     let match;
 
     while ((match = mentionRegex.exec(value)) !== null) {
+      const prefix = match[1];
+      const text = match[0];
+      // Styles per prefix: @ => user/destination/experience, # => plan-item
+      const baseStyle = {
+        fontWeight: 600,
+        padding: '2px 6px',
+        borderRadius: '6px',
+        display: 'inline-block',
+        lineHeight: '1.2',
+        pointerEvents: 'none'
+      };
+
+      const atStyle = {
+        background: 'rgba(124,143,240,0.12)',
+        color: 'var(--color-text-primary)'
+      };
+
+      const hashStyle = {
+        background: 'rgba(72,201,176,0.12)',
+        color: 'var(--color-text-primary)'
+      };
+
+      const style = Object.assign({}, baseStyle, prefix === '@' ? atStyle : hashStyle);
+
       matches.push({
         start: match.index,
-        end: match.index + match[0].length,
-        style: { fontWeight: 'bold' }
+        end: match.index + text.length,
+        style
       });
     }
 
@@ -392,7 +499,7 @@ const InteractiveTextArea = ({
 
       {/* Suggestions dropdown */}
       {showSuggestions && (
-        <div className={styles.mentionsSuggestions}>
+        <div className={styles.mentionsSuggestions} style={suggestionsStyle}>
           {isSearching ? (
             <div className={styles.mentionSuggestionItem}>
               <div className={styles.mentionSuggestionIcon}>⏳</div>
