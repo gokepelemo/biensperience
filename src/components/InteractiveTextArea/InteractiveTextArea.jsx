@@ -264,8 +264,8 @@ const InteractiveTextArea = ({
       if (localMatches.length > 0) {
         setSuggestions(localMatches.slice(0, 5)); // Limit to 5 suggestions
         setShowSuggestions(true);
-      } else {
-        // Debounce global search for # mentions (plan items)
+      } else if (query.trim()) {
+        // Only search if query is not empty - Debounce global search for # mentions (plan items)
         setIsSearching(true);
         searchDebounceRef.current = setTimeout(async () => {
           try {
@@ -278,7 +278,7 @@ const InteractiveTextArea = ({
                 entity.displayName?.toLowerCase().includes(query.toLowerCase())
               );
 
-            // Then get global search results for plans
+            // Then get global search results for plans (only if query is not empty)
             const results = await searchAll(query, {
               types: ['plan'],
               limit: 5
@@ -305,6 +305,10 @@ const InteractiveTextArea = ({
             setIsSearching(false);
           }
         }, 300); // 300ms debounce
+      } else {
+        // Empty query - show no suggestions
+        setSuggestions([]);
+        setShowSuggestions(true);
       }
     } else {
       // Clear suggestions if no mention trigger
