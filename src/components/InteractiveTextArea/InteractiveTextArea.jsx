@@ -178,6 +178,65 @@ const InteractiveTextArea = ({
   }, [value, entityData]);
 
   /**
+   * Abstracted search function used by both @ and # mentions
+   * Performs local filtering + global search with deduplication
+   * @param {string} query - Search query
+   * @param {string} mentionType - Either 'user' (@) or 'plan-item' (#)
+   */
+  const performMentionSearch = useCallback(async (query, mentionType) => {
+    try {
+      const isUserMention = mentionType === 'user';
+      logger.debug(`[InteractiveTextArea] Searching for ${mentionType}`, { query });
+
+      // First, filter local availableEntities by query
+      const localMatches = (availableEntities || [])
+        .filter(entity => {
+          if (isUserMention) {
+            // For @: include user, destination, experience (exclude plan-item)
+            return entity.type !== 'plan-item' &&
+                   entity.displayName?.toLowerCase().includes(query.toLowerCase());
+          } else {
+            // For #: only include plan-item
+            return entity.type === 'plan-item' &&
+                   entity.displayName?.toLowerCase().includes(query.toLowerCase());
+          }
+        });
+
+      // Then get global search results with appropriate types
+      const searchTypes = isUserMention
+        ? ['user', 'destination', 'experience']
+        : ['plan'];
+
+      const results = await searchAll(query, {
+        types: searchTypes,
+        limit: 5
+      });
+
+      // Transform global search results to entity format
+      const globalEntities = results.map(result => ({
+        type: isUserMention ? result.type : 'plan-item',
+        id: result._id,
+        displayName: result.type === 'user'
+          ? (result.name || result.username || 'Unknown User')
+          : (result.name || result.experience_name || 'Unknown')
+      }));
+
+      // Merge: local matches first, then global results (removing duplicates)
+      const localIds = new Set(localMatches.map(e => e.id));
+      const uniqueGlobalEntities = globalEntities.filter(e => !localIds.has(e.id));
+      const mergedEntities = [...localMatches, ...uniqueGlobalEntities];
+
+      setSuggestions(mergedEntities);
+      setShowSuggestions(true);
+      setIsSearching(false);
+    } catch (error) {
+      logger.error(`[InteractiveTextArea] ${mentionType} search failed`, { query }, error);
+      setSuggestions([]);
+      setIsSearching(false);
+    }
+  }, [availableEntities]);
+
+  /**
    * Handle textarea input changes
    * User sees display format (@Name), but we emit storage format ({entity/id})
    */
@@ -203,112 +262,36 @@ const InteractiveTextArea = ({
         clearTimeout(searchDebounceRef.current);
       }
 
-      // If query is empty, show empty suggestions (but don't return early)
+      // If query is empty, show empty suggestions
       if (!query.trim()) {
         setSuggestions([]);
         setShowSuggestions(true);
       } else {
-        // Debounce global search for @ mentions (users, destinations, experiences)
+        // Debounce global search for @ mentions using abstracted function
         setIsSearching(true);
-        searchDebounceRef.current = setTimeout(async () => {
-          try {
-            logger.debug('[InteractiveTextArea] Searching for entities', { query });
-
-            // First, filter local availableEntities by query
-            const localMatches = (availableEntities || [])
-              .filter(entity =>
-                entity.type !== 'plan-item' && // Exclude plan items from @ search
-                entity.displayName?.toLowerCase().includes(query.toLowerCase())
-              );
-
-            // Then get global search results
-            const results = await searchAll(query, {
-              types: ['user', 'destination', 'experience'],
-              limit: 5
-            });
-
-            // Transform global search results to entity format
-            const globalEntities = results.map(result => ({
-              type: result.type,
-              id: result._id,
-              displayName: result.type === 'user'
-                ? (result.name || result.username || 'Unknown User')
-                : (result.name || 'Unknown')
-            }));
-
-            // Merge: local matches first, then global results (removing duplicates)
-            const localIds = new Set(localMatches.map(e => e.id));
-            const uniqueGlobalEntities = globalEntities.filter(e => !localIds.has(e.id));
-            const mergedEntities = [...localMatches, ...uniqueGlobalEntities];
-
-            setSuggestions(mergedEntities);
-            setShowSuggestions(true);
-            setIsSearching(false);
-          } catch (error) {
-            logger.error('[InteractiveTextArea] Entity search failed', { query }, error);
-            setSuggestions([]);
-            setIsSearching(false);
-          }
-        }, 300); // 300ms debounce
+        searchDebounceRef.current = setTimeout(() => {
+          performMentionSearch(query, 'user');
+        }, 300);
       }
     } else if (planItemMentionMatch) {
-      const query = planItemMentionMatch[1].toLowerCase();
+      const query = planItemMentionMatch[1];
       setMentionStart(newCursorPosition - query.length - 1);
 
-      // Filter for plan items only (# prefix) - uses local availableEntities
-      const localMatches = (availableEntities || []).filter(entity =>
-        entity.type === 'plan-item' &&
-        (entity.displayName || '').toLowerCase().includes(query)
-      );
+      // Clear existing debounce timer
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
 
-      if (localMatches.length > 0) {
-        setSuggestions(localMatches.slice(0, 5)); // Limit to 5 suggestions
-        setShowSuggestions(true);
-      } else if (query.trim()) {
-        // Only search if query is not empty - Debounce global search for # mentions (plan items)
-        setIsSearching(true);
-        searchDebounceRef.current = setTimeout(async () => {
-          try {
-            logger.debug('[InteractiveTextArea] Searching for plan items', { query });
-
-            // First, filter local availableEntities by query
-            const localPlanItems = (availableEntities || [])
-              .filter(entity =>
-                entity.type === 'plan-item' &&
-                entity.displayName?.toLowerCase().includes(query.toLowerCase())
-              );
-
-            // Then get global search results for plans (only if query is not empty)
-            const results = await searchAll(query, {
-              types: ['plan'],
-              limit: 5
-            });
-
-            // Transform global search results to plan-item entity format
-            const globalEntities = results.map(result => ({
-              type: 'plan-item',
-              id: result._id,
-              displayName: result.name || result.experience_name || 'Unknown Plan Item'
-            }));
-
-            // Merge: local matches first, then global results (removing duplicates)
-            const localIds = new Set(localPlanItems.map(e => e.id));
-            const uniqueGlobalEntities = globalEntities.filter(e => !localIds.has(e.id));
-            const mergedEntities = [...localPlanItems, ...uniqueGlobalEntities];
-
-            setSuggestions(mergedEntities);
-            setShowSuggestions(true);
-            setIsSearching(false);
-          } catch (error) {
-            logger.error('[InteractiveTextArea] Plan item search failed', { query }, error);
-            setSuggestions([]);
-            setIsSearching(false);
-          }
-        }, 300); // 300ms debounce
-      } else {
-        // Empty query - show no suggestions
+      // If query is empty, show empty suggestions
+      if (!query.trim()) {
         setSuggestions([]);
         setShowSuggestions(true);
+      } else {
+        // Debounce global search for # mentions using same abstracted function
+        setIsSearching(true);
+        searchDebounceRef.current = setTimeout(() => {
+          performMentionSearch(query, 'plan-item');
+        }, 300);
       }
     } else {
       // Clear suggestions if no mention trigger
@@ -325,7 +308,7 @@ const InteractiveTextArea = ({
     // This ensures parent always receives {entity/id} format
     const storageValue = editableTextToMentions(newDisplayValue, availableEntities);
     onChange(storageValue);
-  }, [onChange, availableEntities]);
+  }, [onChange, availableEntities, performMentionSearch]);
 
   /**
    * Handle mention selection from suggestions
