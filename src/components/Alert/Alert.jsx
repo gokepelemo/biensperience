@@ -1,6 +1,5 @@
 import React from "react";
 import { lang } from "../../lang.constants";
-import { getComponentStyles } from "../../utilities/design-system";
 import styles from "./Alert.module.scss";
 
 /**
@@ -79,7 +78,7 @@ const Alert = ({
       </div>
 
       {actions && (
-        <div className={styles.alertActions} style={{ cssText: getComponentStyles('alertActions') }}>
+        <div className={styles.alertActions}>
           {actions}
         </div>
       )}
