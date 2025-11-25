@@ -348,8 +348,15 @@ const InteractiveTextArea = ({
       // Update local display state immediately
       setInternalValue(newDisplayValue);
 
+      // Ensure the selected entity is in availableEntities for conversion
+      // Check if entity already exists in availableEntities
+      const entityExists = (availableEntities || []).some(e => e.id === entity.id && e.type === entity.type);
+      const entitiesForConversion = entityExists
+        ? availableEntities
+        : [...(availableEntities || []), entity];
+
       // Convert to storage format and emit to parent
-      const storage = editableTextToMentions(newDisplayValue, availableEntities);
+      const storage = editableTextToMentions(newDisplayValue, entitiesForConversion);
       onChange(storage);
 
       // Move cursor to just after the inserted mention
@@ -366,7 +373,7 @@ const InteractiveTextArea = ({
 
     setShowSuggestions(false);
     setMentionStart(-1);
-  }, [value, mentionStart, cursorPosition, onChange, entityData]);
+  }, [value, mentionStart, cursorPosition, onChange, entityData, availableEntities]);
 
   // Position suggestions dropdown directly under the textarea element
   const updateSuggestionsPosition = useCallback(() => {
