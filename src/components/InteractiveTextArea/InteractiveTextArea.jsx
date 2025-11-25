@@ -213,13 +213,25 @@ const InteractiveTextArea = ({
       });
 
       // Transform global search results to entity format
-      const globalEntities = results.map(result => ({
-        type: isUserMention ? result.type : 'plan-item',
-        id: result._id,
-        displayName: result.type === 'user'
-          ? (result.name || result.username || 'Unknown User')
-          : (result.name || result.experience_name || 'Unknown')
-      }));
+      const globalEntities = results.map(result => {
+        let displayName;
+
+        if (result.type === 'user') {
+          displayName = result.name || result.username || 'Unknown User';
+        } else if (result.type === 'plan') {
+          // Plans have populated experience field with title
+          displayName = result.experience?.title || result.experience?.name || 'Unknown Plan';
+        } else {
+          // Destinations and experiences have name field
+          displayName = result.name || result.title || 'Unknown';
+        }
+
+        return {
+          type: isUserMention ? result.type : 'plan-item',
+          id: result._id,
+          displayName
+        };
+      });
 
       // Merge: local matches first, then global results (removing duplicates)
       const localIds = new Set(localMatches.map(e => e.id));

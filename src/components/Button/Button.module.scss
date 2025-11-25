@@ -9,9 +9,13 @@
 /* Base Button Styles */
 .btnCustom {
   @include button-base;
-  min-height: 44px; /* Accessibility: minimum touch target */
+  /* Match form field control min-height so buttons and inputs align vertically */
+  min-height: var(--form-field-control-min-height, 44px);
   position: relative;
   overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Gradient Button Variant */

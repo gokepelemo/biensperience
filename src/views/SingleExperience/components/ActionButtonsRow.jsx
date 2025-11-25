@@ -55,7 +55,7 @@ export default function ActionButtonsRow({
     <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center flex-row experience-actions">
       {/* Plan It / Planned Button */}
       <FadeIn>
-        <button
+          <button
           className={`btn btn-sm btn-icon my-1 my-sm-2 ${
             userHasExperience ? "btn-plan-remove" : "btn-plan-add"
           } ${loading || plansLoading ? "loading" : ""}`}
@@ -63,12 +63,9 @@ export default function ActionButtonsRow({
           style={planBtnWidth ? {
             width: `${planBtnWidth}px`,
             minWidth: `${planBtnWidth}px`,
-            height: '44px',
-            minHeight: '44px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          } : undefined}
+            height: 'var(--form-field-control-min-height, 44px)',
+            minHeight: 'var(--form-field-control-min-height, 44px)'
+          } : { height: 'var(--form-field-control-min-height, 44px)' }}
           onClick={handleExperience}
           aria-label={
             userHasExperience

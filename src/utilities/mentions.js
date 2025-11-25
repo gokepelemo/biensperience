@@ -349,16 +349,18 @@ export function mentionsToEditableText(text, entities = {}) {
 export function editableTextToMentions(text, availableEntities = []) {
   if (!text) return '';
 
-  // Build a map of displayName -> entity for quick lookup
+  // Build a map of displayName -> entity for quick lookup (use trimmed displayName)
   const nameToEntity = {};
-  availableEntities.forEach(entity => {
-    const key = `${entity.type}:${entity.displayName}`;
+  (availableEntities || []).forEach(entity => {
+    const display = (entity.displayName || '').trim();
+    const key = `${entity.type}:${display}`;
     nameToEntity[key] = entity;
   });
 
-  // Match @Name or #Name patterns
-  // Use word boundary and allow spaces, hyphens, and apostrophes in names
-  const mentionRegex = /(@|#)([A-Za-z0-9\s\-']+)/g;
+  // Match @Name or #Name patterns.
+  // Use a regex that stops at the next @ or # so multiple mentions in the same string are handled separately.
+  // Capture everything after a prefix until the next prefix (or end), then trim.
+  const mentionRegex = /(@|#)([^@#]+)/g;
 
   return text.replace(mentionRegex, (match, prefix, name) => {
     const trimmedName = name.trim();

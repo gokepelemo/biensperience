@@ -95,7 +95,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px; /* Match action button height (WCAG 2.1 AA: 44x44px touch target) */
+  /* Match form control/button height so badge aligns with action buttons */
+  min-height: var(--form-field-control-min-height, 44px);
 
   @include breakpoint(md) {
     justify-content: flex-start; /* Left-align on desktop */
@@ -105,6 +106,16 @@
 /* Plan Item Status */
 :global(.plan-item-status) {
   font-weight: $font-weight-semibold;
+}
+
+/* Ensure action buttons in the header match form control height */
+:global(.experience-actions) :global(.btn),
+:global(.experience-actions) :global(.btn-icon) {
+  height: var(--form-field-control-min-height, 44px);
+  min-height: var(--form-field-control-min-height, 44px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 :global(.green) {
