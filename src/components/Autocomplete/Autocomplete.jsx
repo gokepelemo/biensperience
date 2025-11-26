@@ -59,6 +59,7 @@ export default function Autocomplete({
   const dropdownRef = useRef(null);
   const [selectedItems, setSelectedItems] = useState(Array.isArray(selected) ? selected : []);
   const justSelectedRef = useRef(false); // Track when selection just occurred to prevent auto-reopen
+  const hasUserInteractedRef = useRef(false); // Track if user has interacted with the input
 
   // Handle controlled vs uncontrolled
   // If parent provides a controlled `value`, use it. Otherwise use internal searchTerm.
@@ -134,6 +135,9 @@ export default function Autocomplete({
   // Handle input change
   const handleInputChange = (e) => {
     const newValue = e.target.value;
+
+    // Mark that user has interacted with this input
+    hasUserInteractedRef.current = true;
 
     if (onChange) {
       onChange(e);
@@ -265,7 +269,9 @@ export default function Autocomplete({
       justSelectedRef.current = false;
       return;
     }
-    if (items.length > 0 && currentValue.trim().length > 0 && !isOpen) {
+    // Only auto-open if user has interacted with the input (typed or focused)
+    // This prevents dropdown from opening on initial mount when items are pre-loaded
+    if (hasUserInteractedRef.current && items.length > 0 && currentValue.trim().length > 0 && !isOpen) {
       setIsOpen(true);
     }
   }, [items, currentValue, isOpen]);
@@ -289,6 +295,8 @@ export default function Autocomplete({
           value={currentValue}
           onChange={handleInputChange}
           onFocus={() => {
+            // Mark that user has interacted
+            hasUserInteractedRef.current = true;
             // Only open dropdown if there's a value or items to show
             if (currentValue.trim().length > 0 || items.length > 0) {
               setIsOpen(true);
