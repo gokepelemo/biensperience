@@ -13,7 +13,7 @@ import {
 import { FaCheckCircle, FaCalendar, FaTasks, FaChevronRight } from 'react-icons/fa';
 import { getUserPlans } from '../../utilities/plans-api';
 import { formatCurrency } from '../../utilities/currency-utils';
-import './MyPlans.css';
+import styles from './MyPlans.module.scss';
 
 export default function MyPlans() {
   const [plans, setPlans] = useState([]);
@@ -47,7 +47,12 @@ export default function MyPlans() {
   // Listen for plan updates (e.g., plan item completion changes)
   useEffect(() => {
     const handlePlanUpdated = (event) => {
-      const { plan } = event.detail || {};
+      // Event payload may have plan data in different locations depending on the source
+      // - updatePlanItem: { plan, planId }
+      // - updatePlan: { data, planId, version }
+      // - reorderPlanItems: { data, planId, version }
+      const detail = event.detail || {};
+      const plan = detail.plan || detail.data;
       if (!plan || !plan._id) return;
 
       // Update the plan in local state with fresh data from server
@@ -107,7 +112,7 @@ export default function MyPlans() {
         )}
 
         {!loading && plans.length === 0 && (
-          <div className="empty-state">
+          <div className={styles.emptyState}>
             <Text size="base" variant="muted">
               No plans yet. Plan an experience to get started.
             </Text>
@@ -121,20 +126,6 @@ export default function MyPlans() {
               const itemCount = (plan.plan || []).length;
               const completedCount = (plan.plan || []).filter(item => item.complete).length;
 
-              // Debug logging
-              console.log('Plan Progress Debug:', {
-                planId: plan._id,
-                experienceName: plan.experience?.name,
-                itemCount,
-                completedCount,
-                serverPercentage: plan.completion_percentage,
-                localPercentage: itemCount > 0 ? Math.round((completedCount / itemCount) * 100) : 0,
-                items: (plan.plan || []).map(item => ({
-                  text: item.text?.substring(0, 30),
-                  complete: item.complete
-                }))
-              });
-
               // Use server-calculated completion percentage (virtual property)
               // Fallback to local calculation if not available
               const completionPercentage = plan.completion_percentage !== undefined
@@ -144,7 +135,7 @@ export default function MyPlans() {
               return (
                 <div
                   key={plan._id}
-                  className={`plan-card ${isExpanded ? 'expanded' : ''}`}
+                  className={`${styles.planCard} ${isExpanded ? styles.expanded : ''}`}
                   onClick={() => togglePlan(plan._id)}
                   role="button"
                   tabIndex={0}
@@ -158,19 +149,19 @@ export default function MyPlans() {
                   }}
                 >
                   {/* Plan Header - Always Visible */}
-                  <div className="plan-header">
-                    <div className="plan-header-content">
-                      <div className="plan-title-section">
-                        <Heading level={5} className="plan-title">
+                  <div className={styles.planHeader}>
+                    <div className={styles.planHeaderContent}>
+                      <div className={styles.planTitleSection}>
+                        <Heading level={5} className={styles.planTitle}>
                           {plan.experience?.name || 'Unnamed Experience'}
                         </Heading>
-                        <div className="plan-meta">
-                          <span className="meta-item">
+                        <div className={styles.planMeta}>
+                          <span className={styles.metaItem}>
                             <FaTasks size={12} />
                             {completedCount}/{itemCount} items
                           </span>
                           {plan.planned_date && (
-                            <span className="meta-item">
+                            <span className={styles.metaItem}>
                               <FaCalendar size={12} />
                               {new Date(plan.planned_date).toLocaleDateString()}
                             </span>
@@ -178,23 +169,23 @@ export default function MyPlans() {
                         </div>
                       </div>
 
-                      <div className="plan-header-right">
-                        <div className="plan-cost">
+                      <div className={styles.planHeaderRight}>
+                        <div className={styles.planCost}>
                           <Text weight="bold" size="lg">
                             {formatCurrency(plan.total_cost || 0)}
                           </Text>
                         </div>
-                        <div className={`expand-icon ${isExpanded ? 'rotated' : ''}`}>
+                        <div className={`${styles.expandIcon} ${isExpanded ? styles.rotated : ''}`}>
                           <FaChevronRight size={16} />
                         </div>
                       </div>
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="progress-bar-container">
-                      <div className="progress-bar">
+                    <div className={styles.progressBarContainer}>
+                      <div className={styles.progressBar}>
                         <div
-                          className="progress-fill"
+                          className={styles.progressFill}
                           style={{ width: `${completionPercentage}%` }}
                           role="progressbar"
                           aria-valuenow={completionPercentage}
@@ -202,7 +193,7 @@ export default function MyPlans() {
                           aria-valuemax="100"
                         />
                       </div>
-                      <Text size="xs" variant="muted" className="progress-text">
+                      <Text size="xs" variant="muted" className={styles.progressText}>
                         {completionPercentage}% complete
                       </Text>
                     </div>
@@ -210,9 +201,9 @@ export default function MyPlans() {
 
                   {/* Plan Body - Collapsible */}
                   {isExpanded && (
-                    <div className="plan-body">
+                    <div className={styles.planBody}>
                       {/* Plan Items Grid */}
-                      <div className="plan-items-grid">
+                      <div className={styles.planItemsGrid}>
                         {(plan.plan || []).map((item) => {
                           const isCompleted = item.complete || false;
                           const itemLink = `/experiences/${plan.experience?._id || plan.experience}#plan-${plan._id}-item-${item.plan_item_id || item._id}`;
@@ -221,22 +212,22 @@ export default function MyPlans() {
                             <HashLink
                               key={item.plan_item_id || item._id}
                               to={itemLink}
-                              className={`plan-item ${isCompleted ? 'completed' : ''}`}
+                              className={`${styles.planItem} ${isCompleted ? styles.completed : ''}`}
                               onClick={(e) => e.stopPropagation()}
                             >
                               {/* Completion Badge */}
                               {isCompleted && (
-                                <div className="completion-badge">
+                                <div className={styles.completionBadge}>
                                   <FaCheckCircle size={12} />
                                   <span>Done</span>
                                 </div>
                               )}
 
                               {/* Item Content */}
-                              <div className="item-content">
+                              <div className={styles.itemContent}>
                                 <Text
                                   weight="semibold"
-                                  className="item-text"
+                                  className={styles.itemText}
                                   style={{
                                     textDecoration: isCompleted ? 'line-through' : 'none',
                                     color: isCompleted ? 'var(--color-text-muted)' : 'inherit'
@@ -245,7 +236,7 @@ export default function MyPlans() {
                                   {item.text}
                                 </Text>
                                 {Number(item.cost) > 0 && (
-                                  <Text size="sm" variant="muted" className="item-cost">
+                                  <Text size="sm" variant="muted" className={styles.itemCost}>
                                     {formatCurrency(item.cost)}
                                   </Text>
                                 )}
@@ -257,15 +248,15 @@ export default function MyPlans() {
 
                       {/* Additional Costs */}
                       {plan.costs && plan.costs.length > 0 && (
-                        <div className="additional-costs">
+                        <div className={styles.additionalCosts}>
                           <Heading level={6} className="mb-3">Additional Costs</Heading>
                           <Stack spacing="sm">
                             {plan.costs.map((c) => (
                               <FlexBetween
                                 key={c._id || `${c.title}-${c.cost}`}
-                                className="cost-item"
+                                className={styles.costItem}
                               >
-                                <div className="cost-info">
+                                <div className={styles.costInfo}>
                                   <Text weight="semibold">{c.title}</Text>
                                   {c.description && (
                                     <Text size="sm" variant="muted">{c.description}</Text>
@@ -281,7 +272,7 @@ export default function MyPlans() {
                       )}
 
                       {/* View Full Experience Button */}
-                      <div className="plan-footer">
+                      <div className={styles.planFooter}>
                         <HashLink to={`/experiences/${plan.experience?._id || plan.experience}#plan-${plan._id}`}>
                           <Button variant="outline" size="md" style={{ width: '100%' }}>
                             View Full Experience

@@ -2,34 +2,34 @@
    GLOBAL IMPORTS - Design System Order
    ============================================
    Import order matters:
-   1. Design tokens (variables)
-   2. Headings (base styles)
-   3. Utilities (atomic classes)
-   4. Theme-specific overrides
-   5. Component-specific styles
+   1. @use rules MUST come first (SASS requirement)
+   2. Then @import rules for CSS files
+
+   Note: @use rules are the modern SASS approach,
+   @import is deprecated for SCSS but still valid for plain CSS files
 */
 
-/* 1. Design System Foundation */
-@use './styles/scss/abstracts' as *; /* Load SASS variables and mixins globally */
+/* 1. Design System Foundation - @use MUST be first */
+@use './styles/scss/abstracts' as *;
 
-/* 2. CSS Custom Properties (for runtime theming) */
-@import './styles/design-tokens.css';          /* Legacy CSS custom properties */
+/* 2. Global Styles - Using @use for SCSS files */
+@use './styles/headings.scss' as *;
+@use './styles/utilities.scss' as *;
+@use './styles/theme.scss' as *;
+@use './styles/animations.scss' as *;
 
-/* 3. Global Styles - Convert to SCSS */
-@import './styles/headings.scss';     
-@import './styles/utilities.scss';    
-@import './styles/theme.scss';        
-@import './styles/animations.scss';   
+/* 3. Accessibility & Alert Styles */
+@use './styles/accessibility.scss' as *;
+@use './styles/alerts.scss' as *;
 
-/* 4. Legacy Global Styles (being consolidated) */
-@import './styles/accessibility.css';
-@import './styles/alerts.css';
+/* 4. SASS Components Layer */
+@use './styles/scss/components/forms' as *;
+@use './styles/scss/components/modal' as *;
+@use './styles/scss/components/profile-dropdown-views' as *;
+@use './styles/scss/components/text-legibility' as *;
 
-/* 5. SASS Components Layer */
-@import './styles/scss/components/forms';
-@import './styles/scss/components/modal';
-@import './styles/scss/components/profile-dropdown-views';
-@import './styles/scss/components/text-legibility';
+/* 5. CSS Custom Properties (for runtime theming) - @import comes after @use */
+@import './styles/design-tokens.css';
 
 /* ============================================
    GLOBAL BASE STYLES

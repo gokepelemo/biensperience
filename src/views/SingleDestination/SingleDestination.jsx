@@ -419,11 +419,20 @@ export default function SingleDestination() {
               {displayedExperiences.length > 0 ? (
                 <>
                   {displayedExperiences.map((experience, index) => (
-                    <ExperienceCard
-                      key={index}
-                      experience={experience}
-                      userPlans={plans}
-                    />
+                    experience ? (
+                      <ExperienceCard
+                        key={index}
+                        experience={experience}
+                        userPlans={plans}
+                        forcePreload={true}
+                      />
+                    ) : (
+                      <div key={`placeholder-${index}`} style={{ width: '12rem', height: '8rem', display: 'inline-block', margin: '0.5rem' }}>
+                        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                          <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                        </div>
+                      </div>
+                    )
                   ))}
                   {/* Infinite scroll sentinel - loads more when visible */}
                   {hasMoreExperiences && (

@@ -1,12 +1,16 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Plan Item Details Modal - Modern dark theme design */
+/* Plan Item Details Modal - Full viewport, mobile-friendly design */
 
 .planItemDetailsModal {
   padding: 0;
   background: var(--color-bg-dark, #1a1a1a);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-lg); /* Match modal content border radius */
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0; /* Allow flexbox to shrink */
 }
 
 /* Plan item header */
@@ -246,15 +250,48 @@
 
 /* Details content */
 .detailsContent {
-  min-height: 500px;
-  max-height: 70vh; /* 70% of viewport height for better document/notes viewing */
+  flex: 1; /* Take remaining space in flex container */
+  min-height: 0; /* Allow flex item to shrink below content size */
   overflow-y: auto;
+  overflow-x: hidden;
   padding: $space-6;
   background: var(--color-bg-dark);
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+
+  /* Hide scrollbar unless hovering (desktop) - appears only when needed */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+
+  &:hover {
+    scrollbar-color: var(--color-border-medium) transparent;
+  }
+
+  /* Webkit browsers */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 3px;
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    background: var(--color-border-medium);
+  }
 
   @media (max-width: 768px) {
     padding: $space-4;
-    max-height: 60vh; /* Slightly less on mobile to keep modal controls visible */
+    /* On mobile, use native scroll behavior */
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
   }
 }
 

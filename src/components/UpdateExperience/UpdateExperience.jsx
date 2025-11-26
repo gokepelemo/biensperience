@@ -1,6 +1,7 @@
 import "./UpdateExperience.module.scss";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
+import { createFilter } from "../../utilities/trie";
 import { updateExperience as updateExpAPI, showExperience } from "../../utilities/experiences-api";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
@@ -57,6 +58,26 @@ export default function UpdateExperience() {
       showError(data.error || lang.en.alert.emailNotVerifiedMessage);
     }
   });
+
+  // Build trie index for fast destination search
+  const destinationTrieFilter = useMemo(() => {
+    if (!destinations || destinations.length === 0) return null;
+    const destItems = destinations.map(dest => ({
+      id: dest._id,
+      name: dest.name,
+      country: dest.country,
+      flag: dest.flag,
+      experienceCount: expData.filter(exp =>
+        (typeof exp.destination === 'object' ? exp.destination._id : exp.destination) === dest._id
+      ).length
+    }));
+    return createFilter({
+      fields: [
+        { path: 'name', score: 100 },
+        { path: 'country', score: 50 },
+      ]
+    }).buildIndex(destItems);
+  }, [destinations, expData]);
 
   useEffect(() => {
     async function fetchData() {
@@ -449,31 +470,39 @@ export default function UpdateExperience() {
                   placeholder={lang.en.placeholder.destination}
                   entityType="destination"
                   items={(() => {
-                    // First, map all destinations to the format we need
-                    const allDestItems = destinations.map(dest => ({
-                      id: dest._id,
-                      name: dest.name,
-                      country: dest.country,
-                      flag: dest.flag,
-                      // Calculate experience count from experiences array
-                      experienceCount: expData.filter(exp => 
-                        (typeof exp.destination === 'object' ? exp.destination._id : exp.destination) === dest._id
-                      ).length
-                    }));
-                    
-                    // If there's a search term, filter destinations
-                    let filteredDestItems = allDestItems;
-                    if (destinationSearchTerm && destinationSearchTerm.trim()) {
+                    // Use trie filtering for O(m) performance
+                    let filteredDestItems;
+                    if (destinationSearchTerm && destinationSearchTerm.trim() && destinationTrieFilter) {
+                      filteredDestItems = destinationTrieFilter.filter(destinationSearchTerm, { rankResults: true });
+                    } else if (destinationSearchTerm && destinationSearchTerm.trim()) {
+                      // Fallback to linear search if trie not available
+                      const allDestItems = destinations.map(dest => ({
+                        id: dest._id,
+                        name: dest.name,
+                        country: dest.country,
+                        flag: dest.flag,
+                        experienceCount: expData.filter(exp =>
+                          (typeof exp.destination === 'object' ? exp.destination._id : exp.destination) === dest._id
+                        ).length
+                      }));
                       const searchLower = destinationSearchTerm.toLowerCase();
                       filteredDestItems = allDestItems.filter(dest => {
-                        const searchableText = [
-                          dest.name,
-                          dest.country
-                        ].filter(Boolean).join(' ').toLowerCase();
+                        const searchableText = [dest.name, dest.country].filter(Boolean).join(' ').toLowerCase();
                         return searchableText.includes(searchLower);
                       });
+                    } else {
+                      // No search term - return all destinations
+                      filteredDestItems = destinations.map(dest => ({
+                        id: dest._id,
+                        name: dest.name,
+                        country: dest.country,
+                        flag: dest.flag,
+                        experienceCount: expData.filter(exp =>
+                          (typeof exp.destination === 'object' ? exp.destination._id : exp.destination) === dest._id
+                        ).length
+                      }));
                     }
-                    
+
                     // If search term exists (2+ chars) and no matching destinations, add "Create New" option
                     if (destinationSearchTerm && destinationSearchTerm.length >= 2 && filteredDestItems.length === 0) {
                       return [{
@@ -485,7 +514,7 @@ export default function UpdateExperience() {
                         isCreateOption: true
                       }];
                     }
-                    
+
                     return filteredDestItems;
                   })()}
                   value={(() => {
@@ -524,7 +553,6 @@ export default function UpdateExperience() {
                   onSearch={(query) => {
                     // Update search term for filtering and "Create New Destination" button
                     setDestinationSearchTerm(query);
-                    setDestinationInput(query);
                   }}
                   size="md"
                   emptyMessage="Type to search for destinations..."

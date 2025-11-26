@@ -394,6 +394,54 @@ async function showExperience(req, res) {
       .lean()
       .exec();
 
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    // Manually compute virtuals since .lean() bypasses schema virtuals
+    if (experience.plan_items && experience.plan_items.length > 0) {
+      const itemMap = new Map();
+      experience.plan_items.forEach(item => {
+        itemMap.set(item._id.toString(), item);
+      });
+
+      const calculateTotalCost = (itemId) => {
+        const item = itemMap.get(itemId.toString());
+        if (!item) return 0;
+        let total = item.cost_estimate || 0;
+        experience.plan_items.forEach(subItem => {
+          if (subItem.parent && subItem.parent.toString() === itemId.toString()) {
+            total += calculateTotalCost(subItem._id);
+          }
+        });
+        return total;
+      };
+
+      const calculateMaxDays = (itemId) => {
+        const item = itemMap.get(itemId.toString());
+        if (!item) return 0;
+        let maxDays = item.planning_days || 0;
+        experience.plan_items.forEach(subItem => {
+          if (subItem.parent && subItem.parent.toString() === itemId.toString()) {
+            maxDays = Math.max(maxDays, calculateMaxDays(subItem._id));
+          }
+        });
+        return maxDays;
+      };
+
+      experience.cost_estimate = experience.plan_items
+        .filter(item => !item.parent)
+        .reduce((sum, item) => sum + calculateTotalCost(item._id), 0);
+
+      const rootItems = experience.plan_items.filter(item => !item.parent);
+      experience.max_planning_days = rootItems.length > 0
+        ? Math.max(...rootItems.map(item => calculateMaxDays(item._id)))
+        : 0;
+    } else {
+      experience.cost_estimate = 0;
+      experience.max_planning_days = 0;
+    }
+
     res.status(200).json(experience);
   } catch (err) {
     backendLogger.error('Error fetching experience', { error: err.message, experienceId: req.params.id });
@@ -480,6 +528,59 @@ async function showExperienceWithContext(req, res) {
 
     if (!experience) {
       return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    // Manually compute virtuals since .lean() bypasses schema virtuals
+    // These were previously computed by Mongoose schema virtuals but .lean() optimization
+    // returns plain objects that don't have access to virtuals
+    if (experience.plan_items && experience.plan_items.length > 0) {
+      // Build a map of items by ID for quick lookup
+      const itemMap = new Map();
+      experience.plan_items.forEach(item => {
+        itemMap.set(item._id.toString(), item);
+      });
+
+      // Helper to calculate total cost for an item and its children
+      const calculateTotalCost = (itemId) => {
+        const item = itemMap.get(itemId.toString());
+        if (!item) return 0;
+        let total = item.cost_estimate || 0;
+        // Add costs of children
+        experience.plan_items.forEach(subItem => {
+          if (subItem.parent && subItem.parent.toString() === itemId.toString()) {
+            total += calculateTotalCost(subItem._id);
+          }
+        });
+        return total;
+      };
+
+      // Helper to calculate max planning days for an item and its children
+      const calculateMaxDays = (itemId) => {
+        const item = itemMap.get(itemId.toString());
+        if (!item) return 0;
+        let maxDays = item.planning_days || 0;
+        // Check children for higher values
+        experience.plan_items.forEach(subItem => {
+          if (subItem.parent && subItem.parent.toString() === itemId.toString()) {
+            maxDays = Math.max(maxDays, calculateMaxDays(subItem._id));
+          }
+        });
+        return maxDays;
+      };
+
+      // Calculate cost_estimate (sum of all root item costs)
+      experience.cost_estimate = experience.plan_items
+        .filter(item => !item.parent)
+        .reduce((sum, item) => sum + calculateTotalCost(item._id), 0);
+
+      // Calculate max_planning_days (max of all root item planning days)
+      const rootItems = experience.plan_items.filter(item => !item.parent);
+      experience.max_planning_days = rootItems.length > 0
+        ? Math.max(...rootItems.map(item => calculateMaxDays(item._id)))
+        : 0;
+    } else {
+      experience.cost_estimate = 0;
+      experience.max_planning_days = 0;
     }
 
     // Will compute collaborativePlans below; log using plansForUser length as an initial indicator

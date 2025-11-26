@@ -117,30 +117,35 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
   };
 
   // Calculate dynamic font size based on text length for simple tips
+  // Uses clamp() for fluid sizing that adapts to card dimensions and prevents overflow
   const getSimpleTipFontSize = useMemo(() => {
     if (typeof tip !== 'string') return null;
 
     const length = tip.length;
 
-    // Very short tips (< 30 chars): Largest font to fill space
-    if (length < 30) {
-      return 'clamp(1.75rem, 4vw, 2.25rem)'; // 28px - 36px
+    // Very short tips (< 25 chars): Largest, bold statement
+    if (length < 25) {
+      return 'clamp(1.5rem, 5vw, 2.25rem)'; // 24px - 36px
     }
-    // Short tips (30-60 chars): Large font
-    else if (length < 60) {
-      return 'clamp(1.25rem, 3vw, 1.75rem)'; // 20px - 28px
+    // Short tips (25-50 chars): Large, impactful
+    else if (length < 50) {
+      return 'clamp(1.25rem, 4vw, 1.875rem)'; // 20px - 30px
     }
-    // Medium tips (60-100 chars): Medium font
-    else if (length < 100) {
-      return 'clamp(1rem, 2.25vw, 1.25rem)'; // 16px - 20px
+    // Medium tips (50-80 chars): Balanced readability
+    else if (length < 80) {
+      return 'clamp(1.125rem, 3.5vw, 1.5rem)'; // 18px - 24px
     }
-    // Long tips (100-150 chars): Smaller font
-    else if (length < 150) {
-      return 'clamp(0.875rem, 1.75vw, 1rem)'; // 14px - 16px
+    // Longer tips (80-120 chars): Comfortable reading
+    else if (length < 120) {
+      return 'clamp(1rem, 3vw, 1.25rem)'; // 16px - 20px
     }
-    // Very long tips (>150 chars): Smallest font
+    // Long tips (120-180 chars): Compact but readable
+    else if (length < 180) {
+      return 'clamp(0.9375rem, 2.5vw, 1.125rem)'; // 15px - 18px
+    }
+    // Very long tips (>180 chars): Minimum readable size
     else {
-      return 'clamp(0.75rem, 1.25vw, 0.875rem)'; // 12px - 14px
+      return 'clamp(0.875rem, 2vw, 1rem)'; // 14px - 16px
     }
   }, [tip]);
 

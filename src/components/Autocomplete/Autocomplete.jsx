@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Form, Dropdown } from 'react-bootstrap';
 import { FaSearch, FaUser, FaMapMarkerAlt, FaStar, FaGlobe } from 'react-icons/fa';
 import Loading from '../Loading/Loading';
 import { Pill } from '../design-system';
+import { createFilter } from '../../utilities/trie';
 import styles from './Autocomplete.module.scss';
 
 /**
@@ -57,6 +58,7 @@ export default function Autocomplete({
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
   const [selectedItems, setSelectedItems] = useState(Array.isArray(selected) ? selected : []);
+  const justSelectedRef = useRef(false); // Track when selection just occurred to prevent auto-reopen
 
   // Handle controlled vs uncontrolled
   // If parent provides a controlled `value`, use it. Otherwise use internal searchTerm.
@@ -81,15 +83,39 @@ export default function Autocomplete({
     // include selected and multi in deps so parent-driven selection updates are reflected
   }, [displayValue, selected, multi]);
 
-  // Filter items based on search term (unless filtering is disabled for API-based search)
-  const filteredItems = React.useMemo(() => {
+  // Build trie index from items for fast O(m) filtering
+  const trieFilter = useMemo(() => {
+    if (disableFilter || !items || items.length === 0) {
+      return null;
+    }
+
+    return createFilter({
+      fields: [
+        { path: 'name', score: 100 },
+        { path: 'username', score: 80 },
+        { path: 'email', score: 60 },
+        { path: 'location', score: 50 },
+        { path: 'country', score: 50 },
+        { path: 'category', score: 40 },
+      ]
+    }).buildIndex(items);
+  }, [items, disableFilter]);
+
+  // Filter items based on search term using trie (unless filtering is disabled for API-based search)
+  const filteredItems = useMemo(() => {
     if (disableFilter) {
       // For API-based search, return items as-is without filtering
       return items;
     }
-    
+
     if (!currentValue.trim()) return items;
-    
+
+    // Use trie-based filtering for O(m) performance
+    if (trieFilter) {
+      return trieFilter.filter(currentValue, { rankResults: true });
+    }
+
+    // Fallback to linear search if trie not available
     const term = currentValue.toLowerCase();
     return items.filter(item => {
       const searchableText = [
@@ -100,10 +126,10 @@ export default function Autocomplete({
         item.country,
         item.category,
       ].filter(Boolean).join(' ').toLowerCase();
-      
+
       return searchableText.includes(term);
     });
-  }, [items, currentValue, disableFilter]);
+  }, [items, currentValue, disableFilter, trieFilter]);
 
   // Handle input change
   const handleInputChange = (e) => {
@@ -156,6 +182,8 @@ export default function Autocomplete({
     }
     setSearchTerm(display);
 
+    // Mark that selection just occurred to prevent auto-reopen effect
+    justSelectedRef.current = true;
     setIsOpen(false);
     setHighlightedIndex(-1);
   };
@@ -224,7 +252,7 @@ export default function Autocomplete({
   useEffect(() => {
     if (highlightedIndex >= 0 && dropdownRef.current) {
       const highlightedElement = dropdownRef.current.querySelector(
-        `.autocomplete-item[data-index="${highlightedIndex}"]`
+        `[data-index="${highlightedIndex}"]`
       );
       highlightedElement?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
@@ -232,13 +260,25 @@ export default function Autocomplete({
 
   // Open dropdown when items arrive from API (if user has typed something)
   useEffect(() => {
+    // Don't auto-open if selection just occurred
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
     if (items.length > 0 && currentValue.trim().length > 0 && !isOpen) {
       setIsOpen(true);
     }
   }, [items, currentValue, isOpen]);
 
+  // Size class mapping
+  const sizeClass = {
+    sm: styles.autocompleteSizeSm,
+    md: styles.autocompleteSizeMd,
+    lg: styles.autocompleteSizeLg,
+  }[size] || styles.autocompleteSizeMd;
+
   return (
-  <div className={`autocomplete-wrapper autocomplete-size-${size} ${isOpen ? 'autocomplete-open' : ''}`}>
+  <div className={`${styles.autocompleteWrapper} ${sizeClass} ${isOpen ? styles.autocompleteOpen : ''}`}>
       {/* Search Input */}
       <div className={styles.autocompleteInputWrapper}>
         <FaSearch className={styles.autocompleteSearchIcon} />
@@ -271,7 +311,7 @@ export default function Autocomplete({
               outline={entityType !== 'destination'}
               rounded
               size="sm"
-              className={`autocomplete-chip-pill ${entityType === 'destination' ? 'destination-chip' : ''}`}
+              className={`${styles.autocompleteChipPill} ${entityType === 'destination' ? styles.destinationChip : ''}`}
             >
               <span className={styles.chipLabel}>{si.name || si.label || si.value}</span>
               <button
@@ -372,7 +412,7 @@ function AutocompleteItem({
 
   return (
     <div
-      className={`autocomplete-item ${isHighlighted ? 'highlighted' : ''}`}
+      className={`${styles.autocompleteItem} ${isHighlighted ? styles.highlighted : ''}`}
       onClick={onSelect}
       data-index={dataIndex}
       data-entity-type={item.type || ''}

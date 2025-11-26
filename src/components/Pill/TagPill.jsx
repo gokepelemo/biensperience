@@ -83,7 +83,7 @@ export default function TagPill({
 
 TagPill.propTypes = {
   children: PropTypes.node.isRequired,
-  color: PropTypes.oneOf(['primary','success','warning','danger','info','neutral']),
+  color: PropTypes.oneOf(['primary','success','warning','danger','info','neutral','light']),
   gradient: PropTypes.bool,
   rounded: PropTypes.bool,
   removable: PropTypes.bool,

@@ -65,6 +65,14 @@
   font-size: clamp($min, $preferred, $max);
 }
 
+// Token-based fluid font mixin
+// Usage: @include fluid-font-token('font-size-sm', 3.5vw, 'font-size-lg');
+// This emits a clamp() that reads from CSS custom properties (tokens)
+// and allows runtime theming while preserving the preferred viewport unit.
+@mixin fluid-font-token($min-token, $preferred, $max-token) {
+  font-size: clamp(var(--#{$min-token}), $preferred, var(--#{$max-token}));
+}
+
 // Responsive heading sizes (preset for common use cases)
 @mixin heading-mobile-xl {
   @include fluid-font(1.5rem, 5vw, 2rem);      // 24px - 32px

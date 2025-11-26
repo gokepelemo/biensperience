@@ -1,6 +1,7 @@
 import React from 'react';
 import '../styles/utilities.scss';
 import '../styles/design-tokens.css';
+import '../views/SingleExperience/SingleExperience.module.scss'; // Plan button styles
 
 export default {
   title: 'Design System/Buttons',
@@ -321,6 +322,194 @@ export const AllVariants = {
     docs: {
       description: {
         story: 'Complete showcase of all button variants available in the design system.',
+      },
+    },
+  },
+};
+
+// Plan It / Planned Button Pattern
+export const PlanItButton = {
+  render: () => {
+    const [isPlanned, setIsPlanned] = React.useState(false);
+    const [isLoading, setIsLoading] = React.useState(false);
+    const [isHovered, setIsHovered] = React.useState(false);
+
+    const handleClick = () => {
+      setIsLoading(true);
+      setTimeout(() => {
+        setIsPlanned(!isPlanned);
+        setIsLoading(false);
+      }, 500);
+    };
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <div>
+          <h4 style={{ marginBottom: '1rem', fontSize: '1rem', fontWeight: 600 }}>Interactive Demo</h4>
+          <button
+            className={`btn btn-sm ${isPlanned ? 'btn-plan-remove' : 'btn-plan-add'} ${isLoading ? 'loading' : ''}`}
+            onClick={handleClick}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            disabled={isLoading}
+            style={{ minWidth: '120px' }}
+          >
+            {isLoading ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span className="spinner-border spinner-border-sm" />
+              </span>
+            ) : isPlanned ? (
+              isHovered ? 'Remove' : 'Planned ✓'
+            ) : (
+              'Plan It'
+            )}
+          </button>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+            Click to toggle state. Hover when "Planned" to see removal prompt.
+          </p>
+        </div>
+
+        <div>
+          <h4 style={{ marginBottom: '1rem', fontSize: '1rem', fontWeight: 600 }}>All States</h4>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+              <button className="btn btn-sm btn-plan-add">Plan It</button>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>Default</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <button className="btn btn-sm btn-plan-remove">Planned ✓</button>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>Planned</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <button className="btn btn-sm btn-plan-remove">Remove</button>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>Hover</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <button className="btn btn-sm btn-plan-add loading" disabled>
+                <span className="spinner-border spinner-border-sm" />
+              </button>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>Loading</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <button className="btn btn-sm btn-plan-add" disabled>Plan It</button>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>Disabled</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: `
+**Plan It / Planned Button Pattern**
+
+A stateful toggle button used for adding/removing experiences from user plans.
+
+**States:**
+- **Plan It** (unplanned): Green success button inviting action
+- **Planned ✓** (planned, default): Red danger button showing completion
+- **Remove** (planned, hover): Red danger button prompting removal
+
+**Implementation:**
+\`\`\`jsx
+<button
+  className={\`btn btn-sm \${isPlanned ? 'btn-plan-remove' : 'btn-plan-add'}\`}
+  onClick={handleToggle}
+  onMouseEnter={() => setHovered(true)}
+  onMouseLeave={() => setHovered(false)}
+>
+  {isPlanned ? (isHovered ? 'Remove' : 'Planned ✓') : 'Plan It'}
+</button>
+\`\`\`
+
+**CSS Classes:**
+- \`.btn-plan-add\`: Green success state (unplanned)
+- \`.btn-plan-remove\`: Red danger state (planned)
+- \`.loading\`: Pulse animation during API calls
+
+**Design Tokens Used:**
+- \`--btn-success-bg\`, \`--btn-success-color\`: Plan It state
+- \`--btn-danger-bg\`, \`--btn-danger-color\`: Planned/Remove state
+- \`--btn-height-sm\`: 36px minimum height
+- \`--btn-hover-lift\`: -2px translateY on hover
+
+**Accessibility:**
+- Uses \`aria-pressed\` for toggle state
+- Uses \`aria-busy\` during loading
+- Minimum 44x44px touch target
+- Visible focus ring
+        `,
+      },
+    },
+  },
+};
+
+// Plan Button Variants (Complete Set)
+export const PlanButtonVariants = {
+  render: () => (
+    <div style={{ display: 'grid', gap: '1.5rem', maxWidth: '600px' }}>
+      <div>
+        <h4 style={{ marginBottom: '0.75rem', fontSize: '0.875rem', fontWeight: 600 }}>Plan Action Buttons</h4>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-sm btn-plan-add">Plan It</button>
+          <button className="btn btn-sm btn-plan-edit">Edit Plan</button>
+          <button className="btn btn-sm btn-plan-complete">Complete</button>
+          <button className="btn btn-sm btn-plan-remove">Remove</button>
+        </div>
+      </div>
+      <div>
+        <h4 style={{ marginBottom: '0.75rem', fontSize: '0.875rem', fontWeight: 600 }}>With Icons</h4>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-sm btn-plan-add">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '4px' }}>
+              <path d="M8 0a1 1 0 011 1v6h6a1 1 0 110 2H9v6a1 1 0 11-2 0V9H1a1 1 0 010-2h6V1a1 1 0 011-1z"/>
+            </svg>
+            Plan It
+          </button>
+          <button className="btn btn-sm btn-plan-complete">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '4px' }}>
+              <path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/>
+            </svg>
+            Complete
+          </button>
+        </div>
+      </div>
+      <div>
+        <h4 style={{ marginBottom: '0.75rem', fontSize: '0.875rem', fontWeight: 600 }}>Loading States</h4>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-sm btn-plan-add loading" disabled>
+            <span className="spinner-border spinner-border-sm" />
+          </button>
+          <button className="btn btn-sm btn-plan-remove loading" disabled>
+            <span className="spinner-border spinner-border-sm" />
+          </button>
+        </div>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: `
+**Complete Plan Button Variants**
+
+All button variants used in the plan management system:
+
+| Class | Purpose | Color |
+|-------|---------|-------|
+| \`.btn-plan-add\` | Add to plan | Green (success) |
+| \`.btn-plan-edit\` | Edit plan item | Blue (info) |
+| \`.btn-plan-complete\` | Mark complete | Purple (gradient) |
+| \`.btn-plan-remove\` | Remove/delete | Red (danger) |
+
+All variants support:
+- Hover lift effect (\`translateY(-2px)\`)
+- Shadow enhancement on hover
+- Disabled state (0.6 opacity)
+- Loading pulse animation
+        `,
       },
     },
   },

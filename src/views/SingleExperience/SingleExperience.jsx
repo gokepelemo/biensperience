@@ -44,6 +44,7 @@ import {
   getMinimumPlanningDate,
   isValidPlannedDate,
 } from "../../utilities/date-utils";
+import { formatPlanningTime } from "../../utilities/time-format";
 import { handleError } from "../../utilities/error-handler";
 import { createExpirableStorage, getCookieValue, setCookieValue } from "../../utilities/cookie-utils";
 import { formatCurrency } from "../../utilities/currency-utils";
@@ -632,21 +633,30 @@ export default function SingleExperience() {
     // Add all plan collaborators (including owner)
     if (allPlanCollaborators && allPlanCollaborators.length > 0) {
       allPlanCollaborators.forEach(user => {
-        entities.push({
-          type: 'user',
-          id: user._id,
-          displayName: user.name || user.username || 'Unknown User'
-        });
+        // Handle both direct user object and nested user object (user.user)
+        const userData = user.user || user;
+        const userId = userData._id || user._id;
+        const userName = userData.name || userData.email?.split('@')[0] || 'Unknown User';
+
+        if (userId) {
+          entities.push({
+            type: 'user',
+            id: userId,
+            displayName: userName
+          });
+        }
       });
     }
 
     // Add plan items (for # mentions)
-    if (selectedPlan && selectedPlan.items && selectedPlan.items.length > 0) {
-      selectedPlan.items.forEach(item => {
+    // Plan items are stored in the `plan` array (see models/plan.js planItemSnapshotSchema)
+    // Each item has: plan_item_id, text, url, complete, cost, etc.
+    if (selectedPlan && selectedPlan.plan && selectedPlan.plan.length > 0) {
+      selectedPlan.plan.forEach(item => {
         entities.push({
           type: 'plan-item',
-          id: item._id,
-          displayName: item.name || item.experience_name || 'Unknown Plan Item'
+          id: item._id || item.plan_item_id,
+          displayName: item.text || item.name || 'Unknown Plan Item'
         });
       });
     }
@@ -687,22 +697,34 @@ export default function SingleExperience() {
     // Add all plan collaborators (including owner)
     if (allPlanCollaborators && allPlanCollaborators.length > 0) {
       allPlanCollaborators.forEach(user => {
-        data[user._id] = {
-          _id: user._id,
-          name: user.name || user.username,
-          bio: user.bio,
-          username: user.username
-        };
+        // Handle both direct user object and nested user object (user.user)
+        const userData = user.user || user;
+        const userId = userData._id || user._id;
+
+        if (userId) {
+          data[userId] = {
+            _id: userId,
+            name: userData.name || userData.email?.split('@')[0],
+            email: userData.email,
+            bio: userData.bio
+          };
+        }
       });
     }
 
     // Add plan items
-    if (selectedPlan && selectedPlan.items && selectedPlan.items.length > 0) {
-      selectedPlan.items.forEach(item => {
-        data[item._id] = {
-          _id: item._id,
-          name: item.name || item.experience_name,
-          description: item.description,
+    // Plan items are stored in the `plan` array (see models/plan.js planItemSnapshotSchema)
+    if (selectedPlan && selectedPlan.plan && selectedPlan.plan.length > 0) {
+      selectedPlan.plan.forEach(item => {
+        const itemId = item._id || item.plan_item_id;
+        data[itemId] = {
+          _id: itemId,
+          type: 'plan-item', // Required for mention resolution
+          name: item.text || item.name,
+          text: item.text,
+          url: item.url,
+          complete: item.complete,
+          cost: item.cost,
           experienceId: experience?._id,
           planId: selectedPlan._id
         };
@@ -1134,15 +1156,15 @@ export default function SingleExperience() {
           // The URL management useEffect triggers when selectedPlanId changes, so we must
           // ensure the hash is already in the URL before that happens
           const targetHash = fullHash && fullHash.startsWith('#') ? fullHash : (window.location.hash || '');
-          // Always animate for:
-          // 1. Direct link navigation (hashSource === 'url')
-          // 2. Cross-view navigation with shake metadata (meta?.shouldShake)
-          // 3. Cross-view navigation from storage (hashSource === 'storage' and originPath exists)
-          // 4. First time seeing this hash (!handledHashesRef.current.has(targetHash))
+          // ALWAYS animate for deep links:
+          // 1. Direct link navigation (hashSource === 'url') - e.g., pasting URL or external link
+          // 2. Cross-view navigation from storage (hashSource === 'storage') - e.g., Dashboard link
+          // 3. Cross-view navigation with explicit shake metadata (meta?.shouldShake)
+          // The handledHashesRef is ONLY used to prevent animation on in-page actions like
+          // marking items complete while the hash is still in the URL
           const shouldAnimate = hashSource === 'url' ||
-                               meta?.shouldShake === true ||
-                               (hashSource === 'storage' && originPath) ||
-                               !handledHashesRef.current.has(targetHash);
+                               hashSource === 'storage' ||
+                               meta?.shouldShake === true;
 
           debug.log('[SingleExperience] 📍 Hash navigation details:', {
             planId,
@@ -2610,6 +2632,37 @@ export default function SingleExperience() {
             </div>
           </div>
 
+          {/* Cost Estimate & Planning Days Grid */}
+          {(experience.cost_estimate > 0 || experience.max_planning_days > 0) && (
+            <div className={`${styles.experienceHeaderGrid} row fade-in my-2`}>
+              {experience.cost_estimate > 0 && (
+                <div className="col-auto">
+                  <FadeIn>
+                    <h2 className="h5 mb-0">
+                      {lang.en.heading.estimatedCost}{" "}
+                      <span className={styles.green}>
+                        {dollarSigns(Math.ceil(experience.cost_estimate / 1000))}
+                      </span>
+                      <span className={styles.grey}>
+                        {dollarSigns(5 - Math.ceil(experience.cost_estimate / 1000))}
+                      </span>
+                    </h2>
+                  </FadeIn>
+                </div>
+              )}
+              {experience.max_planning_days > 0 && (
+                <div className="col-auto">
+                  <FadeIn>
+                    <h2 className="h5 mb-0">
+                      {lang.en.heading.planningTime}{" "}
+                      {formatPlanningTime(experience.max_planning_days)}
+                    </h2>
+                  </FadeIn>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Planned date badge and action buttons row */}
           <div className="row align-items-center fade-in mb-3">
             {/* Planned date badge column - centered on mobile/tablet, left-aligned on desktop */}
@@ -2619,7 +2672,7 @@ export default function SingleExperience() {
                   <FadeIn>
                     {selectedPlan.planned_date ? (
                       <TagPill
-                        color="primary"
+                        color="light"
                         rounded={false}
                         className={`planned-date-badge ${
                           selectedPlan && user && (
@@ -2661,7 +2714,7 @@ export default function SingleExperience() {
                       selectedPlan.user?.toString() === user._id?.toString()
                     ) && (
                       <TagPill
-                        color="primary"
+                        color="light"
                         rounded={false}
                         className="planned-date-badge cursor-pointer"
                         onClick={() => {
@@ -3114,6 +3167,13 @@ export default function SingleExperience() {
         canEdit={selectedPlan ? canEditPlan(user, selectedPlan) : false}
         availableEntities={availableEntities}
         entityData={entityData}
+        onPlanItemClick={(itemId, entity) => {
+          // When a plan-item deep link is clicked in notes:
+          // Modal is already closed by PlanItemDetailsModal before this fires
+          // Scroll immediately to the plan item and highlight it
+          logger.debug('[SingleExperience] Plan item click from notes', { itemId, entity });
+          attemptScrollToItem(itemId, { shouldHighlight: true, anticipationDelay: 0 });
+        }}
       />
     </>
   );

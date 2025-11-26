@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import styles from "./TagInput.module.scss";
 import TagPill from "../Pill/TagPill";
 import { logger } from "../../utilities/logger";
 import { getExperienceTags } from "../../utilities/experiences-api";
+import { createSimpleFilter } from "../../utilities/trie";
 
 export default function TagInput({ tags = [], onChange, placeholder = "Add tags..." }) {
   const [inputValue, setInputValue] = useState("");
@@ -31,14 +32,35 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
     fetchTags();
   }, []);
 
-  // Filter suggestions based on input
+  // Build trie index for fast tag search - convert strings to objects for trie
+  const tagTrieFilter = useMemo(() => {
+    if (!allTags || allTags.length === 0) return null;
+    // Convert string tags to objects for trie indexing
+    const tagObjects = allTags.map(tag => ({ name: tag }));
+    return createSimpleFilter(['name']).buildIndex(tagObjects);
+  }, [allTags]);
+
+  // Filter suggestions based on input using trie
   useEffect(() => {
     if (inputValue.trim()) {
-      const source = Array.isArray(allTags) ? allTags : [];
-      const filtered = source.filter(tag =>
-        (typeof tag === 'string' && tag.toLowerCase().includes(inputValue.toLowerCase())) &&
-        !tags.includes(tag)
-      );
+      let filtered;
+
+      if (tagTrieFilter) {
+        // Use trie for O(m) filtering
+        const trieResults = tagTrieFilter.filter(inputValue, { rankResults: true, limit: 10 });
+        // Convert back to strings and filter out already selected tags
+        filtered = trieResults
+          .map(item => item.name)
+          .filter(tag => !tags.includes(tag));
+      } else {
+        // Fallback to linear search
+        const source = Array.isArray(allTags) ? allTags : [];
+        filtered = source.filter(tag =>
+          (typeof tag === 'string' && tag.toLowerCase().includes(inputValue.toLowerCase())) &&
+          !tags.includes(tag)
+        );
+      }
+
       setSuggestions(filtered.slice(0, 5)); // Limit to 5 suggestions
       setShowSuggestions(filtered.length > 0);
     } else {
@@ -46,7 +68,7 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
       setShowSuggestions(false);
     }
     setSelectedSuggestionIndex(-1);
-  }, [inputValue, allTags, tags]);
+  }, [inputValue, allTags, tags, tagTrieFilter]);
 
   // Handle click outside to close suggestions
   useEffect(() => {

@@ -6,7 +6,7 @@
   flex-wrap: wrap;
   gap: $space-8;
   justify-content: center;
-  align-items: stretch;
+  align-items: flex-start; // prevent row-stretching which can create vertical gaps when items wrap
   margin-bottom: $space-8;
 }
 

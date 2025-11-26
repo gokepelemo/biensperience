@@ -57,12 +57,13 @@
   /* Slick slider arrow customization */
   :global(.slick-prev),
   :global(.slick-next) {
-    width: 40px;
-    height: 40px;
+    /* Use standardized small button height for slider arrows */
+    width: var(--btn-height-sm);
+    height: var(--btn-height-sm);
     z-index: 10;
     background: var(--color-primary);
     border-radius: $radius-full;
-    transition: background-color var(--transition-fast);
+    transition: var(--btn-transition);
     transform: translateY(0); /* Prevent layout shifts */
 
     &:before {
@@ -87,6 +88,26 @@
   :global(.slick-disabled) {
     opacity: 0.3;
     cursor: not-allowed;
+  }
+
+  /* Dots styling for navigation */
+  :global(.slick-dots) {
+    bottom: -$space-8;
+
+    li {
+      margin: 0 $space-1;
+
+      button:before {
+        font-size: 10px;
+        color: var(--color-text-muted);
+        opacity: 0.5;
+      }
+
+      &.slick-active button:before {
+        color: var(--color-primary);
+        opacity: 1;
+      }
+    }
   }
 }
 

@@ -89,13 +89,14 @@
   opacity: 0.9;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px); /* Safari support */
-  font-weight: $font-weight-semibold;
+  font-weight: var(--btn-font-weight);
   font-size: $font-size-xl;
-  width: 44px;
-  height: 44px;
+  /* Use standardized button height for WCAG touch target (44px) */
+  width: var(--btn-height-md);
+  height: var(--btn-height-md);
   @include flex-center;
   padding: 0;
-  @include transition-all($transition-normal);
+  @include transition-all(var(--btn-transition));
 }
 
 /* Custom button classes for experience cards - extend Bootstrap */

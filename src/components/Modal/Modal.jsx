@@ -42,6 +42,7 @@ export default function Modal({
   const sizeClass = size === 'sm' ? styles.modalSm
     : size === 'lg' ? styles.modalLg
     : size === 'xl' ? styles.modalXl
+    : size === 'fullscreen' ? styles.modalFullscreen
     : '';
 
   const modalDialogClasses = [
@@ -134,7 +135,7 @@ Modal.propTypes = {
   showSubmitButton: PropTypes.bool,
   disableSubmit: PropTypes.bool,
   loading: PropTypes.bool,
-  size: PropTypes.oneOf(['sm', 'lg', 'xl']),
+  size: PropTypes.oneOf(['sm', 'lg', 'xl', 'fullscreen']),
   scrollable: PropTypes.bool,
   centered: PropTypes.bool,
   footer: PropTypes.node,

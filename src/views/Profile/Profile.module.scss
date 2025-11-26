@@ -122,7 +122,7 @@
 .profileDetailSection {
   padding: $space-8;
   border-bottom: 1px solid var(--color-border-light);
-  background: transparent;
+    font-size: var(--font-size-base);
   color: var(--color-text-primary);
   transition: all var(--transition-normal);
   margin-bottom: 0;
@@ -273,7 +273,7 @@
 .badgeNav {
   width: fit-content;
   margin: 0 auto;
-  font-size: clamp(1rem, 2.25vw, 1.5rem);
+  font-size: var(--font-size-base);
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-sm);
@@ -308,5 +308,46 @@
       color: var(--color-white);
       box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.15);
     }
+  }
+}
+
+/* Reserve space for two rows of cards to avoid layout shifts when switching tabs */
+.profileCardsReserved {
+  /* Base per-row card height (adjust if card min-heights change) */
+  --profile-card-row-height: 14rem; /* approx card min-height + paddings */
+  --profile-cards-gap: 1rem;
+  min-height: calc(var(--profile-card-row-height) * 2 + var(--profile-cards-gap));
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: $space-4;
+  padding: $space-2 0;
+
+  /* Ensure skeleton placeholders center nicely */
+  .loading-skeleton {
+    border-radius: $radius-md;
+    background: linear-gradient(90deg, rgba(240,240,240,0.6) 25%, rgba(230,230,230,0.4) 37%, rgba(240,240,240,0.6) 63%);
+    background-size: 400% 100%;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+/* Pagination inside cards container - needs to break flex flow */
+.profileCardsReserved {
+  :global(.pagination),
+  :global(nav[aria-label="Pagination"]) {
+    flex-basis: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: $space-4;
+    padding: $space-2 0;
   }
 }

@@ -6,6 +6,7 @@
  */
 
 import { MENTION_TYPES } from './mentions';
+import { extractMentions } from './mentions';
 
 /**
  * Prepare user entities for mentions
@@ -86,7 +87,6 @@ export function createEntityDataMap(entities) {
  * @returns {Object} Map of entity types to arrays of IDs
  */
 export function extractEntityIdsFromText(text) {
-  const { extractMentions } = require('./mentions');
   const mentions = extractMentions(text);
 
   const entityIds = {

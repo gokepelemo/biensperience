@@ -95,29 +95,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Match form control/button height so badge aligns with action buttons */
-  min-height: var(--form-field-control-min-height, 44px);
+  /* Match standard button height */
+  min-height: var(--btn-height-md);
 
+  /* Center on mobile/tablet, left-align on md+ */
   @include breakpoint(md) {
-    justify-content: flex-start; /* Left-align on desktop */
+    justify-content: flex-start;
+    padding-left: 0;
   }
 }
 
 /* Plan Item Status */
 :global(.plan-item-status) {
   font-weight: $font-weight-semibold;
+  gap: clamp(var(--space-3), 2vw, var(--space-5));
+  padding: clamp(var(--space-3), 2.5vw, var(--space-6));
 }
 
-/* Ensure action buttons in the header match form control height */
+/* Ensure action buttons in the header use standardized height */
 :global(.experience-actions) :global(.btn),
 :global(.experience-actions) :global(.btn-icon) {
-  height: var(--form-field-control-min-height, 44px);
-  min-height: var(--form-field-control-min-height, 44px);
+  min-height: var(--btn-height-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-
 :global(.green) {
   color: var(--color-single-experience-success);
 }
@@ -126,11 +128,55 @@
   color: var(--color-single-experience-secondary);
 }
 
+/* Cost estimate dollar signs - CSS Module versions */
+.green {
+  color: var(--color-success);
+  font-weight: $font-weight-bold;
+}
+
+.grey {
+  color: var(--color-text-muted);
+  font-weight: $font-weight-bold;
+}
+
+/* Experience header grid for cost estimate and planning time */
+.experienceHeaderGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-4;
+  align-items: center;
+  justify-content: center;
+
+  @include breakpoint(md) {
+    justify-content: flex-start;
+  }
+}
+
+/* Smooth collapse animation for child plan items */
 :global(.plan-item-card.collapsed) {
   opacity: 0;
   pointer-events: none;
-  transform: scale(0.95);
-  @include transition-all($transition-normal);
+  max-height: 0;
+  margin-bottom: 0 !important;
+  padding-top: 0;
+  padding-bottom: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.25s ease-out,
+              max-height 0.3s ease-out,
+              margin-bottom 0.3s ease-out,
+              padding 0.3s ease-out,
+              transform 0.25s ease-out;
+}
+
+/* Expanded state for child plan items - smooth entry */
+:global(.plan-item-card:not(.collapsed)) {
+  max-height: 500px; /* Large enough for any content */
+  transform: translateY(0);
+  transition: opacity 0.3s ease-in,
+              max-height 0.35s ease-in,
+              margin-bottom 0.3s ease-in,
+              padding 0.3s ease-in,
+              transform 0.3s ease-in;
 }
 
 /* Date Picker Modal */
@@ -142,7 +188,7 @@
     border-radius: $radius-md;
     padding: $space-3;
   }
-
+    padding: clamp(var(--space-1-5), 1.5vw, var(--space-2-5)) clamp(var(--space-2-5), 2.5vw, var(--space-4));
   :global(.form-control:focus) {
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px var(--color-primary-shadow-light);
@@ -219,7 +265,7 @@
 :global(.plan-metrics-container) {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: clamp(0.75rem, 2vw, 1.25rem);
+  gap: clamp(var(--space-3), 2vw, var(--space-5));
   margin-bottom: $space-6;
 }
 
@@ -248,7 +294,7 @@
 }
 
 :global(.metric-title) {
-  font-size: clamp(0.875rem, 2vw, 1rem);
+  font-size: var(--font-size-sm);
   font-weight: $font-weight-medium;
   color: var(--color-single-experience-text-grey);
   text-transform: uppercase;
@@ -258,13 +304,13 @@
 }
 
 :global(.metric-icon) {
-  font-size: clamp(1.25rem, 3vw, 1.5rem);
+  font-size: var(--font-size-xl);
   color: var(--color-single-experience-primary);
   flex-shrink: 0;
 }
 
 :global(.metric-value) {
-  font-size: 1.8rem;
+  font-size: var(--font-size-2xl);
   font-weight: 700;
   color: var(--color-single-experience-text-primary);
   line-height: 1.2;
@@ -278,7 +324,7 @@
   box-shadow: var(--shadow-sm);
   @include transition-all($transition-normal);
   border: 1px solid var(--color-border-light);
-  padding: clamp(0.75rem, 2.5vw, 1.5rem);
+  padding: clamp(var(--space-3), 2.5vw, var(--space-6));
   margin-bottom: $space-3;
 
   &:hover {
@@ -289,21 +335,54 @@
   &:last-child {
     margin-bottom: 0;
   }
+
+  // Dragging state - visual feedback when item is being dragged
+  &:global(.dragging) {
+    opacity: 0.8;
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-primary);
+    transform: scale(1.02);
+    z-index: 1000;
+    cursor: grabbing;
+  }
+
+  // Drop zone indicator - show where item will be placed
+  &:global(.drag-over) {
+    border-color: var(--color-primary);
+    border-style: dashed;
+    background: var(--color-bg-secondary);
+  }
+
+  // Child item styling - indented with visual connection
+  &:global(.is-child-item) {
+    margin-left: $space-6;
+    border-left: 3px solid var(--color-border-medium);
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: -$space-3;
+      top: 50%;
+      width: $space-3;
+      height: 2px;
+      background: var(--color-border-medium);
+    }
+  }
 }
 
 :global(.plan-item-header) {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: clamp(0.75rem, 2vw, 1.25rem);
-  padding-bottom: clamp(0.75rem, 2vw, 1.25rem);
+  gap: clamp(var(--space-3), 2vw, var(--space-5));
+  padding-bottom: clamp(var(--space-3), 2vw, var(--space-5));
   /* border-bottom removed - using border-top on plan-item-details instead to avoid double border */
   flex-wrap: wrap;
 }
 
 :global(.plan-item-title) {
   margin-right: 1rem;
-  font-size: clamp(1.5rem, 4vw, 2rem); // Responsive 24px - 32px
+  font-size: var(--font-size-2xl);
   font-weight: $font-weight-semibold;
   line-height: 1.3;
   flex: 1;
@@ -323,30 +402,50 @@
 
 :global(.plan-item-actions) {
   display: flex;
-  gap: clamp(0.375rem, 1.5vw, 0.75rem);
+  gap: clamp(var(--space-1-5), 1.5vw, var(--space-3));
   flex-shrink: 0;
   flex-wrap: wrap;
   align-items: center;
 
   :global(.btn) {
-    /* WCAG 2.1 AA: Minimum 44x44px touch target for accessibility */
-    min-height: 44px;
-    height: 44px;
+    /* Use standardized button height (44px for md) */
+    min-height: var(--btn-height-md);
+    padding: var(--btn-padding-y-md) var(--btn-padding-x-md);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: $space-2 $space-4;
+  }
+}
+
+// Drag handle wrapper - positioned between title and actions
+:global(.drag-handle-wrapper) {
+  @include flex-center;
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: $space-2;
+  padding: $space-1;
+  border-radius: $radius-sm;
+  cursor: grab;
+  @include transition-all($transition-fast);
+
+  &:hover {
+    background-color: var(--color-bg-hover, rgba(102, 126, 234, 0.1));
+  }
+
+  &:active {
+    cursor: grabbing;
+    background-color: var(--color-bg-hover, rgba(102, 126, 234, 0.15));
   }
 }
 
 :global(.plan-item-meta) {
   display: flex;
-  gap: clamp(0.5rem, 2vw, 1rem);
-  font-size: clamp(0.875rem, 2.5vw, 1.125rem);
+  gap: clamp(var(--space-2), 2vw, var(--space-4));
+  font-size: var(--btn-font-size-md);
   color: var(--color-single-experience-text-grey);
   align-items: center;
   flex-wrap: wrap;
-  min-height: clamp(36px, 8vw, 44px);
+  min-height: var(--btn-height-sm);
   font-weight: $font-weight-medium;
 }
 
@@ -355,12 +454,12 @@
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  padding: clamp(0.375rem, 1.5vw, 0.625rem) clamp(0.625rem, 2.5vw, 1rem);
+  padding: clamp(var(--space-1-5), 1.5vw, var(--space-2-5)) clamp(var(--space-2-5), 2.5vw, var(--space-4));
   background: var(--color-bg-secondary);
   border-radius: var(--radius-full);
   font-weight: $font-weight-medium;
   white-space: nowrap;
-  font-size: clamp(0.875rem, 2.5vw, 1rem);
+  font-size: var(--font-size-sm);
   color: var(--color-single-experience-text-grey);
 }
 
@@ -369,11 +468,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  padding: clamp(0.375rem, 1.5vw, 0.5rem) clamp(0.625rem, 2.5vw, 0.875rem);
+  padding: clamp(var(--space-1-5), 1.5vw, var(--space-2)) clamp(var(--space-2-5), 2.5vw, var(--space-3));
   background: var(--color-bg-primary);
   border-left: 3px solid;
   border-radius: $radius-sm;
-  font-size: clamp(0.8125rem, 2vw, 0.9375rem);
+  font-size: var(--font-size-xs);
   font-weight: $font-weight-medium;
   color: var(--color-single-experience-text-grey);
 }
@@ -387,8 +486,8 @@
 }
 
 :global(.btn-view-details) {
-  padding: clamp(0.375rem, 1.5vw, 0.5rem) clamp(0.75rem, 2.5vw, 1.25rem);
-  font-size: clamp(0.875rem, 2.5vw, 1rem);
+  padding: clamp(var(--space-1-5), 1.5vw, var(--space-2)) clamp(var(--space-3), 2.5vw, var(--space-5));
+  font-size: var(--font-size-sm);
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
   border: 2px solid var(--color-border-medium);
@@ -431,8 +530,10 @@
   flex-wrap: nowrap;
 
   .btn {
-    padding: $space-2 $space-4;
-    font-size: $font-size-sm;
+    /* Use standardized small button size */
+    min-height: var(--btn-height-sm);
+    padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
+    font-size: var(--btn-font-size-sm);
     white-space: nowrap;
 
     :global(svg) {
@@ -442,7 +543,7 @@
   }
 
   /* Mobile & Tablet: Center buttons in viewport */
-  @media (max-width: 768px) {
+  @include breakpoint-max(md) {
     justify-content: center; /* Center buttons on mobile/tablet */
     flex-wrap: wrap; /* Allow wrapping if needed */
 
@@ -454,8 +555,8 @@
 }
 
 :global(.plan-item-details) {
-  padding-top: clamp(0.75rem, 2.5vw, 1.25rem);
-  margin-top: clamp(0.75rem, 2.5vw, 1.25rem);
+  padding-top: clamp(var(--space-3), 2.5vw, var(--space-5));
+  margin-top: clamp(var(--space-3), 2.5vw, var(--space-5));
   border-top: 1px solid var(--color-border-light);
   background: var(--color-bg-primary);
 }
@@ -469,17 +570,39 @@
 }
 
 :global(.expand-toggle) {
-  background: none;
-  border: none;
+  /* Full UI control styling - not a link */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px; /* Prevent shrinking */
+  border-radius: $radius-md;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
   cursor: pointer;
-  padding: 0;
   margin-right: $space-2;
-  color: var(--color-single-experience-text-secondary) !important;
-  @include transition-all($transition-fast);
+  color: var(--color-text-secondary) !important;
+  font-size: $font-size-xs;
+  @include transition-all($transition-normal);
+  flex-shrink: 0;
 
   &:hover {
-    color: var(--color-single-experience-primary) !important;
-    transform: scale(1.1);
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white !important;
+    transform: none; /* No scale - keep it stable */
+    box-shadow: var(--shadow-sm);
+  }
+
+  &:active {
+    background: var(--color-primary-dark);
+    transform: scale(0.95);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 }
 
@@ -496,79 +619,89 @@
   opacity: 0.3;
 }
 
-/* Plan Button Styling */
+/* Plan Button Styling - Unified with design tokens */
 :global(.btn-plan-add),
 :global(.btn-plan-edit),
 :global(.btn-plan-complete),
 :global(.btn-plan-remove) {
-  padding: $space-2 $space-4; /* Tighter padding */
-  font-size: $font-size-sm; /* Smaller font size */
-  border-radius: $radius-md;
-  @include transition-all($transition-fast);
-  font-weight: $font-weight-medium;
+  /* Use standardized small button sizing */
+  min-height: var(--btn-height-sm);
+  padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
+  font-size: var(--btn-font-size-sm);
+  font-weight: var(--btn-font-weight);
+  border-radius: var(--btn-radius-default);
+  transition: var(--btn-transition);
   border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: var(--btn-icon-gap);
 }
 
 :global(.btn-plan-add) {
-  background: var(--color-success);
-  color: var(--color-on-success);
+  background: var(--btn-success-bg);
+  color: var(--btn-success-color);
+  box-shadow: var(--btn-shadow-base);
 
   &:hover:not(:disabled) {
-    background: var(--color-success-dark, #0d9c6e);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
+    background: var(--btn-success-hover-bg);
+    transform: translateY(var(--btn-hover-lift));
+    box-shadow: var(--btn-shadow-hover);
   }
 
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    transform: none;
   }
 }
 
 :global(.btn-plan-edit) {
   background: var(--color-single-experience-info);
   color: white;
+  box-shadow: var(--btn-shadow-base);
 
   &:hover:not(:disabled) {
     background: var(--color-single-experience-info-dark);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
+    transform: translateY(var(--btn-hover-lift));
+    box-shadow: var(--btn-shadow-hover);
   }
 }
 
 :global(.btn-plan-complete) {
-  background: var(--color-single-experience-primary);
-  color: white;
+  background: var(--btn-gradient-bg);
+  color: var(--btn-gradient-color);
+  box-shadow: var(--btn-shadow-base);
 
   &:hover:not(:disabled) {
-    background: var(--color-single-experience-primary-dark);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
+    filter: brightness(var(--btn-gradient-hover-brightness));
+    transform: translateY(var(--btn-hover-lift));
+    box-shadow: var(--btn-shadow-hover);
   }
 
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    transform: none;
   }
 }
 
 :global(.btn-plan-remove) {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-color);
+  box-shadow: var(--btn-shadow-base);
 
   &:hover:not(:disabled) {
-    background: var(--color-primary-dark);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
+    background: var(--btn-danger-hover-bg);
+    transform: translateY(var(--btn-hover-lift));
+    box-shadow: var(--btn-shadow-hover);
   }
 
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    transform: none;
   }
 }
 
@@ -590,16 +723,15 @@
   }
 }
 
-/* Experience Actions - Consistent Button Sizing */
+/* Experience Actions - Using standardized button sizing */
 :global(.experience-actions) {
   :global(.btn) {
-    /* WCAG 2.1 AA: Minimum 44x44px touch target for accessibility */
-    min-height: 44px;
-    height: 44px;
+    /* Use standardized button height (44px for md) */
+    min-height: var(--btn-height-md);
+    padding: var(--btn-padding-y-md) var(--btn-padding-x-md);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: $space-2 $space-4;
   }
 }
 
@@ -1085,7 +1217,7 @@
 
   /* Increase plan item title size on mobile */
   :global(.plan-item-title) {
-    font-size: clamp(1.25rem, 4.5vw, 1.625rem); // 20px - 26px
+    font-size: var(--font-size-xl);
     font-weight: $font-weight-semibold;
     line-height: 1.3;
     text-align: center;
@@ -1098,7 +1230,7 @@
 
   /* Increase cost estimate and planning days font size */
   :global(.plan-item-meta) {
-    font-size: clamp(1.125rem, 3.5vw, 1.375rem); // 18px - 22px
+    font-size: var(--font-size-lg);
     gap: $space-3;
     font-weight: $font-weight-medium;
     flex-direction: row;
@@ -1110,7 +1242,7 @@
   /* Make assigned user and notes count more prominent */
   :global(.plan-item-assigned),
   :global(.plan-item-notes-count) {
-    font-size: clamp(0.875rem, 2.2vw, 1rem); // 14px - 16px
+    font-size: var(--font-size-sm);
     padding: $space-2 $space-3;
   }
 
@@ -1129,13 +1261,13 @@
 
   :global(.metric-title) {
     text-align: center;
-    font-size: clamp(0.9375rem, 2.5vw, 1.0625rem);
+    font-size: var(--font-size-base);
   }
 
   :global(.metric-value) {
     text-align: center;
     padding-right: 0;
-    font-size: clamp(2rem, 5vw, 2.25rem);
+    font-size: var(--font-size-3xl);
   }
 
   /* Center plan item title and metadata */
@@ -1153,7 +1285,7 @@
     flex-basis: 100%;
     width: auto;
     margin-top: $space-3;
-    font-size: clamp(0.875rem, 2.2vw, 1rem);
+    font-size: var(--font-size-sm);
     padding: $space-2 $space-4;
   }
 
@@ -1290,10 +1422,18 @@
 
   /* Tree Controls */
   :global(.expand-toggle) {
-    color: var(--color-text-muted) !important;
+    /* Slightly larger touch target on mobile */
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-light);
+    color: var(--color-text-secondary) !important;
 
     &:hover {
-      color: var(--color-primary) !important;
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: white !important;
     }
   }
 
@@ -1407,3 +1547,4 @@
     color: var(--color-text-muted);
   }
 }
+

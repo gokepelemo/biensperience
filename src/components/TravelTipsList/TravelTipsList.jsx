@@ -9,44 +9,20 @@ export default function TravelTipsList({ tips, editable = false, onDeleteTip }) 
     return null;
   }
 
-  // Slick carousel settings for single-line horizontal scroll
+  // Slick carousel settings - one card per view, scroll one at a time
   const sliderSettings = {
-    dots: false,
+    dots: true,
     infinite: false,
     speed: 500,
-    slidesToShow: 3,
+    slidesToShow: 1,
     slidesToScroll: 1,
     swipeToSlide: true,
     arrows: true,
     responsive: [
       {
-        breakpoint: 1200,
-        settings: {
-          slidesToShow: 2.5,
-          slidesToScroll: 1,
-        }
-      },
-      {
-        breakpoint: 992,
-        settings: {
-          slidesToShow: 2,
-          slidesToScroll: 1,
-        }
-      },
-      {
         breakpoint: 768,
         settings: {
-          slidesToShow: 1.5,
-          slidesToScroll: 1,
-          arrows: false,
-        }
-      },
-      {
-        breakpoint: 576,
-        settings: {
-          slidesToShow: 1,
-          slidesToScroll: 1,
-          arrows: false,
+          arrows: false, // Hide arrows on mobile, use swipe/dots
         }
       }
     ]

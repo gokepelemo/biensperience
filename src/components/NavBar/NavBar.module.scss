@@ -17,6 +17,11 @@
 .navbar {
   background: #1e1e1e !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  /* Base transition properties for smooth state changes */
+  transition: box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Prevent content jump when transitioning */
+  min-height: 56px;
 
   /* Align all navbar items to text baseline for pixel-perfect alignment */
   :global(.container-fluid) {
@@ -35,7 +40,7 @@
   }
 }
 
-/* Sticky navbar */
+/* Sticky navbar - optimized for smooth transitions */
 .navbar.sticky {
   position: fixed;
   top: 0;
@@ -43,21 +48,32 @@
   right: 0;
   z-index: var(--z-index-fixed);
   box-shadow: var(--shadow-sm);
-  animation: slideDown $transition-normal ease-out;
+  /* GPU-accelerated transition for smooth appearance */
+  animation: slideDown 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  /* Prevent layout thrashing during animation */
+  will-change: transform, opacity;
+  contain: layout style;
+  /* Ensure consistent dimensions */
+  height: auto;
+  min-height: 56px;
 }
 
 @keyframes slideDown {
   from {
-    transform: translateY(-100%);
+    transform: translate3d(0, -100%, 0);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
     opacity: 1;
   }
 }
 
-/* Add padding to body when navbar is sticky to prevent content jump */
+/* Body padding for sticky navbar - use CSS transition for smoothness */
+:global(body) {
+  transition: padding-top 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 :global(body:has(.navbar.sticky)) {
   padding-top: 70px; /* Fixed value for layout stability */
 }
@@ -69,12 +85,14 @@
   padding: 0;
   line-height: $line-height-tight;
   @include flex-center;
-  width: 44px; /* WCAG minimum touch target */
-  height: 44px; /* WCAG minimum touch target */
+  /* Use standardized button height for WCAG touch target (44px) */
+  width: var(--btn-height-md);
+  height: var(--btn-height-md);
   background: var(--gradient-primary);
   color: white;
   border: none;
-  @include transition-all($transition-normal);
+  border-radius: var(--btn-radius-default);
+  @include transition-all(var(--btn-transition));
   font-family: var(--font-family-base);
 
   &:hover {
@@ -100,22 +118,29 @@
   font-weight: $font-weight-bold;
 }
 
-/* Mobile: Allow brand text to wrap, keep hamburger aligned right */
+/* Mobile: Center brand, keep hamburger aligned right */
 @include breakpoint-max(lg) {
   .navbar > :global(.container-fluid) {
     display: flex;
     flex-wrap: nowrap; /* Prevent hamburger from wrapping to new line */
-    align-items: flex-start; /* Align items to top when text wraps */
+    align-items: center; /* Center items vertically */
+    justify-content: center; /* Center content horizontally */
+    position: relative; /* For absolute positioning of toggler */
   }
 
   .navbarBrandWrapper {
-    flex: 1; /* Only expand on mobile to push toggler right */
+    flex: 0 1 auto; /* Don't expand, allow natural width */
     min-width: 0;
-    margin-right: $space-2; /* Small gap between brand and toggler */
+    margin: 0 auto; /* Center the brand wrapper */
+    text-align: center;
+    /* Account for hamburger on the right */
+    padding-right: calc(44px + #{$space-3}); /* Hamburger width + spacing */
+    padding-left: calc(44px + #{$space-3}); /* Balance on left for true centering */
   }
 
   :global(.navbar-brand) {
     max-width: 100%; /* Prevent overflow */
+    justify-content: center; /* Center logo and text within brand */
   }
 
   .brandText {
@@ -126,12 +151,22 @@
 
   :global(.navbar-toggler) {
     flex-shrink: 0; /* Prevent hamburger from shrinking */
-    align-self: flex-start; /* Keep hamburger at top */
-    margin-left: auto; /* Push to the right */
     /* Strongly enforce right alignment on small screens in case other
        global styles or third-party CSS change the default flow. */
     order: 2;
-    margin-left: auto !important;
+    /* Absolute-right placement with safe offset; stays on top of content */
+    position: absolute;
+    right: $space-3;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 20; /* Above other navbar content */
+
+    /* Prevent ANY transform changes on hover/active to avoid layout shift */
+    &:hover,
+    &:focus,
+    &:active {
+      transform: translateY(-50%) !important; /* Must preserve centering */
+    }
   }
 
   /* Ensure collapse content (nav links, search, actions) stacks below the
@@ -143,28 +178,6 @@
 
   .navbarBrandWrapper {
     order: 1;
-    flex: 1; /* Keep brand expansive to push toggler to the right */
-  }
-
-  /* Use absolute positioning as a stronger enforcement for right-edge
-     positioning on narrow viewports. Position relative on the container
-     ensures the toggler stays inside the navbar container. */
-  .navbar > :global(.container-fluid) {
-    position: relative;
-  }
-
-  :global(.navbar-toggler) {
-    /* Absolute-right placement with safe offset; stays on top of content */
-    position: absolute;
-    right: $space-3;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 20; /* Above other navbar content */
-  }
-
-  /* Prevent brand or other elements from being covered by the absolute toggler */
-  .navbarBrandWrapper {
-    padding-right: calc(#{$space-6} + 8px);
   }
 
   /* When the mobile menu is open, position it below the navbar so it
@@ -179,15 +192,44 @@
     background: #1e1e1e; /* Match navbar background */
     z-index: 15; /* Below the toggler but above page content */
     box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-    padding: $space-3 0;
+    padding: $space-4 0;
+    /* Smooth reveal animation */
+    animation: slideDown 0.2s ease-out;
   }
 
   /* Ensure collapse children stack vertically and have expected spacing */
   :global(.navbar-collapse .navbar-nav) {
     display: flex;
     flex-direction: column;
-    gap: $space-2;
-    padding: 0 $space-3;
+    gap: $space-1;
+    padding: 0 $space-4;
+  }
+
+  /* Mobile nav links need full width for easy tapping */
+  .navbar :global(.nav-link),
+  .navbar :global(.dropdown-toggle) {
+    width: 100%;
+    justify-content: flex-start;
+    padding: $space-3 $space-4;
+    margin: 0;
+    border-radius: $radius-md;
+  }
+
+  /* Mobile dropdown menu styling */
+  .navbar :global(.dropdown-menu) {
+    position: static !important;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    border: none;
+    box-shadow: none;
+    margin-top: $space-2;
+    padding-left: $space-4;
+  }
+
+  /* Mobile dropdown items need full width */
+  :global(.dropdown-item) {
+    padding: $space-3 $space-4;
+    border-radius: $radius-md;
   }
 }
 
@@ -195,11 +237,14 @@
 .navbar :global(.nav-link) {
   padding: $space-3 $space-4;
   margin: 0 $space-1;
-  @include transition-all($transition-normal);
+  @include transition-all(var(--btn-transition));
   position: relative;
   color: white !important;
   opacity: 0.75;
   font-weight: $font-weight-bold; /* All nav items bold */
+  /* WCAG 2.1 Level AA minimum touch target */
+  min-height: var(--btn-height-md);
+  @include flex-center;
 
   &:hover,
   &:focus {
@@ -218,6 +263,11 @@
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
+
+  /* Better touch feedback on mobile */
+  &:active {
+    background: rgba(255, 255, 255, 0.05);
+  }
 }
 
 /* Dropdown items */
@@ -231,7 +281,7 @@
   display: none;
 }
 
-/* Dropdown toggle button styling */
+/* Dropdown toggle styling - match nav links, NOT button style */
 .navbar :global(.dropdown-toggle) {
   padding: $space-3 $space-4;
   margin: 0 $space-1;
@@ -242,18 +292,32 @@
   background: transparent;
   font-weight: $font-weight-bold;
   @include inline-stack($space-2);
-  @include transition-all($transition-normal);
+  @include transition-all(var(--btn-transition));
+  /* WCAG 2.1 Level AA minimum touch target */
+  min-height: var(--btn-height-md);
+  /* Override global .dropdown-toggle button styles from theme.scss */
+  box-shadow: none !important;
+  border-radius: 0;
+  /* Prevent layout shift - fixed position in layout */
+  position: relative;
 
   /* Ensure dropdown arrow is properly positioned */
   &::after {
     display: inline-block;
-    margin-left: 0;
+    margin-left: $space-2;
     vertical-align: middle;
     content: "";
     border-top: 0.3em solid;
     border-right: 0.3em solid transparent;
     border-bottom: 0;
     border-left: 0.3em solid transparent;
+    /* Smooth rotation when open */
+    transition: transform 0.2s ease;
+  }
+
+  /* Rotate arrow when open */
+  &[aria-expanded="true"]::after {
+    transform: rotate(180deg);
   }
 
   &:hover,
@@ -262,18 +326,31 @@
     color: white !important; /* Same color as site title */
     background: transparent; /* No background change */
     opacity: 1;
+    /* Override global hover transform from theme.scss */
+    transform: none !important;
+    box-shadow: none !important;
   }
 
+  /* Use inset outline to prevent layout shift */
   &:focus-visible {
     outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
+    outline-offset: -2px; /* Inset to prevent layout shift */
+  }
+
+  /* Better touch feedback on mobile */
+  &:active {
+    background: rgba(255, 255, 255, 0.05);
   }
 }
 
 :global(.dropdown-item) {
   padding: $space-3 $space-5;
-  @include transition-all($transition-normal);
+  @include transition-all(var(--btn-transition));
   font-weight: $font-weight-bold; /* All dropdown items bold */
+  /* WCAG 2.1 Level AA minimum touch target */
+  min-height: var(--btn-height-md);
+  display: flex;
+  align-items: center;
 
   /* First item should have rounded top corners */
   &:first-child {
@@ -314,10 +391,11 @@
     color: white !important;
   }
 
-  /* Disable Bootstrap blue highlight on click/active */
+  /* Touch feedback on mobile */
   &:active {
-    background: transparent !important;
-    color: inherit !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: white !important;
+    transform: scale(0.98);
   }
 
   &:focus-visible {
@@ -402,12 +480,26 @@
 :global(.navbar-toggler) {
   border-color: rgba(255, 255, 255, 0.3) !important;
   padding: $space-2;
+  /* WCAG 2.1 Level AA minimum touch target */
+  min-width: var(--btn-height-md);
+  min-height: var(--btn-height-md);
+  @include flex-center;
+  /* Prevent layout shift on transform */
+  transform-origin: center center;
 
   &:focus {
     box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.5);
+  }
+
+  /* Better active/touch feedback for mobile - use box-shadow instead of scale to avoid layout shift */
+  &:active {
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
   }
 }
 
 :global(.navbar-toggler-icon) {
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.85)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+  width: 24px;
+  height: 24px;
 }

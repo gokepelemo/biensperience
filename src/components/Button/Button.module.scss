@@ -1,51 +1,89 @@
 /**
  * Button Component Styles (SCSS Module)
- * Migrated from Button.css to Button.module.scss
- * Uses SASS variables and mixins for better maintainability
+ * Unified Button Design System
+ *
+ * All buttons use standardized design tokens for consistent:
+ * - Heights (36px sm, 44px md, 52px lg)
+ * - Padding (based on size)
+ * - Font sizes (14px sm, 16px md, 18px lg)
+ * - Font weight (600 semibold)
+ * - Border radius (8px default, pill optional)
  */
 
 @use '../../styles/scss/abstracts' as *;
 
-/* Base Button Styles */
+/* ============================================
+   BASE BUTTON STYLES
+   ============================================ */
 .btnCustom {
-  @include button-base;
-  /* Match form field control min-height so buttons and inputs align vertically */
-  min-height: var(--form-field-control-min-height, 44px);
-  position: relative;
-  overflow: hidden;
+  /* Layout */
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: var(--btn-icon-gap);
+  position: relative;
+  overflow: hidden;
+
+  /* Sizing - default to medium */
+  min-height: var(--btn-height-md);
+  padding: var(--btn-padding-y-md) var(--btn-padding-x-md);
+
+  /* Typography */
+  font-size: var(--btn-font-size-md);
+  font-weight: var(--btn-font-weight);
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+
+  /* Appearance */
+  border: none;
+  border-radius: var(--btn-radius-default);
+  cursor: pointer;
+
+  /* Animation */
+  transition: var(--btn-transition);
+
+  /* Reset for links rendered as buttons */
+  &:visited {
+    color: inherit;
+  }
 }
 
-/* Gradient Button Variant */
+/* ============================================
+   VARIANT: GRADIENT (Primary Action)
+   ============================================ */
 .btnGradient {
-  @include button-variant($color-primary, var(--btn-gradient-color, white));
-  background: var(--gradient-primary);
-  box-shadow: $shadow-sm;
+  background: var(--btn-gradient-bg);
+  color: var(--btn-gradient-color);
+  box-shadow: var(--btn-shadow-base);
 
   &:hover:not(:disabled) {
-    @include hover-lift(-1px, $shadow-md);
+    filter: brightness(var(--btn-gradient-hover-brightness));
+    transform: translateY(var(--btn-hover-lift));
+    box-shadow: var(--btn-shadow-hover);
   }
 
   &:active:not(:disabled) {
+    filter: brightness(var(--btn-gradient-active-brightness));
     transform: translateY(0);
-    box-shadow: $shadow-sm;
+    box-shadow: var(--btn-shadow-active);
   }
 }
 
-/* Outline Button Variant */
+/* ============================================
+   VARIANT: OUTLINE (Secondary Action)
+   ============================================ */
 .btnOutline {
-  background: transparent;
-  color: $color-primary;
-  border: 2px solid $color-primary;
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-color);
+  border: var(--btn-secondary-border);
 
   &:hover:not(:disabled) {
-    background: $color-primary;
-    color: var(--color-white, white);
-    border-color: $color-primary;
-    transform: translateY(-1px);
-    box-shadow: $shadow-sm;
+    background: var(--btn-secondary-hover-bg);
+    color: var(--btn-secondary-hover-color);
+    border: var(--btn-secondary-hover-border);
+    transform: translateY(var(--btn-hover-lift));
+    box-shadow: var(--btn-shadow-base);
   }
 
   &:active:not(:disabled) {
@@ -53,100 +91,172 @@
   }
 }
 
-/* Link-style Button (text-only) */
+/* ============================================
+   VARIANT: TERTIARY (Ghost Button)
+   ============================================ */
+.btnTertiary {
+  background: var(--btn-tertiary-bg);
+  color: var(--btn-tertiary-color);
+  border: var(--btn-tertiary-border);
+
+  &:hover:not(:disabled) {
+    background: var(--btn-tertiary-hover-bg);
+    color: var(--btn-tertiary-hover-color);
+  }
+
+  &:active:not(:disabled) {
+    background: var(--color-bg-tertiary);
+  }
+}
+
+/* ============================================
+   VARIANT: LINK (Text-only)
+   ============================================ */
 .btnLink {
   background: transparent;
-  color: $color-primary;
+  color: var(--btn-link-color);
   border: none;
-  padding: $space-1 $space-2;
+  padding: var(--btn-link-padding-y) var(--btn-link-padding-x);
   min-height: auto;
   height: auto;
-  line-height: 1;
+  box-shadow: none;
+  border-radius: var(--radius-sm);
 
   &:hover:not(:disabled) {
+    color: var(--btn-link-hover-color);
     text-decoration: underline;
+    transform: none;
+    box-shadow: none;
+  }
+
+  &:active:not(:disabled) {
     transform: none;
   }
 }
 
-/* Bootstrap Button Variant */
-/* Inherits Bootstrap button styles */
-/* No additional styles needed - uses Bootstrap classes directly */
-
-/* Rounded Variant */
-.btnRounded {
-  border-radius: $radius-full;
-}
-
-/* Shadow Variant */
-.btnShadow {
-  box-shadow: $shadow-md;
+/* ============================================
+   VARIANT: DANGER
+   ============================================ */
+.btnDanger {
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-color);
+  box-shadow: var(--btn-shadow-base);
 
   &:hover:not(:disabled) {
-    box-shadow: $shadow-lg;
+    background: var(--btn-danger-hover-bg);
+    transform: translateY(var(--btn-hover-lift));
+    box-shadow: var(--btn-shadow-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: var(--btn-shadow-active);
   }
 }
 
-/* Size Variants */
+/* ============================================
+   VARIANT: SUCCESS
+   ============================================ */
+.btnSuccess {
+  background: var(--btn-success-bg);
+  color: var(--btn-success-color);
+  box-shadow: var(--btn-shadow-base);
+
+  &:hover:not(:disabled) {
+    background: var(--btn-success-hover-bg);
+    transform: translateY(var(--btn-hover-lift));
+    box-shadow: var(--btn-shadow-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: var(--btn-shadow-active);
+  }
+}
+
+/* ============================================
+   SIZE MODIFIERS
+   ============================================ */
 .btnSm {
-  padding: $space-2 $space-3;
-  font-size: $font-size-sm;
-  min-height: 36px;
+  min-height: var(--btn-height-sm);
+  padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
+  font-size: var(--btn-font-size-sm);
 }
 
 .btnLg {
-  padding: $space-4 $space-6;
-  font-size: $font-size-lg;
-  min-height: 52px;
+  min-height: var(--btn-height-lg);
+  padding: var(--btn-padding-y-lg) var(--btn-padding-x-lg);
+  font-size: var(--btn-font-size-lg);
 }
 
-/* Disabled State */
+/* ============================================
+   SHAPE MODIFIERS
+   ============================================ */
+.btnRounded {
+  border-radius: var(--btn-radius-pill);
+}
+
+.btnSquare {
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================
+   EFFECT MODIFIERS
+   ============================================ */
+.btnShadow {
+  box-shadow: var(--btn-shadow-hover);
+
+  &:hover:not(:disabled) {
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+/* ============================================
+   STATES
+   ============================================ */
 .btnCustom:disabled {
-  opacity: var(--opacity-disabled, 0.6);
+  opacity: 0.6;
   cursor: not-allowed;
-  transform: none !important;
-  box-shadow: none !important;
+  transform: none;
+  box-shadow: none;
+  filter: none;
 }
 
-/* Focus State for Accessibility */
-.btnCustom:focus {
+.btnCustom:focus-visible {
   @include focus-ring;
 }
 
-/* Dark Mode Adjustments */
+/* ============================================
+   DARK MODE ADJUSTMENTS
+   ============================================ */
 @media (prefers-color-scheme: dark) {
   .btnOutline {
-    /* Use lighter primary color for better contrast on dark backgrounds (WCAG AA: 4.5:1) */
-    border-color: #9f93f7; /* Lighter purple for 5.2:1 contrast ratio */
-    color: #9f93f7;
-
-    &:hover:not(:disabled) {
-      background: #9f93f7;
-      color: #000000; /* Black text on light background */
-    }
+    /* Lighter primary for better contrast on dark backgrounds (WCAG AA: 5.2:1) */
+    --btn-secondary-color: #9f93f7;
+    --btn-secondary-border: 2px solid #9f93f7;
+    --btn-secondary-hover-bg: #9f93f7;
+    --btn-secondary-hover-color: #000000;
+    --btn-secondary-hover-border: 2px solid #9f93f7;
   }
 
   .btnLink {
-    /* Use lighter primary color for better contrast on dark backgrounds */
-    color: #9f93f7;
+    --btn-link-color: #9f93f7;
+    --btn-link-hover-color: #b8aef9;
   }
 }
 
 /* Manual dark mode toggle */
 [data-theme="dark"] {
   .btnOutline {
-    /* Use lighter primary color for better contrast on dark backgrounds (WCAG AA: 4.5:1) */
-    border-color: #9f93f7; /* Lighter purple for 5.2:1 contrast ratio */
-    color: #9f93f7;
-
-    &:hover:not(:disabled) {
-      background: #9f93f7;
-      color: #000000; /* Black text on light background */
-    }
+    --btn-secondary-color: #9f93f7;
+    --btn-secondary-border: 2px solid #9f93f7;
+    --btn-secondary-hover-bg: #9f93f7;
+    --btn-secondary-hover-color: #000000;
+    --btn-secondary-hover-border: 2px solid #9f93f7;
   }
 
   .btnLink {
-    /* Use lighter primary color for better contrast on dark backgrounds */
-    color: #9f93f7;
+    --btn-link-color: #9f93f7;
+    --btn-link-hover-color: #b8aef9;
   }
 }

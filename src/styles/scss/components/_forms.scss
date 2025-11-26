@@ -13,7 +13,7 @@ form,
 .form-container {
   width: clamp(300px, 90%, 800px);
   margin: 0 auto;
-  padding: clamp($space-2, 2vw, $space-6);
+  padding: clamp(var(--space-2), 2vw, var(--space-6));
 }
 
 /* Specific form classes */
@@ -45,9 +45,9 @@ form label,
 .new-experience-form .form-label,
 .update-experience-form label,
 .update-experience-form .form-label {
-  font-size: clamp($font-size-sm, 2vw, $font-size-xl);
+  font-size: clamp(var(--font-size-sm), 2vw, var(--font-size-xl));
   font-weight: $font-weight-semibold;
-  margin-bottom: clamp($space-1, 1vw, $space-2);
+  margin-bottom: clamp(var(--space-1), 1vw, var(--space-2));
   color: var(--color-text-primary);
   line-height: $line-height-snug;
 }
@@ -66,11 +66,11 @@ input[type="date"],
 input[type="url"],
 textarea,
 select {
-  font-size: clamp($font-size-sm, 1.5vw, $font-size-lg) !important;
-  padding: clamp($space-2, 1.5vw, $space-3) clamp($space-3, 2vw, $space-5);
+  font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-lg)) !important;
+  padding: clamp(var(--space-2), 1.5vw, var(--space-3)) clamp(var(--space-3), 2vw, var(--space-5));
   min-height: clamp(2.5rem, 6vw, 3.5rem);
   line-height: $line-height-normal;
-  border-radius: clamp($radius-md, 1vw, $radius-lg);
+  border-radius: clamp(var(--radius-md), 1vw, var(--radius-lg));
   border: 2px solid var(--color-border-medium);
   transition: all $transition-normal;
   width: 100%;
@@ -82,8 +82,8 @@ select {
 .new-experience-form .form-select,
 .update-experience-form .form-control,
 .update-experience-form .form-select {
-  font-size: clamp($font-size-sm, 1.5vw, $font-size-lg) !important;
-  padding: clamp($space-2, 1.5vw, $space-3) clamp($space-3, 2vw, $space-5) !important;
+  font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-lg)) !important;
+  padding: clamp(var(--space-2), 1.5vw, var(--space-3)) clamp(var(--space-3), 2vw, var(--space-5)) !important;
   min-height: clamp(2.5rem, 6vw, 3.5rem);
 }
 
@@ -98,7 +98,7 @@ textarea.form-control {
    ============================================ */
 
 .input-group {
-  gap: clamp($space-1, 1vw, $space-2);
+  gap: clamp(var(--space-1), 1vw, var(--space-2));
   flex-wrap: wrap; /* Allow wrapping on very small screens */
 }
 
@@ -109,36 +109,41 @@ textarea.form-control {
 }
 
 .input-group-text {
-  font-size: clamp($font-size-xs, 1.5vw, $font-size-base);
-  padding: clamp($space-2, 1.5vw, $space-3) clamp($space-2, 1.5vw, $space-3);
+  font-size: clamp(var(--font-size-xs), 1.5vw, var(--font-size-base));
+  padding: clamp(var(--space-2), 1.5vw, var(--space-3)) clamp(var(--space-2), 1.5vw, var(--space-3));
   background: transparent;
   border: none;
 }
 
 .input-group .btn {
-  min-height: clamp(2.5rem, 6vw, 3.5rem);
-  padding: clamp($space-2, 1.5vw, $space-3) clamp($space-3, 2vw, $space-6);
-  font-size: clamp($font-size-xs, 1.5vw, $font-size-base);
+  /* Use standardized button sizing */
+  min-height: var(--btn-height-md);
+  padding: var(--btn-padding-y-md) var(--btn-padding-x-md);
+  font-size: var(--btn-font-size-md);
+  font-weight: var(--btn-font-weight);
   white-space: nowrap;
 }
 
 .new-experience-form .input-group,
 .update-experience-form .input-group {
-  padding: clamp($space-3, 2vw, $space-5);
-  margin-bottom: clamp($space-2, 1.5vw, $space-4);
+  padding: clamp(var(--space-3), 2vw, var(--space-5));
+  margin-bottom: clamp(var(--space-2), 1.5vw, var(--space-4));
 }
 
 /* ============================================
-   BUTTONS
+   BUTTONS - Using Unified Design System
+   Heights: 36px (sm), 44px (md), 52px (lg)
    ============================================ */
 
 form button,
-form .btn,
-.btn {
-  font-size: clamp($font-size-sm, 1.5vw, $font-size-base);
-  padding: clamp($space-2, 1.5vw, $space-3) clamp($space-4, 2.5vw, $space-6);
-  min-height: clamp(2.5rem, 6vw, 3rem);
-  border-radius: clamp($radius-md, 1vw, $radius-lg);
+form .btn {
+  /* Use standardized button sizing */
+  min-height: var(--btn-height-md);
+  padding: var(--btn-padding-y-md) var(--btn-padding-x-md);
+  font-size: var(--btn-font-size-md);
+  font-weight: var(--btn-font-weight);
+  border-radius: var(--btn-radius-default);
+  transition: var(--btn-transition);
 }
 
 /* Submit buttons - slightly wider min-width */
@@ -152,22 +157,36 @@ form .btn-primary {
   min-width: clamp(80px, 20%, 120px);
 }
 
+/* Small buttons in forms */
+form .btn-sm {
+  min-height: var(--btn-height-sm);
+  padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
+  font-size: var(--btn-font-size-sm);
+}
+
+/* Large buttons in forms */
+form .btn-lg {
+  min-height: var(--btn-height-lg);
+  padding: var(--btn-padding-y-lg) var(--btn-padding-x-lg);
+  font-size: var(--btn-font-size-lg);
+}
+
 /* ============================================
    HELPER TEXT & VALIDATION
    ============================================ */
 
 .form-text,
 small.form-text {
-  font-size: clamp($font-size-xs, 1.25vw, $font-size-sm);
-  margin-top: clamp($space-1, 0.5vw, $space-2);
+  font-size: clamp(var(--font-size-xs), 1.25vw, var(--font-size-sm));
+  margin-top: clamp(var(--space-1), 0.5vw, var(--space-2));
   display: block;
   line-height: 1.4;
 }
 
 .invalid-feedback,
 .valid-feedback {
-  font-size: clamp($font-size-xs, 1.25vw, $font-size-sm);
-  margin-top: clamp($space-1, 0.5vw, $space-2);
+  font-size: clamp(var(--font-size-xs), 1.25vw, var(--font-size-sm));
+  margin-top: clamp(var(--space-1), 0.5vw, var(--space-2));
   display: block;
 }
 
@@ -178,11 +197,11 @@ small.form-text {
 .form-group,
 .mb-3,
 .mb-4 {
-  margin-bottom: clamp($space-3, 2vw, $space-6) !important;
+  margin-bottom: clamp(var(--space-3), 2vw, var(--space-6)) !important;
 }
 
 .row {
-  row-gap: clamp($space-3, 2vw, $space-4);
+  row-gap: clamp(var(--space-3), 2vw, var(--space-4));
 }
 
 /* ============================================
@@ -237,7 +256,7 @@ small.form-text {
    ============================================ */
 
 /* Mobile Overrides (< 576px) */
-@media (max-width: 575.98px) {
+@include breakpoint-max(sm) {
   form,
   .form-container,
   form.newExperience,
@@ -262,6 +281,8 @@ small.form-text {
   form .btn {
     width: 100%;
     max-width: 100%;
+    /* Maintain standardized height on mobile */
+    min-height: var(--btn-height-md);
   }
 
   .form-label,

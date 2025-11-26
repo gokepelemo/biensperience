@@ -7,7 +7,7 @@
 
   :global(p) {
     text-align: center;
-    font-size: clamp(1rem, 2.5vw, 1.5rem);
+    font-size: var(--font-size-base);
   }
 }
 
@@ -17,7 +17,7 @@
   align-items: center;
 
   :global(input) {
-    font-size: clamp(1.2rem, 3vw, 2rem);
+    font-size: var(--font-size-lg);
     width: clamp(200px, 50vw, 600px);
     grid-column: 1 / span 2;
   }

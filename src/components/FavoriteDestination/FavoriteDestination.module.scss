@@ -44,34 +44,35 @@
   background: var(--gradient-primary) !important;
   color: white !important;
   border: none;
-  font-weight: $font-weight-semibold;
-  font-size: $font-size-lg;
-  padding: $space-3 $space-5;
-  transition: var(--transition-normal);
+  font-weight: var(--btn-font-weight);
+  font-size: var(--btn-font-size-sm);
+  padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
+  transition: var(--btn-transition);
   /* Fit content width with comfortable padding */
   width: fit-content;
   white-space: nowrap;
-  /* Match SingleExperience action button height */
-  height: 40px !important;
-  min-height: 40px !important;
+  /* Use standardized small button height */
+  min-height: var(--btn-height-sm);
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
+  border-radius: var(--btn-radius-default);
+  box-shadow: var(--btn-shadow-base);
 }
 
 /* Turn green when hovering on add state */
 .btnFavoriteAdd:hover {
   background: linear-gradient(135deg, var(--color-favorite-add-hover-start) 0%, var(--color-favorite-add-hover-end) 100%) !important;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+  transform: translateY(var(--btn-hover-lift));
+  box-shadow: var(--btn-shadow-hover);
   color: white !important;
 }
 
 /* Turn red when hovering on remove state */
 .btnFavoriteRemove:hover {
   background: linear-gradient(135deg, var(--color-favorite-remove-hover-start) 0%, var(--color-favorite-remove-hover-end) 100%) !important;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+  transform: translateY(var(--btn-hover-lift));
+  box-shadow: var(--btn-shadow-hover);
   color: white !important;
 }
 

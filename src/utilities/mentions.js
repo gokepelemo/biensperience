@@ -349,46 +349,95 @@ export function mentionsToEditableText(text, entities = {}) {
 export function editableTextToMentions(text, availableEntities = []) {
   if (!text) return '';
 
-  // Build a map of displayName -> entity for quick lookup (use trimmed displayName)
+  // Build maps for quick lookup by displayName (case-insensitive)
   const nameToEntity = {};
   (availableEntities || []).forEach(entity => {
-    const display = (entity.displayName || '').trim();
+    const display = (entity.displayName || '').trim().toLowerCase();
+    // Store by type:name for precise matching
     const key = `${entity.type}:${display}`;
     nameToEntity[key] = entity;
   });
 
-  // Match @Name or #Name patterns.
-  // Use a regex that stops at the next @ or # so multiple mentions in the same string are handled separately.
-  // Capture everything after a prefix until the next prefix (or end), then trim.
-  const mentionRegex = /(@|#)([^@#]+)/g;
+  // Process text character by character to handle multiple mentions correctly
+  let result = '';
+  let i = 0;
 
-  return text.replace(mentionRegex, (match, prefix, name) => {
-    const trimmedName = name.trim();
+  while (i < text.length) {
+    const char = text[i];
 
-    // Determine entity type based on prefix
-    const entityType = prefix === '#' ? 'plan-item' : 'user';
+    if (char === '@' || char === '#') {
+      const prefix = char;
+      const isHashMention = prefix === '#';
 
-    // Try to find the entity
-    const entityKey = `${entityType}:${trimmedName}`;
-    const entity = nameToEntity[entityKey];
-
-    if (entity) {
-      // Convert to stored format
-      return createMention(entity.type, entity.id, entity.displayName);
-    }
-
-    // If not found, try other types (for @ prefix, also check destinations and experiences)
-    if (prefix === '@') {
-      for (const type of ['destination', 'experience']) {
-        const key = `${type}:${trimmedName}`;
-        const foundEntity = nameToEntity[key];
-        if (foundEntity) {
-          return createMention(foundEntity.type, foundEntity.id, foundEntity.displayName);
-        }
+      // Extract text after the prefix until we hit another @ or # or end
+      let endPos = i + 1;
+      while (endPos < text.length && text[endPos] !== '@' && text[endPos] !== '#') {
+        endPos++;
       }
-    }
 
-    // If still not found, return the original text
-    return match;
-  });
+      const afterPrefix = text.slice(i + 1, endPos);
+
+      // Try to find the longest matching entity name
+      let foundEntity = null;
+      let matchedLength = 0;
+
+      // For # mentions, only check plan-item type
+      // For @ mentions, check user, destination, experience
+      const typesToCheck = isHashMention
+        ? ['plan-item']
+        : ['user', 'destination', 'experience'];
+
+      // Try progressively shorter substrings to find a match
+      for (let len = afterPrefix.length; len > 0; len--) {
+        const candidate = afterPrefix.slice(0, len).trim().toLowerCase();
+        if (!candidate) continue;
+
+        for (const type of typesToCheck) {
+          const key = `${type}:${candidate}`;
+          if (nameToEntity[key]) {
+            foundEntity = nameToEntity[key];
+            // Match includes the trimmed name length
+            matchedLength = afterPrefix.slice(0, len).trimEnd().length;
+            break;
+          }
+        }
+        if (foundEntity) break;
+      }
+
+      if (foundEntity) {
+        // Convert to storage format
+        result += createMention(foundEntity.type, foundEntity.id, foundEntity.displayName);
+        // Move past the prefix and matched name
+        i = i + 1 + matchedLength;
+        // Preserve any whitespace after the matched name
+        while (i < endPos && /\s/.test(text[i])) {
+          result += text[i];
+          i++;
+        }
+      } else {
+        // No match found - keep the original text up to next mention or end
+        result += text.slice(i, endPos);
+        i = endPos;
+      }
+    } else {
+      // Regular character
+      result += char;
+      i++;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Format entity type for display (e.g., "plan-item" -> "Plan Item")
+ * @param {string} type - Entity type
+ * @returns {string} Formatted type label
+ */
+export function formatEntityTypeLabel(type) {
+  if (!type) return 'Unknown';
+  return type
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }

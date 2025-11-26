@@ -81,7 +81,8 @@
   font-size: var(--font-size-base);
 
   @media (max-width: 576px) {
-    height: 44px;
+    /* Use standardized button height for WCAG touch target */
+    height: var(--btn-height-md);
     max-width: 100%;
   }
 }

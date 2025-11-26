@@ -553,11 +553,11 @@ function formatActivityAction(action) {
     'permission_removed': 'Removed a collaborator from',
     'user_registered': 'Joined Biensperience',
     'email_verified': 'Verified email address',
-    'plan_item_completed': 'Marked a plan item complete on',
-    'plan_item_uncompleted': 'Marked a plan item incomplete on',
-    'plan_item_note_added': 'Added a note to plan item on',
-    'plan_item_note_updated': 'Updated a note on plan item on',
-    'plan_item_note_deleted': 'Deleted a note from plan item on',
+    'plan_item_completed': 'Completed a plan item on',
+    'plan_item_uncompleted': 'Uncompleted a plan item on',
+    'plan_item_note_added': 'Added a note to a plan item on',
+    'plan_item_note_updated': 'Updated a note on a plan item in',
+    'plan_item_note_deleted': 'Deleted a note from a plan item in',
     'collaborator_added': 'Became a collaborator on',
     'collaborator_removed': 'Removed from collaboration on'
   };

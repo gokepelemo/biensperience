@@ -12,11 +12,13 @@ import {
   createMention,
   MENTION_TYPES,
   parseMentions,
-  editableTextToMentions
+  editableTextToMentions,
+  formatEntityTypeLabel
 } from '../../utilities/mentions';
 import { resolveMentionsToDisplayText } from '../../utilities/mention-resolver';
 import { searchAll } from '../../utilities/search-api';
 import { logger } from '../../utilities/logger';
+import { createFilter } from '../../utilities/trie';
 import styles from './InteractiveTextArea.module.scss';
 
 /**
@@ -64,6 +66,17 @@ const InteractiveTextArea = ({
     { value: 'contributors', label: 'Contributors Only', icon: '👥' },
     { value: 'private', label: 'Private', icon: '🔒' }
   ];
+
+  // Build trie index for fast local entity filtering
+  const entityTrieFilter = useMemo(() => {
+    if (!availableEntities || availableEntities.length === 0) return null;
+    return createFilter({
+      fields: [
+        { path: 'displayName', score: 100 },
+        { path: 'type', score: 20 },
+      ]
+    }).buildIndex(availableEntities);
+  }, [availableEntities]);
 
   // Convert stored format {entity/id} to display format @Name or #Name for initial display
   // After that, we work entirely in display format until submit
@@ -153,10 +166,11 @@ const InteractiveTextArea = ({
       setIsResolvingMentions(true);
       try {
         // Build plan items map from entityData for efficiency
+        // Plan items can be identified by: type === 'plan-item' OR having experienceId + planId
         const planItemsMap = {};
         if (entityData) {
           Object.entries(entityData).forEach(([id, entity]) => {
-            if (entity.type === 'plan-item' || entity.experience_name) {
+            if (entity.type === 'plan-item' || (entity.experienceId && entity.planId)) {
               planItemsMap[id] = entity;
             }
           });
@@ -186,57 +200,91 @@ const InteractiveTextArea = ({
   const performMentionSearch = useCallback(async (query, mentionType) => {
     try {
       const isUserMention = mentionType === 'user';
-      logger.debug(`[InteractiveTextArea] Searching for ${mentionType}`, { query });
+      logger.debug(`[InteractiveTextArea] Searching for ${mentionType}`, {
+        query,
+        availableEntitiesCount: availableEntities?.length || 0,
+        planItemsCount: (availableEntities || []).filter(e => e.type === 'plan-item').length
+      });
 
-      // First, filter local availableEntities by query
-      const localMatches = (availableEntities || [])
-        .filter(entity => {
+      // First, filter local availableEntities by query using trie for O(m) performance
+      let localMatches;
+      if (entityTrieFilter) {
+        // Use trie-based filtering
+        const trieResults = entityTrieFilter.filter(query, { rankResults: true, limit: 20 });
+        localMatches = trieResults.filter(entity => {
           if (isUserMention) {
             // For @: include user, destination, experience (exclude plan-item)
-            return entity.type !== 'plan-item' &&
-                   entity.displayName?.toLowerCase().includes(query.toLowerCase());
+            return entity.type !== 'plan-item';
           } else {
             // For #: only include plan-item
-            return entity.type === 'plan-item' &&
-                   entity.displayName?.toLowerCase().includes(query.toLowerCase());
+            return entity.type === 'plan-item';
           }
         });
+        logger.debug(`[InteractiveTextArea] Trie filter results for ${mentionType}`, {
+          trieResultsCount: trieResults.length,
+          localMatchesCount: localMatches.length,
+          localMatches: localMatches.slice(0, 3).map(e => ({ type: e.type, displayName: e.displayName }))
+        });
+      } else {
+        // Fallback to linear search
+        localMatches = (availableEntities || [])
+          .filter(entity => {
+            if (isUserMention) {
+              return entity.type !== 'plan-item' &&
+                     entity.displayName?.toLowerCase().includes(query.toLowerCase());
+            } else {
+              return entity.type === 'plan-item' &&
+                     entity.displayName?.toLowerCase().includes(query.toLowerCase());
+            }
+          });
+        logger.debug(`[InteractiveTextArea] Linear filter results for ${mentionType}`, {
+          localMatchesCount: localMatches.length
+        });
+      }
 
-      // Then get global search results with appropriate types
-      const searchTypes = isUserMention
-        ? ['user', 'destination', 'experience']
-        : ['plan'];
+      // For # mentions (plan items), only use local matches - plan items aren't globally searchable
+      // For @ mentions, also search globally for users, destinations, experiences
+      let mergedEntities = localMatches;
 
-      const results = await searchAll(query, {
-        types: searchTypes,
-        limit: 5
-      });
+      if (isUserMention) {
+        // Global search for @mentions: users, destinations, experiences
+        try {
+          const results = await searchAll(query, {
+            types: ['user', 'destination', 'experience'],
+            limit: 5
+          });
 
-      // Transform global search results to entity format
-      const globalEntities = results.map(result => {
-        let displayName;
+          // Transform global search results to entity format
+          const globalEntities = results.map(result => {
+            let displayName;
 
-        if (result.type === 'user') {
-          displayName = result.name || result.username || 'Unknown User';
-        } else if (result.type === 'plan') {
-          // Plans have populated experience field with title
-          displayName = result.experience?.title || result.experience?.name || 'Unknown Plan';
-        } else {
-          // Destinations and experiences have name field
-          displayName = result.name || result.title || 'Unknown';
+            if (result.type === 'user') {
+              // Users have name field, fallback to email prefix if no name
+              displayName = result.name || result.email?.split('@')[0] || 'Unknown User';
+            } else {
+              // Destinations and experiences have name field
+              displayName = result.name || result.title || 'Unknown';
+            }
+
+            return {
+              type: result.type,
+              id: result._id,
+              displayName
+            };
+          });
+
+          // Merge: local matches first, then global results (removing duplicates)
+          const localIds = new Set(localMatches.map(e => e.id));
+          const uniqueGlobalEntities = globalEntities.filter(e => !localIds.has(e.id));
+          mergedEntities = [...localMatches, ...uniqueGlobalEntities];
+        } catch (searchError) {
+          // If global search fails, just use local matches
+          logger.warn('[InteractiveTextArea] Global search failed, using local matches only', {
+            query,
+            error: searchError.message
+          });
         }
-
-        return {
-          type: isUserMention ? result.type : 'plan-item',
-          id: result._id,
-          displayName
-        };
-      });
-
-      // Merge: local matches first, then global results (removing duplicates)
-      const localIds = new Set(localMatches.map(e => e.id));
-      const uniqueGlobalEntities = globalEntities.filter(e => !localIds.has(e.id));
-      const mergedEntities = [...localMatches, ...uniqueGlobalEntities];
+      }
 
       setSuggestions(mergedEntities);
       setShowSuggestions(true);
@@ -246,7 +294,7 @@ const InteractiveTextArea = ({
       setSuggestions([]);
       setIsSearching(false);
     }
-  }, [availableEntities]);
+  }, [availableEntities, entityTrieFilter]);
 
   /**
    * Handle textarea input changes
@@ -265,9 +313,19 @@ const InteractiveTextArea = ({
     const userMentionMatch = textBeforeCursor.match(/@([A-Za-z0-9\s\-']*)$/);
     const planItemMentionMatch = textBeforeCursor.match(/#([A-Za-z0-9\s\-']*)$/);
 
-    if (userMentionMatch) {
-      const query = userMentionMatch[1];
-      setMentionStart(newCursorPosition - query.length - 1);
+    // Helper to check if a mention is complete (has content followed by a trailing space)
+    // A complete mention looks like "@John Doe " - has text and ends with space
+    // An incomplete mention looks like "@John" or "@" - still typing
+    const isMentionComplete = (match) => {
+      if (!match || !match[1]) return false;
+      const query = match[1];
+      // If query has content AND ends with a space, mention is complete
+      return query.length > 0 && query.endsWith(' ');
+    };
+
+    if (userMentionMatch && !isMentionComplete(userMentionMatch)) {
+      const query = userMentionMatch[1].trim(); // Trim whitespace from query
+      setMentionStart(newCursorPosition - userMentionMatch[1].length - 1);
 
       // Clear existing debounce timer
       if (searchDebounceRef.current) {
@@ -275,7 +333,7 @@ const InteractiveTextArea = ({
       }
 
       // If query is empty, show empty suggestions
-      if (!query.trim()) {
+      if (!query) {
         setSuggestions([]);
         setShowSuggestions(true);
       } else {
@@ -285,9 +343,9 @@ const InteractiveTextArea = ({
           performMentionSearch(query, 'user');
         }, 300);
       }
-    } else if (planItemMentionMatch) {
-      const query = planItemMentionMatch[1];
-      setMentionStart(newCursorPosition - query.length - 1);
+    } else if (planItemMentionMatch && !isMentionComplete(planItemMentionMatch)) {
+      const query = planItemMentionMatch[1].trim(); // Trim whitespace from query
+      setMentionStart(newCursorPosition - planItemMentionMatch[1].length - 1);
 
       // Clear existing debounce timer
       if (searchDebounceRef.current) {
@@ -295,7 +353,7 @@ const InteractiveTextArea = ({
       }
 
       // If query is empty, show empty suggestions
-      if (!query.trim()) {
+      if (!query) {
         setSuggestions([]);
         setShowSuggestions(true);
       } else {
@@ -528,7 +586,7 @@ const InteractiveTextArea = ({
                 </div>
                 <div className={styles.mentionSuggestionContent}>
                   <div className={styles.mentionSuggestionName}>{entity.displayName}</div>
-                  <div className={styles.mentionSuggestionType}>{entity.type}</div>
+                  <div className={styles.mentionSuggestionType}>{formatEntityTypeLabel(entity.type)}</div>
                 </div>
               </div>
             ))

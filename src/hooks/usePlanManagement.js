@@ -317,12 +317,20 @@ export default function usePlanManagement(experienceId, userId) {
    */
   useEffect(() => {
     const handlePlanUpdated = (event) => {
-      const { planId, experienceId: eventExpId, version, data } = event.detail || {};
+      // Event payload may have plan data in different locations:
+      // - updatePlanItem: { plan, planId }
+      // - updatePlan: { data, planId, version }
+      // - reorderPlanItems: { data, planId, version }
+      const detail = event.detail || {};
+      const planId = detail.planId;
+      const experienceId_event = detail.experienceId;
+      const version = detail.version;
+      const data = detail.data || detail.plan;
 
       if (!planId || !data) return;
 
       // Ignore if not for this experience
-      if (eventExpId && eventExpId !== experienceId) return;
+      if (experienceId_event && experienceId_event !== experienceId) return;
 
       // Deduplicate based on version
       const lastVersion = lastEventVersionRef.current[`updated:${planId}`] || 0;
@@ -493,8 +501,13 @@ export default function usePlanManagement(experienceId, userId) {
   }, [experienceId, userId, fetchPlans]);
 
   // Compute selected plan from ID
+  // Use string comparison since _id can be ObjectId or string
   const selectedPlan = selectedPlanId
-    ? collaborativePlans.find(p => p._id === selectedPlanId) || userPlan
+    ? collaborativePlans.find(p => {
+        const planId = p._id?.toString ? p._id.toString() : p._id;
+        const targetId = selectedPlanId?.toString ? selectedPlanId.toString() : selectedPlanId;
+        return planId === targetId;
+      }) || userPlan
     : userPlan;
 
   return {

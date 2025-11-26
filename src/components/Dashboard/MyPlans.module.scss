@@ -1,0 +1,327 @@
+/**
+ * MyPlans Component Styles - SCSS Module
+ * Modern card-based design with smooth expand/collapse animations
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+/* Empty State */
+.emptyState {
+  padding: $space-8;
+  text-align: center;
+  background: var(--color-bg-secondary);
+  border-radius: $radius-md;
+  border: 2px dashed var(--color-border-medium);
+}
+
+/* Plan Card Container - Entire card is clickable */
+.planCard {
+  width: 100%;
+  background: var(--color-bg-secondary);
+  border-radius: $radius-lg;
+  border: 1px solid var(--color-border-light);
+  overflow: hidden;
+  transition: all $transition-normal;
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-border-medium);
+    background: var(--color-bg-hover);
+  }
+
+  &.expanded {
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-primary);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+}
+
+/* Plan Header */
+.planHeader {
+  padding: $space-5;
+}
+
+.planHeaderContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: $space-4;
+  margin-bottom: $space-4;
+}
+
+/* Plan Title Section */
+.planTitleSection {
+  flex: 1;
+  min-width: 0;
+}
+
+.planTitle {
+  margin: 0 0 $space-2 0;
+  color: var(--color-text-primary);
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+}
+
+.planMeta {
+  display: flex;
+  gap: $space-4;
+  flex-wrap: wrap;
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  color: var(--color-text-secondary);
+  font-size: $font-size-sm;
+}
+
+/* Plan Header Right Side */
+.planHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: $space-4;
+  flex-shrink: 0;
+}
+
+.planCost {
+  text-align: right;
+}
+
+.expandIcon {
+  @include flex-center;
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-full;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  transition: all $transition-normal;
+
+  &.rotated {
+    transform: rotate(90deg);
+    background: var(--color-primary);
+    color: white;
+  }
+}
+
+/* Progress Bar */
+.progressBarContainer {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+}
+
+.progressBar {
+  flex: 1;
+  height: 8px;
+  background: var(--color-bg-tertiary);
+  border-radius: $radius-full;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark), var(--color-primary));
+  background-size: 200% 200%;
+  animation: gradientShift 8s ease infinite;
+  border-radius: $radius-full;
+  transition: width $transition-normal;
+}
+
+.progressText {
+  min-width: 70px;
+  text-align: right;
+}
+
+/* Plan Body - Expandable Content */
+.planBody {
+  padding: 0 $space-5 $space-5 $space-5;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Plan Items Grid */
+.planItemsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: $space-3;
+  margin-bottom: $space-5;
+}
+
+/* Plan Item Card - Clickable link */
+.planItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  padding: $space-3;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: $radius-md;
+  min-height: 100px;
+  transition: all $transition-normal;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+
+  &:hover {
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-2px);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  &.completed {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(25, 135, 84, 0.05) 100%);
+    border: 2px solid var(--color-success);
+    opacity: 0.85;
+    transform: scale(0.98);
+
+    &:hover {
+      transform: scale(0.98) translateY(-2px);
+    }
+
+    .itemContent {
+      padding-right: $space-8;
+    }
+
+    .itemText {
+      text-decoration: line-through;
+      color: var(--color-text-muted);
+    }
+  }
+}
+
+/* Completion Badge */
+.completionBadge {
+  position: absolute;
+  top: $space-2;
+  right: $space-2;
+  display: flex;
+  align-items: center;
+  gap: $space-1;
+  padding: 2px $space-2;
+  background: var(--color-success);
+  color: white;
+  border-radius: $radius-full;
+  font-size: 10px;
+  font-weight: $font-weight-semibold;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Item Content */
+.itemContent {
+  flex: 1;
+  padding-right: $space-2;
+}
+
+.itemText {
+  line-height: 1.3;
+  margin-bottom: $space-1;
+  font-size: $font-size-sm;
+}
+
+.itemCost {
+  margin-top: $space-1;
+  font-size: $font-size-xs;
+}
+
+/* Additional Costs Section */
+.additionalCosts {
+  margin-top: $space-5;
+  padding-top: $space-5;
+  border-top: 1px dashed var(--color-border-light);
+}
+
+.costItem {
+  padding: $space-3;
+  background: var(--color-bg-tertiary);
+  border-radius: $radius-sm;
+  transition: background $transition-fast;
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+}
+
+.costInfo {
+  flex: 1;
+}
+
+/* Plan Footer */
+.planFooter {
+  margin-top: $space-5;
+  padding-top: $space-5;
+  border-top: 1px dashed var(--color-border-light);
+}
+
+/* Responsive Design */
+@include breakpoint-max(md) {
+  .planHeaderContent {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .planHeaderRight {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .planItemsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .progressBarContainer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .progressText {
+    width: 100%;
+    text-align: left;
+  }
+}
+
+/* Accessibility - Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .planCard,
+  .planHeader,
+  .planItem,
+  .expandIcon,
+  .progressFill {
+    transition: none;
+  }
+
+  .planBody {
+    animation: none;
+  }
+}
+
+/* Dark Mode Adjustments */
+@media (prefers-color-scheme: dark) {
+  .planCard {
+    &:hover {
+      border-color: var(--color-border-dark);
+    }
+
+    &.expanded {
+      border-color: var(--color-primary-400);
+    }
+  }
+}

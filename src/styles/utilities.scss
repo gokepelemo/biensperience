@@ -399,12 +399,14 @@
 
 .bg-gradient-primary {
   background: var(--gradient-primary);
+  color: var(--color-on-primary);
 }
 
 .bg-gradient-animated {
   background: var(--gradient-primary-animated);
   background-size: 400% 400%;
   animation: gradient-shift 15s ease infinite;
+  color: var(--color-on-primary);
 }
 
 /* ============================================
@@ -463,7 +465,7 @@
   border: 2px solid var(--color-border-medium);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  padding: clamp(0.5rem, 1.5vw, 0.75rem) clamp(0.75rem, 2vw, 1rem);
+  padding: clamp(var(--space-2), 1.5vw, var(--space-3)) clamp(var(--space-3), 2vw, var(--space-4));
   font-size: var(--font-size-base);
   transition: all var(--transition-base);
   line-height: var(--line-height-normal);

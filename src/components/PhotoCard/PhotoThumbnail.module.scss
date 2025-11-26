@@ -86,13 +86,13 @@
 }
 
 /* Default badge for thumbnails - top right corner star */
-.thumbnailDefaultBadge {
+  .thumbnailDefaultBadge {
   position: absolute;
   top: 0.25rem;
   right: 0.25rem;
   background: var(--gradient-primary);
   color: white;
-  font-size: clamp(0.5rem, 1vw, 0.625rem); /* Half the previous size */
+  font-size: var(--font-size-xs); /* Use tokenized font-size for badges */
   width: 1rem;
   height: 1rem;
   display: flex;

@@ -152,8 +152,8 @@
     border: 1px solid var(--color-border-medium) !important;
     transition: all var(--transition-base) !important;
     height: auto !important;
-    min-height: 38px !important;
-    padding: $space-2 $space-3 !important;
+    min-height: var(--btn-height-sm) !important;
+    padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm) !important;
     width: 100% !important;
     box-sizing: border-box !important;
     background-color: var(--color-background) !important;
@@ -214,8 +214,8 @@
 
     :global(.btn) {
       border-radius: 0 var(--radius-sm) var(--radius-sm) 0 !important;
-      padding: $space-2 $space-3 !important;
-      min-height: 38px !important;
+      padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm) !important;
+      min-height: var(--btn-height-sm) !important;
       background: var(--color-surface) !important;
       border: none !important;
       border-left: 1px solid var(--color-border) !important;
@@ -271,16 +271,16 @@
   :global(.btn-primary) {
     background: var(--gradient-primary) !important;
     border: none !important;
-    padding: $space-2 $space-5 !important;
-    font-weight: var(--font-weight-medium) !important;
-    font-size: var(--font-size-sm) !important;
-    @include transition-all(var(--transition-base));
-    min-height: 38px !important;
+    padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm) !important;
+    font-weight: var(--btn-font-weight) !important;
+    font-size: var(--btn-font-size-sm) !important;
+    @include transition-all(var(--btn-transition));
+    min-height: var(--btn-height-sm) !important;
 
     &:hover {
       background: var(--gradient-primary-dark) !important;
-      transform: translateY(-1px) !important;
-      box-shadow: var(--shadow-md) !important;
+      transform: translateY(var(--btn-hover-lift)) !important;
+      box-shadow: var(--btn-shadow-hover) !important;
     }
 
     &:focus {
@@ -298,17 +298,17 @@
   :global(.btn-outline-secondary) {
     border-color: var(--color-text-muted) !important;
     color: var(--color-text-muted) !important;
-    padding: $space-2 $space-5 !important;
-    font-weight: var(--font-weight-medium) !important;
-    font-size: var(--font-size-sm) !important;
-    @include transition-all(var(--transition-base));
-    min-height: 38px !important;
+    padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm) !important;
+    font-weight: var(--btn-font-weight) !important;
+    font-size: var(--btn-font-size-sm) !important;
+    @include transition-all(var(--btn-transition));
+    min-height: var(--btn-height-sm) !important;
 
     &:hover {
       background-color: var(--color-text-muted) !important;
       border-color: var(--color-text-muted) !important;
       color: var(--color-white) !important;
-      transform: translateY(-1px) !important;
+      transform: translateY(var(--btn-hover-lift)) !important;
     }
 
     &:focus {

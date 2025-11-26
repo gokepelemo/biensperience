@@ -11,6 +11,7 @@ import Loading from "../../components/Loading/Loading";
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { sortItems, filterDestinations } from "../../utilities/sort-filter";
 import { Container, Mobile, Desktop } from "../../components/design-system";
+import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { logger } from "../../utilities/logger";
 
 export default function Destinations() {
@@ -121,11 +122,20 @@ export default function Destinations() {
           <div className={`${styles.destinationsList} animation-fade_in`}>
             {processedDestinations.length > 0 ? (
               processedDestinations.map((destination, index) => (
-                <DestinationCard
-                  destination={destination}
-                  key={destination._id || index}
-                  className="animation-fade_in"
-                />
+                destination ? (
+                  <DestinationCard
+                    destination={destination}
+                    key={destination._id || index}
+                    className="animation-fade_in"
+                    forcePreload={true}
+                  />
+                ) : (
+                  <div key={`placeholder-${index}`} style={{ width: '12rem', height: '8rem', display: 'inline-block', margin: '0.5rem' }}>
+                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                    </div>
+                  </div>
+                )
               ))
             ) : (
               <Alert

@@ -105,6 +105,15 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
       if (itemElement) {
         logger.debug('[Scroll] ✅ Found item element, scrolling...');
 
+        // Callback to trigger shake animation after scroll completes
+        // Using callback instead of setTimeout for reliable cross-browser sync
+        const onScrollComplete = () => {
+          if (shouldHighlight) {
+            logger.debug('[Scroll] Scroll complete, triggering shake animation via callback');
+            highlightPlanItem(itemId);
+          }
+        };
+
         // Use react-scroll for smoother animation with anticipation delay
         setTimeout(() => {
           try {
@@ -117,22 +126,31 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
               duration: 800,
               delay: 0,
               smooth: 'easeInOutQuart',
-              offset: -200 // Offset to center item in viewport
+              offset: -200,
+              // Callback fired when scroll animation completes - more reliable than setTimeout
+              onComplete: onScrollComplete
             });
           } catch (e) {
             // Fallback to native scrollIntoView
             logger.debug('[Scroll] react-scroll failed, using fallback');
-            try { itemElement.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (err) {}
-          }
-
-          // Only apply shake/highlight animation if requested (deep-link navigation)
-          // Skip for item completion toggles to avoid unwanted animation
-          // Delay animation until after scroll completes (800ms duration + 200ms buffer)
-          if (shouldHighlight) {
-            logger.debug('[Scroll] Scheduling shake animation after scroll completes');
-            setTimeout(() => {
-              highlightPlanItem(itemId);
-            }, 1000); // Wait for scroll to complete (800ms scroll + 200ms buffer)
+            try {
+              itemElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // For native scrollIntoView, use IntersectionObserver as callback
+              if (shouldHighlight) {
+                const observer = new IntersectionObserver((entries) => {
+                  if (entries[0].isIntersecting) {
+                    observer.disconnect();
+                    highlightPlanItem(itemId);
+                  }
+                }, { threshold: 0.5 });
+                observer.observe(itemElement);
+                // Cleanup observer after reasonable time if element never intersects
+                setTimeout(() => observer.disconnect(), 2000);
+              }
+            } catch (err) {
+              // Last resort: just highlight immediately
+              if (shouldHighlight) highlightPlanItem(itemId);
+            }
           }
         }, anticipationDelay);
 

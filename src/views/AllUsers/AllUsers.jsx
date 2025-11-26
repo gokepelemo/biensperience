@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Badge, Card } from "react-bootstrap";
 import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
@@ -16,6 +16,7 @@ import { handleError } from "../../utilities/error-handler";
 import { logger } from "../../utilities/logger";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
+import { createFilter } from "../../utilities/trie";
 import { lang } from "../../lang.constants";
 import styles from "./AllUsers.module.scss";
 
@@ -38,6 +39,17 @@ export default function AllUsers() {
   // Check if current user is super admin
   const isCurrentUserSuperAdmin = user && isSuperAdmin(user);
 
+  // Build trie index for fast user search
+  const userTrieFilter = useMemo(() => {
+    if (!users || users.length === 0) return null;
+    return createFilter({
+      fields: [
+        { path: 'name', score: 100 },
+        { path: 'email', score: 80 },
+      ]
+    }).buildIndex(users);
+  }, [users]);
+
   // Define helper functions
   const fetchAllUsers = async () => {
     try {
@@ -58,8 +70,11 @@ export default function AllUsers() {
   const filterAndSortUsers = useCallback(() => {
     let result = [...users];
 
-    // Filter by search term
-    if (searchTerm) {
+    // Filter by search term using trie for O(m) performance
+    if (searchTerm && userTrieFilter) {
+      result = userTrieFilter.filter(searchTerm, { rankResults: true });
+    } else if (searchTerm) {
+      // Fallback to linear search if trie not available
       const term = searchTerm.toLowerCase();
       result = result.filter(u =>
         u.name.toLowerCase().includes(term) ||
@@ -92,7 +107,7 @@ export default function AllUsers() {
     });
 
     setFilteredUsers(result);
-  }, [users, searchTerm, roleFilter, sortField, sortDirection]);
+  }, [users, searchTerm, roleFilter, sortField, sortDirection, userTrieFilter]);
 
   // Effects
   useEffect(() => {

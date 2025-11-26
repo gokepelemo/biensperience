@@ -9,8 +9,8 @@ import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Alert from "../../components/Alert/Alert";
-import Loading from "../../components/Loading/Loading";
-import { Button, FlexCenter, SpaceY, Container } from "../../components/design-system";
+import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
+import { Button, FlexCenter, SpaceY } from "../../components/design-system";
 import { logger } from "../../utilities/logger";
 import styles from "./AppHome.module.scss";
 
@@ -20,6 +20,8 @@ export default function AppHome() {
   const navigate = useNavigate();
   const [showAllDestinations, setShowAllDestinations] = useState(false);
   const [showAllExperiences, setShowAllExperiences] = useState(false);
+  // Track whether initial data fetch has completed
+  const [initialFetchComplete, setInitialFetchComplete] = useState(false);
   const DESTINATIONS_INITIAL_DISPLAY = 10;
   const EXPERIENCES_INITIAL_DISPLAY = 12;
 
@@ -40,9 +42,13 @@ export default function AppHome() {
             destinationsCount: destinations.length,
             experiencesCount: experiences.length
           });
+          setInitialFetchComplete(true);
         }
       } catch (err) {
         logger.error('AppHome: Failed to fetch data on mount', { error: err.message });
+        if (mounted) {
+          setInitialFetchComplete(true); // Still mark as complete so we show error state
+        }
       }
     })();
     return () => { mounted = false; };
@@ -50,8 +56,13 @@ export default function AppHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Check if this is a new user with no content
-  const isEmptyState = !loading && destinations.length === 0 && experiences.length === 0;
+  // Determine loading states for each section
+  // Show skeleton if: loading OR initial fetch hasn't completed yet
+  const isDestinationsLoading = loading || !initialFetchComplete;
+  const isExperiencesLoading = loading || !initialFetchComplete;
+
+  // Check if this is a new user with no content (only after fetch completes)
+  const isEmptyState = initialFetchComplete && !loading && destinations.length === 0 && experiences.length === 0;
 
   return (
     <PageWrapper title="Biensperience">
@@ -64,9 +75,8 @@ export default function AppHome() {
       />
       <HeroBanner className="animation-fade_in" />
 
-      {loading ? (
-        <Loading variant="centered" size="lg" message="Loading..." />
-      ) : isEmptyState ? (
+      {/* Empty state - only shown after fetch completes with no data */}
+      {isEmptyState ? (
         <FlexCenter>
           <div className="col-12 col-md-8 col-lg-6 text-center">
             <Alert
@@ -77,7 +87,7 @@ export default function AppHome() {
               <p className="mb-3">
                 {lang.en.alert.welcomeFreshStart}
               </p>
-              <SpaceY size={3}>
+              <SpaceY size="3">
                 <Button
                   variant="primary"
                   className="mb-3"
@@ -97,8 +107,25 @@ export default function AppHome() {
         </FlexCenter>
       ) : (
         <>
+          {/* Popular Destinations Section */}
           <h2 className="my-4 animation-fade_in">{lang.en.heading.popularDestinations}</h2>
-          {destinations && destinations.length > 0 ? (
+          {isDestinationsLoading ? (
+            // Skeleton loaders matching DestinationCard layout:
+            // - Centered blurred title overlay (like destinationCardTitle)
+            // - Count matches DESTINATIONS_INITIAL_DISPLAY
+            <FlexCenter className="animation-fade_in">
+              <div className={styles.destinationsList}>
+                {Array.from({ length: DESTINATIONS_INITIAL_DISPLAY }, (_, i) => (
+                  <div key={i} className={styles.destinationSkeleton}>
+                    {/* Centered title overlay with blur - mirrors destinationCardTitle */}
+                    <div className={styles.destinationSkeletonOverlay}>
+                      <SkeletonLoader variant="text" width={`${65 + (i % 4) * 8}%`} height={20} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </FlexCenter>
+          ) : destinations && destinations.length > 0 ? (
             <>
               <FlexCenter className="animation-fade_in">
                 <div className={styles.destinationsList}>
@@ -141,8 +168,33 @@ export default function AppHome() {
             </FlexCenter>
           )}
 
+          {/* Curated Experiences Section */}
           <h2 className="my-4 animation-fade_in">{lang.en.heading.curatedExperiences}</h2>
-          {experiences && experiences.length > 0 ? (
+          {isExperiencesLoading ? (
+            // Skeleton loaders matching ExperienceCard layout:
+            // - Title centered in flex-grow area with blur overlay
+            // - Action button at bottom right
+            // Count matches EXPERIENCES_INITIAL_DISPLAY
+            <FlexCenter className="animation-fade_in">
+              <div className={styles.experiencesList}>
+                {Array.from({ length: EXPERIENCES_INITIAL_DISPLAY }, (_, i) => (
+                  <div key={i} className={styles.experienceSkeleton}>
+                    {/* Title area - centered with blur overlay (mirrors experienceCardTitle) */}
+                    <div className={styles.experienceSkeletonTitle}>
+                      <div className={styles.experienceSkeletonTitleOverlay}>
+                        <SkeletonLoader variant="text" width={`${75 + (i % 3) * 8}%`} height={20} />
+                        <SkeletonLoader variant="text" width={`${50 + (i % 4) * 10}%`} height={16} className="mt-1" />
+                      </div>
+                    </div>
+                    {/* Actions area - bottom right (mirrors experienceCardActions) */}
+                    <div className={styles.experienceSkeletonActions}>
+                      <SkeletonLoader variant="circle" width={44} height={44} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </FlexCenter>
+          ) : experiences && experiences.length > 0 ? (
             <>
               <FlexCenter className="animation-fade_in">
                 <div className={styles.experiencesList}>

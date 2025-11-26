@@ -968,7 +968,13 @@ export function DataProvider({ children }) {
     };
 
     const handlePlanUpdated = (event) => {
-      const { plan, planId } = event.detail || {};
+      // Event payload may have plan data in different locations:
+      // - updatePlanItem: { plan, planId }
+      // - updatePlan: { data, planId, version }
+      // - reorderPlanItems: { data, planId, version }
+      const detail = event.detail || {};
+      const plan = detail.plan || detail.data;
+      const planId = detail.planId;
       if (plan || planId) {
         const id = planId || plan?._id;
         logger.debug('[DataContext] plan:updated event received', { id });

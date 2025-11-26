@@ -3,6 +3,7 @@ import { getUser, logout } from '../utilities/users-service';
 import themeManager from '../utilities/theme-manager';
 import { getUserData } from '../utilities/users-api';
 import { redeemInviteCode } from '../utilities/invite-codes-service';
+import { getFavorites } from '../utilities/destinations-api';
 import { logger } from '../utilities/logger';
 
 const UserContext = createContext();
@@ -92,7 +93,6 @@ export function UserProvider({ children }) {
         // Lazy-load destinations and derive favorites (falls back to server-side support)
         try {
           // Use the new server endpoint that returns only the user's favorited destinations
-          const { getFavorites } = require('../utilities/destinations-api');
           const favs = await getFavorites(user._id);
           if (Array.isArray(favs)) {
             setFavoriteDestinations(favs);

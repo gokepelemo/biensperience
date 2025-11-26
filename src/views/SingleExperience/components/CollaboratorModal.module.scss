@@ -1,7 +1,20 @@
 @use '../../../styles/scss/abstracts' as *;
 
+/* Modal body override to allow Autocomplete dropdown to float above */
+.collaboratorModalBody {
+  overflow: visible !important;
+}
+
 /* CollaboratorModal component styles */
 .collaboratorModalContent {
+  /* Allow autocomplete dropdown to escape modal body overflow clipping */
+  overflow: visible !important;
+
+  /* Ensure the Autocomplete dropdown floats above modal content */
+  :global(.autocomplete-wrapper) {
+    position: relative;
+    z-index: $z-index-dropdown;
+  }
   /* Button styles */
   :global(.btn) {
     transition: all var(--transition-normal);

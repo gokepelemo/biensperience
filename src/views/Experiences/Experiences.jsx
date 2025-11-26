@@ -10,6 +10,7 @@ import Alert from "../../components/Alert/Alert";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
 import { Container, Mobile, Desktop, FadeIn } from "../../components/design-system";
+import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { getDestinations, showDestination } from '../../utilities/destinations-api';
 import { getExperienceTags, getExperiences } from '../../utilities/experiences-api';
@@ -745,11 +746,20 @@ export default function Experiences() {
           <div className={styles.experiencesList}>
             {displayedExperiences.length > 0 ? (
               displayedExperiences.map((experience, index) => (
-                <FadeIn key={experience._id || index} delay={index * 0.1}>
-                  <ExperienceCard
-                    experience={experience}
-                    userPlans={plans}
-                  />
+                <FadeIn key={experience?._id || `exp-${index}`} delay={index * 0.1}>
+                  {experience ? (
+                    <ExperienceCard
+                      experience={experience}
+                      userPlans={plans}
+                      forcePreload={true}
+                    />
+                  ) : (
+                    <div key={`placeholder-${index}`} style={{ width: '12rem', height: '8rem', display: 'inline-block', margin: '0.5rem' }}>
+                      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                      </div>
+                    </div>
+                  )}
                 </FadeIn>
               ))
             ) : (

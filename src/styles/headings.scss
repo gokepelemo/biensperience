@@ -211,25 +211,32 @@ h6 + div, .h6 + div {
    RESPONSIVE ADJUSTMENTS
    ============================================ */
 
-/* Mobile - Slightly smaller for better fit */
+/* Mobile - Slightly smaller for better fit, centered section headings */
 @media (max-width: 575px) {
   h1, .h1, .heading-page {
-    font-size: clamp(1.875rem, 8vw, 2.25rem);
+    font-size: var(--font-size-3xl);
+    text-align: center;
   }
 
   h2, .h2, .heading-section {
-    font-size: clamp(1.5rem, 6vw, 1.875rem);
+    font-size: var(--font-size-2xl);
+    text-align: center;
   }
 
-  h3, .h3 {
-    font-size: clamp(1.25rem, 5vw, 1.5rem);
+  h3, .h3, .heading-card {
+    font-size: var(--font-size-xl);
+    text-align: center;
+  }
+
+  h4, .h4, .heading-sub {
+    text-align: center;
   }
 }
 
 /* Tablet */
 @media (min-width: 576px) and (max-width: 991px) {
   h1, .h1, .heading-page {
-    font-size: clamp(2rem, 6vw, 2.5rem);
+    font-size: var(--font-size-3xl);
   }
 }
 

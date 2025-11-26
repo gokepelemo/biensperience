@@ -107,32 +107,98 @@
   --gradient-primary-animated: linear-gradient(-45deg, #667eea, #764ba2, #667eea, #764ba2);
 
   /* ============================================
-     BUTTON TOKENS - Specialized Button Styles
+     BUTTON TOKENS - Unified Button Design System
+     ============================================
+
+     All buttons use these standardized values to ensure
+     consistent height, padding, and proportions across
+     the entire application.
+
+     STANDARD HEIGHTS (WCAG 2.1 AA touch targets):
+     - Small (sm): 36px min-height
+     - Medium (md): 44px min-height (default, WCAG minimum)
+     - Large (lg): 52px min-height
+
+     PADDING FORMULA:
+     - Vertical: height-based for centering
+     - Horizontal: font-size × 2 (minimum)
      ============================================ */
+
+  /* Base Button Standards - Apply to ALL buttons */
+  --btn-height-sm: 36px;
+  --btn-height-md: 44px;
+  --btn-height-lg: 52px;
+
+  /* Padding - tightened for more compact buttons while maintaining WCAG touch targets */
+  --btn-padding-y-sm: var(--space-1);    /* 4px */
+  --btn-padding-x-sm: var(--space-2);    /* 8px */
+  --btn-padding-y-md: var(--space-2);    /* 8px */
+  --btn-padding-x-md: var(--space-3);    /* 12px */
+  --btn-padding-y-lg: var(--space-3);    /* 12px */
+  --btn-padding-x-lg: var(--space-5);    /* 20px */
+
+  /* Font sizes - consistent across all variants */
+  --btn-font-size-sm: var(--font-size-sm);   /* 14px */
+  --btn-font-size-md: var(--font-size-base); /* 16px */
+  --btn-font-size-lg: var(--font-size-lg);   /* 18px */
+
+  /* Font weight - same for all buttons */
+  --btn-font-weight: var(--font-weight-semibold); /* 600 */
+
+  /* Border radius - two options */
+  --btn-radius-default: var(--radius-md);  /* 8px - standard buttons */
+  --btn-radius-pill: var(--radius-full);   /* 999px - pill buttons */
+
+  /* Shadows - consistent hover/active states */
+  --btn-shadow-base: var(--shadow-sm);
+  --btn-shadow-hover: var(--shadow-md);
+  --btn-shadow-active: var(--shadow-sm);
+
+  /* Transition - smooth state changes */
+  --btn-transition: all var(--transition-fast) ease;
+
+  /* Hover lift - subtle elevation effect */
+  --btn-hover-lift: -2px;
+
+  /* Gap for icon + text buttons */
+  --btn-icon-gap: var(--space-2); /* 8px */
 
   /* Gradient Button (Primary Action) */
   --btn-gradient-bg: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   --btn-gradient-color: #ffffff;
   --btn-gradient-hover-brightness: 1.05; /* Reduced from 1.1 for better contrast (4.6:1) */
-  --btn-gradient-active-brightness: 0.9;
-  --btn-gradient-padding-y: var(--space-3);
-  --btn-gradient-padding-x: var(--space-5);
-  --btn-gradient-font-size: var(--font-size-base);
-  --btn-gradient-font-weight: var(--font-weight-semibold);
-  --btn-gradient-border-radius: var(--radius-full);
-  --btn-gradient-min-height: 48px;
+  --btn-gradient-active-brightness: 0.95;
 
-  /* Secondary Button (Toggle/Outline) */
-  --btn-secondary-bg: var(--color-bg-secondary);
-  --btn-secondary-color: var(--color-text-primary);
-  --btn-secondary-border: 2px solid var(--color-border-medium);
-  --btn-secondary-hover-bg: var(--color-bg-tertiary);
-  --btn-secondary-hover-border: 2px solid var(--color-border-dark);
-  --btn-secondary-padding-y: var(--space-3);
-  --btn-secondary-padding-x: var(--space-5);
-  --btn-secondary-font-size: var(--font-size-base);
-  --btn-secondary-font-weight: var(--font-weight-medium);
-  --btn-secondary-border-radius: var(--radius-full);
+  /* Secondary/Outline Button */
+  --btn-secondary-bg: transparent;
+  --btn-secondary-color: var(--color-primary);
+  --btn-secondary-border: 2px solid var(--color-primary);
+  --btn-secondary-hover-bg: var(--color-primary);
+  --btn-secondary-hover-color: #ffffff;
+  --btn-secondary-hover-border: 2px solid var(--color-primary);
+
+  /* Tertiary/Ghost Button (minimal styling) */
+  --btn-tertiary-bg: transparent;
+  --btn-tertiary-color: var(--color-text-secondary);
+  --btn-tertiary-border: 1px solid var(--color-border-light);
+  --btn-tertiary-hover-bg: var(--color-bg-secondary);
+  --btn-tertiary-hover-color: var(--color-text-primary);
+
+  /* Danger Button */
+  --btn-danger-bg: var(--color-danger);
+  --btn-danger-color: #ffffff;
+  --btn-danger-hover-bg: var(--color-danger-dark);
+
+  /* Success Button */
+  --btn-success-bg: var(--color-success);
+  --btn-success-color: #ffffff;
+  --btn-success-hover-bg: var(--color-success-dark);
+
+  /* Link Button (text-only) */
+  --btn-link-color: var(--color-primary);
+  --btn-link-hover-color: var(--color-primary-dark);
+  --btn-link-padding-x: var(--space-2);
+  --btn-link-padding-y: var(--space-1);
 
   /* File Input Button */
   --btn-file-input-bg: var(--btn-gradient-bg);

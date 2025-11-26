@@ -36,10 +36,10 @@
   }
 }
 
-/* Touch-friendly sizing for mobile */
+/* Touch-friendly sizing for mobile - use standardized button height */
 @include breakpoint-max(md) {
   .dragHandle {
-    width: 40px;
-    height: 40px;
+    width: var(--btn-height-sm);
+    height: var(--btn-height-sm);
   }
 }

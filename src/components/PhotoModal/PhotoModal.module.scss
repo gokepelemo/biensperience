@@ -58,10 +58,11 @@
   font-size: $font-size-xl;
   cursor: pointer;
   padding: $space-2;
-  width: 40px;
-  height: 40px;
+  /* Use standardized button height for WCAG touch target */
+  width: var(--btn-height-sm);
+  height: var(--btn-height-sm);
   @include flex-center;
-  @include transition-all($transition-normal);
+  @include transition-all(var(--btn-transition));
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 
@@ -224,8 +225,8 @@
 
   .photoModalNav {
     font-size: $font-size-2xl;
-    width: 40px;
-    height: 40px;
+    width: var(--btn-height-sm);
+    height: var(--btn-height-sm);
   }
 
   .photoModalNavPrev {

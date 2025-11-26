@@ -80,7 +80,7 @@ function SortablePlanItem({
       data-plan-item-id={planItem.plan_item_id || planItem._id}
       className={`plan-item-card mb-3 overflow-hidden ${
         planItem.isVisible ? "" : "collapsed"
-      } ${isDragging ? 'dragging' : ''}`}
+      } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''}`}
     >
       <div className="plan-item-header p-3 p-md-4">
         <div className="plan-item-tree">
@@ -96,22 +96,17 @@ function SortablePlanItem({
                     ).toString()
               );
               if (hasChildren) {
+                const itemId = planItem.plan_item_id || planItem._id;
+                const isExpanded = expandedParents.has(itemId);
                 return (
                   <button
-                    className="btn btn-sm btn-link p-0 expand-toggle"
-                    onClick={() =>
-                      toggleExpanded(
-                        planItem.plan_item_id ||
-                          planItem._id
-                      )
-                    }
+                    type="button"
+                    className="expand-toggle"
+                    onClick={() => toggleExpanded(itemId)}
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
                   >
-                    {expandedParents.has(
-                      planItem.plan_item_id ||
-                        planItem._id
-                    )
-                      ? "▼"
-                      : "▶"}
+                    {isExpanded ? "▼" : "▶"}
                   </button>
                 );
               } else {
@@ -141,7 +136,7 @@ function SortablePlanItem({
         </div>
 
         {/* Drag handle - positioned between title and action buttons */}
-        {canEdit && !planItem.isChild && (
+        {canEdit && (
           <div {...attributes} {...listeners} className="drag-handle-wrapper">
             <DragHandle
               id={(planItem.plan_item_id || planItem._id).toString()}
@@ -394,7 +389,7 @@ export default function MyPlanTabContent({
     })
   );
 
-  // Handle drag end event
+  // Handle drag end event with hierarchy support
   const handleDragEnd = (event) => {
     const { active, over } = event;
 
@@ -407,12 +402,65 @@ export default function MyPlanTabContent({
       return;
     }
 
-    // Find indices in the current plan array
-    const oldIndex = currentPlan.plan.findIndex(
+    // Find the dragged item and target item
+    const draggedItem = currentPlan.plan.find(
       (item) => (item.plan_item_id || item._id).toString() === active.id.toString()
     );
-    const newIndex = currentPlan.plan.findIndex(
+    const targetItem = currentPlan.plan.find(
       (item) => (item.plan_item_id || item._id).toString() === over.id.toString()
+    );
+
+    if (!draggedItem || !targetItem) {
+      debug.warn('[Drag] Could not find dragged or target item');
+      return;
+    }
+
+    // Get IDs for comparison
+    const draggedId = (draggedItem.plan_item_id || draggedItem._id).toString();
+    const targetId = (targetItem.plan_item_id || targetItem._id).toString();
+    const draggedParentId = draggedItem.parent?.toString() || null;
+    const targetParentId = targetItem.parent?.toString() || null;
+    const targetIsChild = !!targetItem.parent;
+
+    debug.log('[Drag] Hierarchy-aware reorder', {
+      draggedId,
+      targetId,
+      draggedParentId,
+      targetParentId,
+      draggedIsChild: !!draggedItem.parent,
+      targetIsChild
+    });
+
+    // Create a deep copy of items for modification
+    let reorderedItems = currentPlan.plan.map(item => ({ ...item }));
+
+    // Find the dragged item in our copy
+    const draggedItemCopy = reorderedItems.find(
+      (item) => (item.plan_item_id || item._id).toString() === draggedId
+    );
+
+    // Determine hierarchy change based on context:
+    // 1. If target is a child item, dragged item becomes sibling (same parent)
+    // 2. If target is a parent item and dragged is child → promote to root or become sibling
+    // 3. If both are at same level → simple reorder
+
+    if (targetIsChild && draggedParentId !== targetParentId) {
+      // Dragged item should adopt the same parent as target (become sibling)
+      draggedItemCopy.parent = targetItem.parent;
+      debug.log('[Drag] Reparenting to same parent as target', { newParent: targetItem.parent });
+    } else if (!targetIsChild && draggedParentId) {
+      // Target is a root item and dragged item was a child → promote to root
+      delete draggedItemCopy.parent;
+      debug.log('[Drag] Promoting child to root level');
+    }
+    // If both have same parent or both are root → just reorder (no parent change)
+
+    // Find indices for arrayMove
+    const oldIndex = reorderedItems.findIndex(
+      (item) => (item.plan_item_id || item._id).toString() === draggedId
+    );
+    const newIndex = reorderedItems.findIndex(
+      (item) => (item.plan_item_id || item._id).toString() === targetId
     );
 
     if (oldIndex === -1 || newIndex === -1) {
@@ -420,15 +468,16 @@ export default function MyPlanTabContent({
       return;
     }
 
-    debug.log('[Drag] Reordering plan items', {
+    // Apply position reorder
+    reorderedItems = arrayMove(reorderedItems, oldIndex, newIndex);
+
+    debug.log('[Drag] Reordered items', {
       activeId: active.id,
       overId: over.id,
       oldIndex,
-      newIndex
+      newIndex,
+      hierarchyChanged: draggedParentId !== (draggedItemCopy.parent?.toString() || null)
     });
-
-    // Calculate new order using arrayMove
-    const reorderedItems = arrayMove(currentPlan.plan, oldIndex, newIndex);
 
     // Call parent handler to update backend (pass draggedItemId for highlighting)
     if (onReorderPlanItems) {
@@ -591,6 +640,24 @@ export default function MyPlanTabContent({
               {(currentPlan.max_days || 0) === 1
                 ? lang.en.label.day
                 : lang.en.label.days}
+            </div>
+          </div>
+        </div>
+
+        {/* Collaborators Card */}
+        <div className="col-md-3 col-sm-6">
+          <div className="metric-card">
+            <div className="metric-header">
+              <span className="metric-title">
+                {lang.en.label.collaborators}
+              </span>
+            </div>
+            <div className="metric-value">
+              {(planCollaborators?.length || 0) + (planOwner ? 1 : 0)}
+              {' '}
+              {((planCollaborators?.length || 0) + (planOwner ? 1 : 0)) === 1
+                ? lang.en.label.person
+                : lang.en.label.people}
             </div>
           </div>
         </div>

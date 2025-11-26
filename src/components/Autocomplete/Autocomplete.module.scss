@@ -24,11 +24,16 @@
   }
 }
 
-/* Size variants */
+/* Size variants - padding-left must account for icon width + spacing */
 .autocompleteSizeSm {
   .autocompleteInput {
     padding: $space-2 $space-3;
-    padding-left: $space-8;
+    padding-left: $space-10; /* 40px: icon (12px left + ~18px width) + spacing */
+    font-size: var(--font-size-sm);
+  }
+
+  .autocompleteSearchIcon {
+    left: $space-3; /* 12px */
     font-size: var(--font-size-sm);
   }
 }
@@ -36,7 +41,12 @@
 .autocompleteSizeMd {
   .autocompleteInput {
     padding: $space-3 $space-4;
-    padding-left: $space-10;
+    padding-left: $space-10; /* 40px: icon (12px left + ~18px width) + spacing */
+    font-size: var(--font-size-base);
+  }
+
+  .autocompleteSearchIcon {
+    left: $space-3; /* 12px */
     font-size: var(--font-size-base);
   }
 }
@@ -44,12 +54,12 @@
 .autocompleteSizeLg {
   .autocompleteInput {
     padding: $space-4 $space-5;
-    padding-left: $space-12;
+    padding-left: $space-12; /* 48px: icon (16px left + ~20px width) + spacing */
     font-size: var(--font-size-lg);
   }
 
   .autocompleteSearchIcon {
-    left: $space-4;
+    left: $space-4; /* 16px */
     font-size: var(--font-size-lg);
   }
 }
@@ -135,6 +145,13 @@
   padding: $space-2;
 }
 
+/* Highlighted state for keyboard navigation - separate class for CSS module export */
+.highlighted {
+  background-color: var(--color-bg-hover);
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .autocompleteItem {
   padding: $space-3 $space-4;
   border-radius: var(--radius-md);
@@ -147,14 +164,8 @@
     margin-bottom: 0;
   }
 
-  &:hover,
-  &.highlighted {
+  &:hover {
     background-color: var(--color-bg-hover);
-    outline: 2px solid var(--color-primary);
-    outline-offset: -2px;
-  }
-
-  &.highlighted {
     outline: 2px solid var(--color-primary);
     outline-offset: -2px;
   }

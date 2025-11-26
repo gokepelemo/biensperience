@@ -1,65 +1,42 @@
+import React from 'react';
+import PropTypes from 'prop-types';
+import { Button } from '../../components/design-system';
 import styles from './Pagination.module.scss';
 
-/**
- * Pagination component with multiple variants
- * 
- * @param {Object} props - Component props
- * @param {number} props.currentPage - Current active page
- * @param {number} props.totalPages - Total number of pages
- * @param {function} props.onPageChange - Callback when page changes
- * @param {string} [props.variant='text'] - Pagination variant: 'text', 'dots'
- * @param {number} [props.totalResults] - Total results count for text display
- * @param {number} [props.resultsPerPage=100] - Results shown per page
- */
-export default function Pagination({ 
-  currentPage, 
-  totalPages, 
-  onPageChange,
-  variant = 'text',
-  totalResults,
-  resultsPerPage = 100
-}) {
-  const generatePageNumbers = () => {
-    const pages = [];
-    const showEllipsis = totalPages > 7;
-
-    if (!showEllipsis) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      // Always show first page
-      pages.push(1);
-
-      if (currentPage > 3) {
-        pages.push('...');
-      }
-
-      // Show pages around current
-      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
-        pages.push(i);
-      }
-
-      if (currentPage < totalPages - 2) {
-        pages.push('...');
-      }
-
-      // Always show last page
-      if (totalPages > 1) {
-        pages.push(totalPages);
-      }
-    }
-
+function buildPages(page, totalPages) {
+  const pages = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
     return pages;
-  };
+  }
 
-  if (variant === 'dots') {
+  pages.push(1);
+  if (page > 4) pages.push('left-ellipsis');
+
+  const start = Math.max(2, page - 1);
+  const end = Math.min(totalPages - 1, page + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+
+  if (page < totalPages - 3) pages.push('right-ellipsis');
+  pages.push(totalPages);
+  return pages;
+}
+
+export default function Pagination({ page, currentPage, totalPages, onPageChange, className, variant = 'numbers', totalResults, resultsPerPage = 100 }) {
+  const active = typeof page === 'number' ? page : (typeof currentPage === 'number' ? currentPage : 1);
+  const onChange = onPageChange || (() => {});
+  if (!totalPages || totalPages <= 1) return null;
+
+  // treat legacy 'text' variant as numbered
+  const v = variant === 'text' ? 'numbers' : variant;
+
+  if (v === 'dots') {
     return (
-      <div className={`${styles.pagination} ${styles.paginationDots}`}>
+      <div className={`${styles.pagination} ${styles.paginationDots} ${className || ''}`}>
         <button
           className={styles.paginationArrow}
-          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
+          onClick={() => onChange(Math.max(1, active - 1))}
+          disabled={active === 1}
           aria-label="Previous page"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -71,77 +48,73 @@ export default function Pagination({
           {Array.from({ length: totalPages }, (_, i) => (
             <button
               key={i + 1}
-              className={`${styles.paginationDot} ${i + 1 === currentPage ? styles.active : ''}`}
-              onClick={() => onPageChange(i + 1)}
+              className={`${styles.paginationDot} ${i + 1 === active ? styles.active : ''}`}
+              onClick={() => onChange(i + 1)}
               aria-label={`Page ${i + 1}`}
-              aria-current={i + 1 === currentPage ? 'page' : undefined}
+              aria-current={i + 1 === active ? 'page' : undefined}
             />
           ))}
         </div>
 
         <button
           className={styles.paginationArrow}
-          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage === totalPages}
+          onClick={() => onChange(Math.min(totalPages, active + 1))}
+          disabled={active === totalPages}
           aria-label="Next page"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
+
       </div>
     );
   }
 
-  const pages = generatePageNumbers();
+  const pages = buildPages(active, totalPages);
 
   return (
-    <div className={styles.pagination}>
-      <button
-        className={styles.paginationButton}
-        onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-        disabled={currentPage === 1}
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-        Previous
-      </button>
-
-      <div className={styles.paginationNumbers}>
-        {pages.map((page, index) => (
-          page === '...' ? (
-            <span key={`ellipsis-${index}`} className={styles.paginationEllipsis}>...</span>
+    <nav aria-label="Pagination" className={`${styles.paginationWrap} ${className || ''}`}>
+      <ul className={`pagination justify-content-center ${styles.paginationList}`}>
+        <li className="page-item">
+          <Button variant="link" size="sm" onClick={() => onChange(1)} disabled={active === 1}>First</Button>
+        </li>
+        {pages.map((it, idx) => (
+          typeof it === 'number' ? (
+            <li key={it} className={`page-item ${it === active ? 'active' : ''}`}>
+              <Button
+                variant={it === active ? 'primary' : 'link'}
+                size="sm"
+                onClick={() => onChange(it)}
+                aria-current={it === active ? 'page' : undefined}
+              >
+                {it}
+              </Button>
+            </li>
           ) : (
-            <button
-              key={page}
-              className={`${styles.paginationNumber} ${page === currentPage ? styles.active : ''}`}
-              onClick={() => onPageChange(page)}
-              aria-label={`Page ${page}`}
-              aria-current={page === currentPage ? 'page' : undefined}
-            >
-              {page}
-            </button>
+            <li key={`ellipsis-${idx}`} className="page-item disabled"><span className="page-link">…</span></li>
           )
         ))}
-      </div>
-
-      <button
-        className={styles.paginationButton}
-        onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-        disabled={currentPage === totalPages}
-      >
-        Next
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-
-      {totalResults && (
+        <li className="page-item">
+          <Button variant="link" size="sm" onClick={() => onChange(totalPages)} disabled={active === totalPages}>Last</Button>
+        </li>
+      </ul>
+      {typeof totalResults === 'number' && (
         <div className={styles.paginationInfo}>
           Showing {resultsPerPage} of {totalResults.toLocaleString()} results
         </div>
       )}
-    </div>
+    </nav>
   );
 }
+
+Pagination.propTypes = {
+  page: PropTypes.number,
+  currentPage: PropTypes.number,
+  totalPages: PropTypes.number.isRequired,
+  onPageChange: PropTypes.func,
+  className: PropTypes.string,
+  variant: PropTypes.oneOf(['numbers', 'dots', 'text']),
+  totalResults: PropTypes.number,
+  resultsPerPage: PropTypes.number,
+};

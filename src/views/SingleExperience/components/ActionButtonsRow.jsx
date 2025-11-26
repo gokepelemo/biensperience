@@ -4,10 +4,12 @@
  */
 
 import { useNavigate } from 'react-router-dom';
+import { useRef } from 'react';
 import { FadeIn } from '../../../components/design-system';
 import Loading from '../../../components/Loading/Loading';
 import { isOwner } from '../../../utilities/permissions';
 import { formatDateForInput } from '../../../utilities/date-utils';
+import useButtonWidth from '../../../utilities/useButtonWidth';
 
 export default function ActionButtonsRow({
   // User & Experience data
@@ -51,21 +53,25 @@ export default function ActionButtonsRow({
     selectedPlan.user?.toString() === user?._id?.toString()
   );
 
+  // Ensure we have a ref for measuring the plan button width
+  const internalPlanRef = planButtonRef || useRef(null);
+
+  // Compute the max width for the plan button using possible text states
+  useButtonWidth(internalPlanRef, [
+    lang.en.button.addFavoriteExp,
+    lang.en.button.expPlanAdded,
+    lang.en.button.removeFavoriteExp
+  ], { extraPadding: 12 });
+
   return (
     <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center flex-row experience-actions">
       {/* Plan It / Planned Button */}
       <FadeIn>
           <button
-          className={`btn btn-sm btn-icon my-1 my-sm-2 ${
-            userHasExperience ? "btn-plan-remove" : "btn-plan-add"
-          } ${loading || plansLoading ? "loading" : ""}`}
-          ref={planButtonRef}
-          style={planBtnWidth ? {
-            width: `${planBtnWidth}px`,
-            minWidth: `${planBtnWidth}px`,
-            height: 'var(--form-field-control-min-height, 44px)',
-            minHeight: 'var(--form-field-control-min-height, 44px)'
-          } : { height: 'var(--form-field-control-min-height, 44px)' }}
+            className={`btn btn-sm btn-icon my-1 my-sm-2 ${
+              userHasExperience ? "btn-plan-remove" : "btn-plan-add"
+            } ${loading || plansLoading ? "loading" : ""}`}
+            ref={planButtonRef}
           onClick={handleExperience}
           aria-label={
             userHasExperience

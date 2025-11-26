@@ -148,15 +148,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  /* Use standardized small button height */
+  width: var(--btn-height-sm);
+  height: var(--btn-height-sm);
   padding: 0;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-medium);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--btn-radius-default);
   color: var(--color-text-secondary);
   cursor: pointer;
-  @include transition-all($transition-fast);
+  @include transition-all(var(--btn-transition));
 
   &:hover {
     background: var(--color-bg-secondary);

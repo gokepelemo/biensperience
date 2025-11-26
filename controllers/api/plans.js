@@ -1528,14 +1528,14 @@ const addPlanItemNote = asyncHandler(async (req, res) => {
     resource: {
       id: plan._id,
       type: 'Plan',
-      name: `Plan for ${plan.experience?.name || 'Unknown Experience'}`
+      name: plan.experience?.name || 'Unknown Experience'
     },
     target: {
       id: itemId,
       type: 'PlanItem',
-      name: planItem.name || planItem.experience_name || 'Unnamed Item'
+      name: planItem.name || planItem.experience_name || 'an item'
     },
-    reason: `Added note to plan item "${planItem.name || planItem.experience_name || 'Unnamed Item'}"`,
+    reason: `Added note to plan item "${planItem.name || planItem.experience_name || 'an item'}"`,
     metadata: {
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),

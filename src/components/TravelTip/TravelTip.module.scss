@@ -81,37 +81,43 @@
   }
 }
 
-/* Simple Tip Styles - Clean minimal design */
+/* Simple Tip Styles - Centered, bold text with dynamic sizing */
 .travelTipSimple {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-3);
   height: 100%;
+  text-align: center;
 
   .travelTipIcon {
-    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-size: var(--font-size-3xl);
     flex-shrink: 0;
     line-height: 1;
   }
 
   .travelTipText {
     flex: 1;
-    line-height: 1.6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.4;
     color: var(--color-text-primary);
-    font-weight: 500;
+    font-weight: var(--font-weight-bold);
     word-wrap: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
+    text-align: center;
+    padding: var(--space-2);
 
     @media (prefers-color-scheme: dark) {
-      color: rgba(255, 255, 255, 0.9);
+      color: rgba(255, 255, 255, 0.95);
     }
   }
 
   .travelTipFaIcon {
-    font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+    font-size: var(--font-size-xl);
     opacity: 1;
     position: static;
   }
@@ -120,11 +126,13 @@
 .travelTipContentSimple {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-2);
   flex: 1;
   overflow: hidden;
   max-height: 100%;
+  width: 100%;
 
   .travelTip.expanded & {
     overflow: visible;
@@ -159,15 +167,16 @@
 
 /* Icon Wrapper with Gradient Background - Refined styling */
 .travelTipIconWrapper {
-  width: 52px;
-  height: 52px;
+  /* Use standardized large button height for icon wrapper */
+  width: var(--btn-height-lg);
+  height: var(--btn-height-lg);
   border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--btn-shadow-base);
+  transition: var(--btn-transition);
   flex-shrink: 0;
 
   &.simple {

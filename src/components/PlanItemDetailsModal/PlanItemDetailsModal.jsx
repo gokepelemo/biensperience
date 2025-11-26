@@ -3,10 +3,11 @@
  * Modal for viewing and managing all details of a plan item (notes, assignment, etc.)
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Modal from '../Modal/Modal';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
 import styles from './PlanItemDetailsModal.module.scss';
+import { createSimpleFilter } from '../../utilities/trie';
 
 export default function PlanItemDetailsModal({
   show,
@@ -25,7 +26,9 @@ export default function PlanItemDetailsModal({
   availableEntities = [],
   entityData = {},
   // Initial tab to display when modal opens
-  initialTab = 'notes'
+  initialTab = 'notes',
+  // Callback for when a plan item mention is clicked (to close modal and scroll)
+  onPlanItemClick
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditingAssignment, setIsEditingAssignment] = useState(false);
@@ -44,11 +47,27 @@ export default function PlanItemDetailsModal({
     }
   }, [show, planItem?._id, initialTab]);
 
-  // Filter collaborators based on search
+  // Build trie index for fast collaborator search
+  const collaboratorTrieFilter = useMemo(() => {
+    if (!collaborators || collaborators.length === 0) return null;
+    // Normalize collaborators to have a 'name' field for trie indexing
+    const normalizedCollabs = collaborators.map(collab => ({
+      ...collab,
+      name: collab.name || collab.user?.name || ''
+    }));
+    return createSimpleFilter(['name']).buildIndex(normalizedCollabs);
+  }, [collaborators]);
+
+  // Filter collaborators based on search using trie
   useEffect(() => {
     if (assignmentSearch.trim() === '') {
       setFilteredCollaborators(collaborators);
+    } else if (collaboratorTrieFilter) {
+      // Use trie for O(m) filtering
+      const filtered = collaboratorTrieFilter.filter(assignmentSearch, { rankResults: true });
+      setFilteredCollaborators(filtered);
     } else {
+      // Fallback to linear search
       const searchLower = assignmentSearch.toLowerCase();
       const filtered = collaborators.filter(collab => {
         const name = collab.name || collab.user?.name || '';
@@ -57,7 +76,7 @@ export default function PlanItemDetailsModal({
       setFilteredCollaborators(filtered);
     }
     setHighlightedIndex(0);
-  }, [assignmentSearch, collaborators]);
+  }, [assignmentSearch, collaborators, collaboratorTrieFilter]);
 
   // Focus input when editing starts
   useEffect(() => {
@@ -85,6 +104,24 @@ export default function PlanItemDetailsModal({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isEditingAssignment]);
+
+  /**
+   * Handle entity click from mentions in notes
+   * For plan-item mentions: close modal and trigger scroll to item
+   * For other mentions: let default navigation happen
+   */
+  const handleEntityClick = useCallback((entityType, entityId, entity) => {
+    if (entityType === 'plan-item') {
+      // Close this modal first
+      onClose();
+
+      // Notify parent to scroll to the clicked plan item
+      if (onPlanItemClick) {
+        onPlanItemClick(entityId, entity);
+      }
+    }
+    // For non-plan-item entities, the Link component handles navigation
+  }, [onClose, onPlanItemClick]);
 
   if (!planItem) return null;
 
@@ -164,7 +201,7 @@ export default function PlanItemDetailsModal({
       show={show}
       onClose={onClose}
       title="Plan Item Details"
-      size="xl"
+      size="fullscreen"
     >
       <div className={styles.planItemDetailsModal}>
         {/* Plan item header */}
@@ -303,6 +340,7 @@ export default function PlanItemDetailsModal({
               disabled={!canEdit}
               availableEntities={availableEntities}
               entityData={entityData}
+              onEntityClick={handleEntityClick}
             />
           )}
 

@@ -1,6 +1,10 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Action Buttons - Flexbox button container with Bootstrap overrides */
+/**
+ * Action Buttons Container
+ * Unified button container using standardized design tokens
+ * Heights: 36px (sm), 44px (md), 52px (lg)
+ */
 
 .actionButtons {
   display: flex;
@@ -15,134 +19,16 @@
 
     :global(.action-button) {
       min-width: 2rem;
-      padding: 0.25rem 0.5rem;
+      padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
     }
   }
 
-  @media (max-width: 768px) {
-    justify-content: center !important;
+  @include breakpoint-max(md) {
+    justify-content: center;
     width: 100%;
   }
 
-  /* Bootstrap button overrides */
-  :global(.btn-primary) {
-    background: var(--color-primary) !important;
-    border-color: var(--color-primary) !important;
-    color: white !important;
-
-    &:hover {
-      background: var(--color-primary-dark) !important;
-      border-color: var(--color-primary-dark) !important;
-      box-shadow: var(--shadow-md) !important;
-    }
-  }
-
-  :global(.btn-secondary) {
-    background: var(--color-text-secondary) !important;
-    border-color: var(--color-text-secondary) !important;
-    color: white !important;
-
-    &:hover {
-      background: var(--color-text-primary) !important;
-      border-color: var(--color-text-primary) !important;
-    }
-  }
-
-  :global(.btn-success) {
-    background: var(--color-success) !important;
-    border-color: var(--color-success) !important;
-    color: white !important;
-
-    &:hover {
-      background: var(--color-success-dark) !important;
-      border-color: var(--color-success-dark) !important;
-    }
-  }
-
-  :global(.btn-danger) {
-    background: var(--color-danger) !important;
-    border-color: var(--color-danger) !important;
-    color: white !important;
-
-    &:hover {
-      background: var(--color-danger-dark) !important;
-      border-color: var(--color-danger-dark) !important;
-    }
-  }
-
-  :global(.btn-warning) {
-    background: var(--color-warning) !important;
-    border-color: var(--color-warning) !important;
-    color: var(--color-text-primary) !important;
-
-    &:hover {
-      background: var(--color-warning-dark) !important;
-      border-color: var(--color-warning-dark) !important;
-    }
-  }
-
-  /* Outline button styles */
-  :global(.btn-outline-primary) {
-    background: transparent !important;
-    border: 2px solid var(--color-primary) !important;
-    color: var(--color-primary) !important;
-
-    &:hover {
-      background: var(--color-primary) !important;
-      border-color: var(--color-primary) !important;
-      color: white !important;
-    }
-  }
-
-  :global(.btn-outline-secondary) {
-    background: transparent !important;
-    border: 2px solid var(--color-border-medium) !important;
-    color: var(--color-text-primary) !important;
-
-    &:hover {
-      background: var(--color-bg-secondary) !important;
-      border-color: var(--color-text-secondary) !important;
-      color: var(--color-text-primary) !important;
-    }
-  }
-
-  :global(.btn-outline-success) {
-    background: transparent !important;
-    border: 2px solid var(--color-success) !important;
-    color: var(--color-success) !important;
-
-    &:hover {
-      background: var(--color-success) !important;
-      border-color: var(--color-success) !important;
-      color: white !important;
-    }
-  }
-
-  :global(.btn-outline-danger) {
-    background: transparent !important;
-    border: 2px solid var(--color-danger) !important;
-    color: var(--color-danger) !important;
-
-    &:hover {
-      background: var(--color-danger) !important;
-      border-color: var(--color-danger) !important;
-      color: white !important;
-    }
-  }
-
-  :global(.btn-outline-warning) {
-    background: transparent !important;
-    border: 2px solid var(--color-warning) !important;
-    color: var(--color-warning) !important;
-
-    &:hover {
-      background: var(--color-warning) !important;
-      border-color: var(--color-warning) !important;
-      color: var(--color-text-primary) !important;
-    }
-  }
-
-  /* Navbar integration */
+  /* Navbar integration - fade in animation */
   &.fadeIn {
     animation: fadeInSlide 0.3s ease-out;
   }
@@ -153,53 +39,90 @@
   .actionButtons {
     margin-left: auto;
 
-    @media (max-width: 992px) {
+    @include breakpoint-max(lg) {
       width: 100%;
-      margin-top: 0.5rem;
-      justify-content: center !important;
+      margin-top: var(--space-2);
+      justify-content: center;
     }
   }
 }
 
 /* Action Button Base Styles */
 .actionButton {
+  /* Layout */
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
-  white-space: nowrap;
-  transition: var(--transition-normal);
-  font-weight: 500;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  height: 40px; /* Match SingleExperience action buttons */
-  min-height: 40px;
   justify-content: center;
+  gap: var(--btn-icon-gap);
+  white-space: nowrap;
 
+  /* Sizing - default to medium (44px) */
+  min-height: var(--btn-height-md);
+  padding: var(--btn-padding-y-md) var(--btn-padding-x-md);
+
+  /* Typography */
+  font-size: var(--btn-font-size-md);
+  font-weight: var(--btn-font-weight);
+  line-height: 1.2;
+
+  /* Appearance */
+  border-radius: var(--btn-radius-default);
+  box-shadow: var(--btn-shadow-base);
+
+  /* Animation */
+  transition: var(--btn-transition);
+
+  /* Icon styling */
   :global(.button-icon) {
     font-size: 1.1em;
     line-height: 1;
   }
 
-  &:global(.btn-sm) :global(.button-icon) {
-    font-size: 1em;
+  /* Small size variant */
+  &:global(.btn-sm) {
+    min-height: var(--btn-height-sm);
+    padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
+    font-size: var(--btn-font-size-sm);
+
+    :global(.button-icon) {
+      font-size: 1em;
+    }
   }
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+  /* Large size variant */
+  &:global(.btn-lg) {
+    min-height: var(--btn-height-lg);
+    padding: var(--btn-padding-y-lg) var(--btn-padding-x-lg);
+    font-size: var(--btn-font-size-lg);
   }
 
-  &:active {
+  /* Hover state */
+  &:hover:not(:disabled) {
+    transform: translateY(var(--btn-hover-lift));
+    box-shadow: var(--btn-shadow-hover);
+  }
+
+  /* Active state */
+  &:active:not(:disabled) {
     transform: translateY(0);
+    box-shadow: var(--btn-shadow-active);
   }
 
+  /* Disabled state */
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
-    transform: none !important;
+    transform: none;
+    box-shadow: none;
   }
 
-  @media (max-width: 768px) {
+  /* Focus state for accessibility */
+  &:focus-visible {
+    @include focus-ring;
+  }
+
+  /* Mobile responsiveness */
+  @include breakpoint-max(md) {
     flex: 1 1 auto;
     min-width: fit-content;
   }

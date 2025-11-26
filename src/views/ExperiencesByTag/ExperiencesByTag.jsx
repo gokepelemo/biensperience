@@ -170,13 +170,21 @@ export default function ExperiencesByTag() {
         <FadeIn>
           <Container className="my-4">
             <div className="experiences-list">
-              {displayedExperiences.map((experience) => (
-                <ExperienceCard
-                  experience={experience}
-                  key={experience._id}
-                  userPlans={plans}
-                  className="animation-fade_in"
-                />
+              {displayedExperiences.map((experience, index) => (
+                experience ? (
+                  <ExperienceCard
+                    experience={experience}
+                    key={experience._id}
+                    userPlans={plans}
+                    className="animation-fade_in"
+                  />
+                ) : (
+                  <div key={`placeholder-${index}`} style={{ width: '12rem', height: '8rem', display: 'inline-block', margin: '0.5rem' }}>
+                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                    </div>
+                  </div>
+                )
               ))}
             </div>
           </Container>

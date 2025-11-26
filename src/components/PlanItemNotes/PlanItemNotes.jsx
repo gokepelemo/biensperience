@@ -21,7 +21,7 @@ import styles from './PlanItemNotes.module.scss';
  * NoteMessage Component
  * Individual note message with entity resolution for mentions
  */
-function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, formatDate }) {
+function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, formatDate, onEntityClick }) {
   // Resolve any missing entities in this note's content
   const { entityData: mergedEntityData } = useEntityResolver(note.content, entityData);
 
@@ -40,7 +40,7 @@ function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, format
         wordWrap: 'break-word'
       }}
     >
-      {renderTextWithMentions(note.content, mergedEntityData)}
+      {renderTextWithMentions(note.content, mergedEntityData, onEntityClick)}
 
       {/* Timestamp and actions */}
       <div style={{
@@ -101,7 +101,9 @@ export default function PlanItemNotes({
   disabled = false,
   // For mentions support
   availableEntities = [],
-  entityData = {}
+  entityData = {},
+  // Callback for when a mention entity is clicked (e.g., plan-item deep link)
+  onEntityClick
 }) {
   // Visibility options for notes
   const visibilityOptions = [
@@ -118,7 +120,6 @@ export default function PlanItemNotes({
   const [isAdding, setIsAdding] = useState(false);
   const [showAddNoteForm, setShowAddNoteForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const notesPerPage = 5;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -156,12 +157,6 @@ export default function PlanItemNotes({
       ]
     }).buildIndex(notes);
   }, [notes, entityData]);
-
-  // Get autocomplete suggestions using generic utility
-  const searchSuggestions = useMemo(() => {
-    if (!searchQuery.trim() || searchQuery.length < 2) return [];
-    return notesFilter.getSuggestions(searchQuery, 5);
-  }, [searchQuery, notesFilter]);
 
   // Trie-based search with O(m) lookup complexity where m = query length
   // Real-time filtering as user types using generic TrieFilter
@@ -274,36 +269,11 @@ export default function PlanItemNotes({
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setCurrentPage(1); // Reset to first page on search
-              setShowSuggestions(true);
             }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             placeholder="Search notes..."
             prepend={<FaSearch />}
             disabled={disabled}
           />
-
-          {/* Autocomplete suggestions dropdown */}
-          {showSuggestions && searchSuggestions.length > 0 && (
-            <div className={styles.searchSuggestions}>
-              {searchSuggestions.map((suggestion, index) => (
-                <div
-                  key={index}
-                  className={styles.suggestionItem}
-                  onClick={() => {
-                    // Replace last word with suggestion
-                    const words = searchQuery.split(/\s+/);
-                    words[words.length - 1] = suggestion.word;
-                    setSearchQuery(words.join(' '));
-                    setShowSuggestions(false);
-                  }}
-                >
-                  <FaSearch className={styles.suggestionIcon} />
-                  <span className={styles.suggestionText}>{suggestion.word}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         <Button
@@ -477,6 +447,7 @@ export default function PlanItemNotes({
                       onStartEdit={handleStartEdit}
                       onDelete={handleDeleteNote}
                       formatDate={formatDate}
+                      onEntityClick={onEntityClick}
                     />
                   )}
                 </div>

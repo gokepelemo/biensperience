@@ -77,6 +77,36 @@
   color: var(--color-on-neutral);
 }
 
+/* Light variant - White bg, purple text, same in light/dark mode */
+/* Designed for consistent appearance - no hover style change */
+.tagPillLight {
+  background: #ffffff !important; /* Pure white, not theme-dependent */
+  color: var(--color-primary) !important;
+  box-shadow: var(--shadow-sm);
+  border: none;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+
+  /* No visual change on hover - maintains consistent appearance */
+  &:hover {
+    background: #ffffff !important;
+    color: var(--color-primary) !important;
+  }
+
+  /* Tactile feedback for touch/click */
+  &:active {
+    transform: scale(0.97);
+    box-shadow: var(--shadow-xs);
+  }
+
+  /* Enhanced tactile feedback on mobile (touch devices) */
+  @media (hover: none) and (pointer: coarse) {
+    &:active {
+      transform: scale(0.95);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
+  }
+}
+
 .tagPillSm {
   padding: 0.2rem 0.5rem;
   font-size: 0.8rem;

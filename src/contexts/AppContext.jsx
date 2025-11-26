@@ -80,28 +80,54 @@ export function AppProvider({ children }) {
     setPageTitle(title || 'Biensperience');
   }, []);
 
-  // Track scroll position and h1 visibility
+  // Track scroll position and h1 visibility with optimized rendering
   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      setScrollY(currentScrollY);
-      setIsScrolled(currentScrollY > 10);
+    let ticking = false;
+    let lastScrollY = window.scrollY;
 
-      // Check if h1 is still visible (top is in viewport)
-      if (h1Element) {
-        const rect = h1Element.getBoundingClientRect();
-        const isVisible = rect.top >= 0; // h1 is visible if its top is still in viewport
-        setH1Visible(isVisible);
-        setShowActionButtons(!isVisible && actionButtons.length > 0);
-      } else {
-        // If no h1 element is registered, don't show action buttons
-        setShowActionButtons(false);
-        setH1Visible(true);
+    const updateScrollState = () => {
+      const currentScrollY = window.scrollY;
+
+      // Only update state if scroll position actually changed significantly
+      // This prevents unnecessary re-renders on sub-pixel scrolling
+      if (Math.abs(currentScrollY - lastScrollY) >= 1) {
+        lastScrollY = currentScrollY;
+        setScrollY(currentScrollY);
+
+        // Use hysteresis to prevent flickering at the threshold
+        // Become sticky when scrolled past 15px, unsticky when below 5px
+        setIsScrolled(prev => {
+          if (prev && currentScrollY < 5) return false;
+          if (!prev && currentScrollY > 15) return true;
+          return prev;
+        });
+
+        // Check if h1 is still visible (top is in viewport)
+        if (h1Element) {
+          const rect = h1Element.getBoundingClientRect();
+          const isVisible = rect.top >= 0; // h1 is visible if its top is still in viewport
+          setH1Visible(isVisible);
+          setShowActionButtons(!isVisible && actionButtons.length > 0);
+        } else {
+          // If no h1 element is registered, don't show action buttons
+          setShowActionButtons(false);
+          setH1Visible(true);
+        }
+      }
+
+      ticking = false;
+    };
+
+    const handleScroll = () => {
+      // Use requestAnimationFrame for smooth 60fps updates
+      if (!ticking) {
+        requestAnimationFrame(updateScrollState);
+        ticking = true;
       }
     };
 
     // Initial check
-    handleScroll();
+    updateScrollState();
 
     // Add scroll listener with passive flag for better performance
     window.addEventListener('scroll', handleScroll, { passive: true });

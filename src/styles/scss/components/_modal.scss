@@ -67,7 +67,7 @@
 
 .modal-header .modal-title {
   font-weight: $font-weight-bold;
-  font-size: clamp($font-size-xl, 3vw, 1.8rem);
+  font-size: clamp(var(--font-size-xl), 3vw, var(--font-size-2xl));
   color: white !important;
   margin: 0;
   flex: 1;

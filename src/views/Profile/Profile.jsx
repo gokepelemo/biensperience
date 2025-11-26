@@ -1,6 +1,6 @@
 import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye } from "react-icons/fa";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
 import styles from "./Profile.module.scss";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
@@ -8,6 +8,8 @@ import { useApp } from "../../contexts/AppContext";
 import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
+import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
+import Pagination from '../../components/Pagination/Pagination';
 import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
 import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
@@ -154,6 +156,12 @@ export default function Profile() {
   const COOLDOWN_KEY_PREFIX = 'resend_verification_cooldown_';
   const EXPERIENCE_TYPES_INITIAL_DISPLAY = 10;
   const ITEMS_INITIAL_DISPLAY = 6;
+  // Pagination for profile tabs: pages computed responsively (cards-per-row * 2 rows)
+  const [experiencesPage, setExperiencesPage] = useState(1);
+  const [createdPage, setCreatedPage] = useState(1);
+  const [destinationsPage, setDestinationsPage] = useState(1);
+  const reservedRef = useRef(null);
+  const [itemsPerPageComputed, setItemsPerPageComputed] = useState(ITEMS_INITIAL_DISPLAY);
 
   /**
    * Merge helper function to update profile state without full replacement
@@ -440,7 +448,42 @@ export default function Profile() {
       created: view === 'created',
       destinations: view === 'destinations',
     });
+    // Reset pagination to first page on tab switch
+    setExperiencesPage(1);
+    setCreatedPage(1);
+    setDestinationsPage(1);
   }, []);
+
+  // Compute items per page responsively based on container width and card widths
+  useLayoutEffect(() => {
+    if (!reservedRef.current) return;
+
+    const rootFontSize = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+
+    const compute = (width) => {
+      const gapPx = 16; // fallback gap between cards
+      // choose card width depending on active tab (destinations use smaller cards)
+      const defaultCardRem = uiState.destinations ? 12 : 20;
+      const cardWidthPx = defaultCardRem * rootFontSize();
+      const cardsPerRow = Math.max(1, Math.floor((width + gapPx) / (cardWidthPx + gapPx)));
+      const newItems = Math.max(1, cardsPerRow * 2); // 2 rows reserved
+      setItemsPerPageComputed(newItems);
+    };
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        compute(entry.contentRect.width);
+      }
+    });
+
+    ro.observe(reservedRef.current);
+    // initial compute
+    compute(reservedRef.current.getBoundingClientRect().width);
+
+    return () => ro.disconnect();
+  }, [uiState.destinations, uiState.experiences, uiState.created]);
+
+  // Numbered pagination is provided by shared <Pagination /> component
   
   // Show error state if profile not found
   if (profileError === 'User not found') {
@@ -645,7 +688,7 @@ export default function Profile() {
                   <Loading size="md" message="Loading favorite destinations..." />
                 ) : favoriteDestinations.length > 0 ? (
                     favoriteDestinations.map((destination) => (
-                      <TagPill key={destination._id} className={styles.profilePill} color="primary" to={`/destinations/${destination._id}`}>
+                      <TagPill key={destination._id} color="light" to={`/destinations/${destination._id}`}>
                         <span className="icon"><FaPassport /></span>
                         {destination.name}
                       </TagPill>
@@ -680,7 +723,7 @@ export default function Profile() {
                 ) : userExperienceTypes.length > 0 ? (
                   <>
                     {(showAllExperienceTypes ? userExperienceTypes : userExperienceTypes.slice(0, EXPERIENCE_TYPES_INITIAL_DISPLAY)).map((type) => (
-                      <TagPill key={type} className={styles.profilePill} color="primary" size="sm" gradient={false} to={`/experience-types/${createUrlSlug(type)}`}>
+                      <TagPill key={type} color="light" size="sm" to={`/experience-types/${createUrlSlug(type)}`}>
                         <span className="icon"><FaUser /></span>
                         {type}
                       </TagPill>
@@ -692,9 +735,7 @@ export default function Profile() {
                         onClick={() => setShowAllExperienceTypes(!showAllExperienceTypes)}
                         style={{ marginTop: 'var(--space-2)' }}
                       >
-                        {showAllExperienceTypes
-                          ? 'Show Less'
-                          : `Show ${userExperienceTypes.length - EXPERIENCE_TYPES_INITIAL_DISPLAY} More`}
+                        {showAllExperienceTypes ? 'Show Less' : 'Show More'}
                       </Button>
                     )}
                   </>
@@ -754,6 +795,7 @@ export default function Profile() {
         </h4>
       </div>
       <div className="row my-4 justify-content-center animation-fade_in">
+        <div ref={reservedRef} className={styles.profileCardsReserved}>
         {uiState.destinations && (() => {
           const uniqueDestinationIds = Array.from(
             new Set(
@@ -764,7 +806,9 @@ export default function Profile() {
           );
           const displayedDestinations = showAllDestinations
             ? uniqueDestinationIds
-            : uniqueDestinationIds.slice(0, ITEMS_INITIAL_DISPLAY);
+            : uniqueDestinationIds.slice((destinationsPage - 1) * itemsPerPageComputed, (destinationsPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
+
+          const destTotalPages = Math.max(1, Math.ceil(uniqueDestinationIds.length / itemsPerPageComputed));
 
           return uniqueDestinationIds.length > 0 ? (
             <>
@@ -777,18 +821,21 @@ export default function Profile() {
                   />
                 ) : null;
               })}
-              {uniqueDestinationIds.length > ITEMS_INITIAL_DISPLAY && (
-                <div className="col-12 text-center mt-3">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => setShowAllDestinations(!showAllDestinations)}
-                  >
-                    {showAllDestinations
-                      ? 'Show Less'
-                      : `Show ${uniqueDestinationIds.length - ITEMS_INITIAL_DISPLAY} More`}
-                  </Button>
-                </div>
+              {/* Pagination controls for destinations - only show if items exceed one page */}
+              {(!showAllDestinations && uniqueDestinationIds.length > itemsPerPageComputed) && (
+                <Pagination currentPage={destinationsPage} totalPages={destTotalPages} onPageChange={setDestinationsPage} />
+              )}
+              {/* Only show placeholders on non-last pages to reserve space */}
+              {!showAllDestinations && destinationsPage < destTotalPages && displayedDestinations.length < itemsPerPageComputed && (
+                Array.from({ length: Math.max(0, itemsPerPageComputed - displayedDestinations.length) }).map((_, i) => (
+                  <div key={`placeholder-dest-${i}`} className="d-block m-2" style={{ width: '12rem' }}>
+                    <div className="position-relative" style={{ minHeight: '8rem' }}>
+                      <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
+                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                      </div>
+                    </div>
+                  </div>
+                ))
               )}
             </>
           ) : (
@@ -811,9 +858,10 @@ export default function Profile() {
           );
         })()}
         {uiState.experiences && (() => {
+          const expTotalPages = Math.max(1, Math.ceil(uniqueUserExperiences.length / itemsPerPageComputed));
           const displayedExperiences = showAllPlanned
             ? uniqueUserExperiences
-            : uniqueUserExperiences.slice(0, ITEMS_INITIAL_DISPLAY);
+            : uniqueUserExperiences.slice((experiencesPage - 1) * itemsPerPageComputed, (experiencesPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
 
           return uniqueUserExperiences.length > 0 ? (
             <>
@@ -824,18 +872,21 @@ export default function Profile() {
                   userPlans={plans}
                 />
               ))}
-              {uniqueUserExperiences.length > ITEMS_INITIAL_DISPLAY && (
-                <div className="col-12 text-center mt-3">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => setShowAllPlanned(!showAllPlanned)}
-                  >
-                    {showAllPlanned
-                      ? 'Show Less'
-                      : `Show ${uniqueUserExperiences.length - ITEMS_INITIAL_DISPLAY} More`}
-                  </Button>
-                </div>
+              {/* Only show pagination if items exceed one page */}
+              {(!showAllPlanned && uniqueUserExperiences.length > itemsPerPageComputed) && (
+                <Pagination currentPage={experiencesPage} totalPages={expTotalPages} onPageChange={setExperiencesPage} />
+              )}
+              {/* Only show placeholders on non-last pages to reserve space */}
+              {!showAllPlanned && experiencesPage < expTotalPages && displayedExperiences.length < itemsPerPageComputed && (
+                Array.from({ length: Math.max(0, itemsPerPageComputed - displayedExperiences.length) }).map((_, i) => (
+                  <div key={`placeholder-exp-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
+                    <div className="position-relative" style={{ minHeight: '12rem' }}>
+                      <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
+                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                      </div>
+                    </div>
+                  </div>
+                ))
               )}
             </>
           ) : (
@@ -858,9 +909,10 @@ export default function Profile() {
           );
         })()}
         {uiState.created && (() => {
+          const createdTotalPages = Math.max(1, Math.ceil(uniqueCreatedExperiences.length / itemsPerPageComputed));
           const displayedCreated = showAllCreated
             ? uniqueCreatedExperiences
-            : uniqueCreatedExperiences.slice(0, ITEMS_INITIAL_DISPLAY);
+            : uniqueCreatedExperiences.slice((createdPage - 1) * itemsPerPageComputed, (createdPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
 
           return uniqueCreatedExperiences.length > 0 ? (
             <>
@@ -871,18 +923,21 @@ export default function Profile() {
                   userPlans={plans}
                 />
               ))}
-              {uniqueCreatedExperiences.length > ITEMS_INITIAL_DISPLAY && (
-                <div className="col-12 text-center mt-3">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => setShowAllCreated(!showAllCreated)}
-                  >
-                    {showAllCreated
-                      ? 'Show Less'
-                      : `Show ${uniqueCreatedExperiences.length - ITEMS_INITIAL_DISPLAY} More`}
-                  </Button>
-                </div>
+              {/* Only show pagination if items exceed one page */}
+              {(!showAllCreated && uniqueCreatedExperiences.length > itemsPerPageComputed) && (
+                <Pagination currentPage={createdPage} totalPages={createdTotalPages} onPageChange={setCreatedPage} />
+              )}
+              {/* Only show placeholders on non-last pages to reserve space */}
+              {!showAllCreated && createdPage < createdTotalPages && displayedCreated.length < itemsPerPageComputed && (
+                Array.from({ length: Math.max(0, itemsPerPageComputed - displayedCreated.length) }).map((_, i) => (
+                  <div key={`placeholder-created-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
+                    <div className="position-relative" style={{ minHeight: '12rem' }}>
+                      <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
+                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                      </div>
+                    </div>
+                  </div>
+                ))
               )}
             </>
           ) : (
@@ -904,6 +959,7 @@ export default function Profile() {
             </Alert>
           );
         })()}
+      </div>
       </div>      {/* Super Admin Permissions Section */}
       {isSuperAdmin(user) && !isOwner && currentProfile && (
         <div className="row my-4 animation-fade_in">

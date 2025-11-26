@@ -1,6 +1,7 @@
 import styles from "./ExperienceCard.module.scss";
 import { Link } from "react-router-dom";
-import { useState, useCallback, useMemo, memo, useEffect } from "react";
+import { useState, useCallback, useMemo, memo, useEffect, useRef } from "react";
+import SkeletonLoader from "../SkeletonLoader/SkeletonLoader";
 import TagPill from '../Pill/TagPill';
 import { lang } from "../../lang.constants";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
@@ -14,13 +15,16 @@ import { useData } from "../../contexts/DataContext";
 import { useToast } from "../../contexts/ToastContext";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import EntitySchema from "../OpenGraph/EntitySchema";
+import imagePreloader from '../../utilities/imagePreloader';
 
-function ExperienceCard({ experience, updateData, userPlans, includeSchema = false }) {
+function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false }) {
   const { user } = useUser();
   const { fetchPlans, plans: globalPlans } = useData();
   const { error: showError } = useToast();
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const [isLoading, setIsLoading] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const containerRef = useRef(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -224,28 +228,44 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     };
   }, [experience._id, setLocalPlanStateWithCache]);
 
-  // Get the default photo for background
-  const getBackgroundImage = useMemo(() => {
+  // Get the default photo URL (raw) and backgroundImage string
+  const { imageSrc, backgroundImage } = useMemo(() => {
     if (!experience) {
-      return `url(https://picsum.photos/400?rand=${rand})`;
+      const src = `https://picsum.photos/400?rand=${rand}`;
+      return { imageSrc: src, backgroundImage: `url(${src})` };
     }
-    
-    // If photos array exists and has items, use the default one
+
     if (experience.photos && experience.photos.length > 0) {
       let defaultPhoto;
       if (experience.default_photo_id) {
         defaultPhoto = experience.photos.find(photo => photo._id === experience.default_photo_id);
       }
-      // Fallback to first photo if default not found or not set
-      if (!defaultPhoto) {
-        defaultPhoto = experience.photos[0];
-      }
-      return `url(${defaultPhoto.url})`;
+      if (!defaultPhoto) defaultPhoto = experience.photos[0];
+      const src = defaultPhoto?.url || `https://picsum.photos/400?rand=${rand}`;
+      return { imageSrc: src, backgroundImage: `url(${src})` };
     }
-    
-    // Fallback to placeholder
-    return `url(https://picsum.photos/400?rand=${rand})`;
+
+    const src = `https://picsum.photos/400?rand=${rand}`;
+    return { imageSrc: src, backgroundImage: `url(${src})` };
   }, [experience, rand]);
+
+  // Use shared image preloader utility to ensure skeleton overlay exists and load image
+  useEffect(() => {
+    setImageLoaded(false);
+    if (!imageSrc) {
+      setImageLoaded(true);
+      return;
+    }
+
+    const cleanup = imagePreloader(containerRef, imageSrc, (err) => {
+      // small delay for smoother transition
+      setTimeout(() => setImageLoaded(true), 60);
+    }, { forcePreload: forcePreload, rootMargin: '400px' });
+
+    return () => {
+      try { cleanup && cleanup(); } catch (e) {}
+    };
+  }, [imageSrc, forcePreload]);
 
   const handleExperienceAction = useCallback(async () => {
     if (isLoading) return;
@@ -438,13 +458,26 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
   }, [isMobile]);
 
   return (
-    <div className="d-inline-block m-2" style={{ width: 'fit-content', verticalAlign: 'top' }}>
+    <div className="d-block m-2" style={{ width: '20rem', verticalAlign: 'top' }}>
       {experience && !isDeleted ? (
         <div
+          ref={containerRef}
           className={`${styles.experienceCard} d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden ${isMobile ? 'mobile' : ''} ${isExpanded ? 'expanded' : ''}`}
-          style={{ backgroundImage: getBackgroundImage }}
+          style={{ backgroundImage: backgroundImage, minHeight: '12rem', width: '20rem' }}
           onClick={handleCardClick}
         >
+          <div
+            aria-hidden="true"
+            className="position-absolute w-100 h-100 start-0 top-0"
+            style={{
+              zIndex: 5,
+              pointerEvents: 'none',
+              transition: 'opacity 260ms ease',
+              opacity: imageLoaded ? 0 : 1
+            }}
+          >
+            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+          </div>
           <Link to={`/experiences/${experience._id}`} className={`${styles.experienceCardLink} flex-grow-1 d-flex align-items-center justify-content-center w-100`} style={{ textDecoration: 'none' }}>
             <span className={`h4 fw-bold ${styles.experienceCardTitle} d-flex align-items-center justify-content-center p-3 w-100`} style={{ textAlign: 'center' }}>
               {experience.name}
@@ -488,9 +521,22 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
         </div>
       ) : (
         <div
+          ref={containerRef}
           className={`${styles.experienceCard} d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden`}
-          style={{ backgroundImage: getBackgroundImage }}
+          style={{ backgroundImage: backgroundImage, minHeight: '12rem', width: '20rem' }}
         >
+          <div
+            aria-hidden="true"
+            className="position-absolute w-100 h-100 start-0 top-0"
+            style={{
+              zIndex: 5,
+              pointerEvents: 'none',
+              transition: 'opacity 260ms ease',
+              opacity: imageLoaded ? 0 : 1
+            }}
+          >
+            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+          </div>
           <Link to="/" className={`${styles.experienceCardLink} flex-grow-1 d-flex align-items-center justify-content-center w-100`} style={{ textDecoration: 'none' }}>
             <span className={`h4 fw-bold ${styles.experienceCardTitle} d-flex align-items-center justify-content-center p-3 w-100`} style={{ textAlign: 'center' }}>
               Dinner Party with locals at the Rhodopo Mountains in Bulgaria

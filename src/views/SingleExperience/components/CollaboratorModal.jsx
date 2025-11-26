@@ -120,6 +120,7 @@ export default function CollaboratorModal({
       title={title}
       size="lg"
       scrollable={true}
+      bodyClassName={styles.collaboratorModalBody}
     >
       <div
         className={`${styles.collaboratorModalContent} modal-content-styled`}
@@ -252,7 +253,11 @@ export default function CollaboratorModal({
                     placeholder="Search by name or email..."
                     entityType="user"
                     items={searchResults}
-                    onSelect={(user) => onToggleCollaborator(user)}
+                    onSelect={(user) => {
+                      onToggleCollaborator(user);
+                      // Clear the search field after selection
+                      onSearchTermChange('');
+                    }}
                     onSearch={onSearch}
                     value={searchTerm}
                     onChange={(e) => onSearchTermChange(e.target.value)}
@@ -260,7 +265,12 @@ export default function CollaboratorModal({
                     showStatus={true}
                     showMeta={true}
                     size="md"
-                    emptyMessage="No users found. Try a different search term."
+                    emptyMessage={
+                      searchTerm && searchTerm.length < 2
+                        ? 'Type at least 2 characters to search'
+                        : 'No users found. Try a different search term.'
+                    }
+                    disableFilter={true}
                   />
                 </div>
 
@@ -283,7 +293,7 @@ export default function CollaboratorModal({
                         >
                           {user.name}
                           <FaTimes
-                            onClick={() => onToggleCollaborator(user._id || user.id)}
+                            onClick={() => onRemoveCollaborator(user._id || user.id)}
                             style={{
                               cursor: 'pointer',
                               marginLeft: 'var(--space-2)',

@@ -1,5 +1,30 @@
 @use '../../styles/scss/abstracts' as *;
 
+.paginationWrap {
+  /* Ensure pagination takes full width and centers content */
+  flex-basis: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: var(--space-4);
+  padding: var(--space-2) 0;
+
+  .paginationList {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  :global(.page-item.active) {
+    button {
+      pointer-events: none;
+    }
+  }
+}
+
 .pagination {
   display: flex;
   align-items: center;

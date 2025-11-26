@@ -75,19 +75,23 @@ function SortableExperiencePlanItem({
       ref={setNodeRef}
       style={style}
       data-plan-item-id={planItem._id}
-      className={`plan-item-card mb-3 overflow-hidden ${isDragging ? 'dragging' : ''}`}
+      className={`plan-item-card mb-3 overflow-hidden ${isDragging ? 'dragging' : ''} ${isChild ? 'is-child-item' : ''}`}
     >
       <div className="plan-item-header p-3 p-md-4">
         <div className="plan-item-tree">
           {!isChild ? (
             (() => {
               if (hasChildren) {
+                const isExpanded = expandedParents.has(planItem._id);
                 return (
                   <button
-                    className="btn btn-sm btn-link p-0 expand-toggle"
+                    type="button"
+                    className="expand-toggle"
                     onClick={() => toggleExpanded(planItem._id)}
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
                   >
-                    {expandedParents.has(planItem._id) ? "▼" : "▶"}
+                    {isExpanded ? "▼" : "▶"}
                   </button>
                 );
               } else {
@@ -112,8 +116,8 @@ function SortableExperiencePlanItem({
           )}
         </div>
 
-        {/* Drag handle - only for parent items when user can edit */}
-        {canEdit && !isChild && (
+        {/* Drag handle - for all items when user can edit */}
+        {canEdit && (
           <div className="drag-handle-wrapper">
             <DragHandle
               id={planItem._id.toString()}
@@ -226,7 +230,7 @@ export default function ExperienceTabContent({
   // Check if user can edit experience plan
   const canEdit = isOwner(user, experience);
 
-  // Handle drag end event
+  // Handle drag end event with hierarchy support
   const handleDragEnd = (event) => {
     const { active, over } = event;
 
@@ -239,14 +243,65 @@ export default function ExperienceTabContent({
       return;
     }
 
-    // Only reorder parent items (not children)
-    const parentItems = experience.plan_items.filter((item) => !item.parent);
-
-    const oldIndex = parentItems.findIndex(
+    // Find the dragged item and target item
+    const draggedItem = experience.plan_items.find(
       (item) => item._id.toString() === active.id.toString()
     );
-    const newIndex = parentItems.findIndex(
+    const targetItem = experience.plan_items.find(
       (item) => item._id.toString() === over.id.toString()
+    );
+
+    if (!draggedItem || !targetItem) {
+      debug.warn('[ExperienceDrag] Could not find dragged or target item');
+      return;
+    }
+
+    // Get IDs for comparison
+    const draggedId = draggedItem._id.toString();
+    const targetId = targetItem._id.toString();
+    const draggedParentId = draggedItem.parent?.toString() || null;
+    const targetParentId = targetItem.parent?.toString() || null;
+    const targetIsChild = !!targetItem.parent;
+
+    debug.log('[ExperienceDrag] Hierarchy-aware reorder', {
+      draggedId,
+      targetId,
+      draggedParentId,
+      targetParentId,
+      draggedIsChild: !!draggedItem.parent,
+      targetIsChild
+    });
+
+    // Create a deep copy of items for modification
+    let reorderedItems = experience.plan_items.map(item => ({ ...item }));
+
+    // Find the dragged item in our copy
+    const draggedItemCopy = reorderedItems.find(
+      (item) => item._id.toString() === draggedId
+    );
+
+    // Determine hierarchy change based on context:
+    // 1. If target is a child item, dragged item becomes sibling (same parent)
+    // 2. If target is a parent item and dragged is child → promote to root or become sibling
+    // 3. If both are at same level → simple reorder
+
+    if (targetIsChild && draggedParentId !== targetParentId) {
+      // Dragged item should adopt the same parent as target (become sibling)
+      draggedItemCopy.parent = targetItem.parent;
+      debug.log('[ExperienceDrag] Reparenting to same parent as target', { newParent: targetItem.parent });
+    } else if (!targetIsChild && draggedParentId) {
+      // Target is a root item and dragged item was a child → promote to root
+      delete draggedItemCopy.parent;
+      debug.log('[ExperienceDrag] Promoting child to root level');
+    }
+    // If both have same parent or both are root → just reorder (no parent change)
+
+    // Find indices for arrayMove
+    const oldIndex = reorderedItems.findIndex(
+      (item) => item._id.toString() === draggedId
+    );
+    const newIndex = reorderedItems.findIndex(
+      (item) => item._id.toString() === targetId
     );
 
     if (oldIndex === -1 || newIndex === -1) {
@@ -254,26 +309,8 @@ export default function ExperienceTabContent({
       return;
     }
 
-    const reorderedParents = arrayMove(parentItems, oldIndex, newIndex);
-
-    // Rebuild full plan_items array with reordered parents and their children
-    const childrenMap = new Map();
-    experience.plan_items.forEach((item) => {
-      if (item.parent) {
-        const parentId = item.parent.toString();
-        if (!childrenMap.has(parentId)) {
-          childrenMap.set(parentId, []);
-        }
-        childrenMap.get(parentId).push(item);
-      }
-    });
-
-    const reorderedItems = [];
-    reorderedParents.forEach((parent) => {
-      reorderedItems.push(parent);
-      const children = childrenMap.get(parent._id.toString()) || [];
-      reorderedItems.push(...children);
-    });
+    // Apply position reorder
+    reorderedItems = arrayMove(reorderedItems, oldIndex, newIndex);
 
     // Validate before calling API
     if (reorderedItems.length === 0) {
@@ -298,6 +335,14 @@ export default function ExperienceTabContent({
       });
       return;
     }
+
+    debug.log('[ExperienceDrag] Reordered items', {
+      activeId: active.id,
+      overId: over.id,
+      oldIndex,
+      newIndex,
+      hierarchyChanged: draggedParentId !== (draggedItemCopy.parent?.toString() || null)
+    });
 
     if (onReorderExperiencePlanItems) {
       onReorderExperiencePlanItems(experience._id, reorderedItems, active.id.toString());
@@ -334,10 +379,8 @@ export default function ExperienceTabContent({
       (item.isChild && animatingCollapse === item.parent)
   );
 
-  // Get parent item IDs for sortable context
-  const parentItemIds = experience.plan_items
-    .filter((item) => !item.parent)
-    .map((item) => item._id.toString());
+  // Get all item IDs for sortable context (parents and children)
+  const allItemIds = itemsToRender.map((item) => item._id.toString());
 
   return (
     <div className="experience-plan-view mt-4">
@@ -383,7 +426,7 @@ export default function ExperienceTabContent({
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={parentItemIds}
+          items={allItemIds}
           strategy={verticalListSortingStrategy}
         >
           {itemsToRender.map((planItem) => (
