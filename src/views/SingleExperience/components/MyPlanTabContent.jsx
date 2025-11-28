@@ -662,19 +662,6 @@ export default function MyPlanTabContent({
                         : ""
                     );
                     setShowDatePicker(true);
-                    // Scroll to date picker
-                    setTimeout(() => {
-                      const datePicker =
-                        document.querySelector(
-                          ".date-picker-modal"
-                        );
-                      if (datePicker) {
-                        datePicker.scrollIntoView({
-                          behavior: "smooth",
-                          block: "center",
-                        });
-                      }
-                    }, 100);
                   }}
                   title={lang.en.tooltip.setPlannedDate}
                 >

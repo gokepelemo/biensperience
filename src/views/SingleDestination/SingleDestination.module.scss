@@ -82,6 +82,13 @@
   line-height: var(--line-height-relaxed);
 }
 
+/* Destination Map */
+.destinationMap {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
 
 /* Experience Card in Grid */
 .experienceGridCard {

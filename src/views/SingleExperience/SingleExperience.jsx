@@ -1,4 +1,3 @@
-import TagPill from '../../components/Pill/TagPill';
 import ActionButtonsRow from './components/ActionButtonsRow';
 import DatePickerSection from './components/DatePickerSection';
 import ExperienceOverviewSection from './components/ExperienceOverviewSection';
@@ -57,7 +56,6 @@ import useOptimisticAction from "../../hooks/useOptimisticAction";
 import usePlanManagement from "../../hooks/usePlanManagement";
 import usePlanCosts from "../../hooks/usePlanCosts";
 import {
-  showExperience,
   showExperienceWithContext,
   deleteExperience,
   deletePlanItem,
@@ -69,10 +67,7 @@ import {
 } from "../../utilities/experiences-api";
 import {
   getUserPlans,
-  createPlan,
-  deletePlan,
   getExperiencePlans,
-  updatePlan,
   updatePlanItem,
   addPlanItem as addPlanItemToInstance,
   deletePlanItem as deletePlanItemFromInstance,
@@ -88,6 +83,7 @@ import {
 import { reconcileState, generateOptimisticId } from "../../utilities/event-bus";
 import { searchUsers } from "../../utilities/search-api";
 import { sendEmailInvite } from "../../utilities/invites-api";
+import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
 
 export default function SingleExperience() {
   // ============================================================================
@@ -166,9 +162,9 @@ export default function SingleExperience() {
     fetchUserPlan,
     fetchCollaborativePlans,
     // fetchPlans from DataContext (useData) is used instead of hook's fetchPlans
-    createPlan: createPlanViaHook,
-    updatePlan: updatePlanViaHook,
-    deletePlan: deletePlanViaHook
+    createPlan,
+    updatePlan,
+    deletePlan
   } = usePlanManagement(experienceId, user?._id);
 
   // Plan costs management hook
@@ -872,49 +868,7 @@ export default function SingleExperience() {
     }
   }, [experienceId, user._id, updateExperienceInContext]);
 
-  // Legacy individual fetch functions - kept for compatibility with existing code that calls them
-  const fetchExperience = useCallback(async () => {
-    try {
-      const experienceData = await showExperience(experienceId);
-      debug.log("Experience data:", experienceData);
-      debug.log("Experience user:", experienceData.user);
-      debug.log("Experience permissions:", experienceData.permissions);
-      if (experienceData.permissions && experienceData.permissions.length > 0) {
-        debug.log("First permission _id:", experienceData.permissions[0]._id);
-        debug.log(
-          "First permission _id type:",
-          typeof experienceData.permissions[0]._id
-        );
-      }
-      setExperience(experienceData);
-
-      // Update DataContext with experience data
-      if (experienceData && experienceData._id) {
-        updateExperienceInContext(experienceData);
-      }
-
-      // userHasExperience will be set in fetchUserPlan based on Plan model
-      // No longer using experience.users array
-
-      // Set travelTips if present
-      setTravelTips(experienceData.travel_tips || []);
-      // userPlannedDate will be set from userPlan in fetchUserPlan
-      // No longer using experience.users array
-
-      // Set expanded parents (all parents expanded by default)
-      const parentIds = experienceData.plan_items
-        .filter((item) => !item.parent)
-        .map((item) => item._id);
-      setExpandedParents(new Set(parentIds));
-    } catch (err) {
-      debug.error("Error fetching experience:", err);
-      setExperience(null);
-    }
-  }, [experienceId, updateExperienceInContext]);
-
-  // fetchUserPlan, fetchCollaborativePlans, and fetchPlans are now provided by usePlanManagement hook
-
-  // Collaborator management hook (must be after fetchExperience is defined)
+  // Collaborator management hook - uses fetchAllData for refreshing experience data
   const collaboratorManager = useCollaboratorManager({
     experienceId,
     experience,
@@ -924,7 +878,7 @@ export default function SingleExperience() {
     setExperience,
     setUserPlan,
     setCollaborativePlans,
-    fetchExperience,
+    fetchExperience: fetchAllData,
     fetchPlans,
     fetchCollaborativePlans,
     experienceCollaborators,
@@ -1888,7 +1842,7 @@ export default function SingleExperience() {
       };
 
       const onSuccess = async () => {
-        fetchExperience().catch(() => {});
+        fetchAllData().catch(() => {});
       };
 
       const onError = (err, defaultMsg) => {
@@ -1899,7 +1853,7 @@ export default function SingleExperience() {
       const run = useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context: isAdd ? 'Add experience plan item' : 'Update experience plan item' });
       await run();
     },
-    [experience, editingPlanItem, planItemFormState, fetchExperience]
+    [experience, editingPlanItem, planItemFormState, fetchAllData]
   );
 
   const handlePlanChange = useCallback(
@@ -2065,10 +2019,8 @@ export default function SingleExperience() {
             plannedDate: addData.planned_date
           });
 
-          const newPlan = await createPlan(
-            experience._id,
-            addData.planned_date || null
-          );
+          // Hook's createPlan only takes plannedDate - experienceId comes from hook initialization
+          const newPlan = await createPlan(addData.planned_date || null);
 
           debug.log('[HANDLE_ADD] Plan created successfully', {
             timestamp: Date.now(),
@@ -2111,9 +2063,9 @@ export default function SingleExperience() {
       experience?._id,
       plannedDate,
       userHasExperience,
-      fetchExperience,
-      fetchUserPlan,
-      fetchCollaborativePlans,
+      createPlan,
+      success,
+      showError
     ]
   );
 
@@ -2172,7 +2124,7 @@ export default function SingleExperience() {
         }
 
         // Refresh experience to get updated state
-        await fetchExperience();
+        await fetchAllData();
       } else if (isOwner(user, experience)) {
         // Owners can now create plans for their own experiences
         // Check if owner already has a plan
@@ -2200,7 +2152,7 @@ export default function SingleExperience() {
         }
 
         // Refresh experience to get updated state
-        await fetchExperience();
+        await fetchAllData();
       }
 
       setShowDatePicker(false);
@@ -2228,7 +2180,7 @@ export default function SingleExperience() {
     handleAddExperience,
     fetchUserPlan,
     fetchCollaborativePlans,
-    fetchExperience,
+    fetchAllData,
   ]);
 
   const handleDeleteExperience = useCallback(async () => {
@@ -2275,7 +2227,7 @@ export default function SingleExperience() {
       };
 
       const onSuccess = async () => {
-        fetchExperience().catch(() => {});
+        fetchAllData().catch(() => {});
         fetchExperiences().catch(() => {});
         success(lang.en.notification?.plan?.itemDeleted || 'Item removed from your plan');
       };
@@ -2288,7 +2240,7 @@ export default function SingleExperience() {
       const run = useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context: 'Delete experience plan item' });
       await run();
     },
-    [experience, fetchExperiences, fetchExperience, success, showError]
+    [experience, fetchExperiences, fetchAllData, success, showError]
   );
 
   const handlePlanItemToggleComplete = useCallback(
@@ -2491,7 +2443,7 @@ export default function SingleExperience() {
         }
 
         // Refresh experience data to ensure consistency
-        fetchExperience().catch(() => {});
+        fetchAllData().catch(() => {});
         success(lang.en.notification?.plan?.reordered || 'Your plan order has been saved');
       };
 
@@ -2512,7 +2464,7 @@ export default function SingleExperience() {
     },
     [
       experience,
-      fetchExperience,
+      fetchAllData,
       success,
       showError,
     ]
@@ -2586,22 +2538,28 @@ export default function SingleExperience() {
                     {experience.experience_type && (
                       Array.isArray(experience.experience_type)
                         ? experience.experience_type.map((type, index) => (
-                            <Badge key={index} bg="secondary" className={styles.tag}>
-                              {type}
-                            </Badge>
+                            <Link key={index} to={`/experience-types/${type.toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
+                              <Badge bg="secondary" className={styles.tag}>
+                                {type}
+                              </Badge>
+                            </Link>
                           ))
                         : typeof experience.experience_type === 'string'
                           ? experience.experience_type.split(',').map((type, index) => (
-                              <Badge key={index} bg="secondary" className={styles.tag}>
-                                {type.trim()}
-                              </Badge>
+                              <Link key={index} to={`/experience-types/${type.trim().toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
+                                <Badge bg="secondary" className={styles.tag}>
+                                  {type.trim()}
+                                </Badge>
+                              </Link>
                             ))
                           : null
                     )}
                     {experience.destination && (
-                      <Badge bg="secondary" className={styles.tag}>
-                        {experience.destination.country}
-                      </Badge>
+                      <Link to={`/destinations/${experience.destination._id}`} style={{ textDecoration: 'none' }}>
+                        <Badge bg="secondary" className={styles.tag}>
+                          {experience.destination.country}
+                        </Badge>
+                      </Link>
                     )}
                   </div>
                 )}
@@ -2726,141 +2684,120 @@ export default function SingleExperience() {
               <Col lg={4}>
                 <div className={styles.sidebar}>
                   <div className={styles.sidebarCard}>
-                    <h3 className={styles.sidebarTitle}>Experience Details</h3>
+                      <h3 className={styles.sidebarTitle}>Experience Details</h3>
 
-                    {/* Planned Date Badge in Sidebar */}
-                    {selectedPlan && !pendingUnplan && selectedPlan.planned_date && (
-                      <div
-                        className={styles.datePickerBadge}
-                        onClick={() => {
-                          const userOwnsSelectedPlan = selectedPlan && user && (
-                            selectedPlan.user?._id?.toString() === user._id?.toString() ||
-                            selectedPlan.user?.toString() === user._id?.toString()
-                          );
-                          if (!userOwnsSelectedPlan) return;
-                          if (showDatePicker) {
-                            setShowDatePicker(false);
-                          } else {
-                            setIsEditingDate(true);
-                            setPlannedDate(formatDateForInput(selectedPlan.planned_date));
-                            setShowDatePicker(true);
-                          }
-                        }}
-                        title={
-                          selectedPlan && user && (
-                            selectedPlan.user?._id?.toString() === user._id?.toString() ||
-                            selectedPlan.user?.toString() === user._id?.toString()
-                          )
-                            ? "Click to update planned date"
-                            : "Collaborative plan date"
-                        }
-                      >
-                        <FaCalendarAlt className={styles.dateIcon} />
-                        Planned for {formatDateShort(selectedPlan.planned_date)}
-                      </div>
-                    )}
-
-                    {/* Date Picker Section */}
-                    <DatePickerSection
-                      showDatePicker={showDatePicker}
-                      experience={experience}
-                      isEditingDate={isEditingDate}
-                      plannedDate={plannedDate}
-                      setPlannedDate={setPlannedDate}
-                      loading={loading}
-                      handleDateUpdate={handleDateUpdate}
-                      handleAddExperience={handleAddExperience}
-                      setShowDatePicker={setShowDatePicker}
-                      setIsEditingDate={setIsEditingDate}
-                      lang={lang}
-                    />
-
-                    {/* Details List */}
-                    <div className={styles.detailsList}>
-                      {experience.cost_estimate > 0 && (
-                        <div className={styles.detailItem}>
-                          <div className={styles.detailLabel}>Estimated Cost</div>
-                          <div className={styles.detailValue}>
-                            <CostEstimate
-                              cost={experience.cost_estimate}
-                              showLabel={false}
-                              showTooltip={true}
-                              showDollarSigns={true}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {experience.max_planning_days > 0 && (
-                        <div className={styles.detailItem}>
-                          <div className={styles.detailLabel}>Planning Time</div>
-                          <div className={styles.detailValue}>
-                            <PlanningTime
-                              days={experience.max_planning_days}
-                              showLabel={false}
-                              showTooltip={true}
-                              size="md"
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {experience.experience_type && (
-                        <div className={styles.detailItem}>
-                          <div className={styles.detailLabel}>Type</div>
-                          <div className={styles.detailValue} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                            {Array.isArray(experience.experience_type)
-                              ? experience.experience_type.map((type, index) => (
-                                  <Link key={index} to={`/experience-types/${type.toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
-                                    <TagPill color="default" gradient="true">{type}</TagPill>
-                                  </Link>
-                                ))
-                              : typeof experience.experience_type === 'string'
-                                ? experience.experience_type.split(',').map((type, index) => (
-                                    <Link key={index} to={`/experience-types/${type.trim().toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
-                                      <TagPill color="default" gradient="true">{type.trim()}</TagPill>
-                                    </Link>
-                                  ))
-                                : null
+                      {/* Planned Date Badge in Sidebar - only show when user has their own plan OR viewing My Plan tab with a collaborative plan selected */}
+                      {selectedPlan && !pendingUnplan && selectedPlan.planned_date && (userHasExperience || activeTab === "myplan") && (
+                        <div
+                          className={styles.datePickerBadge}
+                          onClick={() => {
+                            const userOwnsSelectedPlan = selectedPlan && user && (
+                              selectedPlan.user?._id?.toString() === user._id?.toString() ||
+                              selectedPlan.user?.toString() === user._id?.toString()
+                            );
+                            if (!userOwnsSelectedPlan) return;
+                            if (showDatePicker) {
+                              setShowDatePicker(false);
+                            } else {
+                              setIsEditingDate(true);
+                              setPlannedDate(formatDateForInput(selectedPlan.planned_date));
+                              setShowDatePicker(true);
                             }
-                          </div>
+                          }}
+                          title={
+                            selectedPlan && user && (
+                              selectedPlan.user?._id?.toString() === user._id?.toString() ||
+                              selectedPlan.user?.toString() === user._id?.toString()
+                            )
+                              ? "Click to update planned date"
+                              : "Collaborative plan date"
+                          }
+                        >
+                          <FaCalendarAlt className={styles.dateIcon} />
+                          Planned for {formatDateShort(selectedPlan.planned_date)}
                         </div>
                       )}
-                      {experience.destination && (
-                        <div className={styles.detailItem}>
-                          <div className={styles.detailLabel}>Destination</div>
-                          <div className={styles.detailValue}>
-                            <Link to={`/destinations/${experience.destination._id}`}>
-                              {experience.destination.name}
-                            </Link>
-                          </div>
-                        </div>
-                      )}
-                    </div>
 
-                    {/* Action Buttons */}
-                    <div className={styles.sidebarActions}>
-                      <ActionButtonsRow
-                        user={user}
-                        experience={experience}
-                        experienceId={experienceId}
-                        userHasExperience={userHasExperience}
-                        loading={loading}
-                        plansLoading={plansLoading}
-                        displayedPlannedDate={displayedPlannedDate}
-                        selectedPlan={selectedPlan}
-                        planButtonRef={planButtonRef}
-                        planBtnWidth={planBtnWidth}
-                        favHover={favHover}
-                        setFavHover={setFavHover}
-                        handleExperience={handleExperience}
-                        setShowDeleteModal={setShowDeleteModal}
+                      {/* Date Picker Section */}
+                      <DatePickerSection
                         showDatePicker={showDatePicker}
+                        experience={experience}
+                        isEditingDate={isEditingDate}
+                        plannedDate={plannedDate}
+                        setPlannedDate={setPlannedDate}
+                        loading={loading}
+                        handleDateUpdate={handleDateUpdate}
+                        handleAddExperience={handleAddExperience}
                         setShowDatePicker={setShowDatePicker}
                         setIsEditingDate={setIsEditingDate}
-                        setPlannedDate={setPlannedDate}
                         lang={lang}
-                        variant="sidebar"
                       />
-                    </div>
+
+                      {/* Details List */}
+                      <div className={styles.detailsList}>
+                        {experience.cost_estimate > 0 && (
+                          <div className={styles.detailItem}>
+                            <div className={styles.detailLabel}>Estimated Cost</div>
+                            <div className={styles.detailValue}>
+                              <CostEstimate
+                                cost={experience.cost_estimate}
+                                showLabel={false}
+                                showTooltip={true}
+                                showDollarSigns={true}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {experience.max_planning_days > 0 && (
+                          <div className={styles.detailItem}>
+                            <div className={styles.detailLabel}>Planning Time</div>
+                            <div className={styles.detailValue}>
+                              <PlanningTime
+                                days={experience.max_planning_days}
+                                showLabel={false}
+                                showTooltip={true}
+                                size="md"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {experience.destination && (
+                          <div className={styles.detailItem}>
+                            <div className={styles.detailLabel}>Destination</div>
+                            <div className={styles.detailValue}>
+                              <Link to={`/destinations/${experience.destination._id}`}>
+                                {experience.destination.name}
+                              </Link>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className={styles.sidebarActions}>
+                        <ActionButtonsRow
+                          user={user}
+                          experience={experience}
+                          experienceId={experienceId}
+                          userHasExperience={userHasExperience}
+                          loading={loading}
+                          plansLoading={plansLoading}
+                          displayedPlannedDate={displayedPlannedDate}
+                          selectedPlan={selectedPlan}
+                          planButtonRef={planButtonRef}
+                          planBtnWidth={planBtnWidth}
+                          favHover={favHover}
+                          setFavHover={setFavHover}
+                          handleExperience={handleExperience}
+                          setShowDeleteModal={setShowDeleteModal}
+                          showDatePicker={showDatePicker}
+                          setShowDatePicker={setShowDatePicker}
+                          setIsEditingDate={setIsEditingDate}
+                          setPlannedDate={setPlannedDate}
+                          lang={lang}
+                          variant="sidebar"
+                        />
+                      </div>
                   </div>
                 </div>
               </Col>

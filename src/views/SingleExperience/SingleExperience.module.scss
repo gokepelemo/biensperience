@@ -453,30 +453,6 @@
               transform 0.3s ease-in;
 }
 
-/* Date Picker Modal */
-:global(.date-picker-modal) {
-  :global(.alert-info) {
-    background: var(--gradient-primary);
-    color: white;
-    border: none;
-    border-radius: $radius-md;
-    padding: $space-3;
-  }
-    padding: clamp(var(--space-1-5), 1.5vw, var(--space-2-5)) clamp(var(--space-2-5), 2.5vw, var(--space-4));
-  :global(.form-control:focus) {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-shadow-light);
-  }
-
-  :global(.alert-warning) {
-    background: var(--color-warning-light);
-    color: var(--color-warning-dark);
-    border: 1px solid var(--color-warning);
-    border-radius: $radius-md;
-    padding: $space-3;
-  }
-}
-
 /* Travel Tips */
 :global(.travel-tips-box) {
   margin-top: $space-4;

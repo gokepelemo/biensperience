@@ -76,7 +76,14 @@ export default function ActionButtonsRow({
             className={`btn btn-lg w-100 ${
               userHasExperience ? "btn-plan-remove" : "btn-primary"
             } ${loading || plansLoading ? "loading" : ""}`}
-            style={{ borderRadius: 'var(--radius-full)', fontWeight: 'var(--font-weight-semibold)' }}
+            style={{
+              borderRadius: 'var(--radius-full)',
+              fontWeight: 'var(--font-weight-semibold)',
+              minHeight: '52px', // Fixed height to prevent layout shift
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
             ref={planButtonRef}
             onClick={handleExperience}
             aria-label={
@@ -91,7 +98,9 @@ export default function ActionButtonsRow({
             aria-busy={loading || plansLoading}
           >
             {plansLoading ? (
-              <Loading size="sm" variant="inline" showMessage={false} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', height: '24px' }}>
+                <Loading size="sm" variant="inline" showMessage={false} />
+              </span>
             ) : userHasExperience ? (
               favHover
                 ? lang.en.button.removeFavoriteExp
@@ -109,7 +118,7 @@ export default function ActionButtonsRow({
             <FadeIn>
               <button
                 className="btn btn-outline-secondary flex-grow-1"
-                style={{ borderRadius: 'var(--radius-full)' }}
+                style={{ borderRadius: 'var(--btn-radius-pill)', minHeight: '44px' }}
                 onClick={() => {
                   if (showDatePicker) {
                     setShowDatePicker(false);
@@ -142,7 +151,7 @@ export default function ActionButtonsRow({
               <FadeIn>
                 <button
                   className="btn btn-outline-secondary"
-                  style={{ borderRadius: 'var(--radius-full)' }}
+                  style={{ borderRadius: 'var(--btn-radius-pill)', minWidth: '60px', minHeight: '44px' }}
                   onClick={() => navigate(`/experiences/${experienceId}/update`)}
                   aria-label={lang.en.button.updateExperience}
                   title={lang.en.button.updateExperience}
@@ -153,7 +162,7 @@ export default function ActionButtonsRow({
               <FadeIn>
                 <button
                   className="btn btn-outline-danger"
-                  style={{ borderRadius: 'var(--radius-full)' }}
+                  style={{ borderRadius: 'var(--btn-radius-pill)', minWidth: '60px', minHeight: '44px' }}
                   onClick={() => setShowDeleteModal(true)}
                   aria-label={lang.en.button.delete}
                   title={lang.en.button.delete}
@@ -206,7 +215,8 @@ export default function ActionButtonsRow({
       {userOwnsSelectedPlan && (
         <FadeIn>
           <button
-            className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
+            className="btn btn-sm btn-outline-secondary my-1 my-sm-2 ms-2"
+            style={{ borderRadius: 'var(--btn-radius-pill)', minWidth: '44px' }}
             onClick={() => {
               if (showDatePicker) {
                 setShowDatePicker(false);
@@ -238,7 +248,8 @@ export default function ActionButtonsRow({
         <>
           <FadeIn>
             <button
-              className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
+              className="btn btn-sm btn-outline-secondary my-1 my-sm-2 ms-2"
+              style={{ borderRadius: 'var(--btn-radius-pill)', minWidth: '44px' }}
               onClick={() => navigate(`/experiences/${experienceId}/update`)}
               aria-label={lang.en.button.updateExperience}
               title={lang.en.button.updateExperience}
@@ -248,7 +259,8 @@ export default function ActionButtonsRow({
           </FadeIn>
           <FadeIn>
             <button
-              className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
+              className="btn btn-sm btn-outline-danger my-1 my-sm-2 ms-2"
+              style={{ borderRadius: 'var(--btn-radius-pill)', minWidth: '44px' }}
               onClick={() => setShowDeleteModal(true)}
               aria-label={lang.en.button.delete}
               title={lang.en.button.delete}

@@ -157,7 +157,7 @@ export default function ExperiencesByTag() {
           {/* Row 2: Actions (right-aligned) */}
           <div className={styles.actionsRow}>
             <div className={styles.actionsRight}>
-              <Button as={Link} to="/experiences" variant="gradient">
+              <Button as={Link} to="/experiences" variant="gradient" className="btn-gradient">
                 View All Experiences
               </Button>
             </div>

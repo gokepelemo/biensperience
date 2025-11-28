@@ -362,6 +362,7 @@ export default function NewExperience() {
                 tags={tags}
                 onChange={handleTagsChange}
                 placeholder={lang.en.placeholder.experienceType}
+                maxTags={4}
               />
             </div>
 

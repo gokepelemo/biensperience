@@ -5,7 +5,7 @@ import { showDestination } from "../../utilities/destinations-api";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
-import PhotoCard from "../../components/PhotoCard/PhotoCard";
+import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import TravelTipsList from "../../components/TravelTipsList/TravelTipsList";
 import { logger } from "../../utilities/logger";
@@ -366,19 +366,21 @@ export default function SingleDestination() {
                 </Card>
               )}
 
-              {/* Photo Gallery Section */}
-              {destination.photos?.length > 0 && (
-                <Card className={styles.contentCard}>
-                  <Card.Body className={styles.contentCardBody}>
-                    <h3 className={styles.sectionTitle}>Photos</h3>
-                    <PhotoCard
-                      photos={destination.photos}
-                      defaultPhotoId={destination.default_photo_id}
-                      altText={destination.name}
-                    />
-                  </Card.Body>
-                </Card>
-              )}
+              {/* Map Section */}
+              <Card className={styles.contentCard}>
+                <Card.Body className={styles.contentCardBody}>
+                  <h3 className={styles.sectionTitle}>
+                    <FaMapMarkerAlt style={{ marginRight: '8px' }} />
+                    Location
+                  </h3>
+                  <GoogleMap
+                    location={destination.map_location || `${destination.name}, ${destination.state ? destination.state + ', ' : ''}${destination.country}`}
+                    height={350}
+                    title={`Map of ${destination.name}`}
+                    className={styles.destinationMap}
+                  />
+                </Card.Body>
+              </Card>
 
               {/* Travel Tips Section */}
               {destination.travel_tips?.length > 0 && (

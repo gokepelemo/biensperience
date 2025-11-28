@@ -601,6 +601,7 @@ export default function UpdateExperience() {
                 label={lang.en.label.experienceTypes}
                 onChange={handleTagsChange}
                 placeholder={lang.en.placeholder.experienceType}
+                maxTags={4}
               />
               <small className="form-text text-muted">
                 {lang.en.helper.experienceTypesOptional}

@@ -5,7 +5,7 @@ import { logger } from "../../utilities/logger";
 import { getExperienceTags } from "../../utilities/experiences-api";
 import { createSimpleFilter } from "../../utilities/trie";
 
-export default function TagInput({ tags = [], onChange, placeholder = "Add tags..." }) {
+export default function TagInput({ tags = [], onChange, placeholder = "Add tags...", maxTags = null }) {
   const [inputValue, setInputValue] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -13,6 +13,9 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const [isSelectingSuggestion, setIsSelectingSuggestion] = useState(false);
   const wrapperRef = useRef(null);
+
+  // Check if max tags limit is reached
+  const isAtMaxTags = maxTags !== null && tags.length >= maxTags;
 
   // Fetch all existing tags on mount
   useEffect(() => {
@@ -114,7 +117,7 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
 
   const addTag = () => {
     const trimmedValue = inputValue.trim();
-    if (trimmedValue && !tags.includes(trimmedValue)) {
+    if (trimmedValue && !tags.includes(trimmedValue) && !isAtMaxTags) {
       onChange([...tags, trimmedValue]);
       setInputValue("");
       setShowSuggestions(false);
@@ -122,7 +125,7 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
   };
 
   const addTagFromSuggestion = (tag) => {
-    if (!tags.includes(tag)) {
+    if (!tags.includes(tag) && !isAtMaxTags) {
       setIsSelectingSuggestion(true);
       onChange([...tags, tag]);
       setInputValue("");
@@ -174,7 +177,8 @@ export default function TagInput({ tags = [], onChange, placeholder = "Add tags.
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onBlur={handleInputBlur}
-          placeholder={tags.length === 0 ? placeholder : ""}
+          placeholder={isAtMaxTags ? `Maximum ${maxTags} types` : (tags.length === 0 ? placeholder : "")}
+          disabled={isAtMaxTags}
         />
       </div>
       {showSuggestions && suggestions.length > 0 && (

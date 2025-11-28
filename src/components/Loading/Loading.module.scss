@@ -17,12 +17,30 @@
   padding: $space-4;
   box-sizing: border-box;
   contain: layout style; // Prevent layout shifts
+
+  /* When inside a button, remove padding and gaps to fit content */
+  :global(.btn) &,
+  :global(button) & {
+    display: inline-flex;
+    flex-direction: row;
+    padding: 0;
+    gap: 0;
+    contain: none; // Allow natural sizing within button
+  }
 }
 
 .loadingContent {
   @include flex-column;
   @include flex-center; // Center content within container
   gap: $space-4;
+
+  /* When inside a button, simplify layout */
+  :global(.btn) &,
+  :global(button) & {
+    display: inline-flex;
+    flex-direction: row;
+    gap: 0;
+  }
 }
 
 /* ============================================
@@ -34,6 +52,15 @@
   position: relative;
   width: 100%;
   min-height: 100px;
+
+  /* When inside a button, don't declare fixed dimensions - fit within button content */
+  :global(.btn) &,
+  :global(button) & {
+    width: auto;
+    min-height: unset;
+    padding: 0;
+    gap: 0;
+  }
 }
 
 /* Variant: Centered (centers in parent container) */
