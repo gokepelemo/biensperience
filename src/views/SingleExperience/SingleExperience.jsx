@@ -46,6 +46,7 @@ import {
 } from "../../utilities/date-utils";
 import PlanningTime from "../../components/PlanningTime/PlanningTime";
 import CostEstimate from "../../components/CostEstimate/CostEstimate";
+import { StarRating, DifficultyRating } from "../../components/RatingScale/RatingScale";
 import { formatPlanningTime } from "../../utilities/planning-time-utils";
 import { formatCostEstimate } from "../../utilities/cost-utils";
 import { handleError } from "../../utilities/error-handler";
@@ -2735,6 +2736,32 @@ export default function SingleExperience() {
 
                       {/* Details List */}
                       <div className={styles.detailsList}>
+                        {experience.rating > 0 && (
+                          <div className={styles.detailItem}>
+                            <div className={styles.detailLabel}>Rating</div>
+                            <div className={styles.detailValue}>
+                              <StarRating
+                                rating={experience.rating}
+                                size="md"
+                                showValue={true}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {experience.difficulty > 0 && (
+                          <div className={styles.detailItem}>
+                            <div className={styles.detailLabel}>Difficulty</div>
+                            <div className={styles.detailValue}>
+                              <DifficultyRating
+                                difficulty={experience.difficulty}
+                                size="md"
+                                showValue={true}
+                                showLabel={true}
+                                variant="dots"
+                              />
+                            </div>
+                          </div>
+                        )}
                         {experience.cost_estimate > 0 && (
                           <div className={styles.detailItem}>
                             <div className={styles.detailLabel}>Estimated Cost</div>
@@ -2758,16 +2785,6 @@ export default function SingleExperience() {
                                 showTooltip={true}
                                 size="md"
                               />
-                            </div>
-                          </div>
-                        )}
-                        {experience.destination && (
-                          <div className={styles.detailItem}>
-                            <div className={styles.detailLabel}>Destination</div>
-                            <div className={styles.detailValue}>
-                              <Link to={`/destinations/${experience.destination._id}`}>
-                                {experience.destination.name}
-                              </Link>
                             </div>
                           </div>
                         )}

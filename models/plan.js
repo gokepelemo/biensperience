@@ -71,6 +71,9 @@ const planItemSnapshotSchema = new Schema({
   url: String,
   photo: { type: Schema.Types.ObjectId, ref: "Photo" },
   parent: { type: Schema.Types.ObjectId },
+  // Scheduled date and time for timeline organization (user-specific overrides)
+  scheduled_date: { type: Date, default: null },
+  scheduled_time: { type: String, default: null }, // HH:MM format
   // Plan item details (notes, location, chat, photos, documents)
   details: {
     type: new Schema({

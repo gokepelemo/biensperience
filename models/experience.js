@@ -90,6 +90,20 @@ const experienceSchema = new Schema(
         message: 'Duplicate permissions are not allowed'
       }
     },
+    // Difficulty rating (1-10 scale)
+    difficulty: {
+      type: Number,
+      min: 1,
+      max: 10,
+      default: null
+    },
+    // General star rating (1-5 scale, supports half stars via 0.5 increments)
+    rating: {
+      type: Number,
+      min: 0,
+      max: 5,
+      default: null
+    },
   },
   {
     timestamps: true,

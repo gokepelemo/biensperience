@@ -30,6 +30,7 @@ import SkeletonLoader from '../../../components/SkeletonLoader/SkeletonLoader';
 import DragHandle from '../../../components/DragHandle/DragHandle';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import PlanningTime from '../../../components/PlanningTime/PlanningTime';
+import MetricsBar from '../../../components/MetricsBar/MetricsBar';
 import CostsList from '../../../components/CostsList';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatDateMetricCard, formatDateForInput } from '../../../utilities/date-utils';
@@ -629,118 +630,70 @@ export default function MyPlanTabContent({
     );
   }
 
-  // Plan metadata cards
+  // Check if metrics data is still loading
+  // Plan exists but metrics might not be fully computed yet
+  const metricsLoading = plansLoading || loading;
+
+  // Build metrics array for MetricsBar
+  const planMetrics = metricsLoading ? [] : [
+    {
+      id: 'planned-date',
+      title: lang.en.label.plannedDate,
+      type: 'date',
+      value: currentPlan.planned_date,
+      icon: '📅',
+      onClick: !currentPlan.planned_date ? () => {
+        setIsEditingDate(true);
+        setPlannedDate(
+          displayedPlannedDate
+            ? formatDateForInput(displayedPlannedDate)
+            : ""
+        );
+        setShowDatePicker(true);
+      } : undefined
+    },
+    {
+      id: 'total-cost',
+      title: lang.en.label.totalCost,
+      type: 'cost',
+      value: currentPlan.total_cost || 0,
+      icon: '💰'
+    },
+    {
+      id: 'completion',
+      title: lang.en.label.completion,
+      type: 'completion',
+      value: currentPlan.completion_percentage || 0,
+      icon: '✅',
+      color: (currentPlan.completion_percentage || 0) >= 100 ? 'success' :
+             (currentPlan.completion_percentage || 0) >= 50 ? 'primary' : 'default'
+    },
+    {
+      id: 'planning-time',
+      title: lang.en.label.planningTime,
+      type: 'days',
+      value: currentPlan.max_days > 0 ? currentPlan.max_days : null,
+      icon: '⏱️'
+    }
+  ];
+
+  // Plan metadata using MetricsBar component
   const planMetadata = (
-    <div className="plan-metrics-container mb-4">
-      <div className="row g-3">
-        {/* Planned Date Card */}
-        <div className="col-md-3 col-sm-6">
-          <div className="metric-card">
-            <div className="metric-header">
-              <span className="metric-title">
-                {lang.en.label.plannedDate}
-              </span>
+    <div className="plan-metrics-container mb-4" ref={plannedDateRef}>
+      {metricsLoading ? (
+        <div className="row g-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="col-md-3 col-sm-6">
+              <div className="metric-card">
+                <SkeletonLoader variant="text" width="60px" height="14px" className="mb-2" />
+                <SkeletonLoader variant="text" width="80px" height="24px" />
+              </div>
             </div>
-            <div
-              className="metric-value"
-              ref={plannedDateRef}
-            >
-              {currentPlan.planned_date ? (
-                formatDateMetricCard(
-                  currentPlan.planned_date
-                )
-              ) : (
-                <span
-                  className="set-date-link"
-                  onClick={() => {
-                    setIsEditingDate(true);
-                    setPlannedDate(
-                      displayedPlannedDate
-                        ? formatDateForInput(
-                            displayedPlannedDate
-                          )
-                        : ""
-                    );
-                    setShowDatePicker(true);
-                  }}
-                  title={lang.en.tooltip.setPlannedDate}
-                >
-                  {lang.en.label.setOneNow}
-                </span>
-              )}
-            </div>
-          </div>
+          ))}
         </div>
-
-        {/* Total Cost Card */}
-        <div className="col-md-3 col-sm-6">
-          <div className="metric-card">
-            <div className="metric-header">
-              <span className="metric-title">
-                {lang.en.label.totalCost}
-              </span>
-            </div>
-            <div className="metric-value">
-              <CostEstimate
-                cost={currentPlan.total_cost || 0}
-                showTooltip={true}
-                compact={true}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Completion Card */}
-        <div className="col-md-3 col-sm-6">
-          <div className="metric-card">
-            <div className="metric-header">
-              <span className="metric-title">
-                {lang.en.label.completion}
-              </span>
-            </div>
-            <div className="metric-value">
-              {currentPlan.completion_percentage || 0}%
-            </div>
-          </div>
-        </div>
-
-        {/* Planning Time Card */}
-        <div className="col-md-3 col-sm-6">
-          <div className="metric-card">
-            <div className="metric-header">
-              <span className="metric-title">
-                {lang.en.label.planningTime}
-              </span>
-            </div>
-            <div className="metric-value">
-              {currentPlan.max_days > 0 ? (
-                <PlanningTime
-                  days={currentPlan.max_days}
-                  showTooltip={true}
-                />
-              ) : '-'}
-            </div>
-          </div>
-        </div>
-
-        {/* Collaborators Card */}
-        <div className="col-md-3 col-sm-6">
-          <div className="metric-card">
-            <div className="metric-header">
-              <span className="metric-title">
-                {lang.en.label.collaborators}
-              </span>
-            </div>
-            <div className="metric-value">
-              {(planCollaborators?.length || 0) + (planOwner ? 1 : 0)}
-              {' '}
-              {((planCollaborators?.length || 0) + (planOwner ? 1 : 0)) === 1
-                ? lang.en.label.person
-                : lang.en.label.people}
-            </div>
-          </div>
-        </div>
-      </div>
+      ) : (
+        <MetricsBar metrics={planMetrics} />
+      )}
     </div>
   );
 

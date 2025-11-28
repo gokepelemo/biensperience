@@ -17,6 +17,11 @@ export default {
       options: ['text', 'circle', 'rectangle'],
       description: 'The shape variant of the skeleton',
     },
+    size: {
+      control: 'select',
+      options: ['sm', 'md', 'lg'],
+      description: 'Size variant for text skeleton: sm (small), md (default), lg (large)',
+    },
     width: {
       control: 'text',
       description: 'Width (CSS value or number for pixels)',
@@ -97,6 +102,126 @@ export const BasicVariants = {
             <SkeletonLoader variant="rectangle" width={100} height={100} />
             <SkeletonLoader variant="rectangle" width={150} height={100} />
             <SkeletonLoader variant="rectangle" width={200} height={120} />
+          </div>
+        </div>
+      </div>
+    </div>
+  ),
+};
+
+// Text Size Variants
+export const TextSizeVariants = {
+  name: 'Text Size Variants',
+  render: () => (
+    <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
+      <h3 style={{
+        marginBottom: 'var(--space-6)',
+        color: 'var(--color-text-primary)',
+        fontSize: 'var(--font-size-xl)',
+        fontWeight: 'var(--font-weight-bold)'
+      }}>
+        Text Size Variants
+      </h3>
+      <p style={{
+        marginBottom: 'var(--space-6)',
+        color: 'var(--color-text-muted)',
+        fontSize: 'var(--font-size-sm)'
+      }}>
+        Use the `size` prop to change the height of text skeletons: sm (small), md (default), lg (large)
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)', maxWidth: '400px' }}>
+        {/* Small */}
+        <div>
+          <h4 style={{
+            marginBottom: 'var(--space-4)',
+            color: 'var(--color-text-secondary)',
+            fontSize: 'var(--font-size-lg)'
+          }}>
+            Small (size="sm")
+          </h4>
+          <p style={{
+            marginBottom: 'var(--space-2)',
+            color: 'var(--color-text-muted)',
+            fontSize: 'var(--font-size-xs)'
+          }}>
+            Uses $font-size-sm height - ideal for metadata, captions, timestamps
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <SkeletonLoader variant="text" size="sm" width="100%" />
+            <SkeletonLoader variant="text" size="sm" width="80%" />
+            <SkeletonLoader variant="text" size="sm" width="60%" />
+          </div>
+        </div>
+
+        {/* Medium (Default) */}
+        <div>
+          <h4 style={{
+            marginBottom: 'var(--space-4)',
+            color: 'var(--color-text-secondary)',
+            fontSize: 'var(--font-size-lg)'
+          }}>
+            Medium (size="md" - default)
+          </h4>
+          <p style={{
+            marginBottom: 'var(--space-2)',
+            color: 'var(--color-text-muted)',
+            fontSize: 'var(--font-size-xs)'
+          }}>
+            Uses $font-size-base height - standard body text
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <SkeletonLoader variant="text" size="md" width="100%" />
+            <SkeletonLoader variant="text" size="md" width="80%" />
+            <SkeletonLoader variant="text" size="md" width="60%" />
+          </div>
+        </div>
+
+        {/* Large */}
+        <div>
+          <h4 style={{
+            marginBottom: 'var(--space-4)',
+            color: 'var(--color-text-secondary)',
+            fontSize: 'var(--font-size-lg)'
+          }}>
+            Large (size="lg")
+          </h4>
+          <p style={{
+            marginBottom: 'var(--space-2)',
+            color: 'var(--color-text-muted)',
+            fontSize: 'var(--font-size-xs)'
+          }}>
+            Uses $font-size-lg height - ideal for titles, headings
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <SkeletonLoader variant="text" size="lg" width="100%" />
+            <SkeletonLoader variant="text" size="lg" width="80%" />
+            <SkeletonLoader variant="text" size="lg" width="60%" />
+          </div>
+        </div>
+
+        {/* Side by side comparison */}
+        <div>
+          <h4 style={{
+            marginBottom: 'var(--space-4)',
+            color: 'var(--color-text-secondary)',
+            fontSize: 'var(--font-size-lg)'
+          }}>
+            Side-by-Side Comparison
+          </h4>
+          <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-end' }}>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <SkeletonLoader variant="text" size="sm" width="100%" />
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>sm</span>
+            </div>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <SkeletonLoader variant="text" size="md" width="100%" />
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>md</span>
+            </div>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <SkeletonLoader variant="text" size="lg" width="100%" />
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>lg</span>
+            </div>
           </div>
         </div>
       </div>
@@ -853,6 +978,7 @@ export const Playground = (args) => (
 );
 Playground.args = {
   variant: 'rectangle',
+  size: 'md',
   width: 300,
   height: 150,
   animate: true,

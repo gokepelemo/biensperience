@@ -7,6 +7,7 @@ import styles from './SkeletonLoader.module.scss';
  *
  * @param {Object} props - Component props
  * @param {string} props.variant - Loading shape: 'text', 'circle', 'rectangle'
+ * @param {string} props.size - Size variant for text: 'sm', 'md' (default), 'lg'
  * @param {string|number} props.width - Width of the skeleton (CSS value or number for pixels)
  * @param {string|number} props.height - Height of the skeleton (CSS value or number for pixels)
  * @param {number} props.lines - Number of text lines (only for text variant)
@@ -16,6 +17,7 @@ import styles from './SkeletonLoader.module.scss';
  */
 export default function SkeletonLoader({
   variant = 'text',
+  size = 'md',
   width,
   height,
   lines = 1,
@@ -26,9 +28,11 @@ export default function SkeletonLoader({
 }) {
   // Build className string with CSS Modules
   const variantClass = styles[`skeleton${variant.charAt(0).toUpperCase() + variant.slice(1)}`];
+  const sizeClass = size !== 'md' && variant === 'text' ? styles[`skeleton${size.charAt(0).toUpperCase() + size.slice(1)}`] : null;
   const classes = [
     styles.skeletonLoader,
     variantClass,
+    sizeClass,
     animate && styles.skeletonAnimate,
     className
   ].filter(Boolean).join(' ');
@@ -71,6 +75,7 @@ export default function SkeletonLoader({
 
 SkeletonLoader.propTypes = {
   variant: PropTypes.oneOf(['text', 'circle', 'rectangle']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg']),
   width: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   height: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   lines: PropTypes.number,
