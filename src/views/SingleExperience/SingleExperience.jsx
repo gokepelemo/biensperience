@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { FaUserPlus, FaTimes, FaUser, FaMapMarkerAlt, FaShare, FaCalendarAlt } from "react-icons/fa";
+import { FaUserPlus, FaTimes, FaUser, FaMapMarkerAlt, FaShare } from "react-icons/fa";
 import { Row, Col, Badge } from "react-bootstrap";
 import { BsPlusCircle, BsPersonPlus, BsCheckCircleFill } from "react-icons/bs";
 import { useUser } from "../../contexts/UserContext";
@@ -2686,38 +2686,6 @@ export default function SingleExperience() {
                 <div className={styles.sidebar}>
                   <div className={styles.sidebarCard}>
                       <h3 className={styles.sidebarTitle}>Experience Details</h3>
-
-                      {/* Planned Date Badge in Sidebar - only show when user has their own plan OR viewing My Plan tab with a collaborative plan selected */}
-                      {selectedPlan && !pendingUnplan && selectedPlan.planned_date && (userHasExperience || activeTab === "myplan") && (
-                        <div
-                          className={styles.datePickerBadge}
-                          onClick={() => {
-                            const userOwnsSelectedPlan = selectedPlan && user && (
-                              selectedPlan.user?._id?.toString() === user._id?.toString() ||
-                              selectedPlan.user?.toString() === user._id?.toString()
-                            );
-                            if (!userOwnsSelectedPlan) return;
-                            if (showDatePicker) {
-                              setShowDatePicker(false);
-                            } else {
-                              setIsEditingDate(true);
-                              setPlannedDate(formatDateForInput(selectedPlan.planned_date));
-                              setShowDatePicker(true);
-                            }
-                          }}
-                          title={
-                            selectedPlan && user && (
-                              selectedPlan.user?._id?.toString() === user._id?.toString() ||
-                              selectedPlan.user?.toString() === user._id?.toString()
-                            )
-                              ? "Click to update planned date"
-                              : "Collaborative plan date"
-                          }
-                        >
-                          <FaCalendarAlt className={styles.dateIcon} />
-                          Planned for {formatDateShort(selectedPlan.planned_date)}
-                        </div>
-                      )}
 
                       {/* Date Picker Section */}
                       <DatePickerSection

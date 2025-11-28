@@ -5,11 +5,13 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useRef } from 'react';
+import { FaCalendarAlt } from 'react-icons/fa';
 import { FadeIn } from '../../../components/design-system';
 import Loading from '../../../components/Loading/Loading';
 import { isOwner } from '../../../utilities/permissions';
-import { formatDateForInput } from '../../../utilities/date-utils';
+import { formatDateForInput, formatDateOrdinal } from '../../../utilities/date-utils';
 import useButtonWidth from '../../../utilities/useButtonWidth';
+import styles from './ActionButtonsRow.module.scss';
 
 export default function ActionButtonsRow({
   // User & Experience data
@@ -69,21 +71,11 @@ export default function ActionButtonsRow({
   // Sidebar variant - vertical stacking with full-width buttons
   if (variant === "sidebar") {
     return (
-      <div className="d-flex flex-column gap-3">
+      <div className={styles.sidebarContainer}>
         {/* Primary Action - Plan It / Planned Button */}
         <FadeIn>
           <button
-            className={`btn btn-lg w-100 ${
-              userHasExperience ? "btn-plan-remove" : "btn-primary"
-            } ${loading || plansLoading ? "loading" : ""}`}
-            style={{
-              borderRadius: 'var(--radius-full)',
-              fontWeight: 'var(--font-weight-semibold)',
-              minHeight: '52px', // Fixed height to prevent layout shift
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className={`${styles.sidebarPlanButton} ${userHasExperience ? styles.planned : ''} ${loading || plansLoading ? styles.loading : ''}`}
             ref={planButtonRef}
             onClick={handleExperience}
             aria-label={
@@ -98,9 +90,7 @@ export default function ActionButtonsRow({
             aria-busy={loading || plansLoading}
           >
             {plansLoading ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', height: '24px' }}>
-                <Loading size="sm" variant="inline" showMessage={false} />
-              </span>
+              <Loading size="sm" variant="inline" showMessage={false} />
             ) : userHasExperience ? (
               favHover
                 ? lang.en.button.removeFavoriteExp
@@ -111,14 +101,41 @@ export default function ActionButtonsRow({
           </button>
         </FadeIn>
 
+        {/* Planned Date Badge */}
+        {selectedPlan?.planned_date && (
+          <FadeIn>
+            <div className="d-flex justify-content-center">
+              <div
+                className={`${styles.datePickerBadge} ${!userOwnsSelectedPlan ? styles.viewOnly : ''}`}
+                onClick={() => {
+                  if (!userOwnsSelectedPlan) return;
+                  if (showDatePicker) {
+                    setShowDatePicker(false);
+                  } else {
+                    setIsEditingDate(true);
+                    setPlannedDate(formatDateForInput(selectedPlan.planned_date));
+                    setShowDatePicker(true);
+                  }
+                }}
+                title={userOwnsSelectedPlan
+                  ? (showDatePicker ? "Click to close date picker" : "Click to update planned date")
+                  : "Collaborative plan date (view only)"
+                }
+              >
+                <FaCalendarAlt className={styles.dateIcon} />
+                {formatDateOrdinal(selectedPlan.planned_date)}
+              </div>
+            </div>
+          </FadeIn>
+        )}
+
         {/* Secondary Actions Row */}
-        <div className="d-flex gap-2">
+        <div className={styles.sidebarSecondaryRow}>
           {/* Edit Date Button - Only shown if user owns the selected plan */}
           {userOwnsSelectedPlan && (
             <FadeIn>
               <button
-                className="btn btn-outline-secondary flex-grow-1"
-                style={{ borderRadius: 'var(--btn-radius-pill)', minHeight: '44px' }}
+                className={styles.secondaryButton}
                 onClick={() => {
                   if (showDatePicker) {
                     setShowDatePicker(false);
@@ -150,8 +167,7 @@ export default function ActionButtonsRow({
             <>
               <FadeIn>
                 <button
-                  className="btn btn-outline-secondary"
-                  style={{ borderRadius: 'var(--btn-radius-pill)', minWidth: '60px', minHeight: '44px' }}
+                  className={styles.secondaryButton}
                   onClick={() => navigate(`/experiences/${experienceId}/update`)}
                   aria-label={lang.en.button.updateExperience}
                   title={lang.en.button.updateExperience}
@@ -161,13 +177,12 @@ export default function ActionButtonsRow({
               </FadeIn>
               <FadeIn>
                 <button
-                  className="btn btn-outline-danger"
-                  style={{ borderRadius: 'var(--btn-radius-pill)', minWidth: '60px', minHeight: '44px' }}
+                  className={styles.dangerButton}
                   onClick={() => setShowDeleteModal(true)}
                   aria-label={lang.en.button.delete}
                   title={lang.en.button.delete}
                 >
-                  ❌
+                  🗑️
                 </button>
               </FadeIn>
             </>
@@ -179,14 +194,12 @@ export default function ActionButtonsRow({
 
   // Default variant - horizontal row layout
   return (
-    <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center flex-row experience-actions">
+    <div className={`${styles.actionButtonsRow} col-md-6`}>
       {/* Plan It / Planned Button */}
       <FadeIn>
-          <button
-            className={`btn btn-sm btn-icon my-1 my-sm-2 ${
-              userHasExperience ? "btn-plan-remove" : "btn-plan-add"
-            } ${loading || plansLoading ? "loading" : ""}`}
-            ref={planButtonRef}
+        <button
+          className={`${styles.planButton} ${userHasExperience ? styles.planned : ''} ${loading || plansLoading ? styles.loading : ''}`}
+          ref={planButtonRef}
           onClick={handleExperience}
           aria-label={
             userHasExperience
@@ -211,12 +224,37 @@ export default function ActionButtonsRow({
         </button>
       </FadeIn>
 
+      {/* Planned Date Badge - Between Plan It and action buttons */}
+      {selectedPlan?.planned_date && (
+        <FadeIn>
+          <div
+            className={`${styles.datePickerBadge} ${!userOwnsSelectedPlan ? styles.viewOnly : ''}`}
+            onClick={() => {
+              if (!userOwnsSelectedPlan) return;
+              if (showDatePicker) {
+                setShowDatePicker(false);
+              } else {
+                setIsEditingDate(true);
+                setPlannedDate(formatDateForInput(selectedPlan.planned_date));
+                setShowDatePicker(true);
+              }
+            }}
+            title={userOwnsSelectedPlan
+              ? (showDatePicker ? "Click to close date picker" : "Click to update planned date")
+              : "Collaborative plan date (view only)"
+            }
+          >
+            <FaCalendarAlt className={styles.dateIcon} />
+            {formatDateOrdinal(selectedPlan.planned_date)}
+          </div>
+        </FadeIn>
+      )}
+
       {/* Edit Date Button - Only shown if user owns the selected plan */}
       {userOwnsSelectedPlan && (
         <FadeIn>
           <button
-            className="btn btn-sm btn-outline-secondary my-1 my-sm-2 ms-2"
-            style={{ borderRadius: 'var(--btn-radius-pill)', minWidth: '44px' }}
+            className={styles.secondaryButton}
             onClick={() => {
               if (showDatePicker) {
                 setShowDatePicker(false);
@@ -248,8 +286,7 @@ export default function ActionButtonsRow({
         <>
           <FadeIn>
             <button
-              className="btn btn-sm btn-outline-secondary my-1 my-sm-2 ms-2"
-              style={{ borderRadius: 'var(--btn-radius-pill)', minWidth: '44px' }}
+              className={styles.secondaryButton}
               onClick={() => navigate(`/experiences/${experienceId}/update`)}
               aria-label={lang.en.button.updateExperience}
               title={lang.en.button.updateExperience}
@@ -259,13 +296,12 @@ export default function ActionButtonsRow({
           </FadeIn>
           <FadeIn>
             <button
-              className="btn btn-sm btn-outline-danger my-1 my-sm-2 ms-2"
-              style={{ borderRadius: 'var(--btn-radius-pill)', minWidth: '44px' }}
+              className={styles.dangerButton}
               onClick={() => setShowDeleteModal(true)}
               aria-label={lang.en.button.delete}
               title={lang.en.button.delete}
             >
-              ❌
+              🗑️
             </button>
           </FadeIn>
         </>

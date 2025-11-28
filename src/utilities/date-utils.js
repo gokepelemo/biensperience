@@ -659,6 +659,44 @@ export function formatDateShort(date) {
 }
 
 /**
+ * Gets the ordinal suffix for a day number (st, nd, rd, th)
+ * @param {number} day - Day of month (1-31)
+ * @returns {string} Ordinal suffix
+ */
+function getOrdinalSuffix(day) {
+  if (day > 3 && day < 21) return 'th';
+  switch (day % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
+}
+
+/**
+ * Formats a date with ordinal day (e.g., "Jan 2nd, 2026")
+ * @param {string|Date} date - The date to format
+ * @returns {string} Formatted date string with ordinal day
+ */
+export function formatDateOrdinal(date) {
+  if (!date) return '';
+
+  try {
+    const dateObj = toLocalDate(date);
+    if (!dateObj) return '';
+
+    const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
+    const day = dateObj.getDate();
+    const year = dateObj.getFullYear();
+    const suffix = getOrdinalSuffix(day);
+
+    return `${month} ${day}${suffix}, ${year}`;
+  } catch (error) {
+    return '';
+  }
+}
+
+/**
  * Formats a date to metric card format (e.g., "Mon, Jan 15 2025")
  * @param {string|Date} date - The date to format
  * @returns {string} Metric card formatted date string
