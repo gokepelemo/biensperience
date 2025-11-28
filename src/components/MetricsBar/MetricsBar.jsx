@@ -5,12 +5,12 @@
  */
 
 import React, { useMemo, useRef, useState, useEffect, useCallback, useId } from 'react';
+import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import * as FaIcons from 'react-icons/fa';
 import { formatDateMetricCard } from '../../utilities/date-utils';
 import { formatCostEstimate } from '../../utilities/cost-utils';
 import { formatPlanningTime } from '../../utilities/planning-time-utils';
-import InfoTooltip from '../InfoTooltip/InfoTooltip';
 import styles from './MetricsBar.module.scss';
 
 /**
@@ -135,6 +135,8 @@ export function MetricItem({
   const tooltipId = useId();
   const valueRef = useRef(null);
   const [isTruncated, setIsTruncated] = useState(false);
+  const [showTooltipPopup, setShowTooltipPopup] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
 
   const formattedValue = useMemo(() => formatValue(value, type), [value, type]);
 
@@ -180,11 +182,82 @@ export function MetricItem({
 
   // Determine tooltip content - use provided tooltip or formatted value if truncated
   const tooltipContent = tooltip || (isTruncated ? formattedValue : null);
-  const showTooltip = isTruncated && tooltipContent;
+  const hasTooltip = isTruncated && tooltipContent;
 
-  // Render the value element
+  // Calculate tooltip position relative to value element
+  const calculateTooltipPosition = useCallback(() => {
+    if (!valueRef.current) return;
+    const rect = valueRef.current.getBoundingClientRect();
+    const viewportPadding = 16;
+    const tooltipHeight = 40; // Approximate
+    const arrowHeight = 8;
+
+    // Center horizontally on the element
+    let left = rect.left + rect.width / 2;
+
+    // Position above the element
+    let top = rect.top - tooltipHeight - arrowHeight;
+
+    // If not enough space above, position below
+    if (top < viewportPadding) {
+      top = rect.bottom + arrowHeight;
+    }
+
+    setTooltipPosition({ top, left });
+  }, []);
+
+  // Show tooltip on hover
+  const handleMouseEnter = useCallback(() => {
+    if (hasTooltip) {
+      calculateTooltipPosition();
+      setShowTooltipPopup(true);
+    }
+  }, [hasTooltip, calculateTooltipPosition]);
+
+  const handleMouseLeave = useCallback(() => {
+    setShowTooltipPopup(false);
+  }, []);
+
+  // Toggle tooltip on click (for touch devices)
+  const handleTooltipClick = useCallback((e) => {
+    if (hasTooltip) {
+      e.stopPropagation();
+      calculateTooltipPosition();
+      setShowTooltipPopup(prev => !prev);
+    }
+  }, [hasTooltip, calculateTooltipPosition]);
+
+  // Close tooltip when clicking outside (for touch devices)
+  useEffect(() => {
+    if (!showTooltipPopup) return;
+
+    const handleClickOutside = () => {
+      setShowTooltipPopup(false);
+    };
+
+    // Delay to prevent immediate close
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleClickOutside);
+    }, 50);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showTooltipPopup]);
+
+  // Render the value element with hover handlers
   const valueElement = (
-    <span ref={valueRef} className={styles.metricValue}>
+    <span
+      ref={valueRef}
+      className={`${styles.metricValue} ${hasTooltip ? styles.hasTooltip : ''}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={hasTooltip ? handleTooltipClick : undefined}
+      role={hasTooltip ? 'button' : undefined}
+      tabIndex={hasTooltip ? 0 : undefined}
+      aria-describedby={showTooltipPopup ? `metric-tooltip-${tooltipId}` : undefined}
+    >
       {formattedValue}
     </span>
   );
@@ -200,18 +273,7 @@ export function MetricItem({
       {icon && <div className={styles.metricIcon}>{renderIcon(icon)}</div>}
       <div className={styles.metricContent}>
         <span className={styles.metricTitle}>{title}</span>
-        {showTooltip ? (
-          <InfoTooltip
-            id={`metric-tooltip-${tooltipId}`}
-            content={tooltipContent}
-            ariaLabel={`${title}: ${tooltipContent}`}
-            className={styles.metricTooltip}
-          >
-            {valueElement}
-          </InfoTooltip>
-        ) : (
-          valueElement
-        )}
+        {valueElement}
         {footer && <span className={styles.metricFooter}>{footer}</span>}
         {progressValue !== undefined && (
           <div className={styles.progressBar}>
@@ -227,6 +289,23 @@ export function MetricItem({
         )}
       </div>
       {action && <div className={styles.metricAction}>{action}</div>}
+
+      {/* Hover tooltip portal */}
+      {showTooltipPopup && hasTooltip && createPortal(
+        <div
+          id={`metric-tooltip-${tooltipId}`}
+          className={styles.hoverTooltip}
+          role="tooltip"
+          style={{
+            top: `${tooltipPosition.top}px`,
+            left: `${tooltipPosition.left}px`
+          }}
+        >
+          {tooltipContent}
+          <div className={styles.tooltipArrow} />
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
