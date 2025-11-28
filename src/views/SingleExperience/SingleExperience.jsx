@@ -2619,15 +2619,17 @@ export default function SingleExperience() {
                   )}
                 </div>
 
-                {/* Experience Overview Card */}
-                <div className={styles.contentCard}>
-                  <div className={styles.cardBody}>
-                    <h2 className={styles.cardTitle}>Experience Overview</h2>
-                    <p className={styles.cardDescription}>
-                      {experience.description || "Discover this amazing experience and start planning your adventure."}
-                    </p>
+                {/* Experience Overview Card - Only render if overview has content */}
+                {experience.overview && (
+                  <div className={styles.contentCard}>
+                    <div className={styles.cardBody}>
+                      <h2 className={styles.cardTitle}>{lang.en.label.overview}</h2>
+                      <p className={styles.cardDescription}>
+                        {experience.overview}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Plan Items Card */}
                 {experience.plan_items && experience.plan_items.length > 0 && (
@@ -2808,13 +2810,13 @@ export default function SingleExperience() {
                             {Array.isArray(experience.experience_type)
                               ? experience.experience_type.map((type, index) => (
                                   <Link key={index} to={`/experience-types/${type.toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
-                                    <TagPill color="default">{type}</TagPill>
+                                    <TagPill color="default" gradient="true">{type}</TagPill>
                                   </Link>
                                 ))
                               : typeof experience.experience_type === 'string'
                                 ? experience.experience_type.split(',').map((type, index) => (
                                     <Link key={index} to={`/experience-types/${type.trim().toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
-                                      <TagPill color="default">{type.trim()}</TagPill>
+                                      <TagPill color="default" gradient="true">{type.trim()}</TagPill>
                                     </Link>
                                   ))
                                 : null
