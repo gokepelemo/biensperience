@@ -134,7 +134,10 @@ class EventBus {
    */
   generateSessionId() {
     const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 11);
+    // Use cryptographically secure random values instead of Math.random()
+    const array = new Uint8Array(8);
+    crypto.getRandomValues(array);
+    const random = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
     return `session_${timestamp}_${random}`;
   }
 
@@ -396,10 +399,14 @@ export function subscribeToEvent(eventName, handler) {
 
 /**
  * Generate optimistic ID for client-side temporary IDs
+ * Uses cryptographically secure random values
  */
 export function generateOptimisticId(prefix = 'temp') {
   const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 11);
+  // Use cryptographically secure random values instead of Math.random()
+  const array = new Uint8Array(8);
+  crypto.getRandomValues(array);
+  const random = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
   return `${prefix}_${timestamp}_${random}`;
 }
 

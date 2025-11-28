@@ -22,6 +22,37 @@ function sanitizeText(text) {
   return text ? String(text).trim() : '';
 }
 
+/**
+ * Validate that a URL is safe for use in img src attribute
+ * Prevents XSS via javascript:, data:, or other dangerous protocols
+ *
+ * @param {string} url - URL to validate
+ * @returns {boolean} True if URL is safe
+ */
+function isSafeImageUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+
+  // Only allow http:, https:, and relative URLs
+  const trimmedUrl = url.trim().toLowerCase();
+  if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/')) {
+    return true;
+  }
+
+  // Block dangerous protocols
+  if (trimmedUrl.startsWith('javascript:') ||
+      trimmedUrl.startsWith('data:') ||
+      trimmedUrl.startsWith('vbscript:')) {
+    return false;
+  }
+
+  // Allow relative URLs without protocol
+  if (!trimmedUrl.includes(':')) {
+    return true;
+  }
+
+  return false;
+}
+
 export default function ImageUpload({ data, setData }) {
   const [uploadForm, setUploadForm] = useState({});
   const [uploading, setUploading] = useState(false);
@@ -584,20 +615,35 @@ export default function ImageUpload({ data, setData }) {
               const isDefault = index === defaultPhotoIndex && !isDisabled;
               // Sanitize photo credit to prevent XSS - React will escape JSX text content
               const sanitizedCredit = sanitizeText(photo.photo_credit);
-              
+              // Validate URL is safe before using in img src
+              const safeUrl = isSafeImageUrl(photo.url) ? photo.url : null;
+
               return (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className={`photo-item ${isDisabled ? 'photo-item-disabled' : ''}`}
                   style={{ opacity: isDisabled ? 0.5 : 1 }}
                 >
-                  <img
-                    src={photo.url}
-                    alt={sanitizedCredit || `Photo ${index + 1}`}
-                    className={styles.photoItemPreview}
-                    loading="lazy"
-                    style={{ filter: isDisabled ? 'grayscale(100%)' : 'none' }}
-                  />
+                  {safeUrl ? (
+                    <img
+                      src={safeUrl}
+                      alt={sanitizedCredit || `Photo ${index + 1}`}
+                      className={styles.photoItemPreview}
+                      loading="lazy"
+                      style={{ filter: isDisabled ? 'grayscale(100%)' : 'none' }}
+                    />
+                  ) : (
+                    <div className={styles.photoItemPreview} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'var(--color-bg-tertiary)',
+                      color: 'var(--color-text-muted)',
+                      fontSize: 'var(--font-size-sm)'
+                    }}>
+                      Invalid image URL
+                    </div>
+                  )}
                   <div className={styles.photoItemInfo}>
                     <small className={styles.photoItemCredit}>{sanitizedCredit}</small>
                     {isDefault && (

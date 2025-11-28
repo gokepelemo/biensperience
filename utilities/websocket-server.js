@@ -26,6 +26,18 @@ const mongoose = require('mongoose');
 const backendLogger = require('./backend-logger');
 
 /**
+ * Validate if a string is a valid MongoDB ObjectId
+ * Prevents NoSQL injection by ensuring IDs are properly formatted
+ *
+ * @param {string} id - The ID to validate
+ * @returns {boolean} True if valid ObjectId format
+ */
+function isValidObjectId(id) {
+  if (!id || typeof id !== 'string') return false;
+  return mongoose.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id);
+}
+
+/**
  * Room management: planId -> Set of WebSocket connections
  * @type {Map<string, Set<WebSocket>>}
  */
@@ -56,6 +68,17 @@ const CONNECTION_TIMEOUT = 35000;
  */
 async function isExperienceMember(userId, experienceId) {
   try {
+    // Validate IDs to prevent NoSQL injection
+    if (!isValidObjectId(userId) || !isValidObjectId(experienceId)) {
+      backendLogger.warn('[WebSocket] Invalid ObjectId in experience membership check', {
+        userId,
+        experienceId,
+        validUserId: isValidObjectId(userId),
+        validExperienceId: isValidObjectId(experienceId)
+      });
+      return false;
+    }
+
     const Experience = mongoose.model('Experience');
     const experience = await Experience.findById(experienceId, 'permissions').lean();
 
@@ -98,6 +121,17 @@ async function isExperienceMember(userId, experienceId) {
  */
 async function isPlanMember(userId, planId) {
   try {
+    // Validate IDs to prevent NoSQL injection
+    if (!isValidObjectId(userId) || !isValidObjectId(planId)) {
+      backendLogger.warn('[WebSocket] Invalid ObjectId in plan membership check', {
+        userId,
+        planId,
+        validUserId: isValidObjectId(userId),
+        validPlanId: isValidObjectId(planId)
+      });
+      return false;
+    }
+
     const Plan = mongoose.model('Plan');
     const plan = await Plan.findById(planId, 'permissions user').lean();
 

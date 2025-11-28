@@ -5,6 +5,37 @@ import debug from "../../utilities/debug";
 import EntitySchema from "../OpenGraph/EntitySchema";
 
 /**
+ * Validate that a URL is safe for use in img src attribute
+ * Prevents XSS via javascript:, data:, or other dangerous protocols
+ *
+ * @param {string} url - URL to validate
+ * @returns {boolean} True if URL is safe
+ */
+function isSafeImageUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+
+  // Only allow http:, https:, and relative URLs
+  const trimmedUrl = url.trim().toLowerCase();
+  if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/')) {
+    return true;
+  }
+
+  // Block dangerous protocols
+  if (trimmedUrl.startsWith('javascript:') ||
+      trimmedUrl.startsWith('data:') ||
+      trimmedUrl.startsWith('vbscript:')) {
+    return false;
+  }
+
+  // Allow relative URLs without protocol
+  if (!trimmedUrl.includes(':')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * UserAvatar - Reusable component for displaying a single user's avatar
  *
  * @param {Object} props - Component props
@@ -50,7 +81,7 @@ const UserAvatar = ({
 
   const avatarContent = (
     <>
-      {photoUrl ? (
+      {photoUrl && isSafeImageUrl(photoUrl) ? (
         <img src={photoUrl} alt={user.name} />
       ) : (
         <div className={styles.avatarInitials}>

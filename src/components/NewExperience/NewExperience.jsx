@@ -16,7 +16,7 @@ import FormField from "../FormField/FormField";
 import { FormTooltip } from "../Tooltip/Tooltip";
 import { Form } from "react-bootstrap";
 import { useFormPersistence } from "../../hooks/useFormPersistence";
-import { formatRestorationMessage } from "../../utilities/time-format";
+import { formatRestorationMessage } from "../../utilities/time-utils";
 import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 import SuccessModal from "../SuccessModal/SuccessModal";
 import { createFilter } from "../../utilities/trie";

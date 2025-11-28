@@ -9,7 +9,7 @@ import { useFormPersistence } from "../../hooks/useFormPersistence";
 import { useFormChangeHandler } from "../../hooks/useFormChangeHandler";
 import { useTravelTipsManager } from "../../hooks/useTravelTipsManager";
 import { useFormErrorHandling } from "../../hooks/useFormErrorHandling";
-import { formatRestorationMessage } from "../../utilities/time-format";
+import { formatRestorationMessage } from "../../utilities/time-utils";
 import ImageUpload from "../ImageUpload/ImageUpload";
 import Alert from "../Alert/Alert";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
