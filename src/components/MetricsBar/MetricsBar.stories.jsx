@@ -385,6 +385,46 @@ export const SingleItem = {
   ),
 };
 
+// With tooltip for truncated values
+export const WithTooltips = {
+  name: 'With Tooltips (Truncation)',
+  render: () => (
+    <div>
+      <p style={{ marginBottom: '1rem', color: 'var(--color-text-secondary)' }}>
+        When metric values are truncated with ellipsis, hover or click to see the full value in a tooltip.
+        Resize the container to see truncation in action.
+      </p>
+      <div style={{ maxWidth: '400px' }}>
+        <MetricsBar
+          metrics={[
+            {
+              title: 'Planned Date',
+              type: 'date',
+              value: new Date('2025-12-15'),
+              icon: '📅',
+              tooltip: 'Monday, December 15, 2025',
+            },
+            {
+              title: 'Total Cost',
+              type: 'cost',
+              value: 12500,
+              icon: '💰',
+              tooltip: '$12,500 estimated total cost',
+            },
+            {
+              title: 'Planning Time',
+              type: 'days',
+              value: 45,
+              icon: '⏱️',
+              tooltip: 'Approximately 6-7 weeks of planning time',
+            },
+          ]}
+        />
+      </div>
+    </div>
+  ),
+};
+
 // Responsive preview helper
 export const ResponsivePreview = {
   name: 'Responsive Preview',

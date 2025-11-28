@@ -4,12 +4,13 @@
  * Supports multiple metric types: date, string, cost, days, completion
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState, useEffect, useCallback, useId } from 'react';
 import PropTypes from 'prop-types';
 import * as FaIcons from 'react-icons/fa';
 import { formatDateMetricCard } from '../../utilities/date-utils';
 import { formatCostEstimate } from '../../utilities/cost-utils';
 import { formatPlanningTime } from '../../utilities/planning-time-utils';
+import InfoTooltip from '../InfoTooltip/InfoTooltip';
 import styles from './MetricsBar.module.scss';
 
 /**
@@ -128,9 +129,30 @@ export function MetricItem({
   progress,
   action,
   onClick,
+  tooltip,
   className = ''
 }) {
+  const tooltipId = useId();
+  const valueRef = useRef(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+
   const formattedValue = useMemo(() => formatValue(value, type), [value, type]);
+
+  // Check if text is truncated with ellipsis
+  const checkTruncation = useCallback(() => {
+    if (valueRef.current) {
+      const { scrollWidth, clientWidth } = valueRef.current;
+      setIsTruncated(scrollWidth > clientWidth);
+    }
+  }, []);
+
+  // Check truncation on mount and when value changes
+  useEffect(() => {
+    checkTruncation();
+    // Also check on window resize
+    window.addEventListener('resize', checkTruncation);
+    return () => window.removeEventListener('resize', checkTruncation);
+  }, [checkTruncation, formattedValue]);
 
   // For completion type, calculate progress automatically if not provided
   const progressValue = useMemo(() => {
@@ -156,6 +178,17 @@ export function MetricItem({
     }
   } : undefined;
 
+  // Determine tooltip content - use provided tooltip or formatted value if truncated
+  const tooltipContent = tooltip || (isTruncated ? formattedValue : null);
+  const showTooltip = isTruncated && tooltipContent;
+
+  // Render the value element
+  const valueElement = (
+    <span ref={valueRef} className={styles.metricValue}>
+      {formattedValue}
+    </span>
+  );
+
   return (
     <div
       className={itemClasses}
@@ -167,7 +200,18 @@ export function MetricItem({
       {icon && <div className={styles.metricIcon}>{renderIcon(icon)}</div>}
       <div className={styles.metricContent}>
         <span className={styles.metricTitle}>{title}</span>
-        <span className={styles.metricValue}>{formattedValue}</span>
+        {showTooltip ? (
+          <InfoTooltip
+            id={`metric-tooltip-${tooltipId}`}
+            content={tooltipContent}
+            ariaLabel={`${title}: ${tooltipContent}`}
+            className={styles.metricTooltip}
+          >
+            {valueElement}
+          </InfoTooltip>
+        ) : (
+          valueElement
+        )}
         {footer && <span className={styles.metricFooter}>{footer}</span>}
         {progressValue !== undefined && (
           <div className={styles.progressBar}>
@@ -201,6 +245,7 @@ MetricItem.propTypes = {
   progress: PropTypes.number,
   action: PropTypes.node,
   onClick: PropTypes.func,
+  tooltip: PropTypes.string,
   className: PropTypes.string
 };
 
@@ -259,7 +304,8 @@ MetricsBar.propTypes = {
       color: PropTypes.oneOf(['default', 'primary', 'success', 'warning', 'danger']),
       progress: PropTypes.number,
       action: PropTypes.node,
-      onClick: PropTypes.func
+      onClick: PropTypes.func,
+      tooltip: PropTypes.string
     })
   ),
   compact: PropTypes.bool,

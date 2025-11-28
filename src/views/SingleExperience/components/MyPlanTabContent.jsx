@@ -642,6 +642,8 @@ export default function MyPlanTabContent({
       type: 'date',
       value: currentPlan.planned_date,
       icon: '📅',
+      // Tooltip shows full date when truncated
+      tooltip: currentPlan.planned_date ? formatDateMetricCard(currentPlan.planned_date) : null,
       onClick: !currentPlan.planned_date ? () => {
         setIsEditingDate(true);
         setPlannedDate(
@@ -657,7 +659,9 @@ export default function MyPlanTabContent({
       title: lang.en.label.totalCost,
       type: 'cost',
       value: currentPlan.total_cost || 0,
-      icon: '💰'
+      icon: '💰',
+      // Tooltip shows full cost estimate when truncated
+      tooltip: formatCostEstimate(currentPlan.total_cost || 0)
     },
     {
       id: 'completion',
@@ -673,7 +677,9 @@ export default function MyPlanTabContent({
       title: lang.en.label.planningTime,
       type: 'days',
       value: currentPlan.max_days > 0 ? currentPlan.max_days : null,
-      icon: '⏱️'
+      icon: '⏱️',
+      // Tooltip shows full planning time when truncated
+      tooltip: currentPlan.max_days > 0 ? formatPlanningTime(currentPlan.max_days) : null
     }
   ];
 
