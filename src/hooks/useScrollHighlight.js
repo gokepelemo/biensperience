@@ -44,7 +44,7 @@ export function useScrollHighlight() {
     const {
       shouldHighlight = true,
       offset = 200,
-      duration = 800,
+      duration = 300, // Reduced from 800ms for subtle, snappy scroll
       maxAttempts = 8,
       retryDelay = 200
     } = options;
@@ -90,7 +90,7 @@ export function useScrollHighlight() {
 
       animateScroll.scrollTo(elementTop - offset, {
         duration,
-        smooth: 'easeInOutQuart',
+        smooth: 'easeOutQuad', // Gentler easing to prevent bounce
         onComplete: () => {
           logger.debug('[ScrollHighlight] Scroll complete');
 

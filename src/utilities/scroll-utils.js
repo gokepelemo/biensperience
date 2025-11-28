@@ -73,9 +73,9 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
           try {
             const elementTop = planSection.getBoundingClientRect().top + window.pageYOffset;
             animateScroll.scrollTo(elementTop - 80, {
-              duration: 800,
+              duration: 300, // Reduced from 800ms for subtle scroll
               delay: 0,
-              smooth: 'easeInOutQuart',
+              smooth: 'easeOutQuad', // Gentler easing to prevent bounce
               offset: -80
             });
           } catch (e) {
@@ -123,9 +123,9 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
             // Scroll with increased offset to center the item nicely in viewport
             // Additional offset accounts for navbar (80px) + extra space for visual comfort (120px)
             animateScroll.scrollTo(elementTop - 200, {
-              duration: 800,
+              duration: 300, // Reduced from 800ms for subtle scroll
               delay: 0,
-              smooth: 'easeInOutQuart',
+              smooth: 'easeOutQuad', // Gentler easing to prevent bounce
               offset: -200,
               // Callback fired when scroll animation completes - more reliable than setTimeout
               onComplete: onScrollComplete
@@ -172,9 +172,9 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
           try {
             const elementTop = planSection.getBoundingClientRect().top + window.pageYOffset;
             animateScroll.scrollTo(elementTop - 80, {
-              duration: 800,
+              duration: 300, // Reduced from 800ms for subtle scroll
               delay: 0,
-              smooth: 'easeInOutQuart',
+              smooth: 'easeOutQuad', // Gentler easing to prevent bounce
               offset: -80
             });
           } catch (e) {
