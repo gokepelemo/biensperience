@@ -14,7 +14,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { FaUserPlus, FaTimes, FaUser } from "react-icons/fa";
+import { FaUserPlus, FaTimes, FaUser, FaMapMarkerAlt, FaShare, FaCalendarAlt } from "react-icons/fa";
+import { Row, Col, Badge } from "react-bootstrap";
 import { BsPlusCircle, BsPersonPlus, BsCheckCircleFill } from "react-icons/bs";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
@@ -35,8 +36,8 @@ import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import debug from "../../utilities/debug";
 import { logger } from "../../utilities/logger";
 import { createUrlSlug } from "../../utilities/url-utils";
-import { handleStoredHash, restoreHashToUrl, clearStoredHash } from "../../utilities/hash-navigation";
-import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
+import { useNavigationIntent, INTENT_TYPES } from "../../contexts/NavigationIntentContext";
+import { useScrollHighlight } from "../../hooks/useScrollHighlight";
 import {
   formatDateShort,
   formatDateForInput,
@@ -44,13 +45,17 @@ import {
   getMinimumPlanningDate,
   isValidPlannedDate,
 } from "../../utilities/date-utils";
-import { formatPlanningTime } from "../../utilities/time-format";
+import PlanningTime from "../../components/PlanningTime/PlanningTime";
+import CostEstimate from "../../components/CostEstimate/CostEstimate";
+import { formatPlanningTime } from "../../utilities/planning-time-utils";
+import { formatCostEstimate } from "../../utilities/cost-utils";
 import { handleError } from "../../utilities/error-handler";
 import { createExpirableStorage, getCookieValue, setCookieValue } from "../../utilities/cookie-utils";
 import { formatCurrency } from "../../utilities/currency-utils";
 import { isOwner, canEditPlan } from "../../utilities/permissions";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import usePlanManagement from "../../hooks/usePlanManagement";
+import usePlanCosts from "../../hooks/usePlanCosts";
 import {
   showExperience,
   showExperienceWithContext,
@@ -166,6 +171,23 @@ export default function SingleExperience() {
     deletePlan: deletePlanViaHook
   } = usePlanManagement(experienceId, user?._id);
 
+  // Plan costs management hook
+  const {
+    costs,
+    costSummary,
+    loading: costsLoading,
+    addCost,
+    updateCost,
+    deleteCost,
+    fetchCosts
+  } = usePlanCosts(selectedPlanId);
+
+  // Navigation intent hook - single source of truth for deep-link navigation
+  const { intent, consumeIntent, clearIntent } = useNavigationIntent();
+
+  // Scroll highlight hook - consolidated scroll/highlight logic
+  const { scrollToItem, applyHighlight, clearHighlight } = useScrollHighlight();
+
   // ============================================================================
   // COMPONENT STATE
   // ============================================================================
@@ -181,7 +203,6 @@ export default function SingleExperience() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [activeTab, setActiveTab] = useState("experience"); // "experience" or "myplan"
-  const [hashSelecting, setHashSelecting] = useState(false);
   const [pendingUnplan, setPendingUnplan] = useState(false); // Hide planned date immediately when user clicks Remove (before confirm)
 
   // Plan item UI state
@@ -218,6 +239,13 @@ export default function SingleExperience() {
   // Ref for dynamic font sizing on planned date metric
   const plannedDateRef = useRef(null);
 
+  // Ref to track processed URL hashes to prevent re-scrolling on state changes
+  const processedHashRef = useRef(null);
+  // Ref to track if initial hash navigation has been handled (prevents re-navigation on state changes)
+  const initialHashHandledRef = useRef(false);
+  // Ref to track if user interaction is in progress (prevents hash effects from running during interactions)
+  const userInteractionRef = useRef(false);
+
   // Version-based reconciliation (via event-bus.js) replaces timeout-based suppression
   // Events now carry version numbers and reconcileState() automatically handles
   // optimistic ID replacement and stale event rejection
@@ -227,11 +255,6 @@ export default function SingleExperience() {
 
   // Ref to track if component is unmounting to prevent navigation interference
   const isUnmountingRef = useRef(false);
-
-  // Track hashes that we've already handled (so we don't re-run the
-  // shake/highlight when the user is already on the page and the URL
-  // contains the plan/item fragment).
-  const handledHashesRef = useRef(new Set());
 
   // Set unmounting flag when component unmounts
   useEffect(() => {
@@ -362,7 +385,15 @@ export default function SingleExperience() {
   // when the user switches to the "My Plan" tab or selects a collaborative plan.
   // We use the History API (replaceState) so this does not trigger a navigation
   // or reload — the server already exposes a route for `/plans/:planId`.
+  // CRITICAL: No PopStateEvent dispatches - they cause unwanted scroll behavior
   useEffect(() => {
+    // CRITICAL: Skip URL updates entirely during user interactions (e.g., toggling completion)
+    // This prevents any scroll/navigation side effects during item completion
+    if (userInteractionRef.current) {
+      debug.log('🔧 URL management: Skipping due to user interaction in progress');
+      return;
+    }
+
     const currentHash = window.location.hash || '';
     debug.log('🔧 URL management useEffect triggered', {
       activeTab,
@@ -447,45 +478,16 @@ export default function SingleExperience() {
           hashed
         });
 
-        try {
-          // Dedupe: avoid navigating if the URL is already the same
-          const current = `${window.location.pathname}${window.location.hash || ''}`;
-          if (current !== hashed) {
-            // Use History API to update address bar, then dispatch popstate so
-            // React Router detects the change and renders the correct route.
-            window.history.pushState(null, '', hashed);
-            try {
-              window.dispatchEvent(new PopStateEvent('popstate'));
-            } catch (e) {
-              // Older browsers: create event via document.createEvent
-              try {
-                const evt = document.createEvent('PopStateEvent');
-                evt.initPopStateEvent('popstate', false, false, null);
-                window.dispatchEvent(evt);
-              } catch (err) {
-                debug.warn('Failed to dispatch popstate after pushState', err);
-              }
-            }
-          } else {
-            debug.log('Skipping history update: URL already matches hashed plan link');
-          }
-        } catch (err) {
-          // Fallback to replaceState if pushState fails
-          const current = `${window.location.pathname}${window.location.hash || ''}`;
-          if (current !== hashed) {
-            window.history.replaceState(null, '', hashed);
-            try {
-              window.dispatchEvent(new PopStateEvent('popstate'));
-            } catch (e) {
-              try {
-                const evt = document.createEvent('PopStateEvent');
-                evt.initPopStateEvent('popstate', false, false, null);
-                window.dispatchEvent(evt);
-              } catch (err) {
-                debug.warn('Failed to dispatch popstate after replaceState', err);
-              }
-            }
-          }
+        // Dedupe: avoid updating if the URL is already the same
+        const current = `${window.location.pathname}${window.location.hash || ''}`;
+        if (current !== hashed) {
+          // REFACTORED: Use replaceState only - no PopStateEvent dispatch
+          // PopStateEvent causes unwanted scroll behavior
+          // React Router doesn't need PopStateEvent for hash-only changes
+          window.history.replaceState(null, '', hashed);
+          debug.log('URL management: Updated hash via replaceState', { hashed });
+        } else {
+          debug.log('Skipping history update: URL already matches hashed plan link');
         }
         return;
       }
@@ -501,59 +503,25 @@ export default function SingleExperience() {
           currentHash: window.location.hash
         });
 
-        try {
-          const current = `${window.location.pathname}${window.location.hash || ''}`;
-          // CRITICAL: If an incoming plan hash exists (e.g., user opened /experiences/:id#plan-<id>),
-          // preserve it so the hash-handling logic can select the plan after load.
-          // This must happen BEFORE any URL normalization to prevent race conditions.
-          const incomingHash = window.location.hash || '';
-          if (incomingHash.startsWith('#plan-')) {
-            debug.log('Preserving incoming plan hash; skipping expUrl navigate to avoid removing hash', {
-              incomingHash
-            });
-            return; // CRITICAL: Early return to prevent hash removal
-          }
+        const current = `${window.location.pathname}${window.location.hash || ''}`;
+        // CRITICAL: If an incoming plan hash exists (e.g., user opened /experiences/:id#plan-<id>),
+        // preserve it so the hash-handling logic can select the plan after load.
+        // This must happen BEFORE any URL normalization to prevent race conditions.
+        const incomingHash = window.location.hash || '';
+        if (incomingHash.startsWith('#plan-')) {
+          debug.log('Preserving incoming plan hash; skipping expUrl navigate to avoid removing hash', {
+            incomingHash
+          });
+          return; // CRITICAL: Early return to prevent hash removal
+        }
 
-          if (current !== expUrl) {
-            // When leaving plan view, update URL to create a history entry
-            window.history.pushState(null, '', expUrl);
-            try {
-              window.dispatchEvent(new PopStateEvent('popstate'));
-            } catch (e) {
-              try {
-                const evt = document.createEvent('PopStateEvent');
-                evt.initPopStateEvent('popstate', false, false, null);
-                window.dispatchEvent(evt);
-              } catch (err) {
-                debug.warn('Failed to dispatch popstate after pushState (expUrl)', err);
-              }
-            }
-          } else {
-            debug.log('Skipping history update: URL already matches experience URL');
-          }
-        } catch (err) {
-          const current = `${window.location.pathname}${window.location.hash || ''}`;
-          const incomingHash = window.location.hash || '';
-          // CRITICAL: Preserve plan hash in fallback path too
-          if (incomingHash.startsWith('#plan-')) {
-            debug.log('Preserving incoming plan hash in fallback; skipping expUrl replaceState');
-            return; // CRITICAL: Early return to prevent hash removal
-          }
-
-          if (current !== expUrl) {
-            window.history.replaceState(null, '', expUrl);
-            try {
-              window.dispatchEvent(new PopStateEvent('popstate'));
-            } catch (e) {
-              try {
-                const evt = document.createEvent('PopStateEvent');
-                evt.initPopStateEvent('popstate', false, false, null);
-                window.dispatchEvent(evt);
-              } catch (err) {
-                debug.warn('Failed to dispatch popstate after replaceState (expUrl)', err);
-              }
-            }
-          }
+        if (current !== expUrl) {
+          // REFACTORED: Use replaceState only - no PopStateEvent dispatch
+          // PopStateEvent causes unwanted scroll behavior
+          window.history.replaceState(null, '', expUrl);
+          debug.log('URL management: Restored canonical URL via replaceState', { expUrl });
+        } else {
+          debug.log('Skipping history update: URL already matches experience URL');
         }
       }
     } catch (err) {
@@ -1038,7 +1006,6 @@ export default function SingleExperience() {
     setPlansLoading(true);
     setActiveTab("experience");
     setExpandedParents(new Set());
-    setHashSelecting(false);
     setShowSyncButton(false);
     setShowSyncAlert(true);
     setSyncChanges(null);
@@ -1055,6 +1022,10 @@ export default function SingleExperience() {
     setPlanItemToDelete(null);
     setShowPlanInstanceDeleteModal(false);
     setPlanInstanceItemToDelete(null);
+    // Reset hash refs so URL hash can be processed for new experience
+    processedHashRef.current = null;
+    initialHashHandledRef.current = false;
+    userInteractionRef.current = false;
     // Collaborator state is now managed by useCollaboratorManager hook
     setShowPlanItemModal(false);
     setPlanItemFormState(1);
@@ -1062,192 +1033,150 @@ export default function SingleExperience() {
     setShowSyncModal(false);
   }, [experienceId]);
 
-  // Handle hash-based plan deep linking (e.g., #plan-<planId> or #plan-<planId>-item-<itemId>)
+  // Navigation Intent Consumer - handles deep-link navigation from HashLink and direct URL
+  // Single source of truth for scroll/highlight behavior
   useEffect(() => {
-    const handleHashNavigation = () => {
-      try {
-        // Check for stored hash from cross-navigation (e.g., from Dashboard)
-        const { planId: storedPlanId, itemId: storedItemId, hash: storedHash, originPath, meta } = handleStoredHash();
+    // Skip if user interaction is in progress (e.g., toggling completion)
+    if (userInteractionRef.current) return;
 
-        debug.log('[SingleExperience] 📍 Hash check:', {
-          storedPlanId,
-          storedItemId,
-          storedHash,
-          originPath,
-          meta,
-          currentHash: window.location.hash
+    // Skip if no intent or already consumed
+    if (!intent || intent.consumed) return;
+
+    // Skip if plans haven't loaded yet
+    if (plansLoading || collaborativePlans.length === 0) {
+      debug.log('[NavigationIntent] Plans still loading, waiting...', {
+        plansLoading,
+        collaborativePlansCount: collaborativePlans.length,
+        intentId: intent.id
+      });
+      return;
+    }
+
+    const { targetPlanId, targetItemId, shouldAnimate, id: intentId } = intent;
+
+    debug.log('[NavigationIntent] Processing intent:', {
+      intentId,
+      targetPlanId,
+      targetItemId,
+      shouldAnimate,
+      type: intent.type
+    });
+
+    // Find the target plan
+    const targetPlan = collaborativePlans.find((p) => idEquals(p._id, targetPlanId));
+
+    if (!targetPlan) {
+      debug.warn('[NavigationIntent] Plan not found in collaborativePlans:', {
+        targetPlanId,
+        availablePlans: collaborativePlans.map(p => p._id?.toString())
+      });
+      // Clear the intent since it can't be fulfilled
+      clearIntent();
+      return;
+    }
+
+    // CONSUME the intent BEFORE side effects to prevent re-processing
+    consumeIntent(intentId);
+
+    const tid = targetPlan._id?.toString ? targetPlan._id.toString() : targetPlan._id;
+
+    debug.log('[NavigationIntent] ✅ Found target plan, switching...', { tid, targetItemId });
+
+    // Update the URL hash to reflect the deep link
+    const hash = targetItemId
+      ? `#plan-${tid}-item-${targetItemId}`
+      : `#plan-${tid}`;
+
+    try {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+      debug.log('[NavigationIntent] URL hash updated:', hash);
+    } catch (err) {
+      debug.warn('[NavigationIntent] Failed to update URL hash:', err);
+    }
+
+    // Set state to switch to the plan tab
+    setSelectedPlanId(tid);
+    setActiveTab('myplan');
+
+    // Scroll to item after tab switch (give React time to render)
+    if (targetItemId) {
+      scrollToItem(targetItemId, { shouldHighlight: shouldAnimate });
+    }
+
+  }, [intent, plansLoading, collaborativePlans, idEquals, consumeIntent, clearIntent, scrollToItem]);
+
+  // Fallback handler for direct URL navigation (when no intent exists)
+  // This handles cases where user pastes URL directly or navigates via browser history
+  // Only runs ONCE on initial page load to prevent re-scrolling on state changes
+  useEffect(() => {
+    // Skip if user interaction is in progress (e.g., toggling completion)
+    if (userInteractionRef.current) return;
+
+    // Skip if initial hash has already been handled
+    if (initialHashHandledRef.current) return;
+
+    // Skip if there's an unconsumed intent (intent-based navigation is preferred)
+    if (intent && !intent.consumed) return;
+
+    // Skip if plans haven't loaded
+    if (plansLoading || collaborativePlans.length === 0) return;
+
+    const hash = window.location.hash || '';
+    if (!hash.startsWith('#plan-')) {
+      // No hash to process, mark as handled to prevent future runs
+      initialHashHandledRef.current = true;
+      return;
+    }
+
+    // Skip if we've already processed this exact hash
+    if (processedHashRef.current === hash) return;
+
+    // Parse hash format: #plan-{planId} or #plan-{planId}-item-{itemId}
+    const hashContent = hash.substring(6); // Remove '#plan-' prefix
+    const parts = hashContent.split('-item-');
+    const planId = parts[0];
+    const itemId = parts.length > 1 ? parts[1] : null;
+
+    if (!planId) return;
+
+    debug.log('[SingleExperience] Fallback URL hash handler:', { planId, itemId, selectedPlanId, hash });
+
+    const targetPlan = collaborativePlans.find((p) => idEquals(p._id, planId));
+    if (!targetPlan) {
+      debug.warn('[Fallback Hash] Plan not found:', planId);
+      return;
+    }
+
+    const tid = targetPlan._id?.toString ? targetPlan._id.toString() : targetPlan._id;
+
+    // Mark this hash as processed and initial navigation as complete
+    processedHashRef.current = hash;
+    initialHashHandledRef.current = true;
+
+    // Only change plan if needed
+    const needsTabSwitch = selectedPlanId !== tid;
+    if (needsTabSwitch) {
+      setSelectedPlanId(tid);
+      setActiveTab('myplan');
+    }
+
+    // For direct URL navigation, scroll to item if present
+    // If we switched tabs, wait for React to render the new content first
+    if (itemId) {
+      if (needsTabSwitch) {
+        // Wait for React to render the plan items after tab switch
+        // Using requestAnimationFrame + setTimeout ensures DOM is ready
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            scrollToItem(itemId, { shouldHighlight: true });
+          }, 100);
         });
-
-        // Use stored hash if present, otherwise check URL hash
-        let planId, itemId, hashSource = null, fullHash = null;
-        if (storedPlanId) {
-          planId = storedPlanId;
-          itemId = storedItemId;
-          fullHash = storedHash; // Store full hash for later restoration
-          hashSource = 'storage';
-          debug.log('[SingleExperience] ✅ Using stored hash from localStorage:', {
-            planId,
-            itemId,
-            fullHash,
-            originPath,
-            meta
-          });
-
-          // Don't clear the stored hash yet — wait until we've successfully
-          // scrolled to the plan or item. This guard allows us to keep the
-          // pending hash while plans are still loading and handle it once DOM
-          // is ready.
-        } else {
-          const hash = window.location.hash || '';
-          if (!hash.startsWith('#plan-')) return;
-
-          // Parse hash format: #plan-{planId} or #plan-{planId}-item-{itemId}
-          const hashContent = hash.substring(6); // Remove '#plan-' prefix
-          const parts = hashContent.split('-item-');
-          planId = parts[0];
-          itemId = parts.length > 1 ? parts[1] : null;
-          fullHash = hash; // Store full hash for later restoration
-          hashSource = 'url';
-
-          debug.log('[SingleExperience] Hash-based plan navigation detected from URL:', {
-            planId,
-            itemId,
-            fullHash,
-            originalHash: hash
-          });
-        }
-
-        // If no planId found from either source, nothing to do
-        if (!planId) return;
-
-        // If plans haven't loaded yet, we'll wait until collaborativePlans changes
-        // CRITICAL: Wait if collaborativePlans is empty, regardless of hashSelecting state
-        // This ensures we don't try to select a plan before they've loaded
-        if (plansLoading || collaborativePlans.length === 0) {
-          debug.log('[Hash Navigation] Plans still loading or empty; will attempt selection after load', {
-            plansLoading,
-            collaborativePlansCount: collaborativePlans.length,
-            hashSelecting
-          });
-          // Indicate we're waiting on plans to resolve a hash selection
-          setHashSelecting(true);
-          return;
-        }
-
-        // Clear any waiting indicator now that plans are available
-        if (hashSelecting) setHashSelecting(false);
-
-        // DEBUG: Log all available plans and the target planId
-        debug.log('[Hash Navigation] Looking for planId:', planId);
-        debug.log('[Hash Navigation] Available collaborativePlans:', collaborativePlans.map(p => ({
-          id: p._id,
-          idString: p._id?.toString(),
-          isOwn: p.user?._id?.toString() === user?._id?.toString() || p.user?.toString() === user?._id?.toString()
-        })));
-
-        const targetPlan = collaborativePlans.find((p) => idEquals(p._id, planId));
-        debug.log('[Hash Navigation] Target plan found?', !!targetPlan);
-        if (targetPlan) {
-          debug.log('[Hash Navigation] ✅ Found target plan:', targetPlan._id);
-          const tid = targetPlan._id && targetPlan._id.toString ? targetPlan._id.toString() : targetPlan._id;
-
-          // CRITICAL: Restore the FULL hash (including item portion) to the URL
-          // BEFORE setting state to prevent URL management useEffect from stripping it
-          // The URL management useEffect triggers when selectedPlanId changes, so we must
-          // ensure the hash is already in the URL before that happens
-          const targetHash = fullHash && fullHash.startsWith('#') ? fullHash : (window.location.hash || '');
-          // ALWAYS animate for deep links:
-          // 1. Direct link navigation (hashSource === 'url') - e.g., pasting URL or external link
-          // 2. Cross-view navigation from storage (hashSource === 'storage') - e.g., Dashboard link
-          // 3. Cross-view navigation with explicit shake metadata (meta?.shouldShake)
-          // The handledHashesRef is ONLY used to prevent animation on in-page actions like
-          // marking items complete while the hash is still in the URL
-          const shouldAnimate = hashSource === 'url' ||
-                               hashSource === 'storage' ||
-                               meta?.shouldShake === true;
-
-          debug.log('[SingleExperience] 📍 Hash navigation details:', {
-            planId,
-            itemId,
-            fullHash,
-            targetHash,
-            hashSource,
-            shouldAnimate,
-            willRestoreHash: !!fullHash
-          });
-
-          try {
-            if (fullHash) {
-              // Replace the current history entry with the full hash-bearing URL
-              // This ensures item-level deep links are preserved in the address bar
-              debug.log('[SingleExperience] 🔗 Restoring FULL hash to URL (BEFORE state update):', {
-                fullHash,
-                planId,
-                itemId,
-                currentURL: window.location.href,
-                hashSource
-              });
-              restoreHashToUrl(fullHash, { replace: true });
-              debug.log('[SingleExperience] ✅ Hash restored. New URL:', window.location.href);
-            } else {
-              debug.warn('[SingleExperience] ⚠️ No fullHash to restore', { hashSource, planId, itemId });
-            }
-          } catch (err) {
-            debug.error('[SingleExperience] ❌ Failed to restore hash to URL:', err);
-          }
-
-          // NOW set state - URL management useEffect will see the hash in the URL
-          debug.log('[Hash Navigation] Setting selectedPlanId:', tid, 'and activeTab: myplan');
-          setSelectedPlanId(tid);
-          setActiveTab('myplan');
-
-          // Clear stored hash immediately after consuming it
-          // This prevents stale hashes if user stops page load before scroll completes
-          if (storedHash) {
-            try {
-              clearStoredHash();
-              debug.log('[Hash Navigation] Cleared stored hash from localStorage');
-            } catch (e) {
-              debug.warn('[Hash Navigation] Failed to clear stored hash', e);
-            }
-          }
-
-          // Start attempts shortly after tab switch to give React time to render
-          setTimeout(() => attemptScrollToItem(itemId, { shouldHighlight: shouldAnimate }), 250);
-
-          // Mark this hash as handled to prevent re-animation on non-HashLink actions
-          // (like marking items complete while hash is still in URL)
-          if (hashSource === 'url') {
-            try { const cur = window.location.hash || ''; if (cur) handledHashesRef.current.add(cur); } catch (e) {}
-          }
-          try {
-            if (targetHash) handledHashesRef.current.add(targetHash);
-          } catch (e) {
-            // ignore
-          }
-        } else {
-          debug.warn('[Hash Navigation] ❌ Plan ID from hash not found in collaborativePlans', {
-            planId,
-            collaborativePlansCount: collaborativePlans.length,
-            collaborativePlansIDs: collaborativePlans.map(p => p._id?.toString())
-          });
-          // No matching plan in this experience; clear the stored hash to avoid
-          // repeated failed attempts.
-          try { clearStoredHash(); } catch (e) {}
-        }
-      } catch (err) {
-        debug.warn('Error handling hash navigation', err);
+      } else {
+        // Already on correct tab, scroll immediately
+        scrollToItem(itemId, { shouldHighlight: true });
       }
-    };
-
-    // Run once (attempt selection) and register hashchange listener
-    handleHashNavigation();
-    window.addEventListener('hashchange', handleHashNavigation);
-
-    return () => {
-      window.removeEventListener('hashchange', handleHashNavigation);
-    };
-  }, [plansLoading, collaborativePlans]);
+    }
+  }, [plansLoading, collaborativePlans, selectedPlanId, intent, idEquals, scrollToItem]);
 
   // Register h1 and action buttons for navbar
   useEffect(() => {
@@ -1993,8 +1922,9 @@ export default function SingleExperience() {
     // 1. Plans have loaded
     // 2. There are plans available
     // 3. No plan is currently selected
-    // 4. Not waiting for hash navigation
-    if (!plansLoading && collaborativePlans.length > 0 && !selectedPlanId && !hashSelecting) {
+    // 4. Not waiting for intent-based navigation (pending intent or hash in URL)
+    const hasPendingIntent = intent && !intent.consumed;
+    if (!plansLoading && collaborativePlans.length > 0 && !selectedPlanId && !hasPendingIntent) {
       // Check if there's a hash in the URL - if so, let hash navigation handle it
       const hash = window.location.hash || '';
       if (hash.startsWith('#plan-')) {
@@ -2014,7 +1944,7 @@ export default function SingleExperience() {
       setSelectedPlanId(firstPlanId);
       handlePlanChange(firstPlanId);
     }
-  }, [plansLoading, collaborativePlans, selectedPlanId, hashSelecting, user._id, idEquals, handlePlanChange]);
+  }, [plansLoading, collaborativePlans, selectedPlanId, intent, user._id, idEquals, handlePlanChange]);
 
   // Collaborator handlers now provided by useCollaboratorManager hook
 
@@ -2365,6 +2295,9 @@ export default function SingleExperience() {
     async (planItem) => {
       if (!selectedPlanId || !planItem) return;
 
+      // Mark user interaction in progress to prevent hash effects from running
+      userInteractionRef.current = true;
+
       const itemId = planItem._id || planItem.plan_item_id;
       const newComplete = !planItem.complete;
 
@@ -2400,18 +2333,21 @@ export default function SingleExperience() {
         fetchCollaborativePlans().catch(() => {});
         fetchUserPlan().catch(() => {});
         fetchPlans().catch(() => {});
+        // Note: No scrolling on item completion - user should stay where they are
 
-        // Scroll to item but don't animate (item completion shouldn't shake)
-        try {
-          await attemptScrollToItem(itemId, { shouldHighlight: false });
-        } catch (e) {
-          // ignore scroll errors
-        }
+        // Reset user interaction flag after state updates settle
+        // Using 1000ms to ensure all fetch responses and React re-renders complete
+        // This prevents the URL management effect from running during the update cycle
+        setTimeout(() => {
+          userInteractionRef.current = false;
+        }, 1000);
       };
 
       const onError = (err, defaultMsg) => {
         const errorMsg = handleError(err, { context: "Toggle plan item completion" }) || defaultMsg;
         showError(errorMsg);
+        // Reset user interaction flag on error too
+        userInteractionRef.current = false;
       };
 
       const run = useOptimisticAction({
@@ -2593,15 +2529,11 @@ export default function SingleExperience() {
           title={experience.name}
           description={`Plan your ${experience.name} experience. ${
             experience.cost_estimate > 0
-              ? `Estimated cost: ${dollarSigns(
-                  Math.ceil(experience.cost_estimate / 1000)
-                )}/5. `
+              ? `Estimated cost: ${formatCostEstimate(experience.cost_estimate)}. `
               : ""
           }${
             experience.max_planning_days > 0
-              ? `Planning time: ${experience.max_planning_days} ${
-                  experience.max_planning_days === 1 ? "day" : "days"
-                }.`
+              ? `Planning time: ${formatPlanningTime(experience.max_planning_days)}.`
               : ""
           }`}
           keywords={`${experience.name}, travel, experience, planning${
@@ -2624,257 +2556,329 @@ export default function SingleExperience() {
         />
       )}
       {experience ? (
-        <div>
-          {/* Title row - full width, centered on mobile/tablet */}
-          <div className="row fade-in">
-            <div className="col-12 text-center text-md-start">
-              <h1 ref={h1Ref} className="mt-4 h fade-in">{experience.name}</h1>
-            </div>
-          </div>
-
-          {/* Cost Estimate & Planning Days Grid */}
-          {(experience.cost_estimate > 0 || experience.max_planning_days > 0) && (
-            <div className={`${styles.experienceHeaderGrid} row fade-in my-2`}>
-              {experience.cost_estimate > 0 && (
-                <div className="col-auto">
-                  <FadeIn>
-                    <h2 className="h5 mb-0">
-                      {lang.en.heading.estimatedCost}{" "}
-                      <span className={styles.green}>
-                        {dollarSigns(Math.ceil(experience.cost_estimate / 1000))}
-                      </span>
-                      <span className={styles.grey}>
-                        {dollarSigns(5 - Math.ceil(experience.cost_estimate / 1000))}
-                      </span>
-                    </h2>
-                  </FadeIn>
+        <div className={styles.experienceDetailContainer}>
+          <Container>
+            <Row>
+              {/* Main Content Column (8 cols on lg+) */}
+              <Col lg={8}>
+                {/* Hero Image Section */}
+                <div className={styles.heroSection}>
+                  {experience.photos && experience.photos.length > 0 ? (
+                    <img
+                      src={experience.photos[0]?.url || experience.photos[0]}
+                      alt={experience.name}
+                    />
+                  ) : experience.destination?.photos && experience.destination.photos.length > 0 ? (
+                    <img
+                      src={experience.destination.photos[0]?.url || experience.destination.photos[0]}
+                      alt={experience.destination.name}
+                    />
+                  ) : (
+                    <div className="d-flex align-items-center justify-content-center h-100 text-muted">
+                      No image available
+                    </div>
+                  )}
                 </div>
-              )}
-              {experience.max_planning_days > 0 && (
-                <div className="col-auto">
-                  <FadeIn>
-                    <h2 className="h5 mb-0">
-                      {lang.en.heading.planningTime}{" "}
-                      {formatPlanningTime(experience.max_planning_days)}
-                    </h2>
-                  </FadeIn>
-                </div>
-              )}
-            </div>
-          )}
 
-          {/* Planned date badge and action buttons row */}
-          <div className="row align-items-center fade-in mb-3">
-            {/* Planned date badge column - centered on mobile/tablet, left-aligned on desktop */}
-            <div className="col-md-6 mb-3 mb-md-0">
-              <div className="planned-date-badge-container">
-                {selectedPlan && !pendingUnplan && (
-                  <FadeIn>
-                    {selectedPlan.planned_date ? (
-                      <TagPill
-                        color="light"
-                        rounded={false}
-                        className={`planned-date-badge ${
-                          selectedPlan && user && (
+                {/* Tags Section */}
+                {(experience.experience_type || experience.destination) && (
+                  <div className={styles.tagsSection}>
+                    {experience.experience_type && (
+                      Array.isArray(experience.experience_type)
+                        ? experience.experience_type.map((type, index) => (
+                            <Badge key={index} bg="secondary" className={styles.tag}>
+                              {type}
+                            </Badge>
+                          ))
+                        : typeof experience.experience_type === 'string'
+                          ? experience.experience_type.split(',').map((type, index) => (
+                              <Badge key={index} bg="secondary" className={styles.tag}>
+                                {type.trim()}
+                              </Badge>
+                            ))
+                          : null
+                    )}
+                    {experience.destination && (
+                      <Badge bg="secondary" className={styles.tag}>
+                        {experience.destination.country}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+
+                {/* Title Section */}
+                <div className={styles.titleSection}>
+                  <h1 ref={h1Ref} className={styles.experienceTitle}>{experience.name}</h1>
+                  {experience.destination && (
+                    <p className={styles.locationText}>
+                      <FaMapMarkerAlt />
+                      <Link to={`/destinations/${experience.destination._id}`}>
+                        {experience.destination.name}, {experience.destination.country}
+                      </Link>
+                    </p>
+                  )}
+                </div>
+
+                {/* Experience Overview Card */}
+                <div className={styles.contentCard}>
+                  <div className={styles.cardBody}>
+                    <h2 className={styles.cardTitle}>Experience Overview</h2>
+                    <p className={styles.cardDescription}>
+                      {experience.description || "Discover this amazing experience and start planning your adventure."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Plan Items Card */}
+                {experience.plan_items && experience.plan_items.length > 0 && (
+                  <div className={styles.contentCard}>
+                    <div className={styles.cardBody}>
+                      {/* Plan Navigation Tabs */}
+                      <PlanTabsNavigation
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        user={user}
+                        idEquals={idEquals}
+                        collaborativePlans={collaborativePlans}
+                        plansLoading={plansLoading}
+                        selectedPlanId={selectedPlanId}
+                        setSelectedPlanId={setSelectedPlanId}
+                        handlePlanChange={handlePlanChange}
+                        lang={lang}
+                      />
+
+                      {/* Experience Plan Items Tab Content */}
+                      {activeTab === "experience" && (
+                        <ExperienceTabContent
+                          user={user}
+                          experience={experience}
+                          experienceOwner={experienceOwner}
+                          experienceCollaborators={experienceCollaborators}
+                          experienceOwnerLoading={experienceOwnerLoading}
+                          experienceCollaboratorsLoading={experienceCollaboratorsLoading}
+                          expandedParents={expandedParents}
+                          animatingCollapse={animatingCollapse}
+                          handleAddExperiencePlanItem={handleAddExperiencePlanItem}
+                          handleEditExperiencePlanItem={handleEditExperiencePlanItem}
+                          openCollaboratorModal={collaboratorManager.openCollaboratorModal}
+                          toggleExpanded={toggleExpanded}
+                          setPlanItemToDelete={setPlanItemToDelete}
+                          setShowPlanDeleteModal={setShowPlanDeleteModal}
+                          onReorderExperiencePlanItems={handleReorderExperiencePlanItems}
+                          lang={lang}
+                        />
+                      )}
+
+                      {/* My Plan Tab Content */}
+                      {activeTab === "myplan" && selectedPlanId && (
+                        <MyPlanTabContent
+                          selectedPlanId={selectedPlanId}
+                          user={user}
+                          idEquals={idEquals}
+                          collaborativePlans={collaborativePlans}
+                          planOwner={planOwner}
+                          planCollaborators={planCollaborators}
+                          planOwnerLoading={planOwnerLoading}
+                          planCollaboratorsLoading={planCollaboratorsLoading}
+                          hashSelecting={!!(intent && !intent.consumed)}
+                          showSyncButton={showSyncButton}
+                          showSyncAlert={showSyncAlert}
+                          dismissSyncAlert={dismissSyncAlert}
+                          loading={loading}
+                          plansLoading={plansLoading}
+                          expandedParents={expandedParents}
+                          animatingCollapse={animatingCollapse}
+                          displayedPlannedDate={displayedPlannedDate}
+                          setIsEditingDate={setIsEditingDate}
+                          setPlannedDate={setPlannedDate}
+                          setShowDatePicker={setShowDatePicker}
+                          plannedDateRef={plannedDateRef}
+                          handleSyncPlan={handleSyncPlan}
+                          handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                          handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                          handleViewPlanItemDetails={handleViewPlanItemDetails}
+                          openCollaboratorModal={collaboratorManager.openCollaboratorModal}
+                          toggleExpanded={toggleExpanded}
+                          setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                          setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                          handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                          onReorderPlanItems={handleReorderPlanItems}
+                          hoveredPlanItem={hoveredPlanItem}
+                          setHoveredPlanItem={setHoveredPlanItem}
+                          lang={lang}
+                          // Cost tracking
+                          costs={costs}
+                          costSummary={costSummary}
+                          costsLoading={costsLoading}
+                          onAddCost={addCost}
+                          onUpdateCost={updateCost}
+                          onDeleteCost={deleteCost}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </Col>
+
+              {/* Sidebar Column (4 cols on lg+) */}
+              <Col lg={4}>
+                <div className={styles.sidebar}>
+                  <div className={styles.sidebarCard}>
+                    <h3 className={styles.sidebarTitle}>Experience Details</h3>
+
+                    {/* Planned Date Badge in Sidebar */}
+                    {selectedPlan && !pendingUnplan && selectedPlan.planned_date && (
+                      <div
+                        className={styles.datePickerBadge}
+                        onClick={() => {
+                          const userOwnsSelectedPlan = selectedPlan && user && (
                             selectedPlan.user?._id?.toString() === user._id?.toString() ||
                             selectedPlan.user?.toString() === user._id?.toString()
-                          ) ? "cursor-pointer" : ""
-                        }`}
-                      onClick={() => {
-                        // Only allow editing if user owns this plan
-                        const userOwnsSelectedPlan = selectedPlan && user && (
-                          selectedPlan.user?._id?.toString() === user._id?.toString() ||
-                          selectedPlan.user?.toString() === user._id?.toString()
-                        );
-
-                        if (!userOwnsSelectedPlan) return;
-
-                        if (showDatePicker) {
-                          setShowDatePicker(false);
-                        } else {
-                          setIsEditingDate(true);
-                          setPlannedDate(formatDateForInput(selectedPlan.planned_date));
-                          setShowDatePicker(true);
-                        }
-                      }}
-                      title={
-                        selectedPlan && user && (
-                          selectedPlan.user?._id?.toString() === user._id?.toString() ||
-                          selectedPlan.user?.toString() === user._id?.toString()
-                        )
-                          ? (showDatePicker ? "Click to close date picker" : "Click to update planned date")
-                          : "Collaborative plan date (view only)"
-                      }
-                    >
-                      Planned for {formatDateShort(selectedPlan.planned_date)}
-                    </TagPill>
-                  ) : (
-                    selectedPlan && user && (
-                      selectedPlan.user?._id?.toString() === user._id?.toString() ||
-                      selectedPlan.user?.toString() === user._id?.toString()
-                    ) && (
-                      <TagPill
-                        color="light"
-                        rounded={false}
-                        className="planned-date-badge cursor-pointer"
-                        onClick={() => {
+                          );
+                          if (!userOwnsSelectedPlan) return;
                           if (showDatePicker) {
                             setShowDatePicker(false);
                           } else {
-                            setIsEditingDate(false);
-                            setPlannedDate("");
+                            setIsEditingDate(true);
+                            setPlannedDate(formatDateForInput(selectedPlan.planned_date));
                             setShowDatePicker(true);
                           }
                         }}
-                        title={showDatePicker ? "Click to close date picker" : "Click to add a planned date"}
+                        title={
+                          selectedPlan && user && (
+                            selectedPlan.user?._id?.toString() === user._id?.toString() ||
+                            selectedPlan.user?.toString() === user._id?.toString()
+                          )
+                            ? "Click to update planned date"
+                            : "Collaborative plan date"
+                        }
                       >
-                        {lang.en.label.plannedDate}: {lang.en.label.setOneNow}
-                      </TagPill>
-                    )
-                  )}
-                </FadeIn>
-              )}
-              </div>
-            </div>
+                        <FaCalendarAlt className={styles.dateIcon} />
+                        Planned for {formatDateShort(selectedPlan.planned_date)}
+                      </div>
+                    )}
 
-            {/* Action buttons column - right-aligned on desktop, centered on mobile */}
-            <div className="col-md-6 d-flex align-items-center justify-content-center justify-content-md-end">
-              <ActionButtonsRow
-                user={user}
-                experience={experience}
-                experienceId={experienceId}
-                userHasExperience={userHasExperience}
-                loading={loading}
-                plansLoading={plansLoading}
-                displayedPlannedDate={displayedPlannedDate}
-                selectedPlan={selectedPlan}
-                planButtonRef={planButtonRef}
-                planBtnWidth={planBtnWidth}
-                favHover={favHover}
-                setFavHover={setFavHover}
-                handleExperience={handleExperience}
-                setShowDeleteModal={setShowDeleteModal}
-                showDatePicker={showDatePicker}
-                setShowDatePicker={setShowDatePicker}
-                setIsEditingDate={setIsEditingDate}
-                setPlannedDate={setPlannedDate}
-                lang={lang}
-              />
-            </div>
-          </div>
+                    {/* Date Picker Section */}
+                    <DatePickerSection
+                      showDatePicker={showDatePicker}
+                      experience={experience}
+                      isEditingDate={isEditingDate}
+                      plannedDate={plannedDate}
+                      setPlannedDate={setPlannedDate}
+                      loading={loading}
+                      handleDateUpdate={handleDateUpdate}
+                      handleAddExperience={handleAddExperience}
+                      setShowDatePicker={setShowDatePicker}
+                      setIsEditingDate={setIsEditingDate}
+                      lang={lang}
+                    />
 
-          <div className="row experience-detail fade-in">
-            <DatePickerSection
-              showDatePicker={showDatePicker}
-              experience={experience}
-              isEditingDate={isEditingDate}
-              plannedDate={plannedDate}
-              setPlannedDate={setPlannedDate}
-              loading={loading}
-              handleDateUpdate={handleDateUpdate}
-              handleAddExperience={handleAddExperience}
-              setShowDatePicker={setShowDatePicker}
-              setIsEditingDate={setIsEditingDate}
-              lang={lang}
-            />
-          </div>
-          <ExperienceOverviewSection
-            experience={experience}
-            lang={lang}
-          />
-          <div className="row my-2 p-3 fade-in">
-            {experience.plan_items && experience.plan_items.length > 0 && (
-              <div className="plan-items-container fade-in p-3 p-md-4">
-                {/* Plan Navigation Tabs */}
-                <PlanTabsNavigation
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                  user={user}
-                  idEquals={idEquals}
-                  collaborativePlans={collaborativePlans}
-                  plansLoading={plansLoading}
-                  selectedPlanId={selectedPlanId}
-                  setSelectedPlanId={setSelectedPlanId}
-                  handlePlanChange={handlePlanChange}
-                  lang={lang}
-                />
+                    {/* Details List */}
+                    <div className={styles.detailsList}>
+                      {experience.cost_estimate > 0 && (
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Estimated Cost</div>
+                          <div className={styles.detailValue}>
+                            <CostEstimate
+                              cost={experience.cost_estimate}
+                              showLabel={false}
+                              showTooltip={true}
+                              showDollarSigns={true}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {experience.max_planning_days > 0 && (
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Planning Time</div>
+                          <div className={styles.detailValue}>
+                            <PlanningTime
+                              days={experience.max_planning_days}
+                              showLabel={false}
+                              showTooltip={true}
+                              size="md"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {experience.experience_type && (
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Type</div>
+                          <div className={styles.detailValue} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            {Array.isArray(experience.experience_type)
+                              ? experience.experience_type.map((type, index) => (
+                                  <Link key={index} to={`/experience-types/${type.toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
+                                    <TagPill color="default">{type}</TagPill>
+                                  </Link>
+                                ))
+                              : typeof experience.experience_type === 'string'
+                                ? experience.experience_type.split(',').map((type, index) => (
+                                    <Link key={index} to={`/experience-types/${type.trim().toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
+                                      <TagPill color="default">{type.trim()}</TagPill>
+                                    </Link>
+                                  ))
+                                : null
+                            }
+                          </div>
+                        </div>
+                      )}
+                      {experience.destination && (
+                        <div className={styles.detailItem}>
+                          <div className={styles.detailLabel}>Destination</div>
+                          <div className={styles.detailValue}>
+                            <Link to={`/destinations/${experience.destination._id}`}>
+                              {experience.destination.name}
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
-                {/* Experience Plan Items Tab Content */}
-                {activeTab === "experience" && (
-                  <ExperienceTabContent
-                    user={user}
-                    experience={experience}
-                    experienceOwner={experienceOwner}
-                    experienceCollaborators={experienceCollaborators}
-                    experienceOwnerLoading={experienceOwnerLoading}
-                    experienceCollaboratorsLoading={experienceCollaboratorsLoading}
-                    expandedParents={expandedParents}
-                    animatingCollapse={animatingCollapse}
-                    handleAddExperiencePlanItem={handleAddExperiencePlanItem}
-                    handleEditExperiencePlanItem={handleEditExperiencePlanItem}
-                    openCollaboratorModal={collaboratorManager.openCollaboratorModal}
-                    toggleExpanded={toggleExpanded}
-                    setPlanItemToDelete={setPlanItemToDelete}
-                    setShowPlanDeleteModal={setShowPlanDeleteModal}
-                    onReorderExperiencePlanItems={handleReorderExperiencePlanItems}
-                    lang={lang}
-                  />
-                )}
-
-                {/* My Plan Tab Content */}
-                {activeTab === "myplan" && selectedPlanId && (
-                  <MyPlanTabContent
-                    selectedPlanId={selectedPlanId}
-                    user={user}
-                    idEquals={idEquals}
-                    collaborativePlans={collaborativePlans}
-                    planOwner={planOwner}
-                    planCollaborators={planCollaborators}
-                    planOwnerLoading={planOwnerLoading}
-                    planCollaboratorsLoading={planCollaboratorsLoading}
-                    hashSelecting={hashSelecting}
-                    showSyncButton={showSyncButton}
-                    showSyncAlert={showSyncAlert}
-                    dismissSyncAlert={dismissSyncAlert}
-                    loading={loading}
-                    plansLoading={plansLoading}
-                    expandedParents={expandedParents}
-                    animatingCollapse={animatingCollapse}
-                    displayedPlannedDate={displayedPlannedDate}
-                    setIsEditingDate={setIsEditingDate}
-                    setPlannedDate={setPlannedDate}
-                    setShowDatePicker={setShowDatePicker}
-                    plannedDateRef={plannedDateRef}
-                    handleSyncPlan={handleSyncPlan}
-                    handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                    handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                    handleViewPlanItemDetails={handleViewPlanItemDetails}
-                    openCollaboratorModal={collaboratorManager.openCollaboratorModal}
-                    toggleExpanded={toggleExpanded}
-                    setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                    setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                    handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                    onReorderPlanItems={handleReorderPlanItems}
-                    hoveredPlanItem={hoveredPlanItem}
-                    setHoveredPlanItem={setHoveredPlanItem}
-                    lang={lang}
-                  />
-                )}
-              </div>
-            )}
-          </div>
+                    {/* Action Buttons */}
+                    <div className={styles.sidebarActions}>
+                      <ActionButtonsRow
+                        user={user}
+                        experience={experience}
+                        experienceId={experienceId}
+                        userHasExperience={userHasExperience}
+                        loading={loading}
+                        plansLoading={plansLoading}
+                        displayedPlannedDate={displayedPlannedDate}
+                        selectedPlan={selectedPlan}
+                        planButtonRef={planButtonRef}
+                        planBtnWidth={planBtnWidth}
+                        favHover={favHover}
+                        setFavHover={setFavHover}
+                        handleExperience={handleExperience}
+                        setShowDeleteModal={setShowDeleteModal}
+                        showDatePicker={showDatePicker}
+                        setShowDatePicker={setShowDatePicker}
+                        setIsEditingDate={setIsEditingDate}
+                        setPlannedDate={setPlannedDate}
+                        lang={lang}
+                        variant="sidebar"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Col>
+            </Row>
+          </Container>
         </div>
       ) : null}
       <ConfirmModal
         show={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDeleteExperience}
-        title={lang.en.modal.confirmDelete}
-        message={lang.en.modal.confirmDeleteMessage.replace(
-          "{name}",
-          experience?.name
-        )}
-        confirmText={lang.en.button.delete}
+        title="Delete Experience?"
+        message="You are about to permanently delete"
+        itemName={experience?.name}
+        additionalInfo={[
+          "All plan items",
+          "Associated photos",
+          "User plans (if any)"
+        ]}
+        confirmText="Delete Permanently"
         confirmVariant="danger"
       />
       <ConfirmModal
@@ -2883,18 +2887,26 @@ export default function SingleExperience() {
           setShowRemoveModal(false);
         }}
         onConfirm={confirmRemoveExperience}
-        title={lang.en.modal.removeExperienceTitle}
-        message="Are you sure you want to remove this experience? Your plan and all progress tracked will be permanently deleted."
-        confirmText={lang.en.button.removeExperience}
+        title="Remove from Your Plans?"
+        message="You are about to remove"
+        itemName={experience?.name}
+        additionalInfo={[
+          "Your plan progress",
+          "Completed items",
+          "Personal notes"
+        ]}
+        warningText="Your progress will be permanently deleted!"
+        confirmText="Remove from Plans"
         confirmVariant="danger"
       />
       <ConfirmModal
         show={showPlanDeleteModal}
         onClose={() => setShowPlanDeleteModal(false)}
         onConfirm={() => handlePlanDelete(planItemToDelete)}
-        title={lang.en.modal.confirmDeletePlanItemTitle}
-        message={lang.en.modal.confirmDeletePlanItem}
-        confirmText={lang.en.button.delete}
+        title="Delete Plan Item?"
+        message="You are about to delete this plan item"
+        itemName={planItemToDelete?.text}
+        confirmText="Delete Permanently"
         confirmVariant="danger"
       />
       <ConfirmModal
@@ -2904,13 +2916,10 @@ export default function SingleExperience() {
           setPlanInstanceItemToDelete(null);
         }}
         onConfirm={handlePlanInstanceItemDelete}
-        title={lang.en.modal.confirmDeletePlanItemTitle}
-        message={
-          planInstanceItemToDelete
-            ? `Delete "${planInstanceItemToDelete.text}"?`
-            : lang.en.modal.confirmDeletePlanItem
-        }
-        confirmText={lang.en.button.delete}
+        title="Delete Plan Item?"
+        message="You are about to delete this plan item"
+        itemName={planInstanceItemToDelete?.text}
+        confirmText="Delete Permanently"
         confirmVariant="danger"
       />
 

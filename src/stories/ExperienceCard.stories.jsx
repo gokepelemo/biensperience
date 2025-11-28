@@ -1,7 +1,7 @@
 import ExperienceCard from '../components/ExperienceCard/ExperienceCard';
 
 export default {
-  title: 'Components/ExperienceCard',
+  title: 'Components/Cards/Experience Card',
   component: ExperienceCard,
   decorators: [
     (Story) => (
@@ -53,6 +53,7 @@ export const Default = {
 };
 
 export const WithMultiplePhotos = {
+  name: 'With Multiple Photos',
   args: {
     experience: {
       ...sampleExperience,
@@ -74,6 +75,7 @@ export const WithMultiplePhotos = {
 };
 
 export const LongTitle = {
+  name: 'Long Title',
   args: {
     experience: {
       ...sampleExperience,
@@ -84,6 +86,7 @@ export const LongTitle = {
 };
 
 export const ManyTags = {
+  name: 'Many Tags',
   args: {
     experience: {
       ...sampleExperience,
@@ -94,6 +97,7 @@ export const ManyTags = {
 };
 
 export const NoCostEstimate = {
+  name: 'No Cost Estimate',
   args: {
     experience: {
       ...sampleExperience,

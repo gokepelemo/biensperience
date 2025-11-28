@@ -1,8 +1,9 @@
 @use '../../styles/scss/abstracts' as *;
 
 .authPage {
-  :global(h1) {
-    text-align: center;
+  /* Hide the Biensperience header - logo is shown in form components */
+  > h1 {
+    @include visually-hidden;
   }
 
   :global(p) {

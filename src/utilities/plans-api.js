@@ -1,9 +1,41 @@
 import { sendRequest } from "./send-request";
 import { normalizeUrl } from "./url-utils.js";
 import { logger } from "./logger";
-import { broadcastEvent } from "./event-bus";
+import { broadcastEvent, eventBus } from "./event-bus";
+import { createOperation, OperationType } from "./plan-operations";
 
 const BASE_URL = "/api/plans";
+
+/**
+ * Helper to emit an operation via event bus
+ * Operations are emitted alongside state-based events for backward compatibility
+ * @param {string} planId - Plan ID
+ * @param {string} type - Operation type from OperationType
+ * @param {Object} payload - Operation payload
+ */
+function emitOperation(planId, type, payload) {
+  try {
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+      const sessionId = eventBus.getSessionId();
+      const operation = createOperation(type, payload, sessionId);
+
+      const eventPayload = { planId, operation };
+
+      // Emit operation event locally
+      window.dispatchEvent(new CustomEvent('plan:operation', { detail: eventPayload }));
+      // Broadcast to other tabs
+      broadcastEvent('plan:operation', eventPayload);
+
+      logger.debug('[plans-api] Operation emitted', {
+        planId,
+        operationId: operation.id,
+        type
+      });
+    }
+  } catch (e) {
+    logger.warn('[plans-api] Failed to emit operation', { type, planId }, e);
+  }
+}
 
 /**
  * Get all plans for the current user
@@ -191,7 +223,7 @@ export function updatePlanItem(planId, itemId, updates) {
     ...updates,
     url: updates.url ? normalizeUrl(updates.url) : updates.url
   };
-  
+
   return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "PATCH", normalizedUpdates)
     .then((result) => {
       try {
@@ -207,6 +239,16 @@ export function updatePlanItem(planId, itemId, updates) {
           // Standardized event for DataContext and Dashboard
           window.dispatchEvent(new CustomEvent('plan:updated', { detail: { plan, planId } }));
           broadcastEvent('plan:updated', { plan, planId });
+
+          // Operation-based event for CRDT sync
+          // Check if this is a completion toggle
+          if (normalizedUpdates.completed !== undefined) {
+            const opType = normalizedUpdates.completed ? OperationType.COMPLETE_ITEM : OperationType.UNCOMPLETE_ITEM;
+            emitOperation(planId, opType, { itemId });
+          } else {
+            // General item update
+            emitOperation(planId, OperationType.UPDATE_ITEM, { itemId, changes: normalizedUpdates });
+          }
         }
       } catch (e) {
         // ignore
@@ -224,7 +266,7 @@ export function addPlanItem(planId, planItem) {
     ...planItem,
     url: planItem.url ? normalizeUrl(planItem.url) : planItem.url
   };
-  
+
   return sendRequest(`${BASE_URL}/${planId}/items`, "POST", normalizedItem)
     .then((result) => {
       try {
@@ -236,6 +278,11 @@ export function addPlanItem(planId, planItem) {
           window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId, planItem: result } }));
           // Broadcast for other tabs
           broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId, planItem: result });
+
+          // Operation-based event for CRDT sync
+          // Extract the added item from result
+          const addedItem = result?.item || result;
+          emitOperation(planId, OperationType.ADD_ITEM, { item: addedItem });
         }
       } catch (e) {
         // ignore
@@ -258,6 +305,9 @@ export function deletePlanItem(planId, itemId) {
           window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId: normalizedExpId, deletedItemId: itemId } }));
           // Broadcast for other tabs
           broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId: normalizedExpId, deletedItemId: itemId });
+
+          // Operation-based event for CRDT sync
+          emitOperation(planId, OperationType.DELETE_ITEM, { itemId });
         }
       } catch (e) {
         // ignore
@@ -288,6 +338,15 @@ export function addCollaborator(planId, userId) {
         window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId, collaboratorAdded: userId } }));
         // Broadcast for other tabs
         broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId, collaboratorAdded: userId });
+
+        // Operation-based event for CRDT sync
+        // Find the collaborator entry from the result
+        const permissions = result?.plan?.permissions || result?.permissions || [];
+        const collaborator = permissions.find(p => {
+          const permUserId = p.user?._id || p.user;
+          return permUserId?.toString() === userId?.toString();
+        });
+        emitOperation(planId, OperationType.ADD_COLLABORATOR, { collaborator: collaborator || { user: userId, role: 'collaborator' } });
       }
     } catch (e) {
       // ignore
@@ -312,6 +371,9 @@ export function removeCollaborator(planId, userId) {
         window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId, collaboratorRemoved: userId } }));
         // Broadcast for other tabs
         broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId, collaboratorRemoved: userId });
+
+        // Operation-based event for CRDT sync
+        emitOperation(planId, OperationType.REMOVE_COLLABORATOR, { userId });
       }
     } catch (e) {
       // ignore
@@ -365,6 +427,11 @@ export async function reorderPlanItems(planId, reorderedItems) {
         // Standardized event for DataContext
         window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
         broadcastEvent('plan:updated', eventPayload);
+
+        // Operation-based event for CRDT sync
+        // Extract item IDs from reordered items
+        const itemIds = reorderedItems.map(item => item._id || item.plan_item_id).filter(Boolean);
+        emitOperation(planId, OperationType.REORDER_ITEMS, { itemIds });
 
         logger.debug('[plans-api] Reorder events dispatched successfully', {
           version
@@ -542,6 +609,166 @@ export async function unassignPlanItem(planId, itemId) {
     logger.error('[plans-api] Failed to unassign plan item', {
       planId,
       itemId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+// ============================================
+// COST MANAGEMENT API FUNCTIONS
+// ============================================
+
+/**
+ * Get all costs for a plan with optional filters
+ * @param {string} planId - Plan ID
+ * @param {Object} filters - Optional filters: { collaborator, plan_item, dateFrom, dateTo }
+ */
+export async function getPlanCosts(planId, filters = {}) {
+  try {
+    const queryParams = new URLSearchParams();
+    if (filters.collaborator) queryParams.append('collaborator', filters.collaborator);
+    if (filters.plan_item) queryParams.append('plan_item', filters.plan_item);
+    if (filters.dateFrom) queryParams.append('dateFrom', filters.dateFrom);
+    if (filters.dateTo) queryParams.append('dateTo', filters.dateTo);
+
+    const queryString = queryParams.toString();
+    const url = `${BASE_URL}/${planId}/costs${queryString ? `?${queryString}` : ''}`;
+
+    return await sendRequest(url);
+  } catch (error) {
+    logger.error('[plans-api] Failed to get plan costs', {
+      planId,
+      filters,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Get cost summary for a plan
+ * @param {string} planId - Plan ID
+ */
+export async function getPlanCostSummary(planId) {
+  try {
+    return await sendRequest(`${BASE_URL}/${planId}/costs/summary`);
+  } catch (error) {
+    logger.error('[plans-api] Failed to get cost summary', {
+      planId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Add a cost entry to a plan
+ * @param {string} planId - Plan ID
+ * @param {Object} costData - { title, description, cost, currency, plan_item, collaborator }
+ */
+export async function addPlanCost(planId, costData) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/${planId}/costs`, "POST", costData);
+
+    // Emit events
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const version = Date.now();
+        window.dispatchEvent(new CustomEvent('plan:cost_added', {
+          detail: { plan: result, planId, costData, version }
+        }));
+        window.dispatchEvent(new CustomEvent('plan:updated', {
+          detail: { plan: result, version }
+        }));
+        broadcastEvent('plan:cost_added', { plan: result, planId, costData, version });
+        broadcastEvent('plan:updated', { plan: result, version });
+      }
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch cost added events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to add cost', {
+      planId,
+      costData,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Update a cost entry
+ * @param {string} planId - Plan ID
+ * @param {string} costId - Cost entry ID
+ * @param {Object} updates - { title, description, cost, currency, plan_item, collaborator }
+ */
+export async function updatePlanCost(planId, costId, updates) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/${planId}/costs/${costId}`, "PATCH", updates);
+
+    // Emit events
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const version = Date.now();
+        window.dispatchEvent(new CustomEvent('plan:cost_updated', {
+          detail: { plan: result, planId, costId, updates, version }
+        }));
+        window.dispatchEvent(new CustomEvent('plan:updated', {
+          detail: { plan: result, version }
+        }));
+        broadcastEvent('plan:cost_updated', { plan: result, planId, costId, updates, version });
+        broadcastEvent('plan:updated', { plan: result, version });
+      }
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch cost updated events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to update cost', {
+      planId,
+      costId,
+      updates,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a cost entry
+ * @param {string} planId - Plan ID
+ * @param {string} costId - Cost entry ID
+ */
+export async function deletePlanCost(planId, costId) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/${planId}/costs/${costId}`, "DELETE");
+
+    // Emit events
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        const version = Date.now();
+        window.dispatchEvent(new CustomEvent('plan:cost_deleted', {
+          detail: { planId, costId, version }
+        }));
+        window.dispatchEvent(new CustomEvent('plan:updated', {
+          detail: { planId, version }
+        }));
+        broadcastEvent('plan:cost_deleted', { planId, costId, version });
+        broadcastEvent('plan:updated', { planId, version });
+      }
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch cost deleted events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to delete cost', {
+      planId,
+      costId,
       error: error.message
     }, error);
     throw error;

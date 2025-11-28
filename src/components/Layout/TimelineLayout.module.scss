@@ -1,0 +1,318 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * TimelineLayout Styles
+ * Vertical timeline for itinerary planning.
+ */
+
+.timelineLayout {
+  width: 100%;
+  max-width: $layout-container-lg;
+  margin: 0 auto;
+  padding: $layout-gap-lg;
+
+  @include breakpoint-max(md) {
+    padding: $layout-gap-md;
+  }
+}
+
+.progressHeader {
+  display: flex;
+  align-items: center;
+  gap: $layout-gap-md;
+  margin-bottom: $layout-gap-lg;
+  padding-bottom: $layout-gap-md;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.progressText {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.progressBar {
+  flex: 1;
+  height: 8px;
+  background: var(--color-bg-tertiary);
+  border-radius: $radius-full;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  border-radius: $radius-full;
+  transition: width $transition-normal-smooth;
+}
+
+.timelineContainer {
+  position: relative;
+}
+
+// Day Group
+.timelineDay {
+  margin-bottom: $layout-gap-xl;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.dayHeader {
+  display: flex;
+  align-items: baseline;
+  gap: $space-3;
+  margin-bottom: $layout-gap-md;
+  padding: $space-3 $space-4;
+  background: var(--color-bg-secondary);
+  border-radius: $radius-md;
+  border-left: 4px solid var(--color-primary);
+}
+
+.dayLabel {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-bold;
+  color: var(--color-text-primary);
+}
+
+.dayDate {
+  font-size: $font-size-sm;
+  color: var(--color-text-tertiary);
+}
+
+.dayItems {
+  position: relative;
+  padding-left: $space-6;
+
+  // Timeline line
+  &::before {
+    content: '';
+    position: absolute;
+    left: $space-2;
+    top: 0;
+    bottom: 0;
+    width: $timeline-line-width;
+    background: var(--color-border-medium);
+  }
+}
+
+// Individual Timeline Item
+.timelineItem {
+  position: relative;
+  padding: $layout-gap-md 0;
+  padding-left: $layout-gap-lg;
+
+  &:first-child {
+    padding-top: 0;
+  }
+
+  &:last-child {
+    padding-bottom: 0;
+
+    // Hide line after last item
+    &::after {
+      content: '';
+      position: absolute;
+      left: calc(#{-$space-6} + #{$space-2} + 1px);
+      top: $timeline-node-size;
+      bottom: 0;
+      width: $timeline-line-width;
+      background: var(--color-bg-primary);
+    }
+  }
+}
+
+.timelineNode {
+  position: absolute;
+  left: calc(#{-$layout-gap-lg} + #{$space-2} - #{$timeline-node-size * 0.5} + 1px);
+  top: $space-1;
+  width: $timeline-node-size;
+  height: $timeline-node-size;
+  background: var(--color-bg-primary);
+  border: $timeline-line-width solid var(--color-border-medium);
+  border-radius: $radius-full;
+  transition: all $transition-fast-smooth;
+
+  .active & {
+    width: $timeline-node-size-active;
+    height: $timeline-node-size-active;
+    left: calc(#{-$layout-gap-lg} + #{$space-2} - #{$timeline-node-size-active * 0.5} + 1px);
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+  }
+
+  .completed & {
+    background: var(--color-success);
+    border-color: var(--color-success);
+
+    &::after {
+      content: '✓';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 8px;
+      font-weight: bold;
+    }
+  }
+}
+
+.timelineContent {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: $radius-md;
+  padding: $layout-gap-md;
+  transition: box-shadow $transition-fast-smooth, border-color $transition-fast-smooth;
+
+  &:hover {
+    border-color: var(--color-border-medium);
+    box-shadow: $shadow-sm;
+  }
+
+  .active & {
+    border-color: var(--color-primary);
+    box-shadow: $shadow-md;
+  }
+
+  .completed & {
+    opacity: 0.8;
+  }
+}
+
+.timelineTime {
+  display: inline-block;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-primary);
+  margin-bottom: $space-1;
+}
+
+.timelineTitle {
+  font-size: $font-size-base;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin: 0 0 $space-2;
+  line-height: $line-height-snug;
+
+  .completed & {
+    text-decoration: line-through;
+    color: var(--color-text-tertiary);
+  }
+}
+
+.timelineDescription {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: $line-height-normal;
+}
+
+.timelineDetails {
+  margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid var(--color-border-light);
+}
+
+// Line position variants
+.lineCenter {
+  .dayItems {
+    padding-left: 50%;
+
+    &::before {
+      left: 50%;
+      transform: translateX(-50%);
+    }
+  }
+
+  .timelineItem {
+    padding-left: $layout-gap-lg;
+
+    &:nth-child(even) {
+      transform: translateX(-100%);
+      text-align: right;
+      padding-left: 0;
+      padding-right: $layout-gap-lg;
+
+      .timelineNode {
+        left: auto;
+        right: calc(#{-$layout-gap-lg} + #{$space-2} - #{$timeline-node-size * 0.5} + 1px);
+      }
+    }
+  }
+}
+
+.lineRight {
+  .dayItems {
+    padding-left: 0;
+    padding-right: $space-6;
+
+    &::before {
+      left: auto;
+      right: $space-2;
+    }
+  }
+
+  .timelineItem {
+    padding-left: 0;
+    padding-right: $layout-gap-lg;
+    text-align: right;
+
+    .timelineNode {
+      left: auto;
+      right: calc(#{-$layout-gap-lg} + #{$space-2} - #{$timeline-node-size * 0.5} + 1px);
+    }
+  }
+}
+
+// Mobile adjustments
+@include breakpoint-max(md) {
+  .dayItems {
+    padding-left: $space-5;
+
+    &::before {
+      left: $space-1-5;
+    }
+  }
+
+  .timelineItem {
+    padding-left: $layout-gap-md;
+  }
+
+  .timelineNode {
+    left: calc(#{-$layout-gap-md} + #{$space-1-5} - #{$timeline-node-size * 0.5} + 1px);
+  }
+
+  .timelineContent {
+    padding: $layout-gap-sm;
+  }
+
+  // Reset center/right variants on mobile
+  .lineCenter,
+  .lineRight {
+    .dayItems {
+      padding-left: $space-5;
+      padding-right: 0;
+
+      &::before {
+        left: $space-1-5;
+        right: auto;
+        transform: none;
+      }
+    }
+
+    .timelineItem {
+      transform: none;
+      text-align: left;
+      padding-left: $layout-gap-md;
+      padding-right: 0;
+
+      .timelineNode {
+        left: calc(#{-$layout-gap-md} + #{$space-1-5} - #{$timeline-node-size * 0.5} + 1px);
+        right: auto;
+      }
+    }
+  }
+}

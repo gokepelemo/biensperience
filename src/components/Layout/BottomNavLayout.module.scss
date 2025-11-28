@@ -1,0 +1,150 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * BottomNavLayout Styles
+ * Mobile layout with fixed bottom navigation.
+ */
+
+.bottomNavLayout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh; // Dynamic viewport height for mobile
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: $z-index-sticky;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: $bottom-nav-height;
+  // Smooth scrolling for better mobile UX
+  -webkit-overflow-scrolling: touch;
+}
+
+.bottomNav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: $z-index-fixed;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: $bottom-nav-height;
+  background: var(--color-bg-primary);
+  border-top: 1px solid var(--color-border-light);
+  padding-bottom: env(safe-area-inset-bottom, 0); // iOS safe area
+  transition: transform $transition-normal-smooth;
+
+  .blurBg & {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    @media (prefers-color-scheme: dark) {
+      background: rgba(26, 32, 44, 0.85);
+    }
+  }
+
+  .hideOnScroll & {
+    &.hidden {
+      transform: translateY(100%);
+    }
+  }
+}
+
+// Individual Nav Item
+.navItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: $space-1;
+  flex: 1;
+  height: 100%;
+  padding: $space-2;
+  background: none;
+  border: none;
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color $transition-fast-smooth;
+  // WCAG touch target
+  min-width: 44px;
+  min-height: 44px;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--color-primary);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+    border-radius: $radius-md;
+  }
+
+  &.active {
+    color: var(--color-primary);
+
+    .navIcon {
+      transform: scale(1.1);
+    }
+
+    .navLabel {
+      font-weight: $font-weight-semibold;
+    }
+  }
+}
+
+.navIcon {
+  position: relative;
+  font-size: 1.25rem;
+  transition: transform $transition-fast-smooth;
+}
+
+.navBadge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--color-danger);
+  color: white;
+  font-size: 10px;
+  font-weight: $font-weight-bold;
+  line-height: 18px;
+  text-align: center;
+  border-radius: $radius-full;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.navLabel {
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  line-height: 1;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Desktop: hide bottom nav, show regular content
+@include breakpoint-min(lg) {
+  .bottomNavLayout {
+    .content {
+      padding-bottom: 0;
+    }
+
+    .bottomNav {
+      display: none;
+    }
+  }
+}

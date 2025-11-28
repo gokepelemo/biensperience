@@ -17,7 +17,7 @@ const getPlaceholderImage = (index, width = 800) => {
 };
 
 export default {
-  title: 'Design System/Popular Patterns',
+  title: 'Patterns/Common Patterns',
   parameters: {
     layout: 'fullscreen',
     docs: {
@@ -582,6 +582,8 @@ export const DashboardLayout = () => (
                         <div style={{
                           fontSize: 'var(--font-size-sm)',
                           color: 'var(--color-text-muted)',
+                          display: 'flex',
+                          alignItems: 'center',
                         }}>
                           <FaClock style={{ marginRight: 'var(--space-1)' }} />
                           {activity.time}
@@ -677,6 +679,8 @@ export const DashboardLayout = () => (
                       <div style={{
                         fontSize: 'var(--font-size-sm)',
                         color: 'var(--color-text-muted)',
+                        display: 'flex',
+                        alignItems: 'center',
                       }}>
                         <FaCalendar style={{ marginRight: 'var(--space-1)' }} />
                         {plan.date}
@@ -952,7 +956,7 @@ export const EmptyState = () => (
                 padding: 'var(--space-4) var(--space-8)',
                 fontWeight: 'var(--font-weight-semibold)',
               }}>
-                Create Custom Plan
+                Plan New Experience
               </Button>
             </div>
           </div>

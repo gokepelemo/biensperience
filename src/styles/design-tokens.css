@@ -168,6 +168,13 @@
   --btn-gradient-color: #ffffff;
   --btn-gradient-hover-brightness: 1.05; /* Reduced from 1.1 for better contrast (4.6:1) */
   --btn-gradient-active-brightness: 0.95;
+  /* Gradient button sizing (aliases to standard sizes for utility class compatibility) */
+  --btn-gradient-padding-y: var(--btn-padding-y-md);
+  --btn-gradient-padding-x: var(--btn-padding-x-md);
+  --btn-gradient-font-size: var(--btn-font-size-md);
+  --btn-gradient-font-weight: var(--btn-font-weight);
+  --btn-gradient-border-radius: var(--btn-radius-pill);
+  --btn-gradient-min-height: var(--btn-height-md);
 
   /* Secondary/Outline Button */
   --btn-secondary-bg: transparent;
@@ -176,6 +183,12 @@
   --btn-secondary-hover-bg: var(--color-primary);
   --btn-secondary-hover-color: #ffffff;
   --btn-secondary-hover-border: 2px solid var(--color-primary);
+  /* Secondary button sizing (aliases to standard sizes for utility class compatibility) */
+  --btn-secondary-padding-y: var(--btn-padding-y-md);
+  --btn-secondary-padding-x: var(--btn-padding-x-md);
+  --btn-secondary-font-size: var(--btn-font-size-md);
+  --btn-secondary-font-weight: var(--btn-font-weight);
+  --btn-secondary-border-radius: var(--btn-radius-pill);
 
   /* Tertiary/Ghost Button (minimal styling) */
   --btn-tertiary-bg: transparent;

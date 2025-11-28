@@ -1,16 +1,56 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Import and forward Experiences styles */
-@forward '../Experiences/Experiences.module.scss';
-
-/* Additional specific styles for tagged experiences (currently unused in JSX) */
-.experiencesByTagHeader {
+/* Grid layout for experience cards - matches Experiences view */
+.experiencesList {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $space-8;
+  justify-content: center;
+  align-items: flex-start;
   margin-bottom: $space-8;
 }
 
+/* Header container */
+.headerContainer {
+  margin-bottom: $space-6;
+}
+
+/* Row 1: Title (full width) */
+.titleRow {
+  width: 100%;
+
+  :global(h1) {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+  }
+
+  @media (max-width: 768px) {
+    text-align: center;
+  }
+}
+
+/* Row 2: Actions row with two columns */
+.actionsRow {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+  margin-bottom: $space-4;
+
+  @media (max-width: 768px) {
+    justify-content: center;
+  }
+}
+
+/* Right-aligned actions container */
+.actionsRight {
+  display: flex;
+  gap: $space-3;
+  align-items: center;
+}
+
+/* Tag badge */
 .tagBadge {
   display: inline-flex;
   align-items: center;
@@ -23,6 +63,7 @@
   margin-left: $space-4;
 }
 
+/* Alert styling */
 .alertInfo {
   :global(h5) {
     margin-bottom: $space-3;

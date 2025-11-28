@@ -188,73 +188,77 @@ export default function Preferences() {
               </FormCheck>
             </FormGroup>
 
-            <FormGroup>
-              <FormLabel>Notification Channels</FormLabel>
-              <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-                <FormCheck
-                  type="checkbox"
-                  id="channel-email"
-                  checked={form.notificationChannels.includes('email')}
-                  onChange={() => toggleChannel('email')}
-                >
-                  Email
-                </FormCheck>
-                <FormCheck
-                  type="checkbox"
-                  id="channel-push"
-                  checked={form.notificationChannels.includes('push')}
-                  onChange={() => toggleChannel('push')}
-                >
-                  Push
-                </FormCheck>
-                <FormCheck
-                  type="checkbox"
-                  id="channel-sms"
-                  checked={form.notificationChannels.includes('sms')}
-                  onChange={() => toggleChannel('sms')}
-                >
-                  SMS
-                </FormCheck>
-              </div>
-            </FormGroup>
+            {form.notificationsEnabled && (
+              <>
+                <FormGroup>
+                  <FormLabel>Notification Channels</FormLabel>
+                  <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                    <FormCheck
+                      type="checkbox"
+                      id="channel-email"
+                      checked={form.notificationChannels.includes('email')}
+                      onChange={() => toggleChannel('email')}
+                    >
+                      Email
+                    </FormCheck>
+                    <FormCheck
+                      type="checkbox"
+                      id="channel-push"
+                      checked={form.notificationChannels.includes('push')}
+                      onChange={() => toggleChannel('push')}
+                    >
+                      Push
+                    </FormCheck>
+                    <FormCheck
+                      type="checkbox"
+                      id="channel-sms"
+                      checked={form.notificationChannels.includes('sms')}
+                      onChange={() => toggleChannel('sms')}
+                    >
+                      SMS
+                    </FormCheck>
+                  </div>
+                </FormGroup>
 
-            <FormGroup>
-              <FormLabel>Notification Types</FormLabel>
-              <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-                <FormCheck
-                  type="checkbox"
-                  id="type-activity"
-                  checked={form.notificationTypes.includes('activity')}
-                  onChange={() => toggleType('activity')}
-                >
-                  Activity
-                </FormCheck>
-                <FormCheck
-                  type="checkbox"
-                  id="type-reminder"
-                  checked={form.notificationTypes.includes('reminder')}
-                  onChange={() => toggleType('reminder')}
-                >
-                  Reminders
-                </FormCheck>
-                <FormCheck
-                  type="checkbox"
-                  id="type-marketing"
-                  checked={form.notificationTypes.includes('marketing')}
-                  onChange={() => toggleType('marketing')}
-                >
-                  Marketing
-                </FormCheck>
-                <FormCheck
-                  type="checkbox"
-                  id="type-updates"
-                  checked={form.notificationTypes.includes('updates')}
-                  onChange={() => toggleType('updates')}
-                >
-                  Updates
-                </FormCheck>
-              </div>
-            </FormGroup>
+                <FormGroup>
+                  <FormLabel>Notification Types</FormLabel>
+                  <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                    <FormCheck
+                      type="checkbox"
+                      id="type-activity"
+                      checked={form.notificationTypes.includes('activity')}
+                      onChange={() => toggleType('activity')}
+                    >
+                      Activity
+                    </FormCheck>
+                    <FormCheck
+                      type="checkbox"
+                      id="type-reminder"
+                      checked={form.notificationTypes.includes('reminder')}
+                      onChange={() => toggleType('reminder')}
+                    >
+                      Reminders
+                    </FormCheck>
+                    <FormCheck
+                      type="checkbox"
+                      id="type-marketing"
+                      checked={form.notificationTypes.includes('marketing')}
+                      onChange={() => toggleType('marketing')}
+                    >
+                      Marketing
+                    </FormCheck>
+                    <FormCheck
+                      type="checkbox"
+                      id="type-updates"
+                      checked={form.notificationTypes.includes('updates')}
+                      onChange={() => toggleType('updates')}
+                    >
+                      Updates
+                    </FormCheck>
+                  </div>
+                </FormGroup>
+              </>
+            )}
 
             <div style={{ paddingTop: 'var(--space-2)' }}>
               <Button

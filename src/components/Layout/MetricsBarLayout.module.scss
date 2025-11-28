@@ -1,0 +1,202 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * MetricsBarLayout Styles
+ * Horizontal/vertical metrics display for dashboards.
+ */
+
+.metricsBar {
+  display: flex;
+  background: var(--color-bg-secondary);
+  border-radius: $radius-lg;
+  overflow: hidden;
+}
+
+// Direction variants
+.directionHorizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+  min-height: $metrics-bar-height;
+
+  @include breakpoint-max(md) {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .metricItem {
+    flex: 1 1 auto;
+    min-width: 150px;
+
+    @include breakpoint-max(md) {
+      flex-basis: 100%;
+    }
+  }
+}
+
+.directionVertical {
+  flex-direction: column;
+
+  .metricItem {
+    flex: none;
+  }
+}
+
+// Bordered variant
+.bordered {
+  &.directionHorizontal {
+    .metricItem:not(:last-child) {
+      border-right: 1px solid var(--color-border-light);
+
+      @include breakpoint-max(md) {
+        border-right: none;
+        border-bottom: 1px solid var(--color-border-light);
+      }
+    }
+  }
+
+  &.directionVertical {
+    .metricItem:not(:last-child) {
+      border-bottom: 1px solid var(--color-border-light);
+    }
+  }
+}
+
+// Compact variant
+.compact {
+  .metricItem {
+    padding: $space-3 $space-4;
+  }
+
+  .metricValue {
+    font-size: $font-size-lg;
+  }
+}
+
+// Individual Metric Item
+.metricItem {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $layout-gap-md $layout-gap-lg;
+  transition: background $transition-fast-smooth;
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  @include breakpoint-max(md) {
+    padding: $space-4;
+  }
+}
+
+.metricIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: $radius-md;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: $font-size-lg;
+  flex-shrink: 0;
+
+  .variantPrimary & {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+  }
+
+  .variantSuccess & {
+    background: rgba($color-success, 0.1);
+    color: var(--color-success);
+  }
+
+  .variantWarning & {
+    background: rgba($color-warning, 0.1);
+    color: var(--color-warning);
+  }
+
+  .variantDanger & {
+    background: rgba($color-danger, 0.1);
+    color: var(--color-danger);
+  }
+}
+
+.metricContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.metricLabel {
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: $letter-spacing-wide;
+  margin-bottom: $space-1;
+}
+
+.metricValue {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+  color: var(--color-text-primary);
+  line-height: $line-height-tight;
+
+  .variantPrimary & {
+    color: var(--color-primary);
+  }
+
+  .variantSuccess & {
+    color: var(--color-success);
+  }
+
+  .variantWarning & {
+    color: var(--color-warning);
+  }
+
+  .variantDanger & {
+    color: var(--color-danger);
+  }
+}
+
+.metricSubValue {
+  font-size: $font-size-sm;
+  color: var(--color-text-muted);
+  margin-top: $space-1;
+}
+
+.progressBar {
+  height: 6px;
+  width: 100%;
+  max-width: 120px;
+  background: var(--color-bg-tertiary);
+  border-radius: $radius-full;
+  overflow: hidden;
+  margin-top: $space-2;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  border-radius: $radius-full;
+  transition: width $transition-normal-smooth;
+
+  .variantSuccess & {
+    background: var(--color-success);
+  }
+
+  .variantWarning & {
+    background: var(--color-warning);
+  }
+
+  .variantDanger & {
+    background: var(--color-danger);
+  }
+}
+
+.metricAction {
+  flex-shrink: 0;
+  margin-left: $space-2;
+}

@@ -1,0 +1,86 @@
+@use '../../styles/scss/abstracts' as *;
+
+.twoFactorContent {
+  text-align: center;
+}
+
+.description {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  margin-bottom: var(--space-6);
+}
+
+.emailHint {
+  strong {
+    color: var(--color-text-primary);
+  }
+}
+
+.codeInputContainer {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+  margin-bottom: var(--space-6);
+}
+
+.codeInput {
+  width: 56px;
+  height: 64px;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  text-align: center;
+  border: 2px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+  }
+
+  &:disabled {
+    background-color: var(--color-bg-secondary);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  // Remove spinner on number inputs
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  &[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  // Responsive - smaller on mobile
+  @media (max-width: 480px) {
+    width: 44px;
+    height: 52px;
+    font-size: var(--font-size-xl);
+  }
+}
+
+.helpText {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-4);
+}
+
+.footerContent {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--space-3);
+}
+
+.resendButton {
+  display: flex;
+  align-items: center;
+}

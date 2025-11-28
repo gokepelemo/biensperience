@@ -1,7 +1,7 @@
 import React from 'react';
 
 export default {
-  title: 'Design System/Documentation',
+  title: 'Foundation/Documentation',
   parameters: {
     layout: 'fullscreen',
   },

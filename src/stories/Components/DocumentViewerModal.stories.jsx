@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import DocumentViewerModal from '../../../src/components/DocumentViewerModal/DocumentViewerModal';
 
 export default {
-  title: 'Components/DocumentViewerModal',
+  title: 'Components/Modals/Document Viewer',
   component: DocumentViewerModal,
   parameters: {
     layout: 'fullscreen',
@@ -18,7 +18,7 @@ const Template = (args) => {
         onClick={() => setShow(true)}
         style={{
           padding: '10px 20px',
-          background: '#007bff',
+          background: 'var(--color-primary)',
           color: 'white',
           border: 'none',
           borderRadius: '4px',

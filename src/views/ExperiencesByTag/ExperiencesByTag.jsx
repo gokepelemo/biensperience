@@ -1,4 +1,4 @@
-import "./ExperiencesByTag.module.scss";
+import styles from "./ExperiencesByTag.module.scss";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
@@ -7,6 +7,7 @@ import Alert from "../../components/Alert/Alert";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
+import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { logger } from "../../utilities/logger";
 import * as experiencesAPI from "../../utilities/experiences-api";
@@ -148,16 +149,20 @@ export default function ExperiencesByTag() {
       />
 
       <FadeIn>
-        <FlexBetween>
-          <div className="col-md-6">
-            <h1 className="my-4 h">Experiences tagged {displayTagName}</h1>
+        <Container className={styles.headerContainer}>
+          {/* Row 1: Title (full width) */}
+          <div className={styles.titleRow}>
+            <h1 className="my-4">Experiences tagged {displayTagName}</h1>
           </div>
-          <div>
-            <Button as={Link} to="/experiences" className="text-white">
-              View All Experiences
-            </Button>
+          {/* Row 2: Actions (right-aligned) */}
+          <div className={styles.actionsRow}>
+            <div className={styles.actionsRight}>
+              <Button as={Link} to="/experiences" variant="gradient">
+                View All Experiences
+              </Button>
+            </div>
           </div>
-        </FlexBetween>
+        </Container>
       </FadeIn>
 
       {loading ? (
@@ -166,42 +171,40 @@ export default function ExperiencesByTag() {
           size="lg"
           message={`Loading ${displayTagName} experiences...`}
         />
-      ) : displayedExperiences.length > 0 ? (
-        <FadeIn>
-          <Container className="my-4">
-            <div className="experiences-list">
-              {displayedExperiences.map((experience, index) => (
-                experience ? (
-                  <ExperienceCard
-                    experience={experience}
-                    key={experience._id}
-                    userPlans={plans}
-                    className="animation-fade_in"
-                  />
-                ) : (
-                  <div key={`placeholder-${index}`} style={{ width: '12rem', height: '8rem', display: 'inline-block', margin: '0.5rem' }}>
-                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                      <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                    </div>
-                  </div>
-                )
-              ))}
-            </div>
-          </Container>
-        </FadeIn>
       ) : (
         <FadeIn>
-          <Container className="my-4">
-            <div className="col-12">
-              <Alert type="info">
+          <div className={styles.experiencesList}>
+            {displayedExperiences.length > 0 ? (
+              displayedExperiences.map((experience, index) => (
+                <FadeIn key={experience?._id || `exp-${index}`} delay={index * 0.1}>
+                  {experience ? (
+                    <ExperienceCard
+                      experience={experience}
+                      userPlans={plans}
+                      forcePreload={true}
+                    />
+                  ) : (
+                    <div style={{ width: '12rem', height: '8rem', display: 'inline-block', margin: '0.5rem' }}>
+                      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                      </div>
+                    </div>
+                  )}
+                </FadeIn>
+              ))
+            ) : (
+              <Alert
+                type="info"
+                style={{ textAlign: 'center', width: '100%' }}
+              >
                 <h5>No experiences found with tag "{displayTagName}"</h5>
                 <p>Try browsing all experiences or search for a different tag.</p>
-                <Button as={Link} to="/experiences" variant="primary" className="mt-2">
+                <Button as={Link} to="/experiences" variant="gradient" className="mt-2">
                   Browse All Experiences
                 </Button>
               </Alert>
-            </div>
-          </Container>
+            )}
+          </div>
         </FadeIn>
       )}
     </PageWrapper>

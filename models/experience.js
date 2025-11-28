@@ -37,6 +37,10 @@ const experienceSchema = new Schema(
       type: String,
       required: true,
     },
+    overview: {
+      type: String,
+      default: ''
+    },
     destination: {
       type: Schema.Types.ObjectId,
       ref: "Destination",

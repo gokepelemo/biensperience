@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Heading,
   Text,
@@ -8,17 +9,21 @@ import {
   FlexBetween,
   FadeIn,
   SkeletonLoader,
-  HashLink
+  HashLink,
+  EmptyState
 } from '../design-system';
 import { FaCheckCircle, FaCalendar, FaTasks, FaChevronRight } from 'react-icons/fa';
+import CostEstimate from '../CostEstimate/CostEstimate';
 import { getUserPlans } from '../../utilities/plans-api';
-import { formatCurrency } from '../../utilities/currency-utils';
+import { usePlanExperience } from '../../contexts/PlanExperienceContext';
 import styles from './MyPlans.module.scss';
 
 export default function MyPlans() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedPlanId, setExpandedPlanId] = useState(null);
+  const navigate = useNavigate();
+  const { openPlanExperienceModal } = usePlanExperience();
 
   useEffect(() => {
     let mounted = true;
@@ -112,11 +117,12 @@ export default function MyPlans() {
         )}
 
         {!loading && plans.length === 0 && (
-          <div className={styles.emptyState}>
-            <Text size="base" variant="muted">
-              No plans yet. Plan an experience to get started.
-            </Text>
-          </div>
+          <EmptyState
+            variant="plans"
+            size="md"
+            onPrimaryAction={() => navigate('/experiences')}
+            onSecondaryAction={() => openPlanExperienceModal()}
+          />
         )}
 
         {!loading && plans.length > 0 && (
@@ -172,7 +178,11 @@ export default function MyPlans() {
                       <div className={styles.planHeaderRight}>
                         <div className={styles.planCost}>
                           <Text weight="bold" size="lg">
-                            {formatCurrency(plan.total_cost || 0)}
+                            <CostEstimate
+                              cost={plan.total_cost || 0}
+                              showTooltip={true}
+                              compact={true}
+                            />
                           </Text>
                         </div>
                         <div className={`${styles.expandIcon} ${isExpanded ? styles.rotated : ''}`}>
@@ -237,7 +247,11 @@ export default function MyPlans() {
                                 </Text>
                                 {Number(item.cost) > 0 && (
                                   <Text size="sm" variant="muted" className={styles.itemCost}>
-                                    {formatCurrency(item.cost)}
+                                    <CostEstimate
+                                      cost={item.cost}
+                                      showTooltip={true}
+                                      compact={true}
+                                    />
                                   </Text>
                                 )}
                               </div>
@@ -263,7 +277,12 @@ export default function MyPlans() {
                                   )}
                                 </div>
                                 <Text weight="semibold">
-                                  {formatCurrency(c.cost || 0, c.currency || 'USD')}
+                                  <CostEstimate
+                                    cost={c.cost || 0}
+                                    currency={c.currency || 'USD'}
+                                    showTooltip={true}
+                                    compact={true}
+                                  />
                                 </Text>
                               </FlexBetween>
                             ))}

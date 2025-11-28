@@ -270,7 +270,14 @@ router.post('/bulk', requireAuth, requireSuperAdmin, async (req, res) => {
 /**
  * POST /api/invites/validate
  * Validate an invite code (public endpoint)
- * Body: { code: string, email: string (optional) }
+ * Body: { code: string, email: string (required for detailed info) }
+ *
+ * Security: To prevent abuse, detailed inviter information (who invited,
+ * experiences, destinations) is ONLY returned when the user provides their
+ * email address. Without email, only basic validation status is returned.
+ *
+ * Returns without email: { valid: true/false, requiresEmail: true }
+ * Returns with email: { valid, inviterName, inviteeName, experienceNames, destinationNames, ... }
  */
 router.post('/validate', async (req, res) => {
   try {
@@ -283,13 +290,54 @@ router.post('/validate', async (req, res) => {
     const result = await InviteCode.validateCode(code, email);
 
     if (result.valid) {
-      // Don't expose full invite details for security
+      // If no email provided, return minimal response to prevent abuse
+      // Users must enter their email to see who invited them
+      if (!email || !email.trim()) {
+        return res.json({
+          valid: true,
+          requiresEmail: true,
+          message: 'Enter your email address to see invitation details'
+        });
+      }
+
+      // Email provided - return full invitation details
+      const populatedInvite = await InviteCode.findById(result.invite._id)
+        .populate('createdBy', 'name')
+        .populate('experiences', 'title')
+        .populate('destinations', 'name country');
+
+      // Verify the email matches the invite (if invite has specific email)
+      const inviteEmail = populatedInvite.email?.toLowerCase();
+      const providedEmail = email.trim().toLowerCase();
+
+      // If invite has a specific email, it must match
+      if (inviteEmail && inviteEmail !== providedEmail) {
+        return res.json({
+          valid: true,
+          requiresEmail: true,
+          message: 'This invite code may be for a different email address'
+        });
+      }
+
+      // Build experience and destination names
+      const experienceNames = populatedInvite.experiences?.map(e => e.title) || [];
+      const destinationNames = populatedInvite.destinations?.map(d => `${d.name}, ${d.country}`) || [];
+
       res.json({
         valid: true,
-        inviteeName: result.invite.inviteeName,
-        customMessage: result.invite.customMessage,
-        experienceCount: result.invite.experiences?.length || 0,
-        destinationCount: result.invite.destinations?.length || 0
+        requiresEmail: false,
+        // Who invited them (inviteeName is person being invited, createdBy is inviter)
+        inviterName: populatedInvite.createdBy?.name || 'Someone',
+        inviteeName: populatedInvite.inviteeName,
+        customMessage: populatedInvite.customMessage,
+        // Experience details
+        experienceCount: experienceNames.length,
+        experienceNames,
+        // Destination details
+        destinationCount: destinationNames.length,
+        destinationNames,
+        // Permission type being granted
+        permissionType: populatedInvite.permissionType || 'collaborator'
       });
     } else {
       res.status(400).json({

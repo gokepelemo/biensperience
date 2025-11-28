@@ -77,19 +77,18 @@
   color: var(--color-on-neutral);
 }
 
-/* Light variant - White bg, purple text, same in light/dark mode */
-/* Designed for consistent appearance - no hover style change */
+/* Light variant - White bg, purple text for brand consistency */
 .tagPillLight {
-  background: #ffffff !important; /* Pure white, not theme-dependent */
-  color: var(--color-primary) !important;
+  background: var(--color-bg-primary, #ffffff) !important;
+  color: var(--color-primary, #667eea) !important; /* Theme purple for brand consistency */
   box-shadow: var(--shadow-sm);
   border: none;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 
   /* No visual change on hover - maintains consistent appearance */
   &:hover {
-    background: #ffffff !important;
-    color: var(--color-primary) !important;
+    background: var(--color-bg-primary, #ffffff) !important;
+    color: var(--color-primary-dark, #5a67d8) !important; /* Darker purple on hover */
   }
 
   /* Tactile feedback for touch/click */

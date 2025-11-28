@@ -2,7 +2,7 @@ import { Container, Row, Col, Card } from 'react-bootstrap';
 import SearchBar from '../components/SearchBar/SearchBar';
 
 export default {
-  title: 'Components/SearchBar',
+  title: 'Components/Forms/Search Bar',
   component: SearchBar,
   parameters: {
     layout: 'padded',

@@ -6,7 +6,10 @@
 
 import Modal from '../../../components/Modal/Modal';
 import Alert from '../../../components/Alert/Alert';
+import CostEstimate from '../../../components/CostEstimate/CostEstimate';
+import PlanningTime from '../../../components/PlanningTime/PlanningTime';
 import { formatCurrency } from '../../../utilities/currency-utils';
+import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 
 export default function SyncPlanModal({
   // Modal state
@@ -137,13 +140,19 @@ export default function SyncPlanModal({
                     <div className="ms-2" style={{ textAlign: 'end' }}>
                       {item.cost > 0 && (
                         <div className="badge bg-secondary">
-                          {formatCurrency(item.cost)}
+                          <CostEstimate
+                            cost={item.cost}
+                            showTooltip={false}
+                            compact={true}
+                          />
                         </div>
                       )}
                       {item.planning_days > 0 && (
                         <div className="badge bg-info ms-1">
-                          {item.planning_days}{" "}
-                          {item.planning_days === 1 ? "day" : "days"}
+                          <PlanningTime
+                            days={item.planning_days}
+                            showTooltip={false}
+                          />
                         </div>
                       )}
                     </div>

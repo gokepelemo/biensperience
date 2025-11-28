@@ -4,7 +4,7 @@ import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 
-export default function TravelTipsList({ tips, editable = false, onDeleteTip }) {
+export default function TravelTipsList({ tips, editable = false, onDeleteTip, hideHeading = false }) {
   if (!tips || tips.length === 0) {
     return null;
   }
@@ -30,10 +30,12 @@ export default function TravelTipsList({ tips, editable = false, onDeleteTip }) 
 
   return (
     <div className={styles.travelTipsList}>
-      <h3 className={styles.travelTipsHeading}>
-        <span className={styles.travelTipsIcon} aria-hidden="true">💡</span>
-        Travel Tips & Information
-      </h3>
+      {!hideHeading && (
+        <h3 className={styles.travelTipsHeading}>
+          <span className={styles.travelTipsIcon} aria-hidden="true">💡</span>
+          Travel Tips & Information
+        </h3>
+      )}
       <div className={styles.travelTipsSlider}>
         <Slider {...sliderSettings}>
           {tips.map((tip, index) => (

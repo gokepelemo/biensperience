@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { lang } from "../../lang.constants";
 import styles from "./Alert.module.scss";
 
@@ -51,8 +51,14 @@ const Alert = ({
   const handleDismiss = () => {
     if (onDismiss) {
       onDismiss();
+    } else {
+      setVisible(false);
     }
   };
+
+  const [visible, setVisible] = useState(true);
+
+  if (!visible) return null;
 
   return (
     <div className={alertClasses} style={style} role="alert">
@@ -63,9 +69,7 @@ const Alert = ({
           aria-label={lang.en.aria.dismissAlert}
           onClick={handleDismiss}
           style={closeButtonStyle}
-        >
-          <span aria-hidden="true">&times;</span>
-        </button>
+        />
       )}
 
       <div className={styles.alertContent}>

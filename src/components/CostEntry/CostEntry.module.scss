@@ -1,0 +1,134 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * CostEntry Component Styles
+ */
+
+.costEntryForm {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.costInputRow {
+  display: flex;
+  gap: $space-2;
+  align-items: stretch;
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+  }
+}
+
+.currencySelect {
+  flex: 0 0 100px;
+  min-width: 100px;
+
+  @media (max-width: 480px) {
+    flex: 1 1 auto;
+    min-width: 100%;
+  }
+
+  select {
+    height: 100%;
+  }
+}
+
+// Cost list styles (for displaying costs)
+.costList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.costItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: $space-3;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  transition: var(--transition-fast);
+
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-medium);
+  }
+}
+
+.costItemContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.costItemTitle {
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin-bottom: $space-1;
+}
+
+.costItemDescription {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  margin-bottom: $space-2;
+}
+
+.costItemMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+  font-size: $font-size-xs;
+  color: var(--color-text-tertiary);
+}
+
+.costItemAmount {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-bold;
+  color: var(--color-primary);
+  white-space: nowrap;
+  margin-left: $space-3;
+}
+
+.costItemActions {
+  display: flex;
+  gap: $space-1;
+  margin-left: $space-2;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+
+  .costItem:hover & {
+    opacity: 1;
+  }
+}
+
+.emptyState {
+  text-align: center;
+  padding: $space-6 $space-4;
+  color: var(--color-text-secondary);
+
+  .emptyIcon {
+    font-size: 2.5rem;
+    margin-bottom: $space-3;
+    opacity: 0.5;
+  }
+
+  .emptyText {
+    margin-bottom: $space-4;
+  }
+}
+
+// Badge for cost assignee
+.costBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  padding: $space-1 $space-2;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  font-size: $font-size-xs;
+
+  .costBadgeIcon {
+    font-size: 0.7rem;
+  }
+}

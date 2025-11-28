@@ -15,3 +15,4 @@ export { default as Accordion } from './Accordion/Accordion';
 export { Animation, FadeIn, SlideUp, ScaleIn, Staggered } from './Animation';
 export { Show, Hide, Mobile, Tablet, Desktop, HiddenOnMobile, VisibleOnMobile } from './Responsive';
 export { default as DocumentViewerModal } from './DocumentViewerModal';
+export { default as EmptyState, VARIANT_CONFIG as EmptyStateVariants } from './EmptyState';

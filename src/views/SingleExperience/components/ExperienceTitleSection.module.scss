@@ -3,6 +3,7 @@
 /**
  * ExperienceTitleSection Component Styles
  * Responsive text alignment: center on mobile, left on desktop
+ * All inline elements have min-height 44px for consistent alignment
  */
 
 .experienceTitleSection {
@@ -13,4 +14,33 @@
   @media (min-width: 768px) {
     text-align: start;
   }
+}
+
+// Header grid - ensures consistent height for inline elements
+.headerGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-3;
+  align-items: center;
+  margin: $space-2 0;
+
+  /* Mobile: Center items */
+  justify-content: center;
+
+  /* Desktop: Start alignment */
+  @media (min-width: 768px) {
+    justify-content: flex-start;
+  }
+}
+
+// Header item - minimum 44px height for touch targets and alignment
+.headerItem {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: 0;
+  // Inherit font styles from parent h2.h5
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
 }

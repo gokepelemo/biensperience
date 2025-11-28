@@ -1,0 +1,201 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * MapListLayout Styles
+ * Split view with map and list for location-based browsing.
+ */
+
+.mapListLayout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 500px;
+}
+
+// Desktop Split View
+.desktopView {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+
+  @include breakpoint-max(lg) {
+    display: none;
+  }
+}
+
+.mapPane {
+  flex: 1;
+  position: relative;
+  min-height: 400px;
+
+  // Make sure map fills container
+  > * {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.listPane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-bg-primary);
+  border-left: 1px solid var(--color-border-light);
+}
+
+// Map on right side
+.mapRight {
+  .desktopView {
+    flex-direction: row-reverse;
+  }
+
+  .listPane {
+    border-left: none;
+    border-right: 1px solid var(--color-border-light);
+  }
+}
+
+// Split ratio variants
+.ratio5050 {
+  .mapPane,
+  .listPane {
+    flex: 1 1 50%;
+  }
+}
+
+.ratio6040 {
+  .mapPane {
+    flex: 1 1 60%;
+  }
+  .listPane {
+    flex: 1 1 40%;
+  }
+}
+
+.ratio4060 {
+  .mapPane {
+    flex: 1 1 40%;
+  }
+  .listPane {
+    flex: 1 1 60%;
+  }
+}
+
+.ratio7030 {
+  .mapPane {
+    flex: 1 1 70%;
+  }
+  .listPane {
+    flex: 1 1 30%;
+  }
+}
+
+.ratio3070 {
+  .mapPane {
+    flex: 1 1 30%;
+  }
+  .listPane {
+    flex: 1 1 70%;
+  }
+}
+
+.listContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: $layout-gap-md;
+}
+
+// Mobile Toggle View
+.mobileView {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+
+  @include breakpoint-max(lg) {
+    display: flex;
+  }
+}
+
+.toggleBar {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: $z-index-sticky;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+  padding: $space-2;
+  gap: $space-2;
+}
+
+.toggleButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  padding: $space-3 $space-4;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all $transition-fast-smooth;
+  min-height: 44px; // WCAG touch target
+
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-medium);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+
+  &.active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+  }
+
+  svg {
+    font-size: 1.1em;
+  }
+}
+
+.mobileContent {
+  flex: 1;
+  overflow: hidden;
+}
+
+.mobileList {
+  height: 100%;
+  overflow-y: auto;
+  padding: $layout-gap-md;
+}
+
+.mobileMap {
+  height: 100%;
+  position: relative;
+
+  > * {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+// Resizable variant (future enhancement)
+.resizable {
+  .listPane,
+  .mapPane {
+    position: relative;
+  }
+
+  // Resize handle would go here
+}

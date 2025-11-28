@@ -1,3 +1,54 @@
+// Optional Storybook preview decorator to force animations for demos.
+// Usage: set env var `STORYBOOK_FORCE_ANIMATIONS=true` when running Storybook.
+// This will inject a small stylesheet in the preview iframe that overrides
+// the project's `prefers-reduced-motion: reduce` rule so animations are visible
+// for demonstration. Do NOT enable this in production environments.
+
+// Do not import React here — Storybook concatenates preview files and the
+// project's existing preview imports React already, which can cause a
+// duplicate-declaration parse error. Use the Story function directly.
+
+const injectForceAnimationsStyle = () => {
+  if (typeof document === 'undefined') return;
+  const id = 'biensperience-force-animations';
+  if (document.getElementById(id)) return;
+  const style = document.createElement('style');
+  style.id = id;
+  // This rule will be appended after other styles in the preview iframe,
+  // so its !important declarations will override earlier reduced-motion rules.
+  style.innerHTML = `
+/* Force animations in the preview iframe when requested */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    /* restore sensible durations for demo */
+    animation-duration: 0.32s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.32s !important;
+    /* allow animations that use shorthand */
+    animation-delay: 0s !important;
+  }
+}
+`;
+  document.head.appendChild(style);
+};
+
+export const decorators = [
+  (Story) => {
+    try {
+      const force = (typeof window !== 'undefined' && window.STORYBOOK_FORCE_ANIMATIONS === 'true') ||
+        process.env.STORYBOOK_FORCE_ANIMATIONS === 'true';
+      if (force) injectForceAnimationsStyle();
+    } catch (err) {
+      // ignore - best effort only
+      // eslint-disable-next-line no-console
+      console.warn('Could not inject force-animations stylesheet', err);
+    }
+		// Return the Story function (avoid JSX here to remove React import requirement)
+		return Story();
+  }
+];
+
+// Optional parameters or global decorators can be added below.
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../src/index.scss';
 import '../src/styles/theme.scss';

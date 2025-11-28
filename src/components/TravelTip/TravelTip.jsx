@@ -1,12 +1,12 @@
 import styles from "./TravelTip.module.scss";
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import {
   FaLanguage, FaMoneyBillWave, FaBus, FaShieldAlt,
   FaCloudSun, FaHandshake, FaUtensils, FaHotel,
   FaExclamationTriangle, FaThumbtack, FaLightbulb,
   FaExternalLinkAlt, FaTimes
 } from 'react-icons/fa';
-import { Button, Pill, Text } from '../design-system';
+import { Button, Pill } from '../design-system';
 import EntitySchema from "../OpenGraph/EntitySchema";
 
 // Emoji icons for colorful display
@@ -51,71 +51,6 @@ const TIP_COLORS = {
 };
 
 export default function TravelTip({ tip, index, onDelete, editable = false, includeSchema = false }) {
-  const cardRef = useRef(null);
-  const contentRef = useRef(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  // Detect overflow and set CSS variables for dimensions
-  useEffect(() => {
-    if (!contentRef.current || !cardRef.current) return;
-
-    const card = cardRef.current;
-    const content = contentRef.current;
-
-    const updateDimensions = () => {
-      const hasVerticalOverflow = content.scrollHeight > content.clientHeight;
-
-      if (hasVerticalOverflow) {
-        // Set CSS variables for smooth animation without re-renders
-        const collapsedHeight = card.offsetHeight;
-        const cardWidth = card.offsetWidth;
-
-        // Temporarily expand to measure full height
-        const originalOverflow = content.style.overflow;
-        const originalMaxHeight = content.style.maxHeight;
-        content.style.overflow = 'visible';
-        content.style.maxHeight = 'none';
-        const expandedHeight = card.scrollHeight;
-        content.style.overflow = originalOverflow;
-        content.style.maxHeight = originalMaxHeight;
-
-        // Set CSS variables on the card element
-        card.style.setProperty('--collapsed-height', `${collapsedHeight}px`);
-        card.style.setProperty('--expanded-height', `${expandedHeight}px`);
-        card.style.setProperty('--card-width', `${cardWidth}px`);
-        card.dataset.hasOverflow = 'true';
-      } else {
-        card.dataset.hasOverflow = 'false';
-      }
-    };
-
-    // Use ResizeObserver for better performance
-    const resizeObserver = new ResizeObserver(updateDimensions);
-    resizeObserver.observe(card);
-    updateDimensions(); // Initial measurement
-
-    return () => resizeObserver.disconnect();
-  }, [tip]);
-
-  const handleMouseEnter = () => {
-    if (cardRef.current?.dataset.hasOverflow === 'true') {
-      setIsExpanded(true);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (cardRef.current?.dataset.hasOverflow === 'true') {
-      setIsExpanded(false);
-    }
-  };
-
-  const handleTouchStart = (e) => {
-    if (cardRef.current?.dataset.hasOverflow === 'true') {
-      e.preventDefault();
-      setIsExpanded(!isExpanded);
-    }
-  };
-
   // Calculate dynamic font size based on text length for simple tips
   // Uses clamp() for fluid sizing that adapts to card dimensions and prevents overflow
   const getSimpleTipFontSize = useMemo(() => {
@@ -154,20 +89,13 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
     return (
       <>
         <div
-          ref={cardRef}
-          className={`${styles.travelTip} ${styles.travelTipSimple} ${isExpanded ? styles.expanded : ''}`}
+          className={`${styles.travelTip} ${styles.travelTipSimple}`}
           key={index}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          onTouchStart={handleTouchStart}
         >
           <div className={`${styles.travelTipIconWrapper} ${styles.simple}`}>
             <FaLightbulb className={styles.travelTipFaIcon} />
           </div>
-          <div
-            ref={contentRef}
-            className={styles.travelTipContentSimple}
-          >
+          <div className={styles.travelTipContentSimple}>
             <span
               className={styles.travelTipText}
               style={{ fontSize: getSimpleTipFontSize }}
@@ -225,85 +153,78 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
   return (
     <>
       <div
-        ref={cardRef}
-        className={`${styles.travelTip} ${styles.travelTipStructured} ${styles[`travelTip${type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()}`]} ${isExpanded ? styles.expanded : ''}`}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        onTouchStart={handleTouchStart}
+        className={`${styles.travelTip} ${styles.travelTipStructured} ${styles[`travelTip${type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()}`]}`}
         {...schemaProps}
       >
-      <div className={styles.travelTipHeader}>
-        <div
-          className={`${styles.travelTipIconWrapper} ${gradientClass}`}
-          aria-hidden="true"
-        >
-          <div className={styles.travelTipEmoji}>{displayEmoji}</div>
-          <FAIcon className={styles.travelTipFaIcon} />
-        </div>
-        <div className={styles.travelTipHeaderContent}>
-          <Pill variant={badgeColor} size="sm" className={styles.travelTipBadge}>
-            <FAIcon style={{ marginRight: 'var(--space-1)' }} size="0.8em" />
-            {displayCategory}
-          </Pill>
-        </div>
-        {editable && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onDelete(index)}
-            aria-label="Delete tip"
-            className={styles.travelTipDelete}
-            style={{ marginLeft: 'auto' }}
+        <div className={styles.travelTipHeader}>
+          <div
+            className={`${styles.travelTipIconWrapper} ${gradientClass}`}
+            aria-hidden="true"
           >
-            <FaTimes />
-          </Button>
-        )}
-      </div>
-
-      <div
-        ref={contentRef}
-        className={styles.travelTipContent}
-      >
-        <div className={styles.travelTipValue} itemProp="value">
-          <strong>{value}</strong>
+            <div className={styles.travelTipEmoji}>{displayEmoji}</div>
+            <FAIcon className={styles.travelTipFaIcon} />
+          </div>
+          <div className={styles.travelTipHeaderContent}>
+            <Pill variant={badgeColor} size="sm" className={styles.travelTipBadge}>
+              <FAIcon style={{ marginRight: 'var(--space-1)' }} size="0.8em" />
+              {displayCategory}
+            </Pill>
+          </div>
+          {editable && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onDelete(index)}
+              aria-label="Delete tip"
+              className={styles.travelTipDelete}
+              style={{ marginLeft: 'auto' }}
+            >
+              <FaTimes />
+            </Button>
+          )}
         </div>
 
-        {note && (
-          <div className={styles.travelTipNote} itemProp="description">
-            💬 {note}
+        <div className={styles.travelTipContent}>
+          <div className={styles.travelTipValue} itemProp="value">
+            <strong>{value}</strong>
           </div>
-        )}
 
-        {exchangeRate && type === 'Currency' && (
-          <div className={styles.travelTipExchangeRate}>
-            <small className="text-muted">
-              <FaMoneyBillWave className="me-1" />
-              {exchangeRate}
-            </small>
-          </div>
-        )}
+          {note && (
+            <div className={styles.travelTipNote} itemProp="description">
+              💬 {note}
+            </div>
+          )}
 
-        {callToAction && callToAction.url && (
-          <div className={styles.travelTipCta} style={{ marginTop: 'var(--space-2)' }}>
-            <Button
-              as="a"
-              href={callToAction.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              size="sm"
-              variant="outline"
-              className={styles.travelTipCtaButton}
-            >
-              {callToAction.label || 'Learn More'}
-              <FaExternalLinkAlt style={{ marginLeft: 'var(--space-1)' }} size="0.8em" />
-            </Button>
-          </div>
-        )}
+          {exchangeRate && type === 'Currency' && (
+            <div className={styles.travelTipExchangeRate}>
+              <small className="text-muted">
+                <FaMoneyBillWave className="me-1" />
+                {exchangeRate}
+              </small>
+            </div>
+          )}
+
+          {callToAction && callToAction.url && (
+            <div className={styles.travelTipCta} style={{ marginTop: 'var(--space-2)' }}>
+              <Button
+                as="a"
+                href={callToAction.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="sm"
+                variant="outline"
+                className={styles.travelTipCtaButton}
+              >
+                {callToAction.label || 'Learn More'}
+                <FaExternalLinkAlt style={{ marginLeft: 'var(--space-1)' }} size="0.8em" />
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-    {includeSchema && tip && (
-      <EntitySchema entity={{ name: tip.value || tip.note, description: tip.note, type: 'travel-tip', category: tip.type }} entityType="travel-tip" />
-    )}
+      {includeSchema && tip && (
+        <EntitySchema entity={{ name: tip.value || tip.note, description: tip.note, type: 'travel-tip', category: tip.type }} entityType="travel-tip" />
+      )}
     </>
   );
 }

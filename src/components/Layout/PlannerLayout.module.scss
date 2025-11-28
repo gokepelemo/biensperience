@@ -1,0 +1,226 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * PlannerLayout Styles
+ * Two-column layout with collapsible sidebar for trip planning.
+ */
+
+.plannerLayout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg-primary);
+}
+
+.header {
+  padding: $layout-gap-md $layout-gap-lg;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+  position: sticky;
+  top: 0;
+  z-index: $z-index-sticky;
+
+  @include breakpoint-max(md) {
+    padding: $layout-gap-sm $layout-gap-md;
+  }
+}
+
+.contentArea {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+
+  @include breakpoint-max(lg) {
+    flex-direction: column;
+  }
+}
+
+.main {
+  flex: 1;
+  padding: $layout-gap-lg;
+  overflow-y: auto;
+  min-height: 0; // Flexbox overflow fix
+
+  @include breakpoint-max(md) {
+    padding: $layout-gap-md;
+  }
+}
+
+.sidebar {
+  width: $sidebar-width-md;
+  background: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border-light);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: width $transition-normal-smooth, transform $transition-normal-smooth;
+
+  // Hide on mobile (use bottom sheet instead)
+  @include breakpoint-max(lg) {
+    display: none;
+  }
+}
+
+// Sidebar on left side
+.sidebarLeft {
+  .contentArea {
+    flex-direction: row-reverse;
+  }
+
+  .sidebar {
+    border-left: none;
+    border-right: 1px solid var(--color-border-light);
+  }
+
+  .collapseToggle {
+    right: auto;
+    left: -12px;
+  }
+}
+
+// Collapsed sidebar
+.sidebarCollapsed {
+  .sidebar {
+    width: 48px;
+  }
+
+  .sidebarContent {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .collapseToggle {
+    transform: rotate(180deg);
+  }
+}
+
+.collapseToggle {
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: $radius-sm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1;
+  transition: background $transition-fast-smooth, transform $transition-normal-smooth;
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.sidebarContent {
+  padding: $layout-gap-md;
+  overflow-y: auto;
+  flex: 1;
+  transition: opacity $transition-fast-smooth, visibility $transition-fast-smooth;
+}
+
+// Mobile Bottom Sheet
+.mobileSheet {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border-light);
+  border-radius: $radius-xl $radius-xl 0 0;
+  box-shadow: $shadow-lg;
+  z-index: $z-index-modal;
+  max-height: 70vh;
+  transition: max-height $transition-normal-smooth;
+
+  @include breakpoint-max(lg) {
+    display: block;
+  }
+
+  &.expanded {
+    max-height: 70vh;
+
+    .mobileSheetContent {
+      max-height: calc(70vh - 56px);
+      opacity: 1;
+    }
+  }
+
+  &:not(.expanded) {
+    max-height: 56px;
+
+    .mobileSheetContent {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+  }
+}
+
+.mobileSheetToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: $layout-gap-md $layout-gap-lg;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: $font-size-base;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  touch-action: manipulation;
+  min-height: 56px;
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.mobileSheetTitle {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.itemBadge {
+  background: var(--color-primary);
+  color: white;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-bold;
+  padding: $space-1 $space-2;
+  border-radius: $radius-full;
+  min-width: 24px;
+  text-align: center;
+}
+
+.mobileSheetContent {
+  padding: 0 $layout-gap-lg $layout-gap-lg;
+  overflow-y: auto;
+  transition: max-height $transition-normal-smooth, opacity $transition-fast-smooth;
+}
+
+.footer {
+  padding: $layout-gap-md $layout-gap-lg;
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border-light);
+
+  @include breakpoint-max(lg) {
+    // Account for mobile bottom sheet
+    padding-bottom: calc($layout-gap-md + 56px);
+  }
+
+  @include breakpoint-max(md) {
+    padding: $layout-gap-sm $layout-gap-md;
+    padding-bottom: calc($layout-gap-sm + 56px);
+  }
+}

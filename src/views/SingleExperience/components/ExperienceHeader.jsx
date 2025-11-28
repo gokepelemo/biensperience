@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import PhotoCard from '../../../components/PhotoCard/PhotoCard';
 import TagPill from '../../../components/Pill/TagPill';
 import FadeIn from '../../../components/Animation/Animation';
-import { formatCurrency } from '../../../utilities/currency-utils';
+import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import { formatDateShort, formatDateForInput } from '../../../utilities/date-utils';
 
 export default function ExperienceHeader({
@@ -110,7 +110,11 @@ export default function ExperienceHeader({
       {experience.cost_estimate > 0 && (
         <div className="mb-3">
           <strong>Estimated Cost: </strong>
-          {formatCurrency(experience.cost_estimate)}
+          <CostEstimate
+            cost={experience.cost_estimate}
+            showTooltip={true}
+            showDollarSigns={true}
+          />
         </div>
       )}
 

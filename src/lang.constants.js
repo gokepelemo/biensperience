@@ -63,6 +63,7 @@ const en = {
     confirmSync: "Confirm Sync",
     tryAgain: "Try Again",
     forgotPassword: "Forgot Password?",
+    rememberMe: "Remember me",
   },
 
   alert: {
@@ -293,9 +294,18 @@ const en = {
   },
 
   label: {
+    name: "Name",
+    email: "Email",
+    password: "Password",
+    confirmPassword: "Confirm Password",
+    orSignUpWith: "Or sign up with",
+    orSignInWith: "Or sign in with",
     destinationLabel: "Destination",
     address: "Address",
     title: "Title",
+    overview: "Overview",
+    termsOfService: "Terms of Service",
+    privacyPolicy: "Privacy Policy",
     costEstimate: "Cost Estimate ($)",
     planningDays: "Planning Days",
     parentPlanItem: "Parent Plan Item",
@@ -402,6 +412,8 @@ const en = {
     emailExample: "Email (ex. john@doe.com)",
     experienceName:
       "e.g. Brewery Tour at Lakefront Brewery with a Local in Milwaukee",
+    overview:
+      "Describe what makes this experience special, what travelers can expect, and any highlights they should know about...",
     address:
       "Address (optional). A specific address to the location if available.",
     experienceType: "e.g. Culinary, Winery, Brewery, High Adrenaline",
@@ -452,6 +464,8 @@ const en = {
   helper: {
     nameRequired:
       "Give your experience an exciting name that captures what makes it special.",
+    overviewOptional:
+      "Share a brief description of this experience to help travelers understand what they're in for.",
     destinationRequired: "Pick where this adventure takes place, or ",
     createNewDestination: "add a new destination to our map 🗺️",
     experienceTypesOptional:
@@ -466,9 +480,11 @@ const en = {
     countryRequired: "Which country will host this experience.",
     noneTopLevel: "None (Top Level)",
     requiresDaysToPlan:
-      "Heads up. This experience needs at least {days} days of planning time.",
+      "Heads up. This experience needs at least {days} of planning time.",
     planningDaysOptional:
       "How many days should travelers plan ahead? (Optional).",
+    planningTimeTooltip:
+      "Recommended time to plan and prepare for this experience before your trip. Does not include travel time to the destination.",
     costEstimateOptional:
       "Give future travelers a ballpark budget (completely optional).",
     profileName: "This is how you'll appear to other travelers.",
@@ -488,6 +504,9 @@ const en = {
   message: {
     dontHaveAccount: "Don't have an account?",
     alreadyHaveAccount: "Already have an account?",
+    joinCommunity: "Join our community of travelers and start planning your next adventure.",
+    agreeToTermsPrefix: "I agree to the",
+    and: "and",
     noPhotoMessage: "No profile photo yet.",
     uploadPhotoNow: "Upload One Now",
     noFavoriteDestinations:
@@ -688,8 +707,9 @@ const en = {
     invitedBy: "Invited by {name}",
     inviteDetails: "Invite Details",
     preConfigured: "This invite includes:",
-    experiencesIncluded: "{count} experience{plural} to plan",
-    destinationsIncluded: "{count} destination{plural} to explore",
+    experiencesIncluded: "Experiences to collaborate on",
+    destinationsIncluded: "Destinations to explore",
+    enterEmailForDetails: "Enter your email address to see who invited you",
     customMessage: "Message from {name}:",
     sendInvite: "Send Invite",
     sendingInvite: "Sending invite...",
@@ -718,6 +738,38 @@ const en = {
     bulkInviteSuccess: "{count} invite{plural} sent successfully",
     bulkInvitePartial: "{sent} invite{plural} sent, {failed} failed",
   },
+  cost: {
+    addCost: "Add Cost",
+    editCost: "Edit Cost",
+    costs: "Costs",
+    costTitle: "Cost Title",
+    costTitlePlaceholder: "e.g., Flight tickets, Hotel booking",
+    costTitleRequired: "Please enter a title for this cost",
+    costAmount: "Amount",
+    costAmountPlaceholder: "0.00",
+    costDescription: "Description (optional)",
+    costDescriptionPlaceholder: "Add details about this expense",
+    currency: "Currency",
+    assignedTo: "Paid by",
+    assignedToPlaceholder: "Select who paid (optional)",
+    assignedToPlanItem: "For Plan Item",
+    assignedToPlanItemPlaceholder: "Select plan item (optional)",
+    sharedCost: "Shared cost (split among all)",
+    generalCost: "General cost (not linked to item)",
+    costAdded: "Cost added successfully",
+    costUpdated: "Cost updated successfully",
+    costDeleted: "Cost deleted",
+    confirmDeleteCost: "Are you sure you want to delete this cost?",
+    noCostsYet: "No costs tracked yet. Add your first expense.",
+    totalCosts: "Total Costs",
+    costsByPerson: "Costs by Person",
+    costsByItem: "Costs by Item",
+    sharedCosts: "Shared Costs",
+    perPersonShare: "Per Person Share",
+    costSummary: "Cost Summary",
+    addFirstCost: "Track your first expense",
+  },
+
   email: {
     passwordReset: {
       subject: "{appName} - Reset Your Password",

@@ -5,7 +5,7 @@ import { BsCheckAll } from 'react-icons/bs';
 import BiensperienceLogo from '../components/BiensperienceLogo/BiensperienceLogo';
 
 export default {
-  title: 'Design System/Messaging Interface',
+  title: 'Patterns/Messaging',
   parameters: {
     layout: 'fullscreen',
     docs: {
@@ -415,6 +415,8 @@ export const MessagingApp = {
             borderRadius: 'var(--radius-full)',
             border: 'none',
             padding: 'var(--space-2) var(--space-4)',
+            display: 'flex',
+            alignItems: 'center',
           }}>
             <FaSearch style={{ color: 'var(--color-text-muted)', marginRight: 'var(--space-2)' }} />
             <Form.Control

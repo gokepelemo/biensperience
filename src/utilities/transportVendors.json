@@ -1,0 +1,99 @@
+{
+  "US": {
+    "country_name": "United States",
+    "region": "NA",
+    "flight": [
+      {
+        "name": "Delta Air Lines",
+        "url": "https://www.delta.com/",
+        "api_url": "https://api.aviationstack.com/v1/flights",
+        "tracking_url_template": "https://www.delta.com/flight-status?flightNumber={tracking_number}",
+        "sample_tracking_regex": "^[A-Z]{2}\\d{1,4}$"
+      },
+      {
+        "name": "American Airlines",
+        "url": "https://www.aa.com/",
+        "api_url": "https://api.aviationstack.com/v1/flights",
+        "tracking_url_template": "https://www.aa.com/travelInformation/flights/flightStatus?flightNumber={tracking_number}",
+        "sample_tracking_regex": "^[A-Z]{2}\\d{1,4}$"
+      },
+      {
+        "name": "United Airlines",
+        "url": "https://www.united.com/",
+        "api_url": "https://api.flightstats.com/flex/flightstatus/rest/v2/json/flight/status",
+        "tracking_url_template": "https://www.united.com/en/us/flightstatus?flightNumber={tracking_number}",
+        "sample_tracking_regex": "^[A-Z]{2}\\d{1,4}$"
+      }
+    ],
+    "train": [
+      {
+        "name": "Amtrak",
+        "url": "https://www.amtrak.com/",
+        "api_url": null,
+        "tracking_url_template": "https://www.amtrak.com/ccurl/136/580/Seat-map.html?trainNumber={tracking_number}",
+        "sample_tracking_regex": "^\\d{1,6}$"
+      }
+    ],
+    "bus": [
+      {
+        "name": "Greyhound",
+        "url": "https://www.greyhound.com/",
+        "api_url": null,
+        "tracking_url_template": "https://www.greyhound.com/en/locations?search={tracking_number}",
+        "sample_tracking_regex": "^\\w{3,10}$"
+      },
+      {
+        "name": "FlixBus (US)",
+        "url": "https://www.flixbus.com/",
+        "api_url": "https://global.api.goflixbus.com/",
+        "tracking_url_template": "https://www.flixbus.com/book?search={tracking_number}",
+        "sample_tracking_regex": "^\\w{3,10}$"
+      }
+    ]
+  },
+  "GB": {
+    "country_name": "United Kingdom",
+    "region": "EU",
+    "flight": [
+      {
+        "name": "British Airways",
+        "url": "https://www.britishairways.com/",
+        "api_url": "https://api.aviationstack.com/v1/flights",
+        "tracking_url_template": "https://www.britishairways.com/travel/flight-tracker/public/en_gb?flightNumber={tracking_number}",
+        "sample_tracking_regex": "^[A-Z]{2}\\d{1,4}$"
+      }
+    ],
+    "train": [
+      {
+        "name": "National Rail Enquiries",
+        "url": "https://www.nationalrail.co.uk/",
+        "api_url": "https://lite.realtime.nationalrail.co.uk/OpenLDBWS/",
+        "tracking_url_template": "https://ojp.nationalrail.co.uk/service/ldb/board/{tracking_number}",
+        "sample_tracking_regex": "^\\d{1,6}$"
+      },
+      {
+        "name": "Trainline",
+        "url": "https://www.thetrainline.com/",
+        "api_url": "https://api.thetrainline.com/",
+        "tracking_url_template": "https://www.thetrainline.com/train-times/{tracking_number}",
+        "sample_tracking_regex": "^\\d{1,6}$"
+      }
+    ],
+    "bus": [
+      {
+        "name": "National Express",
+        "url": "https://www.nationalexpress.com/",
+        "api_url": null,
+        "tracking_url_template": "https://www.nationalexpress.com/en/booking?search={tracking_number}",
+        "sample_tracking_regex": "^\\w{3,10}$"
+      },
+      {
+        "name": "Stagecoach",
+        "url": "https://www.stagecoachbus.com/",
+        "api_url": null,
+        "tracking_url_template": "https://www.stagecoachbus.com/timetable-search?search={tracking_number}",
+        "sample_tracking_regex": "^\\w{3,10}$"
+      }
+    ]
+  }
+}

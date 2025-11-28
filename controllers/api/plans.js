@@ -1517,6 +1517,26 @@ const addPlanItemNote = asyncHandler(async (req, res) => {
 
   // Log activity for note addition
   const addedNote = planItem.details.notes[planItem.details.notes.length - 1];
+
+  // Get plan item name - prioritize snapshot text (what user actually has in their plan)
+  // Only fall back to experience's plan_items if snapshot is completely empty (legacy data)
+  // This avoids showing unfamiliar text if the original item was modified after planning
+  let planItemName = planItem.text;
+  if (!planItemName && planItem.plan_item_id && plan.experience?.plan_items) {
+    const originalItem = plan.experience.plan_items.find(i =>
+      i._id.toString() === planItem.plan_item_id.toString()
+    );
+    if (originalItem?.text) {
+      planItemName = originalItem.text;
+      backendLogger.debug('Note add: Plan item name resolved from experience (snapshot was empty)', {
+        planItemId: planItem._id?.toString(),
+        originalItemId: planItem.plan_item_id?.toString(),
+        resolvedName: planItemName
+      });
+    }
+  }
+  planItemName = planItemName || 'Unnamed item';
+
   await Activity.log({
     action: 'plan_item_note_added',
     actor: {
@@ -1533,9 +1553,9 @@ const addPlanItemNote = asyncHandler(async (req, res) => {
     target: {
       id: itemId,
       type: 'PlanItem',
-      name: planItem.name || planItem.experience_name || 'an item'
+      name: planItemName
     },
-    reason: `Added note to plan item "${planItem.name || planItem.experience_name || 'an item'}"`,
+    reason: `Added note to plan item "${planItemName}"`,
     metadata: {
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
@@ -1604,6 +1624,56 @@ const updatePlanItemNote = asyncHandler(async (req, res) => {
     userId: req.user._id.toString()
   });
 
+  // Get plan item name - prioritize snapshot text (what user actually has in their plan)
+  // Only fall back to experience's plan_items if snapshot is completely empty (legacy data)
+  let planItemNameForUpdate = planItem.text;
+  if (!planItemNameForUpdate && planItem.plan_item_id && plan.experience?.plan_items) {
+    const originalItem = plan.experience.plan_items.find(i =>
+      i._id.toString() === planItem.plan_item_id.toString()
+    );
+    if (originalItem?.text) {
+      planItemNameForUpdate = originalItem.text;
+      backendLogger.debug('Note update: Plan item name resolved from experience (snapshot was empty)', {
+        planItemId: planItem._id?.toString(),
+        originalItemId: planItem.plan_item_id?.toString(),
+        resolvedName: planItemNameForUpdate
+      });
+    }
+  }
+  planItemNameForUpdate = planItemNameForUpdate || 'Unnamed item';
+
+  // Log activity for note update
+  await Activity.log({
+    action: 'plan_item_note_updated',
+    actor: {
+      _id: req.user._id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role
+    },
+    resource: {
+      id: plan._id,
+      type: 'Plan',
+      name: plan.experience?.name || 'Unknown Experience'
+    },
+    target: {
+      id: itemId,
+      type: 'PlanItem',
+      name: planItemNameForUpdate
+    },
+    reason: `Updated note on plan item "${planItemNameForUpdate}"`,
+    metadata: {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      requestPath: req.path,
+      requestMethod: req.method
+    },
+    newState: {
+      noteId: note._id,
+      content: note.content.substring(0, 100) // Store first 100 chars for preview
+    }
+  });
+
   res.json(plan);
 });
 
@@ -1641,6 +1711,27 @@ const deletePlanItemNote = asyncHandler(async (req, res) => {
     });
   }
 
+  // Capture note content before deletion for activity log
+  const deletedNoteContent = note.content;
+
+  // Get plan item name - prioritize snapshot text (what user actually has in their plan)
+  // Only fall back to experience's plan_items if snapshot is completely empty (legacy data)
+  let planItemName = planItem.text;
+  if (!planItemName && planItem.plan_item_id && plan.experience?.plan_items) {
+    const originalItem = plan.experience.plan_items.find(i =>
+      i._id.toString() === planItem.plan_item_id.toString()
+    );
+    if (originalItem?.text) {
+      planItemName = originalItem.text;
+      backendLogger.debug('Note delete: Plan item name resolved from experience (snapshot was empty)', {
+        planItemId: planItem._id?.toString(),
+        originalItemId: planItem.plan_item_id?.toString(),
+        resolvedName: planItemName
+      });
+    }
+  }
+  planItemName = planItemName || 'Unnamed item';
+
   planItem.details.notes.pull(noteId);
   await plan.save();
 
@@ -1652,6 +1743,38 @@ const deletePlanItemNote = asyncHandler(async (req, res) => {
     itemId,
     noteId,
     userId: req.user._id.toString()
+  });
+
+  // Log activity for note deletion
+  await Activity.log({
+    action: 'plan_item_note_deleted',
+    actor: {
+      _id: req.user._id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role
+    },
+    resource: {
+      id: plan._id,
+      type: 'Plan',
+      name: plan.experience?.name || 'Unknown Experience'
+    },
+    target: {
+      id: itemId,
+      type: 'PlanItem',
+      name: planItemName
+    },
+    reason: `Deleted note from plan item "${planItemName}"`,
+    metadata: {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      requestPath: req.path,
+      requestMethod: req.method
+    },
+    previousState: {
+      noteId: noteId,
+      content: deletedNoteContent.substring(0, 100) // Store first 100 chars for preview
+    }
   });
 
   res.json(plan);
@@ -1817,6 +1940,485 @@ const unassignPlanItem = asyncHandler(async (req, res) => {
   res.json(plan);
 });
 
+// ============================================
+// COST MANAGEMENT ENDPOINTS
+// ============================================
+
+/**
+ * Add a cost entry to a plan
+ * Only owner and collaborators can add costs
+ */
+const addCost = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { title, description, cost, currency, plan_item, collaborator } = req.body;
+
+  if (!title || title.trim() === '') {
+    return res.status(400).json({ error: 'Cost title is required' });
+  }
+
+  if (cost === undefined || cost === null || isNaN(Number(cost))) {
+    return res.status(400).json({ error: 'Valid cost amount is required' });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid plan ID' });
+  }
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Permission check
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: permCheck.reason
+    });
+  }
+
+  // Validate plan_item exists in plan if provided
+  if (plan_item) {
+    if (!mongoose.Types.ObjectId.isValid(plan_item)) {
+      return res.status(400).json({ error: 'Invalid plan item ID' });
+    }
+    const itemExists = plan.plan.some(item => item._id.toString() === plan_item.toString());
+    if (!itemExists) {
+      return res.status(400).json({ error: 'Plan item not found in this plan' });
+    }
+  }
+
+  // Validate collaborator is a member of the plan if provided
+  if (collaborator) {
+    if (!mongoose.Types.ObjectId.isValid(collaborator)) {
+      return res.status(400).json({ error: 'Invalid collaborator ID' });
+    }
+    const isOwner = plan.user.toString() === collaborator.toString();
+    const isCollaborator = plan.permissions.some(
+      p => p.entity === 'user' && p._id.toString() === collaborator.toString()
+    );
+    if (!isOwner && !isCollaborator) {
+      return res.status(400).json({ error: 'Collaborator must be a member of this plan' });
+    }
+  }
+
+  const newCost = {
+    title: title.trim(),
+    description: description?.trim() || '',
+    cost: Number(cost),
+    currency: currency || 'USD',
+    plan_item: plan_item || null,
+    plan: plan._id,
+    collaborator: collaborator || null,
+    created_at: new Date()
+  };
+
+  plan.costs.push(newCost);
+  await plan.save();
+
+  // Populate for response
+  await plan.populate('experience', 'name');
+  await plan.populate('costs.collaborator', 'name email');
+
+  backendLogger.info('Cost added to plan', {
+    planId: id,
+    costTitle: title,
+    costAmount: cost,
+    collaborator: collaborator || 'shared',
+    planItem: plan_item || 'general',
+    addedBy: req.user._id.toString()
+  });
+
+  res.status(201).json(plan);
+});
+
+/**
+ * Get all costs for a plan with optional filters
+ * Filters: collaborator, plan_item, dateFrom, dateTo
+ */
+const getCosts = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { collaborator, plan_item, dateFrom, dateTo } = req.query;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid plan ID' });
+  }
+
+  const plan = await Plan.findById(id)
+    .populate('costs.collaborator', 'name email photos default_photo_id')
+    .populate('experience', 'name');
+
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Permission check
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canView({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: permCheck.reason
+    });
+  }
+
+  let costs = plan.costs || [];
+
+  // Apply filters
+  if (collaborator) {
+    if (collaborator === 'shared') {
+      costs = costs.filter(c => !c.collaborator);
+    } else if (mongoose.Types.ObjectId.isValid(collaborator)) {
+      costs = costs.filter(c => c.collaborator && c.collaborator._id.toString() === collaborator);
+    }
+  }
+
+  if (plan_item) {
+    if (plan_item === 'general') {
+      costs = costs.filter(c => !c.plan_item);
+    } else if (mongoose.Types.ObjectId.isValid(plan_item)) {
+      costs = costs.filter(c => c.plan_item && c.plan_item.toString() === plan_item);
+    }
+  }
+
+  if (dateFrom) {
+    const fromDate = new Date(dateFrom);
+    if (!isNaN(fromDate.getTime())) {
+      costs = costs.filter(c => new Date(c.created_at) >= fromDate);
+    }
+  }
+
+  if (dateTo) {
+    const toDate = new Date(dateTo);
+    if (!isNaN(toDate.getTime())) {
+      costs = costs.filter(c => new Date(c.created_at) <= toDate);
+    }
+  }
+
+  res.json(costs);
+});
+
+/**
+ * Update a cost entry
+ * Only cost creator or plan owner can update
+ */
+const updateCost = asyncHandler(async (req, res) => {
+  const { id, costId } = req.params;
+  const { title, description, cost, currency, plan_item, collaborator } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(costId)) {
+    return res.status(400).json({ error: 'Invalid ID' });
+  }
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  const costEntry = plan.costs.id(costId);
+  if (!costEntry) {
+    return res.status(404).json({ error: 'Cost not found' });
+  }
+
+  // Permission check - must be plan owner or collaborator
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: permCheck.reason
+    });
+  }
+
+  // Update fields if provided
+  if (title !== undefined) costEntry.title = title.trim();
+  if (description !== undefined) costEntry.description = description?.trim() || '';
+  if (cost !== undefined) {
+    if (isNaN(Number(cost))) {
+      return res.status(400).json({ error: 'Invalid cost amount' });
+    }
+    costEntry.cost = Number(cost);
+  }
+  if (currency !== undefined) costEntry.currency = currency;
+
+  // Validate and update plan_item if provided
+  if (plan_item !== undefined) {
+    if (plan_item === null) {
+      costEntry.plan_item = null;
+    } else {
+      if (!mongoose.Types.ObjectId.isValid(plan_item)) {
+        return res.status(400).json({ error: 'Invalid plan item ID' });
+      }
+      const itemExists = plan.plan.some(item => item._id.toString() === plan_item.toString());
+      if (!itemExists) {
+        return res.status(400).json({ error: 'Plan item not found in this plan' });
+      }
+      costEntry.plan_item = plan_item;
+    }
+  }
+
+  // Validate and update collaborator if provided
+  if (collaborator !== undefined) {
+    if (collaborator === null) {
+      costEntry.collaborator = null;
+    } else {
+      if (!mongoose.Types.ObjectId.isValid(collaborator)) {
+        return res.status(400).json({ error: 'Invalid collaborator ID' });
+      }
+      const isOwner = plan.user.toString() === collaborator.toString();
+      const isCollaborator = plan.permissions.some(
+        p => p.entity === 'user' && p._id.toString() === collaborator.toString()
+      );
+      if (!isOwner && !isCollaborator) {
+        return res.status(400).json({ error: 'Collaborator must be a member of this plan' });
+      }
+      costEntry.collaborator = collaborator;
+    }
+  }
+
+  await plan.save();
+
+  await plan.populate('experience', 'name');
+  await plan.populate('costs.collaborator', 'name email');
+
+  backendLogger.info('Cost updated', {
+    planId: id,
+    costId,
+    updatedBy: req.user._id.toString()
+  });
+
+  res.json(plan);
+});
+
+/**
+ * Delete a cost entry
+ * Only plan owner or collaborator can delete
+ */
+const deleteCost = asyncHandler(async (req, res) => {
+  const { id, costId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(costId)) {
+    return res.status(400).json({ error: 'Invalid ID' });
+  }
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  const costEntry = plan.costs.id(costId);
+  if (!costEntry) {
+    return res.status(404).json({ error: 'Cost not found' });
+  }
+
+  // Permission check
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: permCheck.reason
+    });
+  }
+
+  plan.costs.pull(costId);
+  await plan.save();
+
+  backendLogger.info('Cost deleted', {
+    planId: id,
+    costId,
+    deletedBy: req.user._id.toString()
+  });
+
+  res.json({ message: 'Cost deleted successfully' });
+});
+
+/**
+ * Get cost summary for a plan
+ * Returns aggregated cost data:
+ * - totalCost
+ * - costsByCollaborator: [{ user, total, costs }]
+ * - costsByPlanItem: [{ item, total, costs }]
+ * - sharedCosts: { total, costs }
+ * - generalCosts: { total, costs } (costs not assigned to any plan item)
+ * - perPersonSplit: [{ user, individualTotal, sharedPortion, grandTotal }]
+ */
+const getCostSummary = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid plan ID' });
+  }
+
+  const plan = await Plan.findById(id)
+    .populate('costs.collaborator', 'name email photos default_photo_id')
+    .populate('user', 'name email photos default_photo_id')
+    .populate('experience', 'name');
+
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Permission check
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canView({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: permCheck.reason
+    });
+  }
+
+  const costs = plan.costs || [];
+
+  // Calculate total cost
+  const totalCost = costs.reduce((sum, c) => sum + (c.cost || 0), 0);
+
+  // Get all collaborators including owner
+  const collaboratorIds = plan.permissions
+    .filter(p => p.entity === 'user')
+    .map(p => p._id.toString());
+
+  // Add owner if not in permissions
+  if (!collaboratorIds.includes(plan.user._id.toString())) {
+    collaboratorIds.unshift(plan.user._id.toString());
+  }
+
+  // Fetch all users for display
+  const allUsers = await User.find({ _id: { $in: collaboratorIds } })
+    .select('name email photos default_photo_id')
+    .lean();
+
+  const userMap = {};
+  allUsers.forEach(u => {
+    userMap[u._id.toString()] = u;
+  });
+
+  // Costs by collaborator
+  const costsByCollaborator = [];
+  const collaboratorCostMap = {};
+
+  costs.forEach(c => {
+    if (c.collaborator) {
+      const collabId = c.collaborator._id ? c.collaborator._id.toString() : c.collaborator.toString();
+      if (!collaboratorCostMap[collabId]) {
+        collaboratorCostMap[collabId] = {
+          user: c.collaborator._id ? c.collaborator : userMap[collabId] || { _id: collabId, name: 'Unknown' },
+          total: 0,
+          costs: []
+        };
+      }
+      collaboratorCostMap[collabId].total += c.cost || 0;
+      collaboratorCostMap[collabId].costs.push(c);
+    }
+  });
+
+  Object.values(collaboratorCostMap).forEach(entry => {
+    costsByCollaborator.push(entry);
+  });
+
+  // Costs by plan item
+  const costsByPlanItem = [];
+  const itemCostMap = {};
+
+  // Create a map of plan items for reference
+  const planItemMap = {};
+  plan.plan.forEach(item => {
+    planItemMap[item._id.toString()] = {
+      _id: item._id,
+      text: item.text,
+      cost: item.cost,
+      complete: item.complete
+    };
+  });
+
+  costs.forEach(c => {
+    if (c.plan_item) {
+      const itemId = c.plan_item.toString();
+      if (!itemCostMap[itemId]) {
+        itemCostMap[itemId] = {
+          item: planItemMap[itemId] || { _id: itemId, text: 'Unknown Item' },
+          total: 0,
+          costs: []
+        };
+      }
+      itemCostMap[itemId].total += c.cost || 0;
+      itemCostMap[itemId].costs.push(c);
+    }
+  });
+
+  Object.values(itemCostMap).forEach(entry => {
+    costsByPlanItem.push(entry);
+  });
+
+  // Shared costs (no collaborator assigned)
+  const sharedCostsList = costs.filter(c => !c.collaborator);
+  const sharedCosts = {
+    total: sharedCostsList.reduce((sum, c) => sum + (c.cost || 0), 0),
+    costs: sharedCostsList
+  };
+
+  // General costs (no plan item assigned)
+  const generalCostsList = costs.filter(c => !c.plan_item);
+  const generalCosts = {
+    total: generalCostsList.reduce((sum, c) => sum + (c.cost || 0), 0),
+    costs: generalCostsList
+  };
+
+  // Per person split calculation
+  const numPeople = collaboratorIds.length || 1;
+  const sharedPerPerson = sharedCosts.total / numPeople;
+
+  const perPersonSplit = collaboratorIds.map(collabId => {
+    const user = userMap[collabId] || { _id: collabId, name: 'Unknown' };
+    const individualCosts = collaboratorCostMap[collabId];
+    const individualTotal = individualCosts ? individualCosts.total : 0;
+
+    return {
+      user,
+      individualTotal,
+      sharedPortion: sharedPerPerson,
+      grandTotal: individualTotal + sharedPerPerson
+    };
+  });
+
+  res.json({
+    planId: plan._id,
+    experienceName: plan.experience?.name || 'Unknown Experience',
+    totalCost,
+    costCount: costs.length,
+    currency: costs[0]?.currency || 'USD',
+    costsByCollaborator,
+    costsByPlanItem,
+    sharedCosts,
+    generalCosts,
+    perPersonSplit,
+    collaboratorCount: numPeople
+  });
+});
+
 module.exports = {
   createPlan,
   getUserPlans,
@@ -1836,5 +2438,11 @@ module.exports = {
   updatePlanItemNote,
   deletePlanItemNote,
   assignPlanItem,
-  unassignPlanItem
+  unassignPlanItem,
+  // Cost management
+  addCost,
+  getCosts,
+  updateCost,
+  deleteCost,
+  getCostSummary
 };

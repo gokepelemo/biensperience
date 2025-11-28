@@ -7,61 +7,43 @@
   border-radius: var(--radius-xl);
   padding: var(--space-5);
   margin-bottom: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
   position: relative;
   animation: slideIn var(--transition-slow) ease-out;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 
-  // Default height using CSS variable (set by JavaScript)
-  height: var(--collapsed-height, 100%);
-  width: var(--card-width, 100%);
-  min-width: var(--card-width, auto);
-  max-width: var(--card-width, 100%);
+  // Fixed dimensions - contained within parent
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 
-  // Smooth transition for height and box-shadow
-  transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  // Smooth transition for box-shadow only (no height animation to prevent overflow)
+  transition: box-shadow var(--transition-normal),
+              transform var(--transition-normal);
 
-  // Overflow cards expand and come forward
-  &[data-has-overflow="true"] {
-    &.expanded {
-      height: var(--expanded-height, auto);
-      position: absolute;
-      z-index: 10;
-      left: 0;
-      top: 0;
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
-      border-color: rgba(0, 0, 0, 0.1);
-      overflow: visible;
-
-      .travelTipIconWrapper {
-        transform: scale(1.08);
-      }
-
-      .travelTipEmoji {
-        opacity: 0;
-        transform: scale(0.8);
-      }
-
-      .travelTipFaIcon {
-        opacity: 1;
-        transform: scale(1);
-      }
-    }
+  // Hover effect - subtle lift without overflow
+  &:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
   }
 
   // Mobile-specific tap interaction
   @media (max-width: 768px) {
     touch-action: manipulation;
+
+    // On mobile, tap to see overflow content via scrolling
+    &:active {
+      transform: scale(0.98);
+    }
   }
 
   &:focus-within {
-    outline: 0.125rem solid var(--color-primary);
-    outline-offset: 0.125rem;
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 
   @media (max-width: 576px) {
@@ -71,12 +53,12 @@
   @media (prefers-color-scheme: dark) {
     background: rgba(255, 255, 255, 0.03);
     border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-sm);
 
     &:hover {
       background: rgba(255, 255, 255, 0.05);
       border-color: rgba(255, 255, 255, 0.12);
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4), 0 8px 16px rgba(0, 0, 0, 0.3);
+      box-shadow: var(--shadow-md);
     }
   }
 }
@@ -90,6 +72,7 @@
   gap: var(--space-3);
   height: 100%;
   text-align: center;
+  overflow: hidden;
 
   .travelTipIcon {
     font-size: var(--font-size-3xl);
@@ -102,7 +85,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    line-height: 1.4;
+    line-height: var(--line-height-relaxed);
     color: var(--color-text-primary);
     font-weight: var(--font-weight-bold);
     word-wrap: break-word;
@@ -110,6 +93,8 @@
     hyphens: auto;
     text-align: center;
     padding: var(--space-2);
+    overflow: hidden;
+    max-height: 100%;
 
     @media (prefers-color-scheme: dark) {
       color: rgba(255, 255, 255, 0.95);
@@ -133,11 +118,6 @@
   overflow: hidden;
   max-height: 100%;
   width: 100%;
-
-  .travelTip.expanded & {
-    overflow: visible;
-    max-height: none;
-  }
 }
 
 /* Structured Tip Styles */
@@ -271,11 +251,25 @@
   padding-left: calc(var(--space-10) + var(--space-3));
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   max-height: 100%;
 
-  .travelTip.expanded & {
-    overflow-y: visible;
-    max-height: none;
+  /* Touch-friendly scrolling on mobile */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-medium) transparent;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border-medium);
+    border-radius: var(--radius-full);
   }
 
   @media (max-width: 576px) {

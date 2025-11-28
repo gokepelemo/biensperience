@@ -1,0 +1,85 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * PlanningTime Component Styles
+ *
+ * Inherits font/color from parent container.
+ * Tooltip handled by InfoTooltip component.
+ */
+
+// Main container - inherits font styles from parent
+.planningTime {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em; // em-based to scale with inherited font size
+  // Inherit all typography from parent
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  line-height: inherit;
+}
+
+// Icons - scale with inherited font size
+.clockIcon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  font-size: 0.9em; // Relative to inherited size
+}
+
+// Label - inherits from parent
+.label {
+  font-weight: inherit;
+  color: inherit;
+}
+
+// Value - inherits from parent
+.value {
+  font-weight: inherit;
+  color: inherit;
+}
+
+// Badge variant - self-contained styling
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  padding: $space-1 $space-2;
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+  position: relative;
+
+  &:hover,
+  &:focus {
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border-medium);
+  }
+}
+
+.badgeIcon {
+  color: var(--color-primary);
+  font-size: 0.9em;
+}
+
+// Inline variant - inherits everything from parent
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  // Inherit all styles from parent
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  line-height: inherit;
+  border-bottom: 1px dotted currentColor;
+  // Touch-friendly tap area
+  padding: 0.25em 0;
+
+  &:hover,
+  &:focus {
+    border-bottom-style: solid;
+  }
+}

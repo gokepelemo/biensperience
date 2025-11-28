@@ -6,6 +6,7 @@
 import Alert from '../../../components/Alert/Alert';
 import { FormLabel, FormControl } from '../../../components/design-system';
 import { getMinimumPlanningDate, isValidPlannedDate } from '../../../utilities/date-utils';
+import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 
 export default function DatePickerSection({
   // Visibility state
@@ -40,11 +41,11 @@ export default function DatePickerSection({
               ? lang.en.heading.editPlannedDate
               : lang.en.heading.planYourExperience}
           </h3>
-          {experience.max_planning_days > 0 && (
+          {experience.max_planning_days > 0 && formatPlanningTime(experience.max_planning_days) && (
             <p className="mb-3">
               {lang.en.helper.requiresDaysToPlan.replace(
                 "{days}",
-                experience.max_planning_days
+                formatPlanningTime(experience.max_planning_days)
               )}
             </p>
           )}

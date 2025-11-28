@@ -3,7 +3,7 @@ import { Container, Row, Col, Card } from 'react-bootstrap';
 import Autocomplete from '../components/Autocomplete/Autocomplete';
 
 export default {
-  title: 'Components/Autocomplete',
+  title: 'Components/Forms/Autocomplete',
   component: Autocomplete,
   parameters: {
     layout: 'padded',
@@ -111,58 +111,65 @@ export const Playground = {
     loading: false,
     emptyMessage: 'No results found',
   },
-  render: (args) => {
-    const [selectedItem, setSelectedItem] = useState(null);
-    
-    const getItems = () => {
-      switch (args.entityType) {
-        case 'user': return sampleUsers;
-        case 'destination': return sampleDestinations;
-        case 'experience': return sampleExperiences;
-        case 'country': return sampleCountries;
-        case 'category': return sampleCategories;
-        default: return sampleUsers;
-      }
-    };
-
-    return (
-      <Container>
-        <Row>
-          <Col md={8} className="mx-auto">
-            <Card style={{
-              padding: 'var(--space-6)',
-              backgroundColor: 'var(--color-bg-primary)',
-              border: '1px solid var(--color-border-light)',
-              borderRadius: 'var(--radius-lg)',
-            }}>
-              <h3 style={{ marginBottom: 'var(--space-4)', color: 'var(--color-text-primary)' }}>
-                Search {args.entityType}s
-              </h3>
-              <Autocomplete
-                {...args}
-                items={getItems()}
-                onSelect={setSelectedItem}
-              />
-              {selectedItem && (
-                <div style={{
-                  marginTop: 'var(--space-4)',
-                  padding: 'var(--space-4)',
-                  backgroundColor: 'var(--color-bg-secondary)',
-                  borderRadius: 'var(--radius-md)',
-                }}>
-                  <strong>Selected:</strong> {selectedItem.name}
-                </div>
-              )}
-            </Card>
-          </Col>
-        </Row>
-      </Container>
-    );
-  },
+  render: (args) => <AutocompletePlayground {...args} />,
 };
 
+function AutocompletePlayground(args) {
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  const getItems = () => {
+    switch (args.entityType) {
+      case 'user': return sampleUsers;
+      case 'destination': return sampleDestinations;
+      case 'experience': return sampleExperiences;
+      case 'country': return sampleCountries;
+      case 'category': return sampleCategories;
+      default: return sampleUsers;
+    }
+  };
+
+  return (
+    <Container>
+      <Row>
+        <Col md={8} className="mx-auto">
+          <Card style={{
+            padding: 'var(--space-6)',
+            backgroundColor: 'var(--color-bg-primary)',
+            border: '1px solid var(--color-border-light)',
+            borderRadius: 'var(--radius-lg)',
+          }}>
+            <h3 style={{ marginBottom: 'var(--space-4)', color: 'var(--color-text-primary)' }}>
+              Search {args.entityType}s
+            </h3>
+            <Autocomplete
+              {...args}
+              items={getItems()}
+              onSelect={setSelectedItem}
+            />
+            {selectedItem && (
+              <div style={{
+                marginTop: 'var(--space-4)',
+                padding: 'var(--space-4)',
+                backgroundColor: 'var(--color-bg-secondary)',
+                borderRadius: 'var(--radius-md)',
+              }}>
+                <strong>Selected:</strong> {selectedItem.name}
+              </div>
+            )}
+          </Card>
+        </Col>
+      </Row>
+    </Container>
+  );
+}
+
 // User Search (Manage Collaborators)
-export const UserSearch = () => {
+export const UserSearch = {
+  name: 'User Search',
+  render: () => <UserSearchDemo />,
+};
+
+function UserSearchDemo() {
   const [selectedUser, setSelectedUser] = useState(null);
 
   return (
@@ -206,10 +213,15 @@ export const UserSearch = () => {
       </Row>
     </Container>
   );
-};
+}
 
 // Destination Search
-export const DestinationSearch = () => {
+export const DestinationSearch = {
+  name: 'Destination Search',
+  render: () => <DestinationSearchDemo />,
+};
+
+function DestinationSearchDemo() {
   const [selectedDestination, setSelectedDestination] = useState(null);
 
   return (
@@ -247,10 +259,15 @@ export const DestinationSearch = () => {
       </Row>
     </Container>
   );
-};
+}
 
 // Experience Search
-export const ExperienceSearch = () => {
+export const ExperienceSearch = {
+  name: 'Experience Search',
+  render: () => <ExperienceSearchDemo />,
+};
+
+function ExperienceSearchDemo() {
   const [selectedExperience, setSelectedExperience] = useState(null);
 
   return (
@@ -288,10 +305,15 @@ export const ExperienceSearch = () => {
       </Row>
     </Container>
   );
-};
+}
 
 // Country Selector
-export const CountrySelector = () => {
+export const CountrySelector = {
+  name: 'Country Selector',
+  render: () => <CountrySelectorDemo />,
+};
+
+function CountrySelectorDemo() {
   const [selectedCountry, setSelectedCountry] = useState(null);
 
   return (
@@ -328,10 +350,15 @@ export const CountrySelector = () => {
       </Row>
     </Container>
   );
-};
+}
 
 // Category Selector
-export const CategorySelector = () => {
+export const CategorySelector = {
+  name: 'Category Selector',
+  render: () => <CategorySelectorDemo />,
+};
+
+function CategorySelectorDemo() {
   const [selectedCategory, setSelectedCategory] = useState(null);
 
   return (
@@ -368,10 +395,12 @@ export const CategorySelector = () => {
       </Row>
     </Container>
   );
-};
+}
 
 // Size Variants
-export const SizeVariants = () => (
+export const SizeVariants = {
+  name: 'Size Variants',
+  render: () => (
   <Container>
     <Row className="g-4">
       <Col md={12}>
@@ -409,10 +438,13 @@ export const SizeVariants = () => (
       </Col>
     </Row>
   </Container>
-);
+  ),
+};
 
 // Loading State
-export const LoadingState = () => (
+export const LoadingState = {
+  name: 'Loading State',
+  render: () => (
   <Container>
     <Row>
       <Col md={8} className="mx-auto">
@@ -435,10 +467,13 @@ export const LoadingState = () => (
       </Col>
     </Row>
   </Container>
-);
+  ),
+};
 
 // Empty State
-export const EmptyState = () => (
+export const EmptyState = {
+  name: 'Empty State',
+  render: () => (
   <Container>
     <Row>
       <Col md={8} className="mx-auto">
@@ -461,10 +496,13 @@ export const EmptyState = () => (
       </Col>
     </Row>
   </Container>
-);
+  ),
+};
 
 // All Entity Types Comparison
-export const AllEntityTypes = () => (
+export const AllEntityTypes = {
+  name: 'All Entity Types',
+  render: () => (
   <Container>
     <Row className="g-4">
       <Col md={6}>
@@ -509,4 +547,5 @@ export const AllEntityTypes = () => (
       </Col>
     </Row>
   </Container>
-);
+  ),
+};

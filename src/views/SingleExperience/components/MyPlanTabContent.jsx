@@ -28,8 +28,13 @@ import Alert from '../../../components/Alert/Alert';
 import { Text } from '../../../components/design-system';
 import SkeletonLoader from '../../../components/SkeletonLoader/SkeletonLoader';
 import DragHandle from '../../../components/DragHandle/DragHandle';
+import CostEstimate from '../../../components/CostEstimate/CostEstimate';
+import PlanningTime from '../../../components/PlanningTime/PlanningTime';
+import CostsList from '../../../components/CostsList';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatDateMetricCard, formatDateForInput } from '../../../utilities/date-utils';
+import { formatPlanningTime } from '../../../utilities/planning-time-utils';
+import { formatCostEstimate } from '../../../utilities/cost-utils';
 import debug from '../../../utilities/debug';
 
 /**
@@ -261,14 +266,20 @@ function SortablePlanItem({
       <div className="plan-item-details p-2 p-md-3">
           <div className="plan-item-meta">
             {Number(planItem.cost) > 0 && (
-              <span className="plan-item-cost" title="Estimated Cost">
-                💰 {formatCurrency(planItem.cost)}
+              <span className="plan-item-cost">
+                <CostEstimate
+                  cost={planItem.cost}
+                  showTooltip={true}
+                  compact={true}
+                />
               </span>
             )}
             {Number(planItem.planning_days) > 0 && (
-              <span className="plan-item-days" title="Planning Days">
-                📅 {planItem.planning_days}{" "}
-                {planItem.planning_days === 1 ? lang.en.label.day : lang.en.label.days}
+              <span className="plan-item-days">
+                <PlanningTime
+                  days={planItem.planning_days}
+                  showTooltip={true}
+                />
               </span>
             )}
 
@@ -375,7 +386,15 @@ export default function MyPlanTabContent({
   lang,
 
   // Reorder handler
-  onReorderPlanItems
+  onReorderPlanItems,
+
+  // Cost tracking
+  costs = [],
+  costSummary = null,
+  costsLoading = false,
+  onAddCost,
+  onUpdateCost,
+  onDeleteCost
 }) {
   // Setup sensors for drag and drop
   const sensors = useSensors(
@@ -421,14 +440,27 @@ export default function MyPlanTabContent({
     const draggedParentId = draggedItem.parent?.toString() || null;
     const targetParentId = targetItem.parent?.toString() || null;
     const targetIsChild = !!targetItem.parent;
+    const draggedIsChild = !!draggedItem.parent;
+
+    // Detect horizontal offset to determine nesting/promotion intent
+    // Drag right (40px+) = nest under target, Drag left (40px+) = promote to root
+    // Use event.delta.x which dnd-kit provides directly (more reliable than rect coordinates)
+    const NESTING_THRESHOLD = 40; // pixels
+    const PROMOTION_THRESHOLD = -40; // pixels - drag 40px left to indicate promotion
+    const horizontalOffset = event.delta?.x || 0;
+    const nestingIntent = horizontalOffset > NESTING_THRESHOLD;
+    const promotionIntent = horizontalOffset < PROMOTION_THRESHOLD;
+    debug.log('[Drag] Hierarchy detection', { horizontalOffset, nestingIntent, promotionIntent, thresholds: { nest: NESTING_THRESHOLD, promote: PROMOTION_THRESHOLD } });
 
     debug.log('[Drag] Hierarchy-aware reorder', {
       draggedId,
       targetId,
       draggedParentId,
       targetParentId,
-      draggedIsChild: !!draggedItem.parent,
-      targetIsChild
+      draggedIsChild,
+      targetIsChild,
+      nestingIntent,
+      promotionIntent
     });
 
     // Create a deep copy of items for modification
@@ -439,16 +471,60 @@ export default function MyPlanTabContent({
       (item) => (item.plan_item_id || item._id).toString() === draggedId
     );
 
-    // Determine hierarchy change based on context:
-    // 1. If target is a child item, dragged item becomes sibling (same parent)
-    // 2. If target is a parent item and dragged is child → promote to root or become sibling
-    // 3. If both are at same level → simple reorder
+    // Check if dragged item has children (can't nest a parent under another item)
+    const draggedHasChildren = currentPlan.plan.some(
+      item => item.parent?.toString() === draggedId
+    );
 
-    if (targetIsChild && draggedParentId !== targetParentId) {
+    // Determine hierarchy change based on context:
+    // 1. If promotion intent AND dragged is a child → promote to root (drag left), position above parent
+    // 2. If nesting intent AND dragged has no children → make child of item above (drag right)
+    // 3. If target is a child item, dragged item becomes sibling (same parent)
+    // 4. If target is a parent item and dragged is child (no nesting intent) → promote to root
+    // 5. If both are at same level → simple reorder
+
+    // Get the flattened visual order to find item above
+    const flattenedItems = flattenPlanItems(currentPlan.plan);
+    const draggedFlatIndex = flattenedItems.findIndex(
+      (item) => (item.plan_item_id || item._id).toString() === draggedId
+    );
+
+    let promotedToParentPosition = false; // Track if we need special positioning
+    if (promotionIntent && draggedIsChild) {
+      // Explicit promotion: dragged left outside container alignment → become root item
+      // Position above former parent for cognitive sense
+      delete draggedItemCopy.parent;
+      promotedToParentPosition = true;
+      debug.log('[Drag] Promoting child to root (drag left intent), will position above parent');
+    } else if (nestingIntent && !draggedHasChildren && !draggedIsChild) {
+      // Nesting intent detected (drag right) - can nest under item above OR target
+      // Only works for root items (not already a child) with no children of their own
+      const itemAbove = draggedFlatIndex > 0 ? flattenedItems[draggedFlatIndex - 1] : null;
+      const itemAboveId = itemAbove ? (itemAbove.plan_item_id || itemAbove._id).toString() : null;
+
+      // Determine which item to nest under:
+      // - If dropping ON a different root item, nest under that target
+      // - Otherwise, nest under the item above
+      if (!targetIsChild && draggedId !== targetId) {
+        // Dropping on a root item - nest under target
+        draggedItemCopy.parent = targetId;
+        debug.log('[Drag] Making item a child of drop target', { newParent: targetId });
+      } else if (itemAbove && !itemAbove.isChild) {
+        // Item above is a root item - can nest under it
+        draggedItemCopy.parent = itemAboveId;
+        debug.log('[Drag] Making item a child of item above', { newParent: itemAboveId, itemAboveText: itemAbove.text });
+      } else if (itemAbove && itemAbove.isChild) {
+        // Item above is a child - become sibling (same parent)
+        draggedItemCopy.parent = itemAbove.parent;
+        debug.log('[Drag] Becoming sibling of item above', { newParent: itemAbove.parent });
+      } else {
+        debug.log('[Drag] No valid item to nest under');
+      }
+    } else if (targetIsChild && draggedParentId !== targetParentId && !promotionIntent) {
       // Dragged item should adopt the same parent as target (become sibling)
       draggedItemCopy.parent = targetItem.parent;
       debug.log('[Drag] Reparenting to same parent as target', { newParent: targetItem.parent });
-    } else if (!targetIsChild && draggedParentId) {
+    } else if (!targetIsChild && draggedParentId && !nestingIntent) {
       // Target is a root item and dragged item was a child → promote to root
       delete draggedItemCopy.parent;
       debug.log('[Drag] Promoting child to root level');
@@ -459,9 +535,19 @@ export default function MyPlanTabContent({
     const oldIndex = reorderedItems.findIndex(
       (item) => (item.plan_item_id || item._id).toString() === draggedId
     );
-    const newIndex = reorderedItems.findIndex(
-      (item) => (item.plan_item_id || item._id).toString() === targetId
-    );
+
+    // For promotion by drag-left, position above the former parent item
+    let newIndex;
+    if (promotedToParentPosition && draggedParentId) {
+      newIndex = reorderedItems.findIndex(
+        (item) => (item.plan_item_id || item._id).toString() === draggedParentId
+      );
+      debug.log('[Drag] Positioning promoted item above former parent', { parentId: draggedParentId, newIndex });
+    } else {
+      newIndex = reorderedItems.findIndex(
+        (item) => (item.plan_item_id || item._id).toString() === targetId
+      );
+    }
 
     if (oldIndex === -1 || newIndex === -1) {
       debug.warn('[Drag] Could not find item indices', { oldIndex, newIndex });
@@ -608,7 +694,11 @@ export default function MyPlanTabContent({
               </span>
             </div>
             <div className="metric-value">
-              {formatCurrency(currentPlan.total_cost || 0)}
+              <CostEstimate
+                cost={currentPlan.total_cost || 0}
+                showTooltip={true}
+                compact={true}
+              />
             </div>
           </div>
         </div>
@@ -636,10 +726,12 @@ export default function MyPlanTabContent({
               </span>
             </div>
             <div className="metric-value">
-              {currentPlan.max_days || 0}{" "}
-              {(currentPlan.max_days || 0) === 1
-                ? lang.en.label.day
-                : lang.en.label.days}
+              {currentPlan.max_days > 0 ? (
+                <PlanningTime
+                  days={currentPlan.max_days}
+                  showTooltip={true}
+                />
+              ) : '-'}
             </div>
           </div>
         </div>
@@ -875,6 +967,21 @@ export default function MyPlanTabContent({
           ))}
         </SortableContext>
       </DndContext>
+
+      {/* Costs Section */}
+      <CostsList
+        planId={selectedPlanId}
+        costs={costs}
+        collaborators={planOwner ? [planOwner, ...(planCollaborators || [])] : planCollaborators || []}
+        planItems={currentPlan.plan || []}
+        canEdit={canEdit}
+        onAddCost={onAddCost}
+        onUpdateCost={onUpdateCost}
+        onDeleteCost={onDeleteCost}
+        loading={costsLoading}
+        showSummary={true}
+        compact={false}
+      />
     </div>
   );
 }

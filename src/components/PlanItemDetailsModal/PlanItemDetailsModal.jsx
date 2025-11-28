@@ -8,6 +8,7 @@ import Modal from '../Modal/Modal';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
 import styles from './PlanItemDetailsModal.module.scss';
 import { createSimpleFilter } from '../../utilities/trie';
+import { logger } from '../../utilities/logger';
 
 export default function PlanItemDetailsModal({
   show,
@@ -107,18 +108,39 @@ export default function PlanItemDetailsModal({
 
   /**
    * Handle entity click from mentions in notes
-   * For plan-item mentions: close modal and trigger scroll to item
+   * For plan-item mentions: close modal, update URL hash, and trigger scroll to item
    * For other mentions: let default navigation happen
    */
   const handleEntityClick = useCallback((entityType, entityId, entity) => {
+    logger.debug('[PlanItemDetailsModal] handleEntityClick called', { entityType, entityId, entity, hasOnPlanItemClick: !!onPlanItemClick });
+
     if (entityType === 'plan-item') {
-      // Close this modal first
+      // Update URL hash for deep-link (same-page navigation)
+      // This ensures the hash reflects the deep-linked plan item
+      if (entity && entity.planId) {
+        const hash = `#plan-${entity.planId}-item-${entityId}`;
+        const newUrl = `${window.location.pathname}${window.location.search || ''}${hash}`;
+        logger.debug('[PlanItemDetailsModal] Updating URL hash', { hash, newUrl });
+        if (window.location.href !== newUrl) {
+          window.history.pushState(null, '', newUrl);
+        }
+      }
+
+      // Close modal first
+      logger.debug('[PlanItemDetailsModal] Closing modal');
       onClose();
 
-      // Notify parent to scroll to the clicked plan item
-      if (onPlanItemClick) {
-        onPlanItemClick(entityId, entity);
-      }
+      // Use requestAnimationFrame to ensure modal is fully closed before scrolling
+      // This callback fires after React commits DOM changes and browser paints
+      // Double-RAF ensures the modal portal is unmounted from the DOM
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          logger.debug('[PlanItemDetailsModal] RAF callback firing, calling onPlanItemClick', { entityId, entity });
+          if (onPlanItemClick) {
+            onPlanItemClick(entityId, entity);
+          }
+        });
+      });
     }
     // For non-plan-item entities, the Link component handles navigation
   }, [onClose, onPlanItemClick]);

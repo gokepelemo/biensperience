@@ -17,7 +17,7 @@ const getPlaceholderImage = (index, width = 800) => {
 };
 
 export default {
-  title: 'Design System/Featured Cards',
+  title: 'Components/Cards/Featured Cards',
   parameters: {
     layout: 'fullscreen',
     docs: {
@@ -135,9 +135,9 @@ export const HorizontalFeaturedDestination = {
               fontSize: 'var(--font-size-lg)',
               flexWrap: 'wrap',
             }}>
-              <span><FaPlane style={{ marginRight: 'var(--space-2)' }} />89 Experiences</span>
-              <span><FaHeart style={{ marginRight: 'var(--space-2)' }} />1,247 Favorites</span>
-              <span><FaUsers style={{ marginRight: 'var(--space-2)' }} />3,456 Visitors</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}><FaPlane style={{ marginRight: 'var(--space-2)' }} />89 Experiences</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}><FaHeart style={{ marginRight: 'var(--space-2)' }} />1,247 Favorites</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}><FaUsers style={{ marginRight: 'var(--space-2)' }} />3,456 Visitors</span>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
               <Button
@@ -251,10 +251,10 @@ export const VerticalFeaturedExperience = {
                 fontSize: 'var(--font-size-base)',
                 flexWrap: 'wrap',
               }}>
-                <span><FaMapMarkerAlt style={{ marginRight: 'var(--space-2)' }} />Tokyo, Japan</span>
-                <span><FaClock style={{ marginRight: 'var(--space-2)' }} />3-4 hours</span>
-                <span><FaDollarSign style={{ marginRight: 'var(--space-2)' }} />$50</span>
-                <span><FaStar style={{ marginRight: 'var(--space-2)' }} />4.9 (234 reviews)</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}><FaMapMarkerAlt style={{ marginRight: 'var(--space-2)' }} />Tokyo, Japan</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}><FaClock style={{ marginRight: 'var(--space-2)' }} />3-4 hours</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}><FaDollarSign style={{ marginRight: 'var(--space-2)' }} />$50</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}><FaStar style={{ marginRight: 'var(--space-2)' }} />4.9 (234 reviews)</span>
               </div>
               <Button
                 size="lg"

@@ -25,8 +25,11 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import UsersListDisplay from '../../../components/UsersListDisplay/UsersListDisplay';
 import DragHandle from '../../../components/DragHandle/DragHandle';
+import CostEstimate from '../../../components/CostEstimate/CostEstimate';
+import PlanningTime from '../../../components/PlanningTime/PlanningTime';
 import { Text } from '../../../components/design-system';
 import { formatCurrency } from '../../../utilities/currency-utils';
+import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { isOwner } from '../../../utilities/permissions';
 import debug from '../../../utilities/debug';
 
@@ -171,14 +174,20 @@ function SortableExperiencePlanItem({
         <div className="plan-item-details p-2 p-md-3">
           <div className="plan-item-meta">
             {Number(planItem.cost_estimate) > 0 && (
-              <span className="plan-item-cost" title="Estimated Cost">
-                💰 {formatCurrency(planItem.cost_estimate)}
+              <span className="plan-item-cost">
+                <CostEstimate
+                  cost={planItem.cost_estimate}
+                  showTooltip={true}
+                  compact={true}
+                />
               </span>
             )}
             {Number(planItem.planning_days) > 0 && (
-              <span className="plan-item-days" title="Planning Days">
-                📅 {planItem.planning_days}{" "}
-                {planItem.planning_days === 1 ? lang.en.label.day : lang.en.label.days}
+              <span className="plan-item-days">
+                <PlanningTime
+                  days={planItem.planning_days}
+                  showTooltip={true}
+                />
               </span>
             )}
           </div>
@@ -262,14 +271,27 @@ export default function ExperienceTabContent({
     const draggedParentId = draggedItem.parent?.toString() || null;
     const targetParentId = targetItem.parent?.toString() || null;
     const targetIsChild = !!targetItem.parent;
+    const draggedIsChild = !!draggedItem.parent;
+
+    // Detect horizontal offset to determine nesting/promotion intent
+    // Drag right (40px+) = nest under target, Drag left (40px+) = promote to root
+    // Use event.delta.x which dnd-kit provides directly (more reliable than rect coordinates)
+    const NESTING_THRESHOLD = 40; // pixels
+    const PROMOTION_THRESHOLD = -40; // pixels - drag 40px left to indicate promotion
+    const horizontalOffset = event.delta?.x || 0;
+    const nestingIntent = horizontalOffset > NESTING_THRESHOLD;
+    const promotionIntent = horizontalOffset < PROMOTION_THRESHOLD;
+    debug.log('[ExperienceDrag] Hierarchy detection', { horizontalOffset, nestingIntent, promotionIntent, thresholds: { nest: NESTING_THRESHOLD, promote: PROMOTION_THRESHOLD } });
 
     debug.log('[ExperienceDrag] Hierarchy-aware reorder', {
       draggedId,
       targetId,
       draggedParentId,
       targetParentId,
-      draggedIsChild: !!draggedItem.parent,
-      targetIsChild
+      draggedIsChild,
+      targetIsChild,
+      nestingIntent,
+      promotionIntent
     });
 
     // Create a deep copy of items for modification
@@ -280,16 +302,60 @@ export default function ExperienceTabContent({
       (item) => item._id.toString() === draggedId
     );
 
-    // Determine hierarchy change based on context:
-    // 1. If target is a child item, dragged item becomes sibling (same parent)
-    // 2. If target is a parent item and dragged is child → promote to root or become sibling
-    // 3. If both are at same level → simple reorder
+    // Check if dragged item has children (can't nest a parent under another item)
+    const draggedHasChildren = experience.plan_items.some(
+      item => item.parent?.toString() === draggedId
+    );
 
-    if (targetIsChild && draggedParentId !== targetParentId) {
+    // Determine hierarchy change based on context:
+    // 1. If promotion intent AND dragged is a child → promote to root (drag left), position above parent
+    // 2. If nesting intent AND dragged has no children → make child of item above (drag right)
+    // 3. If target is a child item, dragged item becomes sibling (same parent)
+    // 4. If target is a parent item and dragged is child (no nesting intent) → promote to root
+    // 5. If both are at same level → simple reorder
+
+    // Get the flattened visual order to find item above
+    const flattenedItemsForDrag = flattenPlanItems(experience.plan_items);
+    const draggedFlatIndex = flattenedItemsForDrag.findIndex(
+      (item) => item._id.toString() === draggedId
+    );
+
+    let promotedToParentPosition = false; // Track if we need special positioning
+    if (promotionIntent && draggedIsChild) {
+      // Explicit promotion: dragged left outside container alignment → become root item
+      // Position above former parent for cognitive sense
+      delete draggedItemCopy.parent;
+      promotedToParentPosition = true;
+      debug.log('[ExperienceDrag] Promoting child to root (drag left intent), will position above parent');
+    } else if (nestingIntent && !draggedHasChildren && !draggedIsChild) {
+      // Nesting intent detected (drag right) - can nest under item above OR target
+      // Only works for root items (not already a child) with no children of their own
+      const itemAbove = draggedFlatIndex > 0 ? flattenedItemsForDrag[draggedFlatIndex - 1] : null;
+      const itemAboveId = itemAbove ? itemAbove._id.toString() : null;
+
+      // Determine which item to nest under:
+      // - If dropping ON a different root item, nest under that target
+      // - Otherwise, nest under the item above
+      if (!targetIsChild && draggedId !== targetId) {
+        // Dropping on a root item - nest under target
+        draggedItemCopy.parent = targetId;
+        debug.log('[ExperienceDrag] Making item a child of drop target', { newParent: targetId });
+      } else if (itemAbove && !itemAbove.isChild) {
+        // Item above is a root item - can nest under it
+        draggedItemCopy.parent = itemAboveId;
+        debug.log('[ExperienceDrag] Making item a child of item above', { newParent: itemAboveId, itemAboveText: itemAbove.text });
+      } else if (itemAbove && itemAbove.isChild) {
+        // Item above is a child - become sibling (same parent)
+        draggedItemCopy.parent = itemAbove.parent;
+        debug.log('[ExperienceDrag] Becoming sibling of item above', { newParent: itemAbove.parent });
+      } else {
+        debug.log('[ExperienceDrag] No valid item to nest under');
+      }
+    } else if (targetIsChild && draggedParentId !== targetParentId && !promotionIntent) {
       // Dragged item should adopt the same parent as target (become sibling)
       draggedItemCopy.parent = targetItem.parent;
       debug.log('[ExperienceDrag] Reparenting to same parent as target', { newParent: targetItem.parent });
-    } else if (!targetIsChild && draggedParentId) {
+    } else if (!targetIsChild && draggedParentId && !nestingIntent) {
       // Target is a root item and dragged item was a child → promote to root
       delete draggedItemCopy.parent;
       debug.log('[ExperienceDrag] Promoting child to root level');
@@ -300,9 +366,19 @@ export default function ExperienceTabContent({
     const oldIndex = reorderedItems.findIndex(
       (item) => item._id.toString() === draggedId
     );
-    const newIndex = reorderedItems.findIndex(
-      (item) => item._id.toString() === targetId
-    );
+
+    // For promotion by drag-left, position above the former parent item
+    let newIndex;
+    if (promotedToParentPosition && draggedParentId) {
+      newIndex = reorderedItems.findIndex(
+        (item) => item._id.toString() === draggedParentId
+      );
+      debug.log('[ExperienceDrag] Positioning promoted item above former parent', { parentId: draggedParentId, newIndex });
+    } else {
+      newIndex = reorderedItems.findIndex(
+        (item) => item._id.toString() === targetId
+      );
+    }
 
     if (oldIndex === -1 || newIndex === -1) {
       debug.warn('[ExperienceDrag] Could not find item indices', { oldIndex, newIndex });

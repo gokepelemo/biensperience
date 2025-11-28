@@ -1,10 +1,16 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Form, InputGroup, Button, Card } from "react-bootstrap";
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaUser, FaArrowRight, FaTicketAlt } from "react-icons/fa";
 import { signUp } from "../../utilities/users-service";
 import { validateInviteCode } from "../../utilities/invite-codes-service";
 import { lang } from "../../lang.constants";
 import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
-import { FormControl } from "../../components/design-system";
+import BiensperienceLogo from "../BiensperienceLogo/BiensperienceLogo";
+import Checkbox from "../Checkbox/Checkbox";
+import Divider from "../Divider/Divider";
+import PrivacyPolicyModal from "../PrivacyPolicyModal/PrivacyPolicyModal";
+import TermsOfServiceModal from "../TermsOfServiceModal/TermsOfServiceModal";
 import styles from "./SignUpForm.module.scss";
 
 /**
@@ -34,7 +40,14 @@ function SignUpForm(props) {
     details: null,
     error: null,
   });
-  const disable = state.password !== state.confirm;
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+
+  // Disable submit if passwords don't match or terms not agreed
+  const disable = state.password !== state.confirm || !agreedToTerms;
   const navigate = useNavigate();
 
   // Extract invite code from URL on mount
@@ -50,15 +63,16 @@ function SignUpForm(props) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setState({
+    const newState = {
       ...state,
       [name]: value,
       error: "",
-    });
+    };
+    setState(newState);
 
-    // If invite code field changed, validate it
+    // If invite code field changed, validate it (with current email)
     if (name === "inviteCode" && value.length === 11) {
-      validateInvite(value);
+      validateInvite(value, newState.email);
     } else if (name === "inviteCode" && value.length < 11) {
       // Reset validation if code is incomplete
       setInviteValidation({
@@ -68,15 +82,33 @@ function SignUpForm(props) {
         error: null,
       });
     }
+
+    // If email field changed and we have a valid invite code, re-validate
+    // This allows showing inviter details once email is entered
+    if (name === "email" && state.inviteCode.length === 11) {
+      // Debounce email validation to avoid too many API calls
+      clearTimeout(window.inviteEmailTimeout);
+      window.inviteEmailTimeout = setTimeout(() => {
+        validateInvite(state.inviteCode, value);
+      }, 500);
+    }
   };
 
-  const validateInvite = async (code) => {
+  /**
+   * Validate invite code with optional email.
+   * Security: Inviter details are only returned when email is provided.
+   * @param {string} code - Invite code to validate
+   * @param {string} email - User's email (required for detailed info)
+   */
+  const validateInvite = async (code, email = '') => {
     if (!code || code.length !== 11) return;
 
     setInviteValidation({ isValidating: true, isValid: false, details: null, error: null });
 
     try {
-      const result = await validateInviteCode(code);
+      // Pass email to get detailed inviter information
+      // Without email, API only returns basic validation status
+      const result = await validateInviteCode(code, email.trim() || null);
       if (result.valid) {
         setInviteValidation({
           isValidating: false,
@@ -119,109 +151,284 @@ function SignUpForm(props) {
     navigate("/");
     if (props.setSignup) props.setSignup(false);
   };
+
+  // Handle clicking Terms & Conditions link
+  const handleTermsClick = (e) => {
+    e.preventDefault();
+    setShowTermsModal(true);
+  };
+
+  // Handle clicking Privacy Policy link
+  const handlePrivacyClick = (e) => {
+    e.preventDefault();
+    setShowPrivacyModal(true);
+  };
+
+  // Handle back from modal (just closes modal)
+  const handleModalBack = () => {
+    setShowTermsModal(false);
+    setShowPrivacyModal(false);
+  };
+
   return (
-    <div className="login-bg center-login">
-      <div className="login-form-wrapper center-login">
-        <div className="login-logo"></div>
-        <h1 className="login-title">{lang.en.heading.createAccount}</h1>
-        <form className="login-form" autoComplete="off" onSubmit={handleSubmit}>
-          <FormControl
-            className="login-input"
-            type="text"
-            name="name"
-            value={state.name}
-            onChange={handleChange}
-            placeholder={lang.en.placeholder.name}
-            required
-            autoComplete="name"
-          />
-          <FormControl
-            className="login-input"
-            type="email"
-            name="email"
-            value={state.email}
-            onChange={handleChange}
-            placeholder={lang.en.placeholder.email}
-            required
-            autoComplete="email"
-          />
-          <FormControl
-            className="login-input"
-            type="password"
-            name="password"
-            value={state.password}
-            onChange={handleChange}
-            placeholder={lang.en.placeholder.password}
-            required
-            autoComplete="new-password"
-          />
-          <FormControl
-            className="login-input"
-            type="password"
-            name="confirm"
-            value={state.confirm}
-            onChange={handleChange}
-            placeholder={lang.en.placeholder.confirmPassword}
-            required
-            autoComplete="new-password"
-          />
-          <div style={{ marginTop: '1rem' }}>
-            <FormControl
-              className="login-input"
-              type="text"
-              name="inviteCode"
-              value={state.inviteCode}
-              onChange={handleChange}
-              placeholder={lang.en.invite.inviteCodeOptional}
-              autoComplete="off"
-              maxLength={11}
-              style={{
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                fontFamily: "'Courier New', monospace"
-              }}
-            />
-            {inviteValidation.isValidating && (
-              <small className="text-muted" style={{ display: 'block', marginTop: '0.25rem' }}>
-                {lang.en.invite.validatingCode}
-              </small>
-            )}
-            {inviteValidation.isValid && inviteValidation.details && (
-              <small className="text-success" style={{ display: 'block', marginTop: '0.25rem' }}>
-                ✓ {lang.en.invite.validCode}
-                {inviteValidation.details.inviteeName && ` - ${lang.en.invite.invitedBy.replace('{name}', inviteValidation.details.inviteeName)}`}
-                {(inviteValidation.details.experienceCount > 0 || inviteValidation.details.destinationCount > 0) && (
-                  <span style={{ display: 'block', marginTop: '0.25rem' }}>
-                    {inviteValidation.details.experienceCount > 0 && `${inviteValidation.details.experienceCount} experience${inviteValidation.details.experienceCount > 1 ? 's' : ''}`}
-                    {inviteValidation.details.experienceCount > 0 && inviteValidation.details.destinationCount > 0 && ', '}
-                    {inviteValidation.details.destinationCount > 0 && `${inviteValidation.details.destinationCount} destination${inviteValidation.details.destinationCount > 1 ? 's' : ''}`}
-                  </span>
-                )}
-              </small>
-            )}
-            {inviteValidation.error && (
-              <small className="text-danger" style={{ display: 'block', marginTop: '0.25rem' }}>
-                {inviteValidation.error}
-              </small>
-            )}
-            {state.inviteCode && !inviteValidation.isValidating && !inviteValidation.isValid && !inviteValidation.error && (
-              <small className="text-muted" style={{ display: 'block', marginTop: '0.25rem' }}>
-                {lang.en.invite.inviteCodeHelp}
-              </small>
-            )}
+    <div className={styles.authContainer}>
+      <div className={styles.authWrapper}>
+        {/* Logo */}
+        <div className={styles.logoContainer}>
+          <BiensperienceLogo type="white" size="xl" />
+        </div>
+
+        {/* Main Card */}
+        <Card className={styles.authCard}>
+          {/* Header */}
+          <div className={styles.authHeader}>
+            <h1 className={styles.authTitle}>{lang.en.heading.createAccount}</h1>
+            <p className={styles.authSubtitle}>{lang.en.message.joinCommunity}</p>
           </div>
-          <button type="submit" className={`${styles.loginBtn} btn btn-light`} disabled={disable}>
-            {lang.en.button.signup}
+
+          {/* Form */}
+          <Form onSubmit={handleSubmit} autoComplete="off">
+            {/* Name Field */}
+            <Form.Group className="mb-4">
+              <Form.Label className={styles.formLabel}>{lang.en.label.name}</Form.Label>
+              <InputGroup className={styles.inputGroup}>
+                <InputGroup.Text className={styles.inputIcon}>
+                  <FaUser />
+                </InputGroup.Text>
+                <Form.Control
+                  type="text"
+                  name="name"
+                  value={state.name}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.name}
+                  required
+                  autoComplete="name"
+                  className={styles.formInput}
+                />
+              </InputGroup>
+            </Form.Group>
+
+            {/* Email Field */}
+            <Form.Group className="mb-4">
+              <Form.Label className={styles.formLabel}>{lang.en.label.email}</Form.Label>
+              <InputGroup className={styles.inputGroup}>
+                <InputGroup.Text className={styles.inputIcon}>
+                  <FaEnvelope />
+                </InputGroup.Text>
+                <Form.Control
+                  type="email"
+                  name="email"
+                  value={state.email}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.email}
+                  required
+                  autoComplete="email"
+                  className={styles.formInput}
+                />
+              </InputGroup>
+            </Form.Group>
+
+            {/* Password Field */}
+            <Form.Group className="mb-4">
+              <Form.Label className={styles.formLabel}>{lang.en.label.password}</Form.Label>
+              <InputGroup className={styles.inputGroup}>
+                <InputGroup.Text className={styles.inputIcon}>
+                  <FaLock />
+                </InputGroup.Text>
+                <Form.Control
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={state.password}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.password}
+                  required
+                  autoComplete="new-password"
+                  className={styles.formInput}
+                />
+                <Button
+                  variant="link"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className={styles.passwordToggle}
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </Button>
+              </InputGroup>
+            </Form.Group>
+
+            {/* Confirm Password Field */}
+            <Form.Group className="mb-4">
+              <Form.Label className={styles.formLabel}>{lang.en.label.confirmPassword}</Form.Label>
+              <InputGroup className={styles.inputGroup}>
+                <InputGroup.Text className={styles.inputIcon}>
+                  <FaLock />
+                </InputGroup.Text>
+                <Form.Control
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  name="confirm"
+                  value={state.confirm}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.confirmPassword}
+                  required
+                  autoComplete="new-password"
+                  className={styles.formInput}
+                />
+                <Button
+                  variant="link"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className={styles.passwordToggle}
+                >
+                  {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                </Button>
+              </InputGroup>
+            </Form.Group>
+
+            {/* Invite Code Field */}
+            <Form.Group className="mb-4">
+              <Form.Label className={styles.formLabel}>{lang.en.invite.inviteCodeOptional}</Form.Label>
+              <InputGroup className={styles.inputGroup}>
+                <InputGroup.Text className={styles.inputIcon}>
+                  <FaTicketAlt />
+                </InputGroup.Text>
+                <Form.Control
+                  type="text"
+                  name="inviteCode"
+                  value={state.inviteCode}
+                  onChange={handleChange}
+                  placeholder="XXX-XXX-XXX"
+                  autoComplete="off"
+                  maxLength={11}
+                  className={`${styles.formInput} ${styles.inviteCodeInput}`}
+                />
+              </InputGroup>
+              {inviteValidation.isValidating && (
+                <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
+                  {lang.en.invite.validatingCode}
+                </small>
+              )}
+              {inviteValidation.isValid && inviteValidation.details && (
+                <div className={styles.inviteDetails}>
+                  <small className="text-success" style={{ display: 'block' }}>
+                    ✓ {lang.en.invite.validCode}
+                  </small>
+                  {inviteValidation.details.requiresEmail && (
+                    <small className="text-muted" style={{ display: 'block', marginTop: '0.25rem' }}>
+                      {inviteValidation.details.message || lang.en.invite.enterEmailForDetails}
+                    </small>
+                  )}
+                  {!inviteValidation.details.requiresEmail && inviteValidation.details.inviterName && (
+                    <small className={styles.inviterInfo} style={{ display: 'block', marginTop: '0.25rem' }}>
+                      {lang.en.invite.invitedBy.replace('{name}', inviteValidation.details.inviterName)}
+                    </small>
+                  )}
+                  {!inviteValidation.details.requiresEmail && inviteValidation.details.customMessage && (
+                    <small className={styles.inviteMessage} style={{ display: 'block', marginTop: '0.25rem', fontStyle: 'italic' }}>
+                      "{inviteValidation.details.customMessage}"
+                    </small>
+                  )}
+                  {!inviteValidation.details.requiresEmail && inviteValidation.details.experienceNames?.length > 0 && (
+                    <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
+                      <small className="text-muted">{lang.en.invite.experiencesIncluded}:</small>
+                      <ul className={styles.resourceList}>
+                        {inviteValidation.details.experienceNames.map((name, idx) => (
+                          <li key={idx}><small>{name}</small></li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {!inviteValidation.details.requiresEmail && inviteValidation.details.destinationNames?.length > 0 && (
+                    <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
+                      <small className="text-muted">{lang.en.invite.destinationsIncluded}:</small>
+                      <ul className={styles.resourceList}>
+                        {inviteValidation.details.destinationNames.map((name, idx) => (
+                          <li key={idx}><small>{name}</small></li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+              {inviteValidation.error && (
+                <small className="text-danger" style={{ display: 'block', marginTop: '0.5rem' }}>
+                  {inviteValidation.error}
+                </small>
+              )}
+              {state.inviteCode && !inviteValidation.isValidating && !inviteValidation.isValid && !inviteValidation.error && (
+                <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
+                  {lang.en.invite.inviteCodeHelp}
+                </small>
+              )}
+            </Form.Group>
+
+            {/* Terms & Privacy checkbox */}
+            <div className={styles.termsContainer}>
+              <Checkbox
+                id="agree-terms"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                label={
+                  <span className={styles.termsLabel}>
+                    {lang.en.message.agreeToTermsPrefix}{' '}
+                    <a href="#" onClick={handleTermsClick} className={styles.termsLink}>
+                      {lang.en.label.termsOfService}
+                    </a>
+                    {' '}{lang.en.message.and}{' '}
+                    <a href="#" onClick={handlePrivacyClick} className={styles.termsLink}>
+                      {lang.en.label.privacyPolicy}
+                    </a>
+                  </span>
+                }
+              />
+            </div>
+
+            {/* Error message */}
+            {state.error && (
+              <div className={styles.errorMessage}>
+                {state.error}
+              </div>
+            )}
+
+            {/* Sign Up Button */}
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              disabled={disable}
+              className={styles.submitBtn}
+            >
+              {lang.en.button.signup} <FaArrowRight />
+            </Button>
+
+            <Divider label={lang.en.label.orSignUpWith} shadow="md" />
+
+            {/* Social Login Buttons */}
+            <SocialLoginButtons actionType="signup" showDivider={false} />
+          </Form>
+        </Card>
+
+        {/* Sign In Link */}
+        <div className={styles.authFooter}>
+          <span>{lang.en.message.alreadyHaveAccount}</span>{' '}
+          <button type="button" className={styles.switchLink} onClick={handleLoginClick}>
+            {lang.en.button.signIn}
           </button>
-        </form>
-        <p className="error-message">{state.error ? state.error : ""}</p>
-        
-        <SocialLoginButtons actionType="signup" />
-        
-        <div className={`${styles.loginSignup} center-login`}>
-          <span>{lang.en.message.alreadyHaveAccount}</span> <button type="button" className={`${styles.signupLink} link-btn`} onClick={handleLoginClick}>{lang.en.button.signIn}</button>
         </div>
       </div>
+
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal
+        show={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+        onBack={handleModalBack}
+        showBackButton={true}
+      />
+
+      {/* Terms of Service Modal */}
+      <TermsOfServiceModal
+        show={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onBack={handleModalBack}
+        showBackButton={true}
+      />
     </div>
   );
 }

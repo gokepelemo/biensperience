@@ -2,7 +2,7 @@ import React from 'react';
 import BiensperienceLogo from '../components/BiensperienceLogo/BiensperienceLogo';
 
 export default {
-  title: 'Design System/Brand/Logo',
+  title: 'Foundation/Brand/Logo',
   component: BiensperienceLogo,
   parameters: {
     layout: 'centered',

@@ -1,0 +1,184 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * FeaturedHeroLayout Styles
+ * Hero section for featured content display.
+ */
+
+.featuredHero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background-color: var(--color-bg-tertiary);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  overflow: hidden;
+}
+
+// Height variants
+.heightSm {
+  min-height: 300px;
+
+  @include breakpoint-max(md) {
+    min-height: 250px;
+  }
+}
+
+.heightMd {
+  min-height: 400px;
+
+  @include breakpoint-max(md) {
+    min-height: 300px;
+  }
+}
+
+.heightLg {
+  min-height: 500px;
+
+  @include breakpoint-max(md) {
+    min-height: 350px;
+  }
+}
+
+.heightXl {
+  min-height: 80vh;
+
+  @include breakpoint-max(md) {
+    min-height: 60vh;
+  }
+}
+
+// Overlay
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.2) 0%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+  pointer-events: none;
+}
+
+// Content
+.content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: $layout-container-lg;
+  margin: 0 auto;
+  padding: $layout-gap-xl;
+  color: white;
+  text-shadow: $shadow-text-md;
+
+  @include breakpoint-max(md) {
+    padding: $layout-gap-lg;
+  }
+
+  @include breakpoint-max(sm) {
+    padding: $layout-gap-md;
+  }
+}
+
+// Position variants
+.positionCenter {
+  justify-content: center;
+
+  .content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.positionLeft {
+  justify-content: flex-start;
+
+  .content {
+    text-align: left;
+    align-items: flex-start;
+  }
+}
+
+.positionRight {
+  justify-content: flex-end;
+
+  .content {
+    text-align: right;
+    align-items: flex-end;
+  }
+}
+
+// Badge
+.badge {
+  margin-bottom: $space-4;
+}
+
+// Title
+.title {
+  font-size: $font-size-4xl;
+  font-weight: $font-weight-extrabold;
+  line-height: $line-height-tight;
+  margin: 0 0 $space-3;
+  max-width: 800px;
+
+  @include breakpoint-max(md) {
+    font-size: $font-size-3xl;
+  }
+
+  @include breakpoint-max(sm) {
+    font-size: $font-size-2xl;
+  }
+}
+
+// Subtitle
+.subtitle {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-medium;
+  margin: 0 0 $space-2;
+  opacity: 0.9;
+  max-width: 600px;
+
+  @include breakpoint-max(md) {
+    font-size: $font-size-lg;
+  }
+}
+
+// Meta
+.meta {
+  font-size: $font-size-base;
+  margin: 0 0 $space-6;
+  opacity: 0.8;
+
+  @include breakpoint-max(md) {
+    font-size: $font-size-sm;
+    margin-bottom: $space-4;
+  }
+}
+
+// Actions
+.actions {
+  display: flex;
+  gap: $space-3;
+  flex-wrap: wrap;
+
+  .positionCenter & {
+    justify-content: center;
+  }
+
+  .positionRight & {
+    justify-content: flex-end;
+  }
+
+  @include breakpoint-max(sm) {
+    flex-direction: column;
+    width: 100%;
+
+    > * {
+      width: 100%;
+    }
+  }
+}

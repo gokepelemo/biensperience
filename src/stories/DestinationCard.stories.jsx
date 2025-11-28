@@ -1,7 +1,7 @@
 import DestinationCard from '../components/DestinationCard/DestinationCard';
 
 export default {
-  title: 'Components/DestinationCard',
+  title: 'Components/Cards/Destination Card',
   component: DestinationCard,
   decorators: [
     (Story) => (
@@ -64,6 +64,7 @@ export const Favorited = {
 };
 
 export const WithMultiplePhotos = {
+  name: 'With Multiple Photos',
   args: {
     destination: {
       ...sampleDestination,
@@ -91,6 +92,7 @@ export const WithMultiplePhotos = {
 };
 
 export const NoExperiences = {
+  name: 'No Experiences',
   args: {
     destination: sampleDestination,
     experiences: [],
@@ -99,6 +101,7 @@ export const NoExperiences = {
 };
 
 export const ManyExperiences = {
+  name: 'Many Experiences',
   args: {
     destination: sampleDestination,
     experiences: [

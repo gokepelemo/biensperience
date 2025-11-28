@@ -5,6 +5,9 @@ import { ToastProvider, useToast } from "../../contexts/ToastContext";
 import { UserProvider, useUser } from "../../contexts/UserContext";
 import { DataProvider } from "../../contexts/DataContext";
 import { AppProvider, useApp } from "../../contexts/AppContext";
+import { TooltipProvider } from "../../contexts/TooltipContext";
+import { PlanExperienceProvider } from "../../contexts/PlanExperienceContext";
+import { NavigationIntentProvider } from "../../contexts/NavigationIntentContext";
 import { lang } from "../../lang.constants";
 import NavBar from "../../components/NavBar/NavBar";
 import Loading from "../../components/Loading/Loading";
@@ -16,6 +19,7 @@ import { getCollaboratorNotifications } from '../../utilities/notifications-api'
 import { useNavigate } from 'react-router-dom';
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
+import MultiStepPlanModal from "../../components/MultiStepPlanModal/MultiStepPlanModal";
 import { Helmet } from 'react-helmet-async';
 import { Container } from "../../components/design-system";
 import styles from './App.module.scss';
@@ -105,7 +109,13 @@ export default function App() {
         <UserProvider>
           <AppProvider>
             <DataProvider>
-              <AppContent />
+              <TooltipProvider>
+                <PlanExperienceProvider>
+                  <NavigationIntentProvider>
+                    <AppContent />
+                  </NavigationIntentProvider>
+                </PlanExperienceProvider>
+              </TooltipProvider>
             </DataProvider>
           </AppProvider>
         </UserProvider>
@@ -352,6 +362,8 @@ function AppContent() {
         )}
         <div className={styles.app}>
           <CookieConsent />
+          {/* Multi-step Plan Experience Modal - globally accessible */}
+          {isAuthenticated && <MultiStepPlanModal />}
           {isAuthenticated ? (
             <>
               <NavBar />

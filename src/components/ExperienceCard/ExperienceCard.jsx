@@ -47,7 +47,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
   // STRATEGY: Use sessionStorage for instant rendering, verify with async query
   const [localPlanState, setLocalPlanState] = useState(() => {
     // Priority 1: Use userPlans prop if available (most reliable)
-    if (userPlans.length > 0) {
+    if (Array.isArray(userPlans) && userPlans.length > 0) {
       return userPlans.some(plan =>
         plan.experience?._id === experience._id ||
         plan.experience === experience._id
@@ -303,7 +303,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     try {
       if (isRemoving) {
         // REMOVE PLAN: Find and delete the user's plan
-        let userPlan = userPlans.find(plan => 
+        let userPlan = userPlans?.find(plan => 
           plan.experience?._id === experience._id || 
           plan.experience === experience._id
         );
@@ -562,9 +562,15 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
         show={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDelete}
-        title={lang.en.modal.confirmDelete}
-        message={lang.en.modal.confirmDeleteMessage.replace('{name}', experience?.name)}
-        confirmText={lang.en.button.delete}
+        title="Delete Experience?"
+        message="You are about to permanently delete"
+        itemName={experience?.name}
+        additionalInfo={[
+          "All plan items",
+          "Associated photos",
+          "User plans (if any)"
+        ]}
+        confirmText="Delete Permanently"
         confirmVariant="danger"
       />
     </div>

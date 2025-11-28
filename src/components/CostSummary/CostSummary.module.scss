@@ -1,0 +1,186 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * CostSummary Component Styles
+ */
+
+.costSummary {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.loading {
+  text-align: center;
+  padding: $space-4;
+  color: var(--color-text-secondary);
+}
+
+// Summary Cards Grid
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: $space-3;
+}
+
+.summaryCard {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  padding: $space-4;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  transition: var(--transition-fast);
+
+  &:hover {
+    border-color: var(--color-border-medium);
+  }
+
+  &.primary {
+    background: var(--btn-gradient-bg);
+    border-color: transparent;
+    color: white;
+
+    .cardLabel {
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .cardValue {
+      color: white;
+    }
+
+    .cardSubValue {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .cardIcon {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+  }
+}
+
+.cardIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-primary);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.cardContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardLabel {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  margin-bottom: $space-1;
+}
+
+.cardValue {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.cardSubValue {
+  font-size: $font-size-xs;
+  color: var(--color-text-tertiary);
+  margin-top: $space-1;
+}
+
+// Breakdowns
+.breakdowns {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  margin-top: $space-2;
+}
+
+.breakdownSection {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  padding: $space-4;
+  border: 1px solid var(--color-border-light);
+}
+
+.breakdownTitle {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-secondary);
+  margin-bottom: $space-3;
+  padding-bottom: $space-2;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.breakdownList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.breakdownItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $space-2 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px dashed var(--color-border-light);
+  }
+}
+
+.breakdownLabel {
+  font-size: $font-size-sm;
+  color: var(--color-text-primary);
+  flex: 1;
+  min-width: 0;
+  @include text-ellipsis;
+}
+
+.breakdownValue {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-primary);
+  margin-left: $space-3;
+  white-space: nowrap;
+}
+
+// Compact View
+.compact {
+  padding: $space-3;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+}
+
+.compactTotal {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.compactIcon {
+  color: var(--color-primary);
+}
+
+.compactLabel {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+}
+
+.compactValue {
+  font-size: $font-size-base;
+  font-weight: $font-weight-bold;
+  color: var(--color-primary);
+  margin-left: auto;
+}

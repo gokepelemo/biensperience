@@ -1,7 +1,7 @@
 import UsersListDisplay from '../components/UsersListDisplay/UsersListDisplay';
 
 export default {
-  title: 'Components/UsersListDisplay',
+  title: 'Components/Data Display/Users List',
   component: UsersListDisplay,
   parameters: {
     layout: 'centered',
@@ -35,6 +35,7 @@ const users = [
 ];
 
 export const LoadingState = {
+  name: 'Loading State',
   args: {
     owner,
     users,
@@ -48,6 +49,7 @@ export const LoadingState = {
 };
 
 export const OwnerOnly = {
+  name: 'Owner Only',
   args: {
     owner,
     users: [],
@@ -58,6 +60,7 @@ export const OwnerOnly = {
 };
 
 export const WithUsers = {
+  name: 'With Users',
   args: {
     owner,
     users: users.slice(0, 3),
@@ -68,6 +71,7 @@ export const WithUsers = {
 };
 
 export const ManyUsersOverflow = {
+  name: 'Many Users Overflow',
   args: {
     owner,
     users,
@@ -79,6 +83,7 @@ export const ManyUsersOverflow = {
 };
 
 export const ReserveSpaceEmpty = {
+  name: 'Reserve Space Empty',
   args: {
     owner: null,
     users: [],

@@ -1,27 +1,17 @@
 import React from 'react';
 import TagPill from './TagPill';
-import { Link, useInRouterContext } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button } from '../../components/design-system';
 
 export default {
   title: 'Components/TagPill/ProfileCard',
   component: TagPill,
   decorators: [
-    (Story) => {
-      const RouterGuard = ({ children }) => {
-        // If already inside a Router (storybook may provide one), don't add another
-        const inRouter = useInRouterContext();
-        return inRouter ? children : <MemoryRouter initialEntries={["/"]}>{children}</MemoryRouter>;
-      };
-
-      return (
-        <div style={{ padding: 20 }}>
-          <RouterGuard>
-            <Story />
-          </RouterGuard>
-        </div>
-      );
-    }
+    (Story) => (
+      <div style={{ padding: 20 }}>
+        <Story />
+      </div>
+    ),
   ],
   parameters: {
     layout: 'centered'
@@ -40,10 +30,11 @@ const ProfileCard = ({ children }) => (
 );
 
 export const Light = {
+  name: 'Light Mode',
   render: () => (
     <ProfileCard>
       <div style={{ display: 'flex', justifyContent: 'center', gap: 12, alignItems: 'center' }}>
-        <TagPill color="primary" size="md" as={Link} to="/destinations/1">
+        <TagPill color="light" size="md" as={Link} to="/destinations/1">
           <span className="icon">🌍</span>
           Accra
         </TagPill>
@@ -56,11 +47,12 @@ export const Light = {
 };
 
 export const Dark = {
+  name: 'Dark Mode',
   render: () => (
     <div data-bs-theme="dark" style={{ padding: 20, background: 'var(--color-bg-default, #0b1220)' }}>
       <ProfileCard>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, alignItems: 'center' }}>
-          <TagPill color="neutral" size="md" as={Link} to="/destinations/1">
+          <TagPill color="light" size="md" as={Link} to="/destinations/1">
             <span className="icon">🌍</span>
             Accra
           </TagPill>

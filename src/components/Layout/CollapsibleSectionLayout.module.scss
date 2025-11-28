@@ -1,0 +1,183 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * CollapsibleSectionLayout Styles
+ * Accordion-style collapsible sections.
+ */
+
+.collapsibleLayout {
+  width: 100%;
+  background: var(--color-bg-primary);
+  border-radius: $radius-lg;
+  overflow: hidden;
+}
+
+// Bordered variant
+.bordered {
+  border: 1px solid var(--color-border-light);
+
+  .section:not(:last-child) {
+    border-bottom: 1px solid var(--color-border-light);
+  }
+}
+
+// Elevated variant
+.elevated {
+  box-shadow: $shadow-md;
+  border: none;
+}
+
+// Individual Section
+.section {
+  background: var(--color-bg-primary);
+  transition: background $transition-fast-smooth;
+
+  &.expanded {
+    .chevron {
+      transform: rotate(180deg);
+    }
+
+    .sectionContent {
+      max-height: 2000px; // Large value for animation
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  &.disabled {
+    .sectionHeader {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+  }
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: $layout-gap-md $layout-gap-lg;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background $transition-fast-smooth;
+  min-height: 56px; // WCAG touch target
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-hover);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+    border-radius: 0;
+    outline-offset: -2px;
+  }
+
+  @include breakpoint-max(md) {
+    padding: $space-4;
+  }
+}
+
+.sectionTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  flex: 1;
+  min-width: 0;
+}
+
+.sectionIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-md;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.sectionTitles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sectionTitle {
+  font-size: $font-size-base;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  line-height: $line-height-snug;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sectionSubtitle {
+  font-size: $font-size-sm;
+  color: var(--color-text-tertiary);
+  margin-top: $space-1;
+}
+
+.sectionActions {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  flex-shrink: 0;
+}
+
+.sectionBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 $space-2;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  border-radius: $radius-full;
+}
+
+.chevron {
+  font-size: $font-size-sm;
+  color: var(--color-text-muted);
+  transition: transform $transition-normal-smooth;
+}
+
+.sectionContent {
+  max-height: 0;
+  opacity: 0;
+  visibility: hidden;
+  overflow: hidden;
+  transition: max-height $transition-normal-smooth,
+              opacity $transition-fast-smooth,
+              visibility $transition-fast-smooth;
+}
+
+.sectionContentInner {
+  padding: 0 $layout-gap-lg $layout-gap-lg;
+
+  @include breakpoint-max(md) {
+    padding: 0 $space-4 $space-4;
+  }
+}
+
+// Nested sections
+.section .section {
+  margin-left: $space-4;
+  border-left: 2px solid var(--color-border-light);
+  border-radius: 0;
+
+  .sectionHeader {
+    padding-left: $space-4;
+  }
+
+  .sectionContentInner {
+    padding-left: $space-4;
+  }
+}

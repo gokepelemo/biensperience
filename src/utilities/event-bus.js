@@ -1,24 +1,131 @@
 /**
- * Enhanced Event Bus with Version-Based Reconciliation
+ * Enhanced Event Bus with Version-Based Reconciliation and Vector Clocks
  *
  * Replaces timeout-based race condition prevention with version comparison.
  * Supports optimistic UI with automatic ID reconciliation.
- * Enables cross-tab synchronization via localStorage.
+ * Uses pluggable transports for cross-tab/real-time synchronization.
+ * Uses vector clocks for causal event ordering across distributed clients.
+ *
+ * Transport Configuration (via environment variables):
+ * - REACT_APP_EVENT_TRANSPORT: 'localStorage' | 'websocket' | 'hybrid' (default: 'localStorage')
+ * - REACT_APP_WEBSOCKET_URL: WebSocket server URL (required for 'websocket' or 'hybrid')
+ * - REACT_APP_WEBSOCKET_RECONNECT_INTERVAL: Reconnection interval in ms (default: 3000)
+ * - REACT_APP_WEBSOCKET_MAX_RECONNECT_ATTEMPTS: Max reconnection attempts (default: 10)
+ *
+ * @module event-bus
  */
 
 import { logger } from './logger';
 import { getUser } from './users-service';
+import * as VectorClock from './vector-clock';
+import { createTransport } from './event-transport';
 
 class EventBus {
   constructor() {
     this.listeners = new Map(); // eventType -> Set<handler>
     this.eventLog = [];         // Recent events for debugging (max 100)
     this.sessionId = this.generateSessionId();
-    this.initStorageListener();
+    this.vectorClock = VectorClock.createVectorClock(); // Causal ordering
+    this.transport = null;
+    this.transportReady = false;
+
+    // Initialize transport asynchronously
+    this.initTransport();
 
     logger.info('[EventBus] Initialized', {
-      sessionId: this.sessionId
+      sessionId: this.sessionId,
+      vectorClock: VectorClock.format(this.vectorClock)
     });
+  }
+
+  /**
+   * Initialize the transport layer
+   */
+  async initTransport() {
+    try {
+      const user = getUser();
+      this.transport = createTransport({
+        sessionId: this.sessionId,
+        authToken: user?.token // Pass auth token for WebSocket authentication
+      });
+
+      // Subscribe to incoming messages from transport
+      this.transport.onMessage((event) => {
+        this.handleTransportMessage(event);
+      });
+
+      await this.transport.connect();
+      this.transportReady = true;
+
+      logger.info('[EventBus] Transport initialized', {
+        type: this.transport.getType(),
+        connected: this.transport.isConnected()
+      });
+    } catch (error) {
+      logger.error('[EventBus] Failed to initialize transport', {
+        error: error.message
+      }, error);
+      // Fall back to localStorage if transport fails
+      this.initLocalStorageFallback();
+    }
+  }
+
+  /**
+   * Initialize localStorage fallback (original behavior)
+   */
+  initLocalStorageFallback() {
+    if (typeof window === 'undefined') return;
+
+    logger.warn('[EventBus] Using localStorage fallback');
+
+    window.addEventListener('storage', (e) => {
+      if (e.key !== 'bien:event' && e.key !== 'bien:plan_event') return;
+      if (!e.newValue) return;
+
+      try {
+        const event = JSON.parse(e.newValue);
+        if (event.sessionId !== this.sessionId) {
+          this.handleTransportMessage(event);
+        }
+      } catch (error) {
+        logger.error('[EventBus] Error parsing storage event', { error: error.message }, error);
+      }
+    });
+
+    this.transportReady = true;
+  }
+
+  /**
+   * Handle incoming message from transport
+   */
+  handleTransportMessage(event) {
+    // Ignore events from this session
+    if (event.sessionId === this.sessionId) {
+      logger.debug('[EventBus] Ignoring own event from transport');
+      return;
+    }
+
+    // Merge remote vector clock for causal consistency
+    if (event.vectorClock) {
+      const oldClock = VectorClock.format(this.vectorClock);
+      this.vectorClock = VectorClock.merge(this.vectorClock, event.vectorClock);
+      logger.debug('[EventBus] Merged remote vector clock', {
+        oldClock,
+        remoteClock: VectorClock.format(event.vectorClock),
+        newClock: VectorClock.format(this.vectorClock)
+      });
+    }
+
+    // Dispatch event locally
+    const eventType = event.type || event.event;
+    if (eventType) {
+      logger.debug('[EventBus] Received event from transport', {
+        eventType,
+        version: event.version,
+        transportType: this.transport?.getType() || 'fallback'
+      });
+      this.dispatchLocal(eventType, event.detail || event);
+    }
   }
 
   /**
@@ -65,7 +172,7 @@ class EventBus {
   }
 
   /**
-   * Emit event locally and broadcast to other tabs
+   * Emit event locally and broadcast to other clients
    *
    * @param {string} eventType - Event type
    * @param {object} detail - Event payload
@@ -74,9 +181,13 @@ class EventBus {
   emit(eventType, detail, options = {}) {
     const user = getUser();
 
+    // Increment vector clock before emitting (captures causal ordering)
+    this.vectorClock = VectorClock.increment(this.vectorClock, this.sessionId);
+
     const event = {
       type: eventType,
       version: detail.version || Date.now(),
+      vectorClock: VectorClock.clone(this.vectorClock), // Include causal clock
       timestamp: Date.now(),
       userId: detail.userId || user?._id,
       sessionId: this.sessionId,
@@ -92,16 +203,18 @@ class EventBus {
     logger.debug('[EventBus] Emitting event', {
       eventType,
       version: event.version,
+      vectorClock: VectorClock.format(event.vectorClock),
       sessionId: event.sessionId,
-      localOnly: options.localOnly
+      localOnly: options.localOnly,
+      transportType: this.transport?.getType() || 'fallback'
     });
 
     // Dispatch locally
     this.dispatchLocal(eventType, event);
 
-    // Broadcast to other tabs (unless local-only)
+    // Broadcast to other clients (unless local-only)
     if (!options.localOnly) {
-      this.broadcastToOtherTabs(event);
+      this.broadcastToOtherClients(event);
     }
   }
 
@@ -144,85 +257,48 @@ class EventBus {
   }
 
   /**
-   * Broadcast event to other browser tabs via localStorage
+   * Broadcast event to other clients via transport
    */
-  broadcastToOtherTabs(event) {
+  async broadcastToOtherClients(event) {
+    // Use transport if available
+    if (this.transport && this.transportReady) {
+      try {
+        await this.transport.send(event);
+        return;
+      } catch (error) {
+        logger.warn('[EventBus] Transport send failed, using localStorage fallback', {
+          error: error.message
+        });
+      }
+    }
+
+    // Fallback to localStorage
+    this.broadcastToLocalStorage(event);
+  }
+
+  /**
+   * Broadcast event via localStorage (fallback)
+   */
+  broadcastToLocalStorage(event) {
     if (typeof window === 'undefined' || !window.localStorage) return;
 
     try {
-      // Use original key for backward compatibility
       localStorage.setItem('bien:event', JSON.stringify(event));
-
-      logger.debug('[EventBus] Broadcast to other tabs', {
+      logger.debug('[EventBus] Broadcast via localStorage', {
         eventType: event.type,
         version: event.version
       });
     } catch (error) {
-      // Quota exceeded - clear and retry
-      logger.warn('[EventBus] localStorage quota exceeded, clearing old events', {
-        error: error.message
-      });
-
+      logger.warn('[EventBus] localStorage quota exceeded, clearing old events');
       try {
         localStorage.removeItem('bien:event');
         localStorage.setItem('bien:event', JSON.stringify(event));
       } catch (retryError) {
-        logger.error('[EventBus] Failed to broadcast event after clearing', {
+        logger.error('[EventBus] Failed to broadcast after clearing', {
           error: retryError.message
         }, retryError);
       }
     }
-  }
-
-  /**
-   * Initialize storage listener for cross-tab synchronization
-   */
-  initStorageListener() {
-    if (typeof window === 'undefined') return;
-
-    window.addEventListener('storage', (e) => {
-      // Handle both old and new event keys
-      if (e.key !== 'bien:event' && e.key !== 'bien:plan_event') return;
-      if (!e.newValue) return;
-
-      try {
-        const event = JSON.parse(e.newValue);
-
-        // Ignore events from this session (already handled locally)
-        if (event.sessionId === this.sessionId) {
-          logger.debug('[EventBus] Ignoring own event from localStorage', {
-            eventType: event.type || event.event,
-            sessionId: event.sessionId
-          });
-          return;
-        }
-
-        // Handle new format (with type field)
-        if (event.type) {
-          logger.debug('[EventBus] Received event from other tab', {
-            eventType: event.type,
-            version: event.version,
-            sessionId: event.sessionId
-          });
-
-          this.dispatchLocal(event.type, event);
-        }
-        // Handle old format (with event field) - backward compatibility
-        else if (event.event) {
-          logger.debug('[EventBus] Received legacy event from other tab', {
-            eventType: event.event
-          });
-
-          this.dispatchLocal(event.event, event.detail || event);
-        }
-      } catch (error) {
-        logger.error('[EventBus] Error parsing storage event', {
-          error: error.message
-        }, error);
-      }
-    });
-
-    logger.info('[EventBus] Storage listener initialized');
   }
 
   /**
@@ -246,6 +322,58 @@ class EventBus {
    */
   getSessionId() {
     return this.sessionId;
+  }
+
+  /**
+   * Get current vector clock (clone to prevent external mutation)
+   */
+  getVectorClock() {
+    return VectorClock.clone(this.vectorClock);
+  }
+
+  /**
+   * Compare local vector clock with an event's clock
+   * @param {Object} eventClock - Vector clock from an event
+   * @returns {'before' | 'after' | 'concurrent' | 'equal'} Ordering relationship
+   */
+  compareVectorClock(eventClock) {
+    return VectorClock.compare(this.vectorClock, eventClock);
+  }
+
+  /**
+   * Check if an event's clock indicates a concurrent edit
+   * @param {Object} eventClock - Vector clock from an event
+   * @returns {boolean} True if clocks are concurrent (potential conflict)
+   */
+  isConcurrentEdit(eventClock) {
+    return VectorClock.isConcurrent(this.vectorClock, eventClock);
+  }
+
+  /**
+   * Get transport type
+   * @returns {string} Current transport type
+   */
+  getTransportType() {
+    return this.transport?.getType() || 'fallback';
+  }
+
+  /**
+   * Check if transport is connected
+   * @returns {boolean}
+   */
+  isTransportConnected() {
+    return this.transport?.isConnected() || false;
+  }
+
+  /**
+   * Check if WebSocket is connected (for hybrid transport)
+   * @returns {boolean}
+   */
+  isWebSocketConnected() {
+    if (this.transport?.getType() === 'hybrid') {
+      return this.transport.isWebSocketConnected?.() || false;
+    }
+    return this.transport?.getType() === 'websocket' && this.transport.isConnected();
   }
 }
 
@@ -283,44 +411,191 @@ export function isOptimisticId(id) {
 }
 
 /**
- * Reconcile state with incoming event based on version
+ * Local change protection window (in milliseconds)
+ * Recent local changes within this window will NOT be overwritten by remote events
+ */
+export const LOCAL_CHANGE_PROTECTION_MS = 5000; // 5 seconds
+
+/**
+ * Check if a field is protected from remote updates
+ *
+ * @param {object} localModifications - Map of field -> lastModifiedTimestamp
+ * @param {string} field - Field name to check
+ * @returns {boolean} True if field is protected
+ */
+export function isFieldProtected(localModifications, field) {
+  if (!localModifications || !field) return false;
+  const lastModified = localModifications[field];
+  if (!lastModified) return false;
+  return (Date.now() - lastModified) < LOCAL_CHANGE_PROTECTION_MS;
+}
+
+/**
+ * Get list of currently protected fields
+ *
+ * @param {object} localModifications - Map of field -> lastModifiedTimestamp
+ * @returns {string[]} Array of protected field names
+ */
+export function getProtectedFields(localModifications) {
+  if (!localModifications) return [];
+  const now = Date.now();
+  return Object.entries(localModifications)
+    .filter(([_, timestamp]) => (now - timestamp) < LOCAL_CHANGE_PROTECTION_MS)
+    .map(([field]) => field);
+}
+
+/**
+ * Reconcile state with incoming event based on version and vector clock
+ * Supports local change protection via options.protectedFields
+ * Detects concurrent edits via vector clock comparison
  *
  * @param {object} currentState - Current state object
  * @param {object} event - Incoming event
+ * @param {object} options - Reconciliation options
+ * @param {string[]} options.protectedFields - Fields to exclude from remote updates
+ * @param {Object} options.localVectorClock - Local vector clock for causal comparison
+ * @param {function} options.onConflict - Callback for conflict resolution (concurrent edits)
  * @returns {object|null} New state or null if should ignore
  */
-export function reconcileState(currentState, event) {
+export function reconcileState(currentState, event, options = {}) {
   if (!event || !event.data) return null;
 
-  const { data, version, optimisticId } = event;
+  const { data, version, optimisticId, vectorClock: eventClock } = event;
+  const { protectedFields = [], localVectorClock, onConflict } = options;
 
-  // No current state - accept event
+  // No current state - accept event (but still filter protected fields if any)
   if (!currentState) {
     logger.debug('[EventBus] No current state, accepting event', {
       version,
-      optimisticId
+      optimisticId,
+      protectedFields: protectedFields.length,
+      hasVectorClock: !!eventClock
     });
-    return { ...data, _version: version };
+
+    // If we have protected fields and somehow no current state,
+    // just accept the data as-is (edge case)
+    return { ...data, _version: version, _vectorClock: eventClock };
   }
 
   // Optimistic ID matches - replace with canonical
+  // But preserve protected fields from current state
   if (optimisticId && currentState._id === optimisticId) {
     logger.debug('[EventBus] Optimistic ID match, replacing with canonical', {
       optimisticId,
       canonicalId: data._id,
-      version
+      version,
+      protectedFields: protectedFields.length
     });
-    return { ...data, _version: version };
+
+    // Merge: use canonical data but preserve protected fields from current state
+    const mergedData = { ...data };
+    if (protectedFields.length > 0) {
+      protectedFields.forEach(field => {
+        if (currentState[field] !== undefined) {
+          mergedData[field] = currentState[field];
+          logger.debug('[EventBus] Preserving protected field during optimistic reconciliation', {
+            field,
+            preservedValue: currentState[field]
+          });
+        }
+      });
+    }
+
+    return { ...mergedData, _version: version, _vectorClock: eventClock };
   }
 
-  // Version comparison - accept if newer
+  // Vector clock comparison (if available) for causal ordering
+  if (eventClock && localVectorClock) {
+    const clockComparison = VectorClock.compare(localVectorClock, eventClock);
+
+    logger.debug('[EventBus] Vector clock comparison', {
+      comparison: clockComparison,
+      localClock: VectorClock.format(localVectorClock),
+      eventClock: VectorClock.format(eventClock)
+    });
+
+    // Concurrent edit detected - need conflict resolution
+    if (clockComparison === 'concurrent') {
+      logger.warn('[EventBus] Concurrent edit detected', {
+        localClock: VectorClock.format(localVectorClock),
+        eventClock: VectorClock.format(eventClock),
+        protectedFields: protectedFields.length
+      });
+
+      // If we have a conflict handler, use it
+      if (typeof onConflict === 'function') {
+        const resolved = onConflict(currentState, data, {
+          localClock: localVectorClock,
+          eventClock,
+          version,
+          protectedFields
+        });
+        if (resolved) {
+          return { ...resolved, _version: version, _vectorClock: VectorClock.merge(localVectorClock, eventClock) };
+        }
+      }
+
+      // Default: preserve protected fields, accept non-protected from event
+      const mergedData = { ...currentState, ...data };
+      if (protectedFields.length > 0) {
+        protectedFields.forEach(field => {
+          if (currentState[field] !== undefined) {
+            mergedData[field] = currentState[field];
+          }
+        });
+      }
+      return { ...mergedData, _version: version, _vectorClock: VectorClock.merge(localVectorClock, eventClock) };
+    }
+
+    // Event happened after us - accept it (preserving protected fields)
+    if (clockComparison === 'before') {
+      logger.debug('[EventBus] Event is causally newer (vector clock), accepting', {
+        protectedFields: protectedFields.length
+      });
+
+      const mergedData = { ...data };
+      if (protectedFields.length > 0) {
+        protectedFields.forEach(field => {
+          if (currentState[field] !== undefined) {
+            mergedData[field] = currentState[field];
+          }
+        });
+      }
+      return { ...mergedData, _version: version, _vectorClock: eventClock };
+    }
+
+    // Event happened before us - ignore (stale)
+    if (clockComparison === 'after') {
+      logger.debug('[EventBus] Event is causally older (vector clock), ignoring');
+      return null;
+    }
+  }
+
+  // Fallback to version comparison - accept if newer
   const currentVersion = currentState._version || 0;
   if (version > currentVersion) {
-    logger.debug('[EventBus] Newer version, accepting event', {
+    logger.debug('[EventBus] Newer version (timestamp), accepting event', {
       currentVersion,
-      newVersion: version
+      newVersion: version,
+      protectedFields: protectedFields.length
     });
-    return { ...data, _version: version };
+
+    // Merge: use new data but preserve protected fields from current state
+    const mergedData = { ...data };
+    if (protectedFields.length > 0) {
+      protectedFields.forEach(field => {
+        if (currentState[field] !== undefined) {
+          mergedData[field] = currentState[field];
+          logger.debug('[EventBus] Preserving protected field during version reconciliation', {
+            field,
+            preservedValue: currentState[field],
+            discardedValue: data[field]
+          });
+        }
+      });
+    }
+
+    return { ...mergedData, _version: version, _vectorClock: eventClock };
   }
 
   // Stale event - ignore
@@ -330,5 +605,8 @@ export function reconcileState(currentState, event) {
   });
   return null;
 }
+
+// Re-export VectorClock utilities for use in components
+export { VectorClock };
 
 export default eventBus;

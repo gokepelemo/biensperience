@@ -646,9 +646,9 @@ export default function ImageUpload({ data, setData }) {
             setPhotoToDeleteIndex(null);
           }
         }}
-        title={lang.en.modal.deletePhoto}
-        message={lang.en.modal.deletePhotoConfirm}
-        confirmText="Delete Photo"
+        title="Delete Photo?"
+        message="You are about to permanently delete this photo"
+        confirmText="Delete Permanently"
         confirmVariant="danger"
       />
     </div>

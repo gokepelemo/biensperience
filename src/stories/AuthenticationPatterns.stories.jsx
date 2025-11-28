@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Form, InputGroup } from 'react-bootstrap';
-import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaTwitter, FaUser, FaArrowRight, FaCheckCircle } from 'react-icons/fa';
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaTwitter, FaUser, FaArrowRight, FaCheckCircle, FaArrowLeft } from 'react-icons/fa';
 import BiensperienceLogo from '../components/BiensperienceLogo/BiensperienceLogo';
 import Checkbox from '../components/Checkbox/Checkbox';
 import Divider from '../components/Divider/Divider';
 import DesignNotes from './helpers/DesignNotes';
+import Modal from '../components/Modal/Modal';
+import PrivacyPolicyModal from '../components/PrivacyPolicyModal/PrivacyPolicyModal';
+import TermsOfServiceModal from '../components/TermsOfServiceModal/TermsOfServiceModal';
 
 export default {
-  title: 'Design System/Authentication Patterns',
+  title: 'Patterns/Authentication',
   parameters: {
     layout: 'fullscreen',
     docs: {
@@ -30,6 +33,51 @@ export const LoginPage = {
   render: () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showForgotPasswordLink, setShowForgotPasswordLink] = useState(false);
+  const [loginError, setLoginError] = useState(false);
+  const passwordTimerRef = useRef(null);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (passwordTimerRef.current) {
+        clearTimeout(passwordTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Handle password field focus - start 3s timer
+  const handlePasswordFocus = () => {
+    if (passwordTimerRef.current) {
+      clearTimeout(passwordTimerRef.current);
+    }
+    passwordTimerRef.current = setTimeout(() => {
+      setShowForgotPasswordLink(true);
+    }, 3000);
+  };
+
+  // Handle password field blur - clear timer
+  const handlePasswordBlur = () => {
+    if (passwordTimerRef.current) {
+      clearTimeout(passwordTimerRef.current);
+    }
+  };
+
+  // Handle password field change - reset timer
+  const handlePasswordChange = () => {
+    if (passwordTimerRef.current) {
+      clearTimeout(passwordTimerRef.current);
+    }
+    passwordTimerRef.current = setTimeout(() => {
+      setShowForgotPasswordLink(true);
+    }, 3000);
+  };
+
+  // Simulate failed login to show forgot password link
+  const handleSignInClick = () => {
+    setLoginError(true);
+    setShowForgotPasswordLink(true);
+  };
 
   return (
     <div style={{
@@ -159,6 +207,9 @@ export const LoginPage = {
                 <Form.Control
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••••••••••"
+                  onFocus={handlePasswordFocus}
+                  onBlur={handlePasswordBlur}
+                  onChange={handlePasswordChange}
                   style={{
                     backgroundColor: 'var(--color-bg-primary)',
                     border: 'none',
@@ -187,36 +238,56 @@ export const LoginPage = {
               </InputGroup>
             </Form.Group>
 
-            {/* Remember Me & Forgot Password */}
+            {/* Remember Me - Centered on its own line */}
             <div style={{
               display: 'flex',
-              justifyContent: 'space-between',
+              flexDirection: 'column',
               alignItems: 'center',
+              gap: 'var(--space-3)',
               marginBottom: 'var(--space-6)',
             }}>
               <Checkbox
                 id="remember-me"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                label={<span style={{ fontSize: 'var(--font-size-sm)' }}>Remember For 30 Days</span>}
+                label={<span style={{ fontSize: 'var(--font-size-sm)' }}>Remember me</span>}
               />
-              <a
-                href="#"
-                style={{
-                  color: 'var(--color-primary)',
-                  fontSize: 'var(--font-size-sm)',
-                  fontWeight: 'var(--font-weight-medium)',
-                  textDecoration: 'none',
-                }}
-              >
-                Forgot Password
-              </a>
+              {/* Forgot Password - Only shows after failed login or 3s password focus */}
+              {showForgotPasswordLink && (
+                <a
+                  href="#"
+                  style={{
+                    color: 'var(--color-primary)',
+                    fontSize: 'var(--font-size-sm)',
+                    fontWeight: 'var(--font-weight-medium)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Forgot Password?
+                </a>
+              )}
             </div>
+
+            {/* Error message on failed login */}
+            {loginError && (
+              <div style={{
+                backgroundColor: 'var(--color-danger-light)',
+                color: 'var(--color-danger)',
+                padding: 'var(--space-3)',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: 'var(--space-4)',
+                textAlign: 'center',
+                fontSize: 'var(--font-size-sm)',
+              }}>
+                Invalid email or password. Please try again.
+              </div>
+            )}
 
             {/* Sign In Button */}
             <Button
               variant="primary"
               size="lg"
+              onClick={handleSignInClick}
               style={{
                 width: '100%',
                 background: 'var(--gradient-primary)',
@@ -378,6 +449,30 @@ export const SignUpPage = {
   render: () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+
+  // Handle clicking Privacy Policy link
+  const handlePrivacyClick = (e) => {
+    e.preventDefault();
+    setShowPrivacyModal(true);
+  };
+
+  // Handle clicking Terms & Conditions link
+  const handleTermsClick = (e) => {
+    e.preventDefault();
+    setShowTermsModal(true);
+  };
+
+  // Handle back from Privacy modal
+  const handlePrivacyBack = () => {
+    setShowPrivacyModal(false);
+  };
+
+  // Handle back from Terms modal
+  const handleTermsBack = () => {
+    setShowTermsModal(false);
+  };
 
   return (
     <div style={{
@@ -646,11 +741,19 @@ export const SignUpPage = {
                 label={
                   <span style={{ color: 'var(--color-text-primary)', fontSize: 'var(--font-size-sm)' }}>
                     I agree to the{' '}
-                    <a href="#" style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
+                    <a
+                      href="#"
+                      onClick={handleTermsClick}
+                      style={{ color: 'var(--color-primary)', textDecoration: 'none' }}
+                    >
                       Terms & Conditions
                     </a>
                     {' '}and{' '}
-                    <a href="#" style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
+                    <a
+                      href="#"
+                      onClick={handlePrivacyClick}
+                      style={{ color: 'var(--color-primary)', textDecoration: 'none' }}
+                    >
                       Privacy Policy
                     </a>
                   </span>
@@ -788,6 +891,22 @@ export const SignUpPage = {
           </p>
         </div>
       </div>
+
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal
+        show={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+        onBack={handlePrivacyBack}
+        showBackButton={true}
+      />
+
+      {/* Terms of Service Modal */}
+      <TermsOfServiceModal
+        show={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onBack={handleTermsBack}
+        showBackButton={true}
+      />
     </div>
     );
   },
@@ -1270,6 +1389,52 @@ export const LoginSplitLayout = {
   render: () => {
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(true);
+    const [showForgotPasswordLink, setShowForgotPasswordLink] = useState(false);
+    const [loginError, setLoginError] = useState(false);
+    const passwordTimerRef = useRef(null);
+
+    // Cleanup timer on unmount
+    useEffect(() => {
+      return () => {
+        if (passwordTimerRef.current) {
+          clearTimeout(passwordTimerRef.current);
+        }
+      };
+    }, []);
+
+    // Handle password field focus - start 3s timer
+    const handlePasswordFocus = () => {
+      if (passwordTimerRef.current) {
+        clearTimeout(passwordTimerRef.current);
+      }
+      passwordTimerRef.current = setTimeout(() => {
+        setShowForgotPasswordLink(true);
+      }, 3000);
+    };
+
+    // Handle password field blur - clear timer
+    const handlePasswordBlur = () => {
+      if (passwordTimerRef.current) {
+        clearTimeout(passwordTimerRef.current);
+      }
+    };
+
+    // Handle password field change - reset timer
+    const handlePasswordChange = () => {
+      if (passwordTimerRef.current) {
+        clearTimeout(passwordTimerRef.current);
+      }
+      passwordTimerRef.current = setTimeout(() => {
+        setShowForgotPasswordLink(true);
+      }, 3000);
+    };
+
+    // Simulate failed login to show forgot password link
+    const handleSignInClick = () => {
+      setLoginError(true);
+      setShowForgotPasswordLink(true);
+    };
+
     return (
       <div style={{
         minHeight: '100vh',
@@ -1286,6 +1451,10 @@ export const LoginSplitLayout = {
           alignItems: 'center',
         }}>
           <div>
+            {/* Logo in sidebar */}
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <BiensperienceLogo type="white" size="xl" />
+            </div>
             <h1 style={{ fontSize: 'var(--font-size-4xl)', marginBottom: 'var(--space-4)' }}>Plan your next adventure</h1>
             <p style={{ opacity: 0.9, marginBottom: 'var(--space-6)' }}>
               From Kyoto temples to Barcelona sunsets—organize itineraries, collaborate with friends, and track your plans.
@@ -1321,17 +1490,50 @@ export const LoginSplitLayout = {
                   <Form.Label>Password</Form.Label>
                   <InputGroup style={{ border: '2px solid var(--color-border-medium)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', minHeight: 56 }}>
                     <InputGroup.Text style={{ background: 'var(--color-bg-secondary)', border: 'none', minHeight: 56, display: 'flex', alignItems: 'center' }}><FaLock /></InputGroup.Text>
-                    <Form.Control type={showPassword ? 'text' : 'password'} placeholder="••••••••••" style={{ background: 'var(--color-bg-primary)', border: 'none', minHeight: 56 }} />
+                    <Form.Control
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••••"
+                      style={{ background: 'var(--color-bg-primary)', border: 'none', minHeight: 56 }}
+                      onFocus={handlePasswordFocus}
+                      onBlur={handlePasswordBlur}
+                      onChange={handlePasswordChange}
+                    />
                     <Button variant="link" style={{ background: 'var(--color-bg-secondary)', border: 'none', minHeight: 56 }} onClick={() => setShowPassword(!showPassword)}>
                       {showPassword ? <FaEyeSlash /> : <FaEye />}
                     </Button>
                   </InputGroup>
                 </Form.Group>
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <Checkbox id="remember-split" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} label={<span style={{ fontSize: 'var(--font-size-sm)' }}>Remember For 30 Days</span>} />
-                  <a href="#" style={{ color: 'var(--color-primary)', fontSize: 'var(--font-size-sm)' }}>Forgot Password</a>
+
+                {/* Remember Me & Forgot Password - Separate lines, centered */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 'var(--space-3)',
+                  marginBottom: 'var(--space-4)'
+                }}>
+                  <Checkbox id="remember-split" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} label={<span style={{ fontSize: 'var(--font-size-sm)' }}>Remember me</span>} />
+                  {showForgotPasswordLink && (
+                    <a href="#" style={{ color: 'var(--color-primary)', fontSize: 'var(--font-size-sm)' }}>Forgot Password?</a>
+                  )}
                 </div>
-                <Button style={{ width: '100%', background: 'var(--gradient-primary)', border: 'none', borderRadius: 'var(--radius-full)', minHeight: 56 }}>Sign In <FaArrowRight className="ms-2" /></Button>
+
+                {/* Error message on failed login */}
+                {loginError && (
+                  <div style={{
+                    backgroundColor: 'var(--color-danger-light)',
+                    color: 'var(--color-danger)',
+                    padding: 'var(--space-3)',
+                    borderRadius: 'var(--radius-md)',
+                    marginBottom: 'var(--space-4)',
+                    textAlign: 'center',
+                    fontSize: 'var(--font-size-sm)',
+                  }}>
+                    Invalid email or password. Please try again.
+                  </div>
+                )}
+
+                <Button onClick={handleSignInClick} style={{ width: '100%', background: 'var(--gradient-primary)', border: 'none', borderRadius: 'var(--radius-full)', minHeight: 56 }}>Sign In <FaArrowRight className="ms-2" /></Button>
                 <Divider label="Or continue with" shadow="md" />
                 <div style={{ display: 'flex', gap: 'var(--space-3)', flexDirection: 'column' }}>
                   <Button variant="outline-secondary" style={{ minHeight: 52, borderRadius: 'var(--radius-full)' }}><FaFacebook style={{ color: 'var(--color-facebook)' }} className="me-2"/> Sign In With Facebook</Button>

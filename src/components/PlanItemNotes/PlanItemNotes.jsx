@@ -501,11 +501,10 @@ export default function PlanItemNotes({
         show={showDeleteConfirm}
         onClose={cancelDeleteNote}
         onConfirm={confirmDeleteNote}
-        title="Delete Note"
-        message="Are you sure you want to delete this note? This action cannot be undone."
-        confirmText="Delete"
+        title="Delete Note?"
+        message="You are about to permanently delete this note"
+        confirmText="Delete Permanently"
         confirmVariant="danger"
-        cancelText="Cancel"
       />
     </div>
   );

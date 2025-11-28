@@ -4,7 +4,7 @@ import { FaPaperPlane, FaSmile, FaMicrophone, FaPlus, FaEllipsisH, FaPlay, FaPap
 import { BsCheckAll } from 'react-icons/bs';
 
 export default {
-  title: 'Design System/Chat Components',
+  title: 'Patterns/Chat Interface',
   parameters: {
     layout: 'padded',
     docs: {
@@ -325,6 +325,7 @@ const MediaMessageBubble = ({
 
 // Chat Conversation
 export const ChatBubbles = {
+  name: 'Chat Bubbles',
   render: () => (
   <div style={{
     backgroundColor: 'var(--color-bg-secondary)',
@@ -460,6 +461,7 @@ export const ChatBubbles = {
 
 // Chat Input Components
 export const ChatInputFields = {
+  name: 'Chat Input Fields',
   render: () => {
     const [message, setMessage] = useState('');
 

@@ -1,14 +1,24 @@
 import React from 'react';
+import { Row } from 'react-bootstrap';
 import ActivePlansCard from '../../components/Dashboard/ActivePlansCard';
 
 export default {
-  title: 'Dashboard/ActivePlansCard',
+  title: 'Components/Cards/Plan Metrics',
   component: ActivePlansCard,
+  decorators: [
+    (Story) => (
+      <div style={{ width: '1200px', padding: 'var(--space-4)' }}>
+        <Row>
+          <Story />
+        </Row>
+      </div>
+    ),
+  ],
   parameters: {
     layout: 'centered',
     docs: {
       description: {
-        component: 'Enhanced active plans metric card showing detailed plan statistics including owned plans, shared plans, and completion status.',
+        component: 'Enhanced active plans metric card showing detailed plan statistics including owned plans, shared plans, and completion status. This card is designed to be used within a Bootstrap grid system (Row container).',
       },
     },
   },
@@ -166,9 +176,6 @@ export const DarkModeDefault = {
     },
     backgrounds: {
       default: 'dark',
-      values: [
-        { name: 'dark', value: '#1a1a1a' },
-      ],
     },
   },
 };

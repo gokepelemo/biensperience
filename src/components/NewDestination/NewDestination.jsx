@@ -13,6 +13,7 @@ import { formatRestorationMessage } from "../../utilities/time-format";
 import ImageUpload from "../ImageUpload/ImageUpload";
 import Alert from "../Alert/Alert";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
+import SuccessModal from "../SuccessModal/SuccessModal";
 import FormField from "../FormField/FormField";
 import TravelTipsManager from "../TravelTipsManager/TravelTipsManager";
 import { Form } from "react-bootstrap";
@@ -28,6 +29,8 @@ export default function NewDestination() {
   const [error, setError] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [tipToDelete, setTipToDelete] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdDestination, setCreatedDestination] = useState(null);
 
   // Use custom hooks
   const handleChange = useFormChangeHandler(newDestination, setNewDestination);
@@ -121,9 +124,10 @@ export default function NewDestination() {
       );
       addDestination(destination);
       persistence.clear();
-      const message = lang.en.notification?.destination?.created?.replace('{name}', `${destination.name}, ${destination.country}`) || `${destination.name}, ${destination.country} has been added to Biensperience!`;
-      success(message);
-      navigate(`/experiences/new`);
+
+      // Show success modal instead of navigating directly
+      setCreatedDestination(destination);
+      setShowSuccessModal(true);
     } catch (err) {
       handleFormError(err, { context: 'Create destination' });
     }
@@ -268,11 +272,26 @@ export default function NewDestination() {
           deleteTravelTip(tipToDelete);
           setShowDeleteModal(false);
         }}
-        title={lang.en.modal.confirmDelete}
-        message={lang.en.modal.confirmDeleteTravelTip}
-        confirmText={lang.en.button.delete}
+        title="Delete Travel Tip?"
+        message="You are about to permanently delete this travel tip"
+        confirmText="Delete Permanently"
         confirmVariant="danger"
-        cancelText={lang.en.button.cancel}
+      />
+
+      <SuccessModal
+        show={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false);
+          // Reset form for creating another
+          setNewDestination({});
+          setTravelTips([]);
+          setCreatedDestination(null);
+        }}
+        title="Destination Created!"
+        message="Your destination has been created successfully"
+        entityName={createdDestination ? `${createdDestination.name}, ${createdDestination.country}` : ''}
+        entityType="destination"
+        entityId={createdDestination?._id}
       />
     </>
   );

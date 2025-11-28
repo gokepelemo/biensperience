@@ -148,6 +148,42 @@
 
     /* Profile pills in gradient sections use base .profilePill styles */
     /* Note: Inherits from .profilePill above - no overrides needed */
+    /* Ensure pill text is legible on the gradient background */
+    .profilePill {
+      background: rgba(255, 255, 255, 0.08) !important; /* subtle surface on gradient */
+      color: var(--color-white) !important; /* use design token for on-gradient text */
+      box-shadow: none;
+      border: 1px solid rgba(255,255,255,0.08);
+
+      &:hover {
+        background: rgba(255,255,255,0.12) !important;
+        color: var(--color-white) !important;
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
+      }
+
+      &.inactive {
+        background: rgba(255,255,255,0.04);
+        color: var(--color-text-secondary) !important;
+        box-shadow: none;
+      }
+    }
+    /* Also override TagPill module classes (global) when rendered inside gradient sections */
+    /* Make general TagPill variants use a subtle translucent surface and white text on the gradient */
+    :global(.tagPillPrimary),
+    :global(.tagPillNeutral) {
+      background: rgba(255, 255, 255, 0.08) !important;
+      color: var(--color-white) !important;
+      border: 1px solid rgba(255,255,255,0.08) !important;
+    }
+    /* For the 'light' variant (which is normally white bg + purple text),
+       render it as a light translucent surface with dark text when on gradient
+       so it remains legible (white text on white bg would be invisible). */
+    :global(.tagPillLight) {
+      background: rgba(255,255,255,0.92) !important; /* nearly white surface */
+      color: var(--color-text-primary) !important; /* dark text for contrast */
+      border: 1px solid rgba(0,0,0,0.06) !important;
+    }
 
     /* Pagination button styling on gradient background */
     :global(.btn-link) {

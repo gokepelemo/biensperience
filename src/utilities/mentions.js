@@ -10,6 +10,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { OverlayTrigger, Popover } from 'react-bootstrap';
 import { logger } from '../utilities/logger';
+import HashLink from '../components/HashLink/HashLink';
 
 /**
  * Entity types supported for mentions
@@ -165,9 +166,9 @@ export function renderMention(mention, entity, onEntityClick) {
               <>
                 <p><strong>Item:</strong> {entity.name || entity.experience_name}</p>
                 {entity.description && <p><strong>Description:</strong> {entity.description.substring(0, 100)}...</p>}
-                <Link to={entityUrl} className="btn btn-sm btn-primary">
+                <HashLink to={entityUrl} className="btn btn-sm btn-primary">
                   View Plan Item
-                </Link>
+                </HashLink>
               </>
             )}
             {entityType === MENTION_TYPES.DESTINATION && (
@@ -199,19 +200,23 @@ export function renderMention(mention, entity, onEntityClick) {
     </Popover>
   );
 
+  // Use HashLink for plan-item mentions to preserve hash fragments
+  // Use regular Link for other entity types
+  const LinkComponent = entityType === 'plan-item' ? HashLink : Link;
+
   return (
     <OverlayTrigger
       trigger={['hover', 'focus']}
       placement="top"
       overlay={popoverContent}
     >
-      <Link
+      <LinkComponent
         to={entityUrl}
         onClick={handleClick}
         className="mention-link"
       >
         {displayText}
-      </Link>
+      </LinkComponent>
     </OverlayTrigger>
   );
 }

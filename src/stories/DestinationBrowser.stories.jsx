@@ -4,7 +4,7 @@ import MapView from '../components/MapView/MapView';
 import BiensperienceLogo from '../components/BiensperienceLogo/BiensperienceLogo';
 
 export default {
-  title: 'Components/Destination Browser',
+  title: 'Components/Navigation/Destination Browser',
   component: DestinationBrowser,
   parameters: {
     layout: 'fullscreen',
@@ -145,6 +145,7 @@ export const Default = {
 };
 
 export const TokyoDestinations = {
+  name: 'Tokyo Destinations',
   render: () => {
     const tokyoDestinations = [
       {
@@ -235,6 +236,7 @@ export const TokyoDestinations = {
 };
 
 export const ParisDestinations = {
+  name: 'Paris Destinations',
   render: () => {
     const parisDestinations = [
       {
@@ -295,6 +297,7 @@ export const ParisDestinations = {
 };
 
 export const InteractiveDemo = {
+  name: 'Interactive Demo',
   render: () => {
     const [destinations, setDestinations] = useState(sampleDestinations);
     const [sortOrder, setSortOrder] = useState('highest');
@@ -367,6 +370,7 @@ export const InteractiveDemo = {
 };
 
 export const EmptyState = {
+  name: 'Empty State',
   render: () => {
     return (
       <DestinationBrowser
@@ -379,6 +383,7 @@ export const EmptyState = {
 };
 
 export const MapViewComponent = {
+  name: 'Map View Component',
   render: () => {
     const markers = [
       { name: 'Osaka Luxury Suites', price: 870, type: 'hotel' },
@@ -419,6 +424,7 @@ export const MapViewComponent = {
 };
 
 export const TokyoMapView = {
+  name: 'Tokyo Map View',
   render: () => {
     const tokyoMarkers = [
       { name: 'Tokyo Imperial Palace View Hotel', type: 'hotel' },
@@ -452,6 +458,7 @@ export const TokyoMapView = {
 };
 
 export const ParisMapView = {
+  name: 'Paris Map View',
   render: () => {
     const parisMarkers = [
       { name: 'Eiffel Tower View Suite', type: 'hotel' },
@@ -484,6 +491,7 @@ export const ParisMapView = {
 };
 
 export const DesktopAndMobileLayout = {
+  name: 'Desktop and Mobile Layout',
   render: () => {
     return (
       <div style={{ 
@@ -547,6 +555,7 @@ export const DesktopAndMobileLayout = {
 };
 
 export const FullLayoutWithMap = {
+  name: 'Full Layout with Map',
   render: () => {
     const markers = [
       { name: 'Osaka Luxury Suites', type: 'hotel' },
@@ -617,6 +626,7 @@ export const FullLayoutWithMap = {
 
 // Mobile-First Story matching the screenshot
 export const MobileView = {
+  name: 'Mobile View',
   render: () => {
     return (
       <div style={{

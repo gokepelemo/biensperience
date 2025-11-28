@@ -1,15 +1,15 @@
 import React, { cloneElement, isValidElement } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { storeHash, parseHash, scrollToElement, clearStoredHash } from '../../utilities/hash-navigation';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigationIntent, INTENT_TYPES } from '../../contexts/NavigationIntentContext';
+import { parseHash } from '../../utilities/hash-navigation';
+import { logger } from '../../utilities/logger';
 
 /**
  * HashLink - A component that handles hash-based deep linking
  *
- * Solves React Router's hash stripping limitation by:
- * 1. Detecting hash fragments in the target URL
- * 2. Storing hash in sessionStorage before navigation
- * 3. Navigating without the hash (so React Router doesn't strip it)
- * 4. Hash is restored on destination component mount
+ * Uses NavigationIntentContext to manage navigation intent instead of localStorage.
+ * The destination component (e.g., SingleExperience) consumes the intent and
+ * handles scroll/highlight animations.
  *
  * @param {Object} props
  * @param {string} props.to - Destination URL (can include hash fragment)
@@ -18,6 +18,7 @@ import { storeHash, parseHash, scrollToElement, clearStoredHash } from '../../ut
  * @param {string} props.className - CSS classes
  * @param {Object} props.style - Inline styles
  * @param {boolean} props.disabled - Whether the link is disabled
+ * @param {boolean} props.shouldShake - Whether to trigger highlight animation (default: true)
  *
  * @example
  * // Link to plan
@@ -28,13 +29,8 @@ import { storeHash, parseHash, scrollToElement, clearStoredHash } from '../../ut
  * <HashLink to="/experiences/123#plan-456-item-789">View Item</HashLink>
  *
  * @example
- * // With custom styling
- * <HashLink
- *   to="/experiences/123#plan-456"
- *   style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}
- * >
- *   View Plan
- * </HashLink>
+ * // Without highlight animation
+ * <HashLink to="/experiences/123#plan-456" shouldShake={false}>View Plan</HashLink>
  */
 export default function HashLink({
   to,
@@ -43,11 +39,13 @@ export default function HashLink({
   className = '',
   style = {},
   disabled = false,
-  activitySource, // Extract to prevent passing to DOM
-  shouldShake,    // Extract to prevent passing to DOM
+  activitySource, // Extract to prevent passing to DOM (kept for backward compat)
+  shouldShake = true, // Whether to trigger highlight animation
   ...props        // Remaining props safe for DOM
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { createIntent } = useNavigationIntent();
 
   const handleClick = (e) => {
     try {
@@ -58,10 +56,8 @@ export default function HashLink({
 
       e.preventDefault();
 
-      // Call custom onClick handler if provided. If it returns `false`
-      // explicitly, treat that as a signal to abort navigation. We no longer
-      // rely on `e.defaultPrevented` because other libraries sometimes set it
-      // unexpectedly.
+      // Call custom onClick handler if provided
+      // If it returns `false` explicitly, abort navigation
       let handlerResult;
       if (onClick) {
         try { handlerResult = onClick(e); } catch (err) { /* ignore */ }
@@ -70,87 +66,81 @@ export default function HashLink({
         return;
       }
 
-    // Normalize target string (trim accidental whitespace)
-    const target = typeof to === 'string' ? to.trim() : to;
+      // Normalize target string (trim accidental whitespace)
+      const target = typeof to === 'string' ? to.trim() : to;
 
-    // Parse the target URL (handles absolute URLs and relative paths)
-    if (target) {
-      try {
-        const parsed = new URL(target, window.location.origin);
+      // Parse the target URL (handles absolute URLs and relative paths)
+      if (target) {
         try {
-          // parsed URL
-        } catch (err) {}
-        const path = `${parsed.pathname}${parsed.search || ''}`;
-        const cleanHash = parsed.hash || '';
+          const parsed = new URL(target, window.location.origin);
+          const path = `${parsed.pathname}${parsed.search || ''}`;
+          const cleanHash = parsed.hash || '';
 
-        // If there's a hash, store it for destination handling
-        if (cleanHash) {
-          // Allow callers to pass metadata (e.g., activitySource or shouldShake)
-          const meta = {};
-          if (activitySource) meta.activitySource = activitySource;
-          if (shouldShake) meta.shouldShake = true;
-
-          try {
-            storeHash(cleanHash, window.location.pathname, Object.keys(meta).length ? meta : null);
-            console.log('[HashLink] ✅ Stored hash for cross-navigation:', {
-              hash: cleanHash,
-              originPath: window.location.pathname,
-              targetPath: path,
-              meta
-            });
-          } catch (err) {
-            console.error('[HashLink] ❌ Failed to store hash:', err);
-            try { storeHash(cleanHash, null, Object.keys(meta).length ? meta : null); } catch (e) { storeHash(cleanHash); }
-          }
-        }
-
-        // If target origin differs, do a full navigation
-        if (parsed.origin !== window.location.origin) {
-          window.location.href = to;
-          return;
-        }
-
-        // Same-origin: if path equals current path, update hash and scroll immediately
-        const currentPath = window.location.pathname + (window.location.search || '');
-        if (path === currentPath && cleanHash) {
-          const newUrl = `${path}${cleanHash}`;
-          if (window.location.href !== newUrl) {
-            window.history.pushState(null, '', newUrl);
+          // If target origin differs, do a full navigation
+          if (parsed.origin !== window.location.origin) {
+            window.location.href = to;
+            return;
           }
 
-          const { planId, itemId } = parseHash(cleanHash);
-          const elementId = planId ? (itemId ? `plan-${planId}-item-${itemId}` : `plan-${planId}`) : null;
-          if (elementId) scrollToElement(elementId, true);
+          // Determine current path for comparison
+          const currentPath = location.pathname + (location.search || '');
+          const isSamePage = path === currentPath;
 
-          clearStoredHash();
-          return;
-        }
+          // If there's a hash, create navigation intent
+          if (cleanHash) {
+            const { planId, itemId } = parseHash(cleanHash);
 
-        // Otherwise navigate using React Router to the same-origin path
-        try {
-          // navigate
-        } catch (err) {}
-        navigate(path);
+            if (planId) {
+              // Determine intent type based on navigation
+              const intentType = isSamePage ? INTENT_TYPES.SAME_PAGE : INTENT_TYPES.CROSS_VIEW;
 
-        // Safety fallback: if React Router didn't change location within a short time,
-        // perform a full navigation to ensure the user reaches the target.
-        setTimeout(() => {
-          try {
-            if ((window.location.pathname + (window.location.search || '')) !== path) {
-              window.location.href = path + (cleanHash || '');
+              // Create intent (destination component will handle scroll/highlight)
+              createIntent(intentType, planId, itemId, shouldShake);
+
+              logger.debug('[HashLink] Created navigation intent:', {
+                type: intentType,
+                planId,
+                itemId,
+                shouldShake,
+                isSamePage,
+                path
+              });
             }
-          } catch (err) {
-            // ignore
+
+            // For same-page navigation, update URL hash and let intent consumer handle scroll
+            if (isSamePage) {
+              const newUrl = `${path}${cleanHash}`;
+              if (window.location.href !== newUrl) {
+                window.history.pushState(null, '', newUrl);
+              }
+              // Intent already created, consumer will handle it
+              return;
+            }
           }
-        }, 200);
-        return;
-      } catch (err) {
-        // If URL parsing fails, fall back to navigate/to string behavior
+
+          // Navigate using React Router for cross-page navigation
+          navigate(path);
+
+          // Safety fallback: if React Router didn't change location within a short time,
+          // perform a full navigation to ensure the user reaches the target.
+          setTimeout(() => {
+            try {
+              if ((window.location.pathname + (window.location.search || '')) !== path) {
+                window.location.href = path + (cleanHash || '');
+              }
+            } catch (err) {
+              // ignore
+            }
+          }, 200);
+          return;
+        } catch (err) {
+          logger.warn('[HashLink] URL parsing failed, falling back to direct navigation:', err);
+        }
       }
-    }
 
     } catch (err) {
       // Fallback: attempt to navigate directly
+      logger.error('[HashLink] Error in handleClick:', err);
       try { navigate(to); } catch (e) { window.location.href = to; }
     }
   };

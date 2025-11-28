@@ -7,9 +7,7 @@ import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
-import FavoriteDestination from "../../components/FavoriteDestination/FavoriteDestination";
 import TravelTipsList from "../../components/TravelTipsList/TravelTipsList";
-import InfoCard from "../../components/InfoCard/InfoCard";
 import { logger } from "../../utilities/logger";
 import { getExperiences } from "../../utilities/experiences-api";
 import Alert from "../../components/Alert/Alert";
@@ -18,8 +16,11 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { isOwner } from "../../utilities/permissions";
 import { Container, Button, SkeletonLoader } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
-import ActionButtonsRow from "./components/ActionButtonsRow";
-import { toggleUserFavoriteDestination } from "../../utilities/destinations-api";
+import { toggleUserFavoriteDestination, deleteDestination } from "../../utilities/destinations-api";
+import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
+import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash } from "react-icons/fa";
+import { Row, Col, Card } from "react-bootstrap";
+import { getDefaultPhoto } from "../../utilities/photo-utils";
 
 export default function SingleDestination() {
   const { user } = useUser();
@@ -114,6 +115,18 @@ export default function SingleDestination() {
     }
   }, [favLoading, destination, user, mergeDestination]);
 
+  // Handle delete destination
+  const handleDeleteDestination = useCallback(async () => {
+    try {
+      await deleteDestination(destinationId);
+      setShowDeleteModal(false);
+      // Navigate to destinations list after successful delete
+      navigate('/destinations');
+    } catch (error) {
+      logger.error('Failed to delete destination', { destinationId, error: error.message });
+    }
+  }, [destinationId, navigate]);
+
   // Update local state when global destinations or experiences change
   useEffect(() => {
     const foundDestination = destinations.find((dest) => dest._id === destinationId);
@@ -183,33 +196,19 @@ export default function SingleDestination() {
     }
   }, [destinationId]);
 
-  // Register h1 and action buttons
+  // Register h1 and action buttons (hidden h1 for screen readers)
   useEffect(() => {
     if (h1Ref.current) {
       registerH1(h1Ref.current);
-
-      // Enable h1 text in navbar for this view
-      updateShowH1InNavbar(true);
-
-      // Set up action buttons if user is owner or super admin
-      if (user && destination && isOwner(user, destination)) {
-        setPageActionButtons([
-          {
-            label: lang.en.button.edit,
-            onClick: () => navigate(`/destinations/${destination._id}/update`),
-            variant: 'outline-primary',
-            icon: '✏️',
-            tooltip: 'Edit Destination'
-          }
-        ]);
-      }
+      // Hide h1 in navbar for this view (title is in hero)
+      updateShowH1InNavbar(false);
     }
 
     return () => {
       clearActionButtons();
       updateShowH1InNavbar(false);
     };
-  }, [registerH1, setPageActionButtons, clearActionButtons, updateShowH1InNavbar, user, destination, navigate]);
+  }, [registerH1, clearActionButtons, updateShowH1InNavbar]);
 
   // Choose which experiences list to display: prefer direct server results when present
   // Normalize possible shapes: legacy array, or paginated { data, meta }
@@ -257,42 +256,35 @@ export default function SingleDestination() {
     setVisibleExperiencesCount(6);
   }, [destinationId]);
 
-
+  // Get hero image URL
+  const getHeroImageUrl = () => {
+    if (!destination?.photos?.length) {
+      return 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80'; // Fallback
+    }
+    const defaultPhoto = getDefaultPhoto(destination);
+    return defaultPhoto?.url || destination.photos[0]?.url;
+  };
 
   // Show loading state
   if (isLoading) {
     return (
-      <div className="container my-5">
-        <div className="row">
-          <div className="col-12 text-center mb-4">
-            <SkeletonLoader variant="text" width="60%" height="48px" style={{ margin: '0 auto' }} />
-          </div>
-        </div>
-        <div className="row">
-          <div className="col-md-6 p-3">
-            <SkeletonLoader variant="rectangle" width="100%" height="400px" />
-          </div>
-          <div className="col-md-6 p-3">
-            <SkeletonLoader variant="rectangle" width="100%" height="400px" />
-          </div>
-        </div>
-        <div className="row my-4">
-          <div className="col-12">
-            <SkeletonLoader variant="text" width="40%" height="32px" />
-            <div className="mt-3">
-              <SkeletonLoader variant="text" lines={3} />
-            </div>
-          </div>
-        </div>
-        <div className="row my-4">
-          <div className="col-12">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--space-4)' }}>
-              <SkeletonLoader variant="rectangle" width="100%" height="300px" />
-              <SkeletonLoader variant="rectangle" width="100%" height="300px" />
-              <SkeletonLoader variant="rectangle" width="100%" height="300px" />
-            </div>
-          </div>
-        </div>
+      <div className={styles.destinationContainer}>
+        <Container>
+          <SkeletonLoader variant="rectangle" width="100%" height="400px" className={styles.skeletonHero} />
+          <Row>
+            <Col lg={8}>
+              <SkeletonLoader variant="rectangle" width="100%" height="200px" style={{ marginBottom: 'var(--space-6)' }} />
+              <SkeletonLoader variant="text" width="40%" height="32px" style={{ marginBottom: 'var(--space-4)' }} />
+              <Row>
+                <Col md={6}><SkeletonLoader variant="rectangle" width="100%" height="280px" /></Col>
+                <Col md={6}><SkeletonLoader variant="rectangle" width="100%" height="280px" /></Col>
+              </Row>
+            </Col>
+            <Col lg={4}>
+              <SkeletonLoader variant="rectangle" width="100%" height="200px" />
+            </Col>
+          </Row>
+        </Container>
       </div>
     );
   }
@@ -300,25 +292,36 @@ export default function SingleDestination() {
   // Show error state if destination not found
   if (!destination) {
     return (
-      <div className="container my-5">
-        <Alert type="warning" title="Destination Not Found">
-          <p>The destination you're looking for doesn't exist or has been removed.</p>
-          <hr />
-          <p className="mb-0">
-            <Link to="/destinations" className="alert-link">Browse all destinations</Link>
-          </p>
-        </Alert>
+      <div className={styles.destinationContainer}>
+        <Container>
+          <Alert type="warning" title="Destination Not Found">
+            <p>The destination you're looking for doesn't exist or has been removed.</p>
+            <hr />
+            <p className="mb-0">
+              <Link to="/destinations" className="alert-link">Browse all destinations</Link>
+            </p>
+          </Alert>
+        </Container>
       </div>
     );
   }
 
   // Compute favorite status
   const isUserFavorite = destination?.users_favorite?.includes(user?._id) || false;
+  const favoriteCount = destination?.users_favorite?.length || 0;
+  const experienceCount = allExperiences.length;
+
+  // Format destination title
+  const destinationTitle = `${destination.name}, ${!destination.state
+    ? destination.country
+    : destination.state === destination.name
+    ? destination.country
+    : destination.state}`;
 
   return (
     <>
       <PageOpenGraph
-        title={`${destination.name}, ${!destination.state ? destination.country : destination.state === destination.name ? destination.country : destination.state}`}
+        title={destinationTitle}
         description={`Discover ${destination.name}, ${destination.country}. Explore popular experiences, travel tips, and plan your perfect visit to this amazing destination.${displayedExperiences.length > 0 ? ` Find ${displayedExperiences.length} curated experiences.` : ''}`}
         keywords={`${destination.name}, ${destination.country}, travel destination, tourism${destination.state ? `, ${destination.state}` : ''}, experiences, travel tips`}
         ogTitle={`${destination.name}, ${destination.country}`}
@@ -326,148 +329,219 @@ export default function SingleDestination() {
         entity={destination}
         entityType="destination"
       />
-            <div className={`${styles.singleDestinationHeader}`}>
-              {/* Title row - full width, centered on mobile/tablet */}
-              <div className="row">
-                <div className="col-12 text-center text-md-start">
-                  <h1 ref={h1Ref} className="my-4">
-                    {destination.name},{" "}
-                    {!destination.state
-                      ? destination.country
-                      : destination.state === destination.name
-                      ? destination.country
-                      : destination.state}
-                  </h1>
-                </div>
-              </div>
 
-              {/* Description and action buttons row */}
-              <div className="row align-items-center">
-                {/* Description column */}
-                <div className="col-md-6 mb-3 mb-md-0 d-flex align-items-center">
-                  <div>
-                    {destination.description && (
-                      <p className="mb-0">{destination.description}</p>
-                    )}
-                  </div>
-                </div>
+      {/* Hidden h1 for screen readers */}
+      <h1 ref={h1Ref} className="visually-hidden">{destinationTitle}</h1>
 
-                {/* Action buttons column - right-aligned on desktop, centered on mobile */}
-                <div className="col-md-6 d-flex align-items-center justify-content-center justify-content-md-end">
-                  <ActionButtonsRow
-                    user={user}
-                    destination={destination}
-                    destinationId={destinationId}
-                    isUserFavorite={isUserFavorite}
-                    loading={favLoading}
-                    favHover={favHover}
-                    setFavHover={setFavHover}
-                    handleFavorite={handleFavorite}
-                    setShowDeleteModal={setShowDeleteModal}
-                    lang={lang}
-                  />
-                </div>
+      <div className={styles.destinationContainer}>
+        <Container>
+          {/* Hero Image Section */}
+          <div className={styles.heroSection}>
+            <img
+              src={getHeroImageUrl()}
+              alt={destination.name}
+              className={styles.heroImage}
+            />
+            <div className={styles.heroOverlay}>
+              <h2 className={styles.heroTitle}>{destinationTitle}</h2>
+              <div className={styles.heroMeta}>
+                <span><FaMapMarkerAlt /> {destination.country}</span>
+                <span><FaHeart /> {favoriteCount} {favoriteCount === 1 ? 'favorite' : 'favorites'}</span>
+                <span><FaPlane /> {experienceCount} {experienceCount === 1 ? 'experience' : 'experiences'}</span>
               </div>
             </div>
-            <div className="row my-4">
-              <div className="col-md-6 p-3">
-                {/* Display all photos with PhotoCard - it handles thumbnails automatically */}
-                <PhotoCard 
-                  photos={destination.photos} 
-                  defaultPhotoId={destination.default_photo_id}
-                  altText={destination.name}
-                />
-              </div>
-              <div className="col-md-6 p-3">
-                <InfoCard
-                  title={destination.country ? `${lang.en.label.country}: ${destination.country}` : null}
-                  sections={[
-                    displayedExperiences.length > 0 ? {
-                      title: lang.en.heading.popularExperiences,
-                      content: displayedExperiences
-                        .filter((experience, index) => index < 3)
-                        .map((experience, index) => (
-                          <Link
-                            to={`/experiences/${experience._id}`}
-                            className="info-card-link"
-                            key={index}
-                          >
-                            {experience.name}
-                          </Link>
-                        ))
-                    } : null
-                  ].filter(Boolean)}
-                />
-              </div>
-            </div>
+          </div>
 
-            {/* Enhanced Travel Tips with Schema.org markup - Full Width Card */}
-            {destination.travel_tips?.length > 0 && (
-              <div className="row my-4">
-                <div className="col-12 p-3">
-                  <div className={`${styles.destinationDetailCard} ${styles.travelTipsCard}`}>
-                    <TravelTipsList tips={destination.travel_tips} />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="row my-2 p-3 d-flex align-items-center justify-content-center">
-              <h2 className="experiencesHeading mb-5">
-                {lang.en.heading.experiencesIn.replace('{destinationName}', destination.name)}
-              </h2>
-              {displayedExperiences.length > 0 ? (
-                <>
-                  {displayedExperiences.map((experience, index) => (
-                    experience ? (
-                      <ExperienceCard
-                        key={index}
-                        experience={experience}
-                        userPlans={plans}
-                        forcePreload={true}
-                      />
-                    ) : (
-                      <div key={`placeholder-${index}`} style={{ width: '12rem', height: '8rem', display: 'inline-block', margin: '0.5rem' }}>
-                        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                          <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                        </div>
-                      </div>
-                    )
-                  ))}
-                  {/* Infinite scroll sentinel - loads more when visible */}
-                  {hasMoreExperiences && (
-                    <div
-                      ref={loadMoreRef}
-                      style={{
-                        height: '20px',
-                        width: '100%',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        padding: '2rem 0'
-                      }}
-                    >
-                      <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-                        Loading more experiences...
-                      </span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <Alert
-                  type="info"
-                  className="alert-centered"
-                  message={lang.en.alert.noExperiencesInDestination}
-                  actions={
-                    <Link to="/experiences/new">
-                      <Button variant="gradient" size="md">
-                        Add Experience
-                      </Button>
-                    </Link>
-                  }
-                />
+          {/* Content Grid */}
+          <Row>
+            {/* Main Content Column */}
+            <Col lg={8}>
+              {/* About Section */}
+              {destination.description && (
+                <Card className={styles.contentCard}>
+                  <Card.Body className={styles.contentCardBody}>
+                    <h3 className={styles.sectionTitle}>About This Destination</h3>
+                    <p className={styles.sectionText}>{destination.description}</p>
+                  </Card.Body>
+                </Card>
               )}
-            </div>
+
+              {/* Photo Gallery Section */}
+              {destination.photos?.length > 0 && (
+                <Card className={styles.contentCard}>
+                  <Card.Body className={styles.contentCardBody}>
+                    <h3 className={styles.sectionTitle}>Photos</h3>
+                    <PhotoCard
+                      photos={destination.photos}
+                      defaultPhotoId={destination.default_photo_id}
+                      altText={destination.name}
+                    />
+                  </Card.Body>
+                </Card>
+              )}
+
+              {/* Travel Tips Section */}
+              {destination.travel_tips?.length > 0 && (
+                <Card className={styles.contentCard}>
+                  <Card.Body className={styles.contentCardBody}>
+                    <h3 className={styles.sectionTitle}>
+                      <span className={styles.sectionIcon} aria-hidden="true">💡</span>
+                      Travel Tips & Information
+                    </h3>
+                    <TravelTipsList tips={destination.travel_tips} hideHeading />
+                  </Card.Body>
+                </Card>
+              )}
+
+              {/* Popular Experiences Section */}
+              <Card className={styles.contentCard}>
+                <Card.Body className={styles.contentCardBody}>
+                  <h3 className={styles.sectionTitle}>
+                    {lang.en.heading.experiencesIn.replace('{destinationName}', destination.name)}
+                  </h3>
+                  {displayedExperiences.length > 0 ? (
+                    <>
+                      <Row className="justify-content-center">
+                        {displayedExperiences.map((experience, index) => (
+                          experience ? (
+                            <Col md={6} key={experience._id || index} className="d-flex justify-content-center" style={{ marginBottom: 'var(--space-4)' }}>
+                              <ExperienceCard
+                                experience={experience}
+                                userPlans={plans}
+                                forcePreload={true}
+                              />
+                            </Col>
+                          ) : (
+                            <Col md={6} key={`placeholder-${index}`} className="d-flex justify-content-center" style={{ marginBottom: 'var(--space-4)' }}>
+                              <SkeletonLoader variant="rectangle" width="100%" height="280px" />
+                            </Col>
+                          )
+                        ))}
+                      </Row>
+                      {/* Infinite scroll sentinel - loads more when visible */}
+                      {hasMoreExperiences && (
+                        <div
+                          ref={loadMoreRef}
+                          style={{
+                            height: '20px',
+                            width: '100%',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            padding: '2rem 0'
+                          }}
+                        >
+                          <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+                            Loading more experiences...
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <Alert
+                      type="info"
+                      className="alert-centered"
+                      message={lang.en.alert.noExperiencesInDestination}
+                      actions={
+                        <Link to="/experiences/new">
+                          <Button variant="gradient" size="md">
+                            Add Experience
+                          </Button>
+                        </Link>
+                      }
+                    />
+                  )}
+                </Card.Body>
+              </Card>
+            </Col>
+
+            {/* Sidebar Column */}
+            <Col lg={4}>
+              <div className={styles.sidebar}>
+                <h3 className={styles.sidebarTitle}>Quick Actions</h3>
+                <div className={styles.sidebarActions}>
+                  {/* Favorite Button */}
+                  <Button
+                    variant={isUserFavorite ? "outline" : "gradient"}
+                    rounded
+                    fullWidth
+                    onClick={handleFavorite}
+                    disabled={favLoading || !user}
+                    onMouseEnter={() => setFavHover(true)}
+                    onMouseLeave={() => setFavHover(false)}
+                  >
+                    {favLoading ? (
+                      <span className={styles.buttonSpinner} aria-label="Loading" />
+                    ) : (
+                      isUserFavorite
+                        ? (favHover ? lang.en.button.removeFavoriteDest : lang.en.button.favorited)
+                        : lang.en.button.addFavoriteDest
+                    )}
+                  </Button>
+
+                  {/* Share Button */}
+                  <Button
+                    variant="outline-secondary"
+                    rounded
+                    fullWidth
+                    onClick={() => {
+                      if (navigator.share) {
+                        navigator.share({
+                          title: destinationTitle,
+                          url: window.location.href
+                        });
+                      } else {
+                        navigator.clipboard.writeText(window.location.href);
+                      }
+                    }}
+                  >
+                    <FaShare style={{ marginRight: '8px' }} /> Share Destination
+                  </Button>
+
+                  {/* Owner Actions */}
+                  {user && isOwner(user, destination) && (
+                    <>
+                      <Button
+                        variant="outline-secondary"
+                        rounded
+                        fullWidth
+                        onClick={() => navigate(`/destinations/${destinationId}/update`)}
+                      >
+                        <FaEdit style={{ marginRight: '8px' }} /> Edit Destination
+                      </Button>
+                      <Button
+                        variant="outline-danger"
+                        rounded
+                        fullWidth
+                        onClick={() => setShowDeleteModal(true)}
+                      >
+                        <FaTrash style={{ marginRight: '8px' }} /> Delete Destination
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </Container>
+      </div>
+
+      {/* Delete Destination Confirmation Modal */}
+      <ConfirmModal
+        show={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteDestination}
+        title="Delete Destination?"
+        message="You are about to permanently delete"
+        itemName={destination?.name}
+        additionalInfo={[
+          "All associated experiences",
+          "Photos and media",
+          "Travel tips"
+        ]}
+        confirmText="Delete Permanently"
+        confirmVariant="danger"
+      />
     </>
   );
 }

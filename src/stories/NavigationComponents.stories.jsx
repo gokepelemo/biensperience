@@ -3,7 +3,7 @@ import { Container, Badge } from 'react-bootstrap';
 import { FaHome, FaChevronRight } from 'react-icons/fa';
 
 export default {
-  title: 'Design System/Navigation Components',
+  title: 'Components/Navigation/Nav Components',
   parameters: {
     layout: 'padded',
     docs: {

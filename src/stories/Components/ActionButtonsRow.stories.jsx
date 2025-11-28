@@ -8,33 +8,13 @@ import ActionButtonsRowDestination from '../../views/SingleDestination/component
 import { lang } from '../../lang.constants';
 
 export default {
-  title: 'Components/ActionButtonsRow',
+  title: 'Components/Actions/Action Buttons',
   component: ActionButtonsRow,
   parameters: {
     layout: 'padded',
     docs: {
       description: {
-        component: `
-ActionButtonsRow displays action buttons for SingleExperience and SingleDestination views:
-
-**Experience Actions:**
-- Plan It / Planned button (with loading state)
-- Edit Date button (for plan owners)
-- Edit button (for experience owners)
-- Delete button (for experience owners)
-
-**Destination Actions:**
-- Add Favorite / Favorited / Remove Favorite button (with loading state)
-- Edit button (for destination owners)
-- Delete button (for destination owners)
-
-All buttons use:
-- \`btn-sm\` for consistent sizing
-- \`btn-icon\` for icon button styling
-- \`my-1 my-sm-2\` for responsive margins
-- \`ms-2\` for left margin spacing
-- \`FadeIn\` animation wrapper
-        `
+        component: 'Action buttons used across Experience and Destination views. Shows plan, favorite, edit and delete actions.'
       }
     }
   },
@@ -97,6 +77,29 @@ const mockHandlers = {
   setPlannedDate: (date) => console.log('Planned date:', date),
   setFavHover: (hover) => console.log('Hover:', hover),
   handleFavorite: () => console.log('Handle favorite clicked')
+};
+
+// Mock plan used when the user has planned the experience
+const mockPlan = {
+  _id: 'plan123',
+  user: { _id: mockUser._id, name: mockUser.name },
+  experience: mockExperience._id,
+  planned_date: '2025-12-25'
+};
+
+// Mock data and handlers for destination stories
+const mockDestinationData = {
+  user: mockUser,
+  destination: mockDestination,
+  destinationId: mockDestination._id,
+  lang
+};
+
+const mockDestinationHandlers = {
+  handleFavorite: () => console.log('Handle destination favorite'),
+  handleEdit: () => console.log('Handle destination edit'),
+  handleDelete: () => console.log('Handle destination delete'),
+  setShowDeleteModal: (show) => console.log('Destination delete modal:', show)
 };
 
 /**
@@ -277,24 +280,24 @@ export const DestinationOwnerView = {
 export const ButtonStyling = {
   render: () => (
     <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <h3>Action Button Styling</h3>
+      <h3 style={{ color: 'var(--color-text-primary)', margin: 0 }}>Action Button Styling</h3>
 
       <div>
-        <h5>Primary Action - Plan It</h5>
+        <h5 style={{ color: 'var(--color-text-primary)' }}>Primary Action - Plan It</h5>
         <button className="btn btn-sm btn-icon my-1 my-sm-2 btn-plan-add">
           Plan It
         </button>
       </div>
 
       <div>
-        <h5>Primary Action - Planned (Hover to Remove)</h5>
+        <h5 style={{ color: 'var(--color-text-primary)' }}>Primary Action - Planned (Hover to Remove)</h5>
         <button className="btn btn-sm btn-icon my-1 my-sm-2 btn-plan-remove">
           Planned
         </button>
       </div>
 
       <div>
-        <h5>Icon Buttons - Edit Date, Edit, Delete</h5>
+        <h5 style={{ color: 'var(--color-text-primary)' }}>Icon Buttons - Edit Date, Edit, Delete</h5>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button className="btn btn-sm btn-icon my-1 my-sm-2 ms-2" title="Edit Date">
             📅
@@ -309,7 +312,7 @@ export const ButtonStyling = {
       </div>
 
       <div>
-        <h5>Complete Button Row</h5>
+        <h5 style={{ color: 'var(--color-text-primary)' }}>Complete Button Row</h5>
         <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center flex-row experience-actions">
           <button className="btn btn-sm btn-icon my-1 my-sm-2 btn-plan-add">
             Plan It
@@ -326,9 +329,9 @@ export const ButtonStyling = {
         </div>
       </div>
 
-      <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
-        <h5>Design System Classes Used</h5>
-        <ul style={{ fontSize: '14px', lineHeight: '1.8' }}>
+      <div style={{ marginTop: '20px', padding: '15px', backgroundColor: 'var(--color-bg-secondary)', borderRadius: '8px' }}>
+        <h5 style={{ color: 'var(--color-text-primary)' }}>Design System Classes Used</h5>
+        <ul style={{ fontSize: '14px', lineHeight: '1.8', color: 'var(--color-text-secondary)' }}>
           <li><code>.btn</code> - Base button class</li>
           <li><code>.btn-sm</code> - Small size variant</li>
           <li><code>.btn-icon</code> - Icon button styling</li>

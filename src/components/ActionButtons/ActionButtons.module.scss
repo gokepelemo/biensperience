@@ -25,7 +25,8 @@
 
   @include breakpoint-max(md) {
     justify-content: center;
-    width: 100%;
+    width: auto; /* Don't force full width - let buttons size naturally */
+    margin: 0 auto; /* Center the container */
   }
 
   /* Navbar integration - fade in animation */
@@ -40,9 +41,16 @@
     margin-left: auto;
 
     @include breakpoint-max(lg) {
-      width: 100%;
-      margin-top: var(--space-2);
+      /* Mobile: Don't stretch to full width - keep buttons compact and centered */
+      width: auto;
+      margin: var(--space-2) auto;
       justify-content: center;
+
+      /* Prevent buttons from growing */
+      .actionButton {
+        flex: 0 0 auto;
+        width: auto;
+      }
     }
   }
 }
@@ -121,10 +129,11 @@
     @include focus-ring;
   }
 
-  /* Mobile responsiveness */
+  /* Mobile responsiveness - keep buttons compact, don't stretch */
   @include breakpoint-max(md) {
-    flex: 1 1 auto;
+    flex: 0 0 auto; /* Don't grow or shrink */
     min-width: fit-content;
+    width: auto;
   }
 }
 

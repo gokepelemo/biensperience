@@ -1,5 +1,192 @@
 @use '../../styles/scss/abstracts' as *;
 
+/* Hero Image Section */
+.heroSection {
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  margin-bottom: var(--space-8);
+  height: 400px;
+  position: relative;
+}
+
+.heroImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.heroOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  padding: var(--space-8);
+  color: white;
+}
+
+.heroTitle {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-2);
+  color: white;
+}
+
+.heroMeta {
+  display: flex;
+  gap: var(--space-6);
+  align-items: center;
+  flex-wrap: wrap;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: white;
+    font-size: var(--font-size-base);
+  }
+}
+
+/* Content Section Card */
+.contentCard {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.contentCardBody {
+  padding: var(--space-6);
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.sectionIcon {
+  font-size: var(--font-size-2xl);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sectionText {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+
+/* Experience Card in Grid */
+.experienceGridCard {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: var(--transition-normal);
+  cursor: pointer;
+  height: 100%;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.experienceGridImage {
+  height: 200px;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--transition-normal);
+  }
+
+  &:hover img {
+    transform: scale(1.05);
+  }
+}
+
+.experienceGridContent {
+  padding: var(--space-4);
+}
+
+.experienceGridTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.experienceGridDescription {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Sidebar */
+.sidebar {
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  position: sticky;
+  top: var(--space-6);
+}
+
+.sidebarTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.sidebarActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Inline spinner for buttons - CSS-only, fixed dimensions */
+.buttonSpinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinButton 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spinButton {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* Main Container */
+.destinationContainer {
+  background-color: var(--color-bg-primary);
+  min-height: 100vh;
+  padding: var(--space-8) 0;
+}
+
+/* Loading skeleton styles */
+.skeletonHero {
+  height: 400px;
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-8);
+}
+
 /* Favorite Button */
 .addToFavBtn {
   background: var(--gradient-primary);
@@ -14,7 +201,7 @@
   }
 }
 
-/* Destination Detail Card */
+/* Legacy styles for backward compatibility */
 .destinationDetailCard {
   background: var(--color-bg-secondary);
   border-radius: var(--radius-xl);
@@ -27,10 +214,6 @@
   color: white;
   padding: $space-6 $space-8;
   border-bottom: none;
-}
-
-.travelTipsCard {
-  padding: 0 $space-6;
 }
 
 .destinationDetailCountry {
@@ -124,5 +307,54 @@
       justify-content: center !important;
       width: 100%;
     }
+  }
+}
+
+/* Responsive adjustments for new layout */
+@media (max-width: 991px) {
+  .heroSection {
+    height: 300px;
+    margin-bottom: var(--space-6);
+  }
+
+  .heroTitle {
+    font-size: var(--font-size-2xl);
+  }
+
+  .heroMeta {
+    gap: var(--space-4);
+    font-size: var(--font-size-sm);
+  }
+
+  .sidebar {
+    position: relative;
+    top: 0;
+    margin-bottom: var(--space-6);
+  }
+}
+
+@media (max-width: 575px) {
+  .heroSection {
+    height: 250px;
+    border-radius: var(--radius-lg);
+  }
+
+  .heroOverlay {
+    padding: var(--space-4);
+  }
+
+  .heroTitle {
+    font-size: var(--font-size-xl);
+  }
+
+  .heroMeta {
+    gap: var(--space-3);
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sectionTitle {
+    justify-content: center;
+    text-align: center;
   }
 }

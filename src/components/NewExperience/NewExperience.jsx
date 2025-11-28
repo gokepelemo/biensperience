@@ -18,6 +18,7 @@ import { Form } from "react-bootstrap";
 import { useFormPersistence } from "../../hooks/useFormPersistence";
 import { formatRestorationMessage } from "../../utilities/time-format";
 import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
+import SuccessModal from "../SuccessModal/SuccessModal";
 import { createFilter } from "../../utilities/trie";
 
 // Custom hooks
@@ -35,6 +36,8 @@ export default function NewExperience() {
   const [destinationSearchTerm, setDestinationSearchTerm] = useState('');
   const [tags, setTags] = useState([]);
   const [error, setError] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdExperience, setCreatedExperience] = useState(null);
   const navigate = useNavigate();
 
   // Custom hooks for form handling
@@ -162,9 +165,9 @@ export default function NewExperience() {
       // Clear saved form data on success
       persistence.clear();
 
-      const message = lang.en.notification?.experience?.created?.replace('{name}', experience.name) || `${experience.name} is now live! Start planning or invite collaborators.`;
-      success(message);
-      navigate(`/experiences/${experience._id}`);
+      // Show success modal instead of navigating directly
+      setCreatedExperience(experience);
+      setShowSuccessModal(true);
     } catch (err) {
       handleFormError(err, { context: 'Create experience' });
     }
@@ -216,6 +219,27 @@ export default function NewExperience() {
               tooltip={lang.en.helper.nameRequired}
               tooltipPlacement="top"
             />
+
+            <div className="mb-4">
+              <Form.Group>
+                <Form.Label>
+                  {lang.en.label.overview}
+                  {' '}
+                  <FormTooltip
+                    text={lang.en.helper.overviewOptional}
+                    placement="top"
+                  />
+                </Form.Label>
+                <Form.Control
+                  as="textarea"
+                  name="overview"
+                  rows={4}
+                  value={newExperience.overview || ''}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.overview}
+                />
+              </Form.Group>
+            </div>
 
             <div className="mb-4">
               <Form.Group>
@@ -360,7 +384,7 @@ export default function NewExperience() {
               onChange={handleChange}
               placeholder={lang.en.placeholder.planningDays}
               min="1"
-              tooltip={lang.en.helper.planningDaysOptional}
+              tooltip={lang.en.helper.planningTimeTooltip}
               tooltipPlacement="top"
               append="days"
             />
@@ -396,6 +420,22 @@ export default function NewExperience() {
         onClose={closeDestinationModal}
         onDestinationCreated={handleDestinationCreated}
         prefillName={prefillName}
+      />
+
+      <SuccessModal
+        show={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false);
+          // Reset form for creating another
+          setNewExperience({});
+          setTags([]);
+          setCreatedExperience(null);
+        }}
+        title="Experience Created!"
+        message="Your experience has been created successfully"
+        entityName={createdExperience?.name}
+        entityType="experience"
+        entityId={createdExperience?._id}
       />
     </>
   );

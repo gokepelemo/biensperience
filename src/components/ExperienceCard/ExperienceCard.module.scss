@@ -79,9 +79,16 @@
 
 .experienceCardActions {
   z-index: 2;
-  @include flex-center;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: center;
   gap: $space-2;
   padding: $space-3;
+  flex-wrap: nowrap !important; /* Ensure buttons stay on single line */
+  white-space: nowrap;
+  flex-shrink: 0;
+  width: 100%;
 }
 
 .experienceCard :global(.btn-icon) {

@@ -41,17 +41,23 @@
 /* Slider Container */
 .travelTipsSlider {
   position: relative;
-  margin: 0 -#{$space-4}; /* Negative margin to allow slides to peek */
-  padding: $space-2 $space-4; /* Add top padding for hover lift */
-  overflow: visible; /* Ensure cards aren't clipped on hover */
+  margin: 0;
+  padding: $space-2 0 $space-2 0; /* Top padding for hover + generous bottom for dots */
+  overflow: hidden; /* Contain cards within section */
 
-  /* Slick track needs visible overflow too */
+  /* Slick list contains slides - hidden overflow prevents horizontal bleed */
   :global(.slick-list) {
-    overflow: visible;
+    overflow: hidden;
+    margin: 0 $space-2; /* Inner spacing for cards */
   }
 
   :global(.slick-track) {
     display: flex;
+  }
+
+  :global(.slick-slide) {
+    padding: 0 $space-2; /* Spacing between cards */
+    box-sizing: border-box;
   }
 
   /* Slick slider arrow customization */
@@ -78,11 +84,11 @@
   }
 
   :global(.slick-prev) {
-    left: -10px;
+    left: $space-2;
   }
 
   :global(.slick-next) {
-    right: -10px;
+    right: $space-2;
   }
 
   :global(.slick-disabled) {
@@ -92,18 +98,29 @@
 
   /* Dots styling for navigation */
   :global(.slick-dots) {
-    bottom: -$space-8;
+    bottom: $space-4;
+    position: absolute;
 
     li {
       margin: 0 $space-1;
 
-      button:before {
-        font-size: 10px;
-        color: var(--color-text-muted);
-        opacity: 0.5;
+      button {
+        /* Touch-friendly dot size (44px minimum touch target) */
+        width: var(--btn-height-md);
+        height: var(--btn-height-md);
+        padding: 0;
+
+        &:before {
+          font-size: 12px;
+          color: var(--color-text-muted);
+          opacity: 0.5;
+          line-height: var(--btn-height-md);
+          width: var(--btn-height-md);
+          height: var(--btn-height-md);
+        }
       }
 
-      &.slick-active button:before {
+      &:global(.slick-active) button:before {
         color: var(--color-primary);
         opacity: 1;
       }
@@ -113,13 +130,15 @@
 
 /* Individual slide wrapper */
 .travelTipSlide {
-  padding: $space-2 $space-3; /* Add top padding for hover lift + horizontal spacing */
+  padding: $space-2 0;
   box-sizing: border-box;
-  height: 290px; /* Fixed height for all slides (increased to accommodate padding) */
+  height: 280px; /* Fixed height using design token scale */
 
   /* Ensure the TravelTip component fills the slide */
   > * {
     height: 100%;
+    max-width: 100%;
+    overflow: hidden;
   }
 }
 

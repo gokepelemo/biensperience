@@ -1,7 +1,7 @@
 import PhotoCard from '../components/PhotoCard/PhotoCard';
 
 export default {
-  title: 'Components/PhotoCard',
+  title: 'Components/Cards/Photo Card',
   component: PhotoCard,
   parameters: {
     layout: 'centered',
@@ -54,6 +54,7 @@ const multiplePhotos = [
 ];
 
 export const SinglePhoto = {
+  name: 'Single Photo',
   args: {
     photo: singlePhoto,
     altText: 'Beautiful landscape',
@@ -62,6 +63,7 @@ export const SinglePhoto = {
 };
 
 export const MultiplePhotos = {
+  name: 'Multiple Photos',
   args: {
     photos: multiplePhotos,
     defaultPhotoIndex: 0,
@@ -71,6 +73,7 @@ export const MultiplePhotos = {
 };
 
 export const WithoutPhotoCredit = {
+  name: 'Without Photo Credit',
   args: {
     photo: {
       url: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800',
@@ -80,6 +83,7 @@ export const WithoutPhotoCredit = {
 };
 
 export const PlaceholderImage = {
+  name: 'Placeholder Image',
   args: {
     altText: 'Placeholder image',
     title: 'No photo provided',

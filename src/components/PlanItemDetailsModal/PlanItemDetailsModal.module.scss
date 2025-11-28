@@ -1,10 +1,10 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Plan Item Details Modal - Full viewport, mobile-friendly design */
+/* Plan Item Details Modal - Theme-aware, mobile-friendly design */
 
 .planItemDetailsModal {
   padding: 0;
-  background: var(--color-bg-dark, #1a1a1a);
+  background: var(--color-bg-primary);
   border-radius: var(--radius-lg); /* Match modal content border radius */
   overflow: hidden;
   display: flex;
@@ -17,7 +17,7 @@
 .planItemHeader {
   padding: $space-5 $space-6;
   margin-bottom: 0;
-  background: var(--color-bg-dark, #1a1a1a);
+  background: var(--color-primary);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -34,7 +34,7 @@
 .planItemTitle {
   @include fluid-font($font-size-xl, 3vw, $font-size-2xl);
   font-weight: $font-weight-semibold;
-  color: var(--color-white);
+  color: var(--color-text-on-primary, #ffffff);
   margin: 0;
   flex: 1;
   word-break: break-word;
@@ -43,16 +43,17 @@
 .planItemLink {
   @include button-base;
   font-size: $font-size-sm;
-  color: var(--color-primary);
-  background: transparent;
-  border: 2px solid var(--color-primary);
+  color: var(--color-text-on-primary, #ffffff);
+  background: rgba(255, 255, 255, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.5);
   text-decoration: none;
   white-space: nowrap;
   padding: $space-2 $space-4;
 
   &:hover {
-    background: var(--color-primary);
-    color: var(--color-white);
+    background: rgba(255, 255, 255, 0.25);
+    color: var(--color-text-on-primary, #ffffff);
+    border-color: rgba(255, 255, 255, 0.8);
     transform: translateY(-1px);
   }
 
@@ -64,13 +65,13 @@
 /* Assignment section */
 .assignmentSection {
   padding: $space-5 $space-6;
-  background: var(--color-bg-tertiary, #2a2a2a);
+  background: var(--color-bg-secondary);
   margin-bottom: 0;
   display: flex;
   align-items: center;
   gap: $space-3;
-  border-top: 1px solid var(--color-border-dark);
-  border-bottom: 1px solid var(--color-border-dark);
+  border-top: 1px solid var(--color-border-light);
+  border-bottom: 1px solid var(--color-border-light);
 
   @media (max-width: 768px) {
     flex-direction: column;
@@ -121,8 +122,8 @@
   width: 100%;
   padding: $space-2 $space-3;
   font-size: $font-size-sm;
-  background: var(--color-bg-dark);
-  color: var(--color-white);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
   border-color: var(--color-border-medium);
 
   &::placeholder {
@@ -131,7 +132,7 @@
 
   &:focus {
     @include focus-ring;
-    background: var(--color-bg-dark);
+    background: var(--color-bg-primary);
   }
 }
 
@@ -147,7 +148,7 @@
   left: 0;
   right: 0;
   margin-top: $space-1;
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-medium);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
@@ -159,10 +160,10 @@
 .assignmentOption {
   padding: $space-2 $space-3;
   font-size: $font-size-sm;
-  color: var(--color-white);
+  color: var(--color-text-primary);
   cursor: pointer;
   @include transition-all($transition-fast);
-  border-bottom: 1px solid var(--color-border-dark);
+  border-bottom: 1px solid var(--color-border-light);
 
   &:last-child {
     border-bottom: none;
@@ -170,7 +171,7 @@
 
   &:hover,
   &.highlighted {
-    background: rgba(var(--color-primary-rgb), 0.2);
+    background: rgba(var(--color-primary-rgb), 0.15);
     color: var(--color-primary);
   }
 
@@ -192,19 +193,19 @@
 .assignmentValue {
   flex: 1;
   font-size: $font-size-base;
-  color: var(--color-white);
+  color: var(--color-text-primary);
 }
 
 /* Details tabs */
 .detailsTabs {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid var(--color-border-dark);
+  border-bottom: 1px solid var(--color-border-light);
   margin-bottom: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   padding: 0 $space-6;
-  background: var(--color-bg-dark);
+  background: var(--color-bg-secondary);
 
   @media (max-width: 768px) {
     padding: 0 $space-4;
@@ -255,7 +256,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: $space-6;
-  background: var(--color-bg-dark);
+  background: var(--color-bg-primary);
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 
   /* Hide scrollbar unless hovering (desktop) - appears only when needed */
@@ -310,8 +311,8 @@
   align-items: center;
   padding: $space-4 $space-6;
   margin-top: $space-4;
-  border-top: 1px solid var(--color-border-dark);
-  background: var(--color-bg-dark);
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg-secondary);
 
   @media (max-width: 768px) {
     flex-direction: column;

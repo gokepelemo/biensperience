@@ -8,6 +8,280 @@
 
 @use '../../styles/scss/abstracts' as *;
 
+/* ==============================================
+   TWO-COLUMN LAYOUT (Storybook ExperienceDetailView)
+   ============================================== */
+
+/* Main container for the experience detail view */
+.experienceDetailContainer {
+  min-height: 100vh;
+  padding: $space-8 0;
+  background-color: var(--color-bg-primary);
+}
+
+/* Hero Image Section */
+.heroSection {
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  margin-bottom: $space-6;
+  height: 450px;
+  background: var(--color-bg-secondary);
+  position: relative;
+
+  @include breakpoint-max(md) {
+    height: 300px;
+    margin-bottom: $space-4;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Overlay gradient for better text visibility */
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.3), transparent);
+    pointer-events: none;
+  }
+}
+
+/* Tags Section - Below Hero */
+.tagsSection {
+  display: flex;
+  gap: $space-2;
+  margin-bottom: $space-3;
+  flex-wrap: wrap;
+
+  .tag {
+    padding: $space-2 $space-4;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-sm);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+    font-weight: $font-weight-medium;
+  }
+}
+
+/* Title Section */
+.titleSection {
+  margin-bottom: $space-6;
+
+  .experienceTitle {
+    font-size: var(--font-size-3xl);
+    font-weight: $font-weight-bold;
+    color: var(--color-text-primary);
+    margin-bottom: $space-3;
+    line-height: 1.2;
+  }
+
+  .locationText {
+    font-size: var(--font-size-lg);
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+
+    svg {
+      color: var(--color-primary);
+    }
+  }
+}
+
+/* Content Card - For Overview and Plan Items */
+.contentCard {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  margin-bottom: $space-6;
+  overflow: hidden;
+
+  .cardBody {
+    padding: $space-6;
+
+    @include breakpoint-max(md) {
+      padding: $space-4;
+    }
+  }
+
+  .cardTitle {
+    font-size: var(--font-size-xl);
+    font-weight: $font-weight-semibold;
+    color: var(--color-text-primary);
+    margin-bottom: $space-4;
+  }
+
+  .cardDescription {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+  }
+}
+
+/* Sidebar */
+.sidebar {
+  position: sticky;
+  top: $space-6;
+  margin-bottom: $space-6;
+
+  @include breakpoint-max(lg) {
+    position: relative;
+    top: 0;
+  }
+}
+
+.sidebarCard {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: $space-6;
+
+  @include breakpoint-max(md) {
+    padding: $space-4;
+  }
+
+  .sidebarTitle {
+    font-size: var(--font-size-lg);
+    font-weight: $font-weight-semibold;
+    color: var(--color-text-primary);
+    margin-bottom: $space-4;
+  }
+}
+
+/* Sidebar Detail Items */
+.detailsList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  margin-bottom: $space-6;
+}
+
+.detailItem {
+  .detailLabel {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    margin-bottom: $space-1;
+  }
+
+  .detailValue {
+    color: var(--color-text-primary);
+    font-weight: $font-weight-medium;
+  }
+}
+
+/* Sidebar Action Buttons */
+.sidebarActions {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+
+  .primaryAction {
+    border-radius: var(--radius-full);
+    font-weight: $font-weight-semibold;
+  }
+
+  .secondaryAction {
+    border-radius: var(--radius-full);
+    font-weight: $font-weight-medium;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: $space-2;
+  }
+}
+
+/* Plan Items List - Checklist Style */
+.planItemsList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.planItemChecklist {
+  display: flex;
+  gap: $space-3;
+  padding: $space-4;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  @include transition-all($transition-fast);
+
+  &:hover {
+    background: var(--color-bg-tertiary);
+    transform: translateY(-2px);
+  }
+
+  .checkIcon {
+    color: var(--color-success);
+    margin-top: 2px;
+    flex-shrink: 0;
+    font-size: var(--font-size-lg);
+  }
+
+  .itemText {
+    color: var(--color-text-primary);
+    flex: 1;
+  }
+}
+
+/* Date Picker Badge in Sidebar */
+.datePickerBadge {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-3;
+  background: var(--gradient-primary);
+  color: white;
+  border-radius: var(--radius-md);
+  margin-bottom: $space-4;
+  cursor: pointer;
+  @include transition-all($transition-fast);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .dateIcon {
+    font-size: var(--font-size-lg);
+  }
+}
+
+/* Dark Mode Support for New Layout */
+@media (prefers-color-scheme: dark) {
+  .heroSection {
+    background: var(--color-bg-tertiary);
+  }
+
+  .tagsSection .tag {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+  }
+
+  .contentCard {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-medium);
+  }
+
+  .sidebarCard {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-medium);
+  }
+
+  .planItemChecklist {
+    background: var(--color-bg-tertiary);
+
+    &:hover {
+      background: var(--color-bg-hover);
+    }
+  }
+}
+
 /* Modal Responsive Sizing */
 :global(.responsive-modal-dialog) {
   max-width: 80vw !important;
@@ -264,21 +538,41 @@
 /* Plan Metrics */
 :global(.plan-metrics-container) {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: clamp(var(--space-3), 2vw, var(--space-5));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: clamp(var(--space-2), 1.5vw, var(--space-4));
   margin-bottom: $space-6;
+}
+
+/* Plan Metrics Row - Bootstrap grid adjustment for narrower containers */
+:global(.plan-metrics-container .row) {
+  --bs-gutter-x: 0.75rem;
+  --bs-gutter-y: 0.75rem;
+}
+
+:global(.plan-metrics-container .col-md-3) {
+  flex: 0 0 auto;
+  width: 50%; /* 2 columns instead of 4 in constrained layouts */
+
+  @media (min-width: 992px) {
+    width: 50%; /* Maintain 2 columns on medium-large screens within 8-col container */
+  }
+
+  @media (min-width: 1400px) {
+    width: 25%; /* Full 4 columns only on very wide screens */
+  }
 }
 
 :global(.metric-card) {
   background: var(--color-bg-primary);
   border-radius: var(--radius-lg);
-  padding: $space-5 $space-6;
+  padding: clamp($space-3, 2vw, $space-5) clamp($space-3, 2vw, $space-6);
   box-shadow: var(--shadow-sm);
   @include transition-all($transition-fast);
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  min-width: 0; /* Allow shrinking below content width */
 
   &:hover {
     box-shadow: var(--shadow-md);
@@ -294,7 +588,7 @@
 }
 
 :global(.metric-title) {
-  font-size: var(--font-size-sm);
+  font-size: clamp(var(--font-size-xs), 1.5vw, var(--font-size-sm));
   font-weight: $font-weight-medium;
   color: var(--color-single-experience-text-grey);
   text-transform: uppercase;
@@ -303,18 +597,30 @@
   line-height: 1.3;
 }
 
+:global(.metric-label) {
+  font-size: clamp(var(--font-size-xs), 1.5vw, var(--font-size-sm));
+  font-weight: $font-weight-medium;
+  color: var(--color-single-experience-text-grey);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+  margin: 0 0 $space-2 0;
+  line-height: 1.3;
+}
+
 :global(.metric-icon) {
   font-size: var(--font-size-xl);
-  color: var(--color-single-experience-primary);
+  color: var(--color-primary);
   flex-shrink: 0;
 }
 
 :global(.metric-value) {
-  font-size: var(--font-size-2xl);
+  font-size: clamp(var(--font-size-lg), 2vw, var(--font-size-2xl));
   font-weight: 700;
   color: var(--color-single-experience-text-primary);
   line-height: 1.2;
-  white-space: nowrap;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Plan Item Card */
@@ -351,6 +657,25 @@
     border-color: var(--color-primary);
     border-style: dashed;
     background: var(--color-bg-secondary);
+  }
+
+  // Deep-link highlight - shake + pulse animation for navigation
+  &:global(.deep-link-highlight) {
+    animation:
+      deepLinkShake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both,
+      highlightPulse 2s ease-in-out both;
+    border: 2px solid var(--color-primary);
+    box-shadow: 0 0 20px var(--color-primary-alpha-40);
+    z-index: 10;
+    position: relative;
+  }
+
+  // Reorder feedback - subtle visual confirmation after drag-drop
+  &:global(.just-reordered) {
+    transform: scale(1.01);
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+    border-color: var(--color-success);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   }
 
   // Child item styling - indented with visual connection
@@ -394,7 +719,7 @@
     @include transition-all($transition-fast);
 
     &:hover {
-      color: var(--color-single-experience-primary);
+      color: var(--color-primary);
       text-decoration: underline;
     }
   }
@@ -478,7 +803,7 @@
 }
 
 :global(.plan-item-assigned) {
-  border-left-color: var(--color-single-experience-primary);
+  border-left-color: var(--color-primary);
 }
 
 :global(.plan-item-notes-count) {
@@ -495,13 +820,19 @@
   @include transition-all($transition-fast);
   font-weight: $font-weight-medium;
   white-space: nowrap;
+  cursor: pointer;
 
   &:hover {
-    background: var(--color-single-experience-primary);
-    color: white;
-    border-color: var(--color-single-experience-primary);
+    background: var(--color-primary);
+    color: var(--color-text-on-primary, #ffffff);
+    border-color: var(--color-primary);
     transform: translateY(-2px);
     box-shadow: $shadow-md;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 }
 
@@ -608,7 +939,7 @@
 
 :global(.child-arrow) {
   font-size: 1.25rem;
-  color: var(--color-single-experience-primary);
+  color: var(--color-primary);
   margin-left: $space-2;
 }
 
@@ -773,13 +1104,13 @@
   }
 
   &:global(.active) {
-    color: var(--color-single-experience-primary);
-    border-bottom-color: var(--color-single-experience-primary);
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
     background: var(--color-primary-light);
   }
 
   &:focus {
-    outline: 2px solid var(--color-single-experience-primary);
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 
@@ -816,8 +1147,8 @@
   @include transition-all($transition-normal);
 
   &:global(.active) {
-    color: var(--color-single-experience-primary);
-    border-bottom-color: var(--color-single-experience-primary);
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
     background: var(--color-primary-light);
     border-radius: 0;
   }
@@ -896,7 +1227,7 @@
 
 :global(.plan-tab-dropdown-container.active .plan-tab-caret svg),
 :global(.plan-tab-button.active ~ .plan-tab-dropdown-container .plan-tab-caret svg) {
-  color: var(--color-single-experience-primary);
+  color: var(--color-primary);
 }
 
 /* Caret Button */
@@ -917,13 +1248,13 @@
   pointer-events: auto;
 
   &:hover {
-    color: var(--color-single-experience-primary);
+    color: var(--color-primary);
   }
 }
 
 :global(.plan-tab-dropdown-container.active .plan-tab-caret-button),
 :global(.plan-tab-dropdown-container.dropdown-open .plan-tab-caret-button) {
-  color: var(--color-single-experience-primary);
+  color: var(--color-primary);
 }
 
 /* Dropdown Menu */
@@ -962,13 +1293,13 @@
   }
 
   &:global(.selected) {
-    color: var(--color-single-experience-primary);
+    color: var(--color-primary);
     font-weight: 600;
   }
 
   :global(.checkmark) {
     margin-left: 0.5rem;
-    color: var(--color-single-experience-primary);
+    color: var(--color-primary);
     font-weight: bold;
   }
 }
@@ -984,7 +1315,7 @@
   @include transition-all($transition-fast);
 
   &:hover {
-    border-color: var(--color-single-experience-primary);
+    border-color: var(--color-primary);
   }
 
   &:focus {
@@ -1140,8 +1471,8 @@
 
 /* Experience Type Tag Pills - CSS Module */
 .experienceTagPill {
-  background: white;
-  color: var(--color-primary);
+  background: var(--gradient-primary);
+  color: white;
   box-shadow: var(--shadow-sm);
   font-weight: $font-weight-semibold;
   border: none;
@@ -1153,10 +1484,10 @@
   transition: all var(--transition-fast);
 
   &:hover {
-    background: var(--color-bg-hover);
+    background: var(--gradient-primary-hover);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
-    color: var(--color-primary-dark);
+    color: white;
   }
 
   /* Icon inside pill */
@@ -1191,6 +1522,38 @@
   50% {
     border-color: var(--color-primary);
     box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+  }
+}
+
+/* Deep Link Shake - more subtle than legacy shake */
+@keyframes deepLinkShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  15%, 45%, 75% {
+    transform: translateX(-3px);
+  }
+  30%, 60%, 90% {
+    transform: translateX(3px);
+  }
+}
+
+/* Highlight Pulse - attention-grabbing glow for deep links */
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--color-primary-alpha-40);
+  }
+  25% {
+    box-shadow: 0 0 20px var(--color-primary-alpha-40);
+  }
+  50% {
+    box-shadow: 0 0 30px var(--color-primary-alpha-30);
+  }
+  75% {
+    box-shadow: 0 0 20px var(--color-primary-alpha-20);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 
@@ -1267,7 +1630,9 @@
   :global(.metric-value) {
     text-align: center;
     padding-right: 0;
-    font-size: var(--font-size-3xl);
+    font-size: clamp(var(--font-size-lg), 3vw, var(--font-size-2xl));
+    white-space: normal;
+    word-wrap: break-word;
   }
 
   /* Center plan item title and metadata */
@@ -1314,7 +1679,7 @@
 
     &:global(.active) {
       border-left-color: transparent;
-      border-bottom-color: var(--color-single-experience-primary);
+      border-bottom-color: var(--color-primary);
     }
   }
 
@@ -1414,9 +1779,9 @@
     color: var(--color-text-primary);
 
     &:hover {
-      background: var(--color-single-experience-primary);
-      border-color: var(--color-single-experience-primary);
-      color: white;
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: var(--color-text-on-primary, #ffffff);
     }
   }
 

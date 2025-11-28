@@ -240,6 +240,7 @@ export async function reorderExperiencePlanItems(experienceId, reorderedItems) {
           experienceId: result._id,
           version,
           data: result,
+          experience: result, // DataContext expects 'experience' key
           reordered: true
         };
 

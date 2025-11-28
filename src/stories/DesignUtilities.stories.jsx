@@ -4,57 +4,14 @@ import '../styles/design-tokens.css';
 import TagPill from '../components/Pill/TagPill';
 
 export default {
-  title: 'Design System/Utilities',
+  title: 'Foundation/Utilities',
   parameters: {
     layout: 'padded',
     docs: {
-      page: () => (
-        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '1rem' }}>
-          <h1 style={{ marginBottom: '0.5rem' }}>Utilities</h1>
-          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
-            Reusable utility classes designed for fast, consistent UI construction. Utilities are token-driven and dark-mode aware.
-          </p>
-          <hr style={{ margin: '1.25rem 0' }} />
-
-          <h2>Categories</h2>
-          <ul>
-            <li><strong>Buttons</strong>: .btn-gradient, .btn-outline-custom, .btn-rounded, .btn-shadow</li>
-            <li><strong>Layout</strong>: .flex-between, .flex-center, .space-y-[1-6]</li>
-            <li><strong>Typography</strong>: .text-gradient-primary, .text-shadow-md, .text-truncate-[1-3]</li>
-            <li><strong>Pills/Badges</strong>: .pill with .pill-variant-* (primary, success, warning, danger, info, neutral)</li>
-            <li><strong>Animations</strong>: .animation-fade-in, .animation-slide-up, .animation-scale-in</li>
-            <li><strong>Feedback</strong>: .loading-skeleton-text, .loading-skeleton-circle, .loading-skeleton-rectangle</li>
-            <li><strong>Forms</strong>: .form-unified</li>
-            <li><strong>Tables</strong>: .table-unified</li>
-            <li><strong>Responsive</strong>: .show-mobile, .hide-mobile</li>
-          </ul>
-
-          <h2>Recent Changes (November 2025)</h2>
-          <div style={{ background: 'var(--color-bg-secondary)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
-            <h3 style={{ marginTop: 0, color: 'var(--color-primary)' }}>Design System Refactoring</h3>
-            <ul style={{ margin: 0 }}>
-              <li><strong>Kebab-case Naming</strong>: All utility classes converted from snake_case to kebab-case (e.g., <code>pill_primary</code> → <code>pill-variant-primary</code>)</li>
-              <li><strong>Base Pill Class</strong>: Added centralized <code>.pill</code> base class with proper styling and variants</li>
-              <li><strong>Animation Classes</strong>: Updated to kebab-case (<code>animation-fade_in</code> → <code>animation-fade-in</code>)</li>
-              <li><strong>Dark Mode Support</strong>: All utilities now use design tokens for automatic light/dark theme switching</li>
-              <li><strong>Storybook Updates</strong>: All stories updated to use correct class names and render properly</li>
-            </ul>
-          </div>
-
-          <h2>Guidelines</h2>
-          <ul>
-            <li>Prefer utility classes for spacing and layout primitives</li>
-            <li>Use component classes for complex patterns (cards, modals)</li>
-            <li>Never hardcode colors; rely on design tokens</li>
-            <li>Use kebab-case naming convention for all new utility classes</li>
-            <li>Always combine base classes with variants (e.g., <code>pill pill-variant-primary</code>)</li>
-          </ul>
-        </div>
-      ),
       description: {
-        component: 'Comprehensive utility classes from utilities.css. Includes buttons, forms, tables, layout helpers, text utilities, and more.',
-      },
-    },
+        component: 'Utilities: reusable utility classes (buttons, layout, text, animations, skeletons) using design tokens and dark-mode support.'
+      }
+    }
   },
   tags: [],
 };
@@ -262,7 +219,7 @@ export const AnimationUtilities = {
 
       <div>
         <h4 className="mb-3">Scale In</h4>
-        <div className="scale-in" style={{ background: 'var(--gradient-primary)', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
+        <div className="animation-scale-in" style={{ background: 'var(--gradient-primary)', color: 'white', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
           Scales in on load
         </div>
       </div>
@@ -447,7 +404,7 @@ export const CompleteExample = {
         </div>
       </div>
 
-      <div className="scale-in" style={{ animationDelay: '0.2s' }}>
+      <div className="animation-scale-in" style={{ animationDelay: '0.2s' }}>
         <div style={{ 
           background: 'var(--color-bg-primary)',
           border: '1px solid var(--color-border-medium)',

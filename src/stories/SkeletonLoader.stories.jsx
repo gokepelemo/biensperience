@@ -1,7 +1,7 @@
 import SkeletonLoader from '../components/SkeletonLoader/SkeletonLoader';
 
 export default {
-  title: 'Components/SkeletonLoader',
+  title: 'Components/Feedback/Skeleton Loaders',
   component: SkeletonLoader,
   parameters: {
     layout: 'padded',
@@ -38,6 +38,7 @@ export default {
 
 // Basic Variants
 export const BasicVariants = {
+  name: 'Basic Variants',
   render: () => (
     <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
       <h3 style={{
@@ -105,6 +106,7 @@ export const BasicVariants = {
 
 // Multi-line text
 export const MultiLineText = {
+  name: 'Multi-Line Text',
   render: () => (
     <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
       <h3 style={{
@@ -132,6 +134,7 @@ export const MultiLineText = {
 
 // Destination Card Skeleton (Matches actual DestinationCard: 12rem × 8rem)
 export const DestinationCardSkeleton = {
+  name: 'Destination Card Skeleton',
   render: () => (
     <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-secondary)' }}>
       <h3 style={{
@@ -243,6 +246,7 @@ export const DestinationCardSkeleton = {
 
 // Experience Card Skeleton (Matches actual ExperienceCard: 20rem × 12rem)
 export const ExperienceCardSkeleton = {
+  name: 'Experience Card Skeleton',
   render: () => (
     <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-secondary)' }}>
       <h3 style={{
@@ -395,6 +399,7 @@ export const ExperienceCardSkeleton = {
 
 // Loading Grid (AppHome style with both sections - mirrors actual card layouts)
 export const AppHomeLoadingState = {
+  name: 'App Home Loading State',
   render: () => (
     <div style={{
       padding: 'var(--space-8)',
@@ -543,6 +548,7 @@ export const AppHomeLoadingState = {
 // Alternative Card Style (Generic Skeleton Cards)
 // Retained for future use - flexible card skeletons with image + text areas
 export const GenericCardSkeletons = {
+  name: 'Generic Card Skeletons',
   render: () => (
     <div style={{
       padding: 'var(--space-8)',
@@ -688,6 +694,7 @@ export const GenericCardSkeletons = {
 
 // User Profile Skeleton
 export const UserProfileSkeleton = {
+  name: 'User Profile Skeleton',
   render: () => (
     <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
       <h3 style={{
@@ -725,6 +732,7 @@ export const UserProfileSkeleton = {
 
 // List Item Skeleton
 export const ListItemSkeleton = {
+  name: 'List Item Skeleton',
   render: () => (
     <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
       <h3 style={{
@@ -777,6 +785,7 @@ export const ListItemSkeleton = {
 
 // Without Animation
 export const WithoutAnimation = {
+  name: 'Without Animation',
   render: () => (
     <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
       <h3 style={{

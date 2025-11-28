@@ -355,6 +355,7 @@ export default function UpdateExperience() {
 
       const dataToUpdate = {
         name: experience.name,
+        overview: experience.overview,
         destination: destinationToSend,
         map_location: experience.map_location,
         experience_type: experience.experience_type,
@@ -458,6 +459,25 @@ export default function UpdateExperience() {
               tooltip={lang.en.helper.nameRequired}
               tooltipPlacement="top"
             />
+
+            <div className="mb-4">
+              <Form.Group>
+                <Form.Label>
+                  {lang.en.label.overview}
+                </Form.Label>
+                <Form.Control
+                  as="textarea"
+                  name="overview"
+                  rows={4}
+                  value={experience.overview || ''}
+                  onChange={handleChange}
+                  placeholder={lang.en.placeholder.overview}
+                />
+                <small className="form-text text-muted">
+                  {lang.en.helper.overviewOptional}
+                </small>
+              </Form.Group>
+            </div>
 
             <div className="mb-4">
               <Form.Group>
@@ -609,7 +629,7 @@ export default function UpdateExperience() {
                   placeholder={lang.en.placeholder.planningDays}
                   min="1"
                   append="days"
-                  tooltip={lang.en.helper.planningDaysOptional}
+                  tooltip={lang.en.helper.planningTimeTooltip}
                   tooltipPlacement="top"
                 />
               </div>

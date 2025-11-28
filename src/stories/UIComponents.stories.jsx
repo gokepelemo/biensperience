@@ -6,7 +6,7 @@ import Tooltip from '../components/Tooltip/Tooltip';
 import { Button } from 'react-bootstrap';
 
 export default {
-  title: 'Components/UI Components',
+  title: 'Components/Data Display/UI Components',
   parameters: {
     layout: 'padded',
     docs: {
@@ -33,6 +33,7 @@ export default {
 
 // Stepper Stories
 export const StepperVariations = {
+  name: 'Stepper Variations',
   render: () => {
     const travelSteps = [
       { 
@@ -137,6 +138,7 @@ export const StepperVariations = {
 };
 
 export const CompactStepper = {
+  name: 'Compact Stepper',
   render: () => {
     const steps = [
       { title: 'Destination Research', status: 'completed' },
@@ -164,12 +166,14 @@ export const CompactStepper = {
 };
 
 // Interactive playground for testing Stepper props
-export const StepperPlayground = (args) => (
-  <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
-    <Stepper {...args} />
-  </div>
-);
-StepperPlayground.args = {
+export const StepperPlayground = {
+  name: 'Stepper Playground',
+  render: (args) => (
+    <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
+      <Stepper {...args} />
+    </div>
+  ),
+  args: {
   steps: [
     { title: 'Research Destination', description: 'Find the perfect spot', status: 'completed' },
     { title: 'Book Accommodation', description: 'Secure your stay', status: 'active' },
@@ -178,103 +182,108 @@ StepperPlayground.args = {
   ],
   variant: 'default',
   color: 'primary'
+  }
 };
 
 // Pagination Stories
 export const PaginationVariations = {
-  render: () => {
-    const [currentPage, setCurrentPage] = useState(1);
-    const [dotsPage, setDotsPage] = useState(1);
-
-    return (
-      <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
-        <h3 style={{ 
-          marginBottom: 'var(--space-6)', 
-          color: 'var(--color-text-primary)',
-          fontSize: 'var(--font-size-xl)',
-          fontWeight: 'var(--font-weight-bold)'
-        }}>
-          Destination Browser Pagination
-        </h3>
-
-        <div style={{ marginBottom: 'var(--space-8)' }}>
-          <h4 style={{ 
-            marginBottom: 'var(--space-4)', 
-            color: 'var(--color-text-secondary)',
-            fontSize: 'var(--font-size-lg)'
-          }}>
-            Text Pagination - Browsing 1,000 destinations
-          </h4>
-          <Pagination 
-            currentPage={currentPage}
-            totalPages={99}
-            onPageChange={setCurrentPage}
-            variant="text"
-            totalResults={1000}
-            resultsPerPage={100}
-          />
-        </div>
-
-        <div style={{ marginBottom: 'var(--space-8)' }}>
-          <h4 style={{ 
-            marginBottom: 'var(--space-4)', 
-            color: 'var(--color-text-secondary)',
-            fontSize: 'var(--font-size-lg)'
-          }}>
-            Dots Pagination - Photo Gallery
-          </h4>
-          <Pagination 
-            currentPage={dotsPage}
-            totalPages={7}
-            onPageChange={setDotsPage}
-            variant="dots"
-          />
-          <div style={{ 
-            textAlign: 'center', 
-            marginTop: 'var(--space-4)',
-            color: 'var(--color-text-muted)',
-            fontSize: 'var(--font-size-sm)'
-          }}>
-            Viewing Rachel Pleasure-Seeker's Santorini photos ({dotsPage} of 7)
-          </div>
-        </div>
-
-        <div>
-          <h4 style={{ 
-            marginBottom: 'var(--space-4)', 
-            color: 'var(--color-text-secondary)',
-            fontSize: 'var(--font-size-lg)'
-          }}>
-            Simple Navigation - Jane Organizer's Travel Blog
-          </h4>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'center',
-            gap: 'var(--space-2)',
-            padding: 'var(--space-4)',
-            background: 'var(--color-bg-secondary)',
-            borderRadius: 'var(--border-radius-lg)'
-          }}>
-            <button style={{
-              padding: 'var(--space-2) var(--space-3)',
-              background: 'var(--color-bg-primary)',
-              border: '1px solid var(--color-border-medium)',
-              borderRadius: 'var(--border-radius-md)',
-              color: 'var(--color-text-primary)',
-              fontSize: 'var(--font-size-sm)',
-              cursor: 'pointer'
-            }}>
-              Page 1 of 10
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  },
+  name: 'Pagination Variations',
+  render: () => <PaginationVariationsDemo />,
 };
 
+function PaginationVariationsDemo() {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [dotsPage, setDotsPage] = useState(1);
+
+  return (
+    <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
+      <h3 style={{ 
+        marginBottom: 'var(--space-6)', 
+        color: 'var(--color-text-primary)',
+        fontSize: 'var(--font-size-xl)',
+        fontWeight: 'var(--font-weight-bold)'
+      }}>
+        Destination Browser Pagination
+      </h3>
+
+      <div style={{ marginBottom: 'var(--space-8)' }}>
+        <h4 style={{ 
+          marginBottom: 'var(--space-4)', 
+          color: 'var(--color-text-secondary)',
+          fontSize: 'var(--font-size-lg)'
+        }}>
+          Text Pagination - Browsing 1,000 destinations
+        </h4>
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={99}
+          onPageChange={setCurrentPage}
+          variant="text"
+          totalResults={1000}
+          resultsPerPage={100}
+        />
+      </div>
+
+      <div style={{ marginBottom: 'var(--space-8)' }}>
+        <h4 style={{ 
+          marginBottom: 'var(--space-4)', 
+          color: 'var(--color-text-secondary)',
+          fontSize: 'var(--font-size-lg)'
+        }}>
+          Dots Pagination - Photo Gallery
+        </h4>
+        <Pagination 
+          currentPage={dotsPage}
+          totalPages={7}
+          onPageChange={setDotsPage}
+          variant="dots"
+        />
+        <div style={{ 
+          textAlign: 'center', 
+          marginTop: 'var(--space-4)',
+          color: 'var(--color-text-muted)',
+          fontSize: 'var(--font-size-sm)'
+        }}>
+          Viewing Rachel Pleasure-Seeker's Santorini photos ({dotsPage} of 7)
+        </div>
+      </div>
+
+      <div>
+        <h4 style={{ 
+          marginBottom: 'var(--space-4)', 
+          color: 'var(--color-text-secondary)',
+          fontSize: 'var(--font-size-lg)'
+        }}>
+          Simple Navigation - Jane Organizer's Travel Blog
+        </h4>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center',
+          gap: 'var(--space-2)',
+          padding: 'var(--space-4)',
+          background: 'var(--color-bg-secondary)',
+          borderRadius: 'var(--border-radius-lg)'
+        }}>
+          <button style={{
+            padding: 'var(--space-2) var(--space-3)',
+            background: 'var(--color-bg-primary)',
+            border: '1px solid var(--color-border-medium)',
+            borderRadius: 'var(--border-radius-md)',
+            color: 'var(--color-text-primary)',
+            fontSize: 'var(--font-size-sm)',
+            cursor: 'pointer'
+          }}>
+            Page 1 of 10
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+ 
 // Progress Bar Stories
 export const ProgressBarVariations = {
+  name: 'Progress Bar Variations',
   render: () => {
     return (
       <div style={{ padding: 'var(--space-6)', background: 'var(--color-bg-primary)' }}>
@@ -404,6 +413,7 @@ export const ProgressBarVariations = {
 
 // Tooltip Stories
 export const TooltipVariations = {
+  name: 'Tooltip Variations',
   render: () => {
     return (
       <div style={{ padding: 'var(--space-8)', background: 'var(--color-bg-primary)' }}>
@@ -532,120 +542,123 @@ export const TooltipVariations = {
 
 // Combined Interactive Demo
 export const TravelPlanningDashboard = {
-  render: () => {
-    const [tripProgress, setTripProgress] = useState(65);
-    const [currentPage, setCurrentPage] = useState(1);
+  name: 'Travel Planning Dashboard',
+  render: () => <TravelPlanningDashboardDemo />,
+};
 
-    const steps = [
-      { title: 'Choose Destination', description: 'Santorini selected', status: 'completed' },
-      { title: 'Book Flights', description: 'Round trip confirmed', status: 'completed' },
-      { title: 'Reserve Hotel', description: 'Cave hotel in Oia', status: 'active' },
-      { title: 'Plan Activities', description: 'Boat tours & sunset viewing', status: 'pending' },
-    ];
+function TravelPlanningDashboardDemo() {
+  const [tripProgress, setTripProgress] = useState(65);
+  const [currentPage, setCurrentPage] = useState(1);
 
-    return (
-      <div style={{ 
-        padding: 'var(--space-8)', 
-        background: 'var(--color-bg-secondary)',
-        minHeight: '100vh'
+  const steps = [
+    { title: 'Choose Destination', description: 'Santorini selected', status: 'completed' },
+    { title: 'Book Flights', description: 'Round trip confirmed', status: 'completed' },
+    { title: 'Reserve Hotel', description: 'Cave hotel in Oia', status: 'active' },
+    { title: 'Plan Activities', description: 'Boat tours & sunset viewing', status: 'pending' },
+  ];
+
+  return (
+    <div style={{ 
+      padding: 'var(--space-8)', 
+      background: 'var(--color-bg-secondary)',
+      minHeight: '100vh'
+    }}>
+      <div style={{
+        maxWidth: '1200px',
+        margin: '0 auto'
       }}>
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto'
+        <h2 style={{ 
+          marginBottom: 'var(--space-2)', 
+          color: 'var(--color-text-primary)',
+          fontSize: 'var(--font-size-2xl)',
+          fontWeight: 'var(--font-weight-bold)'
         }}>
-          <h2 style={{ 
-            marginBottom: 'var(--space-2)', 
+          Marcus Explorer's Greece Adventure
+        </h2>
+        <p style={{
+          color: 'var(--color-text-muted)',
+          fontSize: 'var(--font-size-base)',
+          marginBottom: 'var(--space-8)'
+        }}>
+          Planning the perfect Mediterranean escape
+        </p>
+
+        <div style={{
+          background: 'var(--color-bg-primary)',
+          borderRadius: 'var(--border-radius-xl)',
+          padding: 'var(--space-6)',
+          marginBottom: 'var(--space-6)',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h3 style={{ 
+            marginBottom: 'var(--space-4)', 
             color: 'var(--color-text-primary)',
-            fontSize: 'var(--font-size-2xl)',
-            fontWeight: 'var(--font-weight-bold)'
+            fontSize: 'var(--font-size-lg)',
+            fontWeight: 'var(--font-weight-semibold)'
           }}>
-            Marcus Explorer's Greece Adventure
-          </h2>
-          <p style={{
-            color: 'var(--color-text-muted)',
-            fontSize: 'var(--font-size-base)',
-            marginBottom: 'var(--space-8)'
-          }}>
-            Planning the perfect Mediterranean escape
-          </p>
+            Trip Planning Progress
+          </h3>
+          <ProgressBar value={tripProgress} color="primary" showPercentage animated />
 
-          <div style={{
-            background: 'var(--color-bg-primary)',
-            borderRadius: 'var(--border-radius-xl)',
-            padding: 'var(--space-6)',
-            marginBottom: 'var(--space-6)',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-          }}>
-            <h3 style={{ 
-              marginBottom: 'var(--space-4)', 
-              color: 'var(--color-text-primary)',
-              fontSize: 'var(--font-size-lg)',
-              fontWeight: 'var(--font-weight-semibold)'
-            }}>
-              Trip Planning Progress
-            </h3>
-            <ProgressBar value={tripProgress} color="primary" showPercentage animated />
-
-            <div style={{ marginTop: 'var(--space-6)' }}>
-              <Stepper steps={steps} color="primary" />
-            </div>
-          </div>
-
-          <div style={{
-            background: 'var(--color-bg-primary)',
-            borderRadius: 'var(--border-radius-xl)',
-            padding: 'var(--space-6)',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-          }}>
-            <h3 style={{ 
-              marginBottom: 'var(--space-4)', 
-              color: 'var(--color-text-primary)',
-              fontSize: 'var(--font-size-lg)',
-              fontWeight: 'var(--font-weight-semibold)'
-            }}>
-              Browse Greek Islands
-            </h3>
-            
-            <div style={{ 
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-              gap: 'var(--space-4)',
-              marginBottom: 'var(--space-6)'
-            }}>
-              {['Santorini', 'Mykonos', 'Crete', 'Rhodes'].map((island) => (
-                <Tooltip key={island} content={`Click to view ${island} experiences`} position="top">
-                  <div style={{
-                    padding: 'var(--space-4)',
-                    background: 'var(--color-bg-secondary)',
-                    borderRadius: 'var(--border-radius-lg)',
-                    cursor: 'pointer',
-                    transition: 'all var(--transition-standard)'
-                  }}>
-                    <h4 style={{ 
-                      fontSize: 'var(--font-size-base)',
-                      fontWeight: 'var(--font-weight-semibold)',
-                      color: 'var(--color-text-primary)',
-                      marginBottom: 'var(--space-2)'
-                    }}>
-                      {island}
-                    </h4>
-                    <ProgressBar value={Math.random() * 100} color="success" size="sm" />
-                  </div>
-                </Tooltip>
-              ))}
-            </div>
-
-            <Pagination 
-              currentPage={currentPage}
-              totalPages={10}
-              onPageChange={setCurrentPage}
-              variant="text"
-              totalResults={250}
-              resultsPerPage={25}
-            />
+          <div style={{ marginTop: 'var(--space-6)' }}>
+            <Stepper steps={steps} color="primary" />
           </div>
         </div>
+
+        <div style={{
+          background: 'var(--color-bg-primary)',
+          borderRadius: 'var(--border-radius-xl)',
+          padding: 'var(--space-6)',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h3 style={{ 
+            marginBottom: 'var(--space-4)', 
+            color: 'var(--color-text-primary)',
+            fontSize: 'var(--font-size-lg)',
+            fontWeight: 'var(--font-weight-semibold)'
+          }}>
+            Browse Greek Islands
+          </h3>
+          
+          <div style={{ 
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+            gap: 'var(--space-4)',
+            marginBottom: 'var(--space-6)'
+          }}>
+            {['Santorini', 'Mykonos', 'Crete', 'Rhodes'].map((island) => (
+              <Tooltip key={island} content={`Click to view ${island} experiences`} position="top">
+                <div style={{
+                  padding: 'var(--space-4)',
+                  background: 'var(--color-bg-secondary)',
+                  borderRadius: 'var(--border-radius-lg)',
+                  cursor: 'pointer',
+                  transition: 'all var(--transition-standard)'
+                }}>
+                  <h4 style={{ 
+                    fontSize: 'var(--font-size-base)',
+                    fontWeight: 'var(--font-weight-semibold)',
+                    color: 'var(--color-text-primary)',
+                    marginBottom: 'var(--space-2)'
+                  }}>
+                    {island}
+                  </h4>
+                  <ProgressBar value={Math.random() * 100} color="success" size="sm" />
+                </div>
+              </Tooltip>
+            ))}
+          </div>
+
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={10}
+            onPageChange={setCurrentPage}
+            variant="text"
+            totalResults={250}
+            resultsPerPage={25}
+          />
+        </div>
       </div>
-    );
-  },
-};
+    </div>
+  );
+}

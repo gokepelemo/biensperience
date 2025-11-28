@@ -9,8 +9,25 @@ import {
   checkUserPlanForExperience
 } from '../utilities/plans-api';
 import { logger } from '../utilities/logger';
-import { reconcileState } from '../utilities/event-bus';
-import { generateOptimisticId } from '../utilities/event-bus';
+import {
+  reconcileState,
+  generateOptimisticId,
+  getProtectedFields,
+  LOCAL_CHANGE_PROTECTION_MS,
+  eventBus,
+  VectorClock
+} from '../utilities/event-bus';
+import {
+  applyOperation,
+  createAppliedOperationsSet,
+  wasApplied,
+  markApplied
+} from '../utilities/plan-operations';
+import {
+  hasConflict,
+  resolvePlanConflict,
+  resolveItemConflict
+} from '../utilities/conflict-resolver';
 
 /**
  * Custom hook for managing plan-related state and operations
@@ -37,6 +54,140 @@ export default function usePlanManagement(experienceId, userId) {
 
   // Refs for event deduplication
   const lastEventVersionRef = useRef({});
+
+  // Refs for local change protection
+  // Structure: { planId: { field: lastModifiedTimestamp, ... }, ... }
+  const localModificationsRef = useRef({});
+
+  // Pending events queue for events blocked by protection window
+  // Structure: [{ event, queuedAt, planId }, ...]
+  const pendingEventsRef = useRef([]);
+
+  // Refs for vector clock tracking per plan (for causal ordering)
+  // Structure: { planId: vectorClock, ... }
+  const planVectorClocksRef = useRef({});
+
+  // Ref for tracking applied operations (operation-based sync)
+  // Used to prevent duplicate application of operations
+  const appliedOperationsRef = useRef(createAppliedOperationsSet());
+
+  /**
+   * Track local modification for a plan field
+   * This prevents remote events from overwriting recent local changes
+   *
+   * @param {string} planId - Plan ID being modified
+   * @param {string[]} fields - Field names being modified
+   */
+  const trackLocalModification = useCallback((planId, fields) => {
+    if (!planId || !fields || fields.length === 0) return;
+
+    const now = Date.now();
+    if (!localModificationsRef.current[planId]) {
+      localModificationsRef.current[planId] = {};
+    }
+
+    fields.forEach(field => {
+      localModificationsRef.current[planId][field] = now;
+    });
+
+    logger.debug('[usePlanManagement] Tracked local modifications', {
+      planId,
+      fields,
+      timestamp: now
+    });
+  }, []);
+
+  /**
+   * Get protected fields for a specific plan
+   *
+   * @param {string} planId - Plan ID to check
+   * @returns {string[]} Array of protected field names
+   */
+  const getProtectedFieldsForPlan = useCallback((planId) => {
+    if (!planId || !localModificationsRef.current[planId]) return [];
+    return getProtectedFields(localModificationsRef.current[planId]);
+  }, []);
+
+  /**
+   * Get or create vector clock for a plan
+   * Called when making local mutations to track causal ordering
+   *
+   * @param {string} planId - Plan ID
+   * @returns {Object} Vector clock for this plan
+   */
+  const getPlanVectorClock = useCallback((planId) => {
+    if (!planId) return VectorClock.createVectorClock();
+    if (!planVectorClocksRef.current[planId]) {
+      planVectorClocksRef.current[planId] = VectorClock.createVectorClock();
+    }
+    return planVectorClocksRef.current[planId];
+  }, []);
+
+  /**
+   * Increment vector clock for a plan when making local mutation
+   * This establishes causal "happens before" relationship
+   *
+   * @param {string} planId - Plan ID being mutated
+   * @returns {Object} Updated vector clock
+   */
+  const incrementPlanVectorClock = useCallback((planId) => {
+    if (!planId) return VectorClock.createVectorClock();
+
+    const sessionId = eventBus.getSessionId();
+    const currentClock = getPlanVectorClock(planId);
+    const newClock = VectorClock.increment(currentClock, sessionId);
+    planVectorClocksRef.current[planId] = newClock;
+
+    logger.debug('[usePlanManagement] Incremented plan vector clock', {
+      planId,
+      sessionId,
+      clock: VectorClock.format(newClock)
+    });
+
+    return newClock;
+  }, [getPlanVectorClock]);
+
+  /**
+   * Update vector clock for a plan from remote event
+   * Merges remote clock with local to maintain causal consistency
+   *
+   * @param {string} planId - Plan ID
+   * @param {Object} remoteClock - Vector clock from remote event
+   */
+  const mergePlanVectorClock = useCallback((planId, remoteClock) => {
+    if (!planId || !remoteClock) return;
+
+    const currentClock = getPlanVectorClock(planId);
+    const mergedClock = VectorClock.merge(currentClock, remoteClock);
+    planVectorClocksRef.current[planId] = mergedClock;
+
+    logger.debug('[usePlanManagement] Merged plan vector clock', {
+      planId,
+      localClock: VectorClock.format(currentClock),
+      remoteClock: VectorClock.format(remoteClock),
+      mergedClock: VectorClock.format(mergedClock)
+    });
+  }, [getPlanVectorClock]);
+
+  /**
+   * Clear expired modifications from tracking
+   * Called periodically to prevent memory leaks
+   */
+  const cleanupExpiredModifications = useCallback(() => {
+    const now = Date.now();
+    Object.keys(localModificationsRef.current).forEach(planId => {
+      const planMods = localModificationsRef.current[planId];
+      Object.keys(planMods).forEach(field => {
+        if (now - planMods[field] >= LOCAL_CHANGE_PROTECTION_MS) {
+          delete planMods[field];
+        }
+      });
+      // Remove empty plan entries
+      if (Object.keys(planMods).length === 0) {
+        delete localModificationsRef.current[planId];
+      }
+    });
+  }, []);
 
   /**
    * Helper: Extract user ID from plan.user (handles both ObjectId and populated User object)
@@ -176,14 +327,21 @@ export default function usePlanManagement(experienceId, userId) {
 
     logger.debug('[usePlanManagement] Updating plan', { planId, updates });
 
+    // Track local modifications to protect from remote overwrites
+    const modifiedFields = Object.keys(updates);
+    trackLocalModification(planId, modifiedFields);
+
+    // Increment vector clock for this plan (establishes causal ordering)
+    const vectorClock = incrementPlanVectorClock(planId);
+
     // Optimistic update for user plan
     if (userPlan && userPlan._id === planId) {
-      setUserPlan(prev => ({ ...prev, ...updates }));
+      setUserPlan(prev => ({ ...prev, ...updates, _vectorClock: vectorClock }));
     }
 
     // Optimistic update for collaborative plans
     setCollaborativePlans(prev =>
-      prev.map(p => p._id === planId ? { ...p, ...updates } : p)
+      prev.map(p => p._id === planId ? { ...p, ...updates, _vectorClock: vectorClock } : p)
     );
 
     try {
@@ -194,7 +352,7 @@ export default function usePlanManagement(experienceId, userId) {
       // Rollback will be handled by event system
       throw error;
     }
-  }, [userPlan]);
+  }, [userPlan, trackLocalModification, incrementPlanVectorClock]);
 
   /**
    * Delete a plan
@@ -326,6 +484,7 @@ export default function usePlanManagement(experienceId, userId) {
       const experienceId_event = detail.experienceId;
       const version = detail.version;
       const data = detail.data || detail.plan;
+      const eventVectorClock = detail.vectorClock;
 
       if (!planId || !data) return;
 
@@ -340,19 +499,80 @@ export default function usePlanManagement(experienceId, userId) {
       }
       lastEventVersionRef.current[`updated:${planId}`] = version;
 
-      logger.debug('[usePlanManagement] Handling plan:updated event', { planId, version, data });
+      // Get protected fields for this plan (fields with recent local modifications)
+      const protectedFields = getProtectedFieldsForPlan(planId);
 
-      // CRITICAL FIX: Pass event structure (with data, version) to reconcileState
-      const eventStructure = { data, version, optimisticId: planId };
+      // Get local vector clock for causal comparison
+      const localVectorClock = getPlanVectorClock(planId);
+
+      logger.debug('[usePlanManagement] Handling plan:updated event', {
+        planId,
+        version,
+        data,
+        protectedFields: protectedFields.length > 0 ? protectedFields : 'none',
+        localClock: VectorClock.format(localVectorClock),
+        eventClock: eventVectorClock ? VectorClock.format(eventVectorClock) : 'none'
+      });
+
+      // Merge remote vector clock with local to maintain causal consistency
+      if (eventVectorClock) {
+        mergePlanVectorClock(planId, eventVectorClock);
+      }
+
+      // Check for concurrent edits using vector clocks
+      const isConcurrent = eventVectorClock && !VectorClock.isEmpty(localVectorClock)
+        ? hasConflict(localVectorClock, eventVectorClock)
+        : false;
+
+      if (isConcurrent) {
+        logger.info('[usePlanManagement] Concurrent edit detected, using conflict resolution', {
+          planId,
+          localClock: VectorClock.format(localVectorClock),
+          remoteClock: VectorClock.format(eventVectorClock)
+        });
+      }
+
+      // CRITICAL FIX: Pass event structure (with data, version, vectorClock) to reconcileState
+      // Include protected fields to prevent overwriting recent local changes
+      // Include vector clocks for causal ordering
+      const eventStructure = { data, version, optimisticId: planId, vectorClock: eventVectorClock };
+      const reconcileOptions = {
+        protectedFields,
+        localVectorClock: !VectorClock.isEmpty(localVectorClock) ? localVectorClock : undefined
+      };
 
       // Update user plan if it matches
       setUserPlan(prev => {
         if (!prev || prev._id !== planId) return prev;
-        const reconciled = reconcileState(prev, eventStructure);
+
+        // Use conflict resolver for concurrent edits
+        if (isConcurrent) {
+          const { resolved, source, conflicts } = resolvePlanConflict(
+            prev,
+            data,
+            localVectorClock,
+            eventVectorClock
+          );
+
+          if (conflicts.length > 0) {
+            logger.info('[usePlanManagement] Resolved plan conflicts', {
+              planId,
+              source,
+              conflictCount: conflicts.length,
+              fields: conflicts.map(c => c.field)
+            });
+          }
+
+          return resolved;
+        }
+
+        // No conflict - use standard reconciliation
+        const reconciled = reconcileState(prev, eventStructure, reconcileOptions);
         logger.debug('[usePlanManagement] Reconciled updated plan', {
           planId,
           version,
-          reconciledPlanId: reconciled?._id
+          reconciledPlanId: reconciled?._id,
+          protectedFields
         });
         return reconciled || prev;
       });
@@ -360,11 +580,23 @@ export default function usePlanManagement(experienceId, userId) {
       // Update collaborative plans
       setCollaborativePlans(prev =>
         prev.map(p => {
-          if (p._id === planId) {
-            const reconciled = reconcileState(p, eventStructure);
-            return reconciled || p;
+          if (p._id !== planId) return p;
+
+          // Use conflict resolver for concurrent edits
+          if (isConcurrent) {
+            const pVectorClock = p._vectorClock || {};
+            const { resolved } = resolvePlanConflict(
+              p,
+              data,
+              pVectorClock,
+              eventVectorClock
+            );
+            return resolved;
           }
-          return p;
+
+          // No conflict - use standard reconciliation
+          const reconciled = reconcileState(p, eventStructure, reconcileOptions);
+          return reconciled || p;
         })
       );
 
@@ -391,7 +623,7 @@ export default function usePlanManagement(experienceId, userId) {
 
     window.addEventListener('plan:updated', handlePlanUpdated);
     return () => window.removeEventListener('plan:updated', handlePlanUpdated);
-  }, [experienceId, userId]);
+  }, [experienceId, userId, getProtectedFieldsForPlan, getPlanVectorClock, mergePlanVectorClock]);
 
   /**
    * Event handler for plan:deleted events
@@ -431,6 +663,107 @@ export default function usePlanManagement(experienceId, userId) {
     window.addEventListener('plan:deleted', handlePlanDeleted);
     return () => window.removeEventListener('plan:deleted', handlePlanDeleted);
   }, [experienceId, userId]);
+
+  /**
+   * Event handler for plan:operation events (CRDT-style operation-based sync)
+   * Operations are idempotent and commutative, ensuring eventual consistency
+   */
+  useEffect(() => {
+    const handlePlanOperation = (event) => {
+      const { planId, operation } = event.detail || {};
+
+      if (!planId || !operation) {
+        logger.debug('[usePlanManagement] Invalid plan:operation event', { planId, operation });
+        return;
+      }
+
+      // Check if this operation was already applied (idempotency)
+      if (wasApplied(appliedOperationsRef.current, operation)) {
+        logger.debug('[usePlanManagement] Skipping duplicate operation', {
+          operationId: operation.id,
+          type: operation.type
+        });
+        return;
+      }
+
+      // Mark operation as applied before processing
+      markApplied(appliedOperationsRef.current, operation);
+
+      // Merge vector clock from operation for causal consistency
+      if (operation.vectorClock) {
+        mergePlanVectorClock(planId, operation.vectorClock);
+      }
+
+      logger.debug('[usePlanManagement] Applying operation', {
+        planId,
+        operationId: operation.id,
+        type: operation.type,
+        payload: operation.payload
+      });
+
+      // Apply operation to user plan if it matches
+      setUserPlan(prev => {
+        if (!prev || prev._id !== planId) return prev;
+
+        const newState = applyOperation(prev, operation);
+        if (newState !== prev) {
+          logger.debug('[usePlanManagement] Operation applied to userPlan', {
+            planId,
+            operationId: operation.id,
+            type: operation.type,
+            previousPlanItems: prev.plan?.length,
+            newPlanItems: newState?.plan?.length
+          });
+        }
+        return newState;
+      });
+
+      // Apply operation to collaborative plans
+      setCollaborativePlans(prev =>
+        prev.map(p => {
+          if (p._id !== planId) return p;
+
+          const newState = applyOperation(p, operation);
+          if (newState !== p) {
+            logger.debug('[usePlanManagement] Operation applied to collaborativePlan', {
+              planId,
+              operationId: operation.id,
+              type: operation.type
+            });
+          }
+          return newState;
+        })
+      );
+
+      // Handle special cases for plan-level operations
+      if (operation.type === 'DELETE_PLAN') {
+        if (userPlan && userPlan._id === planId) {
+          setUserHasExperience(false);
+          setDisplayedPlannedDate(null);
+          setUserPlannedDate(null);
+        }
+      }
+
+      // Handle date updates
+      if (operation.type === 'UPDATE_PLAN' && operation.payload?.changes?.planned_date !== undefined) {
+        const plannedDate = operation.payload.changes.planned_date;
+        // Only update displayed date if this is the user's plan
+        setUserPlan(prev => {
+          if (prev && prev._id === planId) {
+            const planUserId = extractUserId(prev.user);
+            if (planUserId === userId) {
+              setDisplayedPlannedDate(plannedDate);
+              setUserPlannedDate(plannedDate);
+            }
+          }
+          return prev;
+        });
+      }
+    };
+
+    window.addEventListener('plan:operation', handlePlanOperation);
+    return () => window.removeEventListener('plan:operation', handlePlanOperation);
+  }, [userId, mergePlanVectorClock]);
 
   /**
    * Legacy event handlers for backward compatibility
@@ -500,6 +833,18 @@ export default function usePlanManagement(experienceId, userId) {
     }
   }, [experienceId, userId, fetchPlans]);
 
+  /**
+   * Periodic cleanup of expired local modifications
+   * Runs every second to keep memory usage bounded
+   */
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      cleanupExpiredModifications();
+    }, 1000); // Every 1 second
+
+    return () => clearInterval(cleanupInterval);
+  }, [cleanupExpiredModifications]);
+
   // Compute selected plan from ID
   // Use string comparison since _id can be ObjectId or string
   const selectedPlan = selectedPlanId
@@ -536,6 +881,10 @@ export default function usePlanManagement(experienceId, userId) {
     fetchPlans,
     createPlan,
     updatePlan,
-    deletePlan
+    deletePlan,
+
+    // Local change protection
+    trackLocalModification,
+    getProtectedFieldsForPlan
   };
 }

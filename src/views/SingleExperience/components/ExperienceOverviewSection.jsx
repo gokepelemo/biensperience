@@ -3,7 +3,6 @@
  * Displays experience photos, destination info, experience type tags, description, and map
  */
 
-import { FaUser } from 'react-icons/fa';
 import PhotoCard from '../../../components/PhotoCard/PhotoCard';
 import InfoCard from '../../../components/InfoCard/InfoCard';
 import GoogleMap from '../../../components/GoogleMap/GoogleMap';
@@ -65,10 +64,9 @@ export default function ExperienceOverviewSection({
                             className={styles.experienceTagPill}
                             color="primary"
                             size="sm"
-                            gradient={false}
+                            gradient={true}
                             to={`/experience-types/${createUrlSlug(type)}`}
                           >
-                            <span className="icon"><FaUser /></span>
                             {type}
                           </TagPill>
                         ))}
@@ -76,10 +74,10 @@ export default function ExperienceOverviewSection({
                     ),
                   }
                 : null,
-              experience.description
+              experience.overview
                 ? {
-                    title: lang.en.label.description,
-                    content: <p>{experience.description}</p>,
+                    title: lang.en.label.overview,
+                    content: <p>{experience.overview}</p>,
                   }
                 : null,
             ].filter(Boolean)}

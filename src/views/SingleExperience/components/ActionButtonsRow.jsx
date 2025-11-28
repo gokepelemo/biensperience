@@ -43,7 +43,10 @@ export default function ActionButtonsRow({
   setPlannedDate,
 
   // Language strings
-  lang
+  lang,
+
+  // Layout variant: "default" | "sidebar"
+  variant = "default"
 }) {
   const navigate = useNavigate();
 
@@ -63,6 +66,109 @@ export default function ActionButtonsRow({
     lang.en.button.removeFavoriteExp
   ], { extraPadding: 12 });
 
+  // Sidebar variant - vertical stacking with full-width buttons
+  if (variant === "sidebar") {
+    return (
+      <div className="d-flex flex-column gap-3">
+        {/* Primary Action - Plan It / Planned Button */}
+        <FadeIn>
+          <button
+            className={`btn btn-lg w-100 ${
+              userHasExperience ? "btn-plan-remove" : "btn-primary"
+            } ${loading || plansLoading ? "loading" : ""}`}
+            style={{ borderRadius: 'var(--radius-full)', fontWeight: 'var(--font-weight-semibold)' }}
+            ref={planButtonRef}
+            onClick={handleExperience}
+            aria-label={
+              userHasExperience
+                ? lang.en.button.removeFavoriteExp
+                : lang.en.button.addFavoriteExp
+            }
+            aria-pressed={userHasExperience}
+            onMouseEnter={() => setFavHover(true)}
+            onMouseLeave={() => setFavHover(false)}
+            disabled={loading || plansLoading}
+            aria-busy={loading || plansLoading}
+          >
+            {plansLoading ? (
+              <Loading size="sm" variant="inline" showMessage={false} />
+            ) : userHasExperience ? (
+              favHover
+                ? lang.en.button.removeFavoriteExp
+                : lang.en.button.expPlanAdded
+            ) : (
+              "Plan This Experience"
+            )}
+          </button>
+        </FadeIn>
+
+        {/* Secondary Actions Row */}
+        <div className="d-flex gap-2">
+          {/* Edit Date Button - Only shown if user owns the selected plan */}
+          {userOwnsSelectedPlan && (
+            <FadeIn>
+              <button
+                className="btn btn-outline-secondary flex-grow-1"
+                style={{ borderRadius: 'var(--radius-full)' }}
+                onClick={() => {
+                  if (showDatePicker) {
+                    setShowDatePicker(false);
+                  } else {
+                    setIsEditingDate(true);
+                    setPlannedDate(
+                      selectedPlan.planned_date
+                        ? formatDateForInput(selectedPlan.planned_date)
+                        : ""
+                    );
+                    setShowDatePicker(true);
+                  }
+                }}
+                aria-label={lang.en.button.editDate}
+                title={showDatePicker
+                  ? "Click to close date picker"
+                  : (selectedPlan.planned_date
+                      ? "Click to update planned date"
+                      : "Click to add planned date")
+                }
+              >
+                📅 Edit Date
+              </button>
+            </FadeIn>
+          )}
+
+          {/* Edit & Delete Buttons - Only shown if user is owner */}
+          {isOwner(user, experience) && (
+            <>
+              <FadeIn>
+                <button
+                  className="btn btn-outline-secondary"
+                  style={{ borderRadius: 'var(--radius-full)' }}
+                  onClick={() => navigate(`/experiences/${experienceId}/update`)}
+                  aria-label={lang.en.button.updateExperience}
+                  title={lang.en.button.updateExperience}
+                >
+                  ✏️
+                </button>
+              </FadeIn>
+              <FadeIn>
+                <button
+                  className="btn btn-outline-danger"
+                  style={{ borderRadius: 'var(--radius-full)' }}
+                  onClick={() => setShowDeleteModal(true)}
+                  aria-label={lang.en.button.delete}
+                  title={lang.en.button.delete}
+                >
+                  ❌
+                </button>
+              </FadeIn>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Default variant - horizontal row layout
   return (
     <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center flex-row experience-actions">
       {/* Plan It / Planned Button */}

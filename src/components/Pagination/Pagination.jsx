@@ -77,7 +77,10 @@ export default function Pagination({ page, currentPage, totalPages, onPageChange
     <nav aria-label="Pagination" className={`${styles.paginationWrap} ${className || ''}`}>
       <ul className={`pagination justify-content-center ${styles.paginationList}`}>
         <li className="page-item">
-          <Button variant="link" size="sm" onClick={() => onChange(1)} disabled={active === 1}>First</Button>
+          <Button variant="link" size="sm" onClick={() => onChange(1)} disabled={active === 1} aria-label="First page">First</Button>
+        </li>
+        <li className="page-item">
+          <Button variant="link" size="sm" onClick={() => onChange(Math.max(1, active - 1))} disabled={active === 1} aria-label="Previous page">Previous</Button>
         </li>
         {pages.map((it, idx) => (
           typeof it === 'number' ? (
@@ -96,7 +99,10 @@ export default function Pagination({ page, currentPage, totalPages, onPageChange
           )
         ))}
         <li className="page-item">
-          <Button variant="link" size="sm" onClick={() => onChange(totalPages)} disabled={active === totalPages}>Last</Button>
+          <Button variant="link" size="sm" onClick={() => onChange(Math.min(totalPages, active + 1))} disabled={active === totalPages} aria-label="Next page">Next</Button>
+        </li>
+        <li className="page-item">
+          <Button variant="link" size="sm" onClick={() => onChange(totalPages)} disabled={active === totalPages} aria-label="Last page">Last</Button>
         </li>
       </ul>
       {typeof totalResults === 'number' && (

@@ -55,7 +55,8 @@
     "slick-carousel": "^1.8.1",
     "slugify": "^1.6.6",
     "store2": "^2.14.4",
-    "webpack-dev-server": "^5.2.2"
+    "webpack-dev-server": "^5.2.2",
+    "ws": "^8.18.3"
   },
   "overrides": {
     "js-yaml": ">=4.1.1"

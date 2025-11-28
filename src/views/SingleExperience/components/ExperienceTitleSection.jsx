@@ -7,7 +7,8 @@
 import TagPill from '../../../components/Pill/TagPill';
 import FadeIn from '../../../components/Animation/Animation';
 import { formatDateShort, formatDateForInput } from '../../../utilities/date-utils';
-import { formatPlanningTime } from '../../../utilities/time-format';
+import PlanningTime from '../../../components/PlanningTime/PlanningTime';
+import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import styles from './ExperienceTitleSection.module.scss';
 
 export default function ExperienceTitleSection({
@@ -31,9 +32,6 @@ export default function ExperienceTitleSection({
   lang
 }) {
   if (!experience) return null;
-
-  // Helper to format dollar signs for cost display
-  const dollarSigns = (count) => '$'.repeat(Math.max(0, Math.min(5, count)));
 
   // Check if user owns the selected plan
   const userOwnsSelectedPlan = selectedPlan && user && (
@@ -98,25 +96,28 @@ export default function ExperienceTitleSection({
       </div>
 
       {/* Cost Estimate & Planning Days Grid */}
-      <div className="experience-header-grid my-2">
+      <div className={styles.headerGrid}>
         {experience.cost_estimate > 0 && (
           <FadeIn>
-            <h2 className="h5">
-              {lang.en.heading.estimatedCost}{" "}
-              <span className="green">
-                {dollarSigns(Math.ceil(experience.cost_estimate / 1000))}
-              </span>
-              <span className="grey">
-                {dollarSigns(5 - Math.ceil(experience.cost_estimate / 1000))}
-              </span>
+            <h2 className={`h5 ${styles.headerItem}`}>
+              <CostEstimate
+                cost={experience.cost_estimate}
+                showLabel={true}
+                showTooltip={true}
+                showDollarSigns={true}
+              />
             </h2>
           </FadeIn>
         )}
         {experience.max_planning_days > 0 && (
           <FadeIn>
-            <h2 className="h5">
-              {lang.en.heading.planningTime}{" "}
-              {formatPlanningTime(experience.max_planning_days)}
+            <h2 className={`h5 ${styles.headerItem}`}>
+              <PlanningTime
+                days={experience.max_planning_days}
+                showLabel={true}
+                showTooltip={true}
+                size="md"
+              />
             </h2>
           </FadeIn>
         )}

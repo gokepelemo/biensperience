@@ -23,6 +23,13 @@
   }
 }
 
+// Alias for clarity - same as breakpoint() but more explicit
+@mixin breakpoint-min($breakpoint) {
+  @include breakpoint($breakpoint) {
+    @content;
+  }
+}
+
 @mixin breakpoint-max($breakpoint) {
   @if $breakpoint == xs {
     @media (max-width: $breakpoint-xs - 1) { @content; }

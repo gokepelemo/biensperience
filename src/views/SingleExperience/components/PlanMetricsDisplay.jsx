@@ -5,7 +5,7 @@
 
 import TagPill from '../../../components/Pill/TagPill';
 import { formatDateMetricCard } from '../../../utilities/date-utils';
-import { formatCurrency } from '../../../utilities/currency-utils';
+import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 
 export default function PlanMetricsDisplay({
   plannedDate,
@@ -66,7 +66,13 @@ export default function PlanMetricsDisplay({
       <div className="col-md-4">
         <div className="metric-card h-100">
           <div className="metric-label">Estimated Cost</div>
-          <div className="metric-value">{formatCurrency(totalCost)}</div>
+          <div className="metric-value">
+            <CostEstimate
+              cost={totalCost}
+              showTooltip={true}
+              compact={true}
+            />
+          </div>
         </div>
       </div>
     </div>

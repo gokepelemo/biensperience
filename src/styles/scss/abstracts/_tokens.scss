@@ -236,6 +236,18 @@
   --breakpoint-lg: #{$breakpoint-lg};
   --breakpoint-xl: #{$breakpoint-xl};
   --breakpoint-xxl: #{$breakpoint-xxl};
+
+  /* ============================================
+     AUTHENTICATION FORM CONTAINERS
+     Responsive widths for login/signup forms
+     ============================================ */
+
+  --auth-container-mobile: #{$auth-container-mobile};
+  --auth-container-tablet: #{$auth-container-tablet};
+  --auth-container-desktop: #{$auth-container-desktop};
+  --auth-container-large: #{$auth-container-large};
+  --auth-input-height: #{$auth-input-height};
+  --auth-input-height-mobile: #{$auth-input-height-mobile};
 }
 
 // ============================================================================

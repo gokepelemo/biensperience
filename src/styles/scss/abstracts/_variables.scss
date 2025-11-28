@@ -218,3 +218,57 @@ $z-index-modal-backdrop: 1040;
 $z-index-modal: 1050;
 $z-index-popover: 1060;
 $z-index-tooltip: 1070;
+
+// ============================================================================
+// LAYOUT GRIDS
+// ============================================================================
+
+// Layout gap sizes
+$layout-gap-sm: $space-3;   // 12px
+$layout-gap-md: $space-4;   // 16px
+$layout-gap-lg: $space-6;   // 24px
+$layout-gap-xl: $space-8;   // 32px
+
+// Sidebar widths
+$sidebar-width-sm: 280px;
+$sidebar-width-md: 320px;
+$sidebar-width-lg: 360px;
+
+// Container max-widths (layout-specific)
+$layout-container-sm: 640px;
+$layout-container-md: 768px;
+$layout-container-lg: 1024px;
+$layout-container-xl: 1280px;
+$layout-container-2xl: 1536px;
+
+// Authentication form containers
+// Mobile: 100% width with padding
+// Tablet: 480px centered
+// Desktop: 520px centered (comfortable reading width)
+// Large desktop: 560px centered (more spacious)
+$auth-container-mobile: 100%;
+$auth-container-tablet: 480px;
+$auth-container-desktop: 520px;
+$auth-container-large: 560px;
+
+// Auth form input heights (WCAG touch targets)
+$auth-input-height: 56px;
+$auth-input-height-mobile: 52px;
+
+// Mobile bottom nav height (WCAG touch target)
+$bottom-nav-height: 64px;
+
+// Card grid columns
+$grid-cols-mobile: 1;
+$grid-cols-tablet: 2;
+$grid-cols-desktop: 3;
+$grid-cols-wide: 4;
+
+// Timeline dimensions
+$timeline-line-width: 2px;
+$timeline-node-size: 12px;
+$timeline-node-size-active: 16px;
+
+// Metrics bar
+$metrics-bar-height: 80px;
+$metrics-bar-height-mobile: 100px;

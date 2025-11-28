@@ -2,6 +2,10 @@
  * Time formatting utilities for user-friendly time displays
  */
 
+// Re-export the comprehensive formatPlanningTime from planning-time-utils
+// This maintains backward compatibility for existing imports
+export { formatPlanningTime, getPlanningTimeTooltip, getPlanningTimeLabel } from './planning-time-utils';
+
 /**
  * Format age in milliseconds to friendly relative time string
  * @param {number} ageMs - Age in milliseconds
@@ -48,35 +52,9 @@ export function formatRestorationMessage(ageMs, context = 'create') {
   return `Your progress was restored from ${timeString}. You can continue ${action}.`;
 }
 
-/**
- * Format planning time duration in days to human-friendly relative time
- * @param {number} days - Duration in days
- * @returns {string} Friendly duration string (e.g., "1 month", "2 years")
- */
-export function formatPlanningTime(days) {
-  if (!days || days < 0) {
-    return '0 days';
-  }
-
-  // Less than 30 days - show days
-  if (days < 30) {
-    return `${Math.round(days)} ${days === 1 ? 'day' : 'days'}`;
-  }
-
-  // 30-364 days - show months
-  if (days < 365) {
-    const months = Math.round(days / 30);
-    return `${months} ${months === 1 ? 'month' : 'months'}`;
-  }
-
-  // 365+ days - show years and months
-  const years = Math.floor(days / 365);
-  const remainingDays = days % 365;
-  const months = Math.round(remainingDays / 30);
-
-  if (months === 0) {
-    return `${years} ${years === 1 ? 'year' : 'years'}`;
-  }
-
-  return `${years} ${years === 1 ? 'year' : 'years'}, ${months} ${months === 1 ? 'month' : 'months'}`;
-}
+// Note: formatPlanningTime is now imported from planning-time-utils.js
+// which provides comprehensive formatting including:
+// - Fractional days (a few hours, half a day, most of a day)
+// - Day ranges (1-2 days, 2-3 weeks)
+// - Weeks, months, years with proper singular/plural
+// - Tooltip text explaining planning time

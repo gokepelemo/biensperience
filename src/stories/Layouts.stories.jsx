@@ -17,7 +17,7 @@ const getPlaceholderImage = (index, width = 800) => {
 };
 
 export default {
-  title: 'Design System/Layout Patterns',
+  title: 'Patterns/Page Layouts',
   parameters: {
     layout: 'fullscreen',
     docs: {

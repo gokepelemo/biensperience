@@ -36,4 +36,11 @@ router.delete("/:id/items/:itemId/notes/:noteId", modificationLimiter, plansCtrl
 router.post("/:id/items/:itemId/assign", modificationLimiter, plansCtrl.assignPlanItem); // Assign plan item
 router.delete("/:id/items/:itemId/assign", modificationLimiter, plansCtrl.unassignPlanItem); // Unassign plan item
 
+// Cost management routes
+router.get("/:id/costs", plansCtrl.getCosts); // Get all costs for a plan (with optional filters)
+router.get("/:id/costs/summary", plansCtrl.getCostSummary); // Get cost summary/report
+router.post("/:id/costs", modificationLimiter, plansCtrl.addCost); // Add a cost entry
+router.patch("/:id/costs/:costId", modificationLimiter, plansCtrl.updateCost); // Update a cost entry
+router.delete("/:id/costs/:costId", modificationLimiter, plansCtrl.deleteCost); // Delete a cost entry
+
 module.exports = router;

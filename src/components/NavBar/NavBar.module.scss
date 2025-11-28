@@ -447,32 +447,65 @@
   display: block;
 }
 
+/* ============================================
+   NAVBAR RIGHT SECTION (Search + Actions)
+   Desktop: Search and action buttons inline
+   Mobile: Stacked with centered buttons
+   ============================================ */
+
 /* Navbar search integration */
 .navbarSearch {
-  flex: 0 1 400px;
+  flex: 0 1 300px;
+  min-width: 180px;
   max-width: 400px;
-  margin-left: $space-4;
-  margin-right: $space-4;
-}
+  margin-left: $space-3;
+  transition: flex-basis var(--transition-normal) ease,
+              max-width var(--transition-normal) ease;
 
-@include breakpoint-max(lg) {
-  .navbarSearch {
+  /* Expand on focus-within for better usability */
+  &:focus-within {
+    flex-basis: 400px;
+    max-width: 500px;
+  }
+
+  @include breakpoint-max(lg) {
     flex: 1 1 100%;
     max-width: 100%;
-    margin: $space-2 0;
+    min-width: unset;
+    margin: $space-3 $space-4;
+    order: 1; /* Search first on mobile */
+
+    &:focus-within {
+      flex-basis: 100%;
+      max-width: 100%;
+    }
   }
 }
 
-/* Navbar actions container */
+/* Navbar actions container - inline with search on desktop */
 .navbarActions {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
   flex-shrink: 0;
-  margin-left: auto;
-}
+  margin-left: $space-2;
 
-@include breakpoint-max(lg) {
-  .navbarActions {
-    width: 100%;
-    margin-top: $space-2;
+  @include breakpoint-max(lg) {
+    width: auto; /* NOT full width - let buttons size naturally */
+    justify-content: center;
+    margin: $space-2 auto; /* Center the container */
+    order: 2; /* Actions after search on mobile */
+    padding: 0 $space-4;
+
+    /* Mobile: Buttons should NOT stretch to full width */
+    :global(.btn) {
+      flex: 0 0 auto; /* Don't grow or shrink */
+      width: auto;
+      min-width: fit-content;
+      /* Ensure adequate touch target while keeping compact */
+      min-height: var(--btn-height-sm);
+      padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
+    }
   }
 }
 

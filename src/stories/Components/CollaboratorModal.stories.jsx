@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import CollaboratorModal from '../../views/SingleExperience/components/CollaboratorModal';
 
 export default {
-  title: 'Components/CollaboratorModal',
+  title: 'Components/Modals/Collaborator Picker',
   component: CollaboratorModal,
 };
 

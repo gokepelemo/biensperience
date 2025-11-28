@@ -1,7 +1,7 @@
 import Loading from '../../components/Loading/Loading';
 
 export default {
-  title: 'Components/Loading',
+  title: 'Components/Feedback/Loading States',
   component: Loading,
   parameters: {
     layout: 'centered',
