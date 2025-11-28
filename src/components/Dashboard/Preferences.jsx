@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Heading,
   Text,
@@ -16,14 +16,17 @@ import { useUser } from '../../contexts/UserContext';
 import { updateUser } from '../../utilities/users-api';
 import themeManager from '../../utilities/theme-manager';
 import { getLanguageOptions } from '../../lang.constants';
+import { getTimezoneOptions, detectUserTimezone } from '../../utilities/preferences-utils';
 
 export default function Preferences() {
   const { user, profile, fetchProfile } = useUser();
   const prefs = profile?.preferences || {};
+  const detectedTimezone = useMemo(() => detectUserTimezone(), []);
   const [form, setForm] = useState({
     theme: prefs.theme || 'system-default',
     currency: prefs.currency || 'USD',
     language: prefs.language || 'en',
+    timezone: prefs.timezone || detectedTimezone,
     profileVisibility: prefs.profileVisibility || (profile?.visibility || 'public'),
     notificationsEnabled: prefs.notifications?.enabled !== false,
     notificationChannels: prefs.notifications?.channels || ['email'],
@@ -38,6 +41,7 @@ export default function Preferences() {
       theme: p.theme || prev.theme,
       currency: p.currency || prev.currency,
       language: p.language || prev.language,
+      timezone: p.timezone || prev.timezone,
       profileVisibility: p.profileVisibility || (profile?.visibility || prev.profileVisibility),
       notificationsEnabled: p.notifications?.enabled !== undefined ? p.notifications.enabled : prev.notificationsEnabled,
       notificationChannels: p.notifications?.channels || prev.notificationChannels,
@@ -76,6 +80,7 @@ export default function Preferences() {
           theme: form.theme,
           currency: form.currency,
           language: form.language,
+          timezone: form.timezone,
           profileVisibility: form.profileVisibility,
           notifications: {
             enabled: !!form.notificationsEnabled,
@@ -92,10 +97,11 @@ export default function Preferences() {
       
         // Update localStorage preferences immediately so other parts of the app render accordingly
         try {
-          const storageObj = { currency: form.currency, language: form.language, theme: form.theme };
+          const storageObj = { currency: form.currency, language: form.language, theme: form.theme, timezone: form.timezone };
           localStorage.setItem('biensperience:preferences', JSON.stringify(storageObj));
           localStorage.setItem('biensperience:currency', form.currency);
           localStorage.setItem('biensperience:language', form.language);
+          localStorage.setItem('biensperience:timezone', form.timezone);
         } catch (e) { /* ignore */ }
       if (typeof fetchProfile === 'function') await fetchProfile();
     } catch (err) {
@@ -119,7 +125,7 @@ export default function Preferences() {
         }}
       >
         <Heading level={4} className="mb-2">Preferences</Heading>
-        <Text size="sm" variant="secondary" className="mb-4">
+        <Text size="sm" variant="muted" className="mb-4">
           Platform preferences and notification settings
         </Text>
 
@@ -140,14 +146,17 @@ export default function Preferences() {
             </FormGroup>
 
             <FormGroup>
-              <FormLabel htmlFor="currency-input">Currency</FormLabel>
+              <FormLabel htmlFor="timezone-select">Timezone</FormLabel>
               <FormControl
-                id="currency-input"
-                type="text"
-                value={form.currency}
-                onChange={e => handleChange('currency', e.target.value)}
-                placeholder="USD"
-              />
+                as="select"
+                id="timezone-select"
+                value={form.timezone}
+                onChange={e => handleChange('timezone', e.target.value)}
+              >
+                {getTimezoneOptions().map(tz => (
+                  <option key={tz.value} value={tz.value}>{tz.label}</option>
+                ))}
+              </FormControl>
             </FormGroup>
 
             <FormGroup>
@@ -162,6 +171,17 @@ export default function Preferences() {
                   <option key={opt.code} value={opt.code}>{opt.name}</option>
                 ))}
               </FormControl>
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel htmlFor="currency-input">Currency</FormLabel>
+              <FormControl
+                id="currency-input"
+                type="text"
+                value={form.currency}
+                onChange={e => handleChange('currency', e.target.value)}
+                placeholder="USD"
+              />
             </FormGroup>
 
             <FormGroup>

@@ -65,15 +65,15 @@ export default function AppHome() {
   const isEmptyState = initialFetchComplete && !loading && destinations.length === 0 && experiences.length === 0;
 
   return (
-    <PageWrapper title="Biensperience">
+    <PageWrapper title={lang.current.viewMeta.defaultTitle}>
       <PageOpenGraph
-        title="Plan your next adventure with Biensperience"
-        description="Discover and plan amazing travel experiences worldwide. Browse curated destinations, create your travel bucket list, and organize your adventures with Biensperience."
-        keywords="travel planning, adventure, destinations, experiences, travel bucket list, trip planner, world travel, tourism"
-        ogTitle="Biensperience - Plan Your Next Adventure"
-        ogDescription="Discover curated travel experiences and destinations. Start planning your perfect adventure today with our comprehensive travel planning platform."
+        title={lang.current.viewMeta.defaultTitle}
+        description={lang.current.viewMeta.defaultDescription}
+        keywords={lang.current.viewMeta.defaultKeywords}
+        ogTitle={lang.current.viewMeta.defaultTitle}
+        ogDescription={lang.current.viewMeta.defaultDescription}
       />
-      <HeroBanner className="animation-fade_in" />
+      <HeroBanner className="animation-fade-in" />
 
       {/* Empty state - only shown after fetch completes with no data */}
       {isEmptyState ? (
@@ -81,11 +81,11 @@ export default function AppHome() {
           <div className="col-12 col-md-8 col-lg-6 text-center">
             <Alert
               type="info"
-              title={lang.en.alert.welcomeTitle.replace('{name}', user?.name ? `, ${user.name}` : '')}
+              title={lang.current.alert.welcomeTitle.replace('{name}', user?.name ? `, ${user.name}` : '')}
               dismissible={false}
             >
               <p className="mb-3">
-                {lang.en.alert.welcomeFreshStart}
+                {lang.current.alert.welcomeFreshStart}
               </p>
               <SpaceY size="3">
                 <Button
@@ -93,13 +93,13 @@ export default function AppHome() {
                   className="mb-3"
                   onClick={() => navigate('/destinations/new')}
                 >
-                  {lang.en.button.createDestination}
+                  {lang.current.button.createDestination}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => navigate('/experiences/new')}
                 >
-                  {lang.en.button.createExperience}
+                  {lang.current.button.createExperience}
                 </Button>
               </SpaceY>
             </Alert>
@@ -108,12 +108,12 @@ export default function AppHome() {
       ) : (
         <>
           {/* Popular Destinations Section */}
-          <h2 className="my-4 animation-fade_in">{lang.en.heading.popularDestinations}</h2>
+          <h2 className="my-4 animation-fade-in">{lang.current.heading.popularDestinations}</h2>
           {isDestinationsLoading ? (
             // Skeleton loaders matching DestinationCard layout:
             // - Centered blurred title overlay (like destinationCardTitle)
             // - Count matches DESTINATIONS_INITIAL_DISPLAY
-            <FlexCenter className="animation-fade_in">
+            <FlexCenter className="animation-fade-in">
               <div className={styles.destinationsList}>
                 {Array.from({ length: DESTINATIONS_INITIAL_DISPLAY }, (_, i) => (
                   <div key={i} className={styles.destinationSkeleton}>
@@ -127,41 +127,41 @@ export default function AppHome() {
             </FlexCenter>
           ) : destinations && destinations.length > 0 ? (
             <>
-              <FlexCenter className="animation-fade_in">
+              <FlexCenter className="animation-fade-in">
                 <div className={styles.destinationsList}>
                   {(showAllDestinations ? destinations : destinations.slice(0, DESTINATIONS_INITIAL_DISPLAY))
                     .map((destination, index) => (
                       <DestinationCard
                         key={destination._id || index}
                         destination={destination}
-                        className="animation-fade_in"
+                        className="animation-fade-in"
                       />
                     ))}
                 </div>
               </FlexCenter>
-              {destinations.length > DESTINATIONS_INITIAL_DISPLAY && (
+                  {destinations.length > DESTINATIONS_INITIAL_DISPLAY && (
                 <div className="col-12 text-center mt-4 mb-5">
                   <Button
                     variant="link"
                     size="sm"
-                    onClick={() => setShowAllDestinations(!showAllDestinations)}
-                  >
-                    {showAllDestinations ? 'Show Less' : 'Show More'}
+                        onClick={() => setShowAllDestinations(!showAllDestinations)}
+                      >
+                        {showAllDestinations ? lang.current.button.showLess : lang.current.button.showMore}
                   </Button>
                 </div>
               )}
             </>
           ) : (
-            <FlexCenter className="animation-fade_in">
+            <FlexCenter className="animation-fade-in">
               <div className="col-12">
                 <Alert type="info" dismissible={false}>
-                  <p className="mb-2">{lang.en.alert.noDestinationsYet}</p>
+                  <p className="mb-2">{lang.current.alert.noDestinationsYet}</p>
                   <Button
                     variant="primary"
                     size="sm"
                     onClick={() => navigate('/destinations/new')}
                   >
-                    {lang.en.button.createDestination}
+                    {lang.current.button.createDestination}
                   </Button>
                 </Alert>
               </div>
@@ -169,13 +169,13 @@ export default function AppHome() {
           )}
 
           {/* Curated Experiences Section */}
-          <h2 className="my-4 animation-fade_in">{lang.en.heading.curatedExperiences}</h2>
+          <h2 className="my-4 animation-fade-in">{lang.current.heading.curatedExperiences}</h2>
           {isExperiencesLoading ? (
             // Skeleton loaders matching ExperienceCard layout:
             // - Title centered in flex-grow area with blur overlay
             // - Action button at bottom right
             // Count matches EXPERIENCES_INITIAL_DISPLAY
-            <FlexCenter className="animation-fade_in">
+            <FlexCenter className="animation-fade-in">
               <div className={styles.experiencesList}>
                 {Array.from({ length: EXPERIENCES_INITIAL_DISPLAY }, (_, i) => (
                   <div key={i} className={styles.experienceSkeleton}>
@@ -196,14 +196,14 @@ export default function AppHome() {
             </FlexCenter>
           ) : experiences && experiences.length > 0 ? (
             <>
-              <FlexCenter className="animation-fade_in">
+              <FlexCenter className="animation-fade-in">
                 <div className={styles.experiencesList}>
                   {(showAllExperiences ? experiences : experiences.slice(0, EXPERIENCES_INITIAL_DISPLAY))
                     .map((experience, index) => (
                       <ExperienceCard
                         key={experience._id || index}
                         experience={experience}
-                        className="animation-fade_in"
+                        className="animation-fade-in"
                         userPlans={plans}
                       />
                     ))}
@@ -216,22 +216,22 @@ export default function AppHome() {
                     size="sm"
                     onClick={() => setShowAllExperiences(!showAllExperiences)}
                   >
-                    {showAllExperiences ? 'Show Less' : 'Show More'}
+                    {showAllExperiences ? lang.current.button.showLess : lang.current.button.showMore}
                   </Button>
                 </div>
               )}
             </>
           ) : (
-            <FlexCenter className="animation-fade_in">
+            <FlexCenter className="animation-fade-in">
               <div className="col-12">
                 <Alert type="info" dismissible={false}>
-                  <p className="mb-2">{lang.en.alert.noExperiencesYet}</p>
+                  <p className="mb-2">{lang.current.alert.noExperiencesYet}</p>
                   <Button
                     variant="primary"
                     size="sm"
                     onClick={() => navigate('/experiences/new')}
                   >
-                    {lang.en.button.createExperience}
+                    {lang.current.button.createExperience}
                   </Button>
                 </Alert>
               </div>

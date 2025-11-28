@@ -66,7 +66,7 @@ export default function UpdateDestination() {
 
   const handleFormError = useFormErrorHandling(setError, {
     onEmailNotVerified: (data) => {
-      const verifyError = data.error || lang.en.alert.emailNotVerifiedMessage;
+      const verifyError = data.error || lang.current.alert.emailNotVerifiedMessage;
       setError(verifyError);
       showError(verifyError);
     },
@@ -86,7 +86,7 @@ export default function UpdateDestination() {
         const canEdit = isOwner(user, destinationData) || isSuperAdmin(user);
 
         if (!canEdit) {
-          setError(lang.en.alert.notAuthorizedToUpdateDestination);
+          setError(lang.current.alert.notAuthorizedToUpdateDestination);
           setLoading(false);
           return;
         }
@@ -104,7 +104,7 @@ export default function UpdateDestination() {
         setTimeout(() => setIsInitialLoad(false), 100);
       } catch (err) {
         const errorMessage = handleError(err, { context: 'Loading destination for update' });
-        setError(errorMessage || lang.en.alert.failedToLoadResource);
+        setError(errorMessage || lang.current.alert.failedToLoadResource);
         setLoading(false);
       }
     }
@@ -265,7 +265,7 @@ export default function UpdateDestination() {
 
       const updated = await updateDestAPI(destinationId, dataToUpdate);
       updateDestination(updated); // Instant UI update!
-      const message = lang.en.notification?.destination?.updated?.replace('{name}', updated.name) || `Your changes to ${updated.name} have been saved.`;
+      const message = lang.current.notification?.destination?.updated?.replace('{name}', updated.name) || `Your changes to ${updated.name} have been saved.`;
       success(message);
       navigate(`/destinations/${destinationId}`);
     } catch (err) {
@@ -303,9 +303,9 @@ export default function UpdateDestination() {
 
   return (
     <>
-      <div className="row animation-fade_in">
+      <div className="row animation-fade-in">
         <div className="col-12">
-          <h1 className="form-title">{lang.en.heading.updateDestination || 'Update Destination'}</h1>
+          <h1 className="form-title">{lang.current.heading.updateDestination || 'Update Destination'}</h1>
         </div>
       </div>
 
@@ -333,7 +333,7 @@ export default function UpdateDestination() {
         </Alert>
       )}
 
-      <div className="row my-4 animation-fade_in">
+      <div className="row my-4 animation-fade-in">
         <div className="col-12">
           <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
@@ -342,7 +342,7 @@ export default function UpdateDestination() {
               type="text"
               value={destination?.name || ''}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.city}
+              placeholder={lang.current.placeholder.city}
               required
             />
 
@@ -354,7 +354,7 @@ export default function UpdateDestination() {
                   type="text"
                   value={destination?.state || ''}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.stateProvince}
+                  placeholder={lang.current.placeholder.stateProvince}
                 />
               </div>
 
@@ -365,7 +365,7 @@ export default function UpdateDestination() {
                   type="text"
                   value={destination?.country || ''}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.country}
+                  placeholder={lang.current.placeholder.country}
                   required
                 />
               </div>
@@ -377,9 +377,9 @@ export default function UpdateDestination() {
               type="textarea"
               value={destination?.description || ''}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.destinationDescription}
+              placeholder={lang.current.placeholder.destinationDescription}
               rows={4}
-              tooltip={lang.en.helper.descriptionOptional}
+              tooltip={lang.current.helper.descriptionOptional}
               tooltipPlacement="top"
             />
 
@@ -401,7 +401,7 @@ export default function UpdateDestination() {
               onAddTip={handleAddTravelTip}
               onDeleteTip={deleteTravelTip}
               onReorder={reorderTravelTips}
-              label={lang.en.heading.travelTips}
+              label={lang.current.heading.travelTips}
               placeholder="Share an insider tip..."
               addButtonText="Add Tip"
               deleteButtonText="Delete"
@@ -418,19 +418,19 @@ export default function UpdateDestination() {
               <Link
                 to={`/destinations/${destination._id}`}
                 className="btn btn-secondary btn-lg"
-                aria-label={lang.en.button.cancel}
+                aria-label={lang.current.button.cancel}
               >
-                {lang.en.button.cancel}
+                {lang.current.button.cancel}
               </Link>
               <button
                 type="button"
                 className="btn btn-primary btn-lg"
                 onClick={handleConfirmUpdate}
                 disabled={Object.keys(changes).length === 0}
-                aria-label={lang.en.button.confirmUpdate || 'Confirm Update'}
+                aria-label={lang.current.button.confirmUpdate || 'Confirm Update'}
                 aria-disabled={Object.keys(changes).length === 0}
               >
-                {lang.en.button.confirmUpdate || 'Confirm Update'}
+                {lang.current.button.confirmUpdate || 'Confirm Update'}
               </button>
             </div>
           </Form>
@@ -441,12 +441,12 @@ export default function UpdateDestination() {
         show={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
         onSubmit={confirmUpdate}
-        title={lang.en.modal.confirmDestinationUpdate || 'Confirm Destination Update'}
-        submitText={lang.en.button.updateDestination || 'Update Destination'}
+        title={lang.current.modal.confirmDestinationUpdate || 'Confirm Destination Update'}
+        submitText={lang.current.button.updateDestination || 'Update Destination'}
         submitVariant="primary"
-        cancelText={lang.en.button.cancel}
+        cancelText={lang.current.button.cancel}
       >
-        <p>{lang.en.modal.confirmUpdateReview || 'Please review your changes before updating:'}</p>
+        <p>{lang.current.modal.confirmUpdateReview || 'Please review your changes before updating:'}</p>
         <ul className="list-group">
           {Object.entries(changes).map(([field, change]) => (
             <li key={field} className="list-group-item">

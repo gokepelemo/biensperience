@@ -17,6 +17,7 @@ import { getExperienceTags, getExperiences } from '../../utilities/experiences-a
 import { sortItems, filterExperiences } from "../../utilities/sort-filter";
 import { createUrlSlug } from '../../utilities/url-utils';
 import { logger } from '../../utilities/logger';
+import { lang } from '../../lang.constants';
 
 export default function Experiences() {
   const { user } = useUser();
@@ -739,7 +740,7 @@ export default function Experiences() {
           variant="centered"
           size="lg"
           animation="engine"
-          message="Loading experiences..."
+          message={lang.current.alert.loadingExperiences}
         />
       ) : (
         <FadeIn>
@@ -785,7 +786,7 @@ export default function Experiences() {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <Loading size="md" variant="overlay" animation="engine" message="Loading more experiences..." />
+                <Loading size="md" variant="overlay" animation="engine" message={lang.current.alert.loadingMoreExperiences} />
               </div>
             )}
           </div>

@@ -120,7 +120,7 @@ export default function ImageUpload({ data, setData }) {
 
   async function handleAddUrlToQueue() {
     if (!uploadForm.photo_url) {
-      setAlertTitle(lang.en.modal.photoUrlRequired);
+      setAlertTitle(lang.current.modal.photoUrlRequired);
       setAlertMessage('Please enter a photo URL');
       setShowAlertModal(true);
       return;
@@ -129,7 +129,7 @@ export default function ImageUpload({ data, setData }) {
     try {
       new URL(uploadForm.photo_url);
     } catch (err) {
-      setAlertTitle(lang.en.modal.photoUrlRequired);
+      setAlertTitle(lang.current.modal.photoUrlRequired);
       setAlertMessage('Please enter a valid URL');
       setShowAlertModal(true);
       return;
@@ -137,7 +137,7 @@ export default function ImageUpload({ data, setData }) {
 
     const isDuplicate = urlQueue.some(item => item.url === uploadForm.photo_url);
     if (isDuplicate) {
-      setAlertTitle(lang.en.modal.photoUrlRequired);
+      setAlertTitle(lang.current.modal.photoUrlRequired);
       setAlertMessage('This URL has already been added to the queue');
       setShowAlertModal(true);
       return;
@@ -185,7 +185,7 @@ export default function ImageUpload({ data, setData }) {
 
   async function handleUploadAllUrls() {
     if (urlQueue.length === 0) {
-      setAlertTitle(lang.en.modal.photoUrlRequired);
+      setAlertTitle(lang.current.modal.photoUrlRequired);
       setAlertMessage('No URLs in queue to upload');
       setShowAlertModal(true);
       return;
@@ -194,7 +194,21 @@ export default function ImageUpload({ data, setData }) {
     setUploading(true);
 
     try {
-      const newPhotos = [...photos, ...urlQueue];
+      // Upload each URL to the backend to persist in database
+      const uploadPromises = urlQueue.map(item =>
+        uploadPhotoUrl({
+          url: item.url,
+          photo_credit: item.photo_credit || 'Unknown',
+          photo_credit_url: item.photo_credit_url || item.url,
+          width: item.width || undefined,
+          height: item.height || undefined
+        })
+      );
+
+      const uploadResults = await Promise.all(uploadPromises);
+      const uploadedPhotos = uploadResults.map(result => result.upload);
+
+      const newPhotos = [...photos, ...uploadedPhotos];
       setPhotos(newPhotos);
 
       if (photos.length === 0 && newPhotos.length > 0) {
@@ -205,8 +219,8 @@ export default function ImageUpload({ data, setData }) {
       setEditingUrlIndex(null);
       setUploadForm({ photo_credit: "", photo_credit_url: "", photo_url: "" });
 
-      setAlertTitle(lang.en.modal.photoUploadSuccess);
-      setAlertMessage(`Successfully added ${urlQueue.length} photo(s) from URLs`);
+      setAlertTitle(lang.current.modal.photoUploadSuccess);
+      setAlertMessage(`Successfully uploaded ${uploadedPhotos.length} photo(s) from URLs`);
       setShowAlertModal(true);
     } catch (err) {
       handleError(err);
@@ -222,17 +236,22 @@ export default function ImageUpload({ data, setData }) {
     try {
       if (useUrl) {
         if (!uploadForm.photo_url) {
-          setAlertTitle(lang.en.modal.photoUrlRequired);
+          setAlertTitle(lang.current.modal.photoUrlRequired);
           setAlertMessage('Please enter a photo URL');
           setShowAlertModal(true);
           setUploading(false);
           return;
         }
 
+        // Get image dimensions for layout shift prevention
+        const dimensions = await getImageDimensionsSafe(uploadForm.photo_url);
+
         const urlData = {
           url: uploadForm.photo_url,
           photo_credit: uploadForm.photo_credit || 'Unknown',
-          photo_credit_url: uploadForm.photo_credit_url || uploadForm.photo_url
+          photo_credit_url: uploadForm.photo_credit_url || uploadForm.photo_url,
+          width: dimensions.width || undefined,
+          height: dimensions.height || undefined
         };
 
         const uploadedImage = await uploadPhotoUrl(urlData);
@@ -369,7 +388,7 @@ export default function ImageUpload({ data, setData }) {
   }
 
   return (
-    <div className={styles.uploadPhoto} role="region" aria-label={lang.en.aria.photoUpload}>
+    <div className={styles.uploadPhoto} role="region" aria-label={lang.current.aria.photoUpload}>
       {/* Upload Form */}
       <div className={styles.uploadFormSection}>
         {/* Photo Credit Fields - One Per Line */}
@@ -383,8 +402,8 @@ export default function ImageUpload({ data, setData }) {
             id="photo_credit"
             onChange={handleFileChange}
             value={uploadForm.photo_credit || ''}
-            placeholder={lang.en.placeholder.photoCredit}
-            aria-label={lang.en.aria.photoCreditName}
+            placeholder={lang.current.placeholder.photoCredit}
+            aria-label={lang.current.aria.photoCreditName}
           />
         </div>
         
@@ -398,8 +417,8 @@ export default function ImageUpload({ data, setData }) {
             id="photo_credit_url"
             onChange={handleFileChange}
             value={uploadForm.photo_credit_url || ''}
-            placeholder={lang.en.placeholder.photoCreditUrl}
-            aria-label={lang.en.aria.photoCreditUrl}
+            placeholder={lang.current.placeholder.photoCreditUrl}
+            aria-label={lang.current.aria.photoCreditUrl}
           />
         </div>
 
@@ -415,7 +434,7 @@ export default function ImageUpload({ data, setData }) {
               onChange={handleFileChange}
               accept="image/*"
               multiple
-              aria-label={lang.en.aria.chooseImageFiles}
+              aria-label={lang.current.aria.chooseImageFiles}
               aria-describedby="image-upload-help"
             />
             <span id="image-upload-help" className="visually-hidden">
@@ -436,7 +455,7 @@ export default function ImageUpload({ data, setData }) {
                 value={uploadForm.photo_url || ''}
                 className="form-control"
                 placeholder="Enter direct image URL (e.g., https://example.com/image.jpg)"
-                aria-label={lang.en.aria.photoUrl}
+                aria-label={lang.current.aria.photoUrl}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -521,10 +540,10 @@ export default function ImageUpload({ data, setData }) {
               className="btn btn-primary btn-sm upload-btn"
               onClick={handlePhotoAdd}
               disabled={uploading}
-              aria-label={uploading ? lang.en.button.uploading : lang.en.button.upload}
+              aria-label={uploading ? lang.current.button.uploading : lang.current.button.upload}
               aria-busy={uploading}
             >
-              {uploading ? lang.en.button.uploading : lang.en.button.upload}
+              {uploading ? lang.current.button.uploading : lang.current.button.upload}
             </button>
           )}
           <button
@@ -536,7 +555,7 @@ export default function ImageUpload({ data, setData }) {
               setEditingUrlIndex(null);
             }}
             type="button"
-            aria-label={useUrl ? lang.en.aria.switchToFileUpload : lang.en.aria.useUrlInstead}
+            aria-label={useUrl ? lang.current.aria.switchToFileUpload : lang.current.aria.useUrlInstead}
           >
             {useUrl ? "Upload a file instead" : "Add a URL instead"}
           </button>
@@ -545,7 +564,7 @@ export default function ImageUpload({ data, setData }) {
 
       {/* Uploaded Photos List */}
       {photos.length > 0 && (
-        <div className={styles.uploadedPhotosList} role="region" aria-label={lang.en.aria.uploadedPhotos}>
+        <div className={styles.uploadedPhotosList} role="region" aria-label={lang.current.aria.uploadedPhotos}>
           <h5 className="mt-4 mb-3">
             Photos ({photos.filter((_, idx) => !disabledPhotos.has(idx)).length} active, {disabledPhotos.size} disabled)
           </h5>
@@ -628,7 +647,7 @@ export default function ImageUpload({ data, setData }) {
       <AlertModal
         show={showAlertModal}
         onClose={() => setShowAlertModal(false)}
-        title={alertTitle || lang.en.modal.photoUrlRequired}
+        title={alertTitle || lang.current.modal.photoUrlRequired}
         message={alertMessage}
         variant="warning"
       />

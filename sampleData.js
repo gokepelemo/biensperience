@@ -1453,12 +1453,47 @@ class DataGenerator {
         }
       });
 
+      // Generate costs for this plan (0-3 items). Costs can link to a plan_item,
+      // be associated with a collaborator, or be a plan-level cost (e.g., insurance)
+      const currencyOptions = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
+      const costs = [];
+      const costCount = randomBetween(0, 3);
+      for (let ci = 0; ci < costCount; ci++) {
+        const isItemLinked = planItems.length > 0 && Math.random() < 0.7;
+        const linkedItem = isItemLinked ? getRandomElement(planItems) : null;
+        const costAmount = Math.max(5, Math.round((linkedItem ? (linkedItem.cost || 50) : randomBetween(10, 300)) * (0.8 + Math.random() * 0.8)));
+        const collaboratorForCost = Math.random() < 0.35 ? getRandomElement(collaborators) : null;
+
+        costs.push({
+          title: isItemLinked ? `Cost for: ${linkedItem.text}` : getRandomElement(['Travel insurance', 'Group deposit', 'Local transport budget', 'Shared groceries', 'Miscellaneous costs']),
+          description: isItemLinked ? `Estimated cost for '${linkedItem.text}'` : `Plan-level expense generated for demo data`,
+          cost: costAmount,
+          currency: getRandomElement(currencyOptions),
+          plan_item: isItemLinked ? linkedItem.plan_item_id || linkedItem.plan_item_id : undefined,
+          plan: undefined,
+          collaborator: collaboratorForCost ? collaboratorForCost._id : undefined,
+          created_at: new Date()
+        });
+      }
+
+      // Add an optional free-text note on the plan itself to demonstrate plan-level notes
+      const planNotesPool = [
+        'Packing list: remember travel adapters and chargers',
+        'Budget note: aim to keep daily spend under $120',
+        'Reminder: double-check visa requirements 6 weeks before travel',
+        'Group plan: coordinate arrival times with collaborators',
+        'Consider travel insurance for high-cost activities'
+      ];
+      const planLevelNote = Math.random() < 0.45 ? getRandomElement(planNotesPool) : null;
+
       plans.push({
         experience: experience._id,
         user: user._id,
         planned_date: Math.random() < 0.7 ? randomFutureDate() : null, // 70% have planned dates
         plan: planItems,
-        permissions
+        costs,
+        permissions,
+        notes: planLevelNote
       });
     }
 

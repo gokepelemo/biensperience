@@ -210,7 +210,7 @@ export default function DocumentViewerModal({
                 error={
                   <div className={styles.documentViewerError}>
                     <Alert type="danger">
-                      <strong>Failed to load PDF:</strong> {pdfError}
+                      <strong>{lang.current.modal.errorLoadingPage}</strong> {pdfError}
                     </Alert>
                   </div>
                 }

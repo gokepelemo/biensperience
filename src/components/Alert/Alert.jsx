@@ -66,7 +66,7 @@ const Alert = ({
         <button
           type="button"
           className={`btn-close ${styles.btnClose}`}
-          aria-label={lang.en.aria.dismissAlert}
+          aria-label={lang.current.aria.dismissAlert}
           onClick={handleDismiss}
           style={closeButtonStyle}
         />

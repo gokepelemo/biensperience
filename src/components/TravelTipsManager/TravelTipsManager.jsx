@@ -181,7 +181,7 @@ export default function TravelTipsManager({
           <div className="flex-grow-1">
             <Form.Label className="mb-1">{label}</Form.Label>
             <div className={styles.travelTipsHelper}>
-              {lang.en.helper.travelTipsHelp}
+              {lang.current.helper.travelTipsHelp}
             </div>
           </div>
 
@@ -191,13 +191,13 @@ export default function TravelTipsManager({
                 variant={isSimpleMode ? 'primary' : 'outline-secondary'}
                 onClick={() => onModeChange('simple')}
               >
-                {lang.en.button.quickTip}
+                {lang.current.button.quickTip}
               </Button>
               <Button
                 variant={!isSimpleMode ? 'primary' : 'outline-secondary'}
                 onClick={() => onModeChange('structured')}
               >
-                {lang.en.button.details}
+                {lang.current.button.details}
               </Button>
             </ButtonGroup>
           )}
@@ -237,7 +237,7 @@ export default function TravelTipsManager({
           <div className={styles.structuredTipForm}>
             <Row className="mb-3">
               <Col md={6}>
-                <Form.Label>{lang.en.label.travelTipsType} *</Form.Label>
+                <Form.Label>{lang.current.label.travelTipsType} *</Form.Label>
                 <Form.Select
                   value={structuredTip?.type || 'Language'}
                   onChange={(e) => onStructuredTipFieldChange('type', e.target.value)}
@@ -252,10 +252,10 @@ export default function TravelTipsManager({
 
               {structuredTip?.type === 'Custom' && (
                 <Col md={6}>
-                  <Form.Label>{lang.en.label.travelTipsCategory}</Form.Label>
+                  <Form.Label>{lang.current.label.travelTipsCategory}</Form.Label>
                   <Form.Control
                     type="text"
-                    placeholder={lang.en.placeholder.travelTipCategory}
+                    placeholder={lang.current.placeholder.travelTipCategory}
                     value={structuredTip?.category || ''}
                     onChange={(e) => onStructuredTipFieldChange('category', e.target.value)}
                   />
@@ -264,21 +264,21 @@ export default function TravelTipsManager({
             </Row>
 
             <Form.Group className="mb-3">
-              <Form.Label>{lang.en.label.travelTipsDescription} *</Form.Label>
+              <Form.Label>{lang.current.label.travelTipsDescription} *</Form.Label>
               <Form.Control
                 type="text"
-                placeholder={lang.en.placeholder.travelTipDescription}
+                placeholder={lang.current.placeholder.travelTipDescription}
                 value={structuredTip?.value || ''}
                 onChange={(e) => onStructuredTipFieldChange('value', e.target.value)}
               />
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Label>{lang.en.label.travelTipsAdditionalNote}</Form.Label>
+              <Form.Label>{lang.current.label.travelTipsAdditionalNote}</Form.Label>
               <Form.Control
                 as="textarea"
                 rows={2}
-                placeholder={lang.en.placeholder.travelTipNote}
+                placeholder={lang.current.placeholder.travelTipNote}
                 value={structuredTip?.note || ''}
                 onChange={(e) => onStructuredTipFieldChange('note', e.target.value)}
               />
@@ -286,10 +286,10 @@ export default function TravelTipsManager({
 
             {structuredTip?.type === 'Currency' && (
               <Form.Group className="mb-3">
-                <Form.Label>{lang.en.label.travelTipsExchangeRate}</Form.Label>
+                <Form.Label>{lang.current.label.travelTipsExchangeRate}</Form.Label>
                 <Form.Control
                   type="text"
-                  placeholder={lang.en.placeholder.travelTipExchangeRate}
+                  placeholder={lang.current.placeholder.travelTipExchangeRate}
                   value={structuredTip?.exchangeRate || ''}
                   onChange={(e) => onStructuredTipFieldChange('exchangeRate', e.target.value)}
                 />
@@ -297,26 +297,26 @@ export default function TravelTipsManager({
             )}
 
             <Form.Group className="mb-3">
-              <Form.Label>{lang.en.label.travelTipsIcon}</Form.Label>
+              <Form.Label>{lang.current.label.travelTipsIcon}</Form.Label>
               <Form.Control
                 type="text"
-                placeholder={lang.en.placeholder.travelTipIcon}
+                placeholder={lang.current.placeholder.travelTipIcon}
                 value={structuredTip?.icon || ''}
                 onChange={(e) => onStructuredTipFieldChange('icon', e.target.value)}
                 maxLength={2}
               />
               <Form.Text className="text-muted">
-                {lang.en.helper.travelTipsIconHelp}
+                {lang.current.helper.travelTipsIconHelp}
               </Form.Text>
             </Form.Group>
 
             <div className={styles.callToActionSection}>
-              <Form.Label>{lang.en.label.travelTipsCallToAction}</Form.Label>
+              <Form.Label>{lang.current.label.travelTipsCallToAction}</Form.Label>
               <Row>
                 <Col md={6}>
                   <Form.Control
                     type="text"
-                    placeholder={lang.en.placeholder.travelTipCtaLabel}
+                    placeholder={lang.current.placeholder.travelTipCtaLabel}
                     value={structuredTip?.callToAction?.label || ''}
                     onChange={(e) => onCallToActionChange('label', e.target.value)}
                     className="mb-2 mb-md-0"
@@ -325,14 +325,14 @@ export default function TravelTipsManager({
                 <Col md={6}>
                   <Form.Control
                     type="url"
-                    placeholder={lang.en.placeholder.travelTipCtaUrl}
+                    placeholder={lang.current.placeholder.travelTipCtaUrl}
                     value={structuredTip?.callToAction?.url || ''}
                     onChange={(e) => onCallToActionChange('url', e.target.value)}
                   />
                 </Col>
               </Row>
               <Form.Text className="text-muted">
-                {lang.en.helper.travelTipsCtaHelp}
+                {lang.current.helper.travelTipsCtaHelp}
               </Form.Text>
             </div>
 

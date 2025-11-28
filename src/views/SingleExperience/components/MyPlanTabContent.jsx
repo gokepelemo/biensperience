@@ -4,8 +4,9 @@
  * Updated to match The Plan tab design for cost and planning days display
  */
 
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BsPlusCircle, BsPersonPlus } from 'react-icons/bs';
+import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsThreeDotsVertical } from 'react-icons/bs';
 import {
   DndContext,
   closestCenter,
@@ -36,7 +37,95 @@ import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatDateMetricCard, formatDateForInput } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { formatCostEstimate } from '../../../utilities/cost-utils';
+import { lang } from '../../../lang.constants';
 import debug from '../../../utilities/debug';
+
+/**
+ * PlanActionsDropdown - Unified dropdown for Add, Manage Collaborators, and Sync actions
+ */
+function PlanActionsDropdown({
+  canEdit,
+  isPlanOwner,
+  showSyncButton,
+  loading,
+  handleAddPlanInstanceItem,
+  openCollaboratorModal,
+  handleSyncPlan
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Don't render if no actions are available
+  if (!canEdit && !isPlanOwner && !showSyncButton) {
+    return null;
+  }
+
+  return (
+    <div className="plan-actions-dropdown" ref={dropdownRef}>
+      <button
+        className="btn btn-primary dropdown-toggle-btn"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+        title="Plan actions"
+      >
+        <BsPlusCircle />
+      </button>
+      {isOpen && (
+        <div className="plan-actions-menu">
+          {canEdit && (
+            <button
+              className="plan-actions-item"
+              onClick={() => {
+                handleAddPlanInstanceItem();
+                setIsOpen(false);
+              }}
+            >
+              <BsPlusCircle className="me-2" />
+              {lang.current.button.addPlanItem}
+            </button>
+          )}
+          {isPlanOwner && (
+            <button
+              className="plan-actions-item"
+              onClick={() => {
+                openCollaboratorModal("plan");
+                setIsOpen(false);
+              }}
+            >
+              <BsPersonPlus className="me-2" />
+              {lang.current.button.addCollaborators}
+            </button>
+          )}
+          {showSyncButton && (
+            <button
+              className="plan-actions-item"
+              onClick={() => {
+                handleSyncPlan();
+                setIsOpen(false);
+              }}
+              disabled={loading}
+            >
+              <BsArrowRepeat className={`me-2 ${loading ? 'spin' : ''}`} />
+              {loading ? lang.current.button.syncing : lang.current.button.syncNow}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * SortablePlanItem - Individual plan item with drag-and-drop support
@@ -143,9 +232,9 @@ function SortablePlanItem({
 
         {/* Drag handle - positioned between title and action buttons */}
         {canEdit && (
-          <div {...attributes} {...listeners} className="drag-handle-wrapper">
+          <div {...attributes} {...listeners} className="drag-handle-wrapper" style={{ cursor: isDragging ? 'grabbing' : 'grab' }}>
             <DragHandle
-              id={(planItem.plan_item_id || planItem._id).toString()}
+              isDragging={isDragging}
               disabled={!canEdit}
             />
           </div>
@@ -184,8 +273,8 @@ function SortablePlanItem({
                           planItem._id
                       )
                     }
-                    aria-label={`${lang.en.button.addChild} to ${planItem.text}`}
-                    title={lang.en.button.addChild}
+                    aria-label={`${lang.current.button.addChild} to ${planItem.text}`}
+                    title={lang.current.button.addChild}
                   >
                     ✚
                   </button>
@@ -199,8 +288,8 @@ function SortablePlanItem({
                           planItem
                         )
                       }
-                      aria-label={`${lang.en.button.edit} ${planItem.text}`}
-                      title={lang.en.tooltip.edit}
+                      aria-label={`${lang.current.button.edit} ${planItem.text}`}
+                      title={lang.current.tooltip.edit}
                     >
                       ✏️
                     </button>
@@ -214,8 +303,8 @@ function SortablePlanItem({
                           true
                         );
                       }}
-                      aria-label={`${lang.en.button.delete} ${planItem.text}`}
-                      title={lang.en.tooltip.delete}
+                      aria-label={`${lang.current.button.delete} ${planItem.text}`}
+                      title={lang.current.tooltip.delete}
                     >
                       🗑️
                     </button>
@@ -240,23 +329,23 @@ function SortablePlanItem({
                   }
                   aria-label={
                     planItem.complete
-                      ? `${lang.en.button.undoComplete} ${planItem.text}`
-                      : `${lang.en.button.markComplete} ${planItem.text}`
+                      ? `${lang.current.button.undoComplete} ${planItem.text}`
+                      : `${lang.current.button.markComplete} ${planItem.text}`
                   }
                   aria-pressed={!!planItem.complete}
                   title={
                     planItem.complete
-                      ? lang.en.button.undoComplete
-                      : lang.en.button.markComplete
+                      ? lang.current.button.undoComplete
+                      : lang.current.button.markComplete
                   }
                 >
                   {planItem.complete
                     ? hoveredPlanItem ===
                       (planItem._id ||
                         planItem.plan_item_id)
-                      ? lang.en.button.undoComplete
-                      : lang.en.button.done
-                    : lang.en.button.markComplete}
+                      ? lang.current.button.undoComplete
+                      : lang.current.button.done
+                    : lang.current.button.markComplete}
                 </button>
               </div>
             );
@@ -413,6 +502,15 @@ export default function MyPlanTabContent({
   const handleDragEnd = (event) => {
     const { active, over } = event;
 
+    // Debug: Log full event structure to verify delta is available
+    debug.log('[Drag] Full event structure', {
+      hasActive: !!active,
+      hasOver: !!over,
+      delta: event.delta,
+      deltaX: event.delta?.x,
+      deltaY: event.delta?.y
+    });
+
     if (!active || !over || active.id === over.id) {
       return; // No change needed
     }
@@ -558,13 +656,48 @@ export default function MyPlanTabContent({
     // Apply position reorder
     reorderedItems = arrayMove(reorderedItems, oldIndex, newIndex);
 
+    // Determine hierarchy change type for visual feedback
+    const newParentId = draggedItemCopy.parent?.toString() || null;
+    const hierarchyChanged = draggedParentId !== newParentId;
+    let hierarchyChangeType = null;
+    if (hierarchyChanged) {
+      if (newParentId && !draggedParentId) {
+        // Was root, now has parent → nested
+        hierarchyChangeType = 'nested';
+      } else if (!newParentId && draggedParentId) {
+        // Was child, now root → promoted
+        hierarchyChangeType = 'promoted';
+      } else if (newParentId && draggedParentId && newParentId !== draggedParentId) {
+        // Changed parents → nested (reparented)
+        hierarchyChangeType = 'nested';
+      }
+    }
+
     debug.log('[Drag] Reordered items', {
       activeId: active.id,
       overId: over.id,
       oldIndex,
       newIndex,
-      hierarchyChanged: draggedParentId !== (draggedItemCopy.parent?.toString() || null)
+      hierarchyChanged,
+      hierarchyChangeType
     });
+
+    // Apply visual snap animation for hierarchy changes
+    if (hierarchyChangeType) {
+      const draggedItemElement = document.querySelector(`[data-plan-item-id="${draggedId}"]`);
+      if (draggedItemElement) {
+        // Remove any existing hierarchy classes
+        draggedItemElement.classList.remove('hierarchy-nested', 'hierarchy-promoted');
+        // Force reflow to restart animation
+        void draggedItemElement.offsetWidth;
+        // Add the appropriate class
+        draggedItemElement.classList.add(`hierarchy-${hierarchyChangeType}`);
+        // Remove class after animation completes
+        setTimeout(() => {
+          draggedItemElement.classList.remove(`hierarchy-${hierarchyChangeType}`);
+        }, 500);
+      }
+    }
 
     // Call parent handler to update backend (pass draggedItemId for highlighting)
     if (onReorderPlanItems) {
@@ -624,7 +757,7 @@ export default function MyPlanTabContent({
     return (
       <div className="my-plan-view mt-4">
         <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
-          {lang.en.alert.planNotFound}
+          {lang.current.alert.planNotFound}
         </p>
       </div>
     );
@@ -638,7 +771,7 @@ export default function MyPlanTabContent({
   const planMetrics = metricsLoading ? [] : [
     {
       id: 'planned-date',
-      title: lang.en.label.plannedDate,
+      title: lang.current.label.plannedDate,
       type: 'date',
       value: currentPlan.planned_date,
       icon: '📅',
@@ -656,16 +789,16 @@ export default function MyPlanTabContent({
     },
     {
       id: 'total-cost',
-      title: lang.en.label.totalCost,
+      title: (lang?.current?.label?.estimatedCost || 'Estimated Cost').replace(':', ''),
       type: 'cost',
       value: currentPlan.total_cost || 0,
       icon: '💰',
-      // Tooltip shows full cost estimate when truncated
-      tooltip: formatCostEstimate(currentPlan.total_cost || 0)
+      // Tooltip always shows the actual cost estimate value with prefix
+      tooltip: `${lang.current.label.actualCostEstimate} $${(currentPlan.total_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     },
     {
       id: 'completion',
-      title: lang.en.label.completion,
+      title: lang.current.label.completion,
       type: 'completion',
       value: currentPlan.completion_percentage || 0,
       icon: '✅',
@@ -674,7 +807,7 @@ export default function MyPlanTabContent({
     },
     {
       id: 'planning-time',
-      title: lang.en.label.planningTime,
+      title: lang.current.label.planningTime,
       type: 'days',
       value: currentPlan.max_days > 0 ? currentPlan.max_days : null,
       icon: '⏱️',
@@ -698,7 +831,7 @@ export default function MyPlanTabContent({
           ))}
         </div>
       ) : (
-        <MetricsBar metrics={planMetrics} />
+        <MetricsBar metrics={planMetrics} compact />
       )}
     </div>
   );
@@ -710,7 +843,7 @@ export default function MyPlanTabContent({
         <div className="my-plan-view mt-4">
           {hashSelecting && (
             <div className="mb-3">
-              <Loading size="md" message={lang.en.label.loadingPlan || 'Loading plan...'} showMessage={true} />
+              <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
             </div>
           )}
           {planMetadata}
@@ -734,7 +867,7 @@ export default function MyPlanTabContent({
       <div className="my-plan-view mt-4">
         {hashSelecting && (
           <div className="mb-3">
-            <Loading size="md" message={lang.en.label.loadingPlan || 'Loading plan...'} showMessage={true} />
+            <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
           </div>
         )}
         {showSyncButton && showSyncAlert && (
@@ -742,9 +875,19 @@ export default function MyPlanTabContent({
             type="warning"
             dismissible={true}
             onDismiss={dismissSyncAlert}
-            title={lang.en.alert.planOutOfSync}
-            message={lang.en.alert.planOutOfSyncMessage}
+            title={lang.current.alert.planOutOfSync}
+            message={lang.current.alert.planOutOfSyncMessage}
             className="mb-4"
+            actions={
+              <button
+                className="btn btn-warning btn-sm"
+                onClick={handleSyncPlan}
+                disabled={loading}
+              >
+                <BsArrowRepeat className={`me-1 ${loading ? 'spin' : ''}`} />
+                {loading ? lang.current.button.syncing : lang.current.button.syncNow}
+              </button>
+            }
           />
         )}
         <div className="plan-header-row mb-4">
@@ -757,42 +900,19 @@ export default function MyPlanTabContent({
             }
             reserveSpace={true}
           />
-          <div className="plan-action-buttons">
-            {canEdit && (
-              <button
-                className="btn btn-primary"
-                onClick={() => handleAddPlanInstanceItem()}
-              >
-                <BsPlusCircle className="me-2" />
-                {lang.en.button.addPlanItem}
-              </button>
-            )}
-            {isPlanOwner && (
-              <button
-                className="btn btn-primary"
-                onClick={() => openCollaboratorModal("plan")}
-              >
-                <BsPersonPlus className="me-2" />
-                {lang.en.button.addCollaborator}
-              </button>
-            )}
-            {showSyncButton && (
-              <button
-                className="btn btn-primary"
-                onClick={handleSyncPlan}
-                disabled={loading}
-                title={lang.en.tooltip.syncPlan}
-              >
-                {loading
-                  ? lang.en.button.syncing
-                  : lang.en.button.syncNow}
-              </button>
-            )}
-          </div>
+          <PlanActionsDropdown
+            canEdit={canEdit}
+            isPlanOwner={isPlanOwner}
+            showSyncButton={showSyncButton}
+            loading={loading}
+            handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+            openCollaboratorModal={openCollaboratorModal}
+            handleSyncPlan={handleSyncPlan}
+          />
         </div>
         {planMetadata}
         <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
-          {lang.en.alert.noPlanItems}
+          {lang.current.alert.noPlanItems}
         </p>
       </div>
     );
@@ -811,7 +931,7 @@ export default function MyPlanTabContent({
       {/* Show loading indicator when we detected a hash deep-link and plans are still loading */}
       {hashSelecting && (
         <div className="mb-3">
-          <Loading size="md" message={lang.en.label.loadingPlan || 'Loading plan...'} showMessage={true} />
+          <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
         </div>
       )}
 
@@ -821,9 +941,19 @@ export default function MyPlanTabContent({
           type="warning"
           dismissible={true}
           onDismiss={dismissSyncAlert}
-          title={lang.en.alert.planOutOfSync}
-          message={lang.en.alert.planOutOfSyncMessage}
+          title={lang.current.alert.planOutOfSync}
+          message={lang.current.alert.planOutOfSyncMessage}
           className="mb-4"
+          actions={
+            <button
+              className="btn btn-warning btn-sm"
+              onClick={handleSyncPlan}
+              disabled={loading}
+            >
+              <BsArrowRepeat className={`me-1 ${loading ? 'spin' : ''}`} />
+              {loading ? lang.current.button.syncing : lang.current.button.syncNow}
+            </button>
+          }
         />
       )}
 
@@ -841,38 +971,15 @@ export default function MyPlanTabContent({
         />
 
         {/* Action Buttons - Right Side */}
-        <div className="plan-action-buttons">
-          {canEdit && (
-            <button
-              className="btn btn-primary"
-              onClick={() => handleAddPlanInstanceItem()}
-            >
-              <BsPlusCircle className="me-2" />
-              {lang.en.button.addPlanItem}
-            </button>
-          )}
-          {isPlanOwner && (
-            <button
-              className="btn btn-primary"
-              onClick={() => openCollaboratorModal("plan")}
-            >
-              <BsPersonPlus className="me-2" />
-              {lang.en.button.addCollaborator}
-            </button>
-          )}
-          {showSyncButton && (
-            <button
-              className="btn btn-primary"
-              onClick={handleSyncPlan}
-              disabled={loading}
-              title={lang.en.tooltip.syncPlan}
-            >
-              {loading
-                ? lang.en.button.syncing
-                : lang.en.button.syncNow}
-            </button>
-          )}
-        </div>
+        <PlanActionsDropdown
+          canEdit={canEdit}
+          isPlanOwner={isPlanOwner}
+          showSyncButton={showSyncButton}
+          loading={loading}
+          handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+          openCollaboratorModal={openCollaboratorModal}
+          handleSyncPlan={handleSyncPlan}
+        />
       </div>
 
       {/* Plan Metrics Cards */}

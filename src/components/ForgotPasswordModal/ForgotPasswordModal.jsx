@@ -46,9 +46,9 @@ export default function ForgotPasswordModal({ show, onClose }) {
       show={show}
       onClose={handleClose}
       onSubmit={success ? undefined : handleSubmit}
-      title={lang.en.modal.resetPassword}
+      title={lang.current.modal.resetPassword}
       submitText="Send Reset Link"
-      cancelText={lang.en.button.cancel}
+      cancelText={lang.current.button.cancel}
       showCancelButton={!success}
       showSubmitButton={!success}
       disableSubmit={!email}
@@ -78,7 +78,7 @@ export default function ForgotPasswordModal({ show, onClose }) {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder={lang.en.placeholder.forgotPasswordEmail}
+            placeholder={lang.current.placeholder.forgotPasswordEmail}
             required
             autoComplete="email"
             autoFocus

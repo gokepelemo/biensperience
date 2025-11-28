@@ -1,29 +1,49 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
 import envCompatible from 'vite-plugin-env-compatible';
 import path from 'path';
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [
-    react({
-      // Enable JSX in .js files
-      include: '**/*.{jsx,js}',
-    }),
-    // Enable importing SVG files as React components
-    svgr({
-      svgrOptions: {
-        // SVGR options
-        icon: true,
-        dimensions: false,
-      },
-    }),
-    // Support REACT_APP_ environment variables for backward compatibility
-    envCompatible({
-      prefix: 'REACT_APP_'
-    })
-  ],
+export default defineConfig(({ mode }) => {
+  // Load env file based on mode (development, production, etc.)
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
+    plugins: [
+      react({
+        // Enable JSX in .js files
+        include: '**/*.{jsx,js}',
+      }),
+      // Enable importing SVG files as React components
+      svgr({
+        svgrOptions: {
+          // SVGR options
+          icon: true,
+          dimensions: false,
+        },
+      }),
+      // Support REACT_APP_ environment variables for backward compatibility
+      envCompatible({
+        prefix: 'REACT_APP_'
+      })
+    ],
+
+    // Define environment variables without VITE_ prefix
+    define: {
+      // AI Configuration
+      'import.meta.env.AI_DEFAULT_PROVIDER': JSON.stringify(env.AI_DEFAULT_PROVIDER || 'openai'),
+      'import.meta.env.OPENAI_API_KEY': JSON.stringify(env.OPENAI_API_KEY || ''),
+      'import.meta.env.ANTHROPIC_API_KEY': JSON.stringify(env.ANTHROPIC_API_KEY || ''),
+      'import.meta.env.MISTRAL_API_KEY': JSON.stringify(env.MISTRAL_API_KEY || ''),
+      'import.meta.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
+      'import.meta.env.AI_AUTOCOMPLETE_PROVIDER': JSON.stringify(env.AI_AUTOCOMPLETE_PROVIDER || ''),
+      'import.meta.env.AI_EDIT_PROVIDER': JSON.stringify(env.AI_EDIT_PROVIDER || ''),
+      'import.meta.env.AI_IMPROVE_PROVIDER': JSON.stringify(env.AI_IMPROVE_PROVIDER || ''),
+      'import.meta.env.AI_SUMMARIZE_PROVIDER': JSON.stringify(env.AI_SUMMARIZE_PROVIDER || ''),
+      'import.meta.env.AI_TIPS_PROVIDER': JSON.stringify(env.AI_TIPS_PROVIDER || ''),
+      'import.meta.env.AI_TRANSLATE_PROVIDER': JSON.stringify(env.AI_TRANSLATE_PROVIDER || ''),
+    },
 
   // Enable esbuild to handle JSX in .js files
   esbuild: {
@@ -132,4 +152,5 @@ export default defineConfig({
     // Exclude large dependencies from pre-bundling if they're not used immediately
     exclude: ['@aws-sdk/client-s3']
   },
+};
 });

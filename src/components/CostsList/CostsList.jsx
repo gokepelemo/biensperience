@@ -37,7 +37,7 @@ export default function CostsList({
   compact = false,
 }) {
   const listId = useId();
-  const costStrings = lang.en.cost;
+  const costStrings = lang.current.cost;
 
   // Modal state
   const [showCostModal, setShowCostModal] = useState(false);
@@ -277,7 +277,7 @@ export default function CostsList({
                       className="btn btn-outline-secondary btn-sm"
                       onClick={() => handleEditCost(cost)}
                       type="button"
-                      title={lang.en.tooltip.edit}
+                      title={lang.current.tooltip.edit}
                     >
                       <FaEdit />
                     </button>
@@ -285,7 +285,7 @@ export default function CostsList({
                       className="btn btn-outline-danger btn-sm"
                       onClick={() => handleDeleteClick(cost)}
                       type="button"
-                      title={lang.en.tooltip.delete}
+                      title={lang.current.tooltip.delete}
                     >
                       <FaTrash />
                     </button>
@@ -313,9 +313,9 @@ export default function CostsList({
         show={showDeleteConfirm}
         onClose={handleCloseDeleteConfirm}
         onConfirm={handleConfirmDelete}
-        title={lang.en.button.delete}
+        title={lang.current.button.delete}
         message={costStrings.confirmDeleteCost}
-        confirmText={lang.en.button.delete}
+        confirmText={lang.current.button.delete}
         confirmVariant="danger"
         loading={modalLoading}
       />

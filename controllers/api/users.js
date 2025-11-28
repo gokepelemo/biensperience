@@ -340,7 +340,7 @@ async function updateUser(req, res, next) {
           const langModule = await import(pathToFileURL(langPath).href);
           const available = typeof langModule.getAvailableLanguageCodes === 'function'
             ? langModule.getAvailableLanguageCodes()
-            : (langModule.lang && langModule.lang.en ? ['en'] : []);
+            : (langModule.lang && langModule.lang.current ? ['en'] : []);
           if (Array.isArray(available) && available.includes(langCode)) {
             prefs.language = langCode;
           } else {

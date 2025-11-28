@@ -33,7 +33,7 @@ export default function ConfirmModal({
   additionalInfo = [],
   confirmText = "Delete Permanently",
   confirmVariant = "danger",
-  cancelText = lang.en.button.cancel,
+  cancelText = lang.current.button.cancel,
   showWarning = true,
   showIcon = true,
   warningText = "This action cannot be undone!"

@@ -16,7 +16,7 @@ export default function PhotoThumbnail({
   showDefaultBadge = false
 }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
-  const imageAlt = altText || title || lang.en.image.alt.photo;
+  const imageAlt = altText || title || lang.current.image.alt.photo;
 
   // Determine photos array
   const photoArray = useMemo(() => {

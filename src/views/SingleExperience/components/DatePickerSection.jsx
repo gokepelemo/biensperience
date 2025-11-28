@@ -50,18 +50,18 @@ export default function DatePickerSection({
           className="btn btn-outline-secondary"
           style={{ borderRadius: 'var(--btn-radius-pill)' }}
           onClick={() => handleAddExperience({})}
-          aria-label={lang.en.button.skip}
+          aria-label={lang.current.button.skip}
         >
-          {lang.en.button.skip}
+          {lang.current.button.skip}
         </button>
       )}
       <button
         className="btn btn-outline-secondary"
         style={{ borderRadius: 'var(--btn-radius-pill)' }}
         onClick={handleClose}
-        aria-label={lang.en.button.cancel}
+        aria-label={lang.current.button.cancel}
       >
-        {lang.en.button.cancel}
+        {lang.current.button.cancel}
       </button>
       <button
         className="btn btn-primary"
@@ -70,13 +70,13 @@ export default function DatePickerSection({
         disabled={!plannedDate || loading}
         aria-label={
           isEditingDate
-            ? lang.en.button.updateDate
-            : lang.en.button.setDateAndAdd
+            ? lang.current.button.updateDate
+            : lang.current.button.setDateAndAdd
         }
       >
         {loading ? "Saving..." : (isEditingDate
-          ? lang.en.button.updateDate
-          : lang.en.button.setDateAndAdd)}
+          ? lang.current.button.updateDate
+          : lang.current.button.setDateAndAdd)}
       </button>
     </div>
   );
@@ -86,15 +86,15 @@ export default function DatePickerSection({
       show={showDatePicker}
       onClose={handleClose}
       title={isEditingDate
-        ? lang.en.heading.editPlannedDate
-        : lang.en.heading.planYourExperience}
+        ? lang.current.heading.editPlannedDate
+        : lang.current.heading.planYourExperience}
       icon={<FaCalendarAlt />}
       size="sm"
       footer={modalFooter}
     >
       {experience.max_planning_days > 0 && formatPlanningTime(experience.max_planning_days) && (
         <p className="text-muted mb-3">
-          {lang.en.helper.requiresDaysToPlan.replace(
+          {lang.current.helper.requiresDaysToPlan.replace(
             "{days}",
             formatPlanningTime(experience.max_planning_days)
           )}
@@ -103,7 +103,7 @@ export default function DatePickerSection({
 
       <div className="mb-3">
         <FormLabel htmlFor="plannedDate" className="fw-semibold">
-          {lang.en.label.whenDoYouWantExperience}
+          {lang.current.label.whenDoYouWantExperience}
         </FormLabel>
         <FormControl
           type="date"
@@ -127,7 +127,7 @@ export default function DatePickerSection({
             <Alert
               type="warning"
               className="mt-2"
-              message={lang.en.alert.notEnoughTimeWarning}
+              message={lang.current.alert.notEnoughTimeWarning}
             />
           )}
       </div>

@@ -1,6 +1,7 @@
 import { useOpenGraph } from '../../hooks/useOpenGraph';
 import { OpenGraphMeta, getEntityImage } from './OpenGraphMeta.jsx';
 import EntitySchema from './EntitySchema';
+import PageSchema from '../PageSchema/PageSchema';
 
 /**
  * PageOpenGraph component for managing document title and meta tags
@@ -27,6 +28,7 @@ export default function PageOpenGraph({
   canonical,
   entity,
   entityType,
+  schema = null,
   noIndex = false
 }) {
   // Auto-resolve image from entity if not manually provided
@@ -57,6 +59,9 @@ export default function PageOpenGraph({
       {entity && entityType && (
         <EntitySchema entity={entity} entityType={entityType} />
       )}
+
+      {/* Render optional pre-built JSON-LD schema if provided */}
+      {schema && <PageSchema schema={schema} />}
     </>
   );
 }

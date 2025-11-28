@@ -180,9 +180,10 @@ export function MetricItem({
     }
   } : undefined;
 
-  // Determine tooltip content - use provided tooltip or formatted value if truncated
+  // Determine tooltip content - use provided tooltip (always show) or formatted value if truncated
   const tooltipContent = tooltip || (isTruncated ? formattedValue : null);
-  const hasTooltip = isTruncated && tooltipContent;
+  // Show tooltip if explicitly provided OR if value is truncated
+  const hasTooltip = Boolean(tooltip) || (isTruncated && tooltipContent);
 
   // Calculate tooltip position relative to value element
   const calculateTooltipPosition = useCallback(() => {

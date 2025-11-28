@@ -32,7 +32,7 @@ export default function ExperienceHeader({
 
   return (
     <div id="overview" className="experience-header">
-      <h1 className="experience-title animation-fade_in">{experience.name}</h1>
+      <h1 className="experience-title animation-fade-in">{experience.name}</h1>
 
       {/* Planned Date Badge - shows selected plan's date */}
       {userHasExperience && !pendingUnplan && (
@@ -69,7 +69,7 @@ export default function ExperienceHeader({
               }}
               title={showDatePicker ? "Click to close date picker" : "Click to set a planned date"}
             >
-              {lang.en.label.plannedDate}: {lang.en.label.setOneNow}
+              {lang.current.label.plannedDate}: {lang.current.label.setOneNow}
             </TagPill>
           )}
         </FadeIn>

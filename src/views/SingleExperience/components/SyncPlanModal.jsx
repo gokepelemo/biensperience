@@ -36,11 +36,11 @@ export default function SyncPlanModal({
     <Modal
       show={true}
       onClose={onHide}
-      title={lang.en.modal.syncPlanTitle}
+      title={lang.current.modal.syncPlanTitle}
       dialogClassName="responsive-modal-dialog"
       scrollable={true}
       submitText="Confirm Sync"
-      cancelText={lang.en.button.cancel}
+      cancelText={lang.current.button.cancel}
       onSubmit={onConfirmSync}
       loading={loading}
       disableSubmit={
@@ -51,7 +51,7 @@ export default function SyncPlanModal({
     >
       <>
         <p style={{ color: 'var(--bs-gray-600)' }} className="mb-3">
-          {lang.en.alert.selectChangesToApply}
+          {lang.current.alert.selectChangesToApply}
         </p>
 
         {/* Added Items */}
@@ -60,7 +60,7 @@ export default function SyncPlanModal({
             <div className="d-flex justify-content-between align-items-center mb-2">
               <h6 style={{ color: 'var(--bs-success)' }} className="mb-0">
                 <strong>
-                  {lang.en.label.addedItems.replace(
+                  {lang.current.label.addedItems.replace(
                     "{count}",
                     syncChanges.added.length
                   )}
@@ -93,7 +93,7 @@ export default function SyncPlanModal({
                   className="form-check-label"
                   htmlFor="selectAllAdded"
                 >
-                  {lang.en.label.selectAll}
+                  {lang.current.label.selectAll}
                 </label>
               </div>
             </div>
@@ -169,7 +169,7 @@ export default function SyncPlanModal({
             <div className="d-flex justify-content-between align-items-center mb-2">
               <h6 style={{ color: 'var(--bs-danger)' }} className="mb-0">
                 <strong>
-                  {lang.en.label.removedItems.replace(
+                  {lang.current.label.removedItems.replace(
                     "{count}",
                     syncChanges.removed.length
                   )}
@@ -202,7 +202,7 @@ export default function SyncPlanModal({
                   className="form-check-label"
                   htmlFor="selectAllRemoved"
                 >
-                  {lang.en.label.selectAll}
+                  {lang.current.label.selectAll}
                 </label>
               </div>
             </div>
@@ -257,7 +257,7 @@ export default function SyncPlanModal({
             <div className="d-flex justify-content-between align-items-center mb-2">
               <h6 style={{ color: 'var(--bs-warning)' }} className="mb-0">
                 <strong>
-                  {lang.en.label.modifiedItems.replace(
+                  {lang.current.label.modifiedItems.replace(
                     "{count}",
                     syncChanges.modified.length
                   )}
@@ -290,7 +290,7 @@ export default function SyncPlanModal({
                   className="form-check-label"
                   htmlFor="selectAllModified"
                 >
-                  {lang.en.label.selectAll}
+                  {lang.current.label.selectAll}
                 </label>
               </div>
             </div>
@@ -368,8 +368,8 @@ export default function SyncPlanModal({
           syncChanges.modified.length === 0 && (
             <Alert
               type="info"
-              title={lang.en.alert.noChangesDetected}
-              message={lang.en.alert.planAlreadyInSync}
+              title={lang.current.alert.noChangesDetected}
+              message={lang.current.alert.planAlreadyInSync}
             />
           )}
 
@@ -377,7 +377,7 @@ export default function SyncPlanModal({
           type="warning"
           className="mt-3"
           title="Note:"
-          message={lang.en.alert.syncPreserveNote}
+          message={lang.current.alert.syncPreserveNote}
         />
       </>
     </Modal>

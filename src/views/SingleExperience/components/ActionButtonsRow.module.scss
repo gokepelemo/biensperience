@@ -1,0 +1,152 @@
+/**
+ * ActionButtonsRow Component Styles
+ */
+
+@use '../../../styles/scss/abstracts' as *;
+
+/* Action Buttons Container - horizontal layout with center alignment on mobile */
+.actionButtonsRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $space-2;
+  flex-wrap: wrap;
+
+  @include breakpoint-max(md) {
+    justify-content: center;
+  }
+}
+
+/* Base action button style - rectangular with rounded corners */
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  padding: $space-2 $space-4;
+  border-radius: var(--btn-radius-default);
+  font-size: var(--font-size-sm);
+  font-weight: $font-weight-semibold;
+  white-space: nowrap;
+  min-height: 44px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  @include transition-all($transition-fast);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* Primary action button - Plan It / Planned */
+.planButton {
+  composes: actionButton;
+  background: var(--gradient-primary);
+  color: white;
+
+  &.planned {
+    background: var(--color-success);
+    border-color: var(--color-success);
+  }
+
+  /* Red background on hover when showing "- Remove" text */
+  &.removeHover {
+    background: var(--color-danger);
+    border-color: var(--color-danger);
+  }
+
+  &.loading {
+    pointer-events: none;
+  }
+}
+
+/* Date Picker Badge - inline badge with calendar icon */
+.datePickerBadge {
+  composes: actionButton;
+  background: var(--gradient-primary);
+  color: white;
+  padding: $space-2 $space-3;
+
+  &.viewOnly {
+    cursor: default;
+
+    &:hover {
+      transform: none;
+      box-shadow: none;
+    }
+  }
+}
+
+.dateIcon {
+  font-size: 1em;
+  flex-shrink: 0;
+}
+
+/* Secondary action buttons - Edit Date, Edit, Delete */
+.secondaryButton {
+  composes: actionButton;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-medium);
+  min-width: 44px;
+  padding: $space-2 $space-3;
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-dark);
+  }
+}
+
+/* Danger variant for delete button */
+.dangerButton {
+  composes: actionButton;
+  background: var(--color-bg-primary);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+  min-width: 44px;
+  padding: $space-2 $space-3;
+
+  &:hover:not(:disabled) {
+    background: rgba($color-danger, 0.1);
+    border-color: var(--color-danger);
+  }
+}
+
+/* Sidebar variant - buttons centered, not full width */
+.sidebarContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-3;
+}
+
+.sidebarPlanButton {
+  composes: actionButton;
+  min-height: 52px;
+  background: var(--gradient-primary);
+  color: white;
+  font-size: var(--font-size-base);
+
+  &.planned {
+    background: var(--color-success);
+  }
+
+  /* Red background on hover when showing "- Remove" text */
+  &.removeHover {
+    background: var(--color-danger);
+    border-color: var(--color-danger);
+  }
+}
+
+.sidebarSecondaryRow {
+  display: flex;
+  gap: $space-2;
+  justify-content: center;
+  flex-wrap: wrap;
+}

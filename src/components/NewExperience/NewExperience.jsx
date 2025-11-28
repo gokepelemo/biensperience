@@ -66,7 +66,7 @@ export default function NewExperience() {
   // Error handling hook
   const handleFormError = useFormErrorHandling(setError, {
     onEmailNotVerified: (data) => {
-      setError(data.error || lang.en.alert.emailNotVerifiedMessage);
+      setError(data.error || lang.current.alert.emailNotVerifiedMessage);
     },
     onDuplicateError: (err) => {
       setError(err.message);
@@ -119,7 +119,7 @@ export default function NewExperience() {
         success(message, {
           duration: 20000,
           actions: [{
-            label: lang.en.button.clearForm,
+            label: lang.current.button.clearForm,
             onClick: () => {
               setNewExperience({});
               setTags([]);
@@ -181,9 +181,9 @@ export default function NewExperience() {
 
   return (
     <>
-      <div className="row animation-fade_in">
+      <div className="row animation-fade-in">
         <div className="col-12">
-          <h1 className="form-title">{lang.en.heading.createExperience}</h1>
+          <h1 className="form-title">{lang.current.heading.createExperience}</h1>
         </div>
       </div>
 
@@ -205,28 +205,28 @@ export default function NewExperience() {
         </Alert>
       )}
 
-      <div className="row my-4 animation-fade_in justify-content-center">
+      <div className="row my-4 animation-fade-in justify-content-center">
         <div className="col-12">
           <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
               name="name"
-              label={lang.en.label.title}
+              label={lang.current.label.title}
               type="text"
               value={newExperience.name || ''}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.experienceName}
+              placeholder={lang.current.placeholder.experienceName}
               required
-              tooltip={lang.en.helper.nameRequired}
+              tooltip={lang.current.helper.nameRequired}
               tooltipPlacement="top"
             />
 
             <div className="mb-4">
               <Form.Group>
                 <Form.Label>
-                  {lang.en.label.overview}
+                  {lang.current.label.overview}
                   {' '}
                   <FormTooltip
-                    text={lang.en.helper.overviewOptional}
+                    text={lang.current.helper.overviewOptional}
                     placement="top"
                   />
                 </Form.Label>
@@ -236,7 +236,7 @@ export default function NewExperience() {
                   rows={4}
                   value={newExperience.overview || ''}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.overview}
+                  placeholder={lang.current.placeholder.overview}
                 />
               </Form.Group>
             </div>
@@ -244,17 +244,17 @@ export default function NewExperience() {
             <div className="mb-4">
               <Form.Group>
                 <Form.Label>
-                  {lang.en.label.destinationLabel}
+                  {lang.current.label.destinationLabel}
                   {' '}
                   <span className="text-danger">*</span>
                   {' '}
                   <FormTooltip
-                    text={`${lang.en.helper.destinationRequired}${lang.en.helper.createNewDestination}`}
+                    text={`${lang.current.helper.destinationRequired}${lang.current.helper.createNewDestination}`}
                     placement="top"
                   />
                 </Form.Label>
                 <Autocomplete
-                  placeholder={lang.en.placeholder.destination}
+                  placeholder={lang.current.placeholder.destination}
                   entityType="destination"
                   items={(() => {
                     // Use trie filtering for O(m) performance
@@ -326,14 +326,14 @@ export default function NewExperience() {
                   disableFilter={true}
                 />
                 <small className="form-text text-muted mt-2 d-block">
-                  {lang.en.helper.destinationRequired}
+                  {lang.current.helper.destinationRequired}
                   <button
                     type="button"
                     onClick={handleCreateDestinationClick}
                     className="btn btn-link p-0 ms-1 align-baseline"
                     style={{ textDecoration: 'none' }}
                   >
-                    {lang.en.helper.createNewDestination}
+                    {lang.current.helper.createNewDestination}
                   </button>
                 </small>
               </Form.Group>
@@ -341,27 +341,27 @@ export default function NewExperience() {
 
             <FormField
               name="map_location"
-              label={lang.en.label.address}
+              label={lang.current.label.address}
               type="text"
               value={newExperience.map_location || ''}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.address}
-              tooltip={lang.en.helper.addressOptional}
+              placeholder={lang.current.placeholder.address}
+              tooltip={lang.current.helper.addressOptional}
               tooltipPlacement="top"
             />
 
             <div className="mb-4">
               <Form.Label htmlFor="experience_type">
-                {lang.en.label.experienceTypes}
+                {lang.current.label.experienceTypes}
                 <FormTooltip
-                  content={lang.en.helper.experienceTypesOptional}
+                  content={lang.current.helper.experienceTypesOptional}
                   placement="top"
                 />
               </Form.Label>
               <TagInput
                 tags={tags}
                 onChange={handleTagsChange}
-                placeholder={lang.en.placeholder.experienceType}
+                placeholder={lang.current.placeholder.experienceType}
                 maxTags={4}
               />
             </div>
@@ -370,7 +370,7 @@ export default function NewExperience() {
               <Form.Label>
                 Photos
                 <FormTooltip
-                  content={lang.en.helper.photosOptional}
+                  content={lang.current.helper.photosOptional}
                   placement="top"
                 />
               </Form.Label>
@@ -379,26 +379,26 @@ export default function NewExperience() {
 
             <FormField
               name="max_planning_days"
-              label={lang.en.label.planningDays}
+              label={lang.current.label.planningDays}
               type="number"
               value={newExperience.max_planning_days || ''}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.planningDays}
+              placeholder={lang.current.placeholder.planningDays}
               min="1"
-              tooltip={lang.en.helper.planningTimeTooltip}
+              tooltip={lang.current.helper.planningTimeTooltip}
               tooltipPlacement="top"
               append="days"
             />
 
             <FormField
               name="cost_estimate"
-              label={lang.en.label.costEstimate}
+              label={lang.current.label.costEstimate}
               type="number"
               value={newExperience.cost_estimate || ''}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.costEstimate}
+              placeholder={lang.current.placeholder.costEstimate}
               min="0"
-              tooltip={lang.en.helper.costEstimateOptional}
+              tooltip={lang.current.helper.costEstimateOptional}
               tooltipPlacement="top"
               prepend="$"
             />
@@ -407,9 +407,9 @@ export default function NewExperience() {
               <button
                 type="submit"
                 className="btn btn-primary btn-lg"
-                aria-label={lang.en.button.createExperience}
+                aria-label={lang.current.button.createExperience}
               >
-                {lang.en.button.createExperience}
+                {lang.current.button.createExperience}
               </button>
             </div>
           </Form>

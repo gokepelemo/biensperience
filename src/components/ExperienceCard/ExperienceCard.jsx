@@ -490,8 +490,8 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
               type="button"
               onClick={handleExperienceAction}
               disabled={isLoading}
-              aria-label={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
-              title={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
+              aria-label={experienceAdded ? lang.current.button.removeFromPlan : lang.current.button.addToPlan}
+              title={experienceAdded ? lang.current.button.removeFromPlan : lang.current.button.addToPlan}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
             >
@@ -502,16 +502,16 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
                 <Link
                   to={`/experiences/${experience._id}/update`}
                   className="btn btn-light btn-icon ms-2"
-                  aria-label={lang.en.button.updateExperience}
-                  title={lang.en.button.updateExperience}
+                  aria-label={lang.current.button.updateExperience}
+                  title={lang.current.button.updateExperience}
                 >
                   ✏️
                 </Link>
                 <button
                   className="btn btn-light btn-icon ms-2"
                   onClick={() => setShowDeleteModal(true)}
-                  aria-label={lang.en.button.delete}
-                  title={lang.en.button.delete}
+                  aria-label={lang.current.button.delete}
+                  title={lang.current.button.delete}
                 >
                   ❌
                 </button>
@@ -547,8 +547,8 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
               className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'} ${isLoading ? 'loading' : ''}`}
               onClick={handleExperienceAction}
               disabled={isLoading}
-              aria-label={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
-              title={experienceAdded ? lang.en.button.removeFromPlan : lang.en.button.addToPlan}
+              aria-label={experienceAdded ? lang.current.button.removeFromPlan : lang.current.button.addToPlan}
+              title={experienceAdded ? lang.current.button.removeFromPlan : lang.current.button.addToPlan}
             >
               {experienceAdded ? "-" : "✚"}
             </button>

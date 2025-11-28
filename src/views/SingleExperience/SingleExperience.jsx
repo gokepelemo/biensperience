@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { FaUserPlus, FaTimes, FaUser, FaMapMarkerAlt, FaShare } from "react-icons/fa";
+import { FaUserPlus, FaTimes, FaUser, FaMapMarkerAlt, FaShare, FaRegImage } from "react-icons/fa";
 import { Row, Col, Badge } from "react-bootstrap";
 import { BsPlusCircle, BsPersonPlus, BsCheckCircleFill } from "react-icons/bs";
 import { useUser } from "../../contexts/UserContext";
@@ -24,7 +24,10 @@ import { useCollaboratorUsers } from "../../hooks/useCollaboratorUsers";
 import useCollaboratorManager from "../../hooks/useCollaboratorManager";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
+import PageSchema from '../../components/PageSchema/PageSchema';
+import { buildExperienceSchema } from '../../utilities/schema-utils';
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
+import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
@@ -32,6 +35,7 @@ import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
+import SingleExperienceSkeleton from "./components/SingleExperienceSkeleton";
 import debug from "../../utilities/debug";
 import { logger } from "../../utilities/logger";
 import { createUrlSlug } from "../../utilities/url-utils";
@@ -229,6 +233,10 @@ export default function SingleExperience() {
   const [selectedDetailsItem, setSelectedDetailsItem] = useState(null);
   const [detailsModalInitialTab, setDetailsModalInitialTab] = useState('notes');
 
+  // Photo viewer state for hero overlay button
+  const [showPhotoViewer, setShowPhotoViewer] = useState(false);
+  const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
+
   // Refs
   const planButtonRef = useRef(null);
   const [planBtnWidth, setPlanBtnWidth] = useState(null);
@@ -249,6 +257,19 @@ export default function SingleExperience() {
 
   // Ref for h1 element to ensure proper registration
   const h1Ref = useRef(null);
+
+  // Memoized hero photos array (normalize to objects with url)
+  const heroPhotos = useMemo(() => {
+    const photosSource = (experience && experience.photos && experience.photos.length > 0)
+      ? experience.photos
+      : (experience && experience.destination && experience.destination.photos && experience.destination.photos.length > 0)
+        ? experience.destination.photos
+        : [];
+
+    if (!photosSource || photosSource.length === 0) return [];
+
+    return photosSource.map((p) => (typeof p === 'string' ? { url: p } : p));
+  }, [experience]);
 
   // Ref to track if component is unmounting to prevent navigation interference
   const isUnmountingRef = useRef(false);
@@ -1569,7 +1590,7 @@ export default function SingleExperience() {
         setSelectedDetailsItem(updatedItem);
       }
 
-      success(lang.en.notification?.note?.added || 'Your note has been added and is visible to collaborators');
+      success(lang.current.notification?.note?.added || 'Your note has been added and is visible to collaborators');
     } catch (error) {
       showError(error.message || 'Failed to add note');
     }
@@ -1592,7 +1613,7 @@ export default function SingleExperience() {
         setSelectedDetailsItem(updatedItem);
       }
 
-      success(lang.en.notification?.note?.updated || 'Note updated. All collaborators can see your changes.');
+      success(lang.current.notification?.note?.updated || 'Note updated. All collaborators can see your changes.');
     } catch (error) {
       showError(error.message || 'Failed to update note');
     }
@@ -1615,7 +1636,7 @@ export default function SingleExperience() {
         setSelectedDetailsItem(updatedItem);
       }
 
-      success(lang.en.notification?.note?.deleted || 'Note deleted');
+      success(lang.current.notification?.note?.deleted || 'Note deleted');
     } catch (error) {
       showError(error.message || 'Failed to delete note');
     }
@@ -1647,6 +1668,8 @@ export default function SingleExperience() {
             cost: editingPlanItem.cost || 0,
             planning_days: editingPlanItem.planning_days || 0,
             parent: editingPlanItem.parent || null,
+            activity_type: editingPlanItem.activity_type || null,
+            location: editingPlanItem.location || null,
             complete: false,
           });
         } else {
@@ -1659,6 +1682,8 @@ export default function SingleExperience() {
               cost: editingPlanItem.cost || 0,
               planning_days: editingPlanItem.planning_days || 0,
               parent: editingPlanItem.parent || null,
+              activity_type: editingPlanItem.activity_type || null,
+              location: editingPlanItem.location || null,
             };
           }
         }
@@ -1796,6 +1821,8 @@ export default function SingleExperience() {
             cost_estimate: editingPlanItem.cost || 0,
             planning_days: editingPlanItem.planning_days || 0,
             parent: editingPlanItem.parent || null,
+            activity_type: editingPlanItem.activity_type || null,
+            location: editingPlanItem.location || null,
           });
         } else {
           const idx = updated.plan_items.findIndex((i) => i._id?.toString() === editingPlanItem._id?.toString());
@@ -1807,6 +1834,8 @@ export default function SingleExperience() {
               cost_estimate: editingPlanItem.cost || 0,
               planning_days: editingPlanItem.planning_days || 0,
               parent: editingPlanItem.parent || null,
+              activity_type: editingPlanItem.activity_type || null,
+              location: editingPlanItem.location || null,
             };
           }
         }
@@ -1823,6 +1852,8 @@ export default function SingleExperience() {
             cost_estimate: editingPlanItem.cost || 0,
             planning_days: editingPlanItem.planning_days || 0,
             parent: editingPlanItem.parent || null,
+            activity_type: editingPlanItem.activity_type || null,
+            location: editingPlanItem.location || null,
           });
         } else {
           await updateExperiencePlanItem(experience._id, {
@@ -1832,6 +1863,8 @@ export default function SingleExperience() {
             cost_estimate: editingPlanItem.cost || 0,
             planning_days: editingPlanItem.planning_days || 0,
             parent: editingPlanItem.parent || null,
+            activity_type: editingPlanItem.activity_type || null,
+            location: editingPlanItem.location || null,
           });
         }
       };
@@ -1927,9 +1960,9 @@ export default function SingleExperience() {
     if (typeof document === 'undefined') return;
 
     const candidates = [
-      lang.en.button.addFavoriteExp,
-      lang.en.button.expPlanAdded,
-      lang.en.button.removeFavoriteExp,
+      lang.current.button.addFavoriteExp,
+      lang.current.button.expPlanAdded,
+      lang.current.button.removeFavoriteExp,
     ].filter(Boolean);
 
     // Create a measurement element with same button classes for accurate width
@@ -1976,7 +2009,7 @@ export default function SingleExperience() {
       // Delete plan - hook handles ALL optimistic updates (userHasExperience, userPlan, etc.)
       await deletePlan(userPlan._id);
       debug.log("Plan deleted successfully");
-      success(lang.en.notification?.plan?.removed || "Removed from your plan. You can add it back anytime.");
+      success(lang.current.notification?.plan?.removed || "Removed from your plan. You can add it back anytime.");
 
       setPendingUnplan(false);
     } catch (err) {
@@ -2036,7 +2069,7 @@ export default function SingleExperience() {
 
           // Success feedback
           try {
-            success(lang.en.notification?.plan?.created || "You're planning this experience! Check out your plan in the My Plan tab.");
+            success(lang.current.notification?.plan?.created || "You're planning this experience! Check out your plan in the My Plan tab.");
           } catch (e) {
             // ignore toast failures
           }
@@ -2189,7 +2222,7 @@ export default function SingleExperience() {
     try {
       removeExperience(experience._id); // Instant UI update!
       await deleteExperience(experience._id);
-      const message = lang.en.notification?.experience?.deleted?.replace('{name}', experience.name) || `${experience.name} has been deleted. This action cannot be undone.`;
+      const message = lang.current.notification?.experience?.deleted?.replace('{name}', experience.name) || `${experience.name} has been deleted. This action cannot be undone.`;
       success(message);
       navigate("/experiences");
     } catch (err) {
@@ -2230,7 +2263,7 @@ export default function SingleExperience() {
       const onSuccess = async () => {
         fetchAllData().catch(() => {});
         fetchExperiences().catch(() => {});
-        success(lang.en.notification?.plan?.itemDeleted || 'Item removed from your plan');
+        success(lang.current.notification?.plan?.itemDeleted || 'Item removed from your plan');
       };
 
       const onError = (err, defaultMsg) => {
@@ -2375,7 +2408,7 @@ export default function SingleExperience() {
         fetchCollaborativePlans().catch(() => {});
         fetchUserPlan().catch(() => {});
         fetchPlans().catch(() => {});
-        success(lang.en.notification?.plan?.reordered || 'Your plan order has been saved');
+        success(lang.current.notification?.plan?.reordered || 'Your plan order has been saved');
       };
 
       const onError = (err, defaultMsg) => {
@@ -2445,7 +2478,7 @@ export default function SingleExperience() {
 
         // Refresh experience data to ensure consistency
         fetchAllData().catch(() => {});
-        success(lang.en.notification?.plan?.reordered || 'Your plan order has been saved');
+        success(lang.current.notification?.plan?.reordered || 'Your plan order has been saved');
       };
 
       const onError = (err, defaultMsg) => {
@@ -2477,37 +2510,39 @@ export default function SingleExperience() {
 
   return (
     <>
-      {experience && (
-        <PageOpenGraph
-          title={experience.name}
-          description={`Plan your ${experience.name} experience. ${
-            experience.cost_estimate > 0
-              ? `Estimated cost: ${formatCostEstimate(experience.cost_estimate)}. `
-              : ""
-          }${
-            experience.max_planning_days > 0
-              ? `Planning time: ${formatPlanningTime(experience.max_planning_days)}.`
-              : ""
-          }`}
-          keywords={`${experience.name}, travel, experience, planning${
-            experience.destination && experience.destination.name
-              ? `, ${experience.destination.name}, ${experience.destination.country}`
-              : ""
-          }${
-            experience.experience_type ? `, ${experience.experience_type}` : ""
-          }`}
-          ogTitle={`${experience.name}${
-            experience.destination && experience.destination.name ? ` - ${experience.destination.name}` : ""
-          }`}
-          ogDescription={`Discover and plan ${experience.name}. ${
-            travelTips.length > 0
-              ? travelTips[0]
-              : "Start planning your perfect travel experience today."
-          }`}
-          entity={experience}
-          entityType="experience"
-        />
-      )}
+      
+        {experience && (
+          <PageOpenGraph
+            title={experience.name}
+            description={`Plan your ${experience.name} experience. ${
+              experience.cost_estimate > 0
+                ? `Estimated cost: ${formatCostEstimate(experience.cost_estimate)}. `
+                : ""
+            }${
+              experience.max_planning_days > 0
+                ? `Planning time: ${formatPlanningTime(experience.max_planning_days)}.`
+                : ""
+            }`}
+            keywords={`${experience.name}, travel, experience, planning${
+              experience.destination && experience.destination.name
+                ? `, ${experience.destination.name}, ${experience.destination.country}`
+                : ""
+            }${
+              experience.experience_type ? `, ${experience.experience_type}` : ""
+            }`}
+            ogTitle={`${experience.name}${
+              experience.destination && experience.destination.name ? ` - ${experience.destination.name}` : ""
+            }`}
+            ogDescription={`Discover and plan ${experience.name}. ${
+              travelTips.length > 0
+                ? travelTips[0]
+                : "Start planning your perfect travel experience today."
+            }`}
+            entity={experience}
+            entityType="experience"
+            schema={buildExperienceSchema(experience, window?.location?.origin || '')}
+          />
+        )}
       {experience ? (
         <div className={styles.experienceDetailContainer}>
           <Container>
@@ -2531,6 +2566,18 @@ export default function SingleExperience() {
                       No image available
                     </div>
                   )}
+                  {/* Hero photo viewer button */}
+                  <button
+                    type="button"
+                    className={styles.heroPhotoButton}
+                    onClick={() => {
+                      setPhotoViewerIndex(0);
+                      setShowPhotoViewer(true);
+                    }}
+                    aria-label="View photos"
+                  >
+                    <FaRegImage />
+                  </button>
                 </div>
 
                 {/* Tags Section */}
@@ -2582,7 +2629,7 @@ export default function SingleExperience() {
                 {experience.overview && (
                   <div className={styles.contentCard}>
                     <div className={styles.cardBody}>
-                      <h2 className={styles.cardTitle}>{lang.en.label.overview}</h2>
+                      <h2 className={styles.cardTitle}>{lang.current.label.overview}</h2>
                       <p className={styles.cardDescription}>
                         {experience.overview}
                       </p>
@@ -2789,7 +2836,16 @@ export default function SingleExperience() {
             </Row>
           </Container>
         </div>
-      ) : null}
+      ) : (
+        <SingleExperienceSkeleton />
+      )}
+      {showPhotoViewer && (
+        <PhotoModal
+          photos={heroPhotos}
+          initialIndex={photoViewerIndex}
+          onClose={() => setShowPhotoViewer(false)}
+        />
+      )}
       <ConfirmModal
         show={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
@@ -2975,7 +3031,7 @@ export default function SingleExperience() {
             await assignPlanItem(selectedPlan._id, selectedDetailsItem._id, userId);
 
             // Show success toast
-            const message = lang.en.notification?.collaborator?.assigned?.replace('{name}', assigneeName) || `${assigneeName} is now responsible for this item`;
+            const message = lang.current.notification?.collaborator?.assigned?.replace('{name}', assigneeName) || `${assigneeName} is now responsible for this item`;
             success(message, { duration: 3000 });
 
             // Note: No fetchPlans() call here - optimistic update is sufficient
@@ -3057,7 +3113,7 @@ export default function SingleExperience() {
             await unassignPlanItem(selectedPlan._id, selectedDetailsItem._id);
 
             // Show success toast
-            success(lang.en.notification?.collaborator?.unassigned || 'This item is no longer assigned to anyone', { duration: 3000 });
+            success(lang.current.notification?.collaborator?.unassigned || 'This item is no longer assigned to anyone', { duration: 3000 });
 
             // Note: No fetchPlans() call here - optimistic update is sufficient
             // The plan will sync via WebSocket events or on next natural refresh

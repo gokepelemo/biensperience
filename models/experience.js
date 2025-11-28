@@ -22,6 +22,49 @@ const permissionSchema = new Schema({
   }
 }, { _id: false });
 
+/**
+ * GeoJSON Point schema for location coordinates
+ */
+const geoPointSchema = new Schema({
+  type: {
+    type: String,
+    enum: ['Point'],
+    default: 'Point'
+  },
+  coordinates: {
+    type: [Number], // [longitude, latitude]
+    validate: {
+      validator: function(coords) {
+        if (!coords || coords.length !== 2) return true; // Allow empty/null
+        const [lng, lat] = coords;
+        return lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90;
+      },
+      message: 'Coordinates must be [longitude, latitude] with valid ranges'
+    }
+  }
+}, { _id: false });
+
+/**
+ * Location schema for plan items
+ * Stores human-readable address and GeoJSON Point for geocoding
+ */
+const planItemLocationSchema = new Schema({
+  address: {
+    type: String,
+    trim: true
+  },
+  geo: {
+    type: geoPointSchema,
+    default: null
+  },
+  // Optional additional address components from geocoding
+  city: String,
+  state: String,
+  country: String,
+  postalCode: String,
+  placeId: String // Google Place ID for reference
+}, { _id: false });
+
 const planItemSchema = new Schema({
   text: { type: String },
   photo: { type: Schema.Types.ObjectId, ref: "Photo" },
@@ -29,6 +72,17 @@ const planItemSchema = new Schema({
   cost_estimate: { type: Number },
   planning_days: { type: Number, default: 0 },
   parent: { type: mongoose.Schema.Types.ObjectId }, // reference to parent plan item
+  // Activity type for grouping plan items
+  activity_type: {
+    type: String,
+    enum: ['food', 'transport', 'accommodation', 'activity', 'shopping', 'entertainment', 'sightseeing', 'custom', null],
+    default: null
+  },
+  // Location for the plan item (address and GeoJSON coordinates)
+  location: {
+    type: planItemLocationSchema,
+    default: null
+  }
 });
 
 const experienceSchema = new Schema(

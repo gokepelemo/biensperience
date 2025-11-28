@@ -106,7 +106,7 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
       }
     } catch (err) {
       logger.error('Error loading activity page', { error: err.message }, err);
-      setError('Failed to load activity feed');
+      setError(lang.current.alert.failedToLoadActivityFeed);
     } finally {
       setLoading(false);
       isLoadingRef.current = false;
@@ -161,11 +161,8 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
       </Heading>
       <div ref={scrollRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', flex: 1, overflow: 'auto' }}>
         {activities.length > 0 ? activities.map((activity) => (
-          <HashLink
+          <div
             key={activity.id}
-            to={activity.link}
-            activitySource="dashboard"
-            shouldShake={true}
             style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -176,21 +173,16 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
               textDecoration: 'none',
               color: 'inherit',
               transition: 'all var(--transition-normal)',
-              cursor: activity.link ? 'pointer' : 'default',
             }}
             onMouseEnter={(e) => {
-              if (activity.link) {
-                e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-              }
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
             }}
             onMouseLeave={(e) => {
-              if (activity.link) {
-                e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
             }}
           >
             <div style={{ flex: 1 }}>
@@ -210,7 +202,12 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
               </div>
             </div>
             {activity.link && (
-              <div onClick={(e) => e.stopPropagation()}>
+              <HashLink
+                to={activity.link}
+                activitySource="dashboard"
+                shouldShake={true}
+                style={{ textDecoration: 'none' }}
+              >
                 <Button
                   variant="outline-secondary"
                   size="sm"
@@ -223,9 +220,9 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
                 >
                   View <FaExternalLinkAlt size={12} />
                 </Button>
-              </div>
+              </HashLink>
             )}
-          </HashLink>
+          </div>
         )) : (
           <div style={{
             textAlign: 'center',

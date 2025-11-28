@@ -11,7 +11,7 @@ import PropTypes from "prop-types";
  * @param {Object} props.owner - Primary user object { _id, name, photo }
  * @param {Array} props.users - Array of additional user objects [{ _id, name, photo }]
  * @param {string} props.messageKey - Key for message in lang.constants (e.g., 'CreatingPlan', 'PlanningExperience')
- * @param {string} props.heading - Custom heading text (defaults to lang.en.heading.collaborators)
+ * @param {string} props.heading - Custom heading text (defaults to lang.current.heading.collaborators)
  * @param {number} props.maxVisible - Maximum users to show before "+N" badge (default: 7)
  * @param {boolean} props.showMessage - Whether to show count message (default: true)
  * @param {boolean} props.showHeading - Whether to show heading (default: true)
@@ -38,7 +38,7 @@ const UsersListDisplay = ({
     return (
       <div className={`${styles.usersListDisplay} ${className}`} style={{ minHeight: '40px', minWidth: '200px' }}>
         {/* Always show heading to prevent layout shift */}
-        <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
+        <h6 className="mb-2">{heading || lang.current.heading.collaborators}</h6>
       </div>
     );
   }
@@ -53,7 +53,7 @@ const UsersListDisplay = ({
     return (
       <div className={`${styles.usersListDisplay} ${styles.usersListSingle} ${className}`}>
         {showHeading && (
-          <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
+          <h6 className="mb-2">{heading || lang.current.heading.collaborators}</h6>
         )}
         <UserAvatar user={owner} size={size} />
       </div>
@@ -73,13 +73,13 @@ const UsersListDisplay = ({
   const message = loading
     ? "Loading..." // Show loading message when loading
     : totalCount === 1
-    ? lang.en.message[singularKey]?.replace('{count}', totalCount)
-    : lang.en.message[pluralKey]?.replace('{count}', totalCount);
+    ? lang.current.message[singularKey]?.replace('{count}', totalCount)
+    : lang.current.message[pluralKey]?.replace('{count}', totalCount);
 
   return (
     <div className={`${styles.usersListDisplay} ${className}`}>
       {showHeading && (
-        <h6 className="mb-2">{heading || lang.en.heading.collaborators}</h6>
+        <h6 className="mb-2">{heading || lang.current.heading.collaborators}</h6>
       )}
 
       {/* Loading State: Show only "Loading..." text with animated dots */}

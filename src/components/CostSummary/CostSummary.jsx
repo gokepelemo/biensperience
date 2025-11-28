@@ -75,7 +75,7 @@ export default function CostSummary({
   // Loading state
   loading = false,
 }) {
-  const costStrings = lang.en.cost;
+  const costStrings = lang.current.cost;
 
   // Calculate summary from costs array if summary not provided
   const calculatedSummary = useMemo(() => {
@@ -210,7 +210,7 @@ export default function CostSummary({
             icon={FaUserFriends}
             label={costStrings.perPersonShare}
             value={formatActualCost(perPersonSplit, { exact: true, currency })}
-            subValue={`${collaboratorCount} ${lang.en.label.people}`}
+            subValue={`${collaboratorCount} ${lang.current.label.people}`}
           />
         )}
       </div>

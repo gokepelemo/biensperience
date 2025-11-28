@@ -121,7 +121,7 @@ function SignUpForm(props) {
           isValidating: false,
           isValid: false,
           details: null,
-          error: lang.en.invite.invalidCode,
+          error: lang.current.invite.invalidCode,
         });
       }
     } catch (error) {
@@ -129,7 +129,7 @@ function SignUpForm(props) {
         isValidating: false,
         isValid: false,
         details: null,
-        error: lang.en.invite.invalidCode,
+        error: lang.current.invite.invalidCode,
       });
     }
   };
@@ -143,7 +143,7 @@ function SignUpForm(props) {
       const user = await signUp(formData);
       props.setUser(user);
     } catch {
-      setState({ ...state, error: lang.en.alert.signupFailed });
+      setState({ ...state, error: lang.current.alert.signupFailed });
     }
   };
 
@@ -182,15 +182,15 @@ function SignUpForm(props) {
         <Card className={styles.authCard}>
           {/* Header */}
           <div className={styles.authHeader}>
-            <h1 className={styles.authTitle}>{lang.en.heading.createAccount}</h1>
-            <p className={styles.authSubtitle}>{lang.en.message.joinCommunity}</p>
+            <h1 className={styles.authTitle}>{lang.current.heading.createAccount}</h1>
+            <p className={styles.authSubtitle}>{lang.current.message.joinCommunity}</p>
           </div>
 
           {/* Form */}
           <Form onSubmit={handleSubmit} autoComplete="off">
             {/* Name Field */}
             <Form.Group className="mb-4">
-              <Form.Label className={styles.formLabel}>{lang.en.label.name}</Form.Label>
+              <Form.Label className={styles.formLabel}>{lang.current.label.name}</Form.Label>
               <InputGroup className={styles.inputGroup}>
                 <InputGroup.Text className={styles.inputIcon}>
                   <FaUser />
@@ -200,7 +200,7 @@ function SignUpForm(props) {
                   name="name"
                   value={state.name}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.name}
+                  placeholder={lang.current.placeholder.name}
                   required
                   autoComplete="name"
                   className={styles.formInput}
@@ -210,7 +210,7 @@ function SignUpForm(props) {
 
             {/* Email Field */}
             <Form.Group className="mb-4">
-              <Form.Label className={styles.formLabel}>{lang.en.label.email}</Form.Label>
+              <Form.Label className={styles.formLabel}>{lang.current.label.email}</Form.Label>
               <InputGroup className={styles.inputGroup}>
                 <InputGroup.Text className={styles.inputIcon}>
                   <FaEnvelope />
@@ -220,7 +220,7 @@ function SignUpForm(props) {
                   name="email"
                   value={state.email}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.email}
+                  placeholder={lang.current.placeholder.email}
                   required
                   autoComplete="email"
                   className={styles.formInput}
@@ -230,7 +230,7 @@ function SignUpForm(props) {
 
             {/* Password Field */}
             <Form.Group className="mb-4">
-              <Form.Label className={styles.formLabel}>{lang.en.label.password}</Form.Label>
+              <Form.Label className={styles.formLabel}>{lang.current.label.password}</Form.Label>
               <InputGroup className={styles.inputGroup}>
                 <InputGroup.Text className={styles.inputIcon}>
                   <FaLock />
@@ -240,7 +240,7 @@ function SignUpForm(props) {
                   name="password"
                   value={state.password}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.password}
+                  placeholder={lang.current.placeholder.password}
                   required
                   autoComplete="new-password"
                   className={styles.formInput}
@@ -257,7 +257,7 @@ function SignUpForm(props) {
 
             {/* Confirm Password Field */}
             <Form.Group className="mb-4">
-              <Form.Label className={styles.formLabel}>{lang.en.label.confirmPassword}</Form.Label>
+              <Form.Label className={styles.formLabel}>{lang.current.label.confirmPassword}</Form.Label>
               <InputGroup className={styles.inputGroup}>
                 <InputGroup.Text className={styles.inputIcon}>
                   <FaLock />
@@ -267,7 +267,7 @@ function SignUpForm(props) {
                   name="confirm"
                   value={state.confirm}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.confirmPassword}
+                  placeholder={lang.current.placeholder.confirmPassword}
                   required
                   autoComplete="new-password"
                   className={styles.formInput}
@@ -284,7 +284,7 @@ function SignUpForm(props) {
 
             {/* Invite Code Field */}
             <Form.Group className="mb-4">
-              <Form.Label className={styles.formLabel}>{lang.en.invite.inviteCodeOptional}</Form.Label>
+              <Form.Label className={styles.formLabel}>{lang.current.invite.inviteCodeOptional}</Form.Label>
               <InputGroup className={styles.inputGroup}>
                 <InputGroup.Text className={styles.inputIcon}>
                   <FaTicketAlt />
@@ -302,22 +302,22 @@ function SignUpForm(props) {
               </InputGroup>
               {inviteValidation.isValidating && (
                 <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
-                  {lang.en.invite.validatingCode}
+                  {lang.current.invite.validatingCode}
                 </small>
               )}
               {inviteValidation.isValid && inviteValidation.details && (
                 <div className={styles.inviteDetails}>
                   <small className="text-success" style={{ display: 'block' }}>
-                    ✓ {lang.en.invite.validCode}
+                    ✓ {lang.current.invite.validCode}
                   </small>
                   {inviteValidation.details.requiresEmail && (
                     <small className="text-muted" style={{ display: 'block', marginTop: '0.25rem' }}>
-                      {inviteValidation.details.message || lang.en.invite.enterEmailForDetails}
+                      {inviteValidation.details.message || lang.current.invite.enterEmailForDetails}
                     </small>
                   )}
                   {!inviteValidation.details.requiresEmail && inviteValidation.details.inviterName && (
                     <small className={styles.inviterInfo} style={{ display: 'block', marginTop: '0.25rem' }}>
-                      {lang.en.invite.invitedBy.replace('{name}', inviteValidation.details.inviterName)}
+                      {lang.current.invite.invitedBy.replace('{name}', inviteValidation.details.inviterName)}
                     </small>
                   )}
                   {!inviteValidation.details.requiresEmail && inviteValidation.details.customMessage && (
@@ -327,7 +327,7 @@ function SignUpForm(props) {
                   )}
                   {!inviteValidation.details.requiresEmail && inviteValidation.details.experienceNames?.length > 0 && (
                     <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
-                      <small className="text-muted">{lang.en.invite.experiencesIncluded}:</small>
+                      <small className="text-muted">{lang.current.invite.experiencesIncluded}:</small>
                       <ul className={styles.resourceList}>
                         {inviteValidation.details.experienceNames.map((name, idx) => (
                           <li key={idx}><small>{name}</small></li>
@@ -337,7 +337,7 @@ function SignUpForm(props) {
                   )}
                   {!inviteValidation.details.requiresEmail && inviteValidation.details.destinationNames?.length > 0 && (
                     <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
-                      <small className="text-muted">{lang.en.invite.destinationsIncluded}:</small>
+                      <small className="text-muted">{lang.current.invite.destinationsIncluded}:</small>
                       <ul className={styles.resourceList}>
                         {inviteValidation.details.destinationNames.map((name, idx) => (
                           <li key={idx}><small>{name}</small></li>
@@ -354,7 +354,7 @@ function SignUpForm(props) {
               )}
               {state.inviteCode && !inviteValidation.isValidating && !inviteValidation.isValid && !inviteValidation.error && (
                 <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
-                  {lang.en.invite.inviteCodeHelp}
+                  {lang.current.invite.inviteCodeHelp}
                 </small>
               )}
             </Form.Group>
@@ -367,13 +367,13 @@ function SignUpForm(props) {
                 onChange={(e) => setAgreedToTerms(e.target.checked)}
                 label={
                   <span className={styles.termsLabel}>
-                    {lang.en.message.agreeToTermsPrefix}{' '}
+                    {lang.current.message.agreeToTermsPrefix}{' '}
                     <a href="#" onClick={handleTermsClick} className={styles.termsLink}>
-                      {lang.en.label.termsOfService}
+                      {lang.current.label.termsOfService}
                     </a>
-                    {' '}{lang.en.message.and}{' '}
+                    {' '}{lang.current.message.and}{' '}
                     <a href="#" onClick={handlePrivacyClick} className={styles.termsLink}>
-                      {lang.en.label.privacyPolicy}
+                      {lang.current.label.privacyPolicy}
                     </a>
                   </span>
                 }
@@ -395,10 +395,10 @@ function SignUpForm(props) {
               disabled={disable}
               className={styles.submitBtn}
             >
-              {lang.en.button.signup} <FaArrowRight />
+              {lang.current.button.signup} <FaArrowRight />
             </Button>
 
-            <Divider label={lang.en.label.orSignUpWith} shadow="md" />
+            <Divider label={lang.current.label.orSignUpWith} shadow="md" />
 
             {/* Social Login Buttons */}
             <SocialLoginButtons actionType="signup" showDivider={false} />
@@ -407,9 +407,9 @@ function SignUpForm(props) {
 
         {/* Sign In Link */}
         <div className={styles.authFooter}>
-          <span>{lang.en.message.alreadyHaveAccount}</span>{' '}
+          <span>{lang.current.message.alreadyHaveAccount}</span>{' '}
           <button type="button" className={styles.switchLink} onClick={handleLoginClick}>
-            {lang.en.button.signIn}
+            {lang.current.button.signIn}
           </button>
         </div>
       </div>

@@ -51,8 +51,8 @@ export default function InviteTracking() {
       });
     } catch (err) {
       logger.error('Failed to load invites', {}, err);
-      setError('Failed to load invite codes. Please try again.');
-      showError('Failed to load invite codes');
+      setError(lang.current.alert.failedToLoadInviteCodes);
+      showError(lang.current.alert.failedToLoadInviteCodes);
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +75,7 @@ export default function InviteTracking() {
       setActiveTab('details');
     } catch (err) {
       logger.error('Failed to load invite details', { code }, err);
-      showError('Failed to load invite details');
+      showError(lang.current.alert.failedToLoadInviteDetails);
     }
   };
 
@@ -160,7 +160,7 @@ export default function InviteTracking() {
         <Card.Body className="p-0">
           {invites.length === 0 ? (
             <div className="p-5 text-center">
-              <Alert type="info" message="You haven't created any invite codes yet." />
+              <Alert type="info" message={lang.current.message.noInviteCodes} />
             </div>
           ) : (
             <div className="table-responsive">
@@ -211,7 +211,7 @@ export default function InviteTracking() {
                           className="btn btn-sm btn-outline-primary"
                           onClick={() => loadInviteDetails(invite.code)}
                         >
-                          View Details
+                          {lang.current.button.viewDetails}
                         </button>
                       </td>
                     </tr>
@@ -227,7 +227,7 @@ export default function InviteTracking() {
 
   const renderDetails = () => {
     if (!selectedInvite) {
-      return <Alert type="info" message="Select an invite code to view details." />;
+      return <Alert type="info" message={lang.current.message.selectInviteCode} />;
     }
 
     return (
@@ -236,7 +236,7 @@ export default function InviteTracking() {
           className="btn btn-outline-secondary mb-3"
           onClick={() => setActiveTab('overview')}
         >
-          {lang.en.button.backToOverview}
+          {lang.current.button.backToOverview}
         </button>
 
         <div className={styles.inviteDetailsGrid}>
@@ -341,7 +341,7 @@ export default function InviteTracking() {
               <Card.Body className="p-0">
                 {!selectedInvite.redeemedBy || selectedInvite.redeemedBy.length === 0 ? (
                   <div className="p-5 text-center">
-                    <Alert type="info" message="No one has redeemed this invite code yet" />
+                    <Alert type="info" message={lang.current.message.noInviteRedemptions} />
                   </div>
                 ) : (
                   <div className="table-responsive">
@@ -391,7 +391,7 @@ export default function InviteTracking() {
 
   const renderAnalytics = () => {
     if (!analytics) {
-      return <Loading size="lg" message="Loading analytics..." />;
+      return <Loading size="lg" message={lang.current.alert.loadingAnalytics} />;
     }
 
     return (
@@ -535,7 +535,7 @@ export default function InviteTracking() {
         )}
 
         {isLoading ? (
-          <Loading size="lg" message="Loading invite tracking data..." />
+          <Loading size="lg" message={lang.current.alert.loadingInviteTracking} />
         ) : (
           <Tabs
             activeKey={activeTab}

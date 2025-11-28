@@ -255,6 +255,7 @@ const userSchema = new Schema(
         theme: { type: String, enum: ['light', 'dark', 'system-default'], default: 'system-default' },
         currency: { type: String, default: 'USD' },
         language: { type: String, default: DEFAULT_LANG },
+        timezone: { type: String, default: 'UTC' },
         profileVisibility: { type: String, enum: ['private','public'], default: 'public' },
         notifications: {
           enabled: { type: Boolean, default: true },

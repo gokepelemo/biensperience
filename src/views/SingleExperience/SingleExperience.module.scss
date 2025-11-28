@@ -52,6 +52,47 @@
   }
 }
 
+/* Small transparent outline photo button in bottom-right of hero */
+.heroPhotoButton {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  background: rgba(255,255,255,0.06);
+  border: 2px solid rgba(255,255,255,0.9);
+  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  backdrop-filter: blur(4px);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  svg {
+    font-size: 1.125rem;
+  }
+
+  @include breakpoint-max(md) {
+    right: 8px;
+    bottom: 8px;
+    width: 40px;
+    height: 40px;
+  }
+}
+
 /* Tags Section - Below Hero */
 .tagsSection {
   display: flex;
@@ -352,11 +393,6 @@
   grid-template-columns: 1fr 1fr;
   gap: $space-4;
   margin-bottom: $space-4;
-
-  @include breakpoint-max(md) {
-    grid-template-columns: 1fr;
-    gap: $space-2;
-  }
 }
 
 /* Planned Date Badge */
@@ -635,6 +671,21 @@
     background: var(--color-bg-secondary);
   }
 
+  // Hierarchy change animations - visual snap feedback on drop
+  // Snap right animation - item was nested (became a child)
+  &:global(.hierarchy-nested) {
+    animation: snapNestRight 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    border-color: var(--color-success);
+    box-shadow: 0 0 12px var(--color-success-alpha-30, rgba(40, 167, 69, 0.3));
+  }
+
+  // Snap left animation - item was promoted (became root)
+  &:global(.hierarchy-promoted) {
+    animation: snapPromoteLeft 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    border-color: var(--color-info);
+    box-shadow: 0 0 12px var(--color-info-alpha-30, rgba(23, 162, 184, 0.3));
+  }
+
   // Deep-link highlight - shake + pulse animation for navigation
   &:global(.deep-link-highlight) {
     animation:
@@ -759,9 +810,8 @@
   background: var(--color-bg-secondary);
   border-radius: var(--radius-full);
   font-weight: $font-weight-medium;
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
-  color: var(--color-single-experience-text-grey);
+    /* Keep a single divider line via .plan-item-details { border-top: ... }.
+       Removed border-bottom here to prevent a doubled divider in dark mode. */
 }
 
 :global(.plan-item-assigned),
@@ -858,6 +908,100 @@
       flex: 1 1 auto; /* Allow buttons to grow/shrink */
       min-width: 0; /* Allow shrinking below content width */
     }
+  }
+}
+
+/* Plan Actions Dropdown - Unified + button with dropdown menu */
+:global(.plan-actions-dropdown) {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+
+  // Center on mobile/tablet
+  @include breakpoint-max(md) {
+    width: 100%;
+    align-items: center;
+  }
+
+  :global(.dropdown-toggle-btn) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 1.25rem;
+
+    svg {
+      margin: 0;
+    }
+  }
+
+  :global(.plan-actions-menu) {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 1000;
+    min-width: 200px;
+    margin-top: $space-2;
+    padding: $space-2 0;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: $radius-lg;
+    box-shadow: var(--shadow-lg);
+
+    // Center dropdown under button on mobile/tablet
+    @include breakpoint-max(md) {
+      right: auto;
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: 220px;
+    }
+  }
+
+  :global(.plan-actions-item) {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: $space-3 $space-4;
+    border: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    svg {
+      font-size: 1.1em;
+      flex-shrink: 0;
+    }
+  }
+}
+
+/* Spin animation for sync icon */
+:global(.spin) {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -1533,6 +1677,46 @@
   }
 }
 
+/* Snap Nest Right - item became a child (nested under parent) */
+@keyframes snapNestRight {
+  0% {
+    transform: translateX(0);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translateX(24px);
+    opacity: 0.85;
+  }
+  60% {
+    transform: translateX(16px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Snap Promote Left - item became root (promoted from child) */
+@keyframes snapPromoteLeft {
+  0% {
+    transform: translateX(0);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translateX(-24px);
+    opacity: 0.85;
+  }
+  60% {
+    transform: translateX(-8px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 :global(.shake-animation) {
   animation: shake 2s cubic-bezier(0.36, 0.07, 0.19, 0.97) both,
              borderPulse 2s ease-in-out both;
@@ -1869,10 +2053,8 @@
         box-shadow: var(--shadow-md);
       }
     }
-
-    :global(.plan-item-header) {
-      border-bottom: 1px solid var(--color-border-medium);
-    }
+    /* Keep a single divider line via .plan-item-details { border-top: ... }.
+       Removed border-bottom here to prevent a doubled divider in dark mode. */
 
     :global(.plan-item-details) {
       background: var(--color-bg-secondary);

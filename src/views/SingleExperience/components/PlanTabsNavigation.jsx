@@ -55,7 +55,7 @@ export default function PlanTabsNavigation({
         }`}
         onClick={() => setActiveTab("experience")}
       >
-        {lang.en.heading.thePlan}
+        {lang.current.heading.thePlan}
       </button>
 
       {/* My Plan Tab(s) - Loading or Dropdown/Button */}

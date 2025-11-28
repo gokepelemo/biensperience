@@ -4,9 +4,9 @@
  * This is the "The Plan" tab showing the master plan items defined by the experience owner
  */
 
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BsPlusCircle } from 'react-icons/bs';
-import { FaUserPlus } from 'react-icons/fa';
+import { BsPlusCircle, BsPersonPlus } from 'react-icons/bs';
 import {
   DndContext,
   closestCenter,
@@ -121,9 +121,9 @@ function SortableExperiencePlanItem({
 
         {/* Drag handle - for all items when user can edit */}
         {canEdit && (
-          <div className="drag-handle-wrapper">
+          <div {...attributes} {...listeners} className="drag-handle-wrapper" style={{ cursor: isDragging ? 'grabbing' : 'grab' }}>
             <DragHandle
-              id={planItem._id.toString()}
+              isDragging={isDragging}
               disabled={!canEdit}
             />
           </div>
@@ -138,8 +138,8 @@ function SortableExperiencePlanItem({
                   onClick={() =>
                     handleAddExperiencePlanItem(planItem._id)
                   }
-                  aria-label={`${lang.en.button.addChild} to ${planItem.text}`}
-                  title={lang.en.button.addChild}
+                  aria-label={`${lang.current.button.addChild} to ${planItem.text}`}
+                  title={lang.current.button.addChild}
                 >
                   ✚
                 </button>
@@ -149,8 +149,8 @@ function SortableExperiencePlanItem({
                 onClick={() =>
                   handleEditExperiencePlanItem(planItem)
                 }
-                aria-label={`${lang.en.button.edit} ${planItem.text}`}
-                title={lang.en.tooltip.edit}
+                aria-label={`${lang.current.button.edit} ${planItem.text}`}
+                title={lang.current.tooltip.edit}
               >
                 ✏️
               </button>
@@ -160,8 +160,8 @@ function SortableExperiencePlanItem({
                   setPlanItemToDelete(planItem._id);
                   setShowPlanDeleteModal(true);
                 }}
-                aria-label={`${lang.en.button.delete} ${planItem.text}`}
-                title={lang.en.tooltip.delete}
+                aria-label={`${lang.current.button.delete} ${planItem.text}`}
+                title={lang.current.tooltip.delete}
               >
                 ✖️
               </button>
@@ -191,6 +191,67 @@ function SortableExperiencePlanItem({
               </span>
             )}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ExperiencePlanActionsDropdown - Unified dropdown for Add Plan Item and Collaborators actions
+ */
+function ExperiencePlanActionsDropdown({
+  handleAddExperiencePlanItem,
+  openCollaboratorModal,
+  lang
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="plan-actions-dropdown" ref={dropdownRef}>
+      <button
+        className="btn btn-primary dropdown-toggle-btn"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+        aria-label="Plan actions menu"
+      >
+        <BsPlusCircle />
+      </button>
+      {isOpen && (
+        <div className="plan-actions-menu">
+          <button
+            className="plan-actions-item"
+            onClick={() => {
+              handleAddExperiencePlanItem();
+              setIsOpen(false);
+            }}
+          >
+            <BsPlusCircle className="me-2" />
+            {lang.current.button.addPlanItem}
+          </button>
+          <button
+            className="plan-actions-item"
+            onClick={() => {
+              openCollaboratorModal("experience");
+              setIsOpen(false);
+            }}
+          >
+            <BsPersonPlus className="me-2" />
+            {lang.current.button.addCollaborators}
+          </button>
         </div>
       )}
     </div>
@@ -242,6 +303,15 @@ export default function ExperienceTabContent({
   // Handle drag end event with hierarchy support
   const handleDragEnd = (event) => {
     const { active, over } = event;
+
+    // Debug: Log full event structure to verify delta is available
+    debug.log('[ExperienceDrag] Full event structure', {
+      hasActive: !!active,
+      hasOver: !!over,
+      delta: event.delta,
+      deltaX: event.delta?.x,
+      deltaY: event.delta?.y
+    });
 
     if (!active || !over || active.id === over.id) {
       return;
@@ -412,13 +482,48 @@ export default function ExperienceTabContent({
       return;
     }
 
+    // Determine hierarchy change type for visual feedback
+    const newParentId = draggedItemCopy.parent?.toString() || null;
+    const hierarchyChanged = draggedParentId !== newParentId;
+    let hierarchyChangeType = null;
+    if (hierarchyChanged) {
+      if (newParentId && !draggedParentId) {
+        // Was root, now has parent → nested
+        hierarchyChangeType = 'nested';
+      } else if (!newParentId && draggedParentId) {
+        // Was child, now root → promoted
+        hierarchyChangeType = 'promoted';
+      } else if (newParentId && draggedParentId && newParentId !== draggedParentId) {
+        // Changed parents → nested (reparented)
+        hierarchyChangeType = 'nested';
+      }
+    }
+
     debug.log('[ExperienceDrag] Reordered items', {
       activeId: active.id,
       overId: over.id,
       oldIndex,
       newIndex,
-      hierarchyChanged: draggedParentId !== (draggedItemCopy.parent?.toString() || null)
+      hierarchyChanged,
+      hierarchyChangeType
     });
+
+    // Apply visual snap animation for hierarchy changes
+    if (hierarchyChangeType) {
+      const draggedItemElement = document.querySelector(`[data-plan-item-id="${draggedId}"]`);
+      if (draggedItemElement) {
+        // Remove any existing hierarchy classes
+        draggedItemElement.classList.remove('hierarchy-nested', 'hierarchy-promoted');
+        // Force reflow to restart animation
+        void draggedItemElement.offsetWidth;
+        // Add the appropriate class
+        draggedItemElement.classList.add(`hierarchy-${hierarchyChangeType}`);
+        // Remove class after animation completes
+        setTimeout(() => {
+          draggedItemElement.classList.remove(`hierarchy-${hierarchyChangeType}`);
+        }, 500);
+      }
+    }
 
     if (onReorderExperiencePlanItems) {
       onReorderExperiencePlanItems(experience._id, reorderedItems, active.id.toString());
@@ -474,24 +579,13 @@ export default function ExperienceTabContent({
           reserveSpace={true}
         />
 
-        {/* Action Buttons - Right Side */}
+        {/* Action Dropdown - Right Side */}
         {isOwner(user, experience) && (
-          <div className="plan-action-buttons">
-            <button
-              className="btn btn-primary"
-              onClick={() => handleAddExperiencePlanItem()}
-            >
-              <BsPlusCircle className="me-2" />
-              {lang.en.button.addPlanItem}
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={() => openCollaboratorModal("experience")}
-            >
-              <FaUserPlus className="me-2" />
-              {lang.en.button.addCollaborators}
-            </button>
-          </div>
+          <ExperiencePlanActionsDropdown
+            handleAddExperiencePlanItem={handleAddExperiencePlanItem}
+            openCollaboratorModal={openCollaboratorModal}
+            lang={lang}
+          />
         )}
       </div>
 

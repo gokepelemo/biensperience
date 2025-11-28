@@ -55,7 +55,7 @@ export default function UpdateExperience() {
 
   const handleFormError = useFormErrorHandling(setError, {
     onEmailNotVerified: (data) => {
-      showError(data.error || lang.en.alert.emailNotVerifiedMessage);
+      showError(data.error || lang.current.alert.emailNotVerifiedMessage);
     }
   });
 
@@ -88,7 +88,7 @@ export default function UpdateExperience() {
         const canEdit = isOwner(user, experienceData) || isSuperAdmin(user);
 
         if (!canEdit) {
-          setError(lang.en.alert.notAuthorizedToUpdateExperience);
+          setError(lang.current.alert.notAuthorizedToUpdateExperience);
           setLoading(false);
           return;
         }
@@ -126,7 +126,7 @@ export default function UpdateExperience() {
         setTimeout(() => setIsInitialLoad(false), 100);
       } catch (err) {
         const errorMessage = handleError(err, { context: 'Loading experience for update' });
-        setError(errorMessage || lang.en.alert.failedToLoadResource);
+        setError(errorMessage || lang.current.alert.failedToLoadResource);
         setLoading(false);
       }
     }
@@ -338,7 +338,7 @@ export default function UpdateExperience() {
     setError("");
 
     if (Object.keys(changes).length === 0) {
-      setError(lang.en.alert.noChangesDetected);
+      setError(lang.current.alert.noChangesDetected);
       return;
     }
 
@@ -367,7 +367,7 @@ export default function UpdateExperience() {
 
       const updated = await updateExpAPI(experienceId, dataToUpdate);
       updateExperience(updated); // Instant UI update!
-      const message = lang.en.notification?.experience?.updated?.replace('{name}', updated.name) || `Your changes to ${updated.name} have been saved.`;
+      const message = lang.current.notification?.experience?.updated?.replace('{name}', updated.name) || `Your changes to ${updated.name} have been saved.`;
       success(message);
       navigate(`/experiences/${experienceId}`);
     } catch (err) {
@@ -399,20 +399,20 @@ export default function UpdateExperience() {
           <div className="col-md-8">
             <Alert
               type="danger"
-              title={lang.en.modal.unableToUpdateExperience}
+              title={lang.current.modal.unableToUpdateExperience}
             >
-              <p>{error || lang.en.modal.experienceNotFoundOrNoPermission}</p>
+              <p>{error || lang.current.modal.experienceNotFoundOrNoPermission}</p>
               <hr />
               <p className="mb-0">Please check that you have the correct permissions and try again.</p>
             </Alert>
             <div className="text-center mt-3">
               {experienceId && !error.includes('not authorized') && (
                 <Link to={`/experiences/${experienceId}`} className="btn btn-primary me-2">
-                  {lang.en.button.backToExperience}
+                  {lang.current.button.backToExperience}
                 </Link>
               )}
               <Link to="/experiences" className="btn btn-secondary">
-                {lang.en.button.viewAllExperiences}
+                {lang.current.button.viewAllExperiences}
               </Link>
             </div>
           </div>
@@ -423,16 +423,16 @@ export default function UpdateExperience() {
 
   return (
     <>
-      <div className="row animation-fade_in">
+      <div className="row animation-fade-in">
         <div className="col-12">
-          <h1 className="form-title">{lang.en.heading.updateExperience}</h1>
+          <h1 className="form-title">{lang.current.heading.updateExperience}</h1>
         </div>
       </div>
 
       {!isInitialLoad && isMediaSettled && Object.keys(changes).length > 0 && (
         <Alert
           type="info"
-          className="mb-4 animation-fade_in"
+          className="mb-4 animation-fade-in"
         >
           <strong>Changes detected:</strong>
           <ul className="mb-0 mt-2">
@@ -445,25 +445,25 @@ export default function UpdateExperience() {
         </Alert>
       )}
 
-      <div className="row my-4 animation-fade_in">
+      <div className="row my-4 animation-fade-in">
         <div className="col-12">
           <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
               name="name"
-              label={lang.en.label.title}
+              label={lang.current.label.title}
               type="text"
               value={experience.name || ''}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.experienceName}
+              placeholder={lang.current.placeholder.experienceName}
               required
-              tooltip={lang.en.helper.nameRequired}
+              tooltip={lang.current.helper.nameRequired}
               tooltipPlacement="top"
             />
 
             <div className="mb-4">
               <Form.Group>
                 <Form.Label>
-                  {lang.en.label.overview}
+                  {lang.current.label.overview}
                 </Form.Label>
                 <Form.Control
                   as="textarea"
@@ -471,10 +471,10 @@ export default function UpdateExperience() {
                   rows={4}
                   value={experience.overview || ''}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.overview}
+                  placeholder={lang.current.placeholder.overview}
                 />
                 <small className="form-text text-muted">
-                  {lang.en.helper.overviewOptional}
+                  {lang.current.helper.overviewOptional}
                 </small>
               </Form.Group>
             </div>
@@ -482,12 +482,12 @@ export default function UpdateExperience() {
             <div className="mb-4">
               <Form.Group>
                 <Form.Label>
-                  {lang.en.label.destinationLabel}
+                  {lang.current.label.destinationLabel}
                   {' '}
                   <span className="text-danger">*</span>
                 </Form.Label>
                 <Autocomplete
-                  placeholder={lang.en.placeholder.destination}
+                  placeholder={lang.current.placeholder.destination}
                   entityType="destination"
                   items={(() => {
                     // Use trie filtering for O(m) performance
@@ -579,14 +579,14 @@ export default function UpdateExperience() {
                   disableFilter={true}
                 />
                 <small className="form-text text-muted mt-2 d-block">
-                  {lang.en.helper.destinationRequired}
+                  {lang.current.helper.destinationRequired}
                   <button
                     type="button"
                     onClick={handleCreateDestinationClick}
                     className="btn btn-link p-0 ms-1 align-baseline"
                     style={{ textDecoration: 'none' }}
                   >
-                    {lang.en.helper.createNewDestination}
+                    {lang.current.helper.createNewDestination}
                   </button>
                 </small>
               </Form.Group>
@@ -594,28 +594,28 @@ export default function UpdateExperience() {
 
             <div className="mb-4">
               <Form.Label htmlFor="experience_type">
-                {lang.en.label.experienceTypes}
+                {lang.current.label.experienceTypes}
               </Form.Label>
               <TagInput
                 tags={tags}
-                label={lang.en.label.experienceTypes}
+                label={lang.current.label.experienceTypes}
                 onChange={handleTagsChange}
-                placeholder={lang.en.placeholder.experienceType}
+                placeholder={lang.current.placeholder.experienceType}
                 maxTags={4}
               />
               <small className="form-text text-muted">
-                {lang.en.helper.experienceTypesOptional}
+                {lang.current.helper.experienceTypesOptional}
               </small>
             </div>
 
             <FormField
               name="map_location"
-              label={lang.en.label.address}
+              label={lang.current.label.address}
               type="text"
               value={experience.map_location || ''}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.address}
-              tooltip={lang.en.helper.addressOptional}
+              placeholder={lang.current.placeholder.address}
+              tooltip={lang.current.helper.addressOptional}
               tooltipPlacement="top"
             />
 
@@ -623,14 +623,14 @@ export default function UpdateExperience() {
               <div className="col-md-6 mb-3 mb-md-0">
                 <FormField
                   name="max_planning_days"
-                  label={lang.en.label.planningDays}
+                  label={lang.current.label.planningDays}
                   type="number"
                   value={experience.max_planning_days || ''}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.planningDays}
+                  placeholder={lang.current.placeholder.planningDays}
                   min="1"
                   append="days"
-                  tooltip={lang.en.helper.planningTimeTooltip}
+                  tooltip={lang.current.helper.planningTimeTooltip}
                   tooltipPlacement="top"
                 />
               </div>
@@ -638,14 +638,14 @@ export default function UpdateExperience() {
               <div className="col-md-6">
                 <FormField
                   name="cost_estimate"
-                  label={lang.en.label.costEstimate}
+                  label={lang.current.label.costEstimate}
                   type="number"
                   value={experience.cost_estimate || ''}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.costEstimate}
+                  placeholder={lang.current.placeholder.costEstimate}
                   min="0"
                   prepend="$"
-                  tooltip={lang.en.helper.costEstimateOptional}
+                  tooltip={lang.current.helper.costEstimateOptional}
                   tooltipPlacement="top"
                 />
               </div>
@@ -676,19 +676,19 @@ export default function UpdateExperience() {
               <Link
                 to={`/experiences/${experienceId}`}
                 className="btn btn-secondary btn-lg"
-                aria-label={lang.en.button.cancel}
+                aria-label={lang.current.button.cancel}
               >
-                {lang.en.button.cancel}
+                {lang.current.button.cancel}
               </Link>
               <button
                 type="button"
                 className="btn btn-primary btn-lg"
                 onClick={handleConfirmUpdate}
                 disabled={Object.keys(changes).length === 0}
-                aria-label={lang.en.button.confirmUpdate}
+                aria-label={lang.current.button.confirmUpdate}
                 aria-disabled={Object.keys(changes).length === 0}
               >
-                {lang.en.button.confirmUpdate}
+                {lang.current.button.confirmUpdate}
               </button>
             </div>
           </Form>
@@ -699,12 +699,12 @@ export default function UpdateExperience() {
         show={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
         onSubmit={confirmUpdate}
-        title={lang.en.modal.confirmExperienceUpdate}
-        submitText={lang.en.button.updateExperience}
+        title={lang.current.modal.confirmExperienceUpdate}
+        submitText={lang.current.button.updateExperience}
         submitVariant="primary"
-        cancelText={lang.en.button.cancel}
+        cancelText={lang.current.button.cancel}
       >
-        <p>{lang.en.modal.confirmUpdateReview}</p>
+        <p>{lang.current.modal.confirmUpdateReview}</p>
         <ul className="list-group">
           {Object.entries(changes).map(([field, change]) => (
             <li key={field} className="list-group-item">

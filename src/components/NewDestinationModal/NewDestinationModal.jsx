@@ -67,7 +67,7 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
       addDestination(createdDestination);
 
       // Show success message
-      const message = lang.en.notification?.destination?.created?.replace('{name}', `${createdDestination.name}, ${createdDestination.country}`) || `${createdDestination.name}, ${createdDestination.country} has been added to Biensperience!`;
+      const message = lang.current.notification?.destination?.created?.replace('{name}', `${createdDestination.name}, ${createdDestination.country}`) || `${createdDestination.name}, ${createdDestination.country} has been added to Biensperience!`;
       success(message);
 
       // Reset form
@@ -87,7 +87,7 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
 
       // Check for email verification error
       if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
-        setError(err.response.data.error || lang.en.alert.emailNotVerifiedMessage);
+        setError(err.response.data.error || lang.current.alert.emailNotVerifiedMessage);
       } else {
         setError(errorMsg);
       }
@@ -106,7 +106,7 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
     <Modal
       show={show}
       onClose={handleCancel}
-      title={lang.en.modal.addNewDestination}
+      title={lang.current.modal.addNewDestination}
       contentClassName={styles.newDestinationModal}
       footer={
         <>

@@ -13,6 +13,46 @@ const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activ
 function escapeRegex(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+/**
+ * Sanitize location data to prevent GeoJSON validation errors
+ * Ensures proper format or null if invalid
+ * @param {Object} location - Location object from request
+ * @returns {Object|null} Sanitized location or null
+ */
+function sanitizeLocation(location) {
+  if (!location) return null;
+
+  // If location is empty object or only has null/empty values, return null
+  const hasAddress = location.address && typeof location.address === 'string' && location.address.trim();
+  const hasGeo = location.geo && location.geo.coordinates && Array.isArray(location.geo.coordinates) && location.geo.coordinates.length === 2;
+
+  if (!hasAddress && !hasGeo) return null;
+
+  const sanitized = {
+    address: hasAddress ? location.address.trim() : null,
+    geo: null,
+    city: (location.city && typeof location.city === 'string') ? location.city : null,
+    state: (location.state && typeof location.state === 'string') ? location.state : null,
+    country: (location.country && typeof location.country === 'string') ? location.country : null,
+    postalCode: (location.postalCode && typeof location.postalCode === 'string') ? location.postalCode : null,
+    placeId: (location.placeId && typeof location.placeId === 'string') ? location.placeId : null
+  };
+
+  // Validate and set GeoJSON coordinates
+  if (hasGeo) {
+    const [lng, lat] = location.geo.coordinates;
+    if (typeof lng === 'number' && typeof lat === 'number' &&
+        lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
+      sanitized.geo = {
+        type: 'Point',
+        coordinates: [lng, lat]
+      };
+    }
+  }
+
+  return sanitized;
+}
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 
 /**
@@ -974,10 +1014,18 @@ async function createPlanItem(req, res) {
       });
     }
     
-    req.body.cost_estimate = !req.body.cost_estimate
-      ? 0
-      : req.body.cost_estimate;
-    experience.plan_items.push(req.body);
+    // Sanitize plan item data before saving
+    const planItemData = {
+      text: req.body.text,
+      url: req.body.url || null,
+      cost_estimate: req.body.cost_estimate || 0,
+      planning_days: req.body.planning_days || 0,
+      parent: req.body.parent || null,
+      activity_type: req.body.activity_type || null,
+      location: sanitizeLocation(req.body.location)
+    };
+
+    experience.plan_items.push(planItemData);
     await experience.save();
 
     // Re-fetch with populated permissions for consistent response
@@ -1062,14 +1110,21 @@ async function updatePlanItem(req, res) {
     }
     
     let plan_item = experience.plan_items.id(req.params.planItemId);
-    
+
     if (!plan_item) {
       return res.status(404).json({ error: 'Plan item not found' });
     }
-    
+
     // Update only provided fields (exclude _id as it's immutable)
-    const { _id, ...updateData } = req.body;
-    Object.assign(plan_item, updateData);
+    // Sanitize location data to prevent GeoJSON validation errors
+    const { _id, location, ...otherData } = req.body;
+    Object.assign(plan_item, otherData);
+
+    // Handle location separately with sanitization
+    if ('location' in req.body) {
+      plan_item.location = sanitizeLocation(location);
+    }
+
     await experience.save();
 
     // Re-fetch with populated permissions for consistent response

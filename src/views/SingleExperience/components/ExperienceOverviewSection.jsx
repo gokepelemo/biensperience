@@ -44,7 +44,7 @@ export default function ExperienceOverviewSection({
               !experience.destination || !experience.destination.name ? (
                 <div className="loading-skeleton loading-skeleton-text" style={{ width: '70%', height: '1.5rem' }}></div>
               ) : (
-                `${lang.en.label.destinationLabel}: ${experience.destination.name}`
+                `${lang.current.label.destinationLabel}: ${experience.destination.name}`
               )
             }
             titleLink={
@@ -55,7 +55,7 @@ export default function ExperienceOverviewSection({
             sections={[
               experience.experience_type && experience.experience_type.length > 0
                 ? {
-                    title: lang.en.label.experienceType,
+                    title: lang.current.label.experienceType,
                     content: (
                       <div className="experience-tags-container">
                         {experience.experience_type.map((type) => (
@@ -76,7 +76,7 @@ export default function ExperienceOverviewSection({
                 : null,
               experience.overview
                 ? {
-                    title: lang.en.label.overview,
+                    title: lang.current.label.overview,
                     content: <p>{experience.overview}</p>,
                   }
                 : null,
@@ -88,7 +88,7 @@ export default function ExperienceOverviewSection({
                 <GoogleMap
                   location={`${experience.destination.name}+${experience.destination.country}`}
                   height={300}
-                  title={lang.en.helper.map}
+                  title={lang.current.helper.map}
                 />
               )
             }

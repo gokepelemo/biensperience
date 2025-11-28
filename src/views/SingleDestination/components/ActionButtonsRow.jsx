@@ -35,9 +35,9 @@ export default function ActionButtonsRow({
   // Calculate consistent button width based on all possible text states
   const buttonWidth = useMemo(() => {
     const allTexts = [
-      lang.en.button.addFavoriteDest,   // "+ Favorite"
-      lang.en.button.removeFavoriteDest, // "- Remove"
-      lang.en.button.favorited,          // "❤️ Favorited"
+      lang.current.button.addFavoriteDest,   // "+ Favorite"
+      lang.current.button.removeFavoriteDest, // "- Remove"
+      lang.current.button.favorited,          // "❤️ Favorited"
       "Edit",                             // Edit button text
       "Delete"                            // Delete button text
     ];
@@ -67,8 +67,8 @@ export default function ActionButtonsRow({
           onClick={handleFavorite}
           aria-label={
             isUserFavorite
-              ? lang.en.button.removeFavoriteDest
-              : lang.en.button.addFavoriteDest
+              ? lang.current.button.removeFavoriteDest
+              : lang.current.button.addFavoriteDest
           }
           aria-pressed={isUserFavorite}
           onMouseEnter={() => setFavHover(true)}
@@ -80,10 +80,10 @@ export default function ActionButtonsRow({
             <Loading size="sm" variant="inline" showMessage={false} />
           ) : isUserFavorite ? (
             favHover
-              ? lang.en.button.removeFavoriteDest
-              : lang.en.button.favorited
+              ? lang.current.button.removeFavoriteDest
+              : lang.current.button.favorited
           ) : (
-            lang.en.button.addFavoriteDest
+            lang.current.button.addFavoriteDest
           )}
         </button>
       </FadeIn>
@@ -96,8 +96,8 @@ export default function ActionButtonsRow({
               className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
               style={buttonStyle}
               onClick={() => navigate(`/destinations/${destinationId}/update`)}
-              aria-label={lang.en.aria.editDestination}
-              title={lang.en.aria.editDestination}
+              aria-label={lang.current.aria.editDestination}
+              title={lang.current.aria.editDestination}
             >
               Edit
             </button>
@@ -107,8 +107,8 @@ export default function ActionButtonsRow({
               className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
               style={buttonStyle}
               onClick={() => setShowDeleteModal(true)}
-              aria-label={lang.en.aria.deleteDestination}
-              title={lang.en.aria.deleteDestination}
+              aria-label={lang.current.aria.deleteDestination}
+              title={lang.current.aria.deleteDestination}
             >
               Delete
             </button>

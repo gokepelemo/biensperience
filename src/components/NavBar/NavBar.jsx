@@ -195,14 +195,14 @@ export default function NavBar() {
       className={`${styles.navbar} navbar navbar-expand-lg border-bottom border-body ${isScrolled ? styles.sticky : ''}`}
       data-bs-theme="dark"
       role="navigation"
-      aria-label={lang.en.aria.mainNavigation}
+      aria-label={lang.current.aria.mainNavigation}
     >
       <div className="container-fluid">
         <div className={styles.navbarBrandWrapper}>
           <NavLink
             className="navbar-brand"
             to="/"
-            aria-label={lang.en.aria.biensperienceHome}
+            aria-label={lang.current.aria.biensperienceHome}
           >
             <button className={`btn btn-light btn-sm ${styles.logo}`} aria-hidden="true">✚</button>
             <span className={styles.brandText}>
@@ -217,7 +217,7 @@ export default function NavBar() {
           type="button"
           aria-controls="navbarText"
           aria-expanded="false"
-          aria-label={lang.en.aria.toggleNavigationMenu}
+          aria-label={lang.current.aria.toggleNavigationMenu}
         >
           <span className="navbar-toggler-icon"></span>
         </button>
@@ -233,7 +233,7 @@ export default function NavBar() {
                   return `nav-link ${isDestinationsRoute ? 'active' : ''}`;
                 }}
                 role="menuitem"
-                aria-label={lang.en.aria.browseDestinations}
+                aria-label={lang.current.aria.browseDestinations}
               >
                 Destinations
               </NavLink>
@@ -247,7 +247,7 @@ export default function NavBar() {
                   return `nav-link ${isExperiencesRoute ? 'active' : ''}`;
                 }}
                 role="menuitem"
-                aria-label={lang.en.aria.browseExperiences}
+                aria-label={lang.current.aria.browseExperiences}
               >
                 Experiences
               </NavLink>
@@ -277,14 +277,14 @@ export default function NavBar() {
                 ref={dropdownMenuRef}
                 className="dropdown-menu"
                 role="menu"
-                aria-label={lang.en.aria.userAccountOptions}
+                aria-label={lang.current.aria.userAccountOptions}
               >
                 <li role="none">
                   <NavLink
                     to="/profile"
                     className="dropdown-item"
                     role="menuitem"
-                    aria-label={lang.en.aria.viewYourProfile}
+                    aria-label={lang.current.aria.viewYourProfile}
                   >
                     Profile
                   </NavLink>
@@ -294,7 +294,7 @@ export default function NavBar() {
                     to="/invites"
                     className="dropdown-item"
                     role="menuitem"
-                    aria-label={lang.en.aria.trackYourInviteCodes}
+                    aria-label={lang.current.aria.trackYourInviteCodes}
                   >
                     Invites
                   </NavLink>
@@ -305,7 +305,7 @@ export default function NavBar() {
                       to="/admin/users"
                       className="dropdown-item"
                       role="menuitem"
-                      aria-label={lang.en.aria.adminPanelManageUsers}
+                      aria-label={lang.current.aria.adminPanelManageUsers}
                     >
                       All Users
                     </NavLink>
@@ -316,7 +316,7 @@ export default function NavBar() {
                     to="/destinations/new"
                     className="dropdown-item"
                     role="menuitem"
-                    aria-label={lang.en.aria.createNewDestination}
+                    aria-label={lang.current.aria.createNewDestination}
                   >
                     New Destination
                   </NavLink>
@@ -326,7 +326,7 @@ export default function NavBar() {
                     to="/experiences/new"
                     className="dropdown-item"
                     role="menuitem"
-                    aria-label={lang.en.aria.createNewExperience}
+                    aria-label={lang.current.aria.createNewExperience}
                   >
                     New Experience
                   </NavLink>
@@ -340,7 +340,7 @@ export default function NavBar() {
                     onClick={handleLogOut}
                     className="dropdown-item"
                     role="menuitem"
-                    aria-label={lang.en.aria.logOutOfAccount}
+                    aria-label={lang.current.aria.logOutOfAccount}
                   >
                     Logout
                   </NavLink>
@@ -356,7 +356,7 @@ export default function NavBar() {
 
           {/* Dynamic Action Buttons - shown when scrolled past h1 */}
           {showActionButtons && actionButtons.length > 0 && (
-            <div className={`${styles.navbarActions} animation-fade_in`}>
+            <div className={`${styles.navbarActions} animation-fade-in`}>
               <ActionButtons buttons={actionButtons} compact={true} />
             </div>
           )}

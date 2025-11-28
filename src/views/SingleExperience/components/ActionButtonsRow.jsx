@@ -63,9 +63,9 @@ export default function ActionButtonsRow({
 
   // Compute the max width for the plan button using possible text states
   useButtonWidth(internalPlanRef, [
-    lang.en.button.addFavoriteExp,
-    lang.en.button.expPlanAdded,
-    lang.en.button.removeFavoriteExp
+    lang.current.button.addFavoriteExp,
+    lang.current.button.expPlanAdded,
+    lang.current.button.removeFavoriteExp
   ], { extraPadding: 12 });
 
   // Sidebar variant - vertical stacking with full-width buttons
@@ -75,13 +75,13 @@ export default function ActionButtonsRow({
         {/* Primary Action - Plan It / Planned Button */}
         <FadeIn>
           <button
-            className={`${styles.sidebarPlanButton} ${userHasExperience ? styles.planned : ''} ${loading || plansLoading ? styles.loading : ''}`}
+            className={`${styles.sidebarPlanButton} ${userHasExperience ? styles.planned : ''} ${userHasExperience && favHover ? styles.removeHover : ''} ${loading || plansLoading ? styles.loading : ''}`}
             ref={planButtonRef}
             onClick={handleExperience}
             aria-label={
               userHasExperience
-                ? lang.en.button.removeFavoriteExp
-                : lang.en.button.addFavoriteExp
+                ? lang.current.button.removeFavoriteExp
+                : lang.current.button.addFavoriteExp
             }
             aria-pressed={userHasExperience}
             onMouseEnter={() => setFavHover(true)}
@@ -93,8 +93,8 @@ export default function ActionButtonsRow({
               <Loading size="sm" variant="inline" showMessage={false} />
             ) : userHasExperience ? (
               favHover
-                ? lang.en.button.removeFavoriteExp
-                : lang.en.button.expPlanAdded
+                ? lang.current.button.removeFavoriteExp
+                : lang.current.button.expPlanAdded
             ) : (
               "Plan This Experience"
             )}
@@ -149,7 +149,7 @@ export default function ActionButtonsRow({
                     setShowDatePicker(true);
                   }
                 }}
-                aria-label={lang.en.button.editDate}
+                aria-label={lang.current.button.editDate}
                 title={showDatePicker
                   ? "Click to close date picker"
                   : (selectedPlan.planned_date
@@ -169,8 +169,8 @@ export default function ActionButtonsRow({
                 <button
                   className={styles.secondaryButton}
                   onClick={() => navigate(`/experiences/${experienceId}/update`)}
-                  aria-label={lang.en.button.updateExperience}
-                  title={lang.en.button.updateExperience}
+                  aria-label={lang.current.button.updateExperience}
+                  title={lang.current.button.updateExperience}
                 >
                   ✏️
                 </button>
@@ -179,8 +179,8 @@ export default function ActionButtonsRow({
                 <button
                   className={styles.dangerButton}
                   onClick={() => setShowDeleteModal(true)}
-                  aria-label={lang.en.button.delete}
-                  title={lang.en.button.delete}
+                  aria-label={lang.current.button.delete}
+                  title={lang.current.button.delete}
                 >
                   🗑️
                 </button>
@@ -198,13 +198,13 @@ export default function ActionButtonsRow({
       {/* Plan It / Planned Button */}
       <FadeIn>
         <button
-          className={`${styles.planButton} ${userHasExperience ? styles.planned : ''} ${loading || plansLoading ? styles.loading : ''}`}
+          className={`${styles.planButton} ${userHasExperience ? styles.planned : ''} ${userHasExperience && favHover ? styles.removeHover : ''} ${loading || plansLoading ? styles.loading : ''}`}
           ref={planButtonRef}
           onClick={handleExperience}
           aria-label={
             userHasExperience
-              ? lang.en.button.removeFavoriteExp
-              : lang.en.button.addFavoriteExp
+              ? lang.current.button.removeFavoriteExp
+              : lang.current.button.addFavoriteExp
           }
           aria-pressed={userHasExperience}
           onMouseEnter={() => setFavHover(true)}
@@ -216,10 +216,10 @@ export default function ActionButtonsRow({
             <Loading size="sm" variant="inline" showMessage={false} />
           ) : userHasExperience ? (
             favHover
-              ? lang.en.button.removeFavoriteExp
-              : lang.en.button.expPlanAdded
+              ? lang.current.button.removeFavoriteExp
+              : lang.current.button.expPlanAdded
           ) : (
-            lang.en.button.addFavoriteExp
+            lang.current.button.addFavoriteExp
           )}
         </button>
       </FadeIn>
@@ -268,7 +268,7 @@ export default function ActionButtonsRow({
                 setShowDatePicker(true);
               }
             }}
-            aria-label={lang.en.button.editDate}
+            aria-label={lang.current.button.editDate}
             title={showDatePicker
               ? "Click to close date picker"
               : (selectedPlan.planned_date
@@ -288,8 +288,8 @@ export default function ActionButtonsRow({
             <button
               className={styles.secondaryButton}
               onClick={() => navigate(`/experiences/${experienceId}/update`)}
-              aria-label={lang.en.button.updateExperience}
-              title={lang.en.button.updateExperience}
+              aria-label={lang.current.button.updateExperience}
+              title={lang.current.button.updateExperience}
             >
               ✏️
             </button>
@@ -298,8 +298,8 @@ export default function ActionButtonsRow({
             <button
               className={styles.dangerButton}
               onClick={() => setShowDeleteModal(true)}
-              aria-label={lang.en.button.delete}
-              title={lang.en.button.delete}
+              aria-label={lang.current.button.delete}
+              title={lang.current.button.delete}
             >
               🗑️
             </button>

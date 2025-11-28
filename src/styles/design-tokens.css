@@ -15,7 +15,7 @@
  * - All button text must use Title Case (e.g., "Sign In", "Add Experience", "Try Again")
  * - Button text should be sourced from src/lang.constants.js for internationalization
  * - Never hardcode button text directly in components
- * - Use: lang.en.button.buttonName for all button text
+ * - Use: lang.current.button.buttonName for all button text
  */
 
 :root {

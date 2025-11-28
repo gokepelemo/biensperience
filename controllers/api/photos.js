@@ -35,7 +35,7 @@ async function createPhoto(req, res) {
     )
       .then((response) => {
         // S3 upload successful
-        return Photo.create({
+        const photoData = {
           photo_credit: req.body.photo_credit,
           photo_credit_url: req.body.photo_credit_url,
           url: response.Location,
@@ -45,7 +45,17 @@ async function createPhoto(req, res) {
             type: 'owner',
             granted_by: req.user._id
           }]
-        });
+        };
+
+        // Add dimensions if provided (for layout shift prevention)
+        if (req.body.width && parseInt(req.body.width) > 0) {
+          photoData.width = parseInt(req.body.width);
+        }
+        if (req.body.height && parseInt(req.body.height) > 0) {
+          photoData.height = parseInt(req.body.height);
+        }
+
+        return Photo.create(photoData);
       })
       .then((upload) => {
         res.status(201).json({ upload: upload.toObject() });
@@ -187,13 +197,13 @@ async function deletePhoto(req, res) {
 
 async function createPhotoFromUrl(req, res) {
   try {
-    const { url, photo_credit, photo_credit_url } = req.body;
+    const { url, photo_credit, photo_credit_url, width, height } = req.body;
 
     if (!url) {
       return res.status(400).json({ error: 'Photo URL is required' });
     }
 
-    const photo = await Photo.create({
+    const photoData = {
       photo_credit: photo_credit || 'Unknown',
       photo_credit_url: photo_credit_url || url,
       url: url,
@@ -203,7 +213,17 @@ async function createPhotoFromUrl(req, res) {
         type: 'owner',
         granted_by: req.user._id
       }]
-    });
+    };
+
+    // Add dimensions if provided (for layout shift prevention)
+    if (width && typeof width === 'number' && width > 0) {
+      photoData.width = width;
+    }
+    if (height && typeof height === 'number' && height > 0) {
+      photoData.height = height;
+    }
+
+    const photo = await Photo.create(photoData);
 
     res.status(201).json({ upload: photo.toObject() });
   } catch (err) {
@@ -219,17 +239,28 @@ async function createPhotoBatch(req, res) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
+    // Parse dimensions array if provided (sent as JSON string from frontend)
+    let dimensionsArray = [];
+    if (req.body.dimensions) {
+      try {
+        dimensionsArray = JSON.parse(req.body.dimensions);
+      } catch (parseErr) {
+        backendLogger.warn("Failed to parse dimensions JSON", { error: parseErr.message });
+      }
+    }
+
     const uploadPromises = req.files.map((file, index) => {
       const rand = Math.ceil(Math.random() * 500);
       const name = req.body.name || "Biensperience";
-      
+      const fileDimensions = dimensionsArray[index] || {};
+
       return s3Upload(
         file.path,
         file.originalname,
         `${rand}-${name}-${index}`
       )
         .then((response) => {
-          return Photo.create({
+          const photoData = {
             photo_credit: req.body.photo_credit || 'Biensperience',
             photo_credit_url: req.body.photo_credit_url || '',
             url: response.Location,
@@ -239,13 +270,23 @@ async function createPhotoBatch(req, res) {
               type: 'owner',
               granted_by: req.user._id
             }]
-          });
+          };
+
+          // Add dimensions if available (for layout shift prevention)
+          if (fileDimensions.width && fileDimensions.width > 0) {
+            photoData.width = fileDimensions.width;
+          }
+          if (fileDimensions.height && fileDimensions.height > 0) {
+            photoData.height = fileDimensions.height;
+          }
+
+          return Photo.create(photoData);
         });
     });
 
     const photos = await Promise.all(uploadPromises);
     const photoObjects = photos.map(photo => photo.toObject());
-    
+
     res.status(201).json({ uploads: photoObjects });
   } catch (err) {
     backendLogger.error("Batch photo upload error", { error: err.message, userId: req.user._id, fileCount: req.files?.length });

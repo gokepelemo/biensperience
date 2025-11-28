@@ -25,6 +25,47 @@
   color: white;
 }
 
+/* Small transparent outline photo button in bottom-right of hero */
+.heroPhotoButton {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  background: rgba(255,255,255,0.06);
+  border: 2px solid rgba(255,255,255,0.9);
+  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  backdrop-filter: blur(4px);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  svg {
+    font-size: 1.125rem;
+  }
+
+  @include breakpoint-max(md) {
+    right: 8px;
+    bottom: 8px;
+    width: 40px;
+    height: 40px;
+  }
+}
+
 .heroTitle {
   font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);

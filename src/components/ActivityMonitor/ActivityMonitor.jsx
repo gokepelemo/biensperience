@@ -135,7 +135,7 @@ export default function ActivityMonitor({ show, onHide }) {
     try {
       setRollbackLoading(true);
       await restoreResourceState(activity.rollbackToken);
-      success(lang.en.notification?.admin?.stateRestored || 'Your previous state has been restored');
+      success(lang.current.notification?.admin?.stateRestored || 'Your previous state has been restored');
       fetchActivities();
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Rollback state' });
@@ -212,7 +212,7 @@ export default function ActivityMonitor({ show, onHide }) {
                   }}>
                     <Form.Control
                       type="text"
-                      placeholder={lang.en.placeholder.searchActivities}
+                      placeholder={lang.current.placeholder.searchActivities}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       style={{
@@ -416,7 +416,7 @@ export default function ActivityMonitor({ show, onHide }) {
           setShowDetails(false);
           setSelectedActivity(null);
         }}
-        title={lang.en.modal.activityDetails}
+        title={lang.current.modal.activityDetails}
         size="lg"
         showSubmitButton={false}
         showCancelButton={false}

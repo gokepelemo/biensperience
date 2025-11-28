@@ -104,7 +104,7 @@ export default function ResetPassword() {
                       type="password"
                       value={formData.password}
                       onChange={handleChange}
-                      placeholder={lang.en.placeholder.enterNewPassword}
+                      placeholder={lang.current.placeholder.enterNewPassword}
                       required
                       autoComplete="new-password"
                       autoFocus
@@ -118,7 +118,7 @@ export default function ResetPassword() {
                       type="password"
                       value={formData.confirmPassword}
                       onChange={handleChange}
-                      placeholder={lang.en.placeholder.reEnterNewPassword}
+                      placeholder={lang.current.placeholder.reEnterNewPassword}
                       required
                       autoComplete="new-password"
                       minLength={3}
@@ -131,12 +131,12 @@ export default function ResetPassword() {
                       className="w-100 mt-4"
                       disabled={loading || !formData.password || !formData.confirmPassword}
                     >
-                      {loading ? 'Resetting Password...' : 'Reset Password'}
+                      {loading ? lang.current.alert.resettingPassword : lang.current.button.resetPassword || 'Reset Password'}
                     </Button>
 
                     <div className="mt-4" style={{ textAlign: 'center' }}>
                       <Link to="/login" className="text-muted">
-                        {lang.en.button.backToLogin}
+                        {lang.current.button.backToLogin}
                       </Link>
                     </div>
                   </form>

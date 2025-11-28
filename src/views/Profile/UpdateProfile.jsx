@@ -82,8 +82,8 @@ export default function UpdateProfile() {
   // Mark initial load complete on next tick to allow state to settle
   setTimeout(() => setIsInitialLoad(false), 0);
       } catch (err) {
-        const errorMsg = handleError(err, { context: isAdminMode ? 'Load user data' : 'Load profile data' });
-        setError(errorMsg || 'Failed to load user data');
+          const errorMsg = handleError(err, { context: isAdminMode ? 'Load user data' : 'Load profile data' });
+          setError(errorMsg || lang.current.alert.failedToLoadProfile);
         setLoading(false);
       }
     }
@@ -231,7 +231,7 @@ export default function UpdateProfile() {
     setPasswordError("");
 
     if (Object.keys(changes).length === 0 && !formData.photos) {
-      setError(lang.en.alert.noChangesDetected);
+      setError(lang.current.alert.noChangesDetected);
       return;
     }
 
@@ -286,7 +286,7 @@ export default function UpdateProfile() {
       if (isAdminMode) {
         // Admin mode: use admin API
         response = await updateUserAsAdmin(userId, dataToUpdate);
-        success(lang.en.notification?.profile?.updated || "Your profile has been updated. Changes are now visible to others.");
+        success(lang.current.notification?.profile?.updated || "Your profile has been updated. Changes are now visible to others.");
         navigate(`/profile/${userId}`);
       } else {
         // Self mode: use regular API
@@ -302,7 +302,7 @@ export default function UpdateProfile() {
         }
 
         updateUserContext(updatedUser); // Instant UI update!
-        success(lang.en.notification?.profile?.updated || "Your profile has been updated. Changes are now visible to others.");
+        success(lang.current.notification?.profile?.updated || "Your profile has been updated. Changes are now visible to others.");
         navigate('/profile');
       }
     } catch (err) {
@@ -337,7 +337,7 @@ export default function UpdateProfile() {
         }
       />
 
-      <div className="row animation-fade_in">
+      <div className="row animation-fade-in">
         <div className="col-12">
           <h1 className="form-title">
             {isAdminMode ?
@@ -374,12 +374,12 @@ export default function UpdateProfile() {
 
       {isAdminMode && !isSuperAdmin(user) ? (
         <div className="container mt-4">
-          <Alert type="danger" message={lang.en.alert.accessDeniedAction} />
+          <Alert type="danger" message={lang.current.alert.accessDeniedAction} />
         </div>
       ) : loading ? (
-        <Loading variant="centered" size="lg" message={`Loading ${isAdminMode ? 'user' : 'your'} profile...`} />
+        <Loading variant="centered" size="lg" message={lang.current.alert.loadingProfile} />
       ) : (
-        <div className="row my-4 animation-fade_in justify-content-center">
+        <div className="row my-4 animation-fade-in justify-content-center">
           <div className="col-12">
             <Form className="form-unified" autoComplete="off" onSubmit={handleSubmit}>
             <FormField
@@ -388,10 +388,10 @@ export default function UpdateProfile() {
               type="text"
               value={formData.name}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.nameField}
+              placeholder={lang.current.placeholder.nameField}
               required
               autoComplete="name"
-              tooltip={lang.en.helper.profileName}
+              tooltip={lang.current.helper.profileName}
               tooltipPlacement="top"
             />
 
@@ -401,10 +401,10 @@ export default function UpdateProfile() {
               type="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.emailField}
+              placeholder={lang.current.placeholder.emailField}
               required
               autoComplete="email"
-              tooltip={lang.en.helper.profileEmail}
+              tooltip={lang.current.helper.profileEmail}
               tooltipPlacement="top"
             />
 
@@ -445,9 +445,9 @@ export default function UpdateProfile() {
                   type="password"
                   value={passwordData.oldPassword}
                   onChange={handlePasswordChange}
-                  placeholder={lang.en.placeholder.enterCurrentPassword}
+                  placeholder={lang.current.placeholder.enterCurrentPassword}
                   autoComplete="current-password"
-                  tooltip={lang.en.helper.currentPassword}
+                  tooltip={lang.current.helper.currentPassword}
                   tooltipPlacement="top"
                   className="mb-3"
                 />
@@ -462,7 +462,7 @@ export default function UpdateProfile() {
                 placeholder={isEditingSelf ? "Enter your new password" : "Enter password"}
                 autoComplete="new-password"
                 minLength={3}
-                tooltip={isEditingSelf ? lang.en.helper.newPassword : "Set a new password for this user"}
+                tooltip={isEditingSelf ? lang.current.helper.newPassword : "Set a new password for this user"}
                 tooltipPlacement="top"
                 className="mb-3"
               />
@@ -473,9 +473,9 @@ export default function UpdateProfile() {
                 type="password"
                 value={passwordData.confirmPassword}
                 onChange={handlePasswordChange}
-                placeholder={lang.en.placeholder.confirmNewPassword}
+                placeholder={lang.current.placeholder.confirmNewPassword}
                 autoComplete="new-password"
-                tooltip={lang.en.helper.confirmPassword}
+                tooltip={lang.current.helper.confirmPassword}
                 tooltipPlacement="top"
                 className="mb-3"
               />
@@ -485,7 +485,7 @@ export default function UpdateProfile() {
               <h5 className="form-section-header">
                 Profile Photo
                 <FormTooltip 
-                  content={lang.en.helper.profilePhoto}
+                  content={lang.current.helper.profilePhoto}
                   placement="top"
                 />
               </h5>
@@ -496,19 +496,19 @@ export default function UpdateProfile() {
               <Link
                 to={isAdminMode ? `/profile/${userId}` : "/profile"}
                 className="btn btn-secondary btn-lg"
-                aria-label={lang.en.button.cancel}
+                aria-label={lang.current.button.cancel}
               >
-                {lang.en.button.cancel}
+                {lang.current.button.cancel}
               </Link>
               <button
                 type="button"
                 className="btn btn-primary btn-lg"
                 onClick={handleConfirmUpdate}
                 disabled={Object.keys(changes).length === 0}
-                aria-label={lang.en.button.confirmUpdate || 'Confirm Update'}
+                aria-label={lang.current.button.confirmUpdate || 'Confirm Update'}
                 aria-disabled={Object.keys(changes).length === 0}
               >
-                {lang.en.button.confirmUpdate || 'Confirm Update'}
+                {lang.current.button.confirmUpdate || 'Confirm Update'}
               </button>
             </div>
           </Form>
@@ -521,7 +521,7 @@ export default function UpdateProfile() {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">{lang.en.modal.confirmProfileUpdate || 'Confirm Profile Update'}</h5>
+                <h5 className="modal-title">{lang.current.modal.confirmProfileUpdate || 'Confirm Profile Update'}</h5>
                 <button
                   type="button"
                   className="btn-close"
@@ -532,7 +532,7 @@ export default function UpdateProfile() {
                 </button>
               </div>
               <div className="modal-body">
-                <p>{lang.en.modal.confirmUpdateReview || 'Please review your changes before updating:'}</p>
+                <p>{lang.current.modal.confirmUpdateReview || 'Please review your changes before updating:'}</p>
                 <ul className="list-group">
                   {Object.entries(changes).map(([field, change]) => (
                     <li key={field} className="list-group-item">
@@ -548,17 +548,17 @@ export default function UpdateProfile() {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setShowConfirmModal(false)}
-                  aria-label={lang.en.button.cancel}
+                  aria-label={lang.current.button.cancel}
                 >
-                  {lang.en.button.cancel}
+                  {lang.current.button.cancel}
                 </button>
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={confirmUpdate}
-                  aria-label={lang.en.button.update || 'Update Profile'}
+                  aria-label={lang.current.button.update || 'Update Profile'}
                 >
-                  {lang.en.button.update || 'Update Profile'}
+                  {lang.current.button.update || 'Update Profile'}
                 </button>
               </div>
             </div>

@@ -95,7 +95,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label={lang.en.aria.photoViewer}
+      aria-label={lang.current.aria.photoViewer}
     >
       <div
         className={styles.photoModalContent}
@@ -104,7 +104,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
         <button
           className={styles.photoModalClose}
           onClick={onClose}
-          aria-label={lang.en.aria.closePhotoViewer}
+          aria-label={lang.current.aria.closePhotoViewer}
         >
           ✕
         </button>
@@ -118,7 +118,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
                 e.stopPropagation();
                 goToPrevious();
               }}
-              aria-label={lang.en.aria.previousPhoto}
+              aria-label={lang.current.aria.previousPhoto}
             >
               <FaChevronLeft />
             </button>
@@ -128,7 +128,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
                 e.stopPropagation();
                 goToNext();
               }}
-              aria-label={lang.en.aria.nextPhoto}
+              aria-label={lang.current.aria.nextPhoto}
             >
               <FaChevronRight />
             </button>

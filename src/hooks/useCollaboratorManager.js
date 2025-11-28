@@ -390,7 +390,7 @@ export default function useCollaboratorManager({
 
       // Validation
       if (!emailInviteData.email.trim() || !emailInviteData.name.trim()) {
-        setEmailInviteError(lang.en.label.emailAndNameRequired);
+        setEmailInviteError(lang.current.label.emailAndNameRequired);
         return;
       }
 
@@ -417,7 +417,7 @@ export default function useCollaboratorManager({
         });
 
         // Show success
-        const message = lang.en.notification?.collaborator?.invited?.replace('{email}', emailInviteData.email) || `Invite sent to ${emailInviteData.email}. They'll receive an email with instructions to join.`;
+        const message = lang.current.notification?.collaborator?.invited?.replace('{email}', emailInviteData.email) || `Invite sent to ${emailInviteData.email}. They'll receive an email with instructions to join.`;
         success(message);
 
         // Reset form

@@ -60,7 +60,7 @@ export default function AllUsers() {
       setUsers(allUsers);
     } catch (err) {
       logger.error('Error fetching users', { error: err.message });
-      setError('Failed to load users');
+      setError(lang.current.admin.failedToLoadUsers);
       handleError(err);
     } finally {
       setLoading(false);
@@ -112,7 +112,7 @@ export default function AllUsers() {
   // Effects
   useEffect(() => {
     if (!isCurrentUserSuperAdmin) {
-      setError('Access denied. Only super admins can view this page.');
+      setError(lang.current.admin.accessDenied);
       setLoading(false);
       return;
     }
@@ -151,7 +151,7 @@ export default function AllUsers() {
   const handleRoleUpdate = async (userId, newRole) => {
     // Prevent changing own role
     if (userId === user._id) {
-      setError(lang.en.admin.cannotChangeOwnRole);
+      setError(lang.current.admin.cannotChangeOwnRole);
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -172,11 +172,11 @@ export default function AllUsers() {
       );
 
       const userName = users.find(u => u._id === userId)?.name;
-      showSuccess(lang.en.admin.roleUpdated
+      showSuccess(lang.current.admin.roleUpdated
         .replace('{name}', userName)
         .replace('{role}', USER_ROLE_DISPLAY_NAMES[newRole]));
     } catch (error) {
-      setError(lang.en.alert.loginFailed);
+      setError(lang.current.alert.loginFailed);
       handleError(error);
     } finally {
       setUpdatingUser(null);
@@ -198,11 +198,11 @@ export default function AllUsers() {
     return (
       <>
         <PageOpenGraph
-          title="Access Denied"
-          description="You do not have permission to access this page."
+          title={lang.current.modal.accessDenied}
+          description={lang.current.admin.accessDenied}
         />
         <div className="container mt-5">
-          <Alert type="danger" message="Access denied. Only super admins can view this page." />
+          <Alert type="danger" message={lang.current.admin.accessDenied} />
         </div>
       </>
     );
@@ -224,9 +224,9 @@ export default function AllUsers() {
             <div>
               <h1 className="mb-2">
                 <FaUserShield className="me-2 text-success" />
-                {lang.en.admin.userManagement}
+                {lang.current.admin.userManagement}
               </h1>
-              <p className="header-description">{lang.en.admin.superAdminPanel}</p>
+              <p className="header-description">{lang.current.admin.superAdminPanel}</p>
             </div>
             <div className="header-actions">
               <Button
@@ -235,10 +235,10 @@ export default function AllUsers() {
                 className="me-2"
               >
                 <FaUserPlus className="me-2" />
-                {lang.en.invite.heading}
+                {lang.current.invite.heading}
               </Button>
               <Button as={Link} to="/" variant="outline-secondary">
-                {lang.en.admin.backToHome}
+                {lang.current.admin.backToHome}
               </Button>
             </div>
           </FlexBetween>
@@ -293,12 +293,12 @@ export default function AllUsers() {
                 <div className="col-md-6">
                   <div className={styles.searchBox}>
                     <FaSearch className="search-icon" />
-                    <FormControl
-                      type="text"
-                      placeholder="Search by name or email..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                        <FormControl
+                          type="text"
+                          placeholder={lang.current.admin.searchPlaceholder}
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                   </div>
                 </div>
                 <div className="col-md-6">
@@ -321,7 +321,7 @@ export default function AllUsers() {
             <Loading
               variant="centered"
               size="lg"
-              message="Loading users..."
+              message={lang.current.admin.loadingUsers}
             />
           ) : (
             <Card>
@@ -337,8 +337,8 @@ export default function AllUsers() {
                     <FaUser size={48} className="mb-3 opacity-50" />
                     <p className="mb-0">
                       {searchTerm || roleFilter !== 'all'
-                        ? 'No users match your filters'
-                        : 'No users found'}
+                        ? lang.current.admin.noUsersMatch
+                        : lang.current.admin.noUsersFound}
                     </p>
                   </div>
                 ) : (
@@ -421,7 +421,7 @@ export default function AllUsers() {
                                     userData.role === USER_ROLES.SUPER_ADMIN ||
                                     isCurrentUser
                                   }
-                                  title={isCurrentUser ? "You cannot change your own role" : "Make Super Admin"}
+                                  title={isCurrentUser ? lang.current.admin.cannotChangeOwnRole : lang.current.admin.makeSuperAdmin}
                                 >
                                   {updatingUser === userData._id ? (
                                     <Loading size="sm" showMessage={false} />
@@ -442,7 +442,7 @@ export default function AllUsers() {
                                     userData.role === USER_ROLES.REGULAR_USER ||
                                     isCurrentUser
                                   }
-                                  title={isCurrentUser ? "You cannot change your own role" : "Make Regular User"}
+                                  title={isCurrentUser ? lang.current.admin.cannotChangeOwnRole : lang.current.admin.makeRegularUser}
                                 >
                                   {updatingUser === userData._id ? (
                                     <Loading size="sm" showMessage={false} />

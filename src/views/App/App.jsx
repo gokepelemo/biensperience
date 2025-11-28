@@ -340,7 +340,7 @@ function AppContent() {
         if (result) {
           const { user: oauthUser, provider } = result;
           updateUser(oauthUser);
-          const message = lang.en.notification?.auth?.oauthSuccess?.replace('{provider}', provider) || `Welcome back! You're signed in with ${provider}.`;
+          const message = lang.current.notification?.auth?.oauthSuccess?.replace('{provider}', provider) || `Welcome back! You're signed in with ${provider}.`;
           success(message);
         }
       } catch (err) {
@@ -367,7 +367,7 @@ function AppContent() {
           {isAuthenticated ? (
             <>
               <NavBar />
-              <Container as="main" id="main-content" role="main" aria-label={lang.en.aria.mainContent}>
+              <Container as="main" id="main-content" role="main" aria-label={lang.current.aria.mainContent}>
                 <ErrorBoundary
                   title="Page Error"
                   message="We encountered an error loading this page. Please try again or return home."
@@ -425,7 +425,7 @@ function AppContent() {
               </Container>
             </>
           ) : (
-            <Container as="main" id="main-content" role="main" aria-label={lang.en.aria.authentication}>
+            <Container as="main" id="main-content" role="main" aria-label={lang.current.aria.authentication}>
               <Suspense fallback={<Loading variant="centered" size="lg" /> }>
                 <Routes>
                   <Route path="/signup" element={<AuthPage />} />

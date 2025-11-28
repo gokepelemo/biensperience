@@ -13,6 +13,46 @@ const { sendCollaboratorInviteEmail } = require('../../utilities/email-service')
 const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion } = require('../../utilities/activity-tracker');
 
 /**
+ * Sanitize location data to prevent GeoJSON validation errors
+ * Ensures proper format or null if invalid
+ * @param {Object} location - Location object from request
+ * @returns {Object|null} Sanitized location or null
+ */
+function sanitizeLocation(location) {
+  if (!location) return null;
+
+  // If location is empty object or only has null/empty values, return null
+  const hasAddress = location.address && typeof location.address === 'string' && location.address.trim();
+  const hasGeo = location.geo && location.geo.coordinates && Array.isArray(location.geo.coordinates) && location.geo.coordinates.length === 2;
+
+  if (!hasAddress && !hasGeo) return null;
+
+  const sanitized = {
+    address: hasAddress ? location.address.trim() : null,
+    geo: null,
+    city: (location.city && typeof location.city === 'string') ? location.city : null,
+    state: (location.state && typeof location.state === 'string') ? location.state : null,
+    country: (location.country && typeof location.country === 'string') ? location.country : null,
+    postalCode: (location.postalCode && typeof location.postalCode === 'string') ? location.postalCode : null,
+    placeId: (location.placeId && typeof location.placeId === 'string') ? location.placeId : null
+  };
+
+  // Validate and set GeoJSON coordinates
+  if (hasGeo) {
+    const [lng, lat] = location.geo.coordinates;
+    if (typeof lng === 'number' && typeof lat === 'number' &&
+        lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
+      sanitized.geo = {
+        type: 'Point',
+        coordinates: [lng, lat]
+      };
+    }
+  }
+
+  return sanitized;
+}
+
+/**
  * Create a new plan for an experience
  * Initializes plan with snapshot of current experience plan items
  */
@@ -91,7 +131,9 @@ const createPlan = asyncHandler(async (req, res) => {
     text: item.text,
     url: item.url,
     photo: item.photo,
-    parent: item.parent
+    parent: item.parent,
+    activity_type: item.activity_type || null,
+    location: item.location || null
   }));
 
   // Create plan with dual ownership
@@ -1037,10 +1079,15 @@ const removeCollaborator = asyncHandler(async (req, res) => {
 
 /**
  * Update a specific plan item within a plan
+ * Accepts: complete, cost, planning_days, text, url, activity_type, location, lat, lng, address,
+ *          scheduled_date, scheduled_time
  */
 const updatePlanItem = asyncHandler(async (req, res) => {
   const { id, itemId } = req.params;
-  const { complete, cost, planning_days } = req.body;
+  const {
+    complete, cost, planning_days, text, url, activity_type,
+    location, lat, lng, address, scheduled_date, scheduled_time
+  } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(itemId)) {
     return res.status(400).json({ error: "Invalid ID" });
@@ -1102,8 +1149,10 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   // positional update to avoid validating other unrelated nested fields
   // (such as optional GeoJSON coordinates) which can cause validation failures.
   const requestedKeys = Object.keys(req.body || {}).filter(k => k);
-  const allowedScalarKeys = ['complete', 'cost', 'planning_days'];
-  const onlyAllowed = requestedKeys.length > 0 && requestedKeys.every(k => allowedScalarKeys.includes(k));
+  const allowedScalarKeys = ['complete', 'cost', 'planning_days', 'text', 'url', 'activity_type', 'scheduled_date', 'scheduled_time'];
+  const locationKeys = ['location', 'lat', 'lng', 'address'];
+  const allAllowedKeys = [...allowedScalarKeys, ...locationKeys];
+  const onlyAllowed = requestedKeys.length > 0 && requestedKeys.every(k => allAllowedKeys.includes(k));
 
   if (onlyAllowed) {
     // Build $set object for atomic positional update
@@ -1111,6 +1160,51 @@ const updatePlanItem = asyncHandler(async (req, res) => {
     if (complete !== undefined) setObj['plan.$.complete'] = complete;
     if (cost !== undefined) setObj['plan.$.cost'] = cost;
     if (planning_days !== undefined) setObj['plan.$.planning_days'] = planning_days;
+    if (text !== undefined) setObj['plan.$.text'] = text;
+    if (url !== undefined) setObj['plan.$.url'] = url;
+    if (scheduled_date !== undefined) setObj['plan.$.scheduled_date'] = scheduled_date;
+    if (scheduled_time !== undefined) setObj['plan.$.scheduled_time'] = scheduled_time;
+
+    // Validate and set activity_type
+    if (activity_type !== undefined) {
+      const validActivityTypes = ['food', 'transport', 'accommodation', 'activity', 'shopping', 'entertainment', 'sightseeing', 'custom', null];
+      setObj['plan.$.activity_type'] = validActivityTypes.includes(activity_type) ? activity_type : null;
+    }
+
+    // Process location data - accept various formats and convert to standard structure
+    let locationData = null;
+    const hasLocationInput = location !== undefined || address !== undefined ||
+      (typeof lat === 'number' && typeof lng === 'number');
+
+    if (hasLocationInput) {
+      if (location) {
+        // Full location object provided - use sanitizeLocation for validation
+        locationData = sanitizeLocation(location);
+
+        // If location object has lat/lng at top level (alternative format), handle it
+        if (!locationData && typeof location.lat === 'number' && typeof location.lng === 'number') {
+          locationData = sanitizeLocation({
+            address: location.address,
+            geo: { type: 'Point', coordinates: [location.lng, location.lat] },
+            city: location.city,
+            state: location.state,
+            country: location.country,
+            postalCode: location.postalCode,
+            placeId: location.placeId
+          });
+        }
+      } else if (address || (typeof lat === 'number' && typeof lng === 'number')) {
+        // Simple address or lat/lng provided at top level
+        const geoCoords = (typeof lat === 'number' && typeof lng === 'number')
+          ? { type: 'Point', coordinates: [lng, lat] }
+          : null;
+        locationData = sanitizeLocation({
+          address: address || null,
+          geo: geoCoords
+        });
+      }
+      setObj['plan.$.location'] = locationData;
+    }
 
     // Preserve previous state for tracking
     const previousState = plan.toObject();
@@ -1148,6 +1242,64 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   if (complete !== undefined) planItem.complete = complete;
   if (cost !== undefined) planItem.cost = cost;
   if (planning_days !== undefined) planItem.planning_days = planning_days;
+  if (text !== undefined) planItem.text = text;
+  if (url !== undefined) planItem.url = url;
+  if (scheduled_date !== undefined) planItem.scheduled_date = scheduled_date;
+  if (scheduled_time !== undefined) planItem.scheduled_time = scheduled_time;
+
+  // Validate and set activity_type
+  if (activity_type !== undefined) {
+    const validActivityTypes = ['food', 'transport', 'accommodation', 'activity', 'shopping', 'entertainment', 'sightseeing', 'custom', null];
+    planItem.activity_type = validActivityTypes.includes(activity_type) ? activity_type : null;
+  }
+
+  // Process location data for in-memory update
+  const hasLocationInput = location !== undefined || address !== undefined ||
+    (typeof lat === 'number' && typeof lng === 'number');
+
+  if (hasLocationInput) {
+    if (location) {
+      // Full location object provided
+      planItem.location = {
+        address: location.address || null,
+        geo: null,
+        city: location.city || null,
+        state: location.state || null,
+        country: location.country || null,
+        postalCode: location.postalCode || null,
+        placeId: location.placeId || null
+      };
+      // Handle geo coordinates from location object
+      if (location.geo && location.geo.coordinates) {
+        planItem.location.geo = {
+          type: 'Point',
+          coordinates: location.geo.coordinates
+        };
+      } else if (typeof location.lat === 'number' && typeof location.lng === 'number') {
+        planItem.location.geo = {
+          type: 'Point',
+          coordinates: [location.lng, location.lat] // GeoJSON uses [lng, lat]
+        };
+      }
+    } else if (address || (typeof lat === 'number' && typeof lng === 'number')) {
+      // Simple address or lat/lng provided at top level
+      planItem.location = {
+        address: address || null,
+        geo: null,
+        city: null,
+        state: null,
+        country: null,
+        postalCode: null,
+        placeId: null
+      };
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        planItem.location.geo = {
+          type: 'Point',
+          coordinates: [lng, lat] // GeoJSON uses [lng, lat]
+        };
+      }
+    }
+  }
 
   await plan.save();
 
@@ -1242,10 +1394,11 @@ const getCollaborators = asyncHandler(async (req, res) => {
 /**
  * Add a new plan item to a plan
  * Allows plan owners and collaborators to add items
+ * Accepts location.address and location.geo (or lat/lng) and converts to GeoJSON
  */
 const addPlanItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { text, url, cost, planning_days, parent, photo } = req.body;
+  const { text, url, cost, planning_days, parent, photo, activity_type, location, lat, lng, address } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: "Invalid plan ID" });
@@ -1271,6 +1424,39 @@ const addPlanItem = asyncHandler(async (req, res) => {
     });
   }
 
+  // Process location data - accept various formats and convert to standard structure with validation
+  let locationData = null;
+  if (location) {
+    // Full location object provided - use sanitizeLocation for validation
+    locationData = sanitizeLocation(location);
+
+    // If location object has lat/lng at top level (alternative format), handle it
+    if (!locationData && typeof location.lat === 'number' && typeof location.lng === 'number') {
+      locationData = sanitizeLocation({
+        address: location.address,
+        geo: { type: 'Point', coordinates: [location.lng, location.lat] },
+        city: location.city,
+        state: location.state,
+        country: location.country,
+        postalCode: location.postalCode,
+        placeId: location.placeId
+      });
+    }
+  } else if (address || (typeof lat === 'number' && typeof lng === 'number')) {
+    // Simple address or lat/lng provided at top level
+    const geoCoords = (typeof lat === 'number' && typeof lng === 'number')
+      ? { type: 'Point', coordinates: [lng, lat] }
+      : null;
+    locationData = sanitizeLocation({
+      address: address || null,
+      geo: geoCoords
+    });
+  }
+
+  // Validate activity_type if provided
+  const validActivityTypes = ['food', 'transport', 'accommodation', 'activity', 'shopping', 'entertainment', 'sightseeing', 'custom', null];
+  const resolvedActivityType = activity_type && validActivityTypes.includes(activity_type) ? activity_type : null;
+
   // Create new plan item (Mongoose will auto-generate _id)
   const newPlanItem = {
     plan_item_id: new mongoose.Types.ObjectId(), // Generate new ID for reference
@@ -1280,7 +1466,9 @@ const addPlanItem = asyncHandler(async (req, res) => {
     planning_days: planning_days || 0,
     complete: false,
     parent: parent || null,
-    photo: photo || null
+    photo: photo || null,
+    activity_type: resolvedActivityType,
+    location: locationData
   };
 
   plan.plan.push(newPlanItem);

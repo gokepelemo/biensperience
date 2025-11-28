@@ -13,14 +13,17 @@ import { getExperiences } from "../../utilities/experiences-api";
 import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
+import PageSchema from '../../components/PageSchema/PageSchema';
+import { buildDestinationSchema } from '../../utilities/schema-utils';
 import { isOwner } from "../../utilities/permissions";
 import { Container, Button, SkeletonLoader } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
 import { toggleUserFavoriteDestination, deleteDestination } from "../../utilities/destinations-api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
-import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash } from "react-icons/fa";
+import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage } from "react-icons/fa";
 import { Row, Col, Card } from "react-bootstrap";
 import { getDefaultPhoto } from "../../utilities/photo-utils";
+import PhotoModal from "../../components/PhotoModal/PhotoModal";
 
 export default function SingleDestination() {
   const { user } = useUser();
@@ -40,6 +43,8 @@ export default function SingleDestination() {
   const [favHover, setFavHover] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showPhotoViewer, setShowPhotoViewer] = useState(false);
+  const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
 
   /**
    * Merge helper function to update destination state without full replacement
@@ -265,6 +270,12 @@ export default function SingleDestination() {
     return defaultPhoto?.url || destination.photos[0]?.url;
   };
 
+  // Normalize destination hero photos for PhotoModal
+  const heroPhotos = (() => {
+    const src = destination?.photos && destination.photos.length > 0 ? destination.photos : [];
+    return src.map(p => (typeof p === 'string' ? { url: p } : p));
+  })();
+
   // Show loading state
   if (isLoading) {
     return (
@@ -328,6 +339,7 @@ export default function SingleDestination() {
         ogDescription={`${displayedExperiences.length > 0 ? `Explore ${displayedExperiences.length} unique experiences in ${destination.name}. ` : ''}${destination.travel_tips?.length > 0 && typeof destination.travel_tips[0] === 'string' ? destination.travel_tips[0] : destination.travel_tips?.length > 0 && destination.travel_tips[0]?.value ? destination.travel_tips[0].value : `Plan your trip to ${destination.name} today.`}`}
         entity={destination}
         entityType="destination"
+        schema={buildDestinationSchema(destination, window?.location?.origin || '')}
       />
 
       {/* Hidden h1 for screen readers */}
@@ -350,6 +362,17 @@ export default function SingleDestination() {
                 <span><FaPlane /> {experienceCount} {experienceCount === 1 ? 'experience' : 'experiences'}</span>
               </div>
             </div>
+            <button
+              type="button"
+              className={styles.heroPhotoButton}
+              onClick={() => {
+                setPhotoViewerIndex(0);
+                setShowPhotoViewer(true);
+              }}
+              aria-label="View photos"
+            >
+              <FaRegImage />
+            </button>
           </div>
 
           {/* Content Grid */}
@@ -399,7 +422,7 @@ export default function SingleDestination() {
               <Card className={styles.contentCard}>
                 <Card.Body className={styles.contentCardBody}>
                   <h3 className={styles.sectionTitle}>
-                    {lang.en.heading.experiencesIn.replace('{destinationName}', destination.name)}
+                    {lang.current.heading.experiencesIn.replace('{destinationName}', destination.name)}
                   </h3>
                   {displayedExperiences.length > 0 ? (
                     <>
@@ -443,7 +466,7 @@ export default function SingleDestination() {
                     <Alert
                       type="info"
                       className="alert-centered"
-                      message={lang.en.alert.noExperiencesInDestination}
+                      message={lang.current.alert.noExperiencesInDestination}
                       actions={
                         <Link to="/experiences/new">
                           <Button variant="gradient" size="md">
@@ -476,8 +499,8 @@ export default function SingleDestination() {
                       <span className={styles.buttonSpinner} aria-label="Loading" />
                     ) : (
                       isUserFavorite
-                        ? (favHover ? lang.en.button.removeFavoriteDest : lang.en.button.favorited)
-                        : lang.en.button.addFavoriteDest
+                        ? (favHover ? lang.current.button.removeFavoriteDest : lang.current.button.favorited)
+                        : lang.current.button.addFavoriteDest
                     )}
                   </Button>
 
@@ -529,6 +552,9 @@ export default function SingleDestination() {
       </div>
 
       {/* Delete Destination Confirmation Modal */}
+      {showPhotoViewer && (
+        <PhotoModal photos={heroPhotos} initialIndex={photoViewerIndex} onClose={() => setShowPhotoViewer(false)} />
+      )}
       <ConfirmModal
         show={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}

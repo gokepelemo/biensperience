@@ -72,7 +72,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       if (!isMountedRef.current) return;
 
       logger.error('Error loading API tokens', {}, err);
-      showError('Failed to load API tokens');
+      showError(lang.current.api.failedToLoadTokens);
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false);
@@ -102,9 +102,9 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       }
 
       if (result.apiEnabled) {
-        success(lang.en.notification?.api?.accessEnabled || 'API access enabled. You can now create tokens below.');
+        success(lang.current.notification?.api?.accessEnabled || 'API access enabled. You can now create tokens below.');
       } else {
-        success(lang.en.notification?.api?.accessDisabled || 'API access disabled. All existing tokens have been revoked for security.');
+        success(lang.current.notification?.api?.accessDisabled || 'API access disabled. All existing tokens have been revoked for security.');
         setTokens([]); // Clear tokens list
       }
 
@@ -115,7 +115,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       logger.error('Error toggling API access', {}, err);
       // extra debug output to help trace failures
       console.error('ApiTokenModal: toggleApiAccess failed', err);
-      showError('Failed to toggle API access');
+      showError(lang.current.api.failedToToggleAccess || 'Failed to toggle API access');
     } finally {
       if (isMountedRef.current) {
         setIsTogglingAccess(false);
@@ -144,13 +144,13 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       setNewToken(result.token); // Store plain token for display
       setTokens([...tokens, result.tokenData]);
       setNewTokenName('');
-      success(lang.en.notification?.api?.tokenCreated || "Your new API token is ready. Copy it now - you won't see it again!");
+      success(lang.current.notification?.api?.tokenCreated || "Your new API token is ready. Copy it now - you won't see it again!");
       logger.info('API token created', { tokenId: result.tokenData._id });
     } catch (err) {
       if (!isMountedRef.current) return;
 
       logger.error('Error creating API token', {}, err);
-      showError('Failed to create API token');
+      showError(lang.current.api.failedToCreateToken || 'Failed to create API token');
     } finally {
       if (isMountedRef.current) {
         setIsCreating(false);
@@ -161,10 +161,10 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
   const handleCopyToken = async (token) => {
     try {
       await navigator.clipboard.writeText(token);
-      success(lang.en.notification?.api?.tokenCopied || 'Token copied! Paste it in your application to connect.');
+      success(lang.current.notification?.api?.tokenCopied || 'Token copied! Paste it in your application to connect.');
     } catch (err) {
       logger.error('Error copying token', {}, err);
-      showError('Failed to copy token');
+      showError(lang.current.api.failedToCopyToken || 'Failed to copy token');
     }
   };
 
@@ -181,13 +181,13 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       if (!isMountedRef.current) return;
 
       setTokens(tokens.filter(t => t._id !== tokenId));
-      success(lang.en.notification?.api?.tokenRevoked || 'Token revoked. It can no longer be used to access your data.');
+      success(lang.current.notification?.api?.tokenRevoked || 'Token revoked. It can no longer be used to access your data.');
       logger.info('API token deleted', { tokenId });
     } catch (err) {
       if (!isMountedRef.current) return;
 
       logger.error('Error deleting API token', {}, err);
-      showError('Failed to revoke token');
+      showError(lang.current.api.failedToRevokeToken || 'Failed to revoke token');
     }
   };
 
@@ -255,10 +255,8 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
         <div className={`${styles.apiAccessToggle} mb-4 p-3 border rounded`}>
           <div className="d-flex justify-content-between align-items-center">
             <div>
-              <h5 className="mb-1">API Access</h5>
-              <p className="text-muted mb-0 small">
-                Enable API access to use API tokens for programmatic access
-              </p>
+              <h5 className="mb-1">{lang.current.api.accessTitle}</h5>
+              <p className="text-muted mb-0 small">{lang.current.api.accessDescription}</p>
             </div>
             <Form.Check
               type="switch"
@@ -274,7 +272,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
 
         {!apiEnabled && (
           <BootstrapAlert variant="info">
-            API access is currently disabled. Enable it above to create and use API tokens.
+            {lang.current.api.accessDisabledMessage}
           </BootstrapAlert>
         )}
 
@@ -283,10 +281,8 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
             {/* New Token Display (shown only once after creation) */}
             {newToken && (
               <BootstrapAlert variant="success" className="mb-4">
-                <h5>New Token Created!</h5>
-                <p className="mb-2">
-                  Make sure to copy your token now. You won't be able to see it again!
-                </p>
+                <h5>{lang.current.api.newTokenTitle}</h5>
+                <p className="mb-2">{lang.current.api.copyTokenMessage || lang.current.api.copyTokenMessage}</p>
                 <div className="d-flex align-items-center gap-2">
                   <code className={`flex-grow-1 p-2 rounded border ${styles.userSelectAll} ${styles.tokenDisplay}`}>
                     {newToken}
@@ -296,7 +292,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                     size="sm"
                     onClick={() => handleCopyToken(newToken)}
                   >
-                    <FaCopy /> Copy
+                    <FaCopy /> {lang.current.api.copyButton}
                   </Button>
                 </div>
                 <Button
@@ -305,19 +301,19 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                   onClick={() => setNewToken(null)}
                   className="mt-2 p-0"
                 >
-                  I've copied it, dismiss this message
+                  {lang.current.api.dismissMessage || lang.current.api.dismissMessage}
                 </Button>
               </BootstrapAlert>
             )}
 
             {/* Create New Token Form */}
             <Form onSubmit={handleCreateToken} className={styles.tokenCreationForm}>
-              <h5>Create New Token</h5>
+              <h5>{lang.current.api.createTokenTitle || lang.current.api.createNewToken}</h5>
               <div className="row g-2 align-items-end">
                 <div className="col">
                   <Form.Control
                     type="text"
-                    placeholder={lang.en.placeholder.tokenNameOptional}
+                    placeholder={lang.current.placeholder.tokenNameOptional}
                     value={newTokenName}
                     onChange={(e) => setNewTokenName(e.target.value)}
                     disabled={isCreating}
@@ -330,81 +326,92 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                     className={styles.generateToken}
                     disabled={isCreating}
                   >
-                    {isCreating ? 'Creating...' : 'Generate Token'}
+                    {isCreating ? lang.current.api.creatingToken : lang.current.api.generateToken}
                   </Button>
                 </div>
               </div>
               <Form.Text className="text-muted">
-                Give your token a descriptive name to remember what it's for.
+                {lang.current.api.tokenNameHelp}
               </Form.Text>
             </Form>
 
             {/* Existing Tokens List */}
             <div className={styles.tokenListSection}>
-              <h5>Your Tokens</h5>
-            {isLoading ? (
-              <Loading size="md" message="Loading tokens..." />
-            ) : tokens.length === 0 ? (
-              <BootstrapAlert variant="info">
-                You don't have any API tokens yet. Create one above to get started.
-              </BootstrapAlert>
-            ) : (
-              <ListGroup>
-                {tokens.map((token) => (
-                  <ListGroup.Item
-                    key={token._id}
-                    className="d-flex justify-content-between align-items-start"
-                  >
-                    <div className="flex-grow-1">
-                      <div className="d-flex align-items-center gap-2 mb-1">
-                        <strong>{token.name}</strong>
+              <h5>{lang.current.api.yourTokensTitle}</h5>
+              {isLoading ? (
+                <Loading size="md" message={lang.current.api.loadingTokens} />
+              ) : tokens.length === 0 ? (
+                <BootstrapAlert variant="info">{lang.current.api.noTokensMessage}</BootstrapAlert>
+              ) : (
+                <ListGroup>
+                  {tokens.map((token) => (
+                    <ListGroup.Item
+                      key={token._id}
+                      className="d-flex justify-content-between align-items-start"
+                    >
+                      <div className="flex-grow-1">
+                        <div className="d-flex align-items-center gap-2 mb-1">
+                          <strong>{token.name}</strong>
+                          {token.isActive ? (
+                            <Badge bg="success">{lang.current.api.activeStatus}</Badge>
+                          ) : (
+                            <Badge bg="secondary">{lang.current.api.revokedStatus}</Badge>
+                          )}
+                        </div>
+                        <div className="text-muted small">
+                          <div>{lang.current.api.prefixLabel} <code>{token.tokenPrefix}...</code></div>
+                          <div>{lang.current.api.createdLabel} {formatDate(token.createdAt)}</div>
+                          {token.lastUsed && (
+                            <div>{lang.current.api.lastUsedLabel} {formatDate(token.lastUsed)}</div>
+                          )}
+                          {token.expiresAt && (
+                            <div>{lang.current.api.expiresLabel} {formatDate(token.expiresAt)}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="d-flex gap-2">
                         {token.isActive ? (
-                          <Badge bg="success">Active</Badge>
+                          <>
+                            <Button
+                              variant="outline-danger"
+                              size="sm"
+                              onClick={() => handleDeleteToken(token._id)}
+                            >
+                              <FaTrash /> {lang.current.api.revokeButton}
+                            </Button>
+                            <Button
+                              variant="outline-primary"
+                              size="sm"
+                              onClick={() => handleCopyToken(token.token)}
+                            >
+                              <FaCopy /> {lang.current.api.copyButton}
+                            </Button>
+                          </>
                         ) : (
-                          <Badge bg="secondary">Revoked</Badge>
+                          <div className="align-self-center text-muted small">{lang.current.api.revokedStatus}</div>
                         )}
                       </div>
-                      <div className="text-muted small">
-                        <div>Prefix: <code>{token.tokenPrefix}...</code></div>
-                        <div>Created: {formatDate(token.createdAt)}</div>
-                        {token.lastUsed && (
-                          <div>Last used: {formatDate(token.lastUsed)}</div>
-                        )}
-                        {token.expiresAt && (
-                          <div>Expires: {formatDate(token.expiresAt)}</div>
-                        )}
-                      </div>
-                    </div>
-                    {token.isActive && (
-                      <Button
-                        variant="outline-danger"
-                        size="sm"
-                        onClick={() => handleDeleteToken(token._id)}
-                      >
-                        <FaTrash /> Revoke
-                      </Button>
-                    )}
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
-            )}
-            </div>
+                    </ListGroup.Item>
+                  ))}
+                </ListGroup>
+              )}
 
-            {/* Usage Instructions */}
-            <div className={styles.usageInstructions}>
-              <h6>How to use your API token:</h6>
-              <ol className="mb-0 small">
-                <li>Include the token in the <code>Authorization</code> header</li>
-                <li>Format: <code>Authorization: Bearer YOUR_TOKEN_HERE</code></li>
-                <li>API tokens bypass CSRF protection</li>
-                <li>Tokens have the same permissions as your user account</li>
-              </ol>
-              <div className="mt-2">
-                <strong>Example:</strong>
-                <pre className={`p-2 rounded border mt-1 mb-0 ${styles.codeExample}`}>
-{`curl -H "Authorization: Bearer YOUR_TOKEN" \\
+              {/* Usage Instructions */}
+              <div className={styles.usageInstructions + ' mt-4'}>
+                <h6>{lang.current.api.usageTitle}</h6>
+                <ol className="mb-0 small">
+                  <li>{lang.current.api.usageStep1}</li>
+                  <li>{lang.current.api.usageStep2}</li>
+                  <li>{lang.current.api.usageStep3}</li>
+                  <li>{lang.current.api.usageStep4}</li>
+                </ol>
+                <div className="mt-2">
+                  <strong>{lang.current.api.exampleTitle}</strong>
+                  <pre className={`p-2 rounded border mt-1 mb-0 ${styles.codeExample}`}>
+{`curl -H "Authorization: Bearer YOUR_TOKEN"
   ${window.location.origin}/api/experiences`}
-                </pre>
+                  </pre>
+                </div>
               </div>
             </div>
           </>

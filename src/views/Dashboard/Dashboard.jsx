@@ -109,7 +109,7 @@ export default function Dashboard() {
       });
     } catch (err) {
       logger.error('[Dashboard] Failed to load dashboard data', err);
-      const message = err?.message || 'Failed to load dashboard data';
+      const message = err?.message || lang.current.alert.failedToLoadDashboardData;
       try {
         toast.error(message, { header: 'Dashboard Error', duration: 8000 });
       } catch (e) {

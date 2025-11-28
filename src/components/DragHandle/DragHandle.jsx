@@ -1,42 +1,22 @@
 /**
  * DragHandle Component
- * Draggable handle for reordering plan items
+ * Presentational drag handle icon for reordering plan items
+ * Parent component should provide drag listeners via wrapper div
  * Only visible to owners, collaborators, and super admins
  */
 
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import styles from './DragHandle.module.scss';
 
-export default function DragHandle({ id, disabled = false }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id, disabled });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
+export default function DragHandle({ isDragging = false, disabled = false }) {
   if (disabled) {
     return null; // Don't render handle if user doesn't have permission
   }
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
       className={`${styles.dragHandle} ${isDragging ? styles.dragging : ''}`}
-      {...attributes}
-      {...listeners}
       aria-label="Drag to reorder"
-      title="Drag to reorder"
+      title="Drag left to promote, right to nest, up/down to reorder"
     >
       <svg
         width="20"

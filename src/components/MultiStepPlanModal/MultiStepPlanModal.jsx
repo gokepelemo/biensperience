@@ -317,27 +317,27 @@ export default function MultiStepPlanModal() {
                 <Form onSubmit={(e) => { e.preventDefault(); handleCreateExperience(); }}>
                   <FormField
                     name="name"
-                    label={lang.en.label.title}
+                    label={lang.current.label.title}
                     type="text"
                     value={newExperience.name || ''}
                     onChange={handleChange}
-                    placeholder={lang.en.placeholder.experienceName}
+                    placeholder={lang.current.placeholder.experienceName}
                     required
-                    tooltip={lang.en.helper.nameRequired}
+                    tooltip={lang.current.helper.nameRequired}
                   />
 
                   <div className="mb-4">
                     <Form.Group>
                       <Form.Label>
-                        {lang.en.label.destinationLabel}
+                        {lang.current.label.destinationLabel}
                         {' '}<span className="text-danger">*</span>{' '}
                         <FormTooltip
-                          text={`${lang.en.helper.destinationRequired} ${lang.en.helper.createNewDestination}`}
+                          text={`${lang.current.helper.destinationRequired} ${lang.current.helper.createNewDestination}`}
                           placement="top"
                         />
                       </Form.Label>
                       <Autocomplete
-                        placeholder={lang.en.placeholder.destination}
+                        placeholder={lang.current.placeholder.destination}
                         entityType="destination"
                         items={getFilteredDestinations()}
                         onSelect={(destination) => {
@@ -360,14 +360,14 @@ export default function MultiStepPlanModal() {
                         disableFilter={true}
                       />
                       <small className="form-text text-muted mt-2 d-block">
-                        {lang.en.helper.destinationRequired}
+                        {lang.current.helper.destinationRequired}
                         <button
                           type="button"
                           onClick={handleCreateDestinationClick}
                           className="btn btn-link p-0 ms-1 align-baseline"
                           style={{ textDecoration: 'none' }}
                         >
-                          {lang.en.helper.createNewDestination}
+                          {lang.current.helper.createNewDestination}
                         </button>
                       </small>
                     </Form.Group>
@@ -375,30 +375,30 @@ export default function MultiStepPlanModal() {
 
                   <FormField
                     name="map_location"
-                    label={lang.en.label.address}
+                    label={lang.current.label.address}
                     type="text"
                     value={newExperience.map_location || ''}
                     onChange={handleChange}
-                    placeholder={lang.en.placeholder.address}
-                    tooltip={lang.en.helper.addressOptional}
+                    placeholder={lang.current.placeholder.address}
+                    tooltip={lang.current.helper.addressOptional}
                   />
 
                   <div className="mb-4">
                     <Form.Label htmlFor="experience_type">
-                      {lang.en.label.experienceTypes}
-                      <FormTooltip content={lang.en.helper.experienceTypesOptional} placement="top" />
+                      {lang.current.label.experienceTypes}
+                        <FormTooltip content={lang.current.helper.experienceTypesOptional} placement="top" />
                     </Form.Label>
                     <TagInput
                       tags={tags}
                       onChange={handleTagsChange}
-                      placeholder={lang.en.placeholder.experienceType}
+                      placeholder={lang.current.placeholder.experienceType}
                     />
                   </div>
 
                   <div className="mb-4">
-                    <Form.Label>
+                      <Form.Label>
                       Photos
-                      <FormTooltip content={lang.en.helper.photosOptional} placement="top" />
+                      <FormTooltip content={lang.current.helper.photosOptional} placement="top" />
                     </Form.Label>
                     <ImageUpload data={newExperience} setData={setNewExperience} />
                   </div>
@@ -407,26 +407,26 @@ export default function MultiStepPlanModal() {
                     <div className="col-md-6">
                       <FormField
                         name="max_planning_days"
-                        label={lang.en.label.planningDays}
+                        label={lang.current.label.planningDays}
                         type="number"
                         value={newExperience.max_planning_days || ''}
                         onChange={handleChange}
-                        placeholder={lang.en.placeholder.planningDays}
+                        placeholder={lang.current.placeholder.planningDays}
                         min="1"
-                        tooltip={lang.en.helper.planningTimeTooltip}
+                        tooltip={lang.current.helper.planningTimeTooltip}
                         append="days"
                       />
                     </div>
                     <div className="col-md-6">
                       <FormField
                         name="cost_estimate"
-                        label={lang.en.label.costEstimate}
+                        label={lang.current.label.costEstimate}
                         type="number"
                         value={newExperience.cost_estimate || ''}
                         onChange={handleChange}
-                        placeholder={lang.en.placeholder.costEstimate}
+                        placeholder={lang.current.placeholder.costEstimate}
                         min="0"
-                        tooltip={lang.en.helper.costEstimateOptional}
+                        tooltip={lang.current.helper.costEstimateOptional}
                         prepend="$"
                       />
                     </div>

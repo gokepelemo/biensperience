@@ -45,6 +45,49 @@ const noteSchema = new Schema({
 }, { timestamps: true }); // createdAt and updatedAt
 
 /**
+ * GeoJSON Point schema for location coordinates
+ */
+const geoPointSchema = new Schema({
+  type: {
+    type: String,
+    enum: ['Point'],
+    default: 'Point'
+  },
+  coordinates: {
+    type: [Number], // [longitude, latitude]
+    validate: {
+      validator: function(coords) {
+        if (!coords || coords.length !== 2) return true; // Allow empty/null
+        const [lng, lat] = coords;
+        return lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90;
+      },
+      message: 'Coordinates must be [longitude, latitude] with valid ranges'
+    }
+  }
+}, { _id: false });
+
+/**
+ * Location schema for plan items
+ * Stores human-readable address and GeoJSON Point for geocoding
+ */
+const locationSchema = new Schema({
+  address: {
+    type: String,
+    trim: true
+  },
+  geo: {
+    type: geoPointSchema,
+    default: null
+  },
+  // Optional additional address components from geocoding
+  city: String,
+  state: String,
+  country: String,
+  postalCode: String,
+  placeId: String // Google Place ID for reference
+}, { _id: false });
+
+/**
  * Plan item snapshot schema
  * Point-in-time snapshot of plan items for this specific user's plan
  */
@@ -71,19 +114,26 @@ const planItemSnapshotSchema = new Schema({
   url: String,
   photo: { type: Schema.Types.ObjectId, ref: "Photo" },
   parent: { type: Schema.Types.ObjectId },
+  // Activity type for grouping plan items (e.g., 'food', 'transport', 'accommodation', 'activity', 'custom')
+  activity_type: {
+    type: String,
+    enum: ['food', 'transport', 'accommodation', 'activity', 'shopping', 'entertainment', 'sightseeing', 'custom', null],
+    default: null
+  },
   // Scheduled date and time for timeline organization (user-specific overrides)
   scheduled_date: { type: Date, default: null },
   scheduled_time: { type: String, default: null }, // HH:MM format
-  // Plan item details (notes, location, chat, photos, documents)
+  // Location for the plan item (address and GeoJSON coordinates)
+  location: {
+    type: locationSchema,
+    default: null
+  },
+  // Plan item details (notes, chat, photos, documents)
   details: {
     type: new Schema({
       notes: {
         type: [noteSchema],
         default: []
-      },
-      location: {
-        type: Schema.Types.Mixed, // Future: { address: String, geo: GeoJSON Point }
-        default: null
       },
       chat: {
         type: [Schema.Types.Mixed], // Future: chat message schema
@@ -99,28 +149,14 @@ const planItemSnapshotSchema = new Schema({
         default: []
       }
     }, { _id: false }),
-    default: () => ({ notes: [], location: null, chat: [], photos: [], documents: [] })
+    default: () => ({ notes: [], chat: [], photos: [], documents: [] })
   },
   // Assignment to collaborator or owner
   assignedTo: {
     type: Schema.Types.ObjectId,
     ref: 'User',
     default: null
-  },
-  // NOTE: `location` is temporarily disabled at plan item level.
-  // Purpose: when enabled, this stores a plan-item level address and a
-  // GeoJSON `Point` for geocoding and spatial queries. It's commented out
-  // for now to avoid validation and migration issues while the geocoding
-  // integration and data migration strategy are finalized.
-  //
-  // Example intended shape when enabled:
-  // location: {
-  //   address: { type: String },
-  //   geo: {
-  //     type: { type: String, enum: ['Point'], default: 'Point' },
-  //     coordinates: { type: [Number] } // [lng, lat]
-  //   }
-  // }
+  }
 }, { _id: true });
 
 /**
@@ -214,10 +250,8 @@ planSchema.index({ experience: 1 });
 planSchema.index({ experience: 1, 'permissions._id': 1, 'permissions.type': 1 });  // For getExperiencePlans queries
 
 // Spatial index for plan item locations (GeoJSON Points stored on each plan item)
-// Temporarily disabled while `location` field is commented out above.
-// Re-enable this index when plan item geocoding is integrated and data
-// migration has been executed to populate `plan.location.geo.coordinates`.
-// planSchema.index({ 'plan.location.geo': '2dsphere' });
+// Enables geospatial queries for proximity-based plan item lookups
+planSchema.index({ 'plan.location.geo': '2dsphere' });
 
 /**
  * Virtual property for total cost

@@ -54,7 +54,7 @@ export default function NewDestination() {
 
   const handleFormError = useFormErrorHandling(setError, {
     onEmailNotVerified: (data) => {
-      setError(data.error || lang.en.alert.emailNotVerifiedMessage);
+      setError(data.error || lang.current.alert.emailNotVerifiedMessage);
     }
   });
 
@@ -83,7 +83,7 @@ export default function NewDestination() {
         success(message, {
           duration: 20000,
           actions: [{
-            label: lang.en.button.clearForm,
+            label: lang.current.button.clearForm,
             onClick: () => {
               setNewDestination({});
               setTravelTips([]);
@@ -146,9 +146,9 @@ export default function NewDestination() {
 
   return (
     <>
-      <div className="row animation-fade_in">
+      <div className="row animation-fade-in">
         <div className="col-12">
-          <h1 className="form-title">{lang.en.heading.createDestination}</h1>
+          <h1 className="form-title">{lang.current.heading.createDestination}</h1>
         </div>
       </div>
 
@@ -167,7 +167,7 @@ export default function NewDestination() {
         </Alert>
       )}
 
-      <div className="row my-4 animation-fade_in justify-content-center">
+      <div className="row my-4 animation-fade-in justify-content-center">
         <div className="col-12">
           <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
@@ -176,9 +176,9 @@ export default function NewDestination() {
               type="text"
               value={newDestination.name || ''}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.city}
+              placeholder={lang.current.placeholder.city}
               required
-              tooltip={lang.en.helper.cityRequired}
+              tooltip={lang.current.helper.cityRequired}
               tooltipPlacement="top"
             />
 
@@ -190,8 +190,8 @@ export default function NewDestination() {
                   type="text"
                   value={newDestination.state || ''}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.stateProvince}
-                  tooltip={lang.en.helper.stateProvinceRequired}
+                  placeholder={lang.current.placeholder.stateProvince}
+                  tooltip={lang.current.helper.stateProvinceRequired}
                   tooltipPlacement="top"
                   className="mb-0"
                 />
@@ -204,9 +204,9 @@ export default function NewDestination() {
                   type="text"
                   value={newDestination.country || ''}
                   onChange={handleChange}
-                  placeholder={lang.en.placeholder.country}
+                  placeholder={lang.current.placeholder.country}
                   required
-                  tooltip={lang.en.helper.countryRequired}
+                  tooltip={lang.current.helper.countryRequired}
                   tooltipPlacement="top"
                   className="mb-0"
                 />
@@ -219,15 +219,15 @@ export default function NewDestination() {
               type="textarea"
               value={newDestination.description || ''}
               onChange={handleChange}
-              placeholder={lang.en.placeholder.destinationDescription}
+              placeholder={lang.current.placeholder.destinationDescription}
               rows={4}
-              tooltip={lang.en.helper.descriptionOptional}
+              tooltip={lang.current.helper.descriptionOptional}
               tooltipPlacement="top"
             />
 
             <div className="mb-4">
               <Form.Label>
-                {lang.en.heading.photos}
+                {lang.current.heading.photos}
               </Form.Label>
               <ImageUpload data={newDestination} setData={setNewDestination} />
             </div>
@@ -239,7 +239,7 @@ export default function NewDestination() {
               onNewTipKeyPress={handleNewTipKeyPress}
               onAddTip={handleAddTravelTip}
               onDeleteTip={handleDeleteTravelTip}
-              label={lang.en.heading.travelTips}
+              label={lang.current.heading.travelTips}
               placeholder="Share an insider tip (e.g., 'Best time to visit is spring')"
               addButtonText="Add Tip"
               deleteButtonText="Remove"

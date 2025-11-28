@@ -118,15 +118,15 @@ export default function Destinations() {
           message="Loading destinations..."
         />
       ) : (
-        <Container className="my-4 animation-fade_in">
-          <div className={`${styles.destinationsList} animation-fade_in`}>
+        <Container className="my-4 animation-fade-in">
+          <div className={`${styles.destinationsList} animation-fade-in`}>
             {processedDestinations.length > 0 ? (
               processedDestinations.map((destination, index) => (
                 destination ? (
                   <DestinationCard
                     destination={destination}
                     key={destination._id || index}
-                    className="animation-fade_in"
+                    className="animation-fade-in"
                     forcePreload={true}
                   />
                 ) : (

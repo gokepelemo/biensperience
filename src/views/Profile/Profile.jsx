@@ -278,7 +278,7 @@ export default function Profile() {
     
     // Validate userId before API calls
     if (!userId || typeof userId !== 'string' || userId.length !== 24) {
-      setProfileError('Invalid user ID');
+      setProfileError(lang.current.alert.invalidUserId);
       setIsLoadingProfile(false);
       return;
     }
@@ -295,10 +295,10 @@ export default function Profile() {
     } catch (err) {
       // Check if it's a 404 error
       if (err.message && err.message.includes('404')) {
-        setProfileError('User not found');
+        setProfileError(lang.current.alert.userNotFound);
       } else {
         handleError(err, { context: 'Load profile' });
-        setProfileError('Failed to load profile');
+        setProfileError(lang.current.alert.failedToLoadProfile);
       }
     } finally {
       setIsLoadingProfile(false);
@@ -329,7 +329,7 @@ export default function Profile() {
       await updateUserRole(profileId, { role: newRole });
       // ✅ MERGE only changed field - no full refetch
       mergeProfile({ role: newRole });
-      const message = lang.en.notification?.admin?.roleUpdated?.replace('{role}', newRole) || `User role updated to ${newRole}`;
+      const message = lang.current.notification?.admin?.roleUpdated?.replace('{role}', newRole) || `User role updated to ${newRole}`;
       success(message);
     } catch (error) {
       handleError(error);
@@ -350,7 +350,7 @@ export default function Profile() {
       // ✅ MERGE only changed field - no full refetch
       mergeProfile({ emailConfirmed });
       const action = emailConfirmed ? 'confirmed' : 'unconfirmed';
-      const message = lang.en.notification?.admin?.emailConfirmed?.replace('{action}', action) || `Email ${action} successfully`;
+      const message = lang.current.notification?.admin?.emailConfirmed?.replace('{action}', action) || `Email ${action} successfully`;
       success(message);
     } catch (error) {
       handleError(error);
@@ -492,13 +492,13 @@ export default function Profile() {
         <Container className="justify-content-center">
           <div className="col-md-8">
             <Alert
-              type="danger"
-              title="User Not Found"
-            >
-              <p>The user profile you're looking for doesn't exist or has been removed.</p>
+                type="danger"
+                title={lang.current.modal.userNotFound || 'User Not Found'}
+              >
+                <p>{lang.current.alert.userNotFoundMessage || "The user profile you're looking for doesn't exist or has been removed."}</p>
               <hr />
               <p className="mb-0">
-                <Link to="/" className="alert-link">Return to Home</Link>
+                  <Link to="/" className="alert-link">{lang.current.alert.returnToHome || 'Return to Home'}</Link>
               </p>
             </Alert>
           </div>
@@ -515,12 +515,12 @@ export default function Profile() {
           <div className="col-md-8">
             <Alert
               type="warning"
-              title="Unable to Load Profile"
+              title={lang.current.modal.unableToLoadProfile || 'Unable to Load Profile'}
             >
               <p>{profileError}</p>
               <hr />
               <p className="mb-0">
-                <Button onClick={getProfile} variant="primary">{lang.en.button.tryAgain}</Button>
+                <Button onClick={getProfile} variant="primary">{lang.current.button.tryAgain}</Button>
               </p>
             </Alert>
           </div>
@@ -555,8 +555,8 @@ export default function Profile() {
                       {currentProfile?.emailConfirmed && (
                         <FaCheckCircle
                           className="text-success ms-2 font-size-adjust-xs"
-                          title={lang.en.aria.emailConfirmed}
-                          aria-label={lang.en.aria.emailConfirmed}
+                          title={lang.current.aria.emailConfirmed}
+                          aria-label={lang.current.aria.emailConfirmed}
                         />
                       )}
                     </>
@@ -573,7 +573,7 @@ export default function Profile() {
                         type="button"
                         data-bs-toggle="dropdown"
                         aria-expanded="false"
-                        aria-label={lang.en.aria.profileActions}
+                        aria-label={lang.current.aria.profileActions}
                       >
                         ⋯
                       </Button>
@@ -624,7 +624,7 @@ export default function Profile() {
                                   await resendConfirmation(currentProfile.email);
                                   // start cooldown after successful send
                                   startCooldown(currentProfile.email);
-                                  success(lang.en.success.resendConfirmation);
+                                  success(lang.current.success.resendConfirmation);
                                 } catch (err) {
                                   const msg = handleError(err, { context: 'Resend verification' });
                                   showError(msg || 'Failed to resend verification email');
@@ -634,7 +634,7 @@ export default function Profile() {
                               }}
                               disabled={resendInProgress || resendDisabled}
                             >
-                              🔁 {lang.en.alert.emailNotVerifiedAction} {resendDisabled && cooldownRemaining > 0 ? `(${cooldownRemaining}s)` : ''}
+                              🔁 {lang.current.alert.emailNotVerifiedAction} {resendDisabled && cooldownRemaining > 0 ? `(${cooldownRemaining}s)` : ''}
                             </button>
                           </li>
                         )}
@@ -656,11 +656,11 @@ export default function Profile() {
             </div>
           </div>
         </div>
-      <div className="row mb-4 animation-fade_in">
-        <div className="col-md-6 p-3 animation-fade_in">
+      <div className="row mb-4 animation-fade-in">
+        <div className="col-md-6 p-3 animation-fade-in">
           {isLoadingProfile ? (
             <div className="photoCard d-flex align-items-center justify-content-center" style={{ minHeight: 'var(--layout-min-height-card)' }}>
-              <Loading size="lg" message="Loading profile photos..." />
+              <Loading size="lg" message={lang.current.alert.loadingProfile} />
             </div>
           ) : (
             <>
@@ -670,18 +670,18 @@ export default function Profile() {
                 title={currentProfile?.name}
               />
               {!currentProfile?.photos?.length && isOwner && (
-                <small className="d-flex justify-content-center align-items-center noPhoto animation-fade_in">
-                  <span>{lang.en.message.noPhotoMessage} <Link to="/profile/update">{lang.en.message.uploadPhotoNow}</Link></span>
+                <small className="d-flex justify-content-center align-items-center noPhoto animation-fade-in">
+                  <span>{lang.current.message.noPhotoMessage} <Link to="/profile/update">{lang.current.message.uploadPhotoNow}</Link></span>
                 </small>
               )}
             </>
           )}
         </div>
-        <div className="col-md-6 p-3 animation-fade_in">
-          <div className={`${styles.profileDetailCard} animation-fade_in`}>
+        <div className="col-md-6 p-3 animation-fade-in">
+          <div className={`${styles.profileDetailCard} animation-fade-in`}>
             <div className={styles.profileDetailSection}>
               <Heading level={3} className={styles.profileDetailSectionTitle}>
-                {lang.en.heading.favoriteDestinations}
+                {lang.current.heading.favoriteDestinations}
               </Heading>
               <div className={`${styles.profileDetailContent} ${styles.profileDestinations}`}>
                 {isLoadingProfile ? (
@@ -694,12 +694,12 @@ export default function Profile() {
                       </TagPill>
                   ))
                 ) : (
-                  <div className={`${styles.noFavoriteDestinations} animation-fade_in`}>
+                  <div className={`${styles.noFavoriteDestinations} animation-fade-in`}>
                     {isOwner ? (
                       <>
-                        <p className="mb-3">{lang.en.message.noFavoriteDestinations}</p>
+                        <p className="mb-3">{lang.current.message.noFavoriteDestinations}</p>
                         <Button as={Link} to="/destinations" variant="primary" size="sm">
-                          {lang.en.message.addFavoriteDestinations}
+                          {lang.current.message.addFavoriteDestinations}
                         </Button>
                       </>
                     ) : (
@@ -715,7 +715,7 @@ export default function Profile() {
             </div>
             <div className={styles.profileDetailSection}>
               <Heading level={3} className={styles.profileDetailSectionTitle}>
-                {lang.en.heading.preferredExperienceTypes}
+                {lang.current.heading.preferredExperienceTypes}
               </Heading>
               <div className={styles.profileDetailContent}>
                 {(isLoadingProfile || (isOwner && userExperiences.length === 0)) ? (
@@ -740,12 +740,12 @@ export default function Profile() {
                     )}
                   </>
                 ) : (
-                  <div className="animation-fade_in">
+                  <div className="animation-fade-in">
                     {isOwner ? (
                       <>
-                        <p className="mb-3">{lang.en.message.noExperiencesYet}</p>
+                        <p className="mb-3">{lang.current.message.noExperiencesYet}</p>
                         <Button as={Link} to="/experiences" variant="primary" size="sm">
-                          {lang.en.message.addExperiences}
+                          {lang.current.message.addExperiences}
                         </Button>
                       </>
                     ) : (
@@ -763,38 +763,38 @@ export default function Profile() {
           </div>
         </div>
       </div>
-      <div className="row my-4 animation-fade_in">
-        <h4 className={`badge rounded-pill ${styles.badgeNav} my-4 animation-fade_in`}>
+      <div className="row my-4 animation-fade-in">
+        <h4 className={`badge rounded-pill ${styles.badgeNav} my-4 animation-fade-in`}>
           <span
-            className={uiState.experiences ? `fw-bold animation-fade_in ${styles.activeTab}` : "animation-fade_in"}
+            className={uiState.experiences ? `fw-bold animation-fade-in ${styles.activeTab}` : "animation-fade-in"}
             onClick={() => {
               handleExpNav('experiences');
               try { window.history.pushState(null, '', `${window.location.pathname}#experiences`); } catch (e) {}
             }}
           >
-            {lang.en.heading.plannedExperiences}
+            {lang.current.heading.plannedExperiences}
           </span>
           <span
-            className={uiState.created ? "fw-bold animation-fade_in active-tab" : "animation-fade_in"}
+            className={uiState.created ? "fw-bold animation-fade-in active-tab" : "animation-fade-in"}
             onClick={() => {
               handleExpNav('created');
               try { window.history.pushState(null, '', `${window.location.pathname}#created`); } catch (e) {}
             }}
           >
-            {lang.en.heading.createdExperiences || 'Created Experiences'}
+            {lang.current.heading.createdExperiences || 'Created Experiences'}
           </span>
           <span
-            className={uiState.destinations ? "fw-bold animation-fade_in active-tab" : "animation-fade_in"}
+            className={uiState.destinations ? "fw-bold animation-fade-in active-tab" : "animation-fade-in"}
             onClick={() => {
               handleExpNav('destinations');
               try { window.history.pushState(null, '', `${window.location.pathname}#destinations`); } catch (e) {}
             }}
           >
-            {lang.en.heading.experienceDestinations}
+            {lang.current.heading.experienceDestinations}
           </span>
         </h4>
       </div>
-      <div className="row my-4 justify-content-center animation-fade_in">
+      <div className="row my-4 justify-content-center animation-fade-in">
         <div ref={reservedRef} className={styles.profileCardsReserved}>
         {uiState.destinations && (() => {
           const uniqueDestinationIds = Array.from(
@@ -841,7 +841,7 @@ export default function Profile() {
           ) : (
             <Alert
               type="info"
-              className="animation-fade_in text-center"
+              className="animation-fade-in text-center"
             >
               <p className="mb-3">
                 {isOwner
@@ -851,7 +851,7 @@ export default function Profile() {
               </p>
               {isOwner && (
                 <Button as={Link} to="/experiences" variant="primary">
-                  {lang.en.message.addExperiences}
+                  {lang.current.message.addExperiences}
                 </Button>
               )}
             </Alert>
@@ -892,17 +892,17 @@ export default function Profile() {
           ) : (
             <Alert
               type="info"
-              className="animation-fade_in text-center"
+              className="animation-fade-in text-center"
             >
               <p className="mb-3">
                 {isOwner
-                  ? lang.en.message.noExperiencesYet
+                  ? lang.current.message.noExperiencesYet
                   : `${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`
                 }
               </p>
               {isOwner && (
                 <Button as={Link} to="/experiences" variant="primary">
-                  {lang.en.message.addExperiences}
+                  {lang.current.message.addExperiences}
                 </Button>
               )}
             </Alert>
@@ -943,7 +943,7 @@ export default function Profile() {
           ) : (
             <Alert
               type="info"
-              className="animation-fade_in text-center"
+              className="animation-fade-in text-center"
             >
               <p className="mb-3">
                 {isOwner
@@ -953,7 +953,7 @@ export default function Profile() {
               </p>
               {isOwner && (
                 <Button as={Link} to="/experiences/new" variant="primary">
-                  {lang.en.message.addOneNowButton}
+                  {lang.current.message.addOneNowButton}
                 </Button>
               )}
             </Alert>
@@ -962,7 +962,7 @@ export default function Profile() {
       </div>
       </div>      {/* Super Admin Permissions Section */}
       {isSuperAdmin(user) && !isOwner && currentProfile && (
-        <div className="row my-4 animation-fade_in">
+        <div className="row my-4 animation-fade-in">
           <div className="col-12">
             <div className="card">
               <div className="card-header">
@@ -985,14 +985,14 @@ export default function Profile() {
                         onClick={() => handleRoleUpdate(USER_ROLES.SUPER_ADMIN)}
                         disabled={isUpdatingRole || currentProfile.role === USER_ROLES.SUPER_ADMIN}
                       >
-                        {isUpdatingRole ? 'Updating...' : 'Make Super Admin'}
+                          {isUpdatingRole ? lang.current.button.updating : lang.current.admin.makeSuperAdmin}
                       </button>
                       <button
                         className={`btn ${currentProfile.role === USER_ROLES.REGULAR_USER ? 'btn-secondary' : 'btn-outline-secondary'}`}
                         onClick={() => handleRoleUpdate(USER_ROLES.REGULAR_USER)}
                         disabled={isUpdatingRole || currentProfile.role === USER_ROLES.REGULAR_USER}
                       >
-                        {isUpdatingRole ? 'Updating...' : 'Make Regular User'}
+                        {isUpdatingRole ? lang.current.button.updating : lang.current.admin.makeRegularUser}
                       </button>
                     </div>
                   </div>
@@ -1022,14 +1022,14 @@ export default function Profile() {
                         onClick={() => handleEmailConfirmationUpdate(true)}
                         disabled={isUpdatingRole || currentProfile.emailConfirmed}
                       >
-                        {isUpdatingRole ? 'Updating...' : 'Confirm Email'}
+                        {isUpdatingRole ? lang.current.button.updating : lang.current.admin.confirmEmail}
                       </button>
                       <button
                         className={`btn ${!currentProfile.emailConfirmed ? 'btn-outline-secondary' : 'btn-outline-danger'}`}
                         onClick={() => handleEmailConfirmationUpdate(false)}
                         disabled={isUpdatingRole || !currentProfile.emailConfirmed}
                       >
-                        {isUpdatingRole ? 'Updating...' : 'Unconfirm Email'}
+                        {isUpdatingRole ? lang.current.button.updating : lang.current.admin.unconfirmEmail}
                       </button>
                     </div>
                   </div>

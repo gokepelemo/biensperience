@@ -7,6 +7,7 @@ import Loading from '../../components/Loading/Loading';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
 import { Button, Container } from '../../components/design-system';
 import styles from './ConfirmEmail.module.scss';
+import { lang } from '../../lang.constants';
 
 export default function ConfirmEmail() {
   const { token } = useParams();
@@ -54,7 +55,7 @@ export default function ConfirmEmail() {
                 <h1 className="text-center mb-4">Email Confirmation</h1>
 
                 {loading ? (
-                  <Loading variant="centered" size="lg" message="Confirming your email address..." />
+                  <Loading variant="centered" size="lg" message={lang.current.alert.confirmingEmail} />
                 ) : success ? (
                   <Alert type="success">
                     <h5 className="alert-heading">Email Confirmed!</h5>

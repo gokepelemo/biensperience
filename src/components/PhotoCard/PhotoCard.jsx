@@ -10,7 +10,7 @@ import EntitySchema from "../OpenGraph/EntitySchema";
 
 export default function PhotoCard({ photos, defaultPhotoId, altText, title, includeSchema = false }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
-  const imageAlt = altText || title || lang.en.image.alt.photo;
+  const imageAlt = altText || title || lang.current.image.alt.photo;
 
   const photoArray = useMemo(() => {
     return photos && photos.length > 0 ? photos : [];

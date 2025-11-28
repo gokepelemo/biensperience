@@ -64,7 +64,7 @@ export default function CostEntry({
   const [errors, setErrors] = useState({});
 
   const isEditing = !!editingCost;
-  const costStrings = lang.en.cost;
+  const costStrings = lang.current.cost;
 
   // Initialize form when editing
   useEffect(() => {
@@ -174,10 +174,10 @@ export default function CostEntry({
 
   const modalTitle = isEditing ? costStrings.editCost : costStrings.addCost;
   const submitText = loading
-    ? lang.en.button.saving
+    ? lang.current.button.saving
     : isEditing
-    ? lang.en.button.saveChanges
-    : lang.en.button.add;
+    ? lang.current.button.saveChanges
+    : lang.current.button.add;
 
   return (
     <Modal
@@ -187,7 +187,7 @@ export default function CostEntry({
       dialogClassName="responsive-modal-dialog"
       onSubmit={handleSubmit}
       submitText={submitText}
-      cancelText={lang.en.button.cancel}
+      cancelText={lang.current.button.cancel}
       loading={loading}
       disableSubmit={!costData.title.trim()}
     >

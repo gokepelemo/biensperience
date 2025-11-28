@@ -47,10 +47,10 @@ export default function FavoriteDestination({ destination, user, getData, includ
           aria-busy={loading}
         >
           {!isUserFavorite
-            ? lang.en.button.addFavoriteDest
+            ? lang.current.button.addFavoriteDest
             : favHover
-              ? lang.en.button.removeFavoriteDest
-              : lang.en.button.favorited}
+              ? lang.current.button.removeFavoriteDest
+              : lang.current.button.favorited}
         </button>
       </div>
 
@@ -61,8 +61,8 @@ export default function FavoriteDestination({ destination, user, getData, includ
       <AlertModal
         show={showAlertModal}
         onClose={() => setShowAlertModal(false)}
-        title={lang.en.modal.updateFailed}
-        message={lang.en.modal.updateFailedMessage}
+        title={lang.current.modal.updateFailed}
+        message={lang.current.modal.updateFailedMessage}
         variant="danger"
       />
     </>

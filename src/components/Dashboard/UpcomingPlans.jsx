@@ -39,7 +39,7 @@ export default function UpcomingPlans({ plans = [], title = "Upcoming Plans", pa
         setServerPlans(resp.plans || []);
         setPagination(resp.pagination || { page, limit: pageSize, totalPages: 1, totalCount: resp.plans?.length || 0, hasMore: false, numPages: resp.pagination?.totalPages || resp.pagination?.numPages });
       } catch (err) {
-        setError('Failed to load upcoming plans');
+        setError(lang.current.alert.failedToLoadUpcomingPlans);
       } finally {
         if (mounted) setLoading(false);
       }

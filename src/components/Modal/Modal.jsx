@@ -78,7 +78,7 @@ export default function Modal({
               type="button"
               className={`btn-close ${styles.btnClose}`}
               onClick={onClose}
-              aria-label={lang.en.aria.close}
+              aria-label={lang.current.aria.close}
               disabled={loading}
             >
               <span aria-hidden="true">&times;</span>

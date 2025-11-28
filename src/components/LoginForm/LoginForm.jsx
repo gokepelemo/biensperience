@@ -116,7 +116,7 @@ export default function LoginForm({ setUser }) {
             setUser(user);
             navigate("/"); // Update address bar to home after login
         } catch {
-            setError(lang.en.alert.loginFailed);
+            setError(lang.current.alert.loginFailed);
             setShowForgotPasswordLink(true); // Show link immediately on failed login
             setIsLoading(false);
         }
@@ -144,7 +144,7 @@ export default function LoginForm({ setUser }) {
                     {/* Header */}
                     <div className={styles.authHeader}>
                         <h1 className={styles.authTitle} id="login-title">
-                            {lang.en.heading.signInToAccount}
+                            {lang.current.heading.signInToAccount}
                         </h1>
                     </div>
 
@@ -161,7 +161,7 @@ export default function LoginForm({ setUser }) {
                                 htmlFor="login-email"
                                 className={styles.formLabel}
                             >
-                                {lang.en.label.email}
+                                {lang.current.label.email}
                             </Form.Label>
                             <InputGroup className={styles.inputGroup}>
                                 <InputGroup.Text
@@ -177,7 +177,7 @@ export default function LoginForm({ setUser }) {
                                     name="email"
                                     value={credentials.email}
                                     onChange={handleChange}
-                                    placeholder={lang.en.placeholder.email}
+                                    placeholder={lang.current.placeholder.email}
                                     required
                                     autoComplete="email"
                                     className={styles.formInput}
@@ -194,7 +194,7 @@ export default function LoginForm({ setUser }) {
                                 htmlFor="login-password"
                                 className={styles.formLabel}
                             >
-                                {lang.en.label.password}
+                                {lang.current.label.password}
                             </Form.Label>
                             <InputGroup className={styles.inputGroup}>
                                 <InputGroup.Text
@@ -211,7 +211,7 @@ export default function LoginForm({ setUser }) {
                                     onChange={handleChange}
                                     onFocus={handlePasswordFocus}
                                     onBlur={handlePasswordBlur}
-                                    placeholder={lang.en.placeholder.password}
+                                    placeholder={lang.current.placeholder.password}
                                     required
                                     autoComplete="current-password"
                                     className={styles.formInput}
@@ -239,7 +239,7 @@ export default function LoginForm({ setUser }) {
                                 id="remember-me"
                                 checked={rememberMe}
                                 onChange={(e) => setRememberMe(e.target.checked)}
-                                label={<span className={styles.rememberMeLabel}>{lang.en.button.rememberMe}</span>}
+                                label={<span className={styles.rememberMeLabel}>{lang.current.button.rememberMe}</span>}
                                 disabled={isLoading}
                             />
                             {showForgotPasswordLink && (
@@ -249,7 +249,7 @@ export default function LoginForm({ setUser }) {
                                     onClick={() => setShowForgotPassword(true)}
                                     disabled={isLoading}
                                 >
-                                    {lang.en.button.forgotPassword}
+                                    {lang.current.button.forgotPassword}
                                 </button>
                             )}
                         </div>
@@ -282,12 +282,12 @@ export default function LoginForm({ setUser }) {
                                 </>
                             ) : (
                                 <>
-                                    {lang.en.button.signIn} <FaArrowRight aria-hidden="true" />
+                                    {lang.current.button.signIn} <FaArrowRight aria-hidden="true" />
                                 </>
                             )}
                         </Button>
 
-                        <Divider label={lang.en.label.orSignInWith} shadow="md" />
+                        <Divider label={lang.current.label.orSignInWith} shadow="md" />
 
                         {/* Social Login Buttons */}
                         <SocialLoginButtons disabled={isLoading} showDivider={false} />
@@ -296,14 +296,14 @@ export default function LoginForm({ setUser }) {
 
                 {/* Sign Up Link */}
                 <div className={styles.authFooter}>
-                    <span>{lang.en.message.dontHaveAccount}</span>{' '}
+                    <span>{lang.current.message.dontHaveAccount}</span>{' '}
                     <button
                         type="button"
                         className={styles.switchLink}
                         onClick={() => navigate('/signup')}
                         disabled={isLoading}
                     >
-                        {lang.en.button.signup}
+                        {lang.current.button.signup}
                     </button>
                 </div>
             </div>
