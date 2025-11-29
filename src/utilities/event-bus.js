@@ -46,7 +46,8 @@ class EventBus {
       const user = getUser();
       this.transport = createTransport({
         sessionId: this.sessionId,
-        authToken: user?.token // Pass auth token for WebSocket authentication
+        authToken: user?.token, // Pass auth token for WebSocket authentication
+        userId: user?._id // Pass userId for localStorage encryption
       });
 
       // Subscribe to incoming messages from transport
@@ -59,7 +60,8 @@ class EventBus {
 
       logger.info('[EventBus] Transport initialized', {
         type: this.transport.getType(),
-        connected: this.transport.isConnected()
+        connected: this.transport.isConnected(),
+        encrypted: this.transport.isEncrypted?.() || false
       });
     } catch (error) {
       logger.error('[EventBus] Failed to initialize transport', {
@@ -67,6 +69,17 @@ class EventBus {
       }, error);
       // Fall back to localStorage if transport fails
       this.initLocalStorageFallback();
+    }
+  }
+
+  /**
+   * Update user ID for encryption (call after login)
+   * @param {string} userId - User ID for encryption key derivation
+   */
+  setUserId(userId) {
+    if (this.transport?.setUserId) {
+      this.transport.setUserId(userId);
+      logger.info('[EventBus] User ID updated for encryption', { hasUserId: !!userId });
     }
   }
 

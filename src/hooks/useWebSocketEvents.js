@@ -53,6 +53,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { eventBus } from '../utilities/event-bus';
 import { logger } from '../utilities/logger';
+import { ConnectionState } from '../utilities/event-transport';
 
 /**
  * WebSocket event types for type safety
@@ -104,7 +105,9 @@ export function useWebSocketEvents(options = {}) {
 
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionState, setConnectionState] = useState(ConnectionState.DISCONNECTED);
   const [connectionError, setConnectionError] = useState(null);
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   // Room state (legacy - plan-based)
   const [currentRoom, setCurrentRoom] = useState(null);
@@ -127,14 +130,21 @@ export function useWebSocketEvents(options = {}) {
   const roomRef = useRef(null);
   const experienceRef = useRef(null);
   const planRef = useRef(null);
+  const stateUnsubRef = useRef(null);
 
   /**
-   * Check connection status
+   * Check connection status and subscribe to state changes
    */
   const checkConnection = useCallback(() => {
     const transport = eventBus.transport;
     const connected = transport?.isConnected?.() || eventBus.transportReady || false;
     setIsConnected(connected);
+
+    // Get current connection state from transport
+    const currentState = transport?.getConnectionState?.() || ConnectionState.DISCONNECTED;
+    setConnectionState(currentState);
+    setIsReconnecting(currentState === ConnectionState.RECONNECTING);
+
     return connected;
   }, []);
 
@@ -473,24 +483,48 @@ export function useWebSocketEvents(options = {}) {
     // Check initial connection status
     checkConnection();
 
-    // Subscribe to connection events
+    // Subscribe to transport state changes (if available)
+    const transport = eventBus.transport;
+    if (transport?.onStateChange) {
+      stateUnsubRef.current = transport.onStateChange((state) => {
+        setConnectionState(state);
+        setIsConnected(state === ConnectionState.CONNECTED);
+        setIsReconnecting(state === ConnectionState.RECONNECTING);
+
+        if (state === ConnectionState.FAILED) {
+          setConnectionError('Connection failed after maximum reconnection attempts');
+        } else if (state === ConnectionState.CONNECTED) {
+          setConnectionError(null);
+        }
+
+        logger.debug('[useWebSocketEvents] Connection state changed', { state });
+      });
+    }
+
+    // Subscribe to connection events (for backward compatibility)
     const unsubConnected = subscribe(WS_EVENTS.SYSTEM_CONNECTED, () => {
       setIsConnected(true);
+      setConnectionState(ConnectionState.CONNECTED);
       setConnectionError(null);
     });
 
     const unsubDisconnected = subscribe(WS_EVENTS.SYSTEM_DISCONNECTED, () => {
       setIsConnected(false);
+      setConnectionState(ConnectionState.DISCONNECTED);
     });
 
     const unsubError = subscribe(WS_EVENTS.SYSTEM_ERROR, (event) => {
       setConnectionError(event.error || 'Connection error');
     });
 
-    // Poll connection status periodically
-    const interval = setInterval(checkConnection, 5000);
+    // Poll connection status periodically (less frequently since we have state subscription)
+    const interval = setInterval(checkConnection, 10000);
 
     return () => {
+      if (stateUnsubRef.current) {
+        stateUnsubRef.current();
+        stateUnsubRef.current = null;
+      }
       unsubConnected();
       unsubDisconnected();
       unsubError();
@@ -515,7 +549,9 @@ export function useWebSocketEvents(options = {}) {
   return {
     // Connection state
     isConnected,
+    connectionState,
     connectionError,
+    isReconnecting,
 
     // Core event functions
     subscribe,
@@ -550,9 +586,13 @@ export function useWebSocketEvents(options = {}) {
     checkConnection,
     sessionId: eventBus.getSessionId(),
     getVectorClock: eventBus.getVectorClock.bind(eventBus),
+    getTransportType: () => eventBus.getTransportType(),
+    isWebSocketConnected: () => eventBus.isWebSocketConnected(),
+    isEncrypted: () => eventBus.transport?.isEncrypted?.() || false,
 
     // Event type constants
-    events: WS_EVENTS
+    events: WS_EVENTS,
+    ConnectionState
   };
 }
 

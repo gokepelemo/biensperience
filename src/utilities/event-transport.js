@@ -4,16 +4,29 @@
  * Provides pluggable transport mechanisms for the EventBus.
  * Supports localStorage (default) and WebSocket transports.
  *
+ * Features:
+ * - Encrypted localStorage storage to prevent data leakage
+ * - Consolidated storage key (single `bien:events` key)
+ * - WebSocket with automatic reconnection via websocket-client.js
+ * - Hybrid mode for maximum reliability
+ *
  * Configuration via environment variables:
  * - REACT_APP_EVENT_TRANSPORT: 'localStorage' | 'websocket' | 'hybrid' (default: 'localStorage')
  * - REACT_APP_WEBSOCKET_URL: WebSocket server URL (required for 'websocket' or 'hybrid' transport)
  * - REACT_APP_WEBSOCKET_RECONNECT_INTERVAL: Reconnection interval in ms (default: 3000)
  * - REACT_APP_WEBSOCKET_MAX_RECONNECT_ATTEMPTS: Max reconnection attempts (default: 10)
  *
+ * Storage Key Consolidation:
+ * - All events stored under single `bien:events` key
+ * - Encrypted using user's ID (AES-GCM 256-bit) when userId provided
+ * - Automatic cleanup of events older than 5 minutes
+ *
  * @module event-transport
  */
 
 import { logger } from './logger';
+import { encryptData, decryptData } from './crypto-utils';
+import { WebSocketClient, ConnectionState } from './websocket-client';
 
 /**
  * Abstract Transport interface
@@ -96,13 +109,24 @@ class EventTransport {
  * LocalStorage Transport
  * Uses localStorage and storage events for cross-tab communication
  * This is the default transport and requires no additional configuration
+ *
+ * Features:
+ * - Consolidated storage key (single `bien:events` key)
+ * - Optional AES-GCM 256-bit encryption when userId provided
+ * - Automatic cleanup of events older than 5 minutes
+ * - Session ID deduplication for own events
  */
 export class LocalStorageTransport extends EventTransport {
   constructor(options = {}) {
     super(options);
-    this.storageKey = options.storageKey || 'bien:event';
+    // Consolidated storage key - all events under one key
+    this.storageKey = options.storageKey || 'bien:events';
     this.sessionId = options.sessionId;
+    this.userId = options.userId; // For encryption key derivation
+    this.eventTTL = options.eventTTL || 5 * 60 * 1000; // 5 minutes default
+    this.maxEvents = options.maxEvents || 50; // Max events to store
     this.handleStorageEvent = this.handleStorageEvent.bind(this);
+    this.processedEventIds = new Set(); // Deduplication
   }
 
   async connect() {
@@ -113,7 +137,14 @@ export class LocalStorageTransport extends EventTransport {
 
     window.addEventListener('storage', this.handleStorageEvent);
     this.connected = true;
-    logger.info('[LocalStorageTransport] Connected');
+
+    // Perform initial cleanup of old events
+    await this.cleanupOldEvents();
+
+    logger.info('[LocalStorageTransport] Connected', {
+      encrypted: !!this.userId,
+      storageKey: this.storageKey
+    });
   }
 
   async disconnect() {
@@ -121,7 +152,108 @@ export class LocalStorageTransport extends EventTransport {
       window.removeEventListener('storage', this.handleStorageEvent);
     }
     this.connected = false;
+    this.processedEventIds.clear();
     logger.info('[LocalStorageTransport] Disconnected');
+  }
+
+  /**
+   * Read and decrypt the events list from localStorage
+   * @returns {Promise<Array>} Array of stored events
+   */
+  async readEventsList() {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return [];
+    }
+
+    try {
+      const stored = localStorage.getItem(this.storageKey);
+      if (!stored) return [];
+
+      // Try to decrypt if userId is available
+      if (this.userId) {
+        try {
+          const decrypted = await decryptData(stored, this.userId);
+          return Array.isArray(decrypted) ? decrypted : [];
+        } catch (decryptError) {
+          // May be unencrypted legacy data, try parsing directly
+          logger.debug('[LocalStorageTransport] Decryption failed, trying plain JSON', {
+            error: decryptError.message
+          });
+        }
+      }
+
+      // Fallback to plain JSON parsing
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      logger.warn('[LocalStorageTransport] Error reading events list', {
+        error: error.message
+      });
+      return [];
+    }
+  }
+
+  /**
+   * Write and encrypt the events list to localStorage
+   * @param {Array} events - Array of events to store
+   */
+  async writeEventsList(events) {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return;
+    }
+
+    try {
+      let dataToStore;
+
+      if (this.userId) {
+        // Encrypt with user's ID
+        dataToStore = await encryptData(events, this.userId);
+      } else {
+        // Store as plain JSON if no userId
+        dataToStore = JSON.stringify(events);
+      }
+
+      localStorage.setItem(this.storageKey, dataToStore);
+    } catch (error) {
+      logger.error('[LocalStorageTransport] Error writing events list', {
+        error: error.message
+      }, error);
+
+      // On quota exceeded, clear and retry
+      if (error.name === 'QuotaExceededError') {
+        try {
+          localStorage.removeItem(this.storageKey);
+          const dataToStore = this.userId
+            ? await encryptData(events.slice(-10), this.userId) // Keep only last 10
+            : JSON.stringify(events.slice(-10));
+          localStorage.setItem(this.storageKey, dataToStore);
+        } catch (retryError) {
+          logger.error('[LocalStorageTransport] Failed to write after clearing', {
+            error: retryError.message
+          }, retryError);
+        }
+      }
+    }
+  }
+
+  /**
+   * Remove events older than TTL
+   */
+  async cleanupOldEvents() {
+    const events = await this.readEventsList();
+    const now = Date.now();
+    const validEvents = events.filter(event => {
+      const eventTime = event.timestamp || event.version || 0;
+      return (now - eventTime) < this.eventTTL;
+    });
+
+    if (validEvents.length !== events.length) {
+      logger.debug('[LocalStorageTransport] Cleaned up old events', {
+        removed: events.length - validEvents.length,
+        remaining: validEvents.length
+      });
+      await this.writeEventsList(validEvents);
+    }
   }
 
   async send(event) {
@@ -131,46 +263,87 @@ export class LocalStorageTransport extends EventTransport {
     }
 
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(event));
+      // Generate unique event ID if not present
+      const eventWithId = {
+        ...event,
+        _eventId: event._eventId || `${this.sessionId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: event.timestamp || Date.now()
+      };
+
+      // Read current events list
+      const events = await this.readEventsList();
+
+      // Add new event
+      events.push(eventWithId);
+
+      // Trim to max events (keep most recent)
+      const trimmedEvents = events.slice(-this.maxEvents);
+
+      // Write back (encrypted if userId available)
+      await this.writeEventsList(trimmedEvents);
+
+      // Track as processed to avoid self-notification
+      this.processedEventIds.add(eventWithId._eventId);
+
+      // Cleanup processed IDs set (keep last 100)
+      if (this.processedEventIds.size > 100) {
+        const idsArray = Array.from(this.processedEventIds);
+        this.processedEventIds = new Set(idsArray.slice(-100));
+      }
+
       logger.debug('[LocalStorageTransport] Event sent', {
         eventType: event.type,
-        version: event.version
+        version: event.version,
+        encrypted: !!this.userId
       });
     } catch (error) {
-      // Quota exceeded - clear and retry
-      logger.warn('[LocalStorageTransport] Quota exceeded, clearing old events');
-      try {
-        localStorage.removeItem(this.storageKey);
-        localStorage.setItem(this.storageKey, JSON.stringify(event));
-      } catch (retryError) {
-        logger.error('[LocalStorageTransport] Failed to send after clearing', {
-          error: retryError.message
-        }, retryError);
-      }
+      logger.error('[LocalStorageTransport] Failed to send event', {
+        error: error.message
+      }, error);
     }
   }
 
-  handleStorageEvent(e) {
+  async handleStorageEvent(e) {
     if (e.key !== this.storageKey) return;
     if (!e.newValue) return;
 
     try {
-      const event = JSON.parse(e.newValue);
+      // Read and decrypt the events list
+      const events = await this.readEventsList();
 
-      // Ignore own events
-      if (event.sessionId === this.sessionId) {
-        logger.debug('[LocalStorageTransport] Ignoring own event');
-        return;
+      // Process only new events we haven't seen
+      for (const event of events) {
+        // Skip if already processed
+        if (event._eventId && this.processedEventIds.has(event._eventId)) {
+          continue;
+        }
+
+        // Skip own events by session ID
+        if (event.sessionId === this.sessionId) {
+          logger.debug('[LocalStorageTransport] Ignoring own event');
+          continue;
+        }
+
+        // Track as processed
+        if (event._eventId) {
+          this.processedEventIds.add(event._eventId);
+        }
+
+        logger.debug('[LocalStorageTransport] Received event', {
+          eventType: event.type,
+          version: event.version
+        });
+
+        this.notifyListeners(event);
       }
 
-      logger.debug('[LocalStorageTransport] Received event', {
-        eventType: event.type,
-        version: event.version
-      });
-
-      this.notifyListeners(event);
+      // Cleanup processed IDs set
+      if (this.processedEventIds.size > 100) {
+        const idsArray = Array.from(this.processedEventIds);
+        this.processedEventIds = new Set(idsArray.slice(-100));
+      }
     } catch (error) {
-      logger.error('[LocalStorageTransport] Error parsing event', {
+      logger.error('[LocalStorageTransport] Error processing storage event', {
         error: error.message
       }, error);
     }
@@ -179,184 +352,169 @@ export class LocalStorageTransport extends EventTransport {
   getType() {
     return 'localStorage';
   }
+
+  /**
+   * Check if encryption is enabled
+   * @returns {boolean}
+   */
+  isEncrypted() {
+    return !!this.userId;
+  }
+
+  /**
+   * Update user ID for encryption (e.g., after login)
+   * @param {string} userId - User ID for key derivation
+   */
+  setUserId(userId) {
+    this.userId = userId;
+    logger.info('[LocalStorageTransport] Encryption key updated', {
+      encrypted: !!userId
+    });
+  }
 }
 
 /**
  * WebSocket Transport
  * Uses WebSocket connection for real-time event synchronization
  * Requires REACT_APP_WEBSOCKET_URL environment variable
+ *
+ * Features:
+ * - Uses WebSocketClient for connection lifecycle management
+ * - Automatic reconnection with exponential backoff + jitter
+ * - Connection state tracking with notifications
+ * - Message buffering during disconnection
+ * - Heartbeat/ping-pong for connection health
  */
 export class WebSocketTransport extends EventTransport {
   constructor(options = {}) {
     super(options);
-    this.url = options.url || process.env.REACT_APP_WEBSOCKET_URL;
-    this.reconnectInterval = options.reconnectInterval ||
-      parseInt(process.env.REACT_APP_WEBSOCKET_RECONNECT_INTERVAL, 10) || 3000;
-    this.maxReconnectAttempts = options.maxReconnectAttempts ||
-      parseInt(process.env.REACT_APP_WEBSOCKET_MAX_RECONNECT_ATTEMPTS, 10) || 10;
-    this.reconnectAttempts = 0;
-    this.socket = null;
-    this.reconnectTimer = null;
-    this.pendingMessages = [];
     this.sessionId = options.sessionId;
-    this.authToken = options.authToken;
-  }
+    this.stateListeners = new Set();
+    this.connectionState = ConnectionState.DISCONNECTED;
 
-  async connect() {
-    if (!this.url) {
-      logger.error('[WebSocketTransport] No WebSocket URL configured');
-      throw new Error('WebSocket URL not configured. Set REACT_APP_WEBSOCKET_URL environment variable.');
-    }
+    // Create WebSocketClient with options
+    this.client = new WebSocketClient({
+      url: options.url,
+      authToken: options.authToken,
+      sessionId: options.sessionId,
+      reconnectInterval: options.reconnectInterval,
+      maxReconnectAttempts: options.maxReconnectAttempts,
+      heartbeatInterval: options.heartbeatInterval || 30000,
+      heartbeatTimeout: options.heartbeatTimeout || 10000
+    });
 
-    return new Promise((resolve, reject) => {
+    // Subscribe to client state changes
+    this.client.onStateChange((state) => {
+      this.connectionState = state;
+      this.connected = state === ConnectionState.CONNECTED;
+      this.notifyStateListeners(state);
+
+      logger.debug('[WebSocketTransport] Connection state changed', { state });
+    });
+
+    // Subscribe to client messages
+    this.client.onMessage((data) => {
       try {
-        // Add auth token to URL if available
-        const url = this.authToken
-          ? `${this.url}?token=${encodeURIComponent(this.authToken)}`
-          : this.url;
+        const event = typeof data === 'string' ? JSON.parse(data) : data;
 
-        this.socket = new WebSocket(url);
+        // Ignore own events
+        if (event.sessionId === this.sessionId) {
+          logger.debug('[WebSocketTransport] Ignoring own event');
+          return;
+        }
 
-        this.socket.onopen = () => {
-          this.connected = true;
-          this.reconnectAttempts = 0;
-          logger.info('[WebSocketTransport] Connected', { url: this.url });
+        logger.debug('[WebSocketTransport] Received event', {
+          eventType: event.type,
+          version: event.version
+        });
 
-          // Send any pending messages
-          while (this.pendingMessages.length > 0) {
-            const msg = this.pendingMessages.shift();
-            this.sendRaw(msg);
-          }
-
-          resolve();
-        };
-
-        this.socket.onclose = (e) => {
-          this.connected = false;
-          logger.warn('[WebSocketTransport] Disconnected', {
-            code: e.code,
-            reason: e.reason,
-            wasClean: e.wasClean
-          });
-
-          // Auto-reconnect if not intentionally closed
-          if (e.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.scheduleReconnect();
-          }
-        };
-
-        this.socket.onerror = (error) => {
-          logger.error('[WebSocketTransport] Error', { error: error.message });
-          if (!this.connected) {
-            reject(error);
-          }
-        };
-
-        this.socket.onmessage = (e) => {
-          try {
-            const event = JSON.parse(e.data);
-
-            // Ignore own events
-            if (event.sessionId === this.sessionId) {
-              logger.debug('[WebSocketTransport] Ignoring own event');
-              return;
-            }
-
-            logger.debug('[WebSocketTransport] Received event', {
-              eventType: event.type,
-              version: event.version
-            });
-
-            this.notifyListeners(event);
-          } catch (error) {
-            logger.error('[WebSocketTransport] Error parsing message', {
-              error: error.message
-            }, error);
-          }
-        };
+        this.notifyListeners(event);
       } catch (error) {
-        logger.error('[WebSocketTransport] Failed to connect', {
+        logger.error('[WebSocketTransport] Error parsing message', {
           error: error.message
         }, error);
-        reject(error);
       }
     });
   }
 
+  async connect() {
+    try {
+      await this.client.connect();
+      logger.info('[WebSocketTransport] Connected');
+    } catch (error) {
+      logger.error('[WebSocketTransport] Failed to connect', {
+        error: error.message
+      }, error);
+      throw error;
+    }
+  }
+
   async disconnect() {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-
-    if (this.socket) {
-      this.socket.close(1000, 'Client disconnect');
-      this.socket = null;
-    }
-
-    this.connected = false;
+    this.client.disconnect();
     logger.info('[WebSocketTransport] Disconnected');
   }
 
   async send(event) {
-    if (!this.connected || !this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      // Queue message for when connection is restored
-      logger.debug('[WebSocketTransport] Queuing message (not connected)');
-      this.pendingMessages.push(event);
+    // WebSocketClient handles queuing if not connected
+    this.client.send(event);
 
-      // If pending queue gets too large, drop oldest messages
-      if (this.pendingMessages.length > 100) {
-        this.pendingMessages.shift();
-        logger.warn('[WebSocketTransport] Pending queue full, dropping oldest message');
-      }
-      return;
-    }
-
-    this.sendRaw(event);
-  }
-
-  sendRaw(event) {
-    try {
-      this.socket.send(JSON.stringify(event));
-      logger.debug('[WebSocketTransport] Event sent', {
-        eventType: event.type,
-        version: event.version
-      });
-    } catch (error) {
-      logger.error('[WebSocketTransport] Failed to send', {
-        error: error.message
-      }, error);
-      // Queue for retry
-      this.pendingMessages.push(event);
-    }
-  }
-
-  scheduleReconnect() {
-    if (this.reconnectTimer) return;
-
-    this.reconnectAttempts++;
-    const delay = this.reconnectInterval * Math.pow(1.5, this.reconnectAttempts - 1);
-    const maxDelay = 30000; // Cap at 30 seconds
-    const actualDelay = Math.min(delay, maxDelay);
-
-    logger.info('[WebSocketTransport] Scheduling reconnect', {
-      attempt: this.reconnectAttempts,
-      maxAttempts: this.maxReconnectAttempts,
-      delay: actualDelay
+    logger.debug('[WebSocketTransport] Event sent', {
+      eventType: event.type,
+      version: event.version,
+      connected: this.connected
     });
+  }
 
-    this.reconnectTimer = setTimeout(async () => {
-      this.reconnectTimer = null;
+  /**
+   * Subscribe to connection state changes
+   * @param {function} handler - Callback receiving ConnectionState
+   * @returns {function} Unsubscribe function
+   */
+  onStateChange(handler) {
+    this.stateListeners.add(handler);
+    // Immediately notify of current state
+    handler(this.connectionState);
+    return () => this.stateListeners.delete(handler);
+  }
+
+  /**
+   * Notify all state listeners
+   * @param {string} state - Current ConnectionState
+   */
+  notifyStateListeners(state) {
+    this.stateListeners.forEach(handler => {
       try {
-        await this.connect();
+        handler(state);
       } catch (error) {
-        logger.error('[WebSocketTransport] Reconnect failed', {
-          error: error.message,
-          attempt: this.reconnectAttempts
-        });
-        // Will retry again via onclose handler
+        logger.error('[WebSocketTransport] Error in state handler', {
+          error: error.message
+        }, error);
       }
-    }, actualDelay);
+    });
+  }
+
+  /**
+   * Get current connection state
+   * @returns {string} ConnectionState value
+   */
+  getConnectionState() {
+    return this.connectionState;
+  }
+
+  /**
+   * Check if currently reconnecting
+   * @returns {boolean}
+   */
+  isReconnecting() {
+    return this.connectionState === ConnectionState.RECONNECTING;
+  }
+
+  /**
+   * Check if connection has permanently failed
+   * @returns {boolean}
+   */
+  hasFailed() {
+    return this.connectionState === ConnectionState.FAILED;
   }
 
   getType() {
@@ -368,13 +526,30 @@ export class WebSocketTransport extends EventTransport {
  * Hybrid Transport
  * Uses both localStorage and WebSocket transports simultaneously
  * WebSocket for real-time updates, localStorage as fallback for cross-tab
+ *
+ * Features:
+ * - Dual transport for maximum reliability
+ * - Automatic fallback when WebSocket unavailable
+ * - Deduplication handled by EventBus via _eventId
+ * - Connection state tracking from WebSocket
+ * - Encryption support via userId (passed to localStorage)
  */
 export class HybridTransport extends EventTransport {
   constructor(options = {}) {
     super(options);
+    this.stateListeners = new Set();
+    this.connectionState = ConnectionState.DISCONNECTED;
+
+    // Create both transports with shared options
     this.localStorage = new LocalStorageTransport(options);
     this.webSocket = new WebSocketTransport(options);
     this.preferWebSocket = options.preferWebSocket !== false;
+
+    // Forward WebSocket state changes
+    this.webSocket.onStateChange((state) => {
+      this.connectionState = state;
+      this.notifyStateListeners(state);
+    });
   }
 
   async connect() {
@@ -402,7 +577,8 @@ export class HybridTransport extends EventTransport {
 
     this.connected = true;
     logger.info('[HybridTransport] Connected', {
-      webSocketConnected: this.webSocket.isConnected()
+      webSocketConnected: this.webSocket.isConnected(),
+      encrypted: this.localStorage.isEncrypted()
     });
   }
 
@@ -435,6 +611,58 @@ export class HybridTransport extends EventTransport {
     return this.webSocket.isConnected();
   }
 
+  /**
+   * Subscribe to WebSocket connection state changes
+   * @param {function} handler - Callback receiving ConnectionState
+   * @returns {function} Unsubscribe function
+   */
+  onStateChange(handler) {
+    this.stateListeners.add(handler);
+    // Immediately notify of current state
+    handler(this.connectionState);
+    return () => this.stateListeners.delete(handler);
+  }
+
+  /**
+   * Notify all state listeners
+   * @param {string} state - Current ConnectionState
+   */
+  notifyStateListeners(state) {
+    this.stateListeners.forEach(handler => {
+      try {
+        handler(state);
+      } catch (error) {
+        logger.error('[HybridTransport] Error in state handler', {
+          error: error.message
+        }, error);
+      }
+    });
+  }
+
+  /**
+   * Get current WebSocket connection state
+   * @returns {string} ConnectionState value
+   */
+  getConnectionState() {
+    return this.connectionState;
+  }
+
+  /**
+   * Update user ID for encryption (passed to localStorage transport)
+   * @param {string} userId - User ID for key derivation
+   */
+  setUserId(userId) {
+    this.localStorage.setUserId(userId);
+  }
+
+  /**
+   * Check if localStorage encryption is enabled
+   * @returns {boolean}
+   */
+  isEncrypted() {
+    return this.localStorage.isEncrypted();
+  }
+
   getType() {
     return 'hybrid';
   }
@@ -444,6 +672,14 @@ export class HybridTransport extends EventTransport {
  * Create transport based on environment configuration
  *
  * @param {object} options - Transport options
+ * @param {string} options.sessionId - Unique session ID for deduplication
+ * @param {string} options.authToken - Auth token for WebSocket authentication
+ * @param {string} options.userId - User ID for localStorage encryption
+ * @param {string} options.url - WebSocket URL (overrides env var)
+ * @param {number} options.reconnectInterval - WebSocket reconnect interval
+ * @param {number} options.maxReconnectAttempts - Max WebSocket reconnect attempts
+ * @param {number} options.eventTTL - localStorage event TTL in ms (default: 5 min)
+ * @param {number} options.maxEvents - Max events to store in localStorage (default: 50)
  * @returns {EventTransport} Configured transport instance
  */
 export function createTransport(options = {}) {
@@ -451,7 +687,8 @@ export function createTransport(options = {}) {
 
   logger.info('[EventTransport] Creating transport', {
     type: transportType,
-    hasWebSocketUrl: !!process.env.REACT_APP_WEBSOCKET_URL
+    hasWebSocketUrl: !!process.env.REACT_APP_WEBSOCKET_URL,
+    encrypted: !!options.userId
   });
 
   switch (transportType) {
@@ -467,10 +704,14 @@ export function createTransport(options = {}) {
   }
 }
 
+// Re-export ConnectionState for consumers
+export { ConnectionState } from './websocket-client';
+
 export default {
   EventTransport,
   LocalStorageTransport,
   WebSocketTransport,
   HybridTransport,
-  createTransport
+  createTransport,
+  ConnectionState
 };
