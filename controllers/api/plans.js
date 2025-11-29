@@ -10,7 +10,7 @@ const backendLogger = require("../../utilities/backend-logger");
 const mongoose = require("mongoose");
 const Activity = require('../../models/activity');
 const { sendCollaboratorInviteEmail } = require('../../utilities/email-service');
-const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion } = require('../../utilities/activity-tracker');
+const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion, trackCostAdded } = require('../../utilities/activity-tracker');
 
 /**
  * Sanitize location data to prevent GeoJSON validation errors
@@ -2217,6 +2217,41 @@ const addCost = asyncHandler(async (req, res) => {
   // Populate for response
   await plan.populate('experience', 'name');
   await plan.populate('costs.collaborator', 'name email');
+  await plan.populate('user', 'name email');
+
+  // Get the newly added cost (last one in the array) with its generated _id
+  const addedCost = plan.costs[plan.costs.length - 1];
+
+  // Get the plan item if one is specified
+  let planItem = null;
+  if (plan_item) {
+    planItem = plan.plan.find(item => item._id.toString() === plan_item.toString());
+  }
+
+  // Gather all collaborators (owner + permission holders) for activity tracking
+  const collaboratorIds = [
+    plan.user._id || plan.user, // Plan owner
+    ...plan.permissions
+      .filter(p => p.entity === 'user' && (p.type === 'owner' || p.type === 'collaborator'))
+      .map(p => p._id)
+  ];
+
+  // Remove duplicates and fetch user details
+  const uniqueCollaboratorIds = [...new Set(collaboratorIds.map(id => id.toString()))];
+  const collaborators = await User.find(
+    { _id: { $in: uniqueCollaboratorIds } },
+    { _id: 1, name: 1, email: 1 }
+  ).lean();
+
+  // Track the cost addition activity
+  trackCostAdded({
+    plan,
+    cost: addedCost,
+    planItem,
+    actor: req.user,
+    collaborators,
+    req
+  });
 
   backendLogger.info('Cost added to plan', {
     planId: id,

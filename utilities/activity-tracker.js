@@ -439,6 +439,240 @@ async function trackPlanItemCompletion(options) {
 }
 
 /**
+ * Track cost added to plan (non-blocking)
+ * Creates activities for:
+ * - The actor who added the cost
+ * - If individual cost: the collaborator assigned (if different from actor)
+ * - If shared cost: all collaborators (excluding actor)
+ *
+ * @param {Object} options - Tracking options
+ * @param {Object} options.plan - Plan the cost was added to
+ * @param {Object} options.cost - Cost entry that was added
+ * @param {Object} options.planItem - Plan item the cost is tied to (optional)
+ * @param {Object} options.actor - User who added the cost
+ * @param {Array<Object>} options.collaborators - All collaborators on the plan (User objects with _id, name, email)
+ * @param {Object} options.req - Express request object
+ */
+async function trackCostAdded(options) {
+  const {
+    plan,
+    cost,
+    planItem = null,
+    actor,
+    collaborators = [],
+    req
+  } = options;
+
+  try {
+    // Determine the plan/experience name for display
+    let planName = 'Plan';
+    let experienceId = null;
+    if (plan.experience) {
+      if (typeof plan.experience === 'object' && plan.experience.name) {
+        planName = plan.experience.name;
+        experienceId = plan.experience._id;
+      } else if (plan.experience.toString) {
+        experienceId = plan.experience;
+      }
+    }
+
+    // Get plan item name if tied to a specific item
+    const itemName = planItem?.text || planItem?.name || null;
+
+    // Create deep link to plan (or specific item if tied to one)
+    let resourceLink = null;
+    if (experienceId) {
+      const expId = experienceId.toString ? experienceId.toString() : experienceId;
+      const planIdStr = plan._id.toString ? plan._id.toString() : plan._id;
+      if (planItem && planItem._id) {
+        const itemIdStr = planItem._id.toString ? planItem._id.toString() : planItem._id;
+        resourceLink = `/experiences/${expId}#plan-${planIdStr}-item-${itemIdStr}`;
+      } else {
+        resourceLink = `/experiences/${expId}#plan-${planIdStr}`;
+      }
+    }
+
+    const costAmount = cost.cost || 0;
+    const costTitle = cost.title || 'Cost';
+    const currency = cost.currency || 'USD';
+    const formattedCost = `${currency} ${costAmount.toLocaleString()}`;
+
+    // Check if this is a shared cost or individual cost
+    const isSharedCost = !cost.collaborator;
+    const assignedCollaboratorId = cost.collaborator?.toString ? cost.collaborator.toString() : cost.collaborator;
+    const actorId = actor._id?.toString ? actor._id.toString() : actor._id;
+
+    // Activity 1: For the actor who added the cost
+    // Message: "Added a cost to {plan_name}" or "Added a cost to {plan_item}"
+    const actorReason = itemName
+      ? `Added ${formattedCost} cost "${costTitle}" to ${itemName}`
+      : `Added ${formattedCost} cost "${costTitle}" to ${planName}`;
+
+    Activity.create({
+      timestamp: new Date(),
+      action: 'cost_added',
+      actor: extractActor(actor),
+      resource: {
+        id: plan._id,
+        type: 'Plan',
+        name: planName
+      },
+      target: planItem ? {
+        id: planItem._id,
+        type: 'PlanItem',
+        name: itemName
+      } : null,
+      newState: cost,
+      reason: actorReason,
+      metadata: {
+        ...(req ? extractMetadata(req) : {}),
+        resourceLink,
+        costAmount,
+        costTitle,
+        currency,
+        isSharedCost
+      },
+      status: 'success',
+      tags: ['plan', 'cost', 'added', isSharedCost ? 'shared' : 'individual']
+    }).catch(err => {
+      backendLogger.error('Failed to track cost added activity for actor', {
+        error: err.message,
+        planId: plan._id,
+        costId: cost._id,
+        actorId
+      });
+    });
+
+    // Activity 2+: For affected collaborators
+    if (isSharedCost) {
+      // Shared cost: notify all collaborators except the actor
+      const otherCollaborators = collaborators.filter(c => {
+        const collabId = c._id?.toString ? c._id.toString() : c._id;
+        return collabId !== actorId;
+      });
+
+      // Include plan owner if not the actor
+      const ownerId = plan.user?.toString ? plan.user.toString() : plan.user;
+      const ownerIsActor = ownerId === actorId;
+      const ownerInCollaborators = otherCollaborators.some(c => {
+        const collabId = c._id?.toString ? c._id.toString() : c._id;
+        return collabId === ownerId;
+      });
+
+      for (const collab of otherCollaborators) {
+        const collabName = actor.name || 'Someone';
+        const targetLocation = itemName ? itemName : planName;
+        const collabReason = `${collabName} added a shared ${formattedCost} cost to ${targetLocation}`;
+
+        Activity.create({
+          timestamp: new Date(),
+          action: 'cost_added',
+          actor: extractActor(actor),
+          resource: {
+            id: plan._id,
+            type: 'Plan',
+            name: planName
+          },
+          target: {
+            id: collab._id,
+            type: 'User',
+            name: collab.name || collab.email
+          },
+          newState: cost,
+          reason: collabReason,
+          metadata: {
+            ...(req ? extractMetadata(req) : {}),
+            resourceLink,
+            costAmount,
+            costTitle,
+            currency,
+            isSharedCost: true,
+            affectedUserId: collab._id
+          },
+          status: 'success',
+          tags: ['plan', 'cost', 'added', 'shared', 'notification']
+        }).catch(err => {
+          backendLogger.error('Failed to track shared cost activity for collaborator', {
+            error: err.message,
+            planId: plan._id,
+            costId: cost._id,
+            collaboratorId: collab._id
+          });
+        });
+      }
+    } else {
+      // Individual cost: notify only the assigned collaborator (if different from actor)
+      if (assignedCollaboratorId && assignedCollaboratorId !== actorId) {
+        // Find the collaborator's info
+        const assignedCollab = collaborators.find(c => {
+          const collabId = c._id?.toString ? c._id.toString() : c._id;
+          return collabId === assignedCollaboratorId;
+        });
+
+        if (assignedCollab) {
+          const actorName = actor.name || 'Someone';
+          const targetLocation = itemName ? itemName : planName;
+          const collabReason = `${actorName} added a ${formattedCost} cost to ${targetLocation} incurred by you`;
+
+          Activity.create({
+            timestamp: new Date(),
+            action: 'cost_added',
+            actor: extractActor(actor),
+            resource: {
+              id: plan._id,
+              type: 'Plan',
+              name: planName
+            },
+            target: {
+              id: assignedCollab._id,
+              type: 'User',
+              name: assignedCollab.name || assignedCollab.email
+            },
+            newState: cost,
+            reason: collabReason,
+            metadata: {
+              ...(req ? extractMetadata(req) : {}),
+              resourceLink,
+              costAmount,
+              costTitle,
+              currency,
+              isSharedCost: false,
+              affectedUserId: assignedCollab._id
+            },
+            status: 'success',
+            tags: ['plan', 'cost', 'added', 'individual', 'notification']
+          }).catch(err => {
+            backendLogger.error('Failed to track individual cost activity for collaborator', {
+              error: err.message,
+              planId: plan._id,
+              costId: cost._id,
+              collaboratorId: assignedCollab._id
+            });
+          });
+        }
+      }
+    }
+
+    backendLogger.info('Cost activity tracking initiated', {
+      planId: plan._id?.toString(),
+      costTitle,
+      costAmount,
+      isSharedCost,
+      assignedCollaboratorId: assignedCollaboratorId || null,
+      actorId,
+      collaboratorsCount: collaborators.length
+    });
+
+  } catch (err) {
+    backendLogger.error('Error in trackCostAdded', {
+      error: err?.message || String(err),
+      planId: plan?._id || null,
+      costId: cost?._id || null
+    });
+  }
+}
+
+/**
  * Restore resource state from activity (for super admin)
  * @param {string} rollbackToken - Rollback token from activity
  * @param {Object} actor - User performing the restore
@@ -560,6 +794,7 @@ module.exports = {
   trackUpdate,
   trackDelete,
   trackPlanItemCompletion,
+  trackCostAdded,
   restoreState,
   getHistory,
   extractMetadata,

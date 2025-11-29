@@ -417,6 +417,18 @@ async function getRecentActivity(userId, options = {}) {
         targetName = activity.target.name;
       }
 
+      // For cost activities, show the cost title from metadata
+      if ((activity.action === 'cost_added' || activity.action === 'cost_updated' || activity.action === 'cost_deleted') &&
+          activity.metadata?.costTitle) {
+        // If the activity is a notification to a user (target.type === 'User'), use the reason as-is
+        // Otherwise show the cost title as context
+        if (activity.target?.type !== 'User' && activity.target?.name) {
+          targetName = activity.target.name; // Plan item name if tied to one
+        } else {
+          targetName = activity.metadata.costTitle;
+        }
+      }
+
       // Use resourceLink from metadata if available (for hash-based deep links)
       if (activity.metadata?.resourceLink) {
         resourceLink = activity.metadata.resourceLink;
@@ -559,7 +571,10 @@ function formatActivityAction(action) {
     'plan_item_note_updated': 'Updated a note on a plan item in',
     'plan_item_note_deleted': 'Deleted a note from a plan item in',
     'collaborator_added': 'Became a collaborator on',
-    'collaborator_removed': 'Removed from collaboration on'
+    'collaborator_removed': 'Removed from collaboration on',
+    'cost_added': 'Added a cost to',
+    'cost_updated': 'Updated a cost on',
+    'cost_deleted': 'Deleted a cost from'
   };
 
   return actionMap[action] || action.replace(/_/g, ' ');
