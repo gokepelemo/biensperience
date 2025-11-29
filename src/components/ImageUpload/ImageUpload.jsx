@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import styles from "./ImageUpload.module.scss";
+import DOMPurify from "dompurify";
 import { uploadPhoto, uploadPhotoBatch, uploadPhotoUrl, deletePhoto } from "../../utilities/photos-api";
 import { handleError } from "../../utilities/error-handler";
 import { createUrlSlug } from "../../utilities/url-utils";
@@ -51,6 +52,45 @@ function isSafeImageUrl(url) {
   }
 
   return false;
+}
+
+/**
+ * Sanitize a URL for safe use in img src attribute
+ * Uses DOMPurify to prevent XSS via javascript:, data:, or other dangerous protocols
+ *
+ * @param {string} url - URL to sanitize
+ * @returns {string|null} Sanitized URL or null if unsafe
+ */
+function sanitizeImageUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+
+  const trimmedUrl = url.trim();
+
+  // Block dangerous protocols before sanitization
+  const lowerUrl = trimmedUrl.toLowerCase();
+  if (lowerUrl.startsWith('javascript:') ||
+      lowerUrl.startsWith('data:') ||
+      lowerUrl.startsWith('vbscript:')) {
+    return null;
+  }
+
+  // Only allow http:, https:, and relative URLs
+  if (!lowerUrl.startsWith('http://') &&
+      !lowerUrl.startsWith('https://') &&
+      !lowerUrl.startsWith('/') &&
+      lowerUrl.includes(':')) {
+    return null;
+  }
+
+  // Use DOMPurify to sanitize the URL
+  const sanitized = DOMPurify.sanitize(trimmedUrl, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+
+  // Return null if DOMPurify removed content (indicates malicious URL)
+  if (!sanitized || sanitized !== trimmedUrl) {
+    return null;
+  }
+
+  return trimmedUrl;
 }
 
 export default function ImageUpload({ data, setData }) {
@@ -634,8 +674,8 @@ export default function ImageUpload({ data, setData }) {
               const isDefault = index === defaultPhotoIndex && !isDisabled;
               // Sanitize photo credit to prevent XSS - React will escape JSX text content
               const sanitizedCredit = sanitizeText(photo.photo_credit);
-              // Validate URL is safe before using in img src
-              const safeUrl = isSafeImageUrl(photo.url) ? photo.url : null;
+              // Sanitize URL using DOMPurify to prevent XSS
+              const safeUrl = sanitizeImageUrl(photo.url);
 
               return (
                 <div

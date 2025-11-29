@@ -782,6 +782,15 @@
     align-items: center;
     justify-content: center;
   }
+
+  // Complete button - shows danger/red on hover when item is completed (undo action)
+  :global(.btn-complete-toggle.btn-success) {
+    &:hover {
+      background-color: var(--color-danger, #dc3545);
+      border-color: var(--color-danger, #dc3545);
+      color: white;
+    }
+  }
 }
 
 // Drag handle wrapper - positioned between title and actions

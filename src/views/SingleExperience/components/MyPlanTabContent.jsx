@@ -312,7 +312,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                   </>
                 )}
                 <button
-                  className={`btn btn-sm ${
+                  className={`btn btn-sm btn-complete-toggle ${
                     planItem.complete
                       ? "btn-success"
                       : "btn-outline-success"

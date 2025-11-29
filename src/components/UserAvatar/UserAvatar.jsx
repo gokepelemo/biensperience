@@ -1,6 +1,7 @@
 import styles from "./UserAvatar.module.scss";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
+import DOMPurify from "dompurify";
 import debug from "../../utilities/debug";
 import EntitySchema from "../OpenGraph/EntitySchema";
 
@@ -21,34 +22,42 @@ function sanitizeText(text) {
 }
 
 /**
- * Validate that a URL is safe for use in img src attribute
- * Prevents XSS via javascript:, data:, or other dangerous protocols
+ * Sanitize a URL for safe use in img src attribute
+ * Uses DOMPurify to prevent XSS via javascript:, data:, or other dangerous protocols
  *
- * @param {string} url - URL to validate
- * @returns {boolean} True if URL is safe
+ * @param {string} url - URL to sanitize
+ * @returns {string|null} Sanitized URL or null if unsafe
  */
-function isSafeImageUrl(url) {
-  if (!url || typeof url !== 'string') return false;
+function sanitizeImageUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+
+  const trimmedUrl = url.trim();
+
+  // Block dangerous protocols before sanitization
+  const lowerUrl = trimmedUrl.toLowerCase();
+  if (lowerUrl.startsWith('javascript:') ||
+      lowerUrl.startsWith('data:') ||
+      lowerUrl.startsWith('vbscript:')) {
+    return null;
+  }
 
   // Only allow http:, https:, and relative URLs
-  const trimmedUrl = url.trim().toLowerCase();
-  if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/')) {
-    return true;
+  if (!lowerUrl.startsWith('http://') &&
+      !lowerUrl.startsWith('https://') &&
+      !lowerUrl.startsWith('/') &&
+      lowerUrl.includes(':')) {
+    return null;
   }
 
-  // Block dangerous protocols
-  if (trimmedUrl.startsWith('javascript:') ||
-      trimmedUrl.startsWith('data:') ||
-      trimmedUrl.startsWith('vbscript:')) {
-    return false;
+  // Use DOMPurify to sanitize the URL
+  const sanitized = DOMPurify.sanitize(trimmedUrl, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+
+  // Return null if DOMPurify removed content (indicates malicious URL)
+  if (!sanitized || sanitized !== trimmedUrl) {
+    return null;
   }
 
-  // Allow relative URLs without protocol
-  if (!trimmedUrl.includes(':')) {
-    return true;
-  }
-
-  return false;
+  return trimmedUrl;
 }
 
 /**
@@ -95,7 +104,7 @@ const UserAvatar = ({
   const photoUrl = getPhotoUrl(user);
   debug.log('UserAvatar - photoUrl:', photoUrl);
 
-  const safePhotoUrl = isSafeImageUrl(photoUrl) ? photoUrl : null;
+  const safePhotoUrl = sanitizeImageUrl(photoUrl);
   const sanitizedName = sanitizeText(user.name || '');
 
   const avatarContent = (
