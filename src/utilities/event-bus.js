@@ -19,6 +19,7 @@ import { logger } from './logger';
 import { getUser } from './users-service';
 import * as VectorClock from './vector-clock';
 import { createTransport } from './event-transport';
+import { runStorageMigrations } from './storage-migration';
 
 class EventBus {
   constructor() {
@@ -29,6 +30,9 @@ class EventBus {
     this.transport = null;
     this.transportReady = false;
 
+    // Run storage migrations before initializing transport
+    this.runMigrations();
+
     // Initialize transport asynchronously
     this.initTransport();
 
@@ -36,6 +40,23 @@ class EventBus {
       sessionId: this.sessionId,
       vectorClock: VectorClock.format(this.vectorClock)
     });
+  }
+
+  /**
+   * Run storage migrations to clean up deprecated keys
+   */
+  runMigrations() {
+    try {
+      const result = runStorageMigrations();
+      if (result.migrated) {
+        logger.info('[EventBus] Storage migrations applied', {
+          version: result.version,
+          changes: result.changes
+        });
+      }
+    } catch (error) {
+      logger.warn('[EventBus] Storage migration failed', { error: error.message });
+    }
   }
 
   /**
@@ -67,8 +88,9 @@ class EventBus {
       logger.error('[EventBus] Failed to initialize transport', {
         error: error.message
       }, error);
-      // Fall back to localStorage if transport fails
-      this.initLocalStorageFallback();
+      // Transport failed - events will only work locally within this tab
+      // This is acceptable as the transport layer handles its own retries
+      this.transportReady = false;
     }
   }
 
@@ -81,31 +103,6 @@ class EventBus {
       this.transport.setUserId(userId);
       logger.info('[EventBus] User ID updated for encryption', { hasUserId: !!userId });
     }
-  }
-
-  /**
-   * Initialize localStorage fallback (original behavior)
-   */
-  initLocalStorageFallback() {
-    if (typeof window === 'undefined') return;
-
-    logger.warn('[EventBus] Using localStorage fallback');
-
-    window.addEventListener('storage', (e) => {
-      if (e.key !== 'bien:event' && e.key !== 'bien:plan_event') return;
-      if (!e.newValue) return;
-
-      try {
-        const event = JSON.parse(e.newValue);
-        if (event.sessionId !== this.sessionId) {
-          this.handleTransportMessage(event);
-        }
-      } catch (error) {
-        logger.error('[EventBus] Error parsing storage event', { error: error.message }, error);
-      }
-    });
-
-    this.transportReady = true;
   }
 
   /**
@@ -280,40 +277,18 @@ class EventBus {
     if (this.transport && this.transportReady) {
       try {
         await this.transport.send(event);
-        return;
       } catch (error) {
-        logger.warn('[EventBus] Transport send failed, using localStorage fallback', {
-          error: error.message
+        logger.warn('[EventBus] Transport send failed', {
+          error: error.message,
+          transportType: this.transport?.getType()
         });
+        // No fallback - transport layer handles its own retries and buffering
       }
-    }
-
-    // Fallback to localStorage
-    this.broadcastToLocalStorage(event);
-  }
-
-  /**
-   * Broadcast event via localStorage (fallback)
-   */
-  broadcastToLocalStorage(event) {
-    if (typeof window === 'undefined' || !window.localStorage) return;
-
-    try {
-      localStorage.setItem('bien:event', JSON.stringify(event));
-      logger.debug('[EventBus] Broadcast via localStorage', {
-        eventType: event.type,
-        version: event.version
+    } else {
+      logger.debug('[EventBus] Transport not ready, event not broadcast to other clients', {
+        hasTransport: !!this.transport,
+        transportReady: this.transportReady
       });
-    } catch (error) {
-      logger.warn('[EventBus] localStorage quota exceeded, clearing old events');
-      try {
-        localStorage.removeItem('bien:event');
-        localStorage.setItem('bien:event', JSON.stringify(event));
-      } catch (retryError) {
-        logger.error('[EventBus] Failed to broadcast after clearing', {
-          error: retryError.message
-        }, retryError);
-      }
     }
   }
 
