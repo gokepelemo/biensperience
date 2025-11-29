@@ -7,6 +7,7 @@ import { useApp } from "../../contexts/AppContext";
 import SearchBar from "../SearchBar/SearchBar";
 import ActionButtons from "../ActionButtons/ActionButtons";
 import { lang } from "../../lang.constants";
+import { FaUser, FaTicketAlt, FaUsers, FaMapMarkerAlt, FaStar, FaSignOutAlt } from "react-icons/fa";
 
 export default function NavBar() {
   const collapseRef = useRef(null);
@@ -282,53 +283,58 @@ export default function NavBar() {
                 <li role="none">
                   <NavLink
                     to="/profile"
-                    className="dropdown-item"
+                    className={`dropdown-item ${styles.dropdownItem}`}
                     role="menuitem"
                     aria-label={lang.current.aria.viewYourProfile}
                   >
-                    Profile
+                    <FaUser className={styles.dropdownIcon} />
+                    <span>Profile</span>
                   </NavLink>
                 </li>
                 <li role="none">
                   <NavLink
                     to="/invites"
-                    className="dropdown-item"
+                    className={`dropdown-item ${styles.dropdownItem}`}
                     role="menuitem"
                     aria-label={lang.current.aria.trackYourInviteCodes}
                   >
-                    Invites
+                    <FaTicketAlt className={styles.dropdownIcon} />
+                    <span>Invites</span>
                   </NavLink>
                 </li>
                 {isSuper() && (
                   <li role="none">
                     <NavLink
                       to="/admin/users"
-                      className="dropdown-item"
+                      className={`dropdown-item ${styles.dropdownItem}`}
                       role="menuitem"
                       aria-label={lang.current.aria.adminPanelManageUsers}
                     >
-                      All Users
+                      <FaUsers className={styles.dropdownIcon} />
+                      <span>All Users</span>
                     </NavLink>
                   </li>
                 )}
                 <li role="none">
                   <NavLink
                     to="/destinations/new"
-                    className="dropdown-item"
+                    className={`dropdown-item ${styles.dropdownItem}`}
                     role="menuitem"
                     aria-label={lang.current.aria.createNewDestination}
                   >
-                    New Destination
+                    <FaMapMarkerAlt className={styles.dropdownIcon} />
+                    <span>New Destination</span>
                   </NavLink>
                 </li>
                 <li role="none">
                   <NavLink
                     to="/experiences/new"
-                    className="dropdown-item"
+                    className={`dropdown-item ${styles.dropdownItem}`}
                     role="menuitem"
                     aria-label={lang.current.aria.createNewExperience}
                   >
-                    New Experience
+                    <FaStar className={styles.dropdownIcon} />
+                    <span>New Experience</span>
                   </NavLink>
                 </li>
                 <li role="none">
@@ -338,11 +344,12 @@ export default function NavBar() {
                   <NavLink
                     to="/logout"
                     onClick={handleLogOut}
-                    className="dropdown-item"
+                    className={`dropdown-item ${styles.dropdownItem} ${styles.dropdownItemLogout}`}
                     role="menuitem"
                     aria-label={lang.current.aria.logOutOfAccount}
                   >
-                    Logout
+                    <FaSignOutAlt className={styles.dropdownIcon} />
+                    <span>Logout</span>
                   </NavLink>
                 </li>
               </ul>

@@ -16,7 +16,10 @@ import { logger } from "../../utilities/logger";
 
 export default function Destinations() {
   const { user } = useUser();
-  const { destinations, loading, fetchMoreDestinations, destinationsMeta, applyDestinationsFilter } = useData();
+  const { destinations, loading, fetchMoreDestinations, destinationsMeta, applyDestinationsFilter, lastUpdated } = useData();
+
+  // Check if initial data fetch has completed (prevents flash of "no data" on mount)
+  const initialLoadComplete = lastUpdated?.destinations !== null;
   const [sortBy, setSortBy] = useState("alphabetical");
   const [filterBy, setFilterBy] = useState("all");
   const [loadingMore, setLoadingMore] = useState(false);
@@ -110,7 +113,7 @@ export default function Destinations() {
         filterType="destinations"
       />
 
-      {loading ? (
+      {(loading || !initialLoadComplete) ? (
         <Loading
           variant="centered"
           size="lg"

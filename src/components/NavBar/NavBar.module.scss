@@ -409,6 +409,44 @@
   opacity: 0.2; /* Custom opacity for subtle divider */
 }
 
+/* Dropdown item with icon styling */
+.dropdownItem {
+  display: flex !important;
+  align-items: center;
+  gap: $space-3;
+
+  span {
+    flex: 1;
+  }
+}
+
+.dropdownIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0.8;
+  @include transition-all($transition-fast);
+}
+
+/* Hover effect for icons */
+.dropdownItem:hover .dropdownIcon,
+.dropdownItem:focus .dropdownIcon {
+  opacity: 1;
+  color: var(--color-primary);
+}
+
+/* Logout item special styling */
+.dropdownItemLogout {
+  &:hover,
+  &:focus {
+    color: var(--color-danger) !important;
+
+    .dropdownIcon {
+      color: var(--color-danger) !important;
+    }
+  }
+}
+
 /* Navbar brand */
 :global(.navbar-brand) {
   display: flex; /* Ensure flex layout */

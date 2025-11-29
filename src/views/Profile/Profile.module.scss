@@ -20,6 +20,43 @@
   }
 }
 
+/* Dropdown item styling with icons */
+.dropdownItem {
+  display: flex !important;
+  align-items: center;
+  gap: $space-3;
+
+  span {
+    flex: 1;
+  }
+}
+
+.dropdownIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0.8;
+  @include transition-all($transition-fast);
+}
+
+.dropdownItem:hover .dropdownIcon,
+.dropdownItem:focus .dropdownIcon {
+  opacity: 1;
+  color: var(--color-primary);
+}
+
+/* Admin update styling - special highlight */
+.dropdownItemAdmin {
+  &:hover,
+  &:focus {
+    color: var(--color-warning) !important;
+
+    .dropdownIcon {
+      color: var(--color-warning) !important;
+    }
+  }
+}
+
 /* Profile header row to ensure proper stacking context */
 .profileHeaderRow {
   position: relative;

@@ -1,4 +1,4 @@
-import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye } from "react-icons/fa";
+import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield } from "react-icons/fa";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
 import styles from "./Profile.module.scss";
@@ -582,20 +582,22 @@ export default function Profile() {
                           <>
                             <li>
                               <button
-                                className="dropdown-item"
+                                className={`dropdown-item ${styles.dropdownItem}`}
                                 onClick={handleOpenApiModal}
                                 type="button"
                               >
-                                <FaKey className="me-2" /> API Key
+                                <FaKey className={styles.dropdownIcon} />
+                                <span>API Key</span>
                               </button>
                             </li>
                             <li>
                               <button
-                                className="dropdown-item"
+                                className={`dropdown-item ${styles.dropdownItem}`}
                                 onClick={handleOpenActivityMonitor}
                                 type="button"
                               >
-                                <FaEye className="me-2" /> Activity Monitor
+                                <FaEye className={styles.dropdownIcon} />
+                                <span>Activity Monitor</span>
                               </button>
                             </li>
                           </>
@@ -604,16 +606,17 @@ export default function Profile() {
                           <li>
                             <Link
                               to="/profile/update"
-                              className="dropdown-item"
+                              className={`dropdown-item ${styles.dropdownItem}`}
                             >
-                              ✏️ Update Profile
+                              <FaEdit className={styles.dropdownIcon} />
+                              <span>Update Profile</span>
                             </Link>
                           </li>
                         )}
                         {isOwner && currentProfile && !currentProfile.emailConfirmed && (
                           <li>
                             <button
-                              className="dropdown-item"
+                              className={`dropdown-item ${styles.dropdownItem}`}
                               type="button"
                               onClick={async () => {
                                 if (!currentProfile || !currentProfile.email) return;
@@ -634,7 +637,8 @@ export default function Profile() {
                               }}
                               disabled={resendInProgress || resendDisabled}
                             >
-                              🔁 {lang.current.alert.emailNotVerifiedAction} {resendDisabled && cooldownRemaining > 0 ? `(${cooldownRemaining}s)` : ''}
+                              <FaEnvelope className={styles.dropdownIcon} />
+                              <span>{lang.current.alert.emailNotVerifiedAction} {resendDisabled && cooldownRemaining > 0 ? `(${cooldownRemaining}s)` : ''}</span>
                             </button>
                           </li>
                         )}
@@ -642,9 +646,10 @@ export default function Profile() {
                           <li>
                             <Link
                               to={`/profile/${profileId}/update`}
-                              className="dropdown-item"
+                              className={`dropdown-item ${styles.dropdownItem} ${styles.dropdownItemAdmin}`}
                             >
-                              👑 Admin Update
+                              <FaUserShield className={styles.dropdownIcon} />
+                              <span>Admin Update</span>
                             </Link>
                           </li>
                         )}
