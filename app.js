@@ -275,12 +275,14 @@ app.use("/api/destinations", require("./routes/api/destinations"));
 app.use("/api/experiences", require("./routes/api/experiences"));
 app.use("/api/photos", require("./routes/api/photos"));
 app.use("/api/plans", require("./routes/api/plans"));
+app.use("/api/documents", require("./routes/api/documents"));
 app.use("/api/search", require("./routes/api/search"));
 app.use("/api/tokens", require("./routes/api/tokens"));
 app.use("/api/invites", require("./routes/api/invites"));
 app.use("/api/invite-tracking", require("./routes/api/invite-tracking"));
 app.use("/api/activities", require("./routes/api/activities"));
 app.use("/api/dashboard", require("./routes/api/dashboard"));
+app.use("/api/follows", require("./routes/api/follows"));
 app.use("/health-check", (req, res) => {
   res.send("OK");
 });

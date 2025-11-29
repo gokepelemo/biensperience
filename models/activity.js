@@ -60,7 +60,10 @@ const activitySchema = new mongoose.Schema({
       'favorite_removed',
       'collaborator_added',
       'collaborator_removed',
-      
+      'follow_created',
+      'follow_removed',
+      'follow_blocked',
+
       // System actions
       'data_imported',
       'data_exported',
@@ -93,7 +96,7 @@ const activitySchema = new mongoose.Schema({
     type: {
       type: String,
       required: true,
-      enum: ['User', 'Experience', 'Destination', 'Photo', 'Plan', 'PlanItem'],
+      enum: ['User', 'Experience', 'Destination', 'Photo', 'Plan', 'PlanItem', 'Follow'],
       index: true
     },
     name: String // Human-readable name for the resource
@@ -104,7 +107,7 @@ const activitySchema = new mongoose.Schema({
     id: mongoose.Schema.Types.ObjectId,
     type: {
       type: String,
-      enum: ['User', 'Experience', 'Destination', 'Photo', 'Plan', 'PlanItem']
+      enum: ['User', 'Experience', 'Destination', 'Photo', 'Plan', 'PlanItem', 'Follow']
     },
     name: String
   },

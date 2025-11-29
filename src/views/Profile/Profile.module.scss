@@ -1,6 +1,246 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Profile View Styles */
+/* Profile View Styles - Storybook ProfileView Design Pattern */
+
+/* Profile Header Card - Container */
+.profileHeaderCard {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xl);
+  margin-bottom: $space-8;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Cover Image / Gradient Banner */
+.profileCover {
+  height: 200px;
+  background: var(--gradient-primary);
+  position: relative;
+}
+
+/* Profile Header Body - contains avatar, info, stats */
+.profileHeaderBody {
+  padding: $space-6;
+  margin-top: -80px;
+}
+
+/* Flex container for avatar + info + actions */
+.profileHeaderFlex {
+  display: flex;
+  gap: $space-6;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+/* Avatar */
+.profileAvatar {
+  width: 150px;
+  height: 150px;
+  border-radius: var(--radius-full);
+  border: 5px solid var(--color-bg-primary);
+  box-shadow: var(--shadow-lg);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* Avatar placeholder for users without photo */
+.profileAvatarPlaceholder {
+  width: 150px;
+  height: 150px;
+  border-radius: var(--radius-full);
+  border: 5px solid var(--color-bg-primary);
+  box-shadow: var(--shadow-lg);
+  background: var(--color-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* Info section - name, location, bio */
+.profileInfo {
+  flex: 1;
+  min-width: 250px;
+}
+
+.profileName {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: $space-2;
+  margin-top: 70px;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  flex-wrap: wrap;
+}
+
+.profileLocation {
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+  margin-bottom: $space-3;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.profileBio {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin-bottom: $space-4;
+}
+
+/* Stats row */
+.profileStats {
+  display: flex;
+  gap: $space-6;
+  flex-wrap: wrap;
+}
+
+.profileStat {
+  text-align: left;
+}
+
+.profileStatValue {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+}
+
+.profileStatLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Action buttons */
+.profileActions {
+  display: flex;
+  gap: $space-3;
+  align-items: flex-start;
+  margin-top: 70px;
+  flex-shrink: 0;
+}
+
+/* Tab Navigation - underline style */
+.profileTabs {
+  display: flex;
+  gap: $space-4;
+  margin-bottom: $space-6;
+  border-bottom: 2px solid var(--color-border-light);
+  padding-bottom: $space-2;
+}
+
+.profileTab {
+  background: none;
+  border: none;
+  padding: $space-3 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+.profileTabActive {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* Content Grid */
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: $space-6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991px) {
+  .profileHeaderFlex {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .profileInfo {
+    text-align: center;
+  }
+
+  .profileName {
+    justify-content: center;
+    margin-top: $space-4;
+  }
+
+  .profileLocation {
+    justify-content: center;
+  }
+
+  .profileStats {
+    justify-content: center;
+  }
+
+  .profileStat {
+    text-align: center;
+  }
+
+  .profileActions {
+    margin-top: $space-4;
+    justify-content: center;
+  }
+
+  .profileTabs {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 575px) {
+  .profileCover {
+    height: 150px;
+  }
+
+  .profileHeaderBody {
+    margin-top: -60px;
+    padding: $space-4;
+  }
+
+  .profileAvatar,
+  .profileAvatarPlaceholder {
+    width: 120px;
+    height: 120px;
+  }
+
+  .profileName {
+    font-size: var(--font-size-2xl);
+  }
+
+  .profileStats {
+    gap: $space-4;
+  }
+
+  .profileStatValue {
+    font-size: var(--font-size-xl);
+  }
+}
+
+/* Legacy styles below - kept for compatibility */
+
+/* Profile heading wrapper - h1 + email verified badge */
+.profileHeadingWrapper {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  flex-wrap: wrap;
+}
 
 /* Dropdown z-index fix */
 :global(.dropdown) {

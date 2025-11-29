@@ -1,11 +1,11 @@
-import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield } from "react-icons/fa";
+import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart } from "react-icons/fa";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
+import { Container as BsContainer, Card, Row, Col } from "react-bootstrap";
 import styles from "./Profile.module.scss";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
-import PhotoCard from "./../../components/PhotoCard/PhotoCard";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
@@ -21,12 +21,11 @@ import { lang } from "../../lang.constants";
 import { handleError } from "../../utilities/error-handler";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { deduplicateById } from "../../utilities/deduplication";
-import { createUrlSlug } from "../../utilities/url-utils";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
-import { Button, Container, FlexBetween, Heading, Paragraph } from "../../components/design-system";
+import { Button, EmptyState } from "../../components/design-system";
 import { useToast } from '../../contexts/ToastContext';
-import TagPill from '../../components/Pill/TagPill';
+import { getDefaultPhoto } from "../../utilities/photo-utils";
 
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
@@ -141,8 +140,8 @@ export default function Profile() {
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, [navigate, showApiTokenModal, showActivityMonitor]);
-  const [userExperiences, setUserExperiences] = useState([]);
-  const [createdExperiences, setCreatedExperiences] = useState([]);
+  const [userExperiences, setUserExperiences] = useState(null);
+  const [createdExperiences, setCreatedExperiences] = useState(null);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const { success, error: showError } = useToast();
   const [resendInProgress, setResendInProgress] = useState(false);
@@ -234,13 +233,17 @@ export default function Profile() {
   }, [currentProfile]);
 
   // Deduplicate user experiences by ID
+  // Returns empty array if userExperiences is null (loading state)
   const uniqueUserExperiences = useMemo(() => {
-    return deduplicateById(userExperiences);
+    if (userExperiences === null) return [];
+    return deduplicateById(userExperiences) || [];
   }, [userExperiences]);
 
   // Deduplicate created experiences by ID
+  // Returns empty array if createdExperiences is null (loading state)
   const uniqueCreatedExperiences = useMemo(() => {
-    return deduplicateById(createdExperiences);
+    if (createdExperiences === null) return [];
+    return deduplicateById(createdExperiences) || [];
   }, [createdExperiences]);
 
   const userExperienceTypes = useMemo(() => {
@@ -409,14 +412,15 @@ export default function Profile() {
     };
   }, [userId]);
 
-  // Register h1 for navbar integration (but disable showing in navbar for Profile)
+  // Register h1 for navbar integration - clicking scrolls to top
+  // Re-run when currentProfile loads so h1 element is available
   useEffect(() => {
     const h1 = document.querySelector('h1');
     if (h1) {
       registerH1(h1);
-      
-      // Disable showing h1 in navbar for Profile view to prevent flashing
-      updateShowH1InNavbar(false);
+
+      // Enable h1 text in navbar - clicking scrolls to top
+      updateShowH1InNavbar(true);
 
       // Set action buttons if user is viewing their own profile
       if (isOwner && user) {
@@ -437,10 +441,10 @@ export default function Profile() {
 
     return () => {
       clearActionButtons();
-      // Re-enable h1 in navbar for other views
-      updateShowH1InNavbar(true);
+      // Disable h1 in navbar when leaving this view
+      updateShowH1InNavbar(false);
     };
-  }, [registerH1, clearActionButtons, updateShowH1InNavbar, setPageActionButtons, isOwner, user, navigate]);
+  }, [registerH1, clearActionButtons, updateShowH1InNavbar, setPageActionButtons, isOwner, user, navigate, currentProfile]);
 
   const handleExpNav = useCallback((view) => {
     setUiState({
@@ -529,43 +533,119 @@ export default function Profile() {
     );
   }
   
+  // Get user's avatar photo
+  const avatarPhoto = useMemo(() => {
+    if (!currentProfile?.photos?.length) return null;
+    return getDefaultPhoto(currentProfile);
+  }, [currentProfile]);
+
   return (
-    <div>
+    <div style={{ backgroundColor: 'var(--color-bg-primary)', minHeight: '100vh', padding: 'var(--space-8) 0' }}>
       {currentProfile && (
         <PageOpenGraph
           title={`${currentProfile.name}'s Profile`}
           description={`View ${currentProfile.name}'s travel profile on Biensperience. Discover their planned experiences${uniqueUserExperiences.length > 0 ? ` (${uniqueUserExperiences.length} experiences)` : ''} and favorite destinations${favoriteDestinations.length > 0 ? ` (${favoriteDestinations.length} destinations)` : ''}.`}
-          keywords={`${currentProfile.name}, travel profile, experiences, destinations, travel planning${userExperienceTypes.length > 0 ? `, ${userExperienceTypes.join(', ')}` : ''}`}
+          keywords={`${currentProfile.name}, travel profile, experiences, destinations, travel planning`}
           ogTitle={`${currentProfile.name} on Biensperience`}
           ogDescription={`${currentProfile.name} is planning ${uniqueUserExperiences.length} travel experiences${favoriteDestinations.length > 0 ? ` across ${favoriteDestinations.length} favorite destinations` : ''}.`}
           entity={currentProfile}
           entityType="user"
         />
       )}
-      <div className="profile-dropdown-view">
-        <div className="view-header">
-          <div className="row">
-            <div className="col-md-6">
-              <h1 className="mb-0">
-                  {isLoadingProfile ? (
-                    <span className="loading-skeleton loading-skeleton-text"></span>
-                  ) : (
+      <BsContainer>
+        {/* Profile Header Card - Storybook ProfileView Design */}
+        <Card className={styles.profileHeaderCard}>
+          {/* Cover Image / Gradient */}
+          <div className={styles.profileCover} />
+
+          <Card.Body className={styles.profileHeaderBody}>
+            {isLoadingProfile ? (
+              <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
+                <Loading size="lg" message={lang.current.alert.loadingProfile} />
+              </div>
+            ) : (
+              <div className={styles.profileHeaderFlex}>
+                {/* Avatar */}
+                {avatarPhoto ? (
+                  <img
+                    src={avatarPhoto.url || avatarPhoto}
+                    alt={currentProfile?.name}
+                    className={styles.profileAvatar}
+                  />
+                ) : (
+                  <div className={styles.profileAvatarPlaceholder}>
+                    <FaUser />
+                  </div>
+                )}
+
+                {/* Info */}
+                <div className={styles.profileInfo}>
+                  <h1 className={styles.profileName}>
+                    {currentProfile?.name}
+                    {currentProfile?.emailConfirmed && (
+                      <FaCheckCircle
+                        className="text-success"
+                        title={lang.current.aria.emailConfirmed}
+                        aria-label={lang.current.aria.emailConfirmed}
+                        style={{ fontSize: 'var(--font-size-xl)' }}
+                      />
+                    )}
+                  </h1>
+
+                  {currentProfile?.location && (
+                    <p className={styles.profileLocation}>
+                      <FaMapMarkerAlt /> {currentProfile.location}
+                    </p>
+                  )}
+
+                  {currentProfile?.bio && (
+                    <p className={styles.profileBio}>
+                      {currentProfile.bio}
+                    </p>
+                  )}
+
+                  {/* Stats */}
+                  <div className={styles.profileStats}>
+                    <div className={styles.profileStat}>
+                      <div className={styles.profileStatValue}>
+                        {uniqueUserExperiences.length}
+                      </div>
+                      <div className={styles.profileStatLabel}>
+                        Experiences
+                      </div>
+                    </div>
+                    <div className={styles.profileStat}>
+                      <div className={styles.profileStatValue}>
+                        {favoriteDestinations.length}
+                      </div>
+                      <div className={styles.profileStatLabel}>
+                        Destinations
+                      </div>
+                    </div>
+                    <div className={styles.profileStat}>
+                      <div className={styles.profileStatValue}>
+                        {plans?.length || 0}
+                      </div>
+                      <div className={styles.profileStatLabel}>
+                        Plans
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className={styles.profileActions}>
+                  {!isOwner && (
                     <>
-                      {currentProfile?.name}
-                      {currentProfile?.emailConfirmed && (
-                        <FaCheckCircle
-                          className="text-success ms-2 font-size-adjust-xs"
-                          title={lang.current.aria.emailConfirmed}
-                          aria-label={lang.current.aria.emailConfirmed}
-                        />
-                      )}
+                      <Button variant="outline" style={{ borderRadius: 'var(--radius-full)' }}>
+                        <FaEnvelope /> Message
+                      </Button>
+                      <Button variant="gradient" style={{ borderRadius: 'var(--radius-full)' }}>
+                        Follow
+                      </Button>
                     </>
                   )}
-                </h1>
-              </div>
-              <div className="col-md-6">
-                <div className="header-actions">
-                  {!isLoadingProfile && (
+                  {isOwner && (
                     <div className="dropdown">
                       <Button
                         variant="bootstrap"
@@ -574,6 +654,7 @@ export default function Profile() {
                         data-bs-toggle="dropdown"
                         aria-expanded="false"
                         aria-label={lang.current.aria.profileActions}
+                        style={{ borderRadius: 'var(--radius-full)' }}
                       >
                         ⋯
                       </Button>
@@ -602,30 +683,26 @@ export default function Profile() {
                             </li>
                           </>
                         )}
-                        {isOwner && (
-                          <li>
-                            <Link
-                              to="/profile/update"
-                              className={`dropdown-item ${styles.dropdownItem}`}
-                            >
-                              <FaEdit className={styles.dropdownIcon} />
-                              <span>Update Profile</span>
-                            </Link>
-                          </li>
-                        )}
-                        {isOwner && currentProfile && !currentProfile.emailConfirmed && (
+                        <li>
+                          <Link
+                            to="/profile/update"
+                            className={`dropdown-item ${styles.dropdownItem}`}
+                          >
+                            <FaEdit className={styles.dropdownIcon} />
+                            <span>Update Profile</span>
+                          </Link>
+                        </li>
+                        {currentProfile && !currentProfile.emailConfirmed && (
                           <li>
                             <button
                               className={`dropdown-item ${styles.dropdownItem}`}
                               type="button"
                               onClick={async () => {
                                 if (!currentProfile || !currentProfile.email) return;
-                                // prevent clicks while already in progress or cooldown
                                 if (resendInProgress || resendDisabled) return;
                                 try {
                                   setResendInProgress(true);
                                   await resendConfirmation(currentProfile.email);
-                                  // start cooldown after successful send
                                   startCooldown(currentProfile.email);
                                   success(lang.current.success.resendConfirmation);
                                 } catch (err) {
@@ -658,149 +735,45 @@ export default function Profile() {
                   )}
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      <div className="row mb-4 animation-fade-in">
-        <div className="col-md-6 p-3 animation-fade-in">
-          {isLoadingProfile ? (
-            <div className="photoCard d-flex align-items-center justify-content-center" style={{ minHeight: 'var(--layout-min-height-card)' }}>
-              <Loading size="lg" message={lang.current.alert.loadingProfile} />
-            </div>
-          ) : (
-            <>
-              <PhotoCard
-                photos={currentProfile?.photos}
-                defaultPhotoId={currentProfile?.default_photo_id}
-                title={currentProfile?.name}
-              />
-              {!currentProfile?.photos?.length && isOwner && (
-                <small className="d-flex justify-content-center align-items-center noPhoto animation-fade-in">
-                  <span>{lang.current.message.noPhotoMessage} <Link to="/profile/update">{lang.current.message.uploadPhotoNow}</Link></span>
-                </small>
-              )}
-            </>
-          )}
-        </div>
-        <div className="col-md-6 p-3 animation-fade-in">
-          <div className={`${styles.profileDetailCard} animation-fade-in`}>
-            <div className={styles.profileDetailSection}>
-              <Heading level={3} className={styles.profileDetailSectionTitle}>
-                {lang.current.heading.favoriteDestinations}
-              </Heading>
-              <div className={`${styles.profileDetailContent} ${styles.profileDestinations}`}>
-                {isLoadingProfile ? (
-                  <Loading size="md" message="Loading favorite destinations..." />
-                ) : favoriteDestinations.length > 0 ? (
-                    favoriteDestinations.map((destination) => (
-                      <TagPill key={destination._id} color="light" to={`/destinations/${destination._id}`}>
-                        <span className="icon"><FaPassport /></span>
-                        {destination.name}
-                      </TagPill>
-                  ))
-                ) : (
-                  <div className={`${styles.noFavoriteDestinations} animation-fade-in`}>
-                    {isOwner ? (
-                      <>
-                        <p className="mb-3">{lang.current.message.noFavoriteDestinations}</p>
-                        <Button as={Link} to="/destinations" variant="primary" size="sm">
-                          {lang.current.message.addFavoriteDestinations}
-                        </Button>
-                      </>
-                    ) : (
-                    <>
-                      <p className="mb-3">{`${currentProfile?.name || 'This user'} hasn't added any favorite destinations yet.`}</p>
-                      <Button as={Link} to="/destinations" variant="primary" size="sm">
-                        Explore Destinations
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className={styles.profileDetailSection}>
-              <Heading level={3} className={styles.profileDetailSectionTitle}>
-                {lang.current.heading.preferredExperienceTypes}
-              </Heading>
-              <div className={styles.profileDetailContent}>
-                {(isLoadingProfile || (isOwner && userExperiences.length === 0)) ? (
-                  <Loading size="md" message="Loading preferred experience types..." />
-                ) : userExperienceTypes.length > 0 ? (
-                  <>
-                    {(showAllExperienceTypes ? userExperienceTypes : userExperienceTypes.slice(0, EXPERIENCE_TYPES_INITIAL_DISPLAY)).map((type) => (
-                      <TagPill key={type} color="light" size="sm" to={`/experience-types/${createUrlSlug(type)}`}>
-                        <span className="icon"><FaUser /></span>
-                        {type}
-                      </TagPill>
-                    ))}
-                    {userExperienceTypes.length > EXPERIENCE_TYPES_INITIAL_DISPLAY && (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() => setShowAllExperienceTypes(!showAllExperienceTypes)}
-                        style={{ marginTop: 'var(--space-2)' }}
-                      >
-                        {showAllExperienceTypes ? 'Show Less' : 'Show More'}
-                      </Button>
-                    )}
-                  </>
-                ) : (
-                  <div className="animation-fade-in">
-                    {isOwner ? (
-                      <>
-                        <p className="mb-3">{lang.current.message.noExperiencesYet}</p>
-                        <Button as={Link} to="/experiences" variant="primary" size="sm">
-                          {lang.current.message.addExperiences}
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="mb-3">{`${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`}</p>
-                        <Button as={Link} to="/experiences" variant="primary" size="sm">
-                          Discover Experiences
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="row my-4 animation-fade-in">
-        <h4 className={`badge rounded-pill ${styles.badgeNav} my-4 animation-fade-in`}>
-          <span
-            className={uiState.experiences ? `fw-bold animation-fade-in ${styles.activeTab}` : "animation-fade-in"}
+            )}
+          </Card.Body>
+        </Card>
+
+        {/* Tab Navigation - Underline Style */}
+        <div className={styles.profileTabs}>
+          <button
+            className={`${styles.profileTab} ${uiState.experiences ? styles.profileTabActive : ''}`}
             onClick={() => {
               handleExpNav('experiences');
               try { window.history.pushState(null, '', `${window.location.pathname}#experiences`); } catch (e) {}
             }}
           >
-            {lang.current.heading.plannedExperiences}
-          </span>
-          <span
-            className={uiState.created ? "fw-bold animation-fade-in active-tab" : "animation-fade-in"}
+            Experiences
+          </button>
+          <button
+            className={`${styles.profileTab} ${uiState.created ? styles.profileTabActive : ''}`}
             onClick={() => {
               handleExpNav('created');
               try { window.history.pushState(null, '', `${window.location.pathname}#created`); } catch (e) {}
             }}
           >
-            {lang.current.heading.createdExperiences || 'Created Experiences'}
-          </span>
-          <span
-            className={uiState.destinations ? "fw-bold animation-fade-in active-tab" : "animation-fade-in"}
+            Created
+          </button>
+          <button
+            className={`${styles.profileTab} ${uiState.destinations ? styles.profileTabActive : ''}`}
             onClick={() => {
               handleExpNav('destinations');
               try { window.history.pushState(null, '', `${window.location.pathname}#destinations`); } catch (e) {}
             }}
           >
-            {lang.current.heading.experienceDestinations}
-          </span>
-        </h4>
-      </div>
-      <div className="row my-4 justify-content-center animation-fade-in">
-        <div ref={reservedRef} className={styles.profileCardsReserved}>
+            Favorites
+          </button>
+        </div>
+
+        {/* Content Grid */}
+        <Row>
+          <Col lg={12}>
+            <div ref={reservedRef} className={styles.profileGrid}>
         {uiState.destinations && (() => {
           const uniqueDestinationIds = Array.from(
             new Set(
@@ -844,22 +817,16 @@ export default function Profile() {
               )}
             </>
           ) : (
-            <Alert
-              type="info"
-              className="animation-fade-in text-center"
-            >
-              <p className="mb-3">
-                {isOwner
-                  ? "You haven't visited any destinations through your experiences yet. Plan some experiences to see destinations here."
-                  : `${currentProfile?.name || 'This user'} hasn't visited any destinations through their experiences yet.`
-                }
-              </p>
-              {isOwner && (
-                <Button as={Link} to="/experiences" variant="primary">
-                  {lang.current.message.addExperiences}
-                </Button>
-              )}
-            </Alert>
+            <EmptyState
+              variant="destinations"
+              title={isOwner ? "No Destinations Yet" : "No Destinations"}
+              description={isOwner
+                ? "You haven't visited any destinations through your experiences yet. Plan some experiences to see destinations here."
+                : `${currentProfile?.name || 'This user'} hasn't visited any destinations through their experiences yet.`}
+              primaryAction={isOwner ? lang.current.message.addExperiences : null}
+              onPrimaryAction={isOwner ? () => window.location.href = '/experiences' : null}
+              size="md"
+            />
           );
         })()}
         {uiState.experiences && (() => {
@@ -895,22 +862,16 @@ export default function Profile() {
               )}
             </>
           ) : (
-            <Alert
-              type="info"
-              className="animation-fade-in text-center"
-            >
-              <p className="mb-3">
-                {isOwner
-                  ? lang.current.message.noExperiencesYet
-                  : `${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`
-                }
-              </p>
-              {isOwner && (
-                <Button as={Link} to="/experiences" variant="primary">
-                  {lang.current.message.addExperiences}
-                </Button>
-              )}
-            </Alert>
+            <EmptyState
+              variant="experiences"
+              title={isOwner ? "No Planned Experiences" : "No Planned Experiences"}
+              description={isOwner
+                ? lang.current.message.noExperiencesYet
+                : `${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`}
+              primaryAction={isOwner ? lang.current.message.addExperiences : null}
+              onPrimaryAction={isOwner ? () => window.location.href = '/experiences' : null}
+              size="md"
+            />
           );
         })()}
         {uiState.created && (() => {
@@ -946,26 +907,24 @@ export default function Profile() {
               )}
             </>
           ) : (
-            <Alert
-              type="info"
-              className="animation-fade-in text-center"
-            >
-              <p className="mb-3">
-                {isOwner
-                  ? "You haven't created any experiences yet. Share your travel knowledge with the community."
-                  : `${currentProfile?.name || 'This user'} hasn't created any experiences yet.`
-                }
-              </p>
-              {isOwner && (
-                <Button as={Link} to="/experiences/new" variant="primary">
-                  {lang.current.message.addOneNowButton}
-                </Button>
-              )}
-            </Alert>
+            <EmptyState
+              variant="experiences"
+              icon="✨"
+              title={isOwner ? "No Created Experiences" : "No Created Experiences"}
+              description={isOwner
+                ? "You haven't created any experiences yet. Share your travel knowledge with the community."
+                : `${currentProfile?.name || 'This user'} hasn't created any experiences yet.`}
+              primaryAction={isOwner ? lang.current.message.addOneNowButton : null}
+              onPrimaryAction={isOwner ? () => window.location.href = '/experiences/new' : null}
+              size="md"
+            />
           );
         })()}
-      </div>
-      </div>      {/* Super Admin Permissions Section */}
+            </div>
+          </Col>
+        </Row>
+
+        {/* Super Admin Permissions Section */}
       {isSuperAdmin(user) && !isOwner && currentProfile && (
         <div className="row my-4 animation-fade-in">
           <div className="col-12">
@@ -1062,7 +1021,7 @@ export default function Profile() {
           onHide={handleCloseActivityMonitor}
         />
       )}
-      </div>
+      </BsContainer>
     </div>
   );
 }
