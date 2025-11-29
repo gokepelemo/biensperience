@@ -1059,15 +1059,13 @@ export default function Profile() {
         />
       )}
 
-      {/* Photo Modal - for profile photos */}
-      {currentProfile?.photos?.length > 0 && (
+      {/* Photo Modal - for profile photos - only render when showPhotoModal is true */}
+      {showPhotoModal && currentProfile?.photos?.length > 0 && (
         <PhotoModal
-          show={showPhotoModal}
-          onHide={() => setShowPhotoModal(false)}
+          onClose={() => setShowPhotoModal(false)}
           photo={currentProfile.photos[selectedPhotoIndex]}
           photos={currentProfile.photos}
           initialIndex={selectedPhotoIndex}
-          onNavigate={(newIndex) => setSelectedPhotoIndex(newIndex)}
         />
       )}
       </BsContainer>

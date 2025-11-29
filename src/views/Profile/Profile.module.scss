@@ -32,7 +32,7 @@
   display: flex;
   gap: $space-6;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: flex-end; /* Align items to bottom so name doesn't appear in cover area */
 }
 
 /* Avatar Container - clickable wrapper for photo modal */
@@ -96,6 +96,7 @@
 .profileInfo {
   flex: 1;
   min-width: 250px;
+  padding-top: 80px; /* Push content below the cover overlap area (avatar extends 80px into body) */
 }
 
 .profileName {
@@ -103,7 +104,7 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin-bottom: $space-2;
-  margin-top: $space-2; /* Small margin, aligned with avatar */
+  margin-top: 0;
   display: flex;
   align-items: center;
   gap: $space-2;
@@ -152,8 +153,8 @@
 .profileActions {
   display: flex;
   gap: $space-3;
-  align-items: flex-start;
-  margin-top: $space-2; /* Match name margin */
+  align-items: flex-end;
+  padding-top: 80px; /* Push content below the cover overlap area */
   flex-shrink: 0;
 }
 
@@ -224,6 +225,7 @@
 
   .profileInfo {
     text-align: center;
+    padding-top: 0; /* Reset padding when stacked vertically - name appears after avatar */
   }
 
   .profileName {
@@ -244,7 +246,7 @@
   }
 
   .profileActions {
-    margin-top: $space-4;
+    padding-top: 0; /* Reset padding when stacked vertically */
     justify-content: center;
   }
 
