@@ -380,12 +380,20 @@ const SortablePlanItem = memo(function SortablePlanItem({
 
             {/* Assignment indicator */}
             {planItem.assignedTo && (() => {
+              // Handle both populated object and ID-only cases
+              const isPopulated = typeof planItem.assignedTo === 'object' && planItem.assignedTo.name;
               const assigneeId = planItem.assignedTo._id || planItem.assignedTo;
-              const assignee = [planOwner, ...planCollaborators].find(c => {
-                const collabId = c?._id || c?.user?._id;
-                return collabId === assigneeId;
-              });
-              const assigneeName = assignee?.name || assignee?.user?.name || 'Assigned';
+
+              // Use name from populated object first, then fallback to collaborators lookup
+              let assigneeName = isPopulated ? planItem.assignedTo.name : null;
+
+              if (!assigneeName) {
+                const assignee = [planOwner, ...planCollaborators].find(c => {
+                  const collabId = c?._id || c?.user?._id;
+                  return collabId === assigneeId || collabId?.toString() === assigneeId?.toString();
+                });
+                assigneeName = assignee?.name || assignee?.user?.name || 'Assigned';
+              }
 
               return (
                 <Link
@@ -439,6 +447,10 @@ const SortablePlanItem = memo(function SortablePlanItem({
     prevProps.planItem.text === nextProps.planItem.text &&
     prevProps.planItem.isVisible === nextProps.planItem.isVisible &&
     prevProps.planItem.isChild === nextProps.planItem.isChild &&
+    prevProps.planItem.cost === nextProps.planItem.cost &&
+    prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
+    prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
+    prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
     prevProps.canEdit === nextProps.canEdit &&
     prevProps.hoveredPlanItem === nextProps.hoveredPlanItem
   );

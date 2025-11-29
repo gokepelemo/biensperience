@@ -244,10 +244,15 @@ const planSchema = new Schema(
 planSchema.index({ experience: 1, user: 1 }, { unique: true }); // One plan per user per experience
 planSchema.index({ user: 1 });
 planSchema.index({ experience: 1 });
+planSchema.index({ user: 1, updatedAt: -1 }); // For getUserPlans sorted by updatedAt
 
 // OPTIMIZATION: Compound index for permission-based queries (Phase 2.3)
 // Supports queries that filter by experience and permission entities
 planSchema.index({ experience: 1, 'permissions._id': 1, 'permissions.type': 1 });  // For getExperiencePlans queries
+
+// OPTIMIZATION: Index for dashboard permission-based queries
+// Supports queries that filter by permissions without experience (e.g., getDashboardStats)
+planSchema.index({ 'permissions._id': 1, 'permissions.entity': 1 });
 
 // Spatial index for plan item locations (GeoJSON Points stored on each plan item)
 // Enables geospatial queries for proximity-based plan item lookups

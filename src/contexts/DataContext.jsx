@@ -867,10 +867,10 @@ export function DataProvider({ children }) {
       }
     };
 
-    // Subscribe to event bus instead of window.addEventListener
-    const unsubscribeCreated = eventBus.subscribe('bien:plan_created', onPlanCreated);
-    const unsubscribeUpdated = eventBus.subscribe('bien:plan_updated', onPlanUpdated);
-    const unsubscribeDeleted = eventBus.subscribe('bien:plan_deleted', onPlanDeleted);
+    // Subscribe to standardized events via event bus
+    const unsubscribeCreated = eventBus.subscribe('plan:created', onPlanCreated);
+    const unsubscribeUpdated = eventBus.subscribe('plan:updated', onPlanUpdated);
+    const unsubscribeDeleted = eventBus.subscribe('plan:deleted', onPlanDeleted);
 
     return () => {
       unsubscribeCreated();

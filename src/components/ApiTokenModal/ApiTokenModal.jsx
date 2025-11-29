@@ -17,6 +17,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import Loading from '../Loading/Loading';
+import Toggle from '../Toggle';
 import styles from './ApiTokenModal.module.scss';
 
 export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
@@ -252,22 +253,17 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       </Modal.Header>
       <Modal.Body>
         {/* API Access Toggle */}
-        <div className={`${styles.apiAccessToggle} mb-4 p-3 border rounded`}>
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h5 className="mb-1">{lang.current.api.accessTitle}</h5>
-              <p className="text-muted mb-0 small">{lang.current.api.accessDescription}</p>
-            </div>
-            <Form.Check
-              type="switch"
-              id="api-access-switch"
-              checked={apiEnabled}
-              onChange={handleToggleApiAccess}
-              disabled={isTogglingAccess}
-              label=""
-              className="fs-4"
-            />
-          </div>
+        <div className={styles.apiAccessToggle}>
+          <Toggle
+            label={lang.current.api.accessTitle}
+            description={lang.current.api.accessDescription}
+            labelPosition="left"
+            variant="success"
+            size="lg"
+            checked={apiEnabled}
+            onChange={handleToggleApiAccess}
+            disabled={isTogglingAccess}
+          />
         </div>
 
         {!apiEnabled && (
@@ -309,26 +305,23 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
             {/* Create New Token Form */}
             <Form onSubmit={handleCreateToken} className={styles.tokenCreationForm}>
               <h5>{lang.current.api.createTokenTitle || lang.current.api.createNewToken}</h5>
-              <div className="row g-2 align-items-end">
-                <div className="col">
-                  <Form.Control
-                    type="text"
-                    placeholder={lang.current.placeholder.tokenNameOptional}
-                    value={newTokenName}
-                    onChange={(e) => setNewTokenName(e.target.value)}
-                    disabled={isCreating}
-                  />
-                </div>
-                <div className="col-auto">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    className={styles.generateToken}
-                    disabled={isCreating}
-                  >
-                    {isCreating ? lang.current.api.creatingToken : lang.current.api.generateToken}
-                  </Button>
-                </div>
+              <div className={styles.tokenInputRow}>
+                <Form.Control
+                  type="text"
+                  placeholder={lang.current.placeholder.tokenNameOptional}
+                  value={newTokenName}
+                  onChange={(e) => setNewTokenName(e.target.value)}
+                  disabled={isCreating}
+                  className={styles.tokenInput}
+                />
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className={styles.generateToken}
+                  disabled={isCreating}
+                >
+                  {isCreating ? lang.current.api.creatingToken : lang.current.api.generateToken}
+                </Button>
               </div>
               <Form.Text className="text-muted">
                 {lang.current.api.tokenNameHelp}

@@ -266,10 +266,21 @@ const createPlan = asyncHandler(async (req, res) => {
 });
 
 /**
- * Get all plans for a user
+ * Get all plans for a user with pagination support
+ * @query {number} page - Page number (default: 1)
+ * @query {number} limit - Items per page (default: 10, max: 50)
+ * @query {boolean} paginate - Whether to paginate (default: false for backward compatibility)
  */
 const getUserPlans = asyncHandler(async (req, res) => {
-  const plans = await Plan.find({ user: req.user._id })
+  const paginate = req.query.paginate === 'true';
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
+  const skip = (page - 1) * limit;
+
+  const filter = { user: req.user._id };
+
+  // Build base query
+  let query = Plan.find(filter)
     .populate({
       path: 'user',
       select: 'name email photos default_photo_id'
@@ -284,7 +295,30 @@ const getUserPlans = asyncHandler(async (req, res) => {
     })
     .sort({ updatedAt: -1 });
 
-  // Explicitly convert to JSON to ensure virtuals are included
+  if (paginate) {
+    // Get total count and paginated results in parallel
+    const [totalCount, plans] = await Promise.all([
+      Plan.countDocuments(filter),
+      query.skip(skip).limit(limit)
+    ]);
+
+    // Convert to JSON to ensure virtuals are included
+    const plansWithVirtuals = plans.map(plan => plan.toJSON());
+
+    return res.json({
+      data: plansWithVirtuals,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+        hasMore: skip + plansWithVirtuals.length < totalCount
+      }
+    });
+  }
+
+  // Non-paginated (backward compatible)
+  const plans = await query;
   const plansWithVirtuals = plans.map(plan => plan.toJSON());
   res.json(plansWithVirtuals);
 });

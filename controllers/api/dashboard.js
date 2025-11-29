@@ -12,7 +12,6 @@ const backendLogger = require('../../utilities/backend-logger');
  */
 async function getDashboard(req, res) {
   try {
-    console.log('getDashboard called with user:', req.user._id.toString());
     const userId = req.user._id;
     backendLogger.info('Fetching dashboard data', { userId: userId.toString() });
 
@@ -32,10 +31,6 @@ async function getDashboard(req, res) {
       recentActivity: recentActivityResult,
       upcomingPlans: upcomingPlansResult
     };
-
-    console.log('API Response dashboardData:', dashboardData);
-    console.log('API Response stats:', dashboardData.stats);
-    console.log('API Response activePlansDetails:', dashboardData.stats?.activePlansDetails);
 
     backendLogger.info('Dashboard data fetched successfully', {
       userId: userId.toString(),
@@ -318,78 +313,71 @@ async function getRecentActivity(userId, options = {}) {
     .skip(skip)
     .lean();
 
-    backendLogger.info('Activities found', {
+    backendLogger.debug('Activities found', {
       userId: userId.toString(),
-      count: activities.length,
-      actions: activities.map(a => ({
-        id: a._id?.toString(),
-        action: a.action,
-        timestamp: a.timestamp,
-        resourceType: a.resource?.type,
-        resourceId: a.resource?.id?.toString(),
-        resourceName: a.resource?.name,
-        actorId: a.actor?._id?.toString(),
-        actorName: a.actor?.name,
-        targetId: a.target?.id?.toString(),
-        targetName: a.target?.name
-      }))
+      count: activities.length
     });
 
-    // For each activity, populate related data if needed
-    const enrichedActivities = await Promise.all(activities.map(async (activity) => {
+    // OPTIMIZATION: Batch fetch all plan IDs upfront instead of N+1 individual queries
+    const planIds = activities
+      .filter(a => a.resource?.type === 'Plan' && a.resource?.id)
+      .map(a => a.resource.id);
+
+    // Single query to fetch all plans with populated experiences
+    const plansMap = new Map();
+    if (planIds.length > 0) {
+      const plans = await Plan.find({ _id: { $in: planIds } })
+        .populate('experience', 'name')
+        .lean();
+      plans.forEach(plan => plansMap.set(plan._id.toString(), plan));
+    }
+
+    // Enrich activities synchronously using the pre-fetched plans map
+    const enrichedActivities = activities.map((activity) => {
       let resourceName = activity.resource?.name || 'Unnamed';
       let resourceLink = null;
       let targetName = activity.target?.name || null;
 
-      // For plan-related activities, populate the experience name and create deep link
+      // For plan-related activities, use the batched plan data
       if (activity.resource?.type === 'Plan') {
-        try {
-          const plan = await Plan.findById(activity.resource.id).populate('experience', 'name').lean();
+        const plan = plansMap.get(activity.resource.id?.toString());
 
-          // Prefer an explicit plan name recorded on the activity (resource.name) if present.
-          // Fall back to the experience name when a plan-level name isn't available.
-          if (plan && plan.experience) {
-            // Prefer a meaningful plan name when present. If the recorded resource name
-            // is the generic label "Plan" (or missing), prefer the experience name.
-            const recordedName = activity.resource?.name;
-            if (recordedName && typeof recordedName === 'string' && recordedName.trim().toLowerCase() !== 'plan') {
-              resourceName = recordedName;
-            } else {
-              resourceName = plan.experience.name;
-            }
-
-            // Create hash-based deep link to specific plan
-            resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}`;
-
-            // If this activity targets a specific plan item (e.g. plan_item_completed, plan_item_note_added),
-            // include the item id in the hash so the UI can deep-link directly to it.
-            if ((activity.action === 'plan_item_completed' || activity.action === 'plan_item_uncompleted' ||
-                 activity.action === 'plan_item_note_added' || activity.action === 'plan_item_note_updated' ||
-                 activity.action === 'plan_item_note_deleted') && activity.target && activity.target.id) {
-              try {
-                const itemId = activity.target.id.toString();
-                resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}-item-${itemId}`;
-              } catch (err) {
-                // ignore conversion errors and fall back to plan-level link
-              }
-            }
+        if (plan && plan.experience) {
+          // Prefer a meaningful plan name when present
+          const recordedName = activity.resource?.name;
+          if (recordedName && typeof recordedName === 'string' && recordedName.trim().toLowerCase() !== 'plan') {
+            resourceName = recordedName;
           } else {
-            // Plan record might have been deleted (plan_deleted). Try to recover experience
-            // information from previousState or metadata so links still point to the experience.
-            if (activity.previousState && activity.previousState.experience) {
-              try {
-                const exp = activity.previousState.experience;
-                const expId = (typeof exp === 'object' && exp._id) ? exp._id.toString() : exp.toString();
-                const expName = (typeof exp === 'object' && exp.name) ? exp.name : activity.resource?.name || 'Experience';
-                resourceName = expName;
-                resourceLink = `/experiences/${expId}`;
-              } catch (err) {
-                backendLogger.debug('Failed to recover experience from previousState for deleted plan activity', { activityId: activity._id });
-              }
+            resourceName = plan.experience.name;
+          }
+
+          // Create hash-based deep link to specific plan
+          resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}`;
+
+          // If this activity targets a specific plan item, include the item id in the hash
+          if ((activity.action === 'plan_item_completed' || activity.action === 'plan_item_uncompleted' ||
+               activity.action === 'plan_item_note_added' || activity.action === 'plan_item_note_updated' ||
+               activity.action === 'plan_item_note_deleted') && activity.target && activity.target.id) {
+            try {
+              const itemId = activity.target.id.toString();
+              resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}-item-${itemId}`;
+            } catch (err) {
+              // ignore conversion errors and fall back to plan-level link
             }
           }
-        } catch (err) {
-          backendLogger.warn('Failed to populate plan experience for activity', { activityId: activity._id });
+        } else {
+          // Plan record might have been deleted. Try to recover from previousState
+          if (activity.previousState && activity.previousState.experience) {
+            try {
+              const exp = activity.previousState.experience;
+              const expId = (typeof exp === 'object' && exp._id) ? exp._id.toString() : exp.toString();
+              const expName = (typeof exp === 'object' && exp.name) ? exp.name : activity.resource?.name || 'Experience';
+              resourceName = expName;
+              resourceLink = `/experiences/${expId}`;
+            } catch (err) {
+              backendLogger.debug('Failed to recover experience from previousState for deleted plan activity', { activityId: activity._id });
+            }
+          }
         }
       }
 
@@ -420,10 +408,8 @@ async function getRecentActivity(userId, options = {}) {
       // For cost activities, show the cost title from metadata
       if ((activity.action === 'cost_added' || activity.action === 'cost_updated' || activity.action === 'cost_deleted') &&
           activity.metadata?.costTitle) {
-        // If the activity is a notification to a user (target.type === 'User'), use the reason as-is
-        // Otherwise show the cost title as context
         if (activity.target?.type !== 'User' && activity.target?.name) {
-          targetName = activity.target.name; // Plan item name if tied to one
+          targetName = activity.target.name;
         } else {
           targetName = activity.metadata.costTitle;
         }
@@ -450,14 +436,12 @@ async function getRecentActivity(userId, options = {}) {
         time: formatTimeAgo(activity.timestamp),
         timestamp: activity.timestamp,
         resourceType: activity.resource?.type,
-        // Include actor/target ids so clients can filter reliably
         actorId: activity.actor?._id?.toString(),
         targetId: activity.target?.id?.toString(),
-        // Also include actor/target display names so UI can render them without extra lookups
         actorName: activity.actor?.name || null,
         targetName: targetName || activity.target?.name || null
       };
-    }));
+    });
 
     return enrichedActivities;
   } catch (error) {

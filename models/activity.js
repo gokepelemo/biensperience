@@ -196,6 +196,7 @@ const activitySchema = new mongoose.Schema({
 
 // Indexes for efficient querying
 activitySchema.index({ 'actor._id': 1, timestamp: -1 });
+activitySchema.index({ 'target.id': 1, timestamp: -1 }); // For dashboard queries filtering by target user
 activitySchema.index({ 'resource.id': 1, timestamp: -1 });
 activitySchema.index({ 'resource.type': 1, timestamp: -1 });
 activitySchema.index({ action: 1, timestamp: -1 });

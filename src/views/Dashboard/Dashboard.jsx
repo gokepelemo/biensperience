@@ -59,13 +59,11 @@ export default function Dashboard() {
       fetchDashboardData();
     };
 
-    // Subscribe to event bus instead of window.addEventListener
+    // Subscribe to standardized plan:updated event via event bus
     const unsubscribePlanUpdated = eventBus.subscribe('plan:updated', handlePlanUpdated);
-    const unsubscribeBienPlanUpdated = eventBus.subscribe('bien:plan_updated', handlePlanUpdated);
 
     return () => {
       unsubscribePlanUpdated();
-      unsubscribeBienPlanUpdated();
     };
   }, []);
 

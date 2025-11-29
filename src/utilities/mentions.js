@@ -140,7 +140,13 @@ export function renderMention(mention, entity, onEntityClick) {
 
   const handleClick = (e) => {
     if (onEntityClick) {
-      e.preventDefault();
+      // Call the handler and check if it returns true (handled) or is for plan-item type
+      // Only prevent default navigation for plan-items which need special handling (modal close + scroll)
+      // For destinations, experiences, and users, allow normal Link navigation
+      const shouldPreventDefault = entityType === 'plan-item';
+      if (shouldPreventDefault) {
+        e.preventDefault();
+      }
       onEntityClick(entityType, entityId, entity);
     }
   };

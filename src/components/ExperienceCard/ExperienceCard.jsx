@@ -172,8 +172,8 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     const onPlanCreated = (event) => {
       try {
         const detail = event?.detail || {};
-        const createdPlan = detail.plan;
-        // Derive experience id from event detail or plan payload
+        // Standardized payload: { planId, experienceId, data, version }
+        const createdPlan = detail.data || detail.plan;
         const rawExp = detail.experienceId || createdPlan?.experience?._id || createdPlan?.experience || null;
         const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
         if (!createdPlan || !expId) return;
@@ -182,14 +182,15 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
         // Mark as planned for this user (cache + state)
         setLocalPlanStateWithCache(true);
       } catch (err) {
-        logger.warn('[ExperienceCard] bien:plan_created handler failed', { error: err?.message });
+        logger.warn('[ExperienceCard] plan:created handler failed', { error: err?.message });
       }
     };
 
     const onPlanDeleted = (event) => {
       try {
         const detail = event?.detail || {};
-        const deletedPlan = detail.plan;
+        // Standardized payload: { planId, experienceId, data, version }
+        const deletedPlan = detail.data || detail.plan;
         const rawExp = detail.experienceId || deletedPlan?.experience?._id || deletedPlan?.experience || null;
         const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
         if (!expId) return;
@@ -198,31 +199,31 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
         // Mark as not planned
         setLocalPlanStateWithCache(false);
       } catch (err) {
-        logger.warn('[ExperienceCard] bien:plan_deleted handler failed', { error: err?.message });
+        logger.warn('[ExperienceCard] plan:deleted handler failed', { error: err?.message });
       }
     };
 
     const onPlanUpdated = (event) => {
       try {
         const detail = event?.detail || {};
-        const updatedPlan = detail.plan;
+        // Standardized payload: { planId, experienceId, data, version }
+        const updatedPlan = detail.data || detail.plan;
         const rawExp = detail.experienceId || updatedPlan?.experience?._id || updatedPlan?.experience || null;
         const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
         if (!updatedPlan || !expId) return;
         if (expId !== experience._id?.toString()) return;
 
         // If a plan for this experience was updated, ensure local state shows a plan exists
-        // (presence should already be true, but this ensures cache consistency)
         setLocalPlanStateWithCache(true);
       } catch (err) {
-        logger.warn('[ExperienceCard] bien:plan_updated handler failed', { error: err?.message });
+        logger.warn('[ExperienceCard] plan:updated handler failed', { error: err?.message });
       }
     };
 
-    // Subscribe to event bus instead of window.addEventListener
-    const unsubscribeCreated = eventBus.subscribe('bien:plan_created', onPlanCreated);
-    const unsubscribeDeleted = eventBus.subscribe('bien:plan_deleted', onPlanDeleted);
-    const unsubscribeUpdated = eventBus.subscribe('bien:plan_updated', onPlanUpdated);
+    // Subscribe to standardized events via event bus
+    const unsubscribeCreated = eventBus.subscribe('plan:created', onPlanCreated);
+    const unsubscribeDeleted = eventBus.subscribe('plan:deleted', onPlanDeleted);
+    const unsubscribeUpdated = eventBus.subscribe('plan:updated', onPlanUpdated);
 
     return () => {
       unsubscribeCreated();

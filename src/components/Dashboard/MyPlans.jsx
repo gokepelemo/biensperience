@@ -23,40 +23,59 @@ import { lang } from '../../lang.constants';
 import { getTotalCostTooltip } from '../../utilities/cost-utils';
 import styles from './MyPlans.module.scss';
 
+const PLANS_PER_PAGE = 10;
+
 export default function MyPlans() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [expandedPlanId, setExpandedPlanId] = useState(null);
   const [expandedCostAccordions, setExpandedCostAccordions] = useState(new Set());
   const [collaborators, setCollaborators] = useState(new Map()); // planId -> collaborators array
+  const [pagination, setPagination] = useState({ page: 1, hasMore: false, totalCount: 0 });
   const navigate = useNavigate();
   const { openPlanExperienceModal } = usePlanExperience();
+
+  // Fetch collaborators for a list of plans in parallel
+  const fetchCollaboratorsForPlans = async (planList) => {
+    const collaboratorPromises = planList.map(async (plan) => {
+      try {
+        const planCollaborators = await getCollaborators(plan._id);
+        return { planId: plan._id, collaborators: planCollaborators || [] };
+      } catch (e) {
+        return { planId: plan._id, collaborators: [] };
+      }
+    });
+
+    const collaboratorResults = await Promise.all(collaboratorPromises);
+    return collaboratorResults;
+  };
 
   useEffect(() => {
     let mounted = true;
     async function load() {
       try {
         setLoading(true);
-        const resp = await getUserPlans();
+        // Use pagination for initial load
+        const resp = await getUserPlans({ paginate: true, page: 1, limit: PLANS_PER_PAGE });
         if (!mounted) return;
-        // API may return { data: [...] } or an array
-        const list = (resp && resp.data) ? resp.data : (Array.isArray(resp) ? resp : (resp?.plans || []));
-        setPlans(list);
 
-        // Fetch collaborators for each plan
+        // Handle paginated response
+        const list = resp?.data || [];
+        const paginationData = resp?.pagination || { page: 1, hasMore: false, totalCount: list.length };
+
+        setPlans(list);
+        setPagination(paginationData);
+
+        // Fetch collaborators for all plans in parallel
+        const collaboratorResults = await fetchCollaboratorsForPlans(list);
+        if (!mounted) return;
+
         const collaboratorsMap = new Map();
-        for (const plan of list) {
-          try {
-            const planCollaborators = await getCollaborators(plan._id);
-            collaboratorsMap.set(plan._id, planCollaborators || []);
-          } catch (e) {
-            // If collaborators fetch fails, set empty array
-            collaboratorsMap.set(plan._id, []);
-          }
-        }
-        if (mounted) {
-          setCollaborators(collaboratorsMap);
-        }
+        collaboratorResults.forEach(({ planId, collaborators: collabs }) => {
+          collaboratorsMap.set(planId, collabs);
+        });
+        setCollaborators(collaboratorsMap);
 
         // Auto-expand first plan only (default collapsed state)
         if (list.length > 0) {
@@ -71,6 +90,40 @@ export default function MyPlans() {
     load();
     return () => { mounted = false; };
   }, []);
+
+  // Load more plans handler
+  const handleLoadMore = async () => {
+    if (loadingMore || !pagination.hasMore) return;
+
+    try {
+      setLoadingMore(true);
+      const nextPage = pagination.page + 1;
+      const resp = await getUserPlans({ paginate: true, page: nextPage, limit: PLANS_PER_PAGE });
+
+      const newPlans = resp?.data || [];
+      const paginationData = resp?.pagination || { page: nextPage, hasMore: false };
+
+      // Fetch collaborators for new plans
+      const collaboratorResults = await fetchCollaboratorsForPlans(newPlans);
+
+      // Merge new collaborators with existing
+      setCollaborators(prev => {
+        const newMap = new Map(prev);
+        collaboratorResults.forEach(({ planId, collaborators: collabs }) => {
+          newMap.set(planId, collabs);
+        });
+        return newMap;
+      });
+
+      // Append new plans
+      setPlans(prev => [...prev, ...newPlans]);
+      setPagination(paginationData);
+    } catch (e) {
+      // ignore
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Listen for plan updates (e.g., plan item completion changes)
   useEffect(() => {
@@ -412,6 +465,20 @@ export default function MyPlans() {
                 </div>
               );
             })}
+
+            {/* Load More Button */}
+            {pagination.hasMore && (
+              <div style={{ textAlign: 'center', marginTop: 'var(--space-4)' }}>
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? 'Loading...' : `Load More (${pagination.totalCount - plans.length} remaining)`}
+                </Button>
+              </div>
+            )}
           </Stack>
         )}
       </div>

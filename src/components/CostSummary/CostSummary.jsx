@@ -90,17 +90,24 @@ export default function CostSummary({
 
     costs.forEach(cost => {
       if (cost.collaborator) {
-        const collabId = cost.collaborator._id || cost.collaborator;
-        if (!costsByCollaborator[collabId]) {
-          const collab = collaborators.find(c => c._id === collabId);
+        // Handle both populated object and string ID cases
+        const collabId = typeof cost.collaborator === 'object'
+          ? cost.collaborator?._id
+          : cost.collaborator;
+        if (collabId && !costsByCollaborator[collabId]) {
+          const collab = collaborators.find(c =>
+            c._id === collabId || c._id?.toString() === collabId?.toString()
+          );
           costsByCollaborator[collabId] = {
             collaborator: collab || { _id: collabId, name: 'Unknown' },
             total: 0,
             costs: [],
           };
         }
-        costsByCollaborator[collabId].total += cost.cost || 0;
-        costsByCollaborator[collabId].costs.push(cost);
+        if (collabId) {
+          costsByCollaborator[collabId].total += cost.cost || 0;
+          costsByCollaborator[collabId].costs.push(cost);
+        }
       } else {
         sharedCosts.push(cost);
       }
@@ -112,17 +119,24 @@ export default function CostSummary({
 
     costs.forEach(cost => {
       if (cost.plan_item) {
-        const itemId = cost.plan_item._id || cost.plan_item;
-        if (!costsByPlanItem[itemId]) {
-          const item = planItems.find(i => i._id === itemId);
+        // Handle both populated object and string ID cases
+        const itemId = typeof cost.plan_item === 'object'
+          ? cost.plan_item?._id
+          : cost.plan_item;
+        if (itemId && !costsByPlanItem[itemId]) {
+          const item = planItems.find(i =>
+            i._id === itemId || i._id?.toString() === itemId?.toString()
+          );
           costsByPlanItem[itemId] = {
             planItem: item || { _id: itemId, text: 'Unknown item' },
             total: 0,
             costs: [],
           };
         }
-        costsByPlanItem[itemId].total += cost.cost || 0;
-        costsByPlanItem[itemId].costs.push(cost);
+        if (itemId) {
+          costsByPlanItem[itemId].total += cost.cost || 0;
+          costsByPlanItem[itemId].costs.push(cost);
+        }
       } else {
         generalCosts.push(cost);
       }

@@ -307,6 +307,14 @@ const InteractiveTextArea = ({
     setCursorPosition(newCursorPosition);
     setInternalValue(newDisplayValue);
 
+    // Skip mention detection if we just selected a mention (prevents re-triggering search)
+    if (justSelectedMentionRef.current) {
+      // Convert display format back to storage format before emitting
+      const storageValue = editableTextToMentions(newDisplayValue, availableEntities);
+      onChange(storageValue);
+      return;
+    }
+
     // Check for mention triggers (@ for users, # for plan items)
     const textBeforeCursor = newDisplayValue.slice(0, newCursorPosition);
     // Allow spaces, hyphens and apostrophes in mention queries (matches like "@John", "@New York", "#Plan Item")
@@ -380,6 +388,9 @@ const InteractiveTextArea = ({
     onChange(storageValue);
   }, [onChange, availableEntities, performMentionSearch]);
 
+  // Track if we just selected a mention to prevent re-triggering search
+  const justSelectedMentionRef = useRef(false);
+
   /**
    * Handle mention selection from suggestions
    * Insert storage format {entity/id} which will be displayed as @Name or #Name
@@ -388,6 +399,21 @@ const InteractiveTextArea = ({
     if (!textareaRef.current) return;
 
     const textarea = textareaRef.current;
+
+    // Set flag to prevent re-triggering search after selection
+    justSelectedMentionRef.current = true;
+
+    // Clear any pending search
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+
+    // Close suggestions and reset state immediately
+    setShowSuggestions(false);
+    setMentionStart(-1);
+    setIsSearching(false);
+    setSuggestions([]);
 
     // Insert into the display text (`internalValue`) at the mentionStart position.
     // This avoids mapping display->storage offsets and preserves anchors for multiple mentions.
@@ -419,14 +445,14 @@ const InteractiveTextArea = ({
         try {
           textarea.setSelectionRange(newCursorPosition, newCursorPosition);
         } catch (err) {}
+        // Reset the flag after cursor is positioned
+        justSelectedMentionRef.current = false;
       }, 0);
     } catch (err) {
       console.error('[InteractiveTextArea] Error inserting mention:', err);
+      justSelectedMentionRef.current = false;
     }
-
-    setShowSuggestions(false);
-    setMentionStart(-1);
-  }, [value, mentionStart, cursorPosition, onChange, entityData, availableEntities]);
+  }, [internalValue, mentionStart, cursorPosition, onChange, availableEntities]);
 
   // Position suggestions dropdown directly under the textarea element
   const updateSuggestionsPosition = useCallback(() => {

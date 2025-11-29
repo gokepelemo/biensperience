@@ -86,7 +86,8 @@ router.post('/', requireAuth, async (req, res) => {
         name: apiToken.name,
         tokenPrefix: apiToken.tokenPrefix,
         expiresAt: apiToken.expiresAt,
-        createdAt: apiToken.createdAt
+        createdAt: apiToken.createdAt,
+        isActive: apiToken.isActive // Include active status for UI display
       }
     });
   } catch (error) {

@@ -1,0 +1,385 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Toggle Component Styles */
+
+/* Base Toggle */
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+/* Hidden checkbox input */
+.input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+
+  &:focus + .slider {
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+  }
+
+  &:focus-visible + .slider {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Slider track */
+.slider {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.2s ease;
+}
+
+/* Toggle knob */
+.knob {
+  position: absolute;
+  border-radius: 50%;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.25s ease, background-color 0.25s ease;
+}
+
+/* Icons inside toggle */
+.iconOff,
+.iconOn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease;
+  font-size: 0.6em;
+}
+
+.iconOff {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+.iconOn {
+  color: white;
+  opacity: 0;
+}
+
+.input:checked ~ .slider {
+  .iconOff {
+    opacity: 0;
+  }
+  .iconOn {
+    opacity: 1;
+  }
+}
+
+/* ===================
+   SIZE VARIANTS
+   =================== */
+
+/* Extra Small */
+.sizeXs {
+  .slider {
+    width: 28px;
+    height: 16px;
+  }
+  .knob {
+    width: 12px;
+    height: 12px;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .input:checked + .slider .knob {
+    transform: translateY(-50%) translateX(12px);
+  }
+  .iconOff {
+    right: 4px;
+    font-size: 6px;
+  }
+  .iconOn {
+    left: 4px;
+    font-size: 6px;
+  }
+}
+
+/* Small */
+.sizeSm {
+  .slider {
+    width: 36px;
+    height: 20px;
+  }
+  .knob {
+    width: 16px;
+    height: 16px;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .input:checked + .slider .knob {
+    transform: translateY(-50%) translateX(16px);
+  }
+  .iconOff {
+    right: 5px;
+    font-size: 7px;
+  }
+  .iconOn {
+    left: 5px;
+    font-size: 7px;
+  }
+}
+
+/* Medium (default) */
+.sizeMd {
+  .slider {
+    width: 44px;
+    height: 24px;
+  }
+  .knob {
+    width: 20px;
+    height: 20px;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .input:checked + .slider .knob {
+    transform: translateY(-50%) translateX(20px);
+  }
+  .iconOff {
+    right: 6px;
+    font-size: 8px;
+  }
+  .iconOn {
+    left: 6px;
+    font-size: 8px;
+  }
+}
+
+/* Large */
+.sizeLg {
+  .slider {
+    width: 56px;
+    height: 30px;
+  }
+  .knob {
+    width: 26px;
+    height: 26px;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .input:checked + .slider .knob {
+    transform: translateY(-50%) translateX(26px);
+  }
+  .iconOff {
+    right: 8px;
+    font-size: 10px;
+  }
+  .iconOn {
+    left: 8px;
+    font-size: 10px;
+  }
+}
+
+/* Extra Large */
+.sizeXl {
+  .slider {
+    width: 68px;
+    height: 36px;
+  }
+  .knob {
+    width: 32px;
+    height: 32px;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .input:checked + .slider .knob {
+    transform: translateY(-50%) translateX(32px);
+  }
+  .iconOff {
+    right: 10px;
+    font-size: 12px;
+  }
+  .iconOn {
+    left: 10px;
+    font-size: 12px;
+  }
+}
+
+/* ===================
+   STYLE VARIANTS
+   =================== */
+
+/* Default - Gray to Primary gradient */
+.variantDefault {
+  .slider {
+    background-color: var(--color-bg-tertiary);
+    border: 2px solid var(--color-border-medium);
+  }
+
+  .input:checked + .slider {
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
+    border-color: var(--color-primary);
+  }
+
+  &:hover:not(.disabled) .slider {
+    border-color: var(--color-primary-light);
+  }
+}
+
+/* Primary - Blue/Purple tones */
+.variantPrimary {
+  .slider {
+    background-color: var(--color-bg-tertiary);
+    border: 2px solid var(--color-border-medium);
+  }
+
+  .input:checked + .slider {
+    background: var(--gradient-primary);
+    border-color: var(--color-primary);
+  }
+
+  &:hover:not(.disabled) .slider {
+    border-color: var(--color-primary);
+  }
+}
+
+/* Success - Green gradient when checked */
+.variantSuccess {
+  .slider {
+    background-color: var(--color-bg-tertiary);
+    border: 2px solid var(--color-border-medium);
+  }
+
+  .input:checked + .slider {
+    background: linear-gradient(90deg, var(--color-success), var(--color-primary));
+    border-color: var(--color-success);
+  }
+
+  &:hover:not(.disabled) .slider {
+    border-color: var(--color-success-light);
+  }
+}
+
+/* Outline - No fill, just border changes */
+.variantOutline {
+  .slider {
+    background-color: transparent;
+    border: 2px solid var(--color-border-medium);
+  }
+
+  .knob {
+    background-color: var(--color-text-muted);
+  }
+
+  .input:checked + .slider {
+    background-color: transparent;
+    border-color: var(--color-primary);
+
+    .knob {
+      background-color: var(--color-primary);
+    }
+  }
+
+  &:hover:not(.disabled) .slider {
+    border-color: var(--color-primary-light);
+  }
+}
+
+/* Filled - Solid colors, more prominent */
+.variantFilled {
+  .slider {
+    background-color: var(--color-text-muted);
+    border: none;
+  }
+
+  .input:checked + .slider {
+    background-color: var(--color-primary);
+  }
+
+  &:hover:not(.disabled) .slider {
+    opacity: 0.9;
+  }
+}
+
+/* Minimal - Subtle, low contrast */
+.variantMinimal {
+  .slider {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+  }
+
+  .knob {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .input:checked + .slider {
+    background-color: var(--color-primary-light);
+    border-color: var(--color-primary-light);
+
+    .knob {
+      background-color: var(--color-primary);
+    }
+  }
+
+  &:hover:not(.disabled) .slider {
+    background-color: var(--color-bg-hover);
+  }
+}
+
+/* ===================
+   LABEL WRAPPER
+   =================== */
+
+.toggleWrapper {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: $space-3;
+}
+
+.labelLeft {
+  flex-direction: row-reverse;
+}
+
+.labelRight {
+  flex-direction: row;
+}
+
+.labelContainer {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+}
+
+.label {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+/* ===================
+   TOGGLE GROUP
+   =================== */
+
+.toggleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}

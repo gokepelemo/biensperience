@@ -773,65 +773,6 @@ export default function usePlanManagement(experienceId, userId) {
   }, [userId, mergePlanVectorClock]);
 
   /**
-   * Legacy event handlers for backward compatibility
-   */
-  useEffect(() => {
-    const handleLegacyPlanCreated = (event) => {
-      const { plan, experienceId: eventExpId } = event.detail || {};
-      if (!plan || (eventExpId && eventExpId !== experienceId)) return;
-
-      // Convert to new event format and handle
-      window.dispatchEvent(new CustomEvent('plan:created', {
-        detail: {
-          planId: plan._id,
-          experienceId: eventExpId || experienceId,
-          version: Date.now(),
-          data: plan
-        }
-      }));
-    };
-
-    const handleLegacyPlanUpdated = (event) => {
-      const { plan, experienceId: eventExpId } = event.detail || {};
-      if (!plan || (eventExpId && eventExpId !== experienceId)) return;
-
-      window.dispatchEvent(new CustomEvent('plan:updated', {
-        detail: {
-          planId: plan._id,
-          experienceId: eventExpId || experienceId,
-          version: Date.now(),
-          data: plan
-        }
-      }));
-    };
-
-    const handleLegacyPlanDeleted = (event) => {
-      const { plan, planId, experienceId: eventExpId } = event.detail || {};
-      const id = planId || plan?._id;
-      if (!id || (eventExpId && eventExpId !== experienceId)) return;
-
-      window.dispatchEvent(new CustomEvent('plan:deleted', {
-        detail: {
-          planId: id,
-          experienceId: eventExpId || experienceId,
-          version: Date.now(),
-          data: plan
-        }
-      }));
-    };
-
-    window.addEventListener('bien:plan_created', handleLegacyPlanCreated);
-    window.addEventListener('bien:plan_updated', handleLegacyPlanUpdated);
-    window.addEventListener('bien:plan_deleted', handleLegacyPlanDeleted);
-
-    return () => {
-      window.removeEventListener('bien:plan_created', handleLegacyPlanCreated);
-      window.removeEventListener('bien:plan_updated', handleLegacyPlanUpdated);
-      window.removeEventListener('bien:plan_deleted', handleLegacyPlanDeleted);
-    };
-  }, [experienceId]);
-
-  /**
    * Initial load
    */
   useEffect(() => {

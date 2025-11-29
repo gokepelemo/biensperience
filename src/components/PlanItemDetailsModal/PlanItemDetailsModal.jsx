@@ -109,7 +109,7 @@ export default function PlanItemDetailsModal({
   /**
    * Handle entity click from mentions in notes
    * For plan-item mentions: close modal, update URL hash, and trigger scroll to item
-   * For other mentions: let default navigation happen
+   * For other mentions (destination, experience, user): close modal, let Link handle navigation
    */
   const handleEntityClick = useCallback((entityType, entityId, entity) => {
     logger.debug('[PlanItemDetailsModal] handleEntityClick called', { entityType, entityId, entity, hasOnPlanItemClick: !!onPlanItemClick });
@@ -127,7 +127,7 @@ export default function PlanItemDetailsModal({
       }
 
       // Close modal first
-      logger.debug('[PlanItemDetailsModal] Closing modal');
+      logger.debug('[PlanItemDetailsModal] Closing modal for plan-item');
       onClose();
 
       // Use requestAnimationFrame to ensure modal is fully closed before scrolling
@@ -141,8 +141,11 @@ export default function PlanItemDetailsModal({
           }
         });
       });
+    } else {
+      // For destination, experience, user mentions: close modal and let Link navigate
+      logger.debug('[PlanItemDetailsModal] Closing modal for entity navigation', { entityType, entityId });
+      onClose();
     }
-    // For non-plan-item entities, the Link component handles navigation
   }, [onClose, onPlanItemClick]);
 
   if (!planItem) return null;

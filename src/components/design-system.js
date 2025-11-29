@@ -17,3 +17,4 @@ export { Animation, FadeIn, SlideUp, ScaleIn, Staggered } from './Animation';
 export { Show, Hide, Mobile, Tablet, Desktop, HiddenOnMobile, VisibleOnMobile } from './Responsive';
 export { default as DocumentViewerModal } from './DocumentViewerModal';
 export { default as EmptyState, VARIANT_CONFIG as EmptyStateVariants } from './EmptyState';
+export { default as Toggle, ToggleGroup } from './Toggle';

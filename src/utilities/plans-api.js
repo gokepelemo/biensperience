@@ -39,8 +39,24 @@ function emitOperation(planId, type, payload) {
 
 /**
  * Get all plans for the current user
+ * @param {Object} options - Optional pagination options
+ * @param {boolean} options.paginate - Whether to paginate results (default: false)
+ * @param {number} options.page - Page number (default: 1)
+ * @param {number} options.limit - Items per page (default: 10, max: 50)
+ * @returns {Promise<Array|Object>} Array of plans or { data, pagination } if paginated
  */
-export function getUserPlans() {
+export function getUserPlans(options = {}) {
+  const { paginate = false, page = 1, limit = 10 } = options;
+
+  if (paginate) {
+    const params = new URLSearchParams({
+      paginate: 'true',
+      page: String(page),
+      limit: String(limit)
+    });
+    return sendRequest(`${BASE_URL}?${params.toString()}`);
+  }
+
   return sendRequest(BASE_URL);
 }
 
@@ -81,29 +97,26 @@ export async function createPlan(experienceId, plannedDate) {
         // Generate version for this event (timestamp-based)
         const version = Date.now();
 
-        logger.debug('[plans-api] About to dispatch bien:plan_created and plan:created events', {
-          timestamp: Date.now(),
-          planId: result._id,
-          version
-        });
-
         // Event payload with version and data structure
         const eventPayload = {
           planId: result._id,
           experienceId: normalizedExpId,
           version,
-          data: result
+          data: result,
+          action: 'plan_created'
         };
 
-        // Legacy event for backward compatibility (SingleExperience still uses this)
-        window.dispatchEvent(new CustomEvent('bien:plan_created', { detail: eventPayload }));
-        broadcastEvent('bien:plan_created', eventPayload);
+        logger.debug('[plans-api] Dispatching plan:created event', {
+          timestamp: Date.now(),
+          planId: result._id,
+          version
+        });
 
-        // Standardized event for DataContext
+        // Standardized event for DataContext, Dashboard, and usePlanManagement
         window.dispatchEvent(new CustomEvent('plan:created', { detail: eventPayload }));
         broadcastEvent('plan:created', eventPayload);
 
-        logger.debug('[plans-api] Events dispatched successfully', {
+        logger.debug('[plans-api] plan:created event dispatched successfully', {
           timestamp: Date.now(),
           version
         });
@@ -158,14 +171,11 @@ export function updatePlan(planId, updates) {
             experienceId,
             version,
             changes: updates,
-            data: result
+            data: result,
+            action: 'plan_updated'
           };
 
-          // Legacy event for backward compatibility (SingleExperience still uses this)
-          window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: eventPayload }));
-          broadcastEvent('bien:plan_updated', eventPayload);
-
-          // Standardized event for DataContext
+          // Standardized event for DataContext, Dashboard, and usePlanManagement
           window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
           broadcastEvent('plan:updated', eventPayload);
         }
@@ -196,14 +206,11 @@ export async function deletePlan(planId) {
         planId,
         experienceId,
         version,
-        data: result
+        data: result,
+        action: 'plan_deleted'
       };
 
-      // Legacy event for backward compatibility (SingleExperience still uses this)
-      window.dispatchEvent(new CustomEvent('bien:plan_deleted', { detail: eventPayload }));
-      broadcastEvent('bien:plan_deleted', eventPayload);
-
-      // Standardized event for DataContext
+      // Standardized event for DataContext, Dashboard, and usePlanManagement
       window.dispatchEvent(new CustomEvent('plan:deleted', { detail: eventPayload }));
       broadcastEvent('plan:deleted', eventPayload);
     }
@@ -228,27 +235,39 @@ export function updatePlanItem(planId, itemId, updates) {
     .then((result) => {
       try {
         if (typeof window !== 'undefined' && window.dispatchEvent) {
-          // The API returns the full Plan object directly (not wrapped in a { plan } container)
-          // result._id is the plan ID, result.plan is the items array
-          const plan = result; // The full plan object
           const rawExp = result?.experience?._id || result?.experience || null;
           const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+          const version = Date.now();
 
-          // Legacy event for backward compatibility
-          window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan, experienceId } }));
-          broadcastEvent('bien:plan_updated', { plan, experienceId });
+          // Standardized event payload
+          const eventPayload = {
+            planId,
+            itemId,
+            experienceId,
+            version,
+            data: result,
+            changes: normalizedUpdates,
+            action: normalizedUpdates.completed !== undefined
+              ? (normalizedUpdates.completed ? 'item_completed' : 'item_uncompleted')
+              : 'item_updated'
+          };
 
-          // Standardized event for DataContext and Dashboard
-          window.dispatchEvent(new CustomEvent('plan:updated', { detail: { plan, planId } }));
-          broadcastEvent('plan:updated', { plan, planId });
+          // Standardized event for DataContext, Dashboard, and usePlanManagement
+          window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
+          broadcastEvent('plan:updated', eventPayload);
+
+          // Granular item event for real-time updates
+          const itemEvent = normalizedUpdates.completed !== undefined
+            ? (normalizedUpdates.completed ? 'plan:item:completed' : 'plan:item:uncompleted')
+            : 'plan:item:updated';
+          window.dispatchEvent(new CustomEvent(itemEvent, { detail: eventPayload }));
+          broadcastEvent(itemEvent, eventPayload);
 
           // Operation-based event for CRDT sync
-          // Check if this is a completion toggle
           if (normalizedUpdates.completed !== undefined) {
             const opType = normalizedUpdates.completed ? OperationType.COMPLETE_ITEM : OperationType.UNCOMPLETE_ITEM;
             emitOperation(planId, opType, { itemId });
           } else {
-            // General item update
             emitOperation(planId, OperationType.UPDATE_ITEM, { itemId, changes: normalizedUpdates });
           }
         }
@@ -273,17 +292,30 @@ export function addPlanItem(planId, planItem) {
     .then((result) => {
       try {
         if (typeof window !== 'undefined' && window.dispatchEvent) {
-          // server may return the new item or an updated plan; try to extract experience id
           const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
           const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-          const plan = result?.plan || null;
-          window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId, planItem: result } }));
-          // Broadcast for other tabs
-          broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId, planItem: result });
+          const version = Date.now();
+          const addedItem = result?.item || result;
+
+          // Standardized event payload
+          const eventPayload = {
+            planId,
+            experienceId,
+            version,
+            data: result?.plan || result,
+            item: addedItem,
+            action: 'item_added'
+          };
+
+          // Standardized event for DataContext, Dashboard, and usePlanManagement
+          window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
+          broadcastEvent('plan:updated', eventPayload);
+
+          // Granular item event for real-time updates
+          window.dispatchEvent(new CustomEvent('plan:item:added', { detail: eventPayload }));
+          broadcastEvent('plan:item:added', eventPayload);
 
           // Operation-based event for CRDT sync
-          // Extract the added item from result
-          const addedItem = result?.item || result;
           emitOperation(planId, OperationType.ADD_ITEM, { item: addedItem });
         }
       } catch (e) {
@@ -301,12 +333,28 @@ export function deletePlanItem(planId, itemId) {
     .then((result) => {
       try {
         if (typeof window !== 'undefined' && window.dispatchEvent) {
-          const experienceId = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
-          const normalizedExpId = experienceId && experienceId.toString ? experienceId.toString() : experienceId;
-          const plan = result?.plan || null;
-          window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId: normalizedExpId, deletedItemId: itemId } }));
-          // Broadcast for other tabs
-          broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId: normalizedExpId, deletedItemId: itemId });
+          const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
+          const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+          const version = Date.now();
+
+          // Standardized event payload
+          const eventPayload = {
+            planId,
+            itemId,
+            experienceId,
+            version,
+            data: result?.plan || result,
+            deletedItemId: itemId,
+            action: 'item_deleted'
+          };
+
+          // Standardized event for DataContext, Dashboard, and usePlanManagement
+          window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
+          broadcastEvent('plan:updated', eventPayload);
+
+          // Granular item event for real-time updates
+          window.dispatchEvent(new CustomEvent('plan:item:deleted', { detail: eventPayload }));
+          broadcastEvent('plan:item:deleted', eventPayload);
 
           // Operation-based event for CRDT sync
           emitOperation(planId, OperationType.DELETE_ITEM, { itemId });
@@ -333,21 +381,36 @@ export function addCollaborator(planId, userId) {
     userId,
   }).then((result) => {
     try {
-        if (typeof window !== 'undefined' && window.dispatchEvent) {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
         const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
         const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-        const plan = result?.plan || null;
-        window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId, collaboratorAdded: userId } }));
-        // Broadcast for other tabs
-        broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId, collaboratorAdded: userId });
-
-        // Operation-based event for CRDT sync
-        // Find the collaborator entry from the result
+        const version = Date.now();
         const permissions = result?.plan?.permissions || result?.permissions || [];
         const collaborator = permissions.find(p => {
           const permUserId = p.user?._id || p.user;
           return permUserId?.toString() === userId?.toString();
         });
+
+        // Standardized event payload
+        const eventPayload = {
+          planId,
+          experienceId,
+          version,
+          data: result?.plan || result,
+          collaboratorAdded: userId,
+          collaborator: collaborator || { user: userId, role: 'collaborator' },
+          action: 'collaborator_added'
+        };
+
+        // Standardized event for DataContext, Dashboard, and usePlanManagement
+        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
+        broadcastEvent('plan:updated', eventPayload);
+
+        // Granular collaborator event for real-time updates
+        window.dispatchEvent(new CustomEvent('plan:collaborator:added', { detail: eventPayload }));
+        broadcastEvent('plan:collaborator:added', eventPayload);
+
+        // Operation-based event for CRDT sync
         emitOperation(planId, OperationType.ADD_COLLABORATOR, { collaborator: collaborator || { user: userId, role: 'collaborator' } });
       }
     } catch (e) {
@@ -366,13 +429,28 @@ export function removeCollaborator(planId, userId) {
     "DELETE"
   ).then((result) => {
     try {
-        if (typeof window !== 'undefined' && window.dispatchEvent) {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
         const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
         const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-        const plan = result?.plan || null;
-        window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan: plan || result, experienceId, collaboratorRemoved: userId } }));
-        // Broadcast for other tabs
-        broadcastEvent('bien:plan_updated', { plan: plan || result, experienceId, collaboratorRemoved: userId });
+        const version = Date.now();
+
+        // Standardized event payload
+        const eventPayload = {
+          planId,
+          experienceId,
+          version,
+          data: result?.plan || result,
+          collaboratorRemoved: userId,
+          action: 'collaborator_removed'
+        };
+
+        // Standardized event for DataContext, Dashboard, and usePlanManagement
+        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
+        broadcastEvent('plan:updated', eventPayload);
+
+        // Granular collaborator event for real-time updates
+        window.dispatchEvent(new CustomEvent('plan:collaborator:removed', { detail: eventPayload }));
+        broadcastEvent('plan:collaborator:removed', eventPayload);
 
         // Operation-based event for CRDT sync
         emitOperation(planId, OperationType.REMOVE_COLLABORATOR, { userId });
@@ -414,25 +492,26 @@ export async function reorderPlanItems(planId, reorderedItems) {
         const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
         const version = Date.now();
 
+        const itemIds = reorderedItems.map(item => item._id || item.plan_item_id).filter(Boolean);
+
         const eventPayload = {
           planId: result._id,
           experienceId,
           version,
           data: result,
-          reordered: true
+          itemIds,
+          action: 'items_reordered'
         };
 
-        // Legacy event for backward compatibility
-        window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: eventPayload }));
-        broadcastEvent('bien:plan_updated', eventPayload);
-
-        // Standardized event for DataContext
+        // Standardized event for DataContext, Dashboard, and usePlanManagement
         window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
         broadcastEvent('plan:updated', eventPayload);
 
+        // Granular item event for real-time updates
+        window.dispatchEvent(new CustomEvent('plan:item:reordered', { detail: eventPayload }));
+        broadcastEvent('plan:item:reordered', eventPayload);
+
         // Operation-based event for CRDT sync
-        // Extract item IDs from reordered items
-        const itemIds = reorderedItems.map(item => item._id || item.plan_item_id).filter(Boolean);
         emitOperation(planId, OperationType.REORDER_ITEMS, { itemIds });
 
         logger.debug('[plans-api] Reorder events dispatched successfully', {
@@ -462,14 +541,23 @@ export async function addPlanItemNote(planId, itemId, content) {
       content
     });
 
-    // Emit events
+    // Emit events with proper payload structure for usePlanManagement
     try {
       if (typeof window !== 'undefined' && window.dispatchEvent) {
         const version = Date.now();
-        window.dispatchEvent(new CustomEvent('plan:updated', {
-          detail: { plan: result, version }
-        }));
-        broadcastEvent('plan:updated', { plan: result, version });
+        const eventPayload = {
+          planId,
+          itemId,
+          data: result,
+          version,
+          action: 'note_added'
+        };
+        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
+        broadcastEvent('plan:updated', eventPayload);
+
+        // Also dispatch specific note event for granular handling
+        window.dispatchEvent(new CustomEvent('plan:item:note:added', { detail: eventPayload }));
+        broadcastEvent('plan:item:note:added', eventPayload);
       }
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch note added events', {}, e);
@@ -495,14 +583,24 @@ export async function updatePlanItemNote(planId, itemId, noteId, content) {
       content
     });
 
-    // Emit events
+    // Emit events with proper payload structure for usePlanManagement
     try {
       if (typeof window !== 'undefined' && window.dispatchEvent) {
         const version = Date.now();
-        window.dispatchEvent(new CustomEvent('plan:updated', {
-          detail: { plan: result, version }
-        }));
-        broadcastEvent('plan:updated', { plan: result, version });
+        const eventPayload = {
+          planId,
+          itemId,
+          noteId,
+          data: result,
+          version,
+          action: 'note_updated'
+        };
+        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
+        broadcastEvent('plan:updated', eventPayload);
+
+        // Also dispatch specific note event for granular handling
+        window.dispatchEvent(new CustomEvent('plan:item:note:updated', { detail: eventPayload }));
+        broadcastEvent('plan:item:note:updated', eventPayload);
       }
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch note updated events', {}, e);
@@ -527,14 +625,24 @@ export async function deletePlanItemNote(planId, itemId, noteId) {
   try {
     const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}`, "DELETE");
 
-    // Emit events
+    // Emit events with proper payload structure for usePlanManagement
     try {
       if (typeof window !== 'undefined' && window.dispatchEvent) {
         const version = Date.now();
-        window.dispatchEvent(new CustomEvent('plan:updated', {
-          detail: { plan: result, version }
-        }));
-        broadcastEvent('plan:updated', { plan: result, version });
+        const eventPayload = {
+          planId,
+          itemId,
+          noteId,
+          data: result,
+          version,
+          action: 'note_deleted'
+        };
+        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
+        broadcastEvent('plan:updated', eventPayload);
+
+        // Also dispatch specific note event for granular handling
+        window.dispatchEvent(new CustomEvent('plan:item:note:deleted', { detail: eventPayload }));
+        broadcastEvent('plan:item:note:deleted', eventPayload);
       }
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch note deleted events', {}, e);
