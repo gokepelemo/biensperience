@@ -159,8 +159,27 @@
 /* Content Grid */
 .profileGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: $space-6;
+
+  /* Ensure cards fill their grid cells properly */
+  > * {
+    width: 100%;
+    min-width: 0; /* Prevent overflow */
+  }
+
+  /* Pagination should span full width */
+  :global(nav[aria-label="Pagination"]) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    margin-top: $space-4;
+  }
+
+  /* Empty state should span full width */
+  > div:has(.empty-state),
+  > [class*="emptyState"] {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Responsive adjustments */
@@ -203,6 +222,13 @@
   }
 }
 
+@media (max-width: 767px) {
+  .profileGrid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: $space-4;
+  }
+}
+
 @media (max-width: 575px) {
   .profileCover {
     height: 150px;
@@ -229,6 +255,11 @@
 
   .profileStatValue {
     font-size: var(--font-size-xl);
+  }
+
+  .profileGrid {
+    grid-template-columns: 1fr;
+    gap: $space-4;
   }
 }
 
