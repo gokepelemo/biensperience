@@ -11,6 +11,9 @@
  * - Event broadcasting to room members (excluding sender)
  * - JWT-based authentication
  * - Heartbeat/ping-pong for connection health
+ * - Rate limiting per connection
+ * - Message size limits
+ * - Connection limits per user
  *
  * Room Types:
  * - experience:{experienceId} - Owner and collaborators of an experience
@@ -25,6 +28,40 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const backendLogger = require('./backend-logger');
 
+// =====================
+// Rate Limiting Config
+// =====================
+
+/**
+ * Maximum messages per window per connection
+ * Configurable via WS_RATE_MAX env var
+ */
+const RATE_LIMIT_MAX = parseInt(process.env.WS_RATE_MAX || '', 10) || 100;
+
+/**
+ * Rate limit window in milliseconds
+ * Configurable via WS_RATE_WINDOW_MS env var
+ */
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.WS_RATE_WINDOW_MS || '', 10) || 60000;
+
+/**
+ * Maximum message size in bytes (64KB default)
+ * Configurable via WS_MAX_MESSAGE_SIZE env var
+ */
+const MAX_MESSAGE_SIZE = parseInt(process.env.WS_MAX_MESSAGE_SIZE || '', 10) || 65536;
+
+/**
+ * Maximum connections per user (5 default - allows multiple tabs/devices)
+ * Configurable via WS_MAX_CONNECTIONS_PER_USER env var
+ */
+const MAX_CONNECTIONS_PER_USER = parseInt(process.env.WS_MAX_CONNECTIONS_PER_USER || '', 10) || 5;
+
+/**
+ * User connection tracking: userId -> Set of WebSocket connections
+ * @type {Map<string, Set<WebSocket>>}
+ */
+const userConnections = new Map();
+
 /**
  * Validate if a string is a valid MongoDB ObjectId
  * Prevents NoSQL injection by ensuring IDs are properly formatted
@@ -35,6 +72,88 @@ const backendLogger = require('./backend-logger');
 function isValidObjectId(id) {
   if (!id || typeof id !== 'string') return false;
   return mongoose.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id);
+}
+
+/**
+ * Check rate limit for a connection
+ * Uses sliding window algorithm
+ *
+ * @param {object} client - Client info object
+ * @returns {boolean} True if within rate limit, false if exceeded
+ */
+function checkRateLimit(client) {
+  const now = Date.now();
+
+  // Initialize rate limit tracking if not exists
+  if (!client.rateLimitWindow) {
+    client.rateLimitWindow = now;
+    client.messageCount = 0;
+  }
+
+  // Reset window if expired
+  if (now - client.rateLimitWindow > RATE_LIMIT_WINDOW_MS) {
+    client.rateLimitWindow = now;
+    client.messageCount = 0;
+  }
+
+  // Increment and check
+  client.messageCount++;
+
+  if (client.messageCount > RATE_LIMIT_MAX) {
+    backendLogger.warn('[WebSocket] Rate limit exceeded', {
+      userId: client.userId,
+      sessionId: client.sessionId,
+      messageCount: client.messageCount,
+      window: RATE_LIMIT_WINDOW_MS
+    });
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Track user connection and check limit
+ *
+ * @param {string} userId - User ID
+ * @param {WebSocket} ws - WebSocket connection
+ * @returns {boolean} True if connection allowed, false if limit exceeded
+ */
+function trackUserConnection(userId, ws) {
+  if (!userConnections.has(userId)) {
+    userConnections.set(userId, new Set());
+  }
+
+  const connections = userConnections.get(userId);
+
+  // Check limit
+  if (connections.size >= MAX_CONNECTIONS_PER_USER) {
+    backendLogger.warn('[WebSocket] Connection limit exceeded for user', {
+      userId,
+      currentConnections: connections.size,
+      maxAllowed: MAX_CONNECTIONS_PER_USER
+    });
+    return false;
+  }
+
+  connections.add(ws);
+  return true;
+}
+
+/**
+ * Remove user connection from tracking
+ *
+ * @param {string} userId - User ID
+ * @param {WebSocket} ws - WebSocket connection
+ */
+function removeUserConnection(userId, ws) {
+  const connections = userConnections.get(userId);
+  if (connections) {
+    connections.delete(ws);
+    if (connections.size === 0) {
+      userConnections.delete(userId);
+    }
+  }
 }
 
 /**
@@ -214,19 +333,38 @@ function createWebSocketServer(server, options = {}) {
     const user = req.user;
     const query = url.parse(req.url, true).query;
     const sessionId = query.sessionId;
+    const userId = user._id || user.id;
+
+    // Check connection limit per user
+    if (!trackUserConnection(userId, ws)) {
+      backendLogger.warn('[WebSocket] Connection rejected: Too many connections', { userId });
+      send(ws, {
+        type: 'error',
+        payload: {
+          message: 'Too many connections. Close some tabs or devices and try again.',
+          code: 'CONNECTION_LIMIT_EXCEEDED'
+        }
+      });
+      ws.close(4003, 'Connection limit exceeded');
+      return;
+    }
 
     backendLogger.info('[WebSocket] New connection', {
-      userId: user._id || user.id,
-      sessionId
+      userId,
+      sessionId,
+      userConnectionCount: userConnections.get(userId)?.size || 1
     });
 
     // Track client
     clients.set(ws, {
-      userId: user._id || user.id,
+      userId,
       sessionId,
       rooms: new Set(),
       isAlive: true,
-      connectedAt: Date.now()
+      connectedAt: Date.now(),
+      // Rate limiting fields
+      rateLimitWindow: Date.now(),
+      messageCount: 0
     });
 
     // Set up heartbeat
@@ -252,7 +390,7 @@ function createWebSocketServer(server, options = {}) {
     // Handle errors
     ws.on('error', (error) => {
       backendLogger.error('[WebSocket] Connection error', {
-        userId: user._id || user.id,
+        userId,
         error: error.message
       }, error);
     });
@@ -261,7 +399,7 @@ function createWebSocketServer(server, options = {}) {
     send(ws, {
       type: 'system:connected',
       payload: {
-        userId: user._id || user.id,
+        userId,
         sessionId,
         timestamp: Date.now()
       }
@@ -305,9 +443,45 @@ function handleMessage(ws, data) {
     return;
   }
 
+  // Check message size limit
+  const messageSize = Buffer.byteLength(data);
+  if (messageSize > MAX_MESSAGE_SIZE) {
+    backendLogger.warn('[WebSocket] Message too large', {
+      userId: client.userId,
+      size: messageSize,
+      maxSize: MAX_MESSAGE_SIZE
+    });
+    send(ws, {
+      type: 'error',
+      payload: {
+        message: `Message too large. Maximum size is ${MAX_MESSAGE_SIZE} bytes.`,
+        code: 'MESSAGE_TOO_LARGE'
+      }
+    });
+    return;
+  }
+
+  // Check rate limit
+  if (!checkRateLimit(client)) {
+    send(ws, {
+      type: 'error',
+      payload: {
+        message: 'Rate limit exceeded. Please slow down.',
+        code: 'RATE_LIMIT_EXCEEDED'
+      }
+    });
+    return;
+  }
+
   try {
     const message = JSON.parse(data.toString());
     const { type, payload } = message;
+
+    // Skip rate limiting for ping/pong (heartbeat)
+    if (type === 'ping') {
+      send(ws, { type: 'pong', timestamp: Date.now() });
+      return;
+    }
 
     backendLogger.debug('[WebSocket] Message received', {
       type,
@@ -667,6 +841,9 @@ function handleDisconnect(ws) {
     leaveRoom(ws, client, planId);
   });
 
+  // Remove from user connection tracking
+  removeUserConnection(client.userId, ws);
+
   // Remove from clients map
   clients.delete(ws);
 }
@@ -742,10 +919,18 @@ function getStats() {
   return {
     totalConnections: clients.size,
     totalRooms: rooms.size,
-    roomSizes: Array.from(rooms.entries()).map(([planId, room]) => ({
-      planId,
+    uniqueUsers: userConnections.size,
+    roomSizes: Array.from(rooms.entries()).map(([roomId, room]) => ({
+      roomId,
       memberCount: room.size
-    }))
+    })),
+    // Rate limit config (for monitoring)
+    config: {
+      rateLimitMax: RATE_LIMIT_MAX,
+      rateLimitWindowMs: RATE_LIMIT_WINDOW_MS,
+      maxMessageSize: MAX_MESSAGE_SIZE,
+      maxConnectionsPerUser: MAX_CONNECTIONS_PER_USER
+    }
   };
 }
 
