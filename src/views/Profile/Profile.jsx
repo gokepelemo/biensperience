@@ -1,4 +1,4 @@
-import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart } from "react-icons/fa";
+import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera } from "react-icons/fa";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
 import { Container as BsContainer, Card, Row, Col } from "react-bootstrap";
@@ -14,6 +14,7 @@ import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
 import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
 import ActivityMonitor from "../../components/ActivityMonitor/ActivityMonitor";
+import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
 import { getUserData, updateUserRole, updateUser as updateUserApi } from "../../utilities/users-api";
 import { resendConfirmation } from "../../utilities/users-api";
@@ -54,6 +55,8 @@ export default function Profile() {
 
   const [showApiTokenModal, setShowApiTokenModal] = useState(false);
   const [showActivityMonitor, setShowActivityMonitor] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
 
   // Initialize tab from hash (supports deep links like /profile#created)
   useEffect(() => {
@@ -565,18 +568,52 @@ export default function Profile() {
               </div>
             ) : (
               <div className={styles.profileHeaderFlex}>
-                {/* Avatar */}
-                {avatarPhoto ? (
-                  <img
-                    src={avatarPhoto.url || avatarPhoto}
-                    alt={currentProfile?.name}
-                    className={styles.profileAvatar}
-                  />
-                ) : (
-                  <div className={styles.profileAvatarPlaceholder}>
-                    <FaUser />
-                  </div>
-                )}
+                {/* Avatar - Clickable to open photo modal */}
+                <div
+                  className={styles.profileAvatarContainer}
+                  onClick={() => {
+                    if (currentProfile?.photos?.length > 0) {
+                      // Find the index of the default photo
+                      const defaultPhoto = getDefaultPhoto(currentProfile);
+                      const photoIndex = currentProfile.photos.findIndex(
+                        p => (p._id || p) === (defaultPhoto?._id || defaultPhoto)
+                      );
+                      setSelectedPhotoIndex(Math.max(0, photoIndex));
+                      setShowPhotoModal(true);
+                    }
+                  }}
+                  role={currentProfile?.photos?.length > 0 ? "button" : undefined}
+                  tabIndex={currentProfile?.photos?.length > 0 ? 0 : undefined}
+                  onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && currentProfile?.photos?.length > 0) {
+                      e.preventDefault();
+                      const defaultPhoto = getDefaultPhoto(currentProfile);
+                      const photoIndex = currentProfile.photos.findIndex(
+                        p => (p._id || p) === (defaultPhoto?._id || defaultPhoto)
+                      );
+                      setSelectedPhotoIndex(Math.max(0, photoIndex));
+                      setShowPhotoModal(true);
+                    }
+                  }}
+                  aria-label={currentProfile?.photos?.length > 0 ? "View profile photos" : undefined}
+                >
+                  {avatarPhoto ? (
+                    <img
+                      src={avatarPhoto.url || avatarPhoto}
+                      alt={currentProfile?.name}
+                      className={styles.profileAvatar}
+                    />
+                  ) : (
+                    <div className={styles.profileAvatarPlaceholder}>
+                      <FaUser />
+                    </div>
+                  )}
+                  {currentProfile?.photos?.length > 0 && (
+                    <div className={styles.profileAvatarOverlay}>
+                      <FaCamera />
+                    </div>
+                  )}
+                </div>
 
                 {/* Info */}
                 <div className={styles.profileInfo}>
@@ -1019,6 +1056,18 @@ export default function Profile() {
         <ActivityMonitor
           show={showActivityMonitor}
           onHide={handleCloseActivityMonitor}
+        />
+      )}
+
+      {/* Photo Modal - for profile photos */}
+      {currentProfile?.photos?.length > 0 && (
+        <PhotoModal
+          show={showPhotoModal}
+          onHide={() => setShowPhotoModal(false)}
+          photo={currentProfile.photos[selectedPhotoIndex]}
+          photos={currentProfile.photos}
+          initialIndex={selectedPhotoIndex}
+          onNavigate={(newIndex) => setSelectedPhotoIndex(newIndex)}
         />
       )}
       </BsContainer>

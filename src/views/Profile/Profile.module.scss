@@ -23,6 +23,8 @@
 .profileHeaderBody {
   padding: $space-6;
   margin-top: -80px;
+  position: relative;
+  z-index: 1;
 }
 
 /* Flex container for avatar + info + actions */
@@ -33,6 +35,37 @@
   align-items: flex-start;
 }
 
+/* Avatar Container - clickable wrapper for photo modal */
+.profileAvatarContainer {
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+
+  &:hover {
+    transform: scale(1.02);
+  }
+
+  &:hover .profileAvatarOverlay {
+    opacity: 1;
+  }
+}
+
+/* Avatar Overlay - shown on hover */
+.profileAvatarOverlay {
+  position: absolute;
+  inset: 5px; /* Match the border width */
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  color: white;
+  font-size: 1.5rem;
+}
+
 /* Avatar */
 .profileAvatar {
   width: 150px;
@@ -41,7 +74,7 @@
   border: 5px solid var(--color-bg-primary);
   box-shadow: var(--shadow-lg);
   object-fit: cover;
-  flex-shrink: 0;
+  display: block;
 }
 
 /* Avatar placeholder for users without photo */
@@ -57,7 +90,6 @@
   justify-content: center;
   font-size: 4rem;
   color: var(--color-text-muted);
-  flex-shrink: 0;
 }
 
 /* Info section - name, location, bio */
@@ -71,7 +103,7 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin-bottom: $space-2;
-  margin-top: 70px;
+  margin-top: $space-2; /* Small margin, aligned with avatar */
   display: flex;
   align-items: center;
   gap: $space-2;
@@ -121,7 +153,7 @@
   display: flex;
   gap: $space-3;
   align-items: flex-start;
-  margin-top: 70px;
+  margin-top: $space-2; /* Match name margin */
   flex-shrink: 0;
 }
 
