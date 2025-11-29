@@ -4,7 +4,7 @@
  * Est. savings: ~50kB compared to full Bootstrap
  */
 
-// Use the compiled Bootstrap module to ensure internal ordering and dependencies
+/* Use the compiled Bootstrap module to ensure internal ordering and dependencies */
 @use "bootstrap" as *;
 
 /**

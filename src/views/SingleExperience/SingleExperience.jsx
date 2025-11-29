@@ -1012,11 +1012,28 @@ export default function SingleExperience() {
   // Navigation Intent Consumer - handles deep-link navigation from HashLink and direct URL
   // Single source of truth for scroll/highlight behavior
   useEffect(() => {
+    debug.log('[NavigationIntent] Effect running', {
+      userInteractionInProgress: userInteractionRef.current,
+      intentExists: !!intent,
+      intentConsumed: intent?.consumed,
+      plansLoading,
+      collaborativePlansCount: collaborativePlans.length,
+      intentId: intent?.id,
+      targetPlanId: intent?.targetPlanId,
+      targetItemId: intent?.targetItemId
+    });
+
     // Skip if user interaction is in progress (e.g., toggling completion)
-    if (userInteractionRef.current) return;
+    if (userInteractionRef.current) {
+      debug.log('[NavigationIntent] Skipping - user interaction in progress');
+      return;
+    }
 
     // Skip if no intent or already consumed
-    if (!intent || intent.consumed) return;
+    if (!intent || intent.consumed) {
+      debug.log('[NavigationIntent] Skipping - no intent or already consumed');
+      return;
+    }
 
     // Skip if plans haven't loaded yet
     if (plansLoading || collaborativePlans.length === 0) {
@@ -1076,7 +1093,20 @@ export default function SingleExperience() {
 
     // Scroll to item after tab switch (give React time to render)
     if (targetItemId) {
-      scrollToItem(targetItemId, { shouldHighlight: shouldAnimate });
+      debug.log('[NavigationIntent] Scheduling scroll to item:', { targetItemId, shouldAnimate });
+      // Use requestAnimationFrame + setTimeout to ensure DOM is ready after React renders
+      requestAnimationFrame(() => {
+        setTimeout(async () => {
+          try {
+            const result = await scrollToItem(targetItemId, { shouldHighlight: shouldAnimate });
+            debug.log('[NavigationIntent] scrollToItem result:', result ? 'found' : 'not found');
+          } catch (err) {
+            debug.log('[NavigationIntent] scrollToItem error:', err);
+          }
+        }, 100);
+      });
+    } else {
+      debug.log('[NavigationIntent] No targetItemId, skipping scroll');
     }
 
   }, [intent, plansLoading, collaborativePlans, idEquals, consumeIntent, clearIntent, scrollToItem]);
@@ -1086,16 +1116,24 @@ export default function SingleExperience() {
   // Only runs ONCE on initial page load to prevent re-scrolling on state changes
   useEffect(() => {
     // Skip if user interaction is in progress (e.g., toggling completion)
-    if (userInteractionRef.current) return;
+    if (userInteractionRef.current) {
+      return;
+    }
 
     // Skip if initial hash has already been handled
-    if (initialHashHandledRef.current) return;
+    if (initialHashHandledRef.current) {
+      return;
+    }
 
     // Skip if there's an unconsumed intent (intent-based navigation is preferred)
-    if (intent && !intent.consumed) return;
+    if (intent && !intent.consumed) {
+      return;
+    }
 
     // Skip if plans haven't loaded
-    if (plansLoading || collaborativePlans.length === 0) return;
+    if (plansLoading || collaborativePlans.length === 0) {
+      return;
+    }
 
     const hash = window.location.hash || '';
     if (!hash.startsWith('#plan-')) {
@@ -1105,7 +1143,9 @@ export default function SingleExperience() {
     }
 
     // Skip if we've already processed this exact hash
-    if (processedHashRef.current === hash) return;
+    if (processedHashRef.current === hash) {
+      return;
+    }
 
     // Parse hash format: #plan-{planId} or #plan-{planId}-item-{itemId}
     const hashContent = hash.substring(6); // Remove '#plan-' prefix
@@ -2287,73 +2327,45 @@ export default function SingleExperience() {
       const itemId = planItem._id || planItem.plan_item_id;
       const newComplete = !planItem.complete;
 
-      // Optimistic update to collaborativePlans state
-      const prevPlans = [...collaborativePlans];
-      const planIndex = collaborativePlans.findIndex((p) => idEquals(p._id, selectedPlanId));
-      const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex], plan: [...(collaborativePlans[planIndex].plan || [])] } : null;
-
-      const apply = () => {
-        if (!prevPlan || planIndex < 0) return;
-        const updatedPlans = [...collaborativePlans];
-        const updatedPlanItems = prevPlan.plan.map((item) => {
-          const currentItemId = item._id || item.plan_item_id;
-          if (currentItemId?.toString() === itemId?.toString()) {
-            return { ...item, complete: newComplete };
-          }
-          return item;
-        });
-        updatedPlans[planIndex] = { ...prevPlan, plan: updatedPlanItems };
-        setCollaborativePlans(updatedPlans);
+      // Helper to update a single item's complete property in a plan
+      const updateItemComplete = (plan, itemId, complete) => {
+        if (!plan?.plan) return plan;
+        return {
+          ...plan,
+          plan: plan.plan.map(item =>
+            (item._id === itemId || item.plan_item_id === itemId)
+              ? { ...item, complete }
+              : item
+          )
+        };
       };
 
-      const apiCall = async () => {
+      // Save previous state for rollback
+      const prevPlans = collaborativePlans;
+
+      // 1. Optimistic update - only change the complete property of this specific item
+      setCollaborativePlans(plans =>
+        plans.map(p =>
+          idEquals(p._id, selectedPlanId)
+            ? updateItemComplete(p, itemId, newComplete)
+            : p
+        )
+      );
+
+      try {
+        // 2. API call - don't await event reconciliation, just update the server
         await updatePlanItem(selectedPlanId, itemId, { complete: newComplete });
-      };
-
-      const rollback = () => {
+        // Success - optimistic state is already correct, no further action needed
+      } catch (err) {
+        // 3. Rollback on error
         setCollaborativePlans(prevPlans);
-      };
-
-      const onSuccess = async () => {
-        // Refresh plan data to ensure consistency
-        fetchCollaborativePlans().catch(() => {});
-        fetchUserPlan().catch(() => {});
-        fetchPlans().catch(() => {});
-        // Note: No scrolling on item completion - user should stay where they are
-
-        // Reset user interaction flag after state updates settle
-        // Using 1000ms to ensure all fetch responses and React re-renders complete
-        // This prevents the URL management effect from running during the update cycle
-        setTimeout(() => {
-          userInteractionRef.current = false;
-        }, 1000);
-      };
-
-      const onError = (err, defaultMsg) => {
-        const errorMsg = handleError(err, { context: "Toggle plan item completion" }) || defaultMsg;
+        const errorMsg = handleError(err, { context: "Toggle plan item completion" }) || "Failed to update item. Please try again.";
         showError(errorMsg);
-        // Reset user interaction flag on error too
+      } finally {
         userInteractionRef.current = false;
-      };
-
-      const run = useOptimisticAction({
-        apply,
-        apiCall,
-        rollback,
-        onSuccess,
-        onError,
-        context: 'Toggle plan item completion'
-      });
-      await run();
+      }
     },
-    [
-      selectedPlanId,
-      collaborativePlans,
-      fetchCollaborativePlans,
-      fetchUserPlan,
-      fetchPlans,
-      showError,
-    ]
+    [selectedPlanId, collaborativePlans, setCollaborativePlans, idEquals, showError]
   );
 
   /**

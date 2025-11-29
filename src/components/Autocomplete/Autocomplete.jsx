@@ -57,21 +57,24 @@ export default function Autocomplete({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
+  const wrapperRef = useRef(null);
   const [selectedItems, setSelectedItems] = useState(Array.isArray(selected) ? selected : []);
   const justSelectedRef = useRef(false); // Track when selection just occurred to prevent auto-reopen
   const hasUserInteractedRef = useRef(false); // Track if user has interacted with the input
 
   // Handle controlled vs uncontrolled
-  // If parent provides a controlled `value`, use it. Otherwise use internal searchTerm.
-  // If displayValue (a selected label) is provided, seed the internal searchTerm with it
-  // but allow the user to type (so displayValue does not permanently control the input).
-  const currentValue = value !== undefined ? value : searchTerm;
+  // Consider the input controlled only if the parent passed both `value` and `onChange`.
+  // This prevents a parent from accidentally making the input read-only by providing
+  // a `value` without an `onChange` handler.
+  const isControlled = value !== undefined && typeof onChange === 'function';
+  // currentValue reflects the visible input content
+  const currentValue = isControlled ? value : searchTerm;
 
   // When a selected label (displayValue) is provided from parent, and the user hasn't typed
   // (searchTerm is empty or equals previous displayValue), seed the searchTerm so the input
   // shows the selected label but remains editable.
   useEffect(() => {
-    if (displayValue !== undefined) {
+    if (displayValue !== undefined && !isControlled) {
       // Only seed when searchTerm is empty or matches previous displayValue
       if (!searchTerm || searchTerm === displayValue) {
         setSearchTerm(displayValue || '');
@@ -139,11 +142,13 @@ export default function Autocomplete({
     // Mark that user has interacted with this input
     hasUserInteractedRef.current = true;
 
-    if (onChange) {
+    if (isControlled) {
+      // Let the parent handle value updates
       onChange(e);
+    } else {
+      // Uncontrolled mode: keep internal state in sync so typing works
+      setSearchTerm(newValue);
     }
-    // Always update internal searchTerm for local filtering and display
-    setSearchTerm(newValue);
 
     if (onSearch) {
       onSearch(newValue);
@@ -152,6 +157,41 @@ export default function Autocomplete({
     // Only open dropdown if there's a value or if there are items to show
     setIsOpen(newValue.trim().length > 0 || items.length > 0);
     setHighlightedIndex(-1);
+  };
+
+  // Clear input and prepare for new selection
+  const handleClear = (e) => {
+    e.preventDefault();
+    // Reset controlled and internal inputs
+    if (isControlled) {
+      try { onChange({ target: { value: '' } }); } catch (err) { /* swallow */ }
+    } else {
+      setSearchTerm('');
+    }
+    if (onSearch) onSearch('');
+    // Notify parent that selection was cleared (for controlled parents)
+    if (typeof onSelect === 'function') {
+      try {
+        // For single-select callers, pass an empty object to avoid null deref in parent handlers
+        if (multi) {
+          onSelect([]);
+        } else {
+          onSelect({});
+        }
+      } catch (err) {
+        // swallow errors from parent handlers
+      }
+    }
+    // Clear internal multi selection state as well
+    if (multi) {
+      setSelectedItems([]);
+    }
+    // Focus input and open dropdown so user can type/select again
+    setTimeout(() => {
+      inputRef.current?.focus();
+      setIsOpen(items.length > 0);
+      setHighlightedIndex(-1);
+    }, 0);
   };
 
   // Handle item selection
@@ -237,19 +277,33 @@ export default function Autocomplete({
 
   // Close dropdown when clicking outside
   useEffect(() => {
+    // Handle clicks outside and focus changes for robust closing behavior
     const handleClickOutside = (e) => {
+      const target = e.target;
       if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target) &&
-        inputRef.current &&
-        !inputRef.current.contains(e.target)
+        wrapperRef.current && !wrapperRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleFocusIn = (e) => {
+      const active = document.activeElement;
+      if (
+        wrapperRef.current && !wrapperRef.current.contains(active) &&
+        dropdownRef.current && !dropdownRef.current.contains(active)
       ) {
         setIsOpen(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('focusin', handleFocusIn);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('focusin', handleFocusIn);
+    };
   }, []);
 
   // Scroll highlighted item into view
@@ -271,7 +325,16 @@ export default function Autocomplete({
     }
     // Only auto-open if user has interacted with the input (typed or focused)
     // This prevents dropdown from opening on initial mount when items are pre-loaded
-    if (hasUserInteractedRef.current && items.length > 0 && currentValue.trim().length > 0 && !isOpen) {
+    // Ensure the input is still focused before auto-opening. This avoids reopening
+    // the dropdown after the user has blurred or scrolled the page.
+    const inputIsFocused = document.activeElement === inputRef.current;
+    if (
+      hasUserInteractedRef.current &&
+      items.length > 0 &&
+      currentValue.trim().length > 0 &&
+      !isOpen &&
+      inputIsFocused
+    ) {
       setIsOpen(true);
     }
   }, [items, currentValue, isOpen]);
@@ -284,7 +347,7 @@ export default function Autocomplete({
   }[size] || styles.autocompleteSizeMd;
 
   return (
-  <div className={`${styles.autocompleteWrapper} ${sizeClass} ${isOpen ? styles.autocompleteOpen : ''}`}>
+  <div ref={wrapperRef} className={`${styles.autocompleteWrapper} ${sizeClass} ${isOpen ? styles.autocompleteOpen : ''}`}>
       {/* Search Input */}
       <div className={styles.autocompleteInputWrapper}>
         <FaSearch className={styles.autocompleteSearchIcon} />
@@ -302,11 +365,32 @@ export default function Autocomplete({
               setIsOpen(true);
             }
           }}
+          onBlur={(e) => {
+            // If focus moved to an element inside the dropdown, keep it open
+            const related = e.relatedTarget;
+            if (related && dropdownRef.current && dropdownRef.current.contains(related)) {
+              return;
+            }
+            // Otherwise close the dropdown
+            setIsOpen(false);
+            setHighlightedIndex(-1);
+          }}
           onKeyDown={handleKeyDown}
           disabled={disabled}
           className={styles.autocompleteInput}
           autoComplete="off"
         />
+        {/* Clear button - shown when there is a value */}
+        {currentValue && currentValue.toString().trim().length > 0 && (
+          <button
+            type="button"
+            onClick={handleClear}
+            aria-label="Clear"
+            className={styles.autocompleteClear}
+          >
+            ×
+          </button>
+        )}
       </div>
       {multi && selectedItems && selectedItems.length > 0 && (
         <div className={styles.autocompleteSelectedChips}>
@@ -422,6 +506,7 @@ function AutocompleteItem({
     <div
       className={`${styles.autocompleteItem} ${isHighlighted ? styles.highlighted : ''}`}
       onClick={onSelect}
+      tabIndex={0}
       data-index={dataIndex}
       data-entity-type={item.type || ''}
       role="option"

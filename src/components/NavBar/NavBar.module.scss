@@ -40,7 +40,7 @@
   }
 }
 
-/* Sticky navbar - optimized for smooth transitions */
+/* Sticky navbar - always visible at top */
 .navbar.sticky {
   position: fixed;
   top: 0;
@@ -48,9 +48,8 @@
   right: 0;
   z-index: var(--z-index-fixed);
   box-shadow: var(--shadow-sm);
-  /* GPU-accelerated transition for smooth appearance */
-  animation: slideDown 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  /* Prevent layout thrashing during animation */
+  /* No animation - instant appearance */
+  /* Prevent layout thrashing */
   will-change: transform, opacity;
   contain: layout style;
   /* Ensure consistent dimensions */

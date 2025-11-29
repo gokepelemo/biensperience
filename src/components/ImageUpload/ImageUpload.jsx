@@ -135,11 +135,14 @@ export default function ImageUpload({ data, setData }) {
 
         const capitalizedDomain = mainDomain.charAt(0).toUpperCase() + mainDomain.slice(1);
 
+        // Only assign the credit URL if the provided URL is safe
+        const safeCreditUrl = isSafeImageUrl(url) ? domain : '';
+
         setUploadForm({
           ...uploadForm,
           photo_url: url,
           photo_credit: capitalizedDomain,
-          photo_credit_url: domain
+          photo_credit_url: safeCreditUrl
         });
       } catch (err) {
         setUploadForm({ ...uploadForm, photo_url: url });
@@ -166,6 +169,14 @@ export default function ImageUpload({ data, setData }) {
       return;
     }
 
+    // Block potentially dangerous URLs (javascript:, data:, etc.)
+    if (!isSafeImageUrl(uploadForm.photo_url)) {
+      setAlertTitle(lang.current.modal.photoUrlRequired);
+      setAlertMessage('This URL uses an unsupported protocol or is unsafe');
+      setShowAlertModal(true);
+      return;
+    }
+
     const isDuplicate = urlQueue.some(item => item.url === uploadForm.photo_url);
     if (isDuplicate) {
       setAlertTitle(lang.current.modal.photoUrlRequired);
@@ -179,7 +190,7 @@ export default function ImageUpload({ data, setData }) {
     const urlObject = {
       url: uploadForm.photo_url,
       photo_credit: uploadForm.photo_credit || 'Unknown',
-      photo_credit_url: uploadForm.photo_credit_url || uploadForm.photo_url,
+      photo_credit_url: isSafeImageUrl(uploadForm.photo_credit_url) ? uploadForm.photo_credit_url : (isSafeImageUrl(uploadForm.photo_url) ? uploadForm.photo_url : ''),
       width: dimensions.width,
       height: dimensions.height
     };
@@ -275,12 +286,20 @@ export default function ImageUpload({ data, setData }) {
         }
 
         // Get image dimensions for layout shift prevention
+        if (!isSafeImageUrl(uploadForm.photo_url)) {
+          setAlertTitle(lang.current.modal.photoUrlRequired);
+          setAlertMessage('This URL uses an unsupported protocol or is unsafe');
+          setShowAlertModal(true);
+          setUploading(false);
+          return;
+        }
+
         const dimensions = await getImageDimensionsSafe(uploadForm.photo_url);
 
         const urlData = {
           url: uploadForm.photo_url,
           photo_credit: uploadForm.photo_credit || 'Unknown',
-          photo_credit_url: uploadForm.photo_credit_url || uploadForm.photo_url,
+          photo_credit_url: isSafeImageUrl(uploadForm.photo_credit_url) ? uploadForm.photo_credit_url : uploadForm.photo_url,
           width: dimensions.width || undefined,
           height: dimensions.height || undefined
         };

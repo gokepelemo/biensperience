@@ -94,6 +94,20 @@
   text-align: right;
 }
 
+.costBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  align-items: flex-end;
+}
+
+.costRow {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-height: 20px;
+}
+
 .expandIcon {
   @include flex-center;
   width: 32px;
@@ -249,6 +263,122 @@
   border-top: 1px dashed var(--color-border-light);
 }
 
+/* Total Cost Accordion */
+.totalCostAccordion {
+  margin-bottom: $space-4;
+}
+
+.totalCostCard {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: white;
+  padding: $space-4;
+  border-radius: $radius-lg;
+  margin-bottom: 0;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: all $transition-normal;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+
+  &.expanded {
+    border-radius: $radius-lg $radius-lg 0 0;
+  }
+}
+
+.totalCostHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.totalCostValue {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+/* Costs Accordion Body */
+.costsAccordionBody {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-top: none;
+  border-radius: 0 0 $radius-lg $radius-lg;
+  padding: $space-4;
+  animation: slideDown 0.3s ease-out;
+}
+
+.costsList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.costItem {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  padding: $space-3;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: $radius-md;
+  transition: all $transition-fast;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-medium);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.costItemContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: $space-3;
+}
+
+.costTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+.costDescription {
+  margin-top: $space-1;
+  font-style: italic;
+}
+
+/* Inline Costs Container */
+.costsInline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+}
+
+/* Cost Chip */
+.costChip {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-2 $space-3;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: $radius-full;
+  transition: all $transition-fast;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-medium);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+/* Legacy cost item styles (for backward compatibility) */
 .costItem {
   padding: $space-3;
   background: var(--color-bg-tertiary);

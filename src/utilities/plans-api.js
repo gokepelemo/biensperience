@@ -228,9 +228,11 @@ export function updatePlanItem(planId, itemId, updates) {
     .then((result) => {
       try {
         if (typeof window !== 'undefined' && window.dispatchEvent) {
-          const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
+          // The API returns the full Plan object directly (not wrapped in a { plan } container)
+          // result._id is the plan ID, result.plan is the items array
+          const plan = result; // The full plan object
+          const rawExp = result?.experience?._id || result?.experience || null;
           const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-          const plan = result?.plan || result;
 
           // Legacy event for backward compatibility
           window.dispatchEvent(new CustomEvent('bien:plan_updated', { detail: { plan, experienceId } }));
@@ -671,24 +673,27 @@ export async function addPlanCost(planId, costData) {
   try {
     const result = await sendRequest(`${BASE_URL}/${planId}/costs`, "POST", costData);
 
+    // Return the newly added cost (last item in the costs array)
+    const newCost = result.costs[result.costs.length - 1];
+
     // Emit events
     try {
       if (typeof window !== 'undefined' && window.dispatchEvent) {
         const version = Date.now();
         window.dispatchEvent(new CustomEvent('plan:cost_added', {
-          detail: { plan: result, planId, costData, version }
+          detail: { plan: result, planId, costData, cost: newCost, version }
         }));
         window.dispatchEvent(new CustomEvent('plan:updated', {
           detail: { plan: result, version }
         }));
-        broadcastEvent('plan:cost_added', { plan: result, planId, costData, version });
+        broadcastEvent('plan:cost_added', { plan: result, planId, costData, cost: newCost, version });
         broadcastEvent('plan:updated', { plan: result, version });
       }
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch cost added events', {}, e);
     }
 
-    return result;
+    return newCost;
   } catch (error) {
     logger.error('[plans-api] Failed to add cost', {
       planId,
@@ -709,24 +714,27 @@ export async function updatePlanCost(planId, costId, updates) {
   try {
     const result = await sendRequest(`${BASE_URL}/${planId}/costs/${costId}`, "PATCH", updates);
 
+    // Find and return the updated cost
+    const updatedCost = result.costs.find(cost => cost._id === costId);
+
     // Emit events
     try {
       if (typeof window !== 'undefined' && window.dispatchEvent) {
         const version = Date.now();
         window.dispatchEvent(new CustomEvent('plan:cost_updated', {
-          detail: { plan: result, planId, costId, updates, version }
+          detail: { plan: result, planId, costId, updates, cost: updatedCost, version }
         }));
         window.dispatchEvent(new CustomEvent('plan:updated', {
           detail: { plan: result, version }
         }));
-        broadcastEvent('plan:cost_updated', { plan: result, planId, costId, updates, version });
+        broadcastEvent('plan:cost_updated', { plan: result, planId, costId, updates, cost: updatedCost, version });
         broadcastEvent('plan:updated', { plan: result, version });
       }
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch cost updated events', {}, e);
     }
 
-    return result;
+    return updatedCost;
   } catch (error) {
     logger.error('[plans-api] Failed to update cost', {
       planId,

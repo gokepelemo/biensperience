@@ -30,86 +30,13 @@ export function useScrollHighlight() {
   const activeHighlightRef = useRef(null);
 
   /**
-   * Scroll to a plan item and optionally highlight it
-   * @param {string} itemId - The plan item ID to scroll to
-   * @param {Object} options
-   * @param {boolean} options.shouldHighlight - Whether to apply highlight animation (default: true)
-   * @param {number} options.offset - Scroll offset for fixed headers (default: 200)
-   * @param {number} options.duration - Scroll animation duration (default: 800)
-   * @param {number} options.maxAttempts - Max retry attempts to find element (default: 8)
-   * @param {number} options.retryDelay - Delay between retries in ms (default: 200)
-   * @returns {Promise<HTMLElement|null>} The found element or null
-   */
-  const scrollToItem = useCallback(async (itemId, options = {}) => {
-    const {
-      shouldHighlight = true,
-      offset = 200,
-      duration = 300, // Reduced from 800ms for subtle, snappy scroll
-      maxAttempts = 8,
-      retryDelay = 200
-    } = options;
-
-    if (!itemId) {
-      logger.debug('[ScrollHighlight] No itemId provided');
-      return null;
-    }
-
-    logger.debug('[ScrollHighlight] Attempting to scroll to item:', { itemId, options });
-
-    // Find element with retries (element may not be in DOM yet)
-    let element = null;
-    let attempts = 0;
-
-    while (!element && attempts < maxAttempts) {
-      attempts++;
-
-      // Try multiple selector patterns
-      const escapedId = CSS.escape(itemId);
-      element =
-        document.querySelector(`[data-plan-item-id="${escapedId}"]`) ||
-        document.querySelector(`[data-plan-item-id="${itemId}"]`) ||
-        document.getElementById(itemId);
-
-      if (!element && attempts < maxAttempts) {
-        logger.debug('[ScrollHighlight] Element not found, retrying...', { attempt: attempts, maxAttempts });
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      }
-    }
-
-    if (!element) {
-      logger.warn('[ScrollHighlight] Element not found after max attempts:', { itemId, attempts });
-      return null;
-    }
-
-    logger.debug('[ScrollHighlight] Found element, scrolling...', { itemId, attempts });
-
-    // Scroll to element
-    return new Promise((resolve) => {
-      const elementRect = element.getBoundingClientRect();
-      const elementTop = elementRect.top + window.pageYOffset;
-
-      animateScroll.scrollTo(elementTop - offset, {
-        duration,
-        smooth: 'easeOutQuad', // Gentler easing to prevent bounce
-        onComplete: () => {
-          logger.debug('[ScrollHighlight] Scroll complete');
-
-          // Apply highlight after scroll completes
-          if (shouldHighlight) {
-            applyHighlight(element);
-          }
-          resolve(element);
-        }
-      });
-    });
-  }, []);
-
-  /**
    * Apply highlight animation to an element
    * @param {HTMLElement} element - Element to highlight
    */
   const applyHighlight = useCallback((element) => {
-    if (!element) return;
+    if (!element) {
+      return;
+    }
 
     // Clear any existing highlight first
     if (activeHighlightRef.current) {
@@ -158,13 +85,122 @@ export function useScrollHighlight() {
     }
   }, []);
 
-  return {
+  /**
+   * Scroll to a plan item and optionally highlight it
+   * @param {string} itemId - The plan item ID to scroll to
+   * @param {Object} options
+   * @param {boolean} options.shouldHighlight - Whether to apply highlight animation (default: true)
+   * @param {number} options.offset - Scroll offset for fixed headers (default: 200)
+   * @param {number} options.duration - Scroll animation duration (default: 800)
+   * @param {number} options.maxAttempts - Max retry attempts to find element (default: 8)
+   * @param {number} options.retryDelay - Delay between retries in ms (default: 200)
+   * @returns {Promise<HTMLElement|null>} The found element or null
+   */
+  const scrollToItem = useCallback(async (itemId, options = {}) => {
+    const {
+      shouldHighlight = true,
+      offset = 200,
+      duration = 300, // Reduced from 800ms for subtle, snappy scroll
+      maxAttempts = 8,
+      retryDelay = 200
+    } = options;
+
+    if (!itemId) {
+      logger.info('[ScrollHighlight] No itemId provided');
+      return null;
+    }
+
+    logger.info('[ScrollHighlight] Attempting to scroll to item:', { itemId, shouldHighlight, offset, duration });
+
+    // Find element with retries (element may not be in DOM yet)
+    let element = null;
+    let attempts = 0;
+
+    while (!element && attempts < maxAttempts) {
+      attempts++;
+
+      // Try multiple selector patterns
+      const escapedId = CSS.escape(itemId);
+      const selectors = [
+        `[data-plan-item-id="${escapedId}"]`,
+        `[data-plan-item-id="${itemId}"]`,
+        `#${escapedId}`
+      ];
+
+      for (const selector of selectors) {
+        try {
+          element = document.querySelector(selector);
+          if (element) {
+            logger.info('[ScrollHighlight] Found element with selector:', { selector, attempt: attempts });
+            break;
+          }
+        } catch (e) {
+          // Invalid selector, continue to next
+        }
+      }
+
+      if (!element && attempts < maxAttempts) {
+        logger.info('[ScrollHighlight] Element not found, retrying...', {
+          attempt: attempts,
+          maxAttempts,
+          searchedId: itemId,
+          selectors
+        });
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
+
+    if (!element) {
+      logger.info('[ScrollHighlight] Element not found after max attempts:', { itemId, attempts });
+      return null;
+    }
+
+    logger.debug('[ScrollHighlight] Found element, scrolling...', { itemId, attempts });
+
+    // Scroll to element
+    return new Promise((resolve) => {
+      const elementRect = element.getBoundingClientRect();
+      const elementTop = elementRect.top + window.pageYOffset;
+
+      let highlightApplied = false;
+
+      const doHighlight = () => {
+        if (highlightApplied) {
+          return;
+        }
+        highlightApplied = true;
+        if (shouldHighlight) {
+          applyHighlight(element);
+        }
+        resolve(element);
+      };
+
+      // Fallback timeout in case onComplete doesn't fire
+      const fallbackTimeout = setTimeout(() => {
+        doHighlight();
+      }, duration + 100);
+
+      animateScroll.scrollTo(elementTop - offset, {
+        duration,
+        smooth: 'easeOutQuad', // Gentler easing to prevent bounce
+        onComplete: () => {
+          clearTimeout(fallbackTimeout);
+          logger.debug('[ScrollHighlight] Scroll complete');
+          doHighlight();
+        }
+      });
+    });
+  }, [applyHighlight]);
+
+  const returnValue = {
     scrollToItem,
     applyHighlight,
     clearHighlight,
     HIGHLIGHT_CLASS,
     HIGHLIGHT_DURATION
   };
+
+  return returnValue;
 }
 
 export default useScrollHighlight;

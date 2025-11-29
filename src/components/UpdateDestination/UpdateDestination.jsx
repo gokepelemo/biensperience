@@ -14,8 +14,7 @@ import Modal from "../Modal/Modal";
 import FormField from "../FormField/FormField";
 import TravelTipsManager from "../TravelTipsManager/TravelTipsManager";
 import { Form } from "react-bootstrap";
-import { isOwner } from "../../utilities/permissions";
-import { isSuperAdmin } from "../../utilities/permissions";
+import { isOwner, isSuperAdmin } from "../../utilities/permissions";
 
 // Custom hooks
 import { useChangeTrackingHandler } from "../../hooks/useFormChangeHandler";

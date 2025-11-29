@@ -5,6 +5,7 @@ import { showExperience } from '../utilities/experiences-api';
 import { getUserPlans } from '../utilities/plans-api';
 import { useUser } from './UserContext';
 import { logger } from '../utilities/logger';
+import { eventBus } from '../utilities/event-bus';
 
 logger.debug('DataContext module loaded');
 
@@ -866,14 +867,15 @@ export function DataProvider({ children }) {
       }
     };
 
-    window.addEventListener('bien:plan_created', onPlanCreated);
-    window.addEventListener('bien:plan_updated', onPlanUpdated);
-    window.addEventListener('bien:plan_deleted', onPlanDeleted);
+    // Subscribe to event bus instead of window.addEventListener
+    const unsubscribeCreated = eventBus.subscribe('bien:plan_created', onPlanCreated);
+    const unsubscribeUpdated = eventBus.subscribe('bien:plan_updated', onPlanUpdated);
+    const unsubscribeDeleted = eventBus.subscribe('bien:plan_deleted', onPlanDeleted);
 
     return () => {
-      window.removeEventListener('bien:plan_created', onPlanCreated);
-      window.removeEventListener('bien:plan_updated', onPlanUpdated);
-      window.removeEventListener('bien:plan_deleted', onPlanDeleted);
+      unsubscribeCreated();
+      unsubscribeUpdated();
+      unsubscribeDeleted();
     };
   }, []);
 
@@ -1003,28 +1005,28 @@ export function DataProvider({ children }) {
       }
     };
 
-    // Register event listeners
-    window.addEventListener('experience:updated', handleExperienceUpdated);
-    window.addEventListener('experience:created', handleExperienceCreated);
-    window.addEventListener('experience:deleted', handleExperienceDeleted);
-    window.addEventListener('destination:updated', handleDestinationUpdated);
-    window.addEventListener('destination:created', handleDestinationCreated);
-    window.addEventListener('destination:deleted', handleDestinationDeleted);
-    window.addEventListener('plan:updated', handlePlanUpdated);
-    window.addEventListener('plan:created', handlePlanCreated);
-    window.addEventListener('plan:deleted', handlePlanDeleted);
+    // Register event listeners using event bus
+    const unsubscribeExperienceUpdated = eventBus.subscribe('experience:updated', handleExperienceUpdated);
+    const unsubscribeExperienceCreated = eventBus.subscribe('experience:created', handleExperienceCreated);
+    const unsubscribeExperienceDeleted = eventBus.subscribe('experience:deleted', handleExperienceDeleted);
+    const unsubscribeDestinationUpdated = eventBus.subscribe('destination:updated', handleDestinationUpdated);
+    const unsubscribeDestinationCreated = eventBus.subscribe('destination:created', handleDestinationCreated);
+    const unsubscribeDestinationDeleted = eventBus.subscribe('destination:deleted', handleDestinationDeleted);
+    const unsubscribePlanUpdated = eventBus.subscribe('plan:updated', handlePlanUpdated);
+    const unsubscribePlanCreated = eventBus.subscribe('plan:created', handlePlanCreated);
+    const unsubscribePlanDeleted = eventBus.subscribe('plan:deleted', handlePlanDeleted);
 
     // Cleanup listeners on unmount
     return () => {
-      window.removeEventListener('experience:updated', handleExperienceUpdated);
-      window.removeEventListener('experience:created', handleExperienceCreated);
-      window.removeEventListener('experience:deleted', handleExperienceDeleted);
-      window.removeEventListener('destination:updated', handleDestinationUpdated);
-      window.removeEventListener('destination:created', handleDestinationCreated);
-      window.removeEventListener('destination:deleted', handleDestinationDeleted);
-      window.removeEventListener('plan:updated', handlePlanUpdated);
-      window.removeEventListener('plan:created', handlePlanCreated);
-      window.removeEventListener('plan:deleted', handlePlanDeleted);
+      unsubscribeExperienceUpdated();
+      unsubscribeExperienceCreated();
+      unsubscribeExperienceDeleted();
+      unsubscribeDestinationUpdated();
+      unsubscribeDestinationCreated();
+      unsubscribeDestinationDeleted();
+      unsubscribePlanUpdated();
+      unsubscribePlanCreated();
+      unsubscribePlanDeleted();
     };
   }, [updateExperience, addExperience, removeExperience, updateDestination, addDestination, removeDestination, updatePlan, addPlan, removePlan, fetchPlans]);
 

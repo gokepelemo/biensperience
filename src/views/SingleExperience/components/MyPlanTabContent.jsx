@@ -4,7 +4,7 @@
  * Updated to match The Plan tab design for cost and planning days display
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsThreeDotsVertical } from 'react-icons/bs';
 import {
@@ -129,8 +129,9 @@ function PlanActionsDropdown({
 
 /**
  * SortablePlanItem - Individual plan item with drag-and-drop support
+ * Memoized to prevent unnecessary re-renders when only one item's complete state changes
  */
-function SortablePlanItem({
+const SortablePlanItem = memo(function SortablePlanItem({
   planItem,
   currentPlan,
   user,
@@ -172,7 +173,7 @@ function SortablePlanItem({
     <div
       ref={setNodeRef}
       style={style}
-      data-plan-item-id={planItem.plan_item_id || planItem._id}
+      data-plan-item-id={planItem._id}
       className={`plan-item-card mb-3 overflow-hidden ${
         planItem.isVisible ? "" : "collapsed"
       } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''}`}
@@ -317,7 +318,11 @@ function SortablePlanItem({
                       : "btn-outline-success"
                   }`}
                   type="button"
-                  onClick={() => handlePlanItemToggleComplete(planItem)}
+                  onClick={(e) => {
+                    // Blur the button to prevent focus-based scroll restoration
+                    e.currentTarget.blur();
+                    handlePlanItemToggleComplete(planItem);
+                  }}
                   onMouseEnter={() =>
                     setHoveredPlanItem(
                       planItem._id ||
@@ -425,7 +430,19 @@ function SortablePlanItem({
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render if these specific props change
+  // This prevents re-render when sibling items' complete state changes
+  return (
+    prevProps.planItem._id === nextProps.planItem._id &&
+    prevProps.planItem.complete === nextProps.planItem.complete &&
+    prevProps.planItem.text === nextProps.planItem.text &&
+    prevProps.planItem.isVisible === nextProps.planItem.isVisible &&
+    prevProps.planItem.isChild === nextProps.planItem.isChild &&
+    prevProps.canEdit === nextProps.canEdit &&
+    prevProps.hoveredPlanItem === nextProps.hoveredPlanItem
+  );
+});
 
 export default function MyPlanTabContent({
   // Plan selection & user
@@ -1025,6 +1042,7 @@ export default function MyPlanTabContent({
       <CostsList
         planId={selectedPlanId}
         costs={costs}
+        costSummary={costSummary}
         collaborators={planOwner ? [planOwner, ...(planCollaborators || [])] : planCollaborators || []}
         planItems={currentPlan.plan || []}
         canEdit={canEdit}

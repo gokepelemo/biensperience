@@ -18,6 +18,7 @@ export default function CostsList({
   // Plan data
   planId,
   costs = [],
+  costSummary = null,
   collaborators = [], // Array of { _id, name } for dropdowns
   planItems = [], // Array of { _id, text } for dropdowns
 
@@ -218,6 +219,7 @@ export default function CostsList({
       {showSummary && costs.length > 0 && (
         <div className={styles.summaryWrapper}>
           <CostSummary
+            summary={costSummary}
             costs={costs}
             collaborators={collaborators}
             planItems={planItems}

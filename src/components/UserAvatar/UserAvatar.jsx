@@ -5,6 +5,22 @@ import debug from "../../utilities/debug";
 import EntitySchema from "../OpenGraph/EntitySchema";
 
 /**
+ * Ensure a string is safe for use in DOM attributes and text nodes
+ * Strips leading/trailing whitespace and converts to string. Does not allow HTML tags.
+ */
+function sanitizeText(text) {
+  if (!text && text !== 0) return '';
+  try {
+    // Convert to string and remove surrounding whitespace
+    const s = String(text).trim();
+    // Remove angle brackets to avoid accidental HTML-like values
+    return s.replace(/[<>]/g, '');
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
  * Validate that a URL is safe for use in img src attribute
  * Prevents XSS via javascript:, data:, or other dangerous protocols
  *
@@ -79,13 +95,16 @@ const UserAvatar = ({
   const photoUrl = getPhotoUrl(user);
   debug.log('UserAvatar - photoUrl:', photoUrl);
 
+  const safePhotoUrl = isSafeImageUrl(photoUrl) ? photoUrl : null;
+  const sanitizedName = sanitizeText(user.name || '');
+
   const avatarContent = (
     <>
-      {photoUrl && isSafeImageUrl(photoUrl) ? (
-        <img src={photoUrl} alt={user.name} />
+      {safePhotoUrl ? (
+        <img src={safePhotoUrl} alt={sanitizedName || 'User avatar'} />
       ) : (
         <div className={styles.avatarInitials}>
-          {user.name?.charAt(0).toUpperCase()}
+          {sanitizedName ? sanitizedName.charAt(0).toUpperCase() : ''}
         </div>
       )}
     </>
@@ -93,7 +112,7 @@ const UserAvatar = ({
 
   const sizeClass = styles[`userAvatar${size.charAt(0).toUpperCase() + size.slice(1)}`];
   const avatarClasses = `${styles.userAvatar} ${sizeClass} ${className}`;
-  const avatarTitle = title || user.name;
+  const avatarTitle = sanitizeText(title || user.name || '');
 
   if (linkToProfile && user._id) {
     return (

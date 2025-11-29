@@ -10,6 +10,7 @@
 
 /* App responsive padding */
 .app {
+  padding-top: 70px; /* Account for static navbar height */
   padding-bottom: $space-8;
   min-height: 100vh;
   background-color: var(--color-bg-primary);
@@ -26,7 +27,7 @@
 :global(#main-content) {
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
-  min-height: calc(100vh - 4rem); /* Account for navbar height */
+  min-height: calc(100vh - 70px - 2rem); /* Account for navbar + app padding-bottom */
   padding-bottom: $space-8;
 }
 

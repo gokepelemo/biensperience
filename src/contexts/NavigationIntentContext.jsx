@@ -116,16 +116,29 @@ export function NavigationIntentProvider({ children }) {
   useEffect(() => {
     // Only process on initial mount with a hash
     const hash = window.location.hash;
-    if (!hash || hash.length < 2) return;
+    logger.debug('[NavigationIntent] Hash detection on mount:', { hash, pathname: window.location.pathname });
+
+    if (!hash || hash.length < 2) {
+      logger.debug('[NavigationIntent] No hash or too short, skipping');
+      return;
+    }
 
     // Check if this is a plan-related hash
     const cleanHash = hash.slice(1); // Remove leading #
-    if (!cleanHash.startsWith('plan-')) return;
+    if (!cleanHash.startsWith('plan-')) {
+      logger.debug('[NavigationIntent] Hash does not start with plan-, skipping:', cleanHash);
+      return;
+    }
 
     // Parse plan and item IDs from hash
     // Format: #plan-{planId} or #plan-{planId}-item-{itemId}
     const parts = cleanHash.split('-');
-    if (parts.length < 2) return;
+    logger.debug('[NavigationIntent] Hash parts:', parts);
+
+    if (parts.length < 2) {
+      logger.debug('[NavigationIntent] Not enough parts in hash, skipping');
+      return;
+    }
 
     const planId = parts[1];
     let itemId = null;
@@ -136,10 +149,14 @@ export function NavigationIntentProvider({ children }) {
       itemId = parts[itemIndex + 1];
     }
 
+    logger.debug('[NavigationIntent] Parsed IDs from hash:', { planId, itemId, itemIndex });
+
     // Create deep-link intent if we don't already have one
     if (!intent && planId) {
-      logger.debug('[NavigationIntent] Detected deep-link hash on mount:', { planId, itemId });
+      logger.debug('[NavigationIntent] Creating deep-link intent:', { planId, itemId });
       createIntent(INTENT_TYPES.DEEP_LINK, planId, itemId, true);
+    } else {
+      logger.debug('[NavigationIntent] Not creating intent:', { intentExists: !!intent, planId });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount

@@ -169,7 +169,11 @@ export default function CostSummary({
     );
   }
 
-  const { totalCost, sharedCosts, perPersonSplit, collaboratorCount } = calculatedSummary;
+  const { totalCost, sharedCosts, perPersonShare, perPersonSplit, collaboratorCount } = calculatedSummary;
+
+  // Normalize sharedCosts - API returns object, fallback returns number
+  const sharedCostsAmount = typeof sharedCosts === 'object' ? sharedCosts.total : sharedCosts;
+  const perPersonSplitAmount = typeof perPersonShare === 'number' ? perPersonShare : (typeof perPersonSplit === 'number' ? perPersonSplit : 0);
 
   // Compact view - just total
   if (compact) {
@@ -197,19 +201,19 @@ export default function CostSummary({
           variant="primary"
         />
 
-        {sharedCosts > 0 && (
+        {sharedCostsAmount > 0 && (
           <SummaryCard
             icon={FaShareAlt}
             label={costStrings.sharedCosts}
-            value={formatActualCost(sharedCosts, { exact: true, currency })}
+            value={formatActualCost(sharedCostsAmount, { exact: true, currency })}
           />
         )}
 
-        {collaboratorCount > 1 && perPersonSplit > 0 && (
+        {collaboratorCount > 1 && perPersonSplitAmount > 0 && (
           <SummaryCard
             icon={FaUserFriends}
             label={costStrings.perPersonShare}
-            value={formatActualCost(perPersonSplit, { exact: true, currency })}
+            value={formatActualCost(perPersonSplitAmount, { exact: true, currency })}
             subValue={`${collaboratorCount} ${lang.current.label.people}`}
           />
         )}

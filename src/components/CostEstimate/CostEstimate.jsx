@@ -17,6 +17,9 @@
  *
  * // Badge variant (self-contained styling)
  * <CostEstimate cost={1500} variant="badge" />
+ *
+ * // Custom tooltip content
+ * <CostEstimate cost={1500} tooltipContent="Custom tooltip text" />
  */
 
 import { useMemo } from 'react';
@@ -38,17 +41,20 @@ export default function CostEstimate({
   variant = 'inline', // 'inline' | 'badge'
   currency = 'USD',
   compact = true,
+  isActual = false, // New prop to distinguish actual vs estimated costs
+  exact = false, // New prop to show exact amounts without rounding
+  tooltipContent, // Custom tooltip content (overrides default)
   className = ''
 }) {
   // Format the cost using the utility
   const formattedCost = useMemo(() => {
-    return formatCostEstimate(cost, { currency, compact });
-  }, [cost, currency, compact]);
+    return formatCostEstimate(cost, { currency, compact, exact });
+  }, [cost, currency, compact, exact]);
 
-  // Get tooltip text with exact amount
+  // Get tooltip text - use custom content if provided, otherwise default
   const tooltipText = useMemo(() => {
-    return getCostEstimateTooltip(cost, { currency });
-  }, [cost, currency]);
+    return tooltipContent !== undefined ? tooltipContent : getCostEstimateTooltip(cost, { currency, isActual });
+  }, [cost, currency, isActual, tooltipContent]);
 
   // Get dollar signs for visual indicator
   const dollarSignsData = useMemo(() => {

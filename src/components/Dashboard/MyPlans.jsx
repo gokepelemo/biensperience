@@ -12,16 +12,23 @@ import {
   HashLink,
   EmptyState
 } from '../design-system';
-import { FaCheckCircle, FaCalendar, FaTasks, FaChevronRight } from 'react-icons/fa';
+import { FaCheckCircle, FaCalendar, FaTasks, FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import CostEstimate from '../CostEstimate/CostEstimate';
-import { getUserPlans } from '../../utilities/plans-api';
+import ActualCost from '../ActualCost/ActualCost';
+import { getUserPlans, getCollaborators } from '../../utilities/plans-api';
 import { usePlanExperience } from '../../contexts/PlanExperienceContext';
+import { formatDateMetricCard } from '../../utilities/date-utils';
+import { eventBus } from '../../utilities/event-bus';
+import { lang } from '../../lang.constants';
+import { getTotalCostTooltip } from '../../utilities/cost-utils';
 import styles from './MyPlans.module.scss';
 
 export default function MyPlans() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedPlanId, setExpandedPlanId] = useState(null);
+  const [expandedCostAccordions, setExpandedCostAccordions] = useState(new Set());
+  const [collaborators, setCollaborators] = useState(new Map()); // planId -> collaborators array
   const navigate = useNavigate();
   const { openPlanExperienceModal } = usePlanExperience();
 
@@ -35,6 +42,22 @@ export default function MyPlans() {
         // API may return { data: [...] } or an array
         const list = (resp && resp.data) ? resp.data : (Array.isArray(resp) ? resp : (resp?.plans || []));
         setPlans(list);
+
+        // Fetch collaborators for each plan
+        const collaboratorsMap = new Map();
+        for (const plan of list) {
+          try {
+            const planCollaborators = await getCollaborators(plan._id);
+            collaboratorsMap.set(plan._id, planCollaborators || []);
+          } catch (e) {
+            // If collaborators fetch fails, set empty array
+            collaboratorsMap.set(plan._id, []);
+          }
+        }
+        if (mounted) {
+          setCollaborators(collaboratorsMap);
+        }
+
         // Auto-expand first plan only (default collapsed state)
         if (list.length > 0) {
           setExpandedPlanId(list[0]._id);
@@ -51,7 +74,7 @@ export default function MyPlans() {
 
   // Listen for plan updates (e.g., plan item completion changes)
   useEffect(() => {
-    const handlePlanUpdated = (event) => {
+    const unsubscribe = eventBus.subscribe('plan:updated', async (event) => {
       // Event payload may have plan data in different locations depending on the source
       // - updatePlanItem: { plan, planId }
       // - updatePlan: { data, planId, version }
@@ -77,16 +100,35 @@ export default function MyPlans() {
           return p;
         });
       });
-    };
 
-    window.addEventListener('plan:updated', handlePlanUpdated);
-    return () => window.removeEventListener('plan:updated', handlePlanUpdated);
+      // Refresh collaborators for this plan
+      try {
+        const planCollaborators = await getCollaborators(plan._id);
+        setCollaborators(prev => new Map(prev).set(plan._id, planCollaborators || []));
+      } catch (e) {
+        // If collaborators fetch fails, keep existing data
+      }
+    });
+
+    return unsubscribe;
   }, []);
 
   const togglePlan = (planId) => {
     // If clicking already expanded plan, collapse it
     // Otherwise, expand the clicked plan (collapsing any other)
     setExpandedPlanId(expandedPlanId === planId ? null : planId);
+  };
+
+  const toggleCostAccordion = (planId) => {
+    setExpandedCostAccordions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(planId)) {
+        newSet.delete(planId);
+      } else {
+        newSet.add(planId);
+      }
+      return newSet;
+    });
   };
 
   return (
@@ -103,9 +145,9 @@ export default function MyPlans() {
           boxShadow: 'var(--shadow-sm)'
         }}
       >
-        <Heading level={4} className="mb-2">My Plans</Heading>
+        <Heading level={4} className="mb-2">{lang.en.heading.myPlans}</Heading>
         <Text size="sm" variant="muted" className="mb-4">
-          Your saved plans with progress and cost estimates
+          {lang.en.dashboard.myPlansDescription}
         </Text>
 
         {loading && (
@@ -138,6 +180,12 @@ export default function MyPlans() {
                 ? plan.completion_percentage
                 : (itemCount > 0 ? Math.round((completedCount / itemCount) * 100) : 0);
 
+              // Calculate actual total cost from plan costs
+              const actualTotalCost = (plan.costs || []).reduce((sum, cost) => sum + (cost.cost || 0), 0);
+              const hasActualCosts = plan.costs && plan.costs.length > 0;
+              const experienceEstimate = plan.experience?.cost_estimate || 0;
+              const planEstimate = plan.total_cost || 0;
+
               return (
                 <div
                   key={plan._id}
@@ -169,7 +217,7 @@ export default function MyPlans() {
                           {plan.planned_date && (
                             <span className={styles.metaItem}>
                               <FaCalendar size={12} />
-                              {new Date(plan.planned_date).toLocaleDateString()}
+                              {formatDateMetricCard(plan.planned_date)}
                             </span>
                           )}
                         </div>
@@ -177,13 +225,43 @@ export default function MyPlans() {
 
                       <div className={styles.planHeaderRight}>
                         <div className={styles.planCost}>
-                          <Text weight="bold" size="lg">
-                            <CostEstimate
-                              cost={plan.total_cost || 0}
-                              showTooltip={true}
-                              compact={true}
-                            />
-                          </Text>
+                          {hasActualCosts ? (
+                            <div className={styles.costBreakdown}>
+                              <div className={styles.costRow}>
+                                <Text size="sm" variant="muted">{lang.en.label.estimatedLabel}</Text>
+                                <Text weight="semibold" size="md">
+                                  <CostEstimate
+                                    cost={planEstimate}
+                                    showTooltip={true}
+                                    compact={true}
+                                    isActual={false}
+                                  />
+                                </Text>
+                              </div>
+                              <div className={styles.costRow}>
+                                <Text size="sm" variant="muted">{lang.en.label.actualLabel}</Text>
+                                <Text weight="bold" size="lg">
+                                  <CostEstimate
+                                    cost={actualTotalCost}
+                                    showTooltip={true}
+                                    compact={true}
+                                    isActual={true}
+                                    exact={true}
+                                  />
+                                </Text>
+                              </div>
+                            </div>
+                          ) : (
+                            <Text weight="bold" size="lg">
+                              <CostEstimate
+                                cost={plan.total_cost || 0}
+                                showTooltip={true}
+                                compact={true}
+                                isActual={true}
+                                exact={true}
+                              />
+                            </Text>
+                          )}
                         </div>
                         <div className={`${styles.expandIcon} ${isExpanded ? styles.rotated : ''}`}>
                           <FaChevronRight size={16} />
@@ -216,11 +294,11 @@ export default function MyPlans() {
                       <div className={styles.planItemsGrid}>
                         {(plan.plan || []).map((item) => {
                           const isCompleted = item.complete || false;
-                          const itemLink = `/experiences/${plan.experience?._id || plan.experience}#plan-${plan._id}-item-${item.plan_item_id || item._id}`;
+                          const itemLink = `/experiences/${plan.experience?._id || plan.experience}#plan-${plan._id}-item-${item._id}`;
 
                           return (
                             <HashLink
-                              key={item.plan_item_id || item._id}
+                              key={item._id}
                               to={itemLink}
                               className={`${styles.planItem} ${isCompleted ? styles.completed : ''}`}
                               onClick={(e) => e.stopPropagation()}
@@ -251,6 +329,8 @@ export default function MyPlans() {
                                       cost={item.cost}
                                       showTooltip={true}
                                       compact={true}
+                                      isActual={true}
+                                      exact={true}
                                     />
                                   </Text>
                                 )}
@@ -263,30 +343,59 @@ export default function MyPlans() {
                       {/* Additional Costs */}
                       {plan.costs && plan.costs.length > 0 && (
                         <div className={styles.additionalCosts}>
-                          <Heading level={6} className="mb-3">Additional Costs</Heading>
-                          <Stack spacing="sm">
-                            {plan.costs.map((c) => (
-                              <FlexBetween
-                                key={c._id || `${c.title}-${c.cost}`}
-                                className={styles.costItem}
-                              >
-                                <div className={styles.costInfo}>
-                                  <Text weight="semibold">{c.title}</Text>
-                                  {c.description && (
-                                    <Text size="sm" variant="muted">{c.description}</Text>
-                                  )}
-                                </div>
-                                <Text weight="semibold">
+                          <Heading level={6} className="mb-3">{lang.en.heading.actualCosts}</Heading>
+                          
+                          {/* Total Cost Accordion */}
+                          <div className={styles.totalCostAccordion}>
+                            <div 
+                              className={`${styles.totalCostCard} ${expandedCostAccordions.has(plan._id) ? styles.expanded : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleCostAccordion(plan._id);
+                              }}
+                              role="button"
+                              tabIndex={0}
+                              aria-expanded={expandedCostAccordions.has(plan._id)}
+                              aria-label={`${expandedCostAccordions.has(plan._id) ? 'Collapse' : 'Expand'} cost breakdown for ${plan.experience?.name || 'Unnamed Experience'}`}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  toggleCostAccordion(plan._id);
+                                }
+                              }}
+                            >
+                              <div className={styles.totalCostHeader}>
+                                <Text weight="semibold" size="md">{lang.en.label.totalSpent}</Text>
+                                <div className={styles.totalCostValue}>
                                   <CostEstimate
-                                    cost={c.cost || 0}
-                                    currency={c.currency || 'USD'}
+                                    cost={actualTotalCost}
+                                    currency="USD"
                                     showTooltip={true}
                                     compact={true}
+                                    isActual={true}
+                                    exact={true}
+                                    tooltipContent={getTotalCostTooltip(actualTotalCost, plan.costs, { currency: 'USD' })}
                                   />
-                                </Text>
-                              </FlexBetween>
-                            ))}
-                          </Stack>
+                                  <div className={`${styles.expandIcon} ${expandedCostAccordions.has(plan._id) ? styles.rotated : ''}`}>
+                                    <FaChevronRight size={14} />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Individual Costs - Accordion Body */}
+                            {expandedCostAccordions.has(plan._id) && (
+                              <div className={styles.costsAccordionBody}>
+                                <ActualCost
+                                  costs={plan.costs}
+                                  collaborators={collaborators.get(plan._id) || []}
+                                  planItems={plan.plan || []}
+                                  plan={plan}
+                                  currency="USD"
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
 

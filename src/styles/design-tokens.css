@@ -107,6 +107,13 @@
   --gradient-primary-animated: linear-gradient(-45deg, #667eea, #764ba2, #667eea, #764ba2);
 
   /* ============================================
+     BOOTSTRAP OVERRIDES
+     ============================================ */
+
+  /* Dropdown active/hover background - use purple gradient instead of blue */
+  --bs-dropdown-link-active-bg: var(--gradient-primary);
+
+  /* ============================================
      BUTTON TOKENS - Unified Button Design System
      ============================================
 

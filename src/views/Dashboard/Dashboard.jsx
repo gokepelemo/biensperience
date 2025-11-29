@@ -6,6 +6,7 @@ import { getUser } from '../../utilities/users-service';
 import { logger } from '../../utilities/logger';
 import { useToast } from '../../contexts/ToastContext';
 import { SkeletonLoader, Heading, Text } from '../../components/design-system';
+import { eventBus } from '../../utilities/event-bus';
 import {
   StatsCard,
   ActivityList,
@@ -58,12 +59,13 @@ export default function Dashboard() {
       fetchDashboardData();
     };
 
-    window.addEventListener('plan:updated', handlePlanUpdated);
-    window.addEventListener('bien:plan_updated', handlePlanUpdated);
+    // Subscribe to event bus instead of window.addEventListener
+    const unsubscribePlanUpdated = eventBus.subscribe('plan:updated', handlePlanUpdated);
+    const unsubscribeBienPlanUpdated = eventBus.subscribe('bien:plan_updated', handlePlanUpdated);
 
     return () => {
-      window.removeEventListener('plan:updated', handlePlanUpdated);
-      window.removeEventListener('bien:plan_updated', handlePlanUpdated);
+      unsubscribePlanUpdated();
+      unsubscribeBienPlanUpdated();
     };
   }, []);
 

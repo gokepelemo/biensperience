@@ -73,6 +73,35 @@
   width: 100%;
 }
 
+/* Clear (X) button inside the input */
+.autocompleteClear {
+  position: absolute;
+  right: $space-3; /* 12px */
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+  padding: $space-1;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2; /* Above input but below dropdown */
+
+  &:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-secondary);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+  }
+}
+
 .autocompleteSearchIcon {
   position: absolute;
   left: $space-3;

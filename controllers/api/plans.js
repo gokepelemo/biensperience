@@ -271,6 +271,10 @@ const createPlan = asyncHandler(async (req, res) => {
 const getUserPlans = asyncHandler(async (req, res) => {
   const plans = await Plan.find({ user: req.user._id })
     .populate({
+      path: 'user',
+      select: 'name email photos default_photo_id'
+    })
+    .populate({
       path: 'experience',
       select: 'name destination photos default_photo_id',
       populate: {
@@ -2513,7 +2517,7 @@ const getCostSummary = asyncHandler(async (req, res) => {
       const collabId = c.collaborator._id ? c.collaborator._id.toString() : c.collaborator.toString();
       if (!collaboratorCostMap[collabId]) {
         collaboratorCostMap[collabId] = {
-          user: c.collaborator._id ? c.collaborator : userMap[collabId] || { _id: collabId, name: 'Unknown' },
+          collaborator: c.collaborator._id ? c.collaborator : userMap[collabId] || { _id: collabId, name: 'Unknown' },
           total: 0,
           costs: []
         };
@@ -2580,12 +2584,12 @@ const getCostSummary = asyncHandler(async (req, res) => {
   const sharedPerPerson = sharedCosts.total / numPeople;
 
   const perPersonSplit = collaboratorIds.map(collabId => {
-    const user = userMap[collabId] || { _id: collabId, name: 'Unknown' };
+    const collaborator = userMap[collabId] || { _id: collabId, name: 'Unknown' };
     const individualCosts = collaboratorCostMap[collabId];
     const individualTotal = individualCosts ? individualCosts.total : 0;
 
     return {
-      user,
+      collaborator,
       individualTotal,
       sharedPortion: sharedPerPerson,
       grandTotal: individualTotal + sharedPerPerson
@@ -2602,6 +2606,7 @@ const getCostSummary = asyncHandler(async (req, res) => {
     costsByPlanItem,
     sharedCosts,
     generalCosts,
+    perPersonShare: sharedPerPerson,
     perPersonSplit,
     collaboratorCount: numPeople
   });

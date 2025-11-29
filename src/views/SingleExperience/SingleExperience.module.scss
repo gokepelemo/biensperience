@@ -192,6 +192,11 @@
     font-weight: $font-weight-semibold;
     color: var(--color-text-primary);
     margin-bottom: $space-4;
+
+    // Center on mobile and tablet viewports
+    @include breakpoint-max(md) {
+      text-align: center;
+    }
   }
 }
 
@@ -213,6 +218,16 @@
   .detailValue {
     color: var(--color-text-primary);
     font-weight: $font-weight-medium;
+  }
+
+  /* Center experience details (estimated cost and planning time) on mobile and tablet */
+  @include breakpoint-max(md) {
+    text-align: center;
+
+    .detailLabel,
+    .detailValue {
+      text-align: center;
+    }
   }
 }
 

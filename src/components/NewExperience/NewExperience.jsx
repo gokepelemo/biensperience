@@ -307,6 +307,9 @@ export default function NewExperience() {
                   onSelect={(destination) => {
                     // Check if it's the "Create New" option
                     if (destination.isCreateOption) {
+                      // Ensure the destinationInput tracked by the hook is set
+                      // to the current search term so the modal prefill uses it.
+                      setDestinationInput(destinationSearchTerm);
                       handleCreateDestinationClick(new Event('click'));
                       return;
                     }

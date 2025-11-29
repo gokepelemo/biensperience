@@ -10,9 +10,10 @@ import { checkUserPlanForExperience, createPlan, deletePlan } from "../../utilit
 import { handleError } from "../../utilities/error-handler";
 import { isOwner } from "../../utilities/permissions";
 import { logger } from "../../utilities/logger";
-import { useUser } from "../../contexts/UserContext";
+import { eventBus } from '../../utilities/event-bus';
 import { useData } from "../../contexts/DataContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useUser } from "../../contexts/UserContext";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import EntitySchema from "../OpenGraph/EntitySchema";
 import imagePreloader from '../../utilities/imagePreloader';
@@ -168,9 +169,9 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const onPlanCreated = (e) => {
+    const onPlanCreated = (event) => {
       try {
-        const detail = e?.detail || {};
+        const detail = event?.detail || {};
         const createdPlan = detail.plan;
         // Derive experience id from event detail or plan payload
         const rawExp = detail.experienceId || createdPlan?.experience?._id || createdPlan?.experience || null;
@@ -185,9 +186,9 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
       }
     };
 
-    const onPlanDeleted = (e) => {
+    const onPlanDeleted = (event) => {
       try {
-        const detail = e?.detail || {};
+        const detail = event?.detail || {};
         const deletedPlan = detail.plan;
         const rawExp = detail.experienceId || deletedPlan?.experience?._id || deletedPlan?.experience || null;
         const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
@@ -201,11 +202,9 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
       }
     };
 
-    window.addEventListener('bien:plan_created', onPlanCreated);
-    window.addEventListener('bien:plan_deleted', onPlanDeleted);
-    const onPlanUpdated = (e) => {
+    const onPlanUpdated = (event) => {
       try {
-        const detail = e?.detail || {};
+        const detail = event?.detail || {};
         const updatedPlan = detail.plan;
         const rawExp = detail.experienceId || updatedPlan?.experience?._id || updatedPlan?.experience || null;
         const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
@@ -219,12 +218,16 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
         logger.warn('[ExperienceCard] bien:plan_updated handler failed', { error: err?.message });
       }
     };
-    window.addEventListener('bien:plan_updated', onPlanUpdated);
+
+    // Subscribe to event bus instead of window.addEventListener
+    const unsubscribeCreated = eventBus.subscribe('bien:plan_created', onPlanCreated);
+    const unsubscribeDeleted = eventBus.subscribe('bien:plan_deleted', onPlanDeleted);
+    const unsubscribeUpdated = eventBus.subscribe('bien:plan_updated', onPlanUpdated);
 
     return () => {
-      window.removeEventListener('bien:plan_created', onPlanCreated);
-      window.removeEventListener('bien:plan_deleted', onPlanDeleted);
-      window.removeEventListener('bien:plan_updated', onPlanUpdated);
+      unsubscribeCreated();
+      unsubscribeDeleted();
+      unsubscribeUpdated();
     };
   }, [experience._id, setLocalPlanStateWithCache]);
 

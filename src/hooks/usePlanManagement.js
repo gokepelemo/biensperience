@@ -577,9 +577,11 @@ export default function usePlanManagement(experienceId, userId) {
         return reconciled || prev;
       });
 
-      // Update collaborative plans
-      setCollaborativePlans(prev =>
-        prev.map(p => {
+      // Update collaborative plans - but only if something actually changes
+      // to prevent unnecessary re-renders that cause scroll issues
+      setCollaborativePlans(prev => {
+        let changed = false;
+        const updated = prev.map(p => {
           if (p._id !== planId) return p;
 
           // Use conflict resolver for concurrent edits
@@ -591,14 +593,19 @@ export default function usePlanManagement(experienceId, userId) {
               pVectorClock,
               eventVectorClock
             );
+            if (resolved !== p) changed = true;
             return resolved;
           }
 
           // No conflict - use standard reconciliation
           const reconciled = reconcileState(p, eventStructure, reconcileOptions);
+          if (reconciled && reconciled !== p) changed = true;
           return reconciled || p;
-        })
-      );
+        });
+
+        // Only return new array if something actually changed
+        return changed ? updated : prev;
+      });
 
       // Update displayed date ONLY if it's the user's plan
       const planUserId = extractUserId(data.user);

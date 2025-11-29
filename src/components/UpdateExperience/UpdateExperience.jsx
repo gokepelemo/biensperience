@@ -16,9 +16,8 @@ import { handleError } from "../../utilities/error-handler";
 import { formatChanges } from "../../utilities/change-formatter";
 import Modal from "../Modal/Modal";
 import FormField from "../FormField/FormField";
-import { isOwner } from "../../utilities/permissions";
+import { isOwner, isSuperAdmin } from "../../utilities/permissions";
 import { Form } from "react-bootstrap";
-import { isSuperAdmin } from "../../utilities/permissions";
 import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 
 // Custom hooks

@@ -1,5 +1,6 @@
 import React from 'react';
 import styles from './ActionButtons.module.scss';
+import { lang } from '../../lang.constants';
 
 /**
  * ActionButtons Component
@@ -88,64 +89,64 @@ export const ButtonPresets = {
   }),
 
   add: (onClick, options = {}) => ({
-    label: 'Add',
+    label: lang.en.button.add,
     onClick,
     variant: 'primary',
     icon: '✚',
-    tooltip: 'Add new item',
+    tooltip: lang.en.button.addNewItemTooltip,
     ...options,
   }),
 
   save: (onClick, options = {}) => ({
-    label: 'Save',
+    label: lang.en.button.save,
     onClick,
     variant: 'success',
     icon: '💾',
-    tooltip: 'Save changes',
+    tooltip: lang.en.button.saveChangesTooltip,
     ...options,
   }),
 
   cancel: (onClick, options = {}) => ({
-    label: 'Cancel',
+    label: lang.en.button.cancel,
     onClick,
     variant: 'secondary',
-    tooltip: 'Cancel action',
+    tooltip: lang.en.button.cancelTooltip,
     ...options,
   }),
 
   back: (onClick, options = {}) => ({
-    label: 'Back',
+    label: lang.en.button.back,
     onClick,
     variant: 'outline-secondary',
     icon: '←',
-    tooltip: 'Go back',
+    tooltip: lang.en.button.backTooltip,
     ...options,
   }),
 
   favorite: (onClick, isFavorited, options = {}) => ({
-    label: isFavorited ? 'Unfavorite' : 'Favorite',
+    label: isFavorited ? lang.en.button.unfavorite : lang.en.button.favorite,
     onClick,
     variant: isFavorited ? 'warning' : 'outline-warning',
     icon: isFavorited ? '⭐' : '☆',
-    tooltip: isFavorited ? 'Remove from favorites' : 'Add to favorites',
+    tooltip: isFavorited ? lang.en.button.unfavoriteTooltip : lang.en.button.favoriteTooltip,
     ...options,
   }),
 
   plan: (onClick, isPlanned, options = {}) => ({
-    label: isPlanned ? 'Remove from Plan' : 'Add to Plan',
+    label: isPlanned ? lang.en.button.removeFromPlan : lang.en.button.addToPlan,
     onClick,
     variant: isPlanned ? 'danger' : 'success',
     icon: isPlanned ? '−' : '✚',
-    tooltip: isPlanned ? 'Remove from your plan' : 'Add to your plan',
+    tooltip: isPlanned ? lang.en.button.removeFromPlanTooltip : lang.en.button.planTooltip,
     ...options,
   }),
 
   share: (onClick, options = {}) => ({
-    label: 'Share',
+    label: lang.en.button.share,
     onClick,
     variant: 'outline-info',
     icon: '↗',
-    tooltip: 'Share this item',
+    tooltip: lang.en.button.shareTooltip,
     ...options,
   }),
 };

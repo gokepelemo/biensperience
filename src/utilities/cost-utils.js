@@ -151,14 +151,15 @@ export function formatCostEstimate(cost, options = {}) {
  * @param {number} exactCost - The exact cost value for display in tooltip
  * @param {Object} options - Formatting options
  * @param {string} options.currency - Currency code (default: 'USD')
+ * @param {boolean} options.isActual - Whether this is an actual cost vs estimate (default: false)
  * @returns {string} Tooltip text with exact amount
  */
 export function getCostEstimateTooltip(exactCost, options = {}) {
-  const { currency = 'USD' } = options;
+  const { currency = 'USD', isActual = false } = options;
   const symbol = getCurrencySymbol(currency);
 
   if (!exactCost || exactCost <= 0) {
-    return 'Estimated cost for this experience';
+    return isActual ? 'Actual cost for this item' : 'Estimated cost for this experience';
   }
 
   const formatted = exactCost.toLocaleString('en-US', {
@@ -166,7 +167,7 @@ export function getCostEstimateTooltip(exactCost, options = {}) {
     maximumFractionDigits: 2
   });
 
-  return `Actual cost estimate: ${symbol}${formatted}`;
+  return isActual ? `Actual cost: ${symbol}${formatted}` : `Estimated cost: ${symbol}${formatted}`;
 }
 
 /**
@@ -294,12 +295,115 @@ export function getDollarSigns(cost, options = {}) {
   };
 }
 
+/**
+ * Get enhanced tooltip for individual cost entries showing shared cost or plan item/collaborator details.
+ *
+ * @param {Object} costEntry - The cost entry object
+ * @param {Object} options - Options
+ * @param {string} options.currency - Currency code (default: 'USD')
+ * @param {Array} options.planItems - Array of plan items for lookup
+ * @param {Array} options.collaborators - Array of collaborators for lookup
+ * @returns {string} Enhanced tooltip text
+ */
+export function getIndividualCostTooltip(costEntry, options = {}) {
+  const { currency = 'USD', planItems = [], collaborators = [] } = options;
+  const symbol = getCurrencySymbol(currency);
+
+  if (!costEntry || !costEntry.cost || costEntry.cost <= 0) {
+    return 'Cost entry details';
+  }
+
+  const formatted = costEntry.cost.toLocaleString('en-US', {
+    minimumFractionDigits: costEntry.cost % 1 !== 0 ? 2 : 0,
+    maximumFractionDigits: 2
+  });
+
+  // Priority: Show collaborator info first if available
+  if (costEntry.collaborator) {
+    const collaborator = collaborators.find(c =>
+      c._id === costEntry.collaborator
+    );
+    if (collaborator && collaborator.name) {
+      return `Paid for ${collaborator.name}: ${symbol}${formatted}`;
+    }
+    // If collaborator not found in provided array, show generic message
+    return `Paid for collaborator: ${symbol}${formatted}`;
+  }
+
+  // If cost is linked to a plan item, show "Plan item: [Item Text]"
+  if (costEntry.plan_item) {
+    const planItem = planItems.find(item =>
+      (item._id || item.plan_item_id) === costEntry.plan_item
+    );
+    if (planItem && planItem.text) {
+      return `Plan item: ${planItem.text} - ${symbol}${formatted}`;
+    }
+    // If plan item not found, show generic message
+    return `Plan item: ${symbol}${formatted}`;
+  }
+
+  // If no specific linkage, it's a shared cost
+  return `Shared cost: ${symbol}${formatted}`;
+}
+
+/**
+ * Get enhanced tooltip for total cost showing breakdown.
+ *
+ * @param {number} totalCost - Total cost amount
+ * @param {Array} costEntries - Array of individual cost entries
+ * @param {Object} options - Options
+ * @param {string} options.currency - Currency code (default: 'USD')
+ * @returns {string} Enhanced total cost tooltip
+ */
+export function getTotalCostTooltip(totalCost, costEntries = [], options = {}) {
+  const { currency = 'USD' } = options;
+  const symbol = getCurrencySymbol(currency);
+
+  if (!totalCost || totalCost <= 0) {
+    return 'Total cost breakdown';
+  }
+
+  const formatted = totalCost.toLocaleString('en-US', {
+    minimumFractionDigits: totalCost % 1 !== 0 ? 2 : 0,
+    maximumFractionDigits: 2
+  });
+
+  let tooltip = `Total cost: ${symbol}${formatted}`;
+
+  // Calculate shared vs assigned costs
+  const sharedCosts = costEntries.filter(c => !c.plan_item && !c.collaborator);
+  const assignedCosts = costEntries.filter(c => c.plan_item || c.collaborator);
+
+  const sharedTotal = sharedCosts.reduce((sum, c) => sum + (c.cost || 0), 0);
+  const assignedTotal = assignedCosts.reduce((sum, c) => sum + (c.cost || 0), 0);
+
+  if (sharedTotal > 0) {
+    const sharedFormatted = sharedTotal.toLocaleString('en-US', {
+      minimumFractionDigits: sharedTotal % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2
+    });
+    tooltip += `\nShared cost: ${symbol}${sharedFormatted}`;
+  }
+
+  if (assignedTotal > 0) {
+    const assignedFormatted = assignedTotal.toLocaleString('en-US', {
+      minimumFractionDigits: assignedTotal % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2
+    });
+    tooltip += `\nAssigned cost: ${symbol}${assignedFormatted}`;
+  }
+
+  return tooltip;
+}
+
 export default {
   formatCostEstimate,
   formatCostEstimateWithLabel,
   formatActualCost,
   getCostEstimateTooltip,
   getCostEstimateLabel,
+  getIndividualCostTooltip,
+  getTotalCostTooltip,
   roundCostFriendly,
   getCostLevel,
   getDollarSigns
