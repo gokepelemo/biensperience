@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Form, Badge, Alert, InputGroup, Spinner } from 'react-bootstrap';
+import { Button, Form, Badge, Alert, InputGroup } from 'react-bootstrap';
 import { FaSearch, FaFilter, FaUndo, FaEye, FaTimes } from 'react-icons/fa';
 import Modal from '../Modal/Modal';
 import Loading from '../Loading/Loading';
@@ -125,6 +125,11 @@ export default function ActivityMonitor({ show, onHide }) {
   const handleRollback = async (activity) => {
     if (!activity.rollbackToken) {
       error('No rollback token available for this activity');
+      return;
+    }
+
+    if (!activity.previousState) {
+      error('No previous state available for rollback. Create actions cannot be rolled back.');
       return;
     }
 
@@ -385,12 +390,13 @@ export default function ActivityMonitor({ show, onHide }) {
                           >
                             <FaEye />
                           </Button>
-                          {activity.rollbackToken && (
+                          {activity.rollbackToken && activity.previousState && (
                             <Button
                               variant="outline-warning"
                               size="sm"
                               onClick={() => handleRollback(activity)}
                               disabled={rollbackLoading}
+                              title="Rollback to previous state"
                             >
                               <FaUndo />
                             </Button>
@@ -548,14 +554,14 @@ export default function ActivityMonitor({ show, onHide }) {
                   </div>
                 )}
 
-                {selectedActivity.rollbackToken && (
+                {selectedActivity.rollbackToken && selectedActivity.previousState && (
                   <div className="col-12">
                     <Alert variant="info">
-                      <strong>Rollback Available:</strong> This activity has a rollback token and can be reverted.
+                      <strong>Rollback Available:</strong> This activity has a previous state snapshot and can be reverted.
                       <br />
-                      <Button 
-                        variant="warning" 
-                        size="sm" 
+                      <Button
+                        variant="warning"
+                        size="sm"
                         className="mt-2"
                         onClick={() => handleRollback(selectedActivity)}
                         disabled={rollbackLoading}
