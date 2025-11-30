@@ -40,6 +40,7 @@ const ALLOWED_BASE_DIRS = [
 
 /**
  * Sanitize and validate file path to prevent path traversal attacks
+ * Uses path.join with basename extraction to ensure path is within allowed directory
  * @param {string} filePath - The file path to validate
  * @returns {string} The validated absolute path
  * @throws {Error} If path is invalid or outside allowed directories
@@ -49,21 +50,29 @@ function sanitizePath(filePath) {
     throw new Error('Invalid file path: path must be a non-empty string');
   }
 
-  // Resolve to absolute path
-  const absolutePath = path.resolve(filePath);
-
-  // Check for path traversal attempts
-  if (filePath.includes('..') || filePath.includes('\0')) {
-    throw new Error('Invalid file path: path traversal not allowed');
+  // Check for null bytes - immediate rejection
+  if (filePath.includes('\0')) {
+    throw new Error('Invalid file path: null bytes not allowed');
   }
 
-  // Verify path is within allowed directories
-  const isAllowed = ALLOWED_BASE_DIRS.some(baseDir => {
-    const resolvedBase = path.resolve(baseDir);
-    return absolutePath.startsWith(resolvedBase + path.sep) || absolutePath === resolvedBase;
-  });
+  // Normalize and resolve to absolute path
+  const normalizedPath = path.normalize(filePath);
+  const absolutePath = path.resolve(normalizedPath);
 
-  if (!isAllowed) {
+  // Verify path is within allowed directories using secure startsWith check
+  let allowedBaseDir = null;
+  for (const baseDir of ALLOWED_BASE_DIRS) {
+    const resolvedBase = path.resolve(baseDir);
+    // Ensure the path starts with the base directory followed by separator
+    // or is exactly the base directory
+    if (absolutePath === resolvedBase ||
+        absolutePath.startsWith(resolvedBase + path.sep)) {
+      allowedBaseDir = resolvedBase;
+      break;
+    }
+  }
+
+  if (!allowedBaseDir) {
     backendLogger.warn('Path traversal attempt blocked', {
       requestedPath: filePath,
       resolvedPath: absolutePath,
@@ -72,7 +81,22 @@ function sanitizePath(filePath) {
     throw new Error('Invalid file path: access to this location is not allowed');
   }
 
-  return absolutePath;
+  // Double-check: extract relative path from base and reconstruct
+  // This ensures no traversal sequences remain after normalization
+  const relativePath = path.relative(allowedBaseDir, absolutePath);
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    throw new Error('Invalid file path: path traversal not allowed');
+  }
+
+  // Reconstruct the safe absolute path from base + relative
+  const safePath = path.join(allowedBaseDir, relativePath);
+
+  // Final validation: ensure reconstructed path matches original resolution
+  if (safePath !== absolutePath) {
+    throw new Error('Invalid file path: path validation failed');
+  }
+
+  return safePath;
 }
 
 // Maximum file sizes (in bytes)

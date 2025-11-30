@@ -1398,12 +1398,30 @@ async function getTagName(req, res) {
   try {
     const { tagSlug } = req.params;
 
+    // Validate input length to prevent ReDoS attacks
+    const MAX_SLUG_LENGTH = 200;
+    if (!tagSlug || typeof tagSlug !== 'string' || tagSlug.length > MAX_SLUG_LENGTH) {
+      return res.status(400).json({ error: 'Invalid tag slug' });
+    }
+
     // Helper function to create URL slug (same logic as frontend)
+    // Uses simple character replacement - safe from ReDoS
     const createUrlSlug = (str) => {
-      return str
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
+      // Limit input and use simple char-by-char replacement to avoid ReDoS
+      const limited = str.slice(0, MAX_SLUG_LENGTH).toLowerCase();
+      let result = '';
+      let lastWasDash = true; // Start true to skip leading dashes
+      for (const char of limited) {
+        if ((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9')) {
+          result += char;
+          lastWasDash = false;
+        } else if (!lastWasDash) {
+          result += '-';
+          lastWasDash = true;
+        }
+      }
+      // Remove trailing dash
+      return result.endsWith('-') ? result.slice(0, -1) : result;
     };
 
     // Normalize incoming slug: decode URL-encoded characters and
@@ -1411,11 +1429,11 @@ async function getTagName(req, res) {
     // "food-&-wine" or "food%26-wine" normalize to "food-wine".
     let normalizedInputSlug;
     try {
-      const decoded = typeof tagSlug === 'string' ? decodeURIComponent(tagSlug) : String(tagSlug);
+      const decoded = decodeURIComponent(tagSlug);
       normalizedInputSlug = createUrlSlug(decoded);
     } catch (e) {
       // Fall back to raw tagSlug if decoding fails
-      normalizedInputSlug = createUrlSlug(String(tagSlug || ''));
+      normalizedInputSlug = createUrlSlug(tagSlug);
     }
 
     // OPTIMIZATION: Single query with .lean() and .select() to only fetch experience_type field

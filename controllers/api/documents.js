@@ -41,6 +41,7 @@ if (!fs.existsSync(TEMP_DIR)) {
 /**
  * Sanitize file path to prevent path traversal attacks
  * Only allows paths within the uploads/temp directory
+ * Uses path.join with relative path extraction to ensure path is within allowed directory
  * @param {string} filePath - Path to validate
  * @returns {string} Sanitized absolute path
  * @throws {Error} If path is invalid or outside allowed directory
@@ -50,26 +51,50 @@ function sanitizeFilePath(filePath) {
     throw new Error('Invalid file path');
   }
 
-  // Resolve to absolute path
-  const absolutePath = path.resolve(filePath);
-
-  // Check for null bytes and traversal attempts
-  if (filePath.includes('\0') || filePath.includes('..')) {
-    backendLogger.warn('[Document] Path traversal attempt blocked', { path: filePath });
-    throw new Error('Invalid file path: path traversal not allowed');
+  // Check for null bytes - immediate rejection
+  if (filePath.includes('\0')) {
+    backendLogger.warn('[Document] Null byte in path blocked', { path: filePath });
+    throw new Error('Invalid file path: null bytes not allowed');
   }
 
-  // Verify path is within TEMP_DIR
-  if (!absolutePath.startsWith(TEMP_DIR + path.sep) && absolutePath !== TEMP_DIR) {
+  // Normalize and resolve to absolute path
+  const normalizedPath = path.normalize(filePath);
+  const absolutePath = path.resolve(normalizedPath);
+
+  // Resolve TEMP_DIR to absolute path for comparison
+  const resolvedTempDir = path.resolve(TEMP_DIR);
+
+  // Verify path is within TEMP_DIR using secure startsWith check
+  if (absolutePath !== resolvedTempDir &&
+      !absolutePath.startsWith(resolvedTempDir + path.sep)) {
     backendLogger.warn('[Document] Access outside temp directory blocked', {
       requestedPath: filePath,
       resolvedPath: absolutePath,
-      allowedDir: TEMP_DIR
+      allowedDir: resolvedTempDir
     });
     throw new Error('Invalid file path: access denied');
   }
 
-  return absolutePath;
+  // Double-check: extract relative path from base and reconstruct
+  // This ensures no traversal sequences remain after normalization
+  const relativePath = path.relative(resolvedTempDir, absolutePath);
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    backendLogger.warn('[Document] Path traversal attempt blocked', {
+      path: filePath,
+      relativePath
+    });
+    throw new Error('Invalid file path: path traversal not allowed');
+  }
+
+  // Reconstruct the safe absolute path from base + relative
+  const safePath = path.join(resolvedTempDir, relativePath);
+
+  // Final validation: ensure reconstructed path matches original resolution
+  if (safePath !== absolutePath) {
+    throw new Error('Invalid file path: path validation failed');
+  }
+
+  return safePath;
 }
 
 /**
