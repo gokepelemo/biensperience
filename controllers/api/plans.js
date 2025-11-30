@@ -277,7 +277,13 @@ const getUserPlans = asyncHandler(async (req, res) => {
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
   const skip = (page - 1) * limit;
 
-  const filter = { user: req.user._id };
+  // Include both owned plans AND collaborative plans (where user is a collaborator)
+  const filter = {
+    $or: [
+      { user: req.user._id },
+      { 'permissions._id': req.user._id, 'permissions.entity': 'user', 'permissions.type': { $in: ['collaborator', 'contributor'] } }
+    ]
+  };
 
   // Build base query
   let query = Plan.find(filter)
@@ -303,7 +309,12 @@ const getUserPlans = asyncHandler(async (req, res) => {
     ]);
 
     // Convert to JSON to ensure virtuals are included
-    const plansWithVirtuals = plans.map(plan => plan.toJSON());
+    // Add isCollaborative flag to indicate if this is a shared plan
+    const plansWithVirtuals = plans.map(plan => {
+      const planJson = plan.toJSON();
+      planJson.isCollaborative = plan.user._id.toString() !== req.user._id.toString();
+      return planJson;
+    });
 
     return res.json({
       data: plansWithVirtuals,
@@ -319,7 +330,11 @@ const getUserPlans = asyncHandler(async (req, res) => {
 
   // Non-paginated (backward compatible)
   const plans = await query;
-  const plansWithVirtuals = plans.map(plan => plan.toJSON());
+  const plansWithVirtuals = plans.map(plan => {
+    const planJson = plan.toJSON();
+    planJson.isCollaborative = plan.user._id.toString() !== req.user._id.toString();
+    return planJson;
+  });
   res.json(plansWithVirtuals);
 });
 

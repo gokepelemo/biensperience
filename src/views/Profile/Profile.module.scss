@@ -805,3 +805,22 @@
     padding: var(--space-2) 0;
   }
 }
+
+/* Pagination container - always centered, consistent across tab switches */
+.paginationContainer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: var(--space-6);
+  padding: var(--space-4) 0;
+  min-height: 60px; /* Reserve space to prevent layout shift */
+
+  /* Center the Pagination component */
+  :global(nav[aria-label="Pagination"]),
+  > div {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+}

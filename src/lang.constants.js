@@ -375,6 +375,8 @@ const en = {
     searchUser: "Search User",
     selectedCollaborators: "Selected Collaborators",
     emailAndNameRequired: "Email and name are required",
+    sharedPlan: "Shared",
+    sharedPlanTooltip: "This plan was shared with you by {ownerName}. As a collaborator, you can view progress, add notes, and track costs, but you cannot delete the plan or remove other collaborators.",
   },
 
   aria: {

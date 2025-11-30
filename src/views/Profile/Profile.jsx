@@ -149,8 +149,13 @@ export default function Profile() {
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, [navigate, showApiTokenModal, showActivityMonitor]);
+  // Experiences state with pagination metadata
   const [userExperiences, setUserExperiences] = useState(null);
+  const [userExperiencesMeta, setUserExperiencesMeta] = useState(null);
   const [createdExperiences, setCreatedExperiences] = useState(null);
+  const [createdExperiencesMeta, setCreatedExperiencesMeta] = useState(null);
+  const [experiencesLoading, setExperiencesLoading] = useState(false);
+  const [createdLoading, setCreatedLoading] = useState(false);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const { success, error: showError } = useToast();
   const [resendInProgress, setResendInProgress] = useState(false);
@@ -163,13 +168,16 @@ export default function Profile() {
   const COOLDOWN_SECONDS = 60;
   const COOLDOWN_KEY_PREFIX = 'resend_verification_cooldown_';
   const EXPERIENCE_TYPES_INITIAL_DISPLAY = 10;
-  const ITEMS_INITIAL_DISPLAY = 6;
-  // Pagination for profile tabs: pages computed responsively (cards-per-row * 2 rows)
+  const ITEMS_PER_PAGE = 6; // Fixed items per page for API pagination
+  // Pagination for profile tabs
   const [experiencesPage, setExperiencesPage] = useState(1);
   const [createdPage, setCreatedPage] = useState(1);
   const [destinationsPage, setDestinationsPage] = useState(1);
   const reservedRef = useRef(null);
-  const [itemsPerPageComputed, setItemsPerPageComputed] = useState(ITEMS_INITIAL_DISPLAY);
+  const [itemsPerPageComputed, setItemsPerPageComputed] = useState(ITEMS_PER_PAGE);
+  // Track if initial page 1 has been loaded (to distinguish from user navigation back to page 1)
+  const experiencesInitialLoadRef = useRef(true);
+  const createdInitialLoadRef = useRef(true);
 
   /**
    * Merge helper function to update profile state without full replacement
@@ -303,28 +311,86 @@ export default function Profile() {
     return deduplicateById(filtered);
   }, [destinations, currentProfile]);
 
+  // Fetch user experiences with pagination
+  const fetchUserExperiences = useCallback(async (page = 1) => {
+    if (!userId) return;
+    setExperiencesLoading(true);
+    try {
+      const response = await showUserExperiences(userId, { page, limit: ITEMS_PER_PAGE });
+      // Handle paginated response
+      if (response && response.data) {
+        setUserExperiences(response.data);
+        setUserExperiencesMeta(response.meta);
+      } else {
+        // Backwards compatible: array response (shouldn't happen with pagination)
+        setUserExperiences(response || []);
+        setUserExperiencesMeta(null);
+      }
+    } catch (err) {
+      handleError(err, { context: 'Load experiences' });
+    } finally {
+      setExperiencesLoading(false);
+    }
+  }, [userId]);
+
+  // Fetch created experiences with pagination
+  const fetchCreatedExperiences = useCallback(async (page = 1) => {
+    if (!userId) return;
+    setCreatedLoading(true);
+    try {
+      const response = await showUserCreatedExperiences(userId, { page, limit: ITEMS_PER_PAGE });
+      // Handle paginated response
+      if (response && response.data) {
+        setCreatedExperiences(response.data);
+        setCreatedExperiencesMeta(response.meta);
+      } else {
+        // Backwards compatible: array response (shouldn't happen with pagination)
+        setCreatedExperiences(response || []);
+        setCreatedExperiencesMeta(null);
+      }
+    } catch (err) {
+      handleError(err, { context: 'Load created experiences' });
+    } finally {
+      setCreatedLoading(false);
+    }
+  }, [userId]);
+
   const getProfile = useCallback(async () => {
     if (!isOwner) {
       setIsLoadingProfile(true);
     }
     setProfileError(null);
-    
+
     // Validate userId before API calls
     if (!userId || typeof userId !== 'string' || userId.length !== 24) {
       setProfileError(lang.current.alert.invalidUserId);
       setIsLoadingProfile(false);
       return;
     }
-    
+
     try {
-      const [userData, experienceData, createdData] = await Promise.all([
+      // Fetch profile and first page of experiences in parallel
+      const [userData, experienceResponse, createdResponse] = await Promise.all([
         getUserData(userId),
-        showUserExperiences(userId),
-        showUserCreatedExperiences(userId)
+        showUserExperiences(userId, { page: 1, limit: ITEMS_PER_PAGE }),
+        showUserCreatedExperiences(userId, { page: 1, limit: ITEMS_PER_PAGE })
       ]);
       setCurrentProfile(userData);
-      setUserExperiences(experienceData);
-      setCreatedExperiences(createdData);
+      // Handle paginated response
+      if (experienceResponse && experienceResponse.data) {
+        setUserExperiences(experienceResponse.data);
+        setUserExperiencesMeta(experienceResponse.meta);
+      } else {
+        setUserExperiences(experienceResponse || []);
+        setUserExperiencesMeta(null);
+      }
+      if (createdResponse && createdResponse.data) {
+        setCreatedExperiences(createdResponse.data);
+        setCreatedExperiencesMeta(createdResponse.meta);
+      } else {
+        setCreatedExperiences(createdResponse || []);
+        setCreatedExperiencesMeta(null);
+      }
     } catch (err) {
       // Check if it's a 404 error
       if (err.message && err.message.includes('404')) {
@@ -481,11 +547,32 @@ export default function Profile() {
       created: view === 'created',
       destinations: view === 'destinations',
     });
-    // Reset pagination to first page on tab switch
-    setExperiencesPage(1);
-    setCreatedPage(1);
-    setDestinationsPage(1);
+    // Note: Do NOT reset pagination on tab switch - preserve user's place in each tab
   }, []);
+
+  // Fetch experiences when page changes (API-level pagination)
+  // Skip initial page 1 (fetched by getProfile), but fetch on subsequent page 1 navigations
+  useEffect(() => {
+    if (!userId) return;
+    if (experiencesPage === 1 && experiencesInitialLoadRef.current) {
+      // Skip - page 1 already fetched by getProfile on initial load
+      experiencesInitialLoadRef.current = false;
+      return;
+    }
+    fetchUserExperiences(experiencesPage);
+  }, [experiencesPage, userId, fetchUserExperiences]);
+
+  // Fetch created experiences when page changes (API-level pagination)
+  // Skip initial page 1 (fetched by getProfile), but fetch on subsequent page 1 navigations
+  useEffect(() => {
+    if (!userId) return;
+    if (createdPage === 1 && createdInitialLoadRef.current) {
+      // Skip - page 1 already fetched by getProfile on initial load
+      createdInitialLoadRef.current = false;
+      return;
+    }
+    fetchCreatedExperiences(createdPage);
+  }, [createdPage, userId, fetchCreatedExperiences]);
 
   // Compute items per page responsively based on container width and card widths
   useLayoutEffect(() => {
@@ -880,12 +967,13 @@ export default function Profile() {
                 })()}
               </div>
             )}
-            {/* Planned Experiences Tab */}
+            {/* Planned Experiences Tab - API-level pagination */}
             {uiState.experiences && (
               <div className={styles.profileGrid}>
                 {(() => {
-                  if (uniqueUserExperiences === null) {
-                    return Array.from({ length: itemsPerPageComputed }).map((_, i) => (
+                  // Loading state (initial load or page change)
+                  if (uniqueUserExperiences === null || experiencesLoading) {
+                    return Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
                       <div key={`skeleton-exp-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
                         <div className="position-relative" style={{ minHeight: '12rem' }}>
                           <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
@@ -896,12 +984,10 @@ export default function Profile() {
                     ));
                   }
 
-                  const expTotalPages = Math.max(1, Math.ceil((uniqueUserExperiences || []).length / itemsPerPageComputed));
-                  const displayedExperiences = showAllPlanned
-                    ? uniqueUserExperiences
-                    : (uniqueUserExperiences || []).slice((experiencesPage - 1) * itemsPerPageComputed, (experiencesPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
+                  // API returns the current page directly - no client-side slicing needed
+                  const displayedExperiences = uniqueUserExperiences;
 
-                  return uniqueUserExperiences.length > 0 ? (
+                  return displayedExperiences.length > 0 ? (
                     <>
                       {displayedExperiences.map((experience, index) => (
                         <ExperienceCard
@@ -910,18 +996,6 @@ export default function Profile() {
                           userPlans={plans}
                         />
                       ))}
-                      {/* Only show placeholders on non-last pages to reserve space */}
-                      {!showAllPlanned && experiencesPage < expTotalPages && displayedExperiences.length < itemsPerPageComputed && (
-                        Array.from({ length: Math.max(0, itemsPerPageComputed - displayedExperiences.length) }).map((_, i) => (
-                          <div key={`placeholder-exp-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
-                            <div className="position-relative" style={{ minHeight: '12rem' }}>
-                              <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
-                                <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
                     </>
                   ) : (
                     <EmptyState
@@ -938,12 +1012,13 @@ export default function Profile() {
                 })()}
               </div>
             )}
-            {/* Created Experiences Tab */}
+            {/* Created Experiences Tab - API-level pagination */}
             {uiState.created && (
               <div className={styles.profileGrid}>
                 {(() => {
-                  if (uniqueCreatedExperiences === null) {
-                    return Array.from({ length: itemsPerPageComputed }).map((_, i) => (
+                  // Loading state (initial load or page change)
+                  if (uniqueCreatedExperiences === null || createdLoading) {
+                    return Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
                       <div key={`skeleton-created-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
                         <div className="position-relative" style={{ minHeight: '12rem' }}>
                           <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
@@ -954,12 +1029,10 @@ export default function Profile() {
                     ));
                   }
 
-                  const createdTotalPages = Math.max(1, Math.ceil((uniqueCreatedExperiences || []).length / itemsPerPageComputed));
-                  const displayedCreated = showAllCreated
-                    ? uniqueCreatedExperiences
-                    : (uniqueCreatedExperiences || []).slice((createdPage - 1) * itemsPerPageComputed, (createdPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
+                  // API returns the current page directly - no client-side slicing needed
+                  const displayedCreated = uniqueCreatedExperiences;
 
-                  return uniqueCreatedExperiences.length > 0 ? (
+                  return displayedCreated.length > 0 ? (
                     <>
                       {displayedCreated.map((experience, index) => (
                         <ExperienceCard
@@ -968,18 +1041,6 @@ export default function Profile() {
                           userPlans={plans}
                         />
                       ))}
-                      {/* Only show placeholders on non-last pages to reserve space */}
-                      {!showAllCreated && createdPage < createdTotalPages && displayedCreated.length < itemsPerPageComputed && (
-                        Array.from({ length: Math.max(0, itemsPerPageComputed - displayedCreated.length) }).map((_, i) => (
-                          <div key={`placeholder-created-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
-                            <div className="position-relative" style={{ minHeight: '12rem' }}>
-                              <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
-                                <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
                     </>
                   ) : (
                     <EmptyState
@@ -998,27 +1059,37 @@ export default function Profile() {
               </div>
             )}
 
-            {/* Pagination - rendered outside grid to span full width */}
-            {uiState.destinations && favoriteDestinations && (() => {
-              const destTotalPages = Math.max(1, Math.ceil(favoriteDestinations.length / itemsPerPageComputed));
-              return !showAllDestinations && favoriteDestinations.length > itemsPerPageComputed && (
-                <Pagination currentPage={destinationsPage} totalPages={destTotalPages} onPageChange={setDestinationsPage} />
-              );
-            })()}
+            {/* Pagination - always rendered in centered container for consistent layout */}
+            <div className={styles.paginationContainer}>
+              {/* Destinations - client-side pagination (unchanged) */}
+              {uiState.destinations && !showAllDestinations && favoriteDestinations && favoriteDestinations.length > itemsPerPageComputed && (
+                <Pagination
+                  currentPage={destinationsPage}
+                  totalPages={Math.max(1, Math.ceil(favoriteDestinations.length / itemsPerPageComputed))}
+                  onPageChange={setDestinationsPage}
+                />
+              )}
 
-            {uiState.experiences && uniqueUserExperiences && (() => {
-              const expTotalPages = Math.max(1, Math.ceil((uniqueUserExperiences || []).length / itemsPerPageComputed));
-              return !showAllPlanned && uniqueUserExperiences.length > itemsPerPageComputed && (
-                <Pagination currentPage={experiencesPage} totalPages={expTotalPages} onPageChange={setExperiencesPage} />
-              );
-            })()}
+              {/* Experiences - API-level pagination */}
+              {uiState.experiences && !showAllPlanned && userExperiencesMeta && userExperiencesMeta.totalPages > 1 && (
+                <Pagination
+                  currentPage={experiencesPage}
+                  totalPages={userExperiencesMeta.totalPages}
+                  onPageChange={setExperiencesPage}
+                  disabled={experiencesLoading}
+                />
+              )}
 
-            {uiState.created && uniqueCreatedExperiences && (() => {
-              const createdTotalPages = Math.max(1, Math.ceil((uniqueCreatedExperiences || []).length / itemsPerPageComputed));
-              return !showAllCreated && uniqueCreatedExperiences.length > itemsPerPageComputed && (
-                <Pagination currentPage={createdPage} totalPages={createdTotalPages} onPageChange={setCreatedPage} />
-              );
-            })()}
+              {/* Created - API-level pagination */}
+              {uiState.created && !showAllCreated && createdExperiencesMeta && createdExperiencesMeta.totalPages > 1 && (
+                <Pagination
+                  currentPage={createdPage}
+                  totalPages={createdExperiencesMeta.totalPages}
+                  onPageChange={setCreatedPage}
+                  disabled={createdLoading}
+                />
+              )}
+            </div>
           </Col>
         </Row>
 

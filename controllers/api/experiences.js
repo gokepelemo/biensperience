@@ -1255,8 +1255,17 @@ async function showUserExperiences(req, res) {
       return res.status(400).json({ error: 'Invalid user ID format' });
     }
 
-    // Get all plans for this user
-    const plans = await Plan.find({ user: req.params.userId })
+    // Check if pagination is requested (optional - defaults to returning all)
+    const hasPagination = req.query.page !== undefined || req.query.limit !== undefined;
+    const page = parseInt(req.query.page, 10);
+    const limit = parseInt(req.query.limit, 10);
+    const p = Number.isNaN(page) || page < 1 ? 1 : page;
+    const l = Number.isNaN(limit) || limit < 1 ? 12 : Math.min(limit, 100); // Default 12, max 100
+    const skip = (p - 1) * l;
+
+    // Build query
+    let query = Plan.find({ user: req.params.userId })
+      .sort({ createdAt: -1 }) // Most recent first
       .populate({
         path: 'experience',
         populate: [
@@ -1269,15 +1278,48 @@ async function showUserExperiences(req, res) {
             select: 'url caption'
           }
         ]
-      })
-      .exec();
+      });
+
+    // Apply pagination only if requested
+    if (hasPagination) {
+      query = query.skip(skip).limit(l);
+    }
+
+    const plans = await query.exec();
 
     // Extract unique experiences from plans
     const experiences = plans
       .filter(plan => plan.experience) // Filter out null experiences
       .map(plan => plan.experience);
 
-    res.status(200).json(experiences);
+    // Deduplicate by experience ID (a user might have multiple plans for same experience)
+    const seen = new Set();
+    const uniqueExperiences = experiences.filter(exp => {
+      const id = exp._id.toString();
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    // Return paginated response with metadata, or just array for backwards compatibility
+    if (hasPagination) {
+      const totalPlans = await Plan.countDocuments({ user: req.params.userId });
+      const totalPages = Math.ceil(totalPlans / l);
+
+      res.status(200).json({
+        data: uniqueExperiences,
+        meta: {
+          page: p,
+          limit: l,
+          total: totalPlans,
+          totalPages,
+          hasMore: p < totalPages
+        }
+      });
+    } else {
+      // Backwards compatible: return just the array
+      res.status(200).json(uniqueExperiences);
+    }
   } catch (err) {
     backendLogger.error('Error fetching user experiences', { error: err.message, userId: req.params.userId });
     res.status(400).json({ error: 'Failed to fetch user experiences' });
@@ -1292,7 +1334,16 @@ async function showUserCreatedExperiences(req, res) {
     }
     const userId = new mongoose.Types.ObjectId(req.params.userId);
 
-    let experiences = await Experience.find({
+    // Check if pagination is requested (optional - defaults to returning all)
+    const hasPagination = req.query.page !== undefined || req.query.limit !== undefined;
+    const page = parseInt(req.query.page, 10);
+    const limit = parseInt(req.query.limit, 10);
+    const p = Number.isNaN(page) || page < 1 ? 1 : page;
+    const l = Number.isNaN(limit) || limit < 1 ? 12 : Math.min(limit, 100); // Default 12, max 100
+    const skip = (p - 1) * l;
+
+    // Build query for experiences owned by this user
+    const queryFilter = {
       permissions: {
         $elemMatch: {
           entity: permissions.ENTITY_TYPES.USER,
@@ -1300,14 +1351,43 @@ async function showUserCreatedExperiences(req, res) {
           _id: userId
         }
       }
-    })
+    };
+
+    // Build query
+    let query = Experience.find(queryFilter)
+      .sort({ createdAt: -1 }) // Most recent first
       .populate("destination")
       .populate({
         path: 'photos',
         select: 'url caption'
-      })
-      .exec();
-    res.status(200).json(experiences);
+      });
+
+    // Apply pagination only if requested
+    if (hasPagination) {
+      query = query.skip(skip).limit(l);
+    }
+
+    const experiences = await query.exec();
+
+    // Return paginated response with metadata, or just array for backwards compatibility
+    if (hasPagination) {
+      const total = await Experience.countDocuments(queryFilter);
+      const totalPages = Math.ceil(total / l);
+
+      res.status(200).json({
+        data: experiences,
+        meta: {
+          page: p,
+          limit: l,
+          total,
+          totalPages,
+          hasMore: p < totalPages
+        }
+      });
+    } else {
+      // Backwards compatible: return just the array
+      res.status(200).json(experiences);
+    }
   } catch (err) {
     backendLogger.error('Error fetching user created experiences', { error: err.message, userId: req.params.userId });
     res.status(400).json({ error: 'Failed to fetch user created experiences' });

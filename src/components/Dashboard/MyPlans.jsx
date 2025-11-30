@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -13,9 +13,12 @@ import {
   HashLink,
   EmptyState
 } from '../design-system';
-import { FaCheckCircle, FaCalendar, FaTasks, FaChevronRight, FaChevronDown } from 'react-icons/fa';
+import { FaCheckCircle, FaCalendar, FaTasks, FaChevronRight, FaChevronDown, FaUsers, FaList, FaUser, FaUserFriends } from 'react-icons/fa';
 import CostEstimate from '../CostEstimate/CostEstimate';
 import ActualCost from '../ActualCost/ActualCost';
+import Pill from '../Pill/Pill';
+import InfoTooltip from '../InfoTooltip/InfoTooltip';
+import { SearchableSelect } from '../FormField';
 import { getUserPlans, getCollaborators } from '../../utilities/plans-api';
 import { usePlanExperience } from '../../contexts/PlanExperienceContext';
 import { formatDateMetricCard } from '../../utilities/date-utils';
@@ -26,8 +29,16 @@ import styles from './MyPlans.module.scss';
 
 const PLANS_PER_PAGE = 10;
 
+// Filter options for plans
+const PLAN_FILTERS = {
+  ALL: 'all',
+  OWNED: 'owned',
+  SHARED: 'shared'
+};
+
 export default function MyPlans() {
   const [plans, setPlans] = useState([]);
+  const [planFilter, setPlanFilter] = useState(PLAN_FILTERS.ALL);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [expandedPlanId, setExpandedPlanId] = useState(null);
@@ -36,6 +47,22 @@ export default function MyPlans() {
   const [pagination, setPagination] = useState({ page: 1, hasMore: false, totalCount: 0 });
   const navigate = useNavigate();
   const { openPlanExperienceModal } = usePlanExperience();
+
+  // Filter plans based on dropdown selection
+  const ownedPlans = plans.filter(plan => !plan.isCollaborative);
+  const sharedPlans = plans.filter(plan => plan.isCollaborative);
+  const displayedPlans = planFilter === PLAN_FILTERS.ALL
+    ? plans
+    : planFilter === PLAN_FILTERS.OWNED
+      ? ownedPlans
+      : sharedPlans;
+
+  // Filter options for searchable select with icons
+  const filterOptions = useMemo(() => [
+    { value: PLAN_FILTERS.ALL, label: 'All Plans', icon: FaList, suffix: `${plans.length}` },
+    { value: PLAN_FILTERS.OWNED, label: 'My Plans', icon: FaUser, suffix: `${ownedPlans.length}` },
+    { value: PLAN_FILTERS.SHARED, label: 'Shared', icon: FaUserFriends, suffix: `${sharedPlans.length}` }
+  ], [plans.length, ownedPlans.length, sharedPlans.length]);
 
   // Fetch collaborators for a list of plans in parallel
   const fetchCollaboratorsForPlans = async (planList) => {
@@ -285,7 +312,24 @@ export default function MyPlans() {
           boxShadow: 'var(--shadow-sm)'
         }}
       >
-        <Heading level={4} className="mb-2">{lang.en.heading.myPlans}</Heading>
+        <div className={styles.headerWrapper}>
+          <FlexBetween className="mb-2">
+            <Heading level={4}>{lang.en.heading.myPlans}</Heading>
+            {plans.length > 0 && (
+              <div className={styles.planFilterDropdown}>
+                <SearchableSelect
+                  options={filterOptions}
+                  value={planFilter}
+                  onChange={setPlanFilter}
+                  placeholder="Filter plans"
+                  searchable={false}
+                  size="sm"
+                  aria-label="Filter plans"
+                />
+              </div>
+            )}
+          </FlexBetween>
+        </div>
         <Text size="sm" variant="muted" className="mb-4">
           {lang.en.dashboard.myPlansDescription}
         </Text>
@@ -307,9 +351,20 @@ export default function MyPlans() {
           />
         )}
 
-        {!loading && plans.length > 0 && (
+        {!loading && plans.length > 0 && displayedPlans.length === 0 && (
+          <EmptyState
+            variant="plans"
+            size="md"
+            title={planFilter === PLAN_FILTERS.SHARED ? "No shared plans yet" : "No plans in this category"}
+            description={planFilter === PLAN_FILTERS.SHARED
+              ? "When someone shares a plan with you, it will appear here."
+              : "Try changing the filter to see other plans."}
+          />
+        )}
+
+        {!loading && displayedPlans.length > 0 && (
           <Stack spacing="md">
-            {plans.map((plan) => {
+            {displayedPlans.map((plan) => {
               const isExpanded = expandedPlanId === plan._id;
               const itemCount = (plan.plan || []).length;
               const completedCount = (plan.plan || []).filter(item => item.complete).length;
@@ -346,9 +401,24 @@ export default function MyPlans() {
                   <div className={styles.planHeader}>
                     <div className={styles.planHeaderContent}>
                       <div className={styles.planTitleSection}>
-                        <Heading level={5} className={styles.planTitle}>
-                          {plan.experience?.name || 'Unnamed Experience'}
-                        </Heading>
+                        <div className={styles.planTitleRow}>
+                          <Heading level={5} className={styles.planTitle}>
+                            {plan.experience?.name || 'Unnamed Experience'}
+                          </Heading>
+                          {plan.isCollaborative && (
+                            <span className={styles.sharedBadgeWrapper}>
+                              <Pill variant="info" size="sm" rounded>
+                                <FaUsers size={10} style={{ marginRight: '4px' }} />
+                                {lang.en.label.sharedPlan}
+                              </Pill>
+                              <InfoTooltip
+                                id={`shared-plan-${plan._id}`}
+                                content={lang.en.label.sharedPlanTooltip.replace('{ownerName}', plan.user?.name || 'the owner')}
+                                ariaLabel="Shared plan information"
+                              />
+                            </span>
+                          )}
+                        </div>
                         <div className={styles.planMeta}>
                           <span className={styles.metaItem}>
                             <FaTasks size={12} />

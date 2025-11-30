@@ -209,7 +209,7 @@ export default function Preferences() {
                 checked={form.notificationsEnabled}
                 onChange={e => handleChange('notificationsEnabled', e.target.checked)}
               >
-                Enable notifications
+                Enable Notifications
               </FormCheck>
             </FormGroup>
 

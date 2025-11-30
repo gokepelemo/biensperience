@@ -4,14 +4,18 @@ import { FormTooltip } from '../Tooltip/Tooltip';
 import PropTypes from 'prop-types';
 import styles from './FormField.module.scss';
 import TextareaAutosize from 'react-textarea-autosize';
+import SearchableSelect from './SearchableSelect';
 
 /**
  * FormField Component - Complete Bootstrap form field with label, validation, and tooltip
- * 
+ *
+ * Supports multiple input types including a searchable select dropdown:
+ * - type="searchable-select" - Custom searchable dropdown with icon support
+ *
  * @param {Object} props
  * @param {string} props.name - Field name (used for id and name attributes)
  * @param {string} [props.label] - Field label text
- * @param {string} [props.type='text'] - Input type
+ * @param {string} [props.type='text'] - Input type ('text', 'textarea', 'searchable-select', etc.)
  * @param {string} [props.value] - Current value
  * @param {Function} props.onChange - Change handler
  * @param {Function} [props.onBlur] - Blur handler
@@ -26,7 +30,7 @@ import TextareaAutosize from 'react-textarea-autosize';
  * @param {string} [props.helpText] - Help text below field
  * @param {string|React.ReactNode} [props.tooltip] - Tooltip content
  * @param {string} [props.tooltipPlacement='top'] - Tooltip placement
- * @param {string} [props.size] - Field size: 'sm' or 'lg'
+ * @param {string} [props.size] - Field size: 'sm', 'md', or 'lg'
  * @param {string} [props.autoComplete] - Autocomplete attribute
  * @param {React.ReactNode} [props.prepend] - InputGroup prepend element
  * @param {React.ReactNode} [props.append] - InputGroup append element
@@ -34,6 +38,9 @@ import TextareaAutosize from 'react-textarea-autosize';
  * @param {string} [props.as] - Render as different element (e.g., 'textarea', 'select')
  * @param {number} [props.rows] - Number of rows for textarea
  * @param {React.ReactNode} [props.children] - Children for select/custom inputs
+ * @param {Array} [props.options] - Options for searchable-select [{value, label, icon?, suffix?}]
+ * @param {boolean} [props.searchable] - Enable search for searchable-select (default: true)
+ * @param {string} [props.searchPlaceholder] - Search input placeholder for searchable-select
  */
 export default function FormField({
   name,
@@ -64,12 +71,17 @@ export default function FormField({
   variant,
   showCounter = false,
   children,
+  // SearchableSelect props
+  options,
+  searchable = true,
+  searchPlaceholder,
   ...rest
 }) {
   const hasInputGroup = prepend || append;
 
-  // Determine whether this should render as a textarea
+  // Determine input type variants
   const isTextarea = (as === 'textarea' || type === 'textarea');
+  const isSearchableSelect = type === 'searchable-select';
 
   // Build class names for control
   const controlClasses = [className];
@@ -81,7 +93,27 @@ export default function FormField({
   if (isValid) controlClasses.push(styles.valid);
 
   let formControl;
-  if (isTextarea) {
+  if (isSearchableSelect) {
+    // Searchable select with icon support
+    formControl = (
+      <SearchableSelect
+        id={name}
+        name={name}
+        options={options || []}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        searchPlaceholder={searchPlaceholder}
+        searchable={searchable}
+        disabled={disabled}
+        size={size || 'md'}
+        isValid={isValid}
+        isInvalid={isInvalid}
+        className={className}
+        {...rest}
+      />
+    );
+  } else if (isTextarea) {
     // Use autosizing textarea for better UX
     const taClasses = controlClasses.join(' ');
     formControl = (
@@ -137,7 +169,10 @@ export default function FormField({
         </Form.Label>
       )}
       
-      {hasInputGroup ? (
+      {isSearchableSelect ? (
+        // SearchableSelect renders its own wrapper
+        formControl
+      ) : hasInputGroup ? (
         <InputGroup className={styles.inputGroupWrapper}>
           {prepend && (
             <InputGroup.Text className={styles.addon}>{prepend}</InputGroup.Text>
@@ -192,7 +227,7 @@ FormField.propTypes = {
   helpText: PropTypes.string,
   tooltip: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
   tooltipPlacement: PropTypes.string,
-  size: PropTypes.oneOf(['sm', 'lg']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg']),
   autoComplete: PropTypes.string,
   prepend: PropTypes.node,
   append: PropTypes.node,
@@ -203,4 +238,13 @@ FormField.propTypes = {
   rounded: PropTypes.bool,
   variant: PropTypes.string,
   showCounter: PropTypes.bool,
+  // SearchableSelect props
+  options: PropTypes.arrayOf(PropTypes.shape({
+    value: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+    icon: PropTypes.elementType,
+    suffix: PropTypes.string,
+  })),
+  searchable: PropTypes.bool,
+  searchPlaceholder: PropTypes.string,
 };

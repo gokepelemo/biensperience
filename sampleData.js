@@ -10,6 +10,8 @@ const Photo = require('./models/photo');
 const Plan = require('./models/plan');
 const InviteCode = require('./models/inviteCode');
 const Activity = require('./models/activity');
+const Follow = require('./models/follow');
+const Document = require('./models/document');
 const backendLogger = require('./utilities/backend-logger');
 
 /**
@@ -28,7 +30,9 @@ function parseArgs() {
     plans: null,
     photos: null,
     invites: null,
-    activities: null
+    activities: null,
+    follows: null,
+    documents: null
   };
 
   // Parse --admin-name flag
@@ -60,6 +64,8 @@ function parseArgs() {
   parsed.photos = parseNumberFlag('--photos');
   parsed.invites = parseNumberFlag('--invites');
   parsed.activities = parseNumberFlag('--activities');
+  parsed.follows = parseNumberFlag('--follows');
+  parsed.documents = parseNumberFlag('--documents');
 
   return parsed;
 }
@@ -84,6 +90,8 @@ Options:
   --photos <number>               Number of photos to create (default: 600)
   --invites <number>              Number of invite codes to create (default: 60)
   --activities <number>           Number of activity log entries to create (default: 300)
+  --follows <number>              Number of follow relationships to create (default: 400)
+  --documents <number>            Number of documents to create (default: 50)
   --help, -h                      Show this help message
 
 Description:
@@ -108,6 +116,10 @@ Description:
   - 600 photos from Unsplash (configurable with --photos)
   - 60 invite codes with various configurations (configurable with --invites)
   - 300 activity log entries (last 30 days) with metadata (configurable with --activities)
+  - 400 follow relationships between users (configurable with --follows):
+    * Creates social graph with varied follow patterns
+    * Mix of active, pending, and blocked statuses
+  - 50 documents attached to plans with AI-parsed metadata (configurable with --documents)
 
   If --admin-name and --admin-email are not provided, the script will prompt
   you interactively for these details.
@@ -933,6 +945,16 @@ class DataGenerator {
       const visibility = Math.random() < 0.7 ? 'public' : 'private';
       const hasActiveSession = Math.random() < 0.6;
 
+      // Generate random timezone preference
+      const timezones = [
+        'America/New_York', 'America/Los_Angeles', 'America/Chicago', 'America/Denver',
+        'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Rome',
+        'Asia/Tokyo', 'Asia/Shanghai', 'Asia/Singapore', 'Asia/Dubai',
+        'Australia/Sydney', 'Pacific/Auckland', 'UTC'
+      ];
+      const themes = ['light', 'dark', 'system-default'];
+      const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF'];
+
       const user = {
         name,
         email,
@@ -940,7 +962,18 @@ class DataGenerator {
         role: 'regular_user',
         emailConfirmed,
         apiEnabled,
-        visibility
+        visibility,
+        preferences: {
+          theme: getRandomElement(themes),
+          currency: getRandomElement(currencies),
+          timezone: getRandomElement(timezones),
+          profileVisibility: visibility,
+          notifications: {
+            enabled: Math.random() < 0.8,
+            channels: Math.random() < 0.5 ? ['email'] : ['email', 'push'],
+            types: ['activity', 'reminder']
+          }
+        }
       };
 
       // Add invite code if applicable
@@ -982,6 +1015,7 @@ class DataGenerator {
         name: dest.name + suffix,
         country: dest.country,
         state: dest.state,
+        overview: this.generateDestinationOverview(dest.name, dest.country),
         map_location: dest.map_location,
         travel_tips: this.generateTravelTips(dest.name),
         permissions: [], // Will be set after users are created
@@ -990,6 +1024,21 @@ class DataGenerator {
     }
 
     return destinations;
+  }
+
+  /**
+   * Generate destination overview text
+   */
+  generateDestinationOverview(name, country) {
+    const overviews = [
+      `${name} is a vibrant destination in ${country} known for its rich cultural heritage and stunning landscapes. Visitors are drawn to its unique blend of historical landmarks and modern attractions, making it a must-visit for travelers seeking authentic experiences.`,
+      `Discover the magic of ${name}, ${country}'s hidden gem. From its bustling markets to serene natural escapes, this destination offers something for every type of traveler. The local cuisine and warm hospitality make it an unforgettable journey.`,
+      `Welcome to ${name}, a captivating city in ${country} where ancient traditions meet contemporary life. Explore winding streets filled with artisan shops, savor world-renowned gastronomy, and immerse yourself in the local way of life.`,
+      `${name} stands as one of ${country}'s premier destinations, offering visitors an incredible mix of adventure, relaxation, and cultural discovery. The region's diverse attractions cater to families, solo travelers, and couples alike.`,
+      `Experience the enchanting beauty of ${name} in ${country}. This remarkable destination boasts breathtaking scenery, fascinating history, and a vibrant arts scene that captivates visitors from around the world.`,
+      `Nestled in ${country}, ${name} beckons travelers with its irresistible charm. From iconic landmarks to off-the-beaten-path discoveries, this destination promises memories that will last a lifetime.`
+    ];
+    return getRandomElement(overviews);
   }
 
   /**
@@ -1726,6 +1775,185 @@ class DataGenerator {
 
     return tags;
   }
+
+  /**
+   * Generate follow relationships between users
+   */
+  generateFollows(count = 400, users = []) {
+    const follows = [];
+    const followPairs = new Set(); // Track unique follower-following pairs
+
+    // Filter to non-admin users for more realistic social graph
+    const regularUsers = users.filter(u => !u.isSuperAdmin);
+    if (regularUsers.length < 2) return follows;
+
+    for (let i = 0; i < count; i++) {
+      // Pick random follower and following (different users)
+      const follower = getRandomElement(regularUsers);
+      let following;
+      let attempts = 0;
+
+      do {
+        following = getRandomElement(regularUsers);
+        attempts++;
+      } while (
+        (following._id.toString() === follower._id.toString() ||
+        followPairs.has(`${follower._id}-${following._id}`)) &&
+        attempts < 20
+      );
+
+      if (attempts >= 20) continue; // Skip if can't find unique pair
+
+      followPairs.add(`${follower._id}-${following._id}`);
+
+      // Status distribution: 90% active, 5% pending, 5% blocked
+      const rand = Math.random();
+      const status = rand < 0.9 ? 'active' : (rand < 0.95 ? 'pending' : 'blocked');
+
+      follows.push({
+        follower: follower._id,
+        following: following._id,
+        status
+      });
+    }
+
+    return follows;
+  }
+
+  /**
+   * Generate documents attached to plans
+   */
+  generateDocuments(count = 50, users = [], plans = []) {
+    const documents = [];
+    if (users.length === 0 || plans.length === 0) return documents;
+
+    const documentTypes = ['pdf', 'image', 'word', 'text'];
+    const mimeTypes = {
+      pdf: 'application/pdf',
+      image: 'image/jpeg',
+      word: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      text: 'text/plain'
+    };
+    const fileExtensions = {
+      pdf: '.pdf',
+      image: '.jpg',
+      word: '.docx',
+      text: '.txt'
+    };
+
+    const aiDocumentTypes = ['flight', 'hotel', 'activity', 'restaurant', 'transport', 'receipt', 'itinerary', 'other'];
+
+    const sampleFilenames = [
+      'Flight_Confirmation', 'Hotel_Booking', 'Restaurant_Reservation',
+      'Tour_Ticket', 'Car_Rental', 'Travel_Insurance', 'Visa_Document',
+      'Itinerary', 'Expense_Receipt', 'Activity_Voucher', 'Train_Ticket'
+    ];
+
+    for (let i = 0; i < count; i++) {
+      const owner = getRandomElement(users.filter(u => !u.isSuperAdmin));
+      const plan = getRandomElement(plans);
+      const docType = getRandomElement(documentTypes);
+      const filename = `${getRandomElement(sampleFilenames)}_${generateRandomString(6)}${fileExtensions[docType]}`;
+
+      // Get a random plan item if exists
+      const planItem = plan.plan && plan.plan.length > 0 ? getRandomElement(plan.plan) : null;
+
+      const document = {
+        user: owner._id,
+        entityType: planItem ? 'plan_item' : 'plan',
+        entityId: planItem ? planItem._id : plan._id,
+        planId: plan._id,
+        planItemId: planItem ? planItem._id : undefined,
+        originalFilename: filename,
+        mimeType: mimeTypes[docType],
+        fileSize: randomBetween(50000, 5000000), // 50KB - 5MB
+        documentType: docType,
+        s3Key: `documents/${owner._id}/${Date.now()}_${filename}`,
+        s3Url: `https://s3.amazonaws.com/biensperience-sample/documents/${filename}`,
+        s3Bucket: 'biensperience-sample',
+        status: 'completed',
+        extractedText: `Sample extracted text from ${filename}. This is placeholder content for demonstration purposes.`,
+        processingResult: {
+          method: docType === 'pdf' ? 'pdf-parse' : (docType === 'image' ? 'llm-vision' : 'direct-read'),
+          confidence: randomBetween(85, 99),
+          characterCount: randomBetween(500, 5000),
+          pageCount: docType === 'pdf' ? randomBetween(1, 10) : 1,
+          processedAt: new Date()
+        },
+        aiParsedData: this.generateAiParsedData(getRandomElement(aiDocumentTypes)),
+        permissions: [
+          { _id: owner._id, entity: 'user', type: 'owner', granted_at: new Date(), granted_by: owner._id }
+        ]
+      };
+
+      documents.push(document);
+    }
+
+    return documents;
+  }
+
+  /**
+   * Generate AI-parsed data for documents
+   */
+  generateAiParsedData(documentType) {
+    const now = new Date();
+    const futureDate = new Date(now.getTime() + randomBetween(7, 90) * 24 * 60 * 60 * 1000);
+
+    const baseData = {
+      documentType,
+      summary: `Sample ${documentType} document for travel planning`,
+      confirmationNumber: `CONF${generateRandomString(8).toUpperCase()}`,
+      totalCost: randomBetween(50, 2000),
+      currency: getRandomElement(['USD', 'EUR', 'GBP', 'JPY'])
+    };
+
+    switch (documentType) {
+      case 'flight':
+        return {
+          ...baseData,
+          airline: getRandomElement(['United Airlines', 'Delta', 'American Airlines', 'British Airways', 'Lufthansa']),
+          flightNumber: `${getRandomElement(['UA', 'DL', 'AA', 'BA', 'LH'])}${randomBetween(100, 9999)}`,
+          departureCity: getRandomElement(['New York', 'Los Angeles', 'Chicago', 'London', 'Paris']),
+          arrivalCity: getRandomElement(['Tokyo', 'Rome', 'Barcelona', 'Sydney', 'Dubai']),
+          departureDate: futureDate,
+          departureTime: `${String(randomBetween(6, 22)).padStart(2, '0')}:${getRandomElement(['00', '15', '30', '45'])}`,
+          terminal: getRandomElement(['A', 'B', 'C', '1', '2', '3']),
+          gate: `${getRandomElement(['A', 'B', 'C', 'D'])}${randomBetween(1, 50)}`,
+          passengerName: 'Demo Traveler'
+        };
+      case 'hotel':
+        return {
+          ...baseData,
+          hotelName: getRandomElement(['Hilton', 'Marriott', 'Hyatt', 'InterContinental', 'Four Seasons']) + ' ' + getRandomElement(['Downtown', 'Airport', 'Beach Resort', 'City Center']),
+          checkInDate: futureDate,
+          checkInTime: '15:00',
+          checkOutDate: new Date(futureDate.getTime() + randomBetween(2, 7) * 24 * 60 * 60 * 1000),
+          checkOutTime: '11:00',
+          roomType: getRandomElement(['Standard King', 'Deluxe Double', 'Executive Suite', 'Ocean View']),
+          nights: randomBetween(2, 7),
+          guestName: 'Demo Traveler'
+        };
+      case 'restaurant':
+        return {
+          ...baseData,
+          restaurantName: getRandomElement(['La Maison', 'The Golden Fork', 'Sakura Garden', 'Trattoria Roma', 'Blue Ocean']),
+          partySize: randomBetween(2, 8),
+          address: `${randomBetween(1, 999)} Main Street`,
+          specialRequests: getRandomElement(['Window seat preferred', 'Birthday celebration', 'Vegetarian options needed', null])
+        };
+      case 'activity':
+        return {
+          ...baseData,
+          activityName: getRandomElement(['City Walking Tour', 'Museum Visit', 'Cooking Class', 'Boat Cruise', 'Wine Tasting']),
+          provider: getRandomElement(['Viator', 'GetYourGuide', 'Airbnb Experiences', 'Local Tours Inc']),
+          duration: getRandomElement(['2 hours', '3 hours', 'Half day', 'Full day']),
+          meetingPoint: 'Main entrance',
+          participantNames: ['Demo Traveler']
+        };
+      default:
+        return baseData;
+    }
+  }
 }
 
 /**
@@ -1766,9 +1994,11 @@ async function clearDatabase(output) {
     Photo.deleteMany({}),
     Plan.deleteMany({}),
     InviteCode.deleteMany({}),
-    Activity.deleteMany({})
+    Activity.deleteMany({}),
+    Follow.deleteMany({}),
+    Document.deleteMany({})
   ]);
-  output.log('✅ Database cleared (all 7 entity types: Users, Destinations, Experiences, Photos, Plans, InviteCodes, Activities)');
+  output.log('✅ Database cleared (all 9 entity types: Users, Destinations, Experiences, Photos, Plans, InviteCodes, Activities, Follows, Documents)');
 }
 
 /**
@@ -1824,7 +2054,9 @@ async function createSampleData() {
       plans: args.plans || 450,
       photos: args.photos || 600,
       invites: args.invites || 60,
-      activities: args.activities || 300
+      activities: args.activities || 300,
+      follows: args.follows || 400,
+      documents: args.documents || 50
     };
 
     output.log('📊 Resource Counts:');
@@ -1835,6 +2067,8 @@ async function createSampleData() {
     output.log(`   📸 Photos: ${resourceCounts.photos}`);
     output.log(`   🎟️  Invite Codes: ${resourceCounts.invites}`);
     output.log(`   📝 Activity Logs: ${resourceCounts.activities}`);
+    output.log(`   👥 Follows: ${resourceCounts.follows}`);
+    output.log(`   📄 Documents: ${resourceCounts.documents}`);
     output.log('');
 
     // Generate and create users with custom super admin details
@@ -1848,7 +2082,15 @@ async function createSampleData() {
         email: userInfo.email,
         password: userInfo.password,
         role: userInfo.role,
-        isSuperAdmin: userInfo.isSuperAdmin || false
+        isSuperAdmin: userInfo.isSuperAdmin || false,
+        emailConfirmed: userInfo.emailConfirmed,
+        apiEnabled: userInfo.apiEnabled,
+        visibility: userInfo.visibility,
+        preferences: userInfo.preferences,
+        inviteCode: userInfo.inviteCode,
+        currentSessionId: userInfo.currentSessionId,
+        sessionCreatedAt: userInfo.sessionCreatedAt,
+        sessionExpiresAt: userInfo.sessionExpiresAt
       });
       await user.save();
       createdUsers.push({ ...user.toObject(), credentials: userInfo.credentials });
@@ -1946,6 +2188,35 @@ async function createSampleData() {
     }
     output.log(`✅ Created ${createdActivities.length} activity log entries`);
 
+    // Generate and create follow relationships
+    output.log('👥 Generating follow relationships...');
+    const followData = generator.generateFollows(resourceCounts.follows, createdUsers);
+    const createdFollows = [];
+
+    for (const followInfo of followData) {
+      try {
+        const follow = new Follow(followInfo);
+        await follow.save();
+        createdFollows.push(follow);
+      } catch (err) {
+        // Skip duplicates silently
+        if (err.code !== 11000) throw err;
+      }
+    }
+    output.log(`✅ Created ${createdFollows.length} follow relationships`);
+
+    // Generate and create documents
+    output.log('📄 Generating documents...');
+    const documentData = generator.generateDocuments(resourceCounts.documents, createdUsers, createdPlans);
+    const createdDocuments = [];
+
+    for (const docInfo of documentData) {
+      const doc = new Document(docInfo);
+      await doc.save();
+      createdDocuments.push(doc);
+    }
+    output.log(`✅ Created ${createdDocuments.length} documents with AI-parsed metadata`);
+
     // Display super admin credentials
     const superAdmin = createdUsers.find(u => u.isSuperAdmin);
     if (superAdmin && superAdmin.credentials) {
@@ -1969,6 +2240,8 @@ async function createSampleData() {
     output.log(`   📋 Plans: ${createdPlans.length} (with completion tracking)`);
     output.log(`   🎟️  Invite Codes: ${createdInvites.length} (various configurations)`);
     output.log(`   📝 Activity Logs: ${createdActivities.length} (last 30 days)`);
+    output.log(`   👥 Follows: ${createdFollows.length} (social graph)`);
+    output.log(`   📄 Documents: ${createdDocuments.length} (with AI-parsed metadata)`);
 
     output.log('\n👥 DEMO USER ACCOUNTS:');
     output.log('All regular users have password: demo123');

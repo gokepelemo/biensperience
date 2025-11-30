@@ -167,11 +167,47 @@ export async function userPlanItemDone(experienceId, planItemId) {
   );
 }
 
-export async function showUserExperiences(userId) {
+/**
+ * Get experiences where a user has created plans
+ * @param {string} userId - User ID
+ * @param {Object} [options] - Optional pagination options
+ * @param {number} [options.page] - Page number (1-indexed) - if provided, enables pagination
+ * @param {number} [options.limit] - Items per page (default 12 when paginated)
+ * @returns {Promise<Array|{data: Array, meta: {page, limit, total, totalPages, hasMore}}>}
+ *          Returns array if no pagination, or paginated response if page/limit provided
+ */
+export async function showUserExperiences(userId, options = {}) {
+  const { page, limit } = options;
+  // Only add pagination params if explicitly requested
+  if (page !== undefined || limit !== undefined) {
+    const params = new URLSearchParams();
+    if (page !== undefined) params.set('page', String(page));
+    if (limit !== undefined) params.set('limit', String(limit));
+    return await sendRequest(`${BASE_URL}user/${userId}?${params}`, "GET");
+  }
+  // Default: return all (backwards compatible)
   return await sendRequest(`${BASE_URL}user/${userId}`, "GET");
 }
 
-export async function showUserCreatedExperiences(userId) {
+/**
+ * Get experiences created/owned by a user
+ * @param {string} userId - User ID
+ * @param {Object} [options] - Optional pagination options
+ * @param {number} [options.page] - Page number (1-indexed) - if provided, enables pagination
+ * @param {number} [options.limit] - Items per page (default 12 when paginated)
+ * @returns {Promise<Array|{data: Array, meta: {page, limit, total, totalPages, hasMore}}>}
+ *          Returns array if no pagination, or paginated response if page/limit provided
+ */
+export async function showUserCreatedExperiences(userId, options = {}) {
+  const { page, limit } = options;
+  // Only add pagination params if explicitly requested
+  if (page !== undefined || limit !== undefined) {
+    const params = new URLSearchParams();
+    if (page !== undefined) params.set('page', String(page));
+    if (limit !== undefined) params.set('limit', String(limit));
+    return await sendRequest(`${BASE_URL}user/${userId}/created?${params}`, "GET");
+  }
+  // Default: return all (backwards compatible)
   return await sendRequest(`${BASE_URL}user/${userId}/created`, "GET");
 }
 
