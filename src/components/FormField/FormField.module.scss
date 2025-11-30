@@ -1,0 +1,141 @@
+/* Styles for enhanced textarea variant matching design mock */
+.textareaWrapper {
+  position: relative;
+  display: block;
+}
+
+.textareaControl {
+  width: 100%;
+  min-height: 120px;
+  padding: 22px 20px 34px 20px; /* space for counter */
+  border-radius: 14px;
+  border: 1px solid var(--color-border, #d9e3ef);
+  /* input-specific tokens so inputs match design system in light/dark themes */
+  color: var(--color-input-text, var(--color-text-primary, #12263f));
+  /* subtle elevation and inset highlight using design tokens */
+  box-shadow: 0 1px 0 var(--color-shadow-subtle, rgba(18,38,63,0.02)), inset 0 1px 0 var(--color-inset-highlight, rgba(255,255,255,0.6));
+  resize: vertical;
+  transition: box-shadow .18s ease, border-color .18s ease, transform .12s ease;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.textareaControl::placeholder {
+  color: var(--color-input-placeholder, var(--color-text-muted, rgba(18,38,63,0.35)));
+  opacity: 1; /* ensure placeholder visible in dark mode when tokens provided */
+}
+
+.textareaWrapper:focus-within .textareaControl {
+  border-color: var(--color-accent, #9b76ff);
+  box-shadow: 0 6px 20px var(--color-accent-shadow, rgba(155,118,255,0.12));
+  transform: translateY(-1px);
+}
+
+.rounded {
+  border-radius: 18px !important;
+}
+
+.accent {
+  border-color: var(--color-accent, #9b76ff);
+}
+
+.error {
+  border-color: var(--color-danger, #ff6b6b) !important;
+  box-shadow: 0 6px 18px var(--color-danger-shadow, rgba(255,107,107,0.08));
+}
+
+.valid {
+  border-color: var(--color-success, #2fc27b) !important;
+}
+
+.counter {
+  position: absolute;
+  left: 14px;
+  bottom: 10px;
+  font-size: 12px;
+  color: var(--color-input-placeholder, var(--color-text-muted, rgba(18,38,63,0.45)));
+  background: transparent;
+}
+
+.editIcon {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  color: var(--color-text-muted, rgba(18,38,63,0.45));
+  display: flex;
+  align-items: center;
+}
+
+.inputGroupWrapper {
+  display: flex;
+  align-items: stretch;
+}
+
+.addon {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-addon-bg, var(--color-surface, #f7f9fc));
+  border: 1px solid var(--color-border, #d9e3ef);
+}
+
+/* Helper text variants: error color when error class on control */
+.textareaWrapper + .form-text,
+.inputGroupWrapper + .form-text,
+.form-group .form-text {
+  margin-top: 8px;
+}
+
+.error + .form-text,
+.textareaWrapper .error ~ .form-text,
+.textareaWrapper.error ~ .form-text {
+  color: var(--color-danger, #ff6b6b) !important;
+}
+
+/* Small responsiveness */
+@media (max-width: 767px) {
+  .textareaControl {
+    min-height: 100px;
+  }
+}
+
+/* Hide the edit icon on small screens to reduce clutter */
+@media (max-width: 575px) {
+  .editIcon {
+    display: none;
+  }
+}
+
+/* Text input variant to match textarea visual style */
+.textWrapper {
+  position: relative;
+}
+
+.textControl {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border, #d9e3ef);
+  background: var(--color-input-bg, var(--color-surface, #fff));
+  color: var(--color-input-text, var(--color-text-primary, #12263f));
+  box-shadow: 0 1px 0 var(--color-shadow-subtle, rgba(18,38,63,0.02)), inset 0 1px 0 var(--color-inset-highlight, rgba(255,255,255,0.6));
+  transition: box-shadow .12s ease, border-color .12s ease, transform .08s ease;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.textControl::placeholder {
+  color: var(--color-input-placeholder, var(--color-text-muted, rgba(18,38,63,0.35)));
+  opacity: 1;
+}
+
+.textWrapper:focus-within .textControl {
+  border-color: var(--color-accent, #9b76ff);
+  box-shadow: 0 8px 22px var(--color-accent-shadow, rgba(155,118,255,0.08));
+  transform: translateY(-1px);
+}
+
+@media (max-width: 767px) {
+  .textControl { min-height: 40px; }
+}

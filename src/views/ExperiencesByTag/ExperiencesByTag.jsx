@@ -12,7 +12,7 @@ import Pagination from "../../components/Pagination/Pagination";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { logger } from "../../utilities/logger";
 import * as experiencesAPI from "../../utilities/experiences-api";
-import { Button, Container, FlexBetween, FadeIn } from "../../components/design-system";
+import { Button, Container, FlexBetween, FlexCenter, FadeIn } from "../../components/design-system";
 import { FaUser, FaArrowRight } from "react-icons/fa";
 
 const ITEMS_PER_PAGE = 12;
@@ -229,13 +229,15 @@ export default function ExperiencesByTag() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              totalItems={allExperiences.length}
-              itemsPerPage={ITEMS_PER_PAGE}
-            />
+            <FlexCenter className={styles.paginationWrapper}>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={allExperiences.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+              />
+            </FlexCenter>
           )}
         </FadeIn>
       )}

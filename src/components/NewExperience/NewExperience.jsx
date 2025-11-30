@@ -222,27 +222,24 @@ export default function NewExperience() {
               onChange={handleChange}
               placeholder={lang.current.placeholder.experienceName}
               required
-              tooltip={lang.current.helper.nameRequired}
+              tooltip={lang.current.tooltip.experienceName}
               tooltipPlacement="top"
             />
 
             <div className="mb-4">
               <Form.Group>
-                <Form.Label>
-                  {lang.current.label.overview}
-                  {' '}
-                  <FormTooltip
-                    text={lang.current.helper.overviewOptional}
-                    placement="top"
-                  />
-                </Form.Label>
-                <Form.Control
-                  as="textarea"
+                <FormField
                   name="overview"
-                  rows={4}
+                  label={lang.current.label.overview}
+                  type="textarea"
                   value={newExperience.overview || ''}
                   onChange={handleChange}
                   placeholder={lang.current.placeholder.overview}
+                  rows={4}
+                  showCounter
+                  maxLength={300}
+                  tooltip={lang.current.tooltip.overview}
+                  tooltipPlacement="top"
                 />
               </Form.Group>
             </div>
@@ -255,7 +252,7 @@ export default function NewExperience() {
                   <span className="text-danger">*</span>
                   {' '}
                   <FormTooltip
-                    text={`${lang.current.helper.destinationRequired}${lang.current.helper.createNewDestination}`}
+                    content={lang.current.tooltip.destination}
                     placement="top"
                   />
                 </Form.Label>
@@ -355,15 +352,15 @@ export default function NewExperience() {
               value={newExperience.map_location || ''}
               onChange={handleChange}
               placeholder={lang.current.placeholder.address}
-              tooltip={lang.current.helper.addressOptional}
+              tooltip={lang.current.tooltip.mapLocation}
               tooltipPlacement="top"
             />
 
             <div className="mb-4">
-              <Form.Label htmlFor="experience_type">
+                <Form.Label htmlFor="experience_type">
                 {lang.current.label.experienceTypes}
                 <FormTooltip
-                  content={lang.current.helper.experienceTypesOptional}
+                  content={lang.current.tooltip.experienceTypes}
                   placement="top"
                 />
               </Form.Label>
@@ -379,7 +376,7 @@ export default function NewExperience() {
               <Form.Label>
                 Photos
                 <FormTooltip
-                  content={lang.current.helper.photosOptional}
+                  content={lang.current.tooltip.photos}
                   placement="top"
                 />
               </Form.Label>

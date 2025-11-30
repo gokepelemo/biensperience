@@ -397,7 +397,7 @@ export default function MyPlans() {
                                 cost={plan.total_cost || 0}
                                 showTooltip={true}
                                 compact={true}
-                                isActual={true}
+                                isActual={false}
                                 exact={true}
                               />
                             </Text>

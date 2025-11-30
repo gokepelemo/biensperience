@@ -1,3 +1,4 @@
+import { FormTooltip } from '../Tooltip/Tooltip';
 import "./UpdateExperience.module.scss";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
@@ -448,29 +449,33 @@ export default function UpdateExperience() {
         <div className="col-12">
           <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
-              name="name"
-              label={lang.current.label.title}
-              type="text"
-              value={experience.name || ''}
-              onChange={handleChange}
-              placeholder={lang.current.placeholder.experienceName}
-              required
-              tooltip={lang.current.helper.nameRequired}
-              tooltipPlacement="top"
-            />
+                name="name"
+                label={lang.current.label.title}
+                type="text"
+                value={experience.name || ''}
+                onChange={handleChange}
+                placeholder={lang.current.placeholder.experienceName}
+                required
+                tooltip={lang.current.tooltip.experienceName}
+                tooltipPlacement="top"
+              />
 
             <div className="mb-4">
               <Form.Group>
                 <Form.Label>
                   {lang.current.label.overview}
+                  {' '}
+                  <FormTooltip content={lang.current.tooltip.overview} placement="top" />
                 </Form.Label>
-                <Form.Control
-                  as="textarea"
+                <FormField
                   name="overview"
-                  rows={4}
+                  type="textarea"
                   value={experience.overview || ''}
                   onChange={handleChange}
                   placeholder={lang.current.placeholder.overview}
+                  rows={4}
+                  showCounter
+                  maxLength={300}
                 />
                 <small className="form-text text-muted">
                   {lang.current.helper.overviewOptional}
@@ -484,6 +489,11 @@ export default function UpdateExperience() {
                   {lang.current.label.destinationLabel}
                   {' '}
                   <span className="text-danger">*</span>
+                  {' '}
+                  <FormTooltip
+                    content={lang.current.tooltip.destination}
+                    placement="top"
+                  />
                 </Form.Label>
                 <Autocomplete
                   placeholder={lang.current.placeholder.destination}
@@ -594,6 +604,11 @@ export default function UpdateExperience() {
             <div className="mb-4">
               <Form.Label htmlFor="experience_type">
                 {lang.current.label.experienceTypes}
+                {' '}
+                <FormTooltip
+                  content={lang.current.tooltip.experienceTypes}
+                  placement="top"
+                />
               </Form.Label>
               <TagInput
                 tags={tags}
@@ -623,6 +638,11 @@ export default function UpdateExperience() {
             <div className="mb-4">
               <Form.Label>
                 Photos
+                {' '}
+                <FormTooltip
+                  content={lang.current.tooltip.photos}
+                  placement="top"
+                />
               </Form.Label>
               <ImageUpload
                 data={experience}

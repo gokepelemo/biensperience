@@ -2,6 +2,8 @@ import React from 'react';
 import { Form, InputGroup } from 'react-bootstrap';
 import { FormTooltip } from '../Tooltip/Tooltip';
 import PropTypes from 'prop-types';
+import styles from './FormField.module.scss';
+import TextareaAutosize from 'react-textarea-autosize';
 
 /**
  * FormField Component - Complete Bootstrap form field with label, validation, and tooltip
@@ -66,43 +68,64 @@ export default function FormField({
 }) {
   const hasInputGroup = prepend || append;
 
-  const formControl = (
-    <Form.Control
-      id={name}
-      name={name}
-      type={type}
-      value={value}
-      onChange={onChange}
-      onBlur={onBlur}
-      placeholder={placeholder}
-      required={required}
-      disabled={disabled}
-      readOnly={readOnly}
-      isValid={isValid}
-      isInvalid={isInvalid}
-      size={size}
-      autoComplete={autoComplete}
-      className={className}
-      as={as}
-      rows={rows}
-      style={{
-        backgroundColor: 'var(--form-field-control-bg)',
-        border: hasInputGroup ? 'var(--form-field-control-border)' : 'var(--form-field-border)',
-        color: 'var(--form-field-control-color)',
-        fontSize: 'var(--form-field-control-font-size)',
-        padding: 'var(--form-field-control-padding)',
-        minHeight: hasInputGroup ? 'var(--form-field-control-min-height)' : 'var(--form-field-min-height)',
-        outline: 'var(--form-field-control-outline)',
-        boxShadow: 'var(--form-field-control-box-shadow)',
-        borderRadius: rounded ? '16px' : (hasInputGroup ? '0' : 'var(--form-field-border-radius)'),
-        // Variant border color overrides
-        borderColor: variant === 'accent' ? 'var(--bs-primary)' : variant === 'error' ? 'var(--bs-danger)' : undefined,
-      }}
-      {...rest}
-    >
-      {children}
-    </Form.Control>
-  );
+  // Determine whether this should render as a textarea
+  const isTextarea = (as === 'textarea' || type === 'textarea');
+
+  // Build class names for control
+  const controlClasses = [className];
+  if (isTextarea) controlClasses.push(styles.textareaControl);
+  else if (type === 'text') controlClasses.push(styles.textControl);
+  if (rounded) controlClasses.push(styles.rounded);
+  if (variant === 'accent') controlClasses.push(styles.accent);
+  if (variant === 'error' || isInvalid) controlClasses.push(styles.error);
+  if (isValid) controlClasses.push(styles.valid);
+
+  let formControl;
+  if (isTextarea) {
+    // Use autosizing textarea for better UX
+    const taClasses = controlClasses.join(' ');
+    formControl = (
+      <TextareaAutosize
+        id={name}
+        name={name}
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        placeholder={placeholder}
+        minRows={rows || 3}
+        maxRows={10}
+        disabled={disabled}
+        readOnly={readOnly}
+        className={`${taClasses} ${isInvalid ? 'is-invalid' : ''} ${isValid ? 'is-valid' : ''}`}
+        {...rest}
+      />
+    );
+  } else {
+    formControl = (
+      <Form.Control
+        id={name}
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        placeholder={placeholder}
+        required={required}
+        disabled={disabled}
+        readOnly={readOnly}
+        isValid={isValid}
+        isInvalid={isInvalid}
+        size={size}
+        autoComplete={autoComplete}
+        className={controlClasses.join(' ')}
+        as={as}
+        rows={rows}
+        {...rest}
+      >
+        {children}
+      </Form.Control>
+    );
+  }
 
   return (
     <Form.Group className="mb-3">
@@ -115,49 +138,35 @@ export default function FormField({
       )}
       
       {hasInputGroup ? (
-        <InputGroup style={{
-          border: 'var(--form-field-border)',
-          borderRadius: 'var(--form-field-border-radius)',
-          overflow: 'var(--form-field-overflow)',
-          minHeight: 'var(--form-field-min-height)',
-        }}>
+        <InputGroup className={styles.inputGroupWrapper}>
           {prepend && (
-            <InputGroup.Text style={{
-              backgroundColor: 'var(--form-field-addon-bg)',
-              border: 'var(--form-field-addon-border)',
-              color: 'var(--form-field-addon-color)',
-              padding: 'var(--form-field-addon-padding)',
-              minHeight: 'var(--form-field-addon-min-height)',
-              display: 'flex',
-              alignItems: 'center',
-            }}>
-              {prepend}
-            </InputGroup.Text>
+            <InputGroup.Text className={styles.addon}>{prepend}</InputGroup.Text>
           )}
           {formControl}
           {append && (
-            <InputGroup.Text style={{
-              backgroundColor: 'var(--form-field-addon-bg)',
-              border: 'var(--form-field-addon-border)',
-              color: 'var(--form-field-addon-color)',
-              padding: 'var(--form-field-addon-padding)',
-              minHeight: 'var(--form-field-addon-min-height)',
-              display: 'flex',
-              alignItems: 'center',
-            }}>
-              {append}
-            </InputGroup.Text>
+            <InputGroup.Text className={styles.addon}>{append}</InputGroup.Text>
           )}
         </InputGroup>
       ) : (
-        formControl
+        // For textarea or text inputs we wrap to allow overlayed counter/icon and unified style
+        (isTextarea || type === 'text') ? (
+          <div className={isTextarea ? styles.textareaWrapper : styles.textWrapper}>
+            {formControl}
+            {/* Inline overlay counter removed — keep helper counter below the field */}
+            <div className={styles.editIcon} aria-hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" fill="currentColor"/>
+              </svg>
+            </div>
+          </div>
+        ) : formControl
       )}
 
       {validFeedback && <Form.Control.Feedback type="valid">{validFeedback}</Form.Control.Feedback>}
       {invalidFeedback && <Form.Control.Feedback type="invalid">{invalidFeedback}</Form.Control.Feedback>}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         {helpText ? <Form.Text className="text-muted">{helpText}</Form.Text> : <div />}
-        {as === 'textarea' && showCounter && (
+        {isTextarea && showCounter && (
           <Form.Text className="text-muted">{(value && value.length) || 0}/{rest.maxLength || ''}</Form.Text>
         )}
       </div>
@@ -193,4 +202,5 @@ FormField.propTypes = {
   children: PropTypes.node,
   rounded: PropTypes.bool,
   variant: PropTypes.string,
+  showCounter: PropTypes.bool,
 };

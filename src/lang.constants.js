@@ -617,6 +617,13 @@ const en = {
     setPlannedDate: "Click to set a planned date",
     edit: "Edit",
     delete: "Delete",
+    // Experience form tooltips (friendly & playful)
+    experienceName: "Give it a snappy title — make travelers curious!",
+    overview: "Describe the experience in a few sentences: highlights, expectations, and must-knows.",
+    destination: "Where does this adventure happen? Pick a place or add a new destination 🗺️",
+    mapLocation: "Optional: add a precise address or landmark to help visitors find the spot.",
+    experienceTypes: "Tag this experience (e.g., Culinary, Adventure) so others can discover it.",
+    photos: "Add eye-catching photos — visuals make people want to join! (optional)",
   },
 
   cookieConsent: {

@@ -1326,6 +1326,18 @@ async function getTagName(req, res) {
         .replace(/^-+|-+$/g, '');
     };
 
+    // Normalize incoming slug: decode URL-encoded characters and
+    // run through the same slugify function so variants like
+    // "food-&-wine" or "food%26-wine" normalize to "food-wine".
+    let normalizedInputSlug;
+    try {
+      const decoded = typeof tagSlug === 'string' ? decodeURIComponent(tagSlug) : String(tagSlug);
+      normalizedInputSlug = createUrlSlug(decoded);
+    } catch (e) {
+      // Fall back to raw tagSlug if decoding fails
+      normalizedInputSlug = createUrlSlug(String(tagSlug || ''));
+    }
+
     // OPTIMIZATION: Single query with .lean() and .select() to only fetch experience_type field
     // Reduces memory usage by 90%+ (only fetching tag arrays, not full documents)
     const allExperiences = await Experience.find({
@@ -1350,7 +1362,7 @@ async function getTagName(req, res) {
         );
 
         const matchingTag = tags.find(
-          tag => createUrlSlug(tag) === tagSlug
+          tag => createUrlSlug(tag) === normalizedInputSlug
         );
         if (matchingTag) {
           return res.status(200).json({ tagName: matchingTag });
@@ -1358,8 +1370,8 @@ async function getTagName(req, res) {
       }
     }
 
-    // If no match found, return the slug as fallback
-    res.status(404).json({ error: 'Tag not found', tagName: tagSlug });
+    // If no match found, return the normalized slug as fallback
+    res.status(404).json({ error: 'Tag not found', tagName: normalizedInputSlug });
   } catch (err) {
     backendLogger.error('Error finding tag by slug', { error: err.message, tagSlug: req.params.tagSlug });
     res.status(400).json({ error: 'Failed to find tag' });

@@ -30,7 +30,7 @@ const STORAGE_KEY = 'biensperience:preferences';
  */
 const TIMEZONE_OPTIONS = [
   // System default option (uses browser timezone)
-  { value: 'system-default', label: 'System default' },
+  { value: 'system-default', label: 'System Default' },
 
   // Americas
   { value: 'America/New_York', label: '(UTC-05:00) Eastern Time - New York' },

@@ -10,7 +10,7 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Alert from "../../components/Alert/Alert";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
-import { Button, FlexCenter, SpaceY } from "../../components/design-system";
+import { Button, FlexCenter, SpaceY, EmptyState } from "../../components/design-system";
 import { logger } from "../../utilities/logger";
 import styles from "./AppHome.module.scss";
 
@@ -79,30 +79,16 @@ export default function AppHome() {
       {isEmptyState ? (
         <FlexCenter>
           <div className="col-12 col-md-8 col-lg-6 text-center">
-            <Alert
-              type="info"
+            <EmptyState
+              variant="generic"
               title={lang.current.alert.welcomeTitle.replace('{name}', user?.name ? `, ${user.name}` : '')}
-              dismissible={false}
-            >
-              <p className="mb-3">
-                {lang.current.alert.welcomeFreshStart}
-              </p>
-              <SpaceY size="3">
-                <Button
-                  variant="primary"
-                  className="mb-3"
-                  onClick={() => navigate('/destinations/new')}
-                >
-                  {lang.current.button.createDestination}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate('/experiences/new')}
-                >
-                  {lang.current.button.createExperience}
-                </Button>
-              </SpaceY>
-            </Alert>
+              description={lang.current.alert.welcomeFreshStart}
+              primaryAction={lang.current.button.createDestination}
+              onPrimaryAction={() => navigate('/destinations/new')}
+              secondaryAction={lang.current.button.createExperience}
+              onSecondaryAction={() => navigate('/experiences/new')}
+              size="md"
+            />
           </div>
         </FlexCenter>
       ) : (

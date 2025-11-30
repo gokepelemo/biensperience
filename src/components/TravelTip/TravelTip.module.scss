@@ -240,10 +240,18 @@
   align-items: center;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
-  background: rgba(0, 0, 0, 0.05);
+  /* Use design tokens for better contrast on light mode: darker background and dark text
+     so the badge remains legible against `--color-bg-surface`. Fall back to a subtle
+     translucent dark background if `--color-badge-bg` isn't defined. */
+  background: var(--color-badge-bg, rgba(0, 0, 0, 0.08));
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-light);
 
   @media (prefers-color-scheme: dark) {
-    background: rgba(255, 255, 255, 0.1);
+    /* Keep previous light-on-dark appearance in dark mode */
+    background: var(--color-badge-bg-dark, rgba(255, 255, 255, 0.08));
+    color: var(--color-text-on-surface, #fff);
+    border-color: rgba(255, 255, 255, 0.06);
   }
 }
 

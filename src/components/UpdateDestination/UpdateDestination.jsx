@@ -380,6 +380,8 @@ export default function UpdateDestination() {
               rows={4}
               tooltip={lang.current.helper.overviewOptional}
               tooltipPlacement="top"
+              showCounter
+              maxLength={300}
             />
 
             <div className="mb-4">
