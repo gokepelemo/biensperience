@@ -201,19 +201,21 @@ export default function SingleDestination() {
     }
   }, [destinationId]);
 
-  // Register h1 and action buttons (hidden h1 for screen readers)
+  // Register h1 and action buttons for navbar
+  // Re-run when destination loads so h1Ref.current is available
   useEffect(() => {
     if (h1Ref.current) {
       registerH1(h1Ref.current);
-      // Hide h1 in navbar for this view (title is in hero)
-      updateShowH1InNavbar(false);
+      // Enable h1 text in navbar - clicking scrolls to top
+      updateShowH1InNavbar(true);
     }
 
     return () => {
       clearActionButtons();
+      // Disable h1 in navbar when leaving this view
       updateShowH1InNavbar(false);
     };
-  }, [registerH1, clearActionButtons, updateShowH1InNavbar]);
+  }, [registerH1, clearActionButtons, updateShowH1InNavbar, destination]);
 
   // Choose which experiences list to display: prefer direct server results when present
   // Normalize possible shapes: legacy array, or paginated { data, meta }
@@ -487,7 +489,7 @@ export default function SingleDestination() {
                 <div className={styles.sidebarActions}>
                   {/* Favorite Button */}
                   <Button
-                    variant={isUserFavorite ? "outline" : "gradient"}
+                    variant={isUserFavorite ? (favHover ? "danger" : "outline") : "gradient"}
                     rounded
                     fullWidth
                     onClick={handleFavorite}

@@ -27,7 +27,8 @@ export default function Modal({
   dialogClassName = "",
   contentClassName = "",
   bodyClassName = "",
-  icon
+  icon,
+  showHeader = true
 }) {
   if (!show) return null;
 
@@ -69,21 +70,23 @@ export default function Modal({
       <div className={modalDialogClasses}>
         <div className={modalContentClasses}>
           {/* Header */}
-          <div className={`modal-header ${styles.modalHeader}`}>
-            <h5 className={`modal-title ${styles.modalTitle}`}>
-              {icon && <span className="me-2">{icon}</span>}
-              {title}
-            </h5>
-            <button
-              type="button"
-              className={`btn-close ${styles.btnClose}`}
-              onClick={onClose}
-              aria-label={lang.current.aria.close}
-              disabled={loading}
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
+          {showHeader && (
+            <div className={`modal-header ${styles.modalHeader}`}>
+              <h5 className={`modal-title ${styles.modalTitle}`}>
+                {icon && <span className="me-2">{icon}</span>}
+                {title}
+              </h5>
+              <button
+                type="button"
+                className={`btn-close ${styles.btnClose}`}
+                onClick={onClose}
+                aria-label={lang.current.aria.close}
+                disabled={loading}
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+          )}
 
           {/* Body */}
           <div className={modalBodyClasses}>
@@ -126,7 +129,7 @@ Modal.propTypes = {
   show: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onSubmit: PropTypes.func,
-  title: PropTypes.node.isRequired,
+  title: PropTypes.node,
   children: PropTypes.node,
   submitText: PropTypes.string,
   submitVariant: PropTypes.oneOf(['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark']),
@@ -142,5 +145,6 @@ Modal.propTypes = {
   dialogClassName: PropTypes.string,
   contentClassName: PropTypes.string,
   bodyClassName: PropTypes.string,
-  icon: PropTypes.node
+  icon: PropTypes.node,
+  showHeader: PropTypes.bool
 };

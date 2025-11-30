@@ -163,6 +163,7 @@ export default function SuccessModal({
       centered={true}
       showSubmitButton={false}
       showCloseButton={false}
+      showHeader={false}
     >
       {content}
     </Modal>

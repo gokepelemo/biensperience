@@ -13,13 +13,16 @@ import {
   FadeIn
 } from '../design-system';
 import { useUser } from '../../contexts/UserContext';
+import { useToast } from '../../contexts/ToastContext';
 import { updateUser } from '../../utilities/users-api';
+import { handleError } from '../../utilities/error-handler';
 import themeManager from '../../utilities/theme-manager';
 import { getLanguageOptions } from '../../lang.constants';
 import { getTimezoneOptions, detectUserTimezone } from '../../utilities/preferences-utils';
 
 export default function Preferences() {
   const { user, profile, fetchProfile } = useUser();
+  const { success: showSuccess, error: showError } = useToast();
   const prefs = profile?.preferences || {};
   const detectedTimezone = useMemo(() => detectUserTimezone(), []);
   const [form, setForm] = useState({
@@ -104,8 +107,10 @@ export default function Preferences() {
           localStorage.setItem('biensperience:timezone', form.timezone);
         } catch (e) { /* ignore */ }
       if (typeof fetchProfile === 'function') await fetchProfile();
+      showSuccess('Your preferences have been saved successfully.');
     } catch (err) {
-      // ignore or use toast
+      const errorMsg = handleError(err, { context: 'Save preferences', silent: true }) || 'Failed to save preferences. Please try again.';
+      showError(errorMsg);
     } finally {
       setSaving(false);
     }

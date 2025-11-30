@@ -70,6 +70,16 @@ export default function Autocomplete({
   // currentValue reflects the visible input content
   const currentValue = isControlled ? value : searchTerm;
 
+  // Sync internal searchTerm with external value prop (semi-controlled mode)
+  // This handles the case where parent controls value without onChange
+  // Only sync when value is cleared (to empty string) to avoid fighting with user input
+  useEffect(() => {
+    if (value !== undefined && !isControlled && value === '') {
+      // Parent cleared the value - sync internal state
+      setSearchTerm('');
+    }
+  }, [value, isControlled]);
+
   // When a selected label (displayValue) is provided from parent, and the user hasn't typed
   // (searchTerm is empty or equals previous displayValue), seed the searchTerm so the input
   // shows the selected label but remains editable.
@@ -220,11 +230,18 @@ export default function Autocomplete({
     }
 
     // Update input with selected item's display name
+    // Only update internal state if parent is not controlling the value via `value` prop
+    // If parent provides `value` prop, they control clearing/setting through their own state
     const display = item.name || item.username || item.label || '';
     if (onChange) {
       onChange({ target: { value: display } });
+      setSearchTerm(display);
+    } else if (value === undefined) {
+      // Only set display name if parent is not providing value prop at all
+      setSearchTerm(display);
     }
-    setSearchTerm(display);
+    // If parent provides value prop without onChange (semi-controlled),
+    // let parent control the value - don't override with display name
 
     // Mark that selection just occurred to prevent auto-reopen effect
     justSelectedRef.current = true;

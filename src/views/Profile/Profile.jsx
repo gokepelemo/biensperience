@@ -1,7 +1,6 @@
 import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera } from "react-icons/fa";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
-import { Container as BsContainer, Card, Row, Col } from "react-bootstrap";
 import styles from "./Profile.module.scss";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
@@ -24,7 +23,8 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { deduplicateById } from "../../utilities/deduplication";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
-import { Button, EmptyState } from "../../components/design-system";
+import { Button, EmptyState, Container } from "../../components/design-system";
+import { Card, Row, Col } from "react-bootstrap";
 import { useToast } from '../../contexts/ToastContext';
 import { getDefaultPhoto } from "../../utilities/photo-utils";
 
@@ -236,20 +236,22 @@ export default function Profile() {
   }, [currentProfile]);
 
   // Deduplicate user experiences by ID
-  // Returns empty array if userExperiences is null (loading state)
+  // Returns null if userExperiences is null (loading state), empty array if loaded but no data
   const uniqueUserExperiences = useMemo(() => {
-    if (userExperiences === null) return [];
+    if (userExperiences === null) return null; // Loading state
     return deduplicateById(userExperiences) || [];
   }, [userExperiences]);
 
   // Deduplicate created experiences by ID
-  // Returns empty array if createdExperiences is null (loading state)
+  // Returns null if createdExperiences is null (loading state), empty array if loaded but no data
   const uniqueCreatedExperiences = useMemo(() => {
-    if (createdExperiences === null) return [];
+    if (createdExperiences === null) return null; // Loading state
     return deduplicateById(createdExperiences) || [];
   }, [createdExperiences]);
 
   const userExperienceTypes = useMemo(() => {
+    if (!uniqueUserExperiences) return [];
+
     return Array.from(
       new Set(
         uniqueUserExperiences
@@ -268,7 +270,7 @@ export default function Profile() {
 
   // Deduplicate favorite destinations by ID
   const favoriteDestinations = useMemo(() => {
-    if (!currentProfile) return [];
+    if (!currentProfile) return null; // Loading state
     const filtered = destinations.filter(
       (destination) =>
         destination.users_favorite.indexOf(currentProfile._id) !== -1
@@ -495,16 +497,16 @@ export default function Profile() {
   // Show error state if profile not found
   if (profileError === 'User not found') {
     return (
-      <div className="container my-5">
-        <Container className="justify-content-center">
-          <div className="col-md-8">
+      <div style={{ padding: 'var(--space-20) 0' }}>
+        <Container>
+          <div style={{ maxWidth: '32rem', margin: '0 auto' }}>
             <Alert
                 type="danger"
                 title={lang.current.modal.userNotFound || 'User Not Found'}
               >
                 <p>{lang.current.alert.userNotFoundMessage || "The user profile you're looking for doesn't exist or has been removed."}</p>
               <hr />
-              <p className="mb-0">
+              <p style={{ marginBottom: 0 }}>
                   <Link to="/" className="alert-link">{lang.current.alert.returnToHome || 'Return to Home'}</Link>
               </p>
             </Alert>
@@ -517,16 +519,16 @@ export default function Profile() {
   // Show general error state
   if (profileError) {
     return (
-      <div className="container my-5">
-        <div className="row justify-content-center">
-          <div className="col-md-8">
+      <div style={{ padding: 'var(--space-20) 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ maxWidth: '32rem' }}>
             <Alert
               type="warning"
               title={lang.current.modal.unableToLoadProfile || 'Unable to Load Profile'}
             >
               <p>{profileError}</p>
               <hr />
-              <p className="mb-0">
+              <p style={{ marginBottom: 0 }}>
                 <Button onClick={getProfile} variant="primary">{lang.current.button.tryAgain}</Button>
               </p>
             </Alert>
@@ -542,20 +544,25 @@ export default function Profile() {
     return getDefaultPhoto(currentProfile);
   }, [currentProfile]);
 
+  // Safe counts for arrays that may be null while loading
+  const uniqueUserExperiencesCount = uniqueUserExperiences ? uniqueUserExperiences.length : 0;
+  const uniqueCreatedExperiencesCount = uniqueCreatedExperiences ? uniqueCreatedExperiences.length : 0;
+  const favoriteDestinationsCount = favoriteDestinations ? favoriteDestinations.length : 0;
+
   return (
     <div style={{ backgroundColor: 'var(--color-bg-primary)', minHeight: '100vh', padding: 'var(--space-8) 0' }}>
       {currentProfile && (
         <PageOpenGraph
           title={`${currentProfile.name}'s Profile`}
-          description={`View ${currentProfile.name}'s travel profile on Biensperience. Discover their planned experiences${uniqueUserExperiences.length > 0 ? ` (${uniqueUserExperiences.length} experiences)` : ''} and favorite destinations${favoriteDestinations.length > 0 ? ` (${favoriteDestinations.length} destinations)` : ''}.`}
+          description={`View ${currentProfile.name}'s travel profile on Biensperience. Discover their planned experiences${uniqueUserExperiencesCount > 0 ? ` (${uniqueUserExperiencesCount} experiences)` : ''} and favorite destinations${favoriteDestinationsCount > 0 ? ` (${favoriteDestinationsCount} destinations)` : ''}.`}
           keywords={`${currentProfile.name}, travel profile, experiences, destinations, travel planning`}
           ogTitle={`${currentProfile.name} on Biensperience`}
-          ogDescription={`${currentProfile.name} is planning ${uniqueUserExperiences.length} travel experiences${favoriteDestinations.length > 0 ? ` across ${favoriteDestinations.length} favorite destinations` : ''}.`}
+          ogDescription={`${currentProfile.name} is planning ${uniqueUserExperiencesCount} travel experiences${favoriteDestinationsCount > 0 ? ` across ${favoriteDestinationsCount} favorite destinations` : ''}.`}
           entity={currentProfile}
           entityType="user"
         />
       )}
-      <BsContainer>
+      <Container>
         {/* Profile Header Card - Storybook ProfileView Design */}
         <Card className={styles.profileHeaderCard}>
           {/* Cover Image / Gradient */}
@@ -563,7 +570,7 @@ export default function Profile() {
 
           <Card.Body className={styles.profileHeaderBody}>
             {isLoadingProfile ? (
-              <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
                 <Loading size="lg" message={lang.current.alert.loadingProfile} />
               </div>
             ) : (
@@ -621,10 +628,9 @@ export default function Profile() {
                     {currentProfile?.name}
                     {currentProfile?.emailConfirmed && (
                       <FaCheckCircle
-                        className="text-success"
+                        style={{ color: 'var(--color-success)', fontSize: 'var(--font-size-xl)' }}
                         title={lang.current.aria.emailConfirmed}
                         aria-label={lang.current.aria.emailConfirmed}
-                        style={{ fontSize: 'var(--font-size-xl)' }}
                       />
                     )}
                   </h1>
@@ -641,32 +647,19 @@ export default function Profile() {
                     </p>
                   )}
 
-                  {/* Stats */}
-                  <div className={styles.profileStats}>
-                    <div className={styles.profileStat}>
-                      <div className={styles.profileStatValue}>
-                        {uniqueUserExperiences.length}
-                      </div>
-                      <div className={styles.profileStatLabel}>
-                        Experiences
-                      </div>
-                    </div>
-                    <div className={styles.profileStat}>
-                      <div className={styles.profileStatValue}>
-                        {favoriteDestinations.length}
-                      </div>
-                      <div className={styles.profileStatLabel}>
-                        Destinations
-                      </div>
-                    </div>
-                    <div className={styles.profileStat}>
-                      <div className={styles.profileStatValue}>
-                        {plans?.length || 0}
-                      </div>
-                      <div className={styles.profileStatLabel}>
-                        Plans
-                      </div>
-                    </div>
+                  {/* Compact Metrics Bar */}
+                  <div className={styles.profileMetricsBar}>
+                    <span className={styles.profileMetric}>
+                      <strong>{plans?.length || 0}</strong> {(plans?.length || 0) === 1 ? 'Plan' : 'Plans'}
+                    </span>
+                    <span className={styles.profileMetricDivider}>·</span>
+                    <span className={styles.profileMetric}>
+                      <strong>{uniqueCreatedExperiencesCount}</strong> {uniqueCreatedExperiencesCount === 1 ? 'Experience' : 'Experiences'}
+                    </span>
+                    <span className={styles.profileMetricDivider}>·</span>
+                    <span className={styles.profileMetric}>
+                      <strong>{favoriteDestinationsCount}</strong> {favoriteDestinationsCount === 1 ? 'Destination' : 'Destinations'}
+                    </span>
                   </div>
                 </div>
 
@@ -685,8 +678,7 @@ export default function Profile() {
                   {isOwner && (
                     <div className="dropdown">
                       <Button
-                        variant="bootstrap"
-                        bootstrapVariant="outline-secondary"
+                        variant="outline"
                         type="button"
                         data-bs-toggle="dropdown"
                         aria-expanded="false"
@@ -705,7 +697,7 @@ export default function Profile() {
                                 type="button"
                               >
                                 <FaKey className={styles.dropdownIcon} />
-                                <span>API Key</span>
+                                <span>API Tokens</span>
                               </button>
                             </li>
                             <li>
@@ -785,7 +777,7 @@ export default function Profile() {
               try { window.history.pushState(null, '', `${window.location.pathname}#experiences`); } catch (e) {}
             }}
           >
-            Experiences
+            Planned
           </button>
           <button
             className={`${styles.profileTab} ${uiState.created ? styles.profileTabActive : ''}`}
@@ -803,240 +795,283 @@ export default function Profile() {
               try { window.history.pushState(null, '', `${window.location.pathname}#destinations`); } catch (e) {}
             }}
           >
-            Favorites
+            Destinations
           </button>
         </div>
 
         {/* Content Grid */}
         <Row>
           <Col lg={12}>
-            <div ref={reservedRef} className={styles.profileGrid}>
-        {uiState.destinations && (() => {
-          const uniqueDestinationIds = Array.from(
-            new Set(
-              uniqueUserExperiences.map(
-                (experience) => experience.destination._id
-              )
-            )
-          );
-          const displayedDestinations = showAllDestinations
-            ? uniqueDestinationIds
-            : uniqueDestinationIds.slice((destinationsPage - 1) * itemsPerPageComputed, (destinationsPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
+            {/* Destinations Tab */}
+            {uiState.destinations && (
+              <div ref={reservedRef} className={styles.destinationsGrid}>
+                {(() => {
+                  if (favoriteDestinations === null) {
+                    // Loading state - show skeleton loaders for one row of destinations (12rem x 8rem each)
+                    const skeletonCount = Math.min(6, Math.max(3, Math.floor(itemsPerPageComputed / 2)));
+                    return Array.from({ length: skeletonCount }).map((_, i) => (
+                      <div key={`skeleton-dest-${i}`} style={{ width: '12rem', height: '8rem', borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                      </div>
+                    ));
+                  }
 
-          const destTotalPages = Math.max(1, Math.ceil(uniqueDestinationIds.length / itemsPerPageComputed));
+                  const displayedDestinations = showAllDestinations
+                    ? favoriteDestinations
+                    : favoriteDestinations.slice((destinationsPage - 1) * itemsPerPageComputed, (destinationsPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
 
-          return uniqueDestinationIds.length > 0 ? (
-            <>
-              {displayedDestinations.map((destinationId, index) => {
-                const destination = destinations.filter((dest) => dest._id === destinationId)[0];
-                return destination ? (
-                  <DestinationCard
-                    key={destination._id || index}
-                    destination={destination}
-                  />
-                ) : null;
-              })}
-              {/* Pagination controls for destinations - only show if items exceed one page */}
-              {(!showAllDestinations && uniqueDestinationIds.length > itemsPerPageComputed) && (
+                  const destTotalPages = Math.max(1, Math.ceil(favoriteDestinations.length / itemsPerPageComputed));
+
+                  return favoriteDestinations.length > 0 ? (
+                    <>
+                      {displayedDestinations.map((destination, index) => (
+                        <DestinationCard
+                          key={destination._id || index}
+                          destination={destination}
+                        />
+                      ))}
+                      {/* Only show placeholders on non-last pages to reserve space */}
+                      {!showAllDestinations && destinationsPage < destTotalPages && displayedDestinations.length < itemsPerPageComputed && (
+                        Array.from({ length: Math.max(0, itemsPerPageComputed - displayedDestinations.length) }).map((_, i) => (
+                          <div key={`placeholder-dest-${i}`} style={{ width: '12rem', height: '8rem', borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+                            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                          </div>
+                        ))
+                      )}
+                    </>
+                  ) : (
+                    <EmptyState
+                      variant="destinations"
+                      title={isOwner ? "No Destinations Yet" : "No Destinations"}
+                      description={isOwner
+                        ? "You haven't favorited any destinations yet. Browse destinations and add some to your favorites."
+                        : `${currentProfile?.name || 'This user'} hasn't favorited any destinations yet.`}
+                      primaryAction={isOwner ? "Browse Destinations" : null}
+                      onPrimaryAction={isOwner ? () => window.location.href = '/destinations' : null}
+                      size="md"
+                    />
+                  );
+                })()}
+              </div>
+            )}
+            {/* Planned Experiences Tab */}
+            {uiState.experiences && (
+              <div className={styles.profileGrid}>
+                {(() => {
+                  if (uniqueUserExperiences === null) {
+                    return Array.from({ length: itemsPerPageComputed }).map((_, i) => (
+                      <div key={`skeleton-exp-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
+                        <div className="position-relative" style={{ minHeight: '12rem' }}>
+                          <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
+                            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  }
+
+                  const expTotalPages = Math.max(1, Math.ceil((uniqueUserExperiences || []).length / itemsPerPageComputed));
+                  const displayedExperiences = showAllPlanned
+                    ? uniqueUserExperiences
+                    : (uniqueUserExperiences || []).slice((experiencesPage - 1) * itemsPerPageComputed, (experiencesPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
+
+                  return uniqueUserExperiences.length > 0 ? (
+                    <>
+                      {displayedExperiences.map((experience, index) => (
+                        <ExperienceCard
+                          experience={experience}
+                          key={experience._id || index}
+                          userPlans={plans}
+                        />
+                      ))}
+                      {/* Only show placeholders on non-last pages to reserve space */}
+                      {!showAllPlanned && experiencesPage < expTotalPages && displayedExperiences.length < itemsPerPageComputed && (
+                        Array.from({ length: Math.max(0, itemsPerPageComputed - displayedExperiences.length) }).map((_, i) => (
+                          <div key={`placeholder-exp-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
+                            <div className="position-relative" style={{ minHeight: '12rem' }}>
+                              <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
+                                <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </>
+                  ) : (
+                    <EmptyState
+                      variant="experiences"
+                      title={isOwner ? "No Planned Experiences" : "No Planned Experiences"}
+                      description={isOwner
+                        ? lang.current.message.noExperiencesYet
+                        : `${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`}
+                      primaryAction={isOwner ? "Plan Some Experiences" : null}
+                      onPrimaryAction={isOwner ? () => window.location.href = '/experiences' : null}
+                      size="md"
+                    />
+                  );
+                })()}
+              </div>
+            )}
+            {/* Created Experiences Tab */}
+            {uiState.created && (
+              <div className={styles.profileGrid}>
+                {(() => {
+                  if (uniqueCreatedExperiences === null) {
+                    return Array.from({ length: itemsPerPageComputed }).map((_, i) => (
+                      <div key={`skeleton-created-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
+                        <div className="position-relative" style={{ minHeight: '12rem' }}>
+                          <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
+                            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  }
+
+                  const createdTotalPages = Math.max(1, Math.ceil((uniqueCreatedExperiences || []).length / itemsPerPageComputed));
+                  const displayedCreated = showAllCreated
+                    ? uniqueCreatedExperiences
+                    : (uniqueCreatedExperiences || []).slice((createdPage - 1) * itemsPerPageComputed, (createdPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
+
+                  return uniqueCreatedExperiences.length > 0 ? (
+                    <>
+                      {displayedCreated.map((experience, index) => (
+                        <ExperienceCard
+                          experience={experience}
+                          key={experience._id || index}
+                          userPlans={plans}
+                        />
+                      ))}
+                      {/* Only show placeholders on non-last pages to reserve space */}
+                      {!showAllCreated && createdPage < createdTotalPages && displayedCreated.length < itemsPerPageComputed && (
+                        Array.from({ length: Math.max(0, itemsPerPageComputed - displayedCreated.length) }).map((_, i) => (
+                          <div key={`placeholder-created-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
+                            <div className="position-relative" style={{ minHeight: '12rem' }}>
+                              <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
+                                <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </>
+                  ) : (
+                    <EmptyState
+                      variant="experiences"
+                      icon="✨"
+                      title={isOwner ? "No Created Experiences" : "No Created Experiences"}
+                      description={isOwner
+                        ? "You haven't created any experiences yet. Share your travel knowledge with the community."
+                        : `${currentProfile?.name || 'This user'} hasn't created any experiences yet.`}
+                      primaryAction={isOwner ? "Create Some Experiences" : null}
+                      onPrimaryAction={isOwner ? () => window.location.href = '/experiences/new' : null}
+                      size="md"
+                    />
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Pagination - rendered outside grid to span full width */}
+            {uiState.destinations && favoriteDestinations && (() => {
+              const destTotalPages = Math.max(1, Math.ceil(favoriteDestinations.length / itemsPerPageComputed));
+              return !showAllDestinations && favoriteDestinations.length > itemsPerPageComputed && (
                 <Pagination currentPage={destinationsPage} totalPages={destTotalPages} onPageChange={setDestinationsPage} />
-              )}
-              {/* Only show placeholders on non-last pages to reserve space */}
-              {!showAllDestinations && destinationsPage < destTotalPages && displayedDestinations.length < itemsPerPageComputed && (
-                Array.from({ length: Math.max(0, itemsPerPageComputed - displayedDestinations.length) }).map((_, i) => (
-                  <div key={`placeholder-dest-${i}`} className="d-block m-2" style={{ width: '12rem' }}>
-                    <div className="position-relative" style={{ minHeight: '8rem' }}>
-                      <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
-                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </>
-          ) : (
-            <EmptyState
-              variant="destinations"
-              title={isOwner ? "No Destinations Yet" : "No Destinations"}
-              description={isOwner
-                ? "You haven't visited any destinations through your experiences yet. Plan some experiences to see destinations here."
-                : `${currentProfile?.name || 'This user'} hasn't visited any destinations through their experiences yet.`}
-              primaryAction={isOwner ? lang.current.message.addExperiences : null}
-              onPrimaryAction={isOwner ? () => window.location.href = '/experiences' : null}
-              size="md"
-            />
-          );
-        })()}
-        {uiState.experiences && (() => {
-          const expTotalPages = Math.max(1, Math.ceil(uniqueUserExperiences.length / itemsPerPageComputed));
-          const displayedExperiences = showAllPlanned
-            ? uniqueUserExperiences
-            : uniqueUserExperiences.slice((experiencesPage - 1) * itemsPerPageComputed, (experiencesPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
+              );
+            })()}
 
-          return uniqueUserExperiences.length > 0 ? (
-            <>
-              {displayedExperiences.map((experience, index) => (
-                <ExperienceCard
-                  experience={experience}
-                  key={experience._id || index}
-                  userPlans={plans}
-                />
-              ))}
-              {/* Only show pagination if items exceed one page */}
-              {(!showAllPlanned && uniqueUserExperiences.length > itemsPerPageComputed) && (
+            {uiState.experiences && uniqueUserExperiences && (() => {
+              const expTotalPages = Math.max(1, Math.ceil((uniqueUserExperiences || []).length / itemsPerPageComputed));
+              return !showAllPlanned && uniqueUserExperiences.length > itemsPerPageComputed && (
                 <Pagination currentPage={experiencesPage} totalPages={expTotalPages} onPageChange={setExperiencesPage} />
-              )}
-              {/* Only show placeholders on non-last pages to reserve space */}
-              {!showAllPlanned && experiencesPage < expTotalPages && displayedExperiences.length < itemsPerPageComputed && (
-                Array.from({ length: Math.max(0, itemsPerPageComputed - displayedExperiences.length) }).map((_, i) => (
-                  <div key={`placeholder-exp-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
-                    <div className="position-relative" style={{ minHeight: '12rem' }}>
-                      <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
-                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </>
-          ) : (
-            <EmptyState
-              variant="experiences"
-              title={isOwner ? "No Planned Experiences" : "No Planned Experiences"}
-              description={isOwner
-                ? lang.current.message.noExperiencesYet
-                : `${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`}
-              primaryAction={isOwner ? lang.current.message.addExperiences : null}
-              onPrimaryAction={isOwner ? () => window.location.href = '/experiences' : null}
-              size="md"
-            />
-          );
-        })()}
-        {uiState.created && (() => {
-          const createdTotalPages = Math.max(1, Math.ceil(uniqueCreatedExperiences.length / itemsPerPageComputed));
-          const displayedCreated = showAllCreated
-            ? uniqueCreatedExperiences
-            : uniqueCreatedExperiences.slice((createdPage - 1) * itemsPerPageComputed, (createdPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
+              );
+            })()}
 
-          return uniqueCreatedExperiences.length > 0 ? (
-            <>
-              {displayedCreated.map((experience, index) => (
-                <ExperienceCard
-                  experience={experience}
-                  key={experience._id || index}
-                  userPlans={plans}
-                />
-              ))}
-              {/* Only show pagination if items exceed one page */}
-              {(!showAllCreated && uniqueCreatedExperiences.length > itemsPerPageComputed) && (
+            {uiState.created && uniqueCreatedExperiences && (() => {
+              const createdTotalPages = Math.max(1, Math.ceil((uniqueCreatedExperiences || []).length / itemsPerPageComputed));
+              return !showAllCreated && uniqueCreatedExperiences.length > itemsPerPageComputed && (
                 <Pagination currentPage={createdPage} totalPages={createdTotalPages} onPageChange={setCreatedPage} />
-              )}
-              {/* Only show placeholders on non-last pages to reserve space */}
-              {!showAllCreated && createdPage < createdTotalPages && displayedCreated.length < itemsPerPageComputed && (
-                Array.from({ length: Math.max(0, itemsPerPageComputed - displayedCreated.length) }).map((_, i) => (
-                  <div key={`placeholder-created-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
-                    <div className="position-relative" style={{ minHeight: '12rem' }}>
-                      <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
-                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </>
-          ) : (
-            <EmptyState
-              variant="experiences"
-              icon="✨"
-              title={isOwner ? "No Created Experiences" : "No Created Experiences"}
-              description={isOwner
-                ? "You haven't created any experiences yet. Share your travel knowledge with the community."
-                : `${currentProfile?.name || 'This user'} hasn't created any experiences yet.`}
-              primaryAction={isOwner ? lang.current.message.addOneNowButton : null}
-              onPrimaryAction={isOwner ? () => window.location.href = '/experiences/new' : null}
-              size="md"
-            />
-          );
-        })()}
-            </div>
+              );
+            })()}
           </Col>
         </Row>
 
         {/* Super Admin Permissions Section */}
       {isSuperAdmin(user) && !isOwner && currentProfile && (
-        <div className="row my-4 animation-fade-in">
-          <div className="col-12">
-            <div className="card">
-              <div className="card-header">
-                <h5 className="mb-0">Super Admin Permissions</h5>
-              </div>
-              <div className="card-body">
-                <div className="row align-items-center mb-4">
-                  <div className="col-md-6">
-                    <p className="mb-2">
+        <div style={{ display: 'flex', margin: 'var(--space-16) 0', animation: 'fadeIn var(--transition-normal)' }}>
+          <div style={{ flex: 1 }}>
+            <Card>
+              <Card.Header>
+                <h5 style={{ marginBottom: 0 }}>Super Admin Permissions</h5>
+              </Card.Header>
+              <Card.Body>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
+                  <div style={{ flex: '0 0 50%', maxWidth: '50%' }}>
+                    <p style={{ marginBottom: 'var(--space-2)' }}>
                       <strong>Current Role:</strong> {USER_ROLE_DISPLAY_NAMES[currentProfile.role] || 'Unknown'}
                     </p>
-                    <p className="small mb-0" style={{ color: 'var(--bs-gray-600)' }}>
+                    <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 0, color: 'var(--color-text-muted)' }}>
                       Change this user's role. Super admins have full access to all resources and user management.
                     </p>
                   </div>
-                  <div className="col-md-6">
-                    <div className="d-flex gap-2">
-                      <button
-                        className={`btn ${currentProfile.role === USER_ROLES.SUPER_ADMIN ? 'btn-success' : 'btn-outline-success'}`}
+                  <div style={{ flex: '0 0 50%', maxWidth: '50%' }}>
+                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                      <Button
+                        variant={currentProfile.role === USER_ROLES.SUPER_ADMIN ? "success" : "outline"}
                         onClick={() => handleRoleUpdate(USER_ROLES.SUPER_ADMIN)}
                         disabled={isUpdatingRole || currentProfile.role === USER_ROLES.SUPER_ADMIN}
                       >
                           {isUpdatingRole ? lang.current.button.updating : lang.current.admin.makeSuperAdmin}
-                      </button>
-                      <button
-                        className={`btn ${currentProfile.role === USER_ROLES.REGULAR_USER ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                      </Button>
+                      <Button
+                        variant={currentProfile.role === USER_ROLES.REGULAR_USER ? "secondary" : "outline"}
                         onClick={() => handleRoleUpdate(USER_ROLES.REGULAR_USER)}
                         disabled={isUpdatingRole || currentProfile.role === USER_ROLES.REGULAR_USER}
                       >
                         {isUpdatingRole ? lang.current.button.updating : lang.current.admin.makeRegularUser}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
                 <hr />
-                <div className="row align-items-center mt-4">
-                  <div className="col-md-6">
-                    <p className="mb-2">
+                <div style={{ display: 'flex', alignItems: 'center', marginTop: 'var(--space-6)' }}>
+                  <div style={{ flex: '0 0 50%', maxWidth: '50%' }}>
+                    <p style={{ marginBottom: 'var(--space-2)' }}>
                       <strong>Email Status:</strong>{' '}
                       {currentProfile.emailConfirmed ? (
-                        <span className="text-success">
-                          <FaCheckCircle className="me-1" />
+                        <span style={{ color: 'var(--color-success)' }}>
+                          <FaCheckCircle style={{ marginRight: 'var(--space-1)' }} />
                           Confirmed
                         </span>
                       ) : (
-                        <span className="text-warning">Not Confirmed</span>
+                        <span style={{ color: 'var(--color-warning)' }}>Not Confirmed</span>
                       )}
                     </p>
-                    <p className="small mb-0" style={{ color: 'var(--bs-gray-600)' }}>
+                    <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 0, color: 'var(--color-text-muted)' }}>
                       Manually confirm or unconfirm this user's email address.
                     </p>
                   </div>
-                  <div className="col-md-6">
-                    <div className="d-flex gap-2">
-                      <button
-                        className={`btn ${currentProfile.emailConfirmed ? 'btn-success' : 'btn-outline-success'}`}
+                  <div style={{ flex: '0 0 50%', maxWidth: '50%' }}>
+                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                      <Button
+                        variant={currentProfile.emailConfirmed ? "success" : "outline"}
                         onClick={() => handleEmailConfirmationUpdate(true)}
                         disabled={isUpdatingRole || currentProfile.emailConfirmed}
                       >
                         {isUpdatingRole ? lang.current.button.updating : lang.current.admin.confirmEmail}
-                      </button>
-                      <button
-                        className={`btn ${!currentProfile.emailConfirmed ? 'btn-outline-secondary' : 'btn-outline-danger'}`}
+                      </Button>
+                      <Button
+                        variant={!currentProfile.emailConfirmed ? "outline" : "danger"}
                         onClick={() => handleEmailConfirmationUpdate(false)}
                         disabled={isUpdatingRole || !currentProfile.emailConfirmed}
                       >
                         {isUpdatingRole ? lang.current.button.updating : lang.current.admin.unconfirmEmail}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </Card.Body>
+            </Card>
           </div>
         </div>
       )}
@@ -1068,7 +1103,7 @@ export default function Profile() {
           initialIndex={selectedPhotoIndex}
         />
       )}
-      </BsContainer>
+      </Container>
     </div>
   );
 }

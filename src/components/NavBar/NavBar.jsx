@@ -1,6 +1,6 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import styles from "./NavBar.module.scss";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
@@ -27,6 +27,21 @@ export default function NavBar() {
     showH1InNavbar,
   } = useApp();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Check if brand text is showing the h1 element (not "Biensperience")
+  const isShowingH1 = !h1Visible && h1Text && showH1InNavbar;
+
+  // Handle brand text click - scroll to top if showing h1, navigate home otherwise
+  const handleBrandClick = useCallback(() => {
+    if (isShowingH1) {
+      // Scroll to top of page smoothly
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // Navigate to home
+      navigate('/');
+    }
+  }, [isShowingH1, navigate]);
 
   // Determine brand text based on current route and context
   const getBrandText = () => {
@@ -78,7 +93,7 @@ export default function NavBar() {
       if (isExpanded) {
         // Close the menu
         collapseEl.style.height = collapseEl.scrollHeight + 'px';
-        collapseEl.classList.remove('show');
+        collapseEl.classList.remove('collapse', 'show');
         collapseEl.classList.add('collapsing');
 
         // Force reflow to trigger transition
@@ -90,16 +105,21 @@ export default function NavBar() {
 
         setTimeout(() => {
           collapseEl.classList.remove('collapsing');
+          collapseEl.classList.add('collapse');
           collapseEl.style.height = '';
         }, 350);
       } else {
         // Open the menu
+        // First, remove the collapse class to make element visible for measurement
+        collapseEl.classList.remove('collapse');
         collapseEl.classList.add('collapsing');
         collapseEl.style.height = '0';
+        collapseEl.style.display = 'flex'; // Ensure visible for measurement
 
-        // Force reflow to trigger transition
+        // Force reflow to ensure element is rendered
         void collapseEl.offsetHeight;
 
+        // Now measure the actual content height
         const height = collapseEl.scrollHeight;
         collapseEl.style.height = height + 'px';
         toggleBtn.setAttribute('aria-expanded', 'true');
@@ -107,8 +127,9 @@ export default function NavBar() {
 
         setTimeout(() => {
           collapseEl.classList.remove('collapsing');
-          collapseEl.classList.add('show');
+          collapseEl.classList.add('collapse', 'show');
           collapseEl.style.height = '';
+          collapseEl.style.display = ''; // Let CSS handle display
         }, 350);
       }
     };
@@ -200,16 +221,23 @@ export default function NavBar() {
     >
       <div className="container-fluid">
         <div className={styles.navbarBrandWrapper}>
+          {/* Logo - navigates to home */}
           <NavLink
-            className="navbar-brand"
+            className={styles.logoLink}
             to="/"
             aria-label={lang.current.aria.biensperienceHome}
           >
             <button className={`btn btn-light btn-sm ${styles.logo}`} aria-hidden="true">✚</button>
-            <span className={styles.brandText}>
-              {getBrandText()}
-            </span>
           </NavLink>
+          {/* Brand text - scrolls to top when showing h1, navigates home otherwise */}
+          <button
+            type="button"
+            className={`${styles.brandText} ${styles.brandTextButton}`}
+            onClick={handleBrandClick}
+            aria-label={isShowingH1 ? "Scroll to top of page" : lang.current.aria.biensperienceHome}
+          >
+            {getBrandText()}
+          </button>
         </div>
 
         <button
@@ -223,7 +251,7 @@ export default function NavBar() {
           <span className="navbar-toggler-icon"></span>
         </button>
 
-        <div ref={collapseRef} className="collapse navbar-collapse" id="navbarText">
+        <div ref={collapseRef} className={`collapse navbar-collapse ${styles.navbarCollapse}`} id="navbarText">
           <ul className="navbar-nav me-auto mb-2 mb-lg-0 d-flex" role="menubar">
             <li className="nav-item" role="none">
               <NavLink

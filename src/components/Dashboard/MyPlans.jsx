@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Heading,
@@ -51,6 +52,9 @@ export default function MyPlans() {
     return collaboratorResults;
   };
 
+  // Ref to track if initial load has completed (for merge pattern decisions)
+  const initialLoadCompleteRef = useRef(false);
+
   useEffect(() => {
     let mounted = true;
     async function load() {
@@ -64,8 +68,26 @@ export default function MyPlans() {
         const list = resp?.data || [];
         const paginationData = resp?.pagination || { page: 1, hasMore: false, totalCount: list.length };
 
-        setPlans(list);
-        setPagination(paginationData);
+        // CRITICAL FIX (biensperience-c063): Use merge pattern to prevent UI flash
+        // Batch all state updates together to prevent intermediate renders
+        batchedUpdates(() => {
+          setPlans(prev => {
+            // On initial load (prev=[]), just use API data
+            if (!initialLoadCompleteRef.current || prev.length === 0) {
+              return list;
+            }
+            // If API returns empty but we had data, preserve existing (trust events for deletions)
+            if (list.length === 0 && prev.length > 0) {
+              return prev;
+            }
+            // Normal case: use fresh data from API
+            return list;
+          });
+          setPagination(paginationData);
+        });
+
+        // Mark initial load as complete
+        initialLoadCompleteRef.current = true;
 
         // Fetch collaborators for all plans in parallel
         const collaboratorResults = await fetchCollaboratorsForPlans(list);
@@ -82,7 +104,8 @@ export default function MyPlans() {
           setExpandedPlanId(list[0]._id);
         }
       } catch (e) {
-        // ignore
+        // On error, preserve existing state - don't flash to empty
+        // The UI will show current data which may be stale but is better than empty
       } finally {
         if (mounted) setLoading(false);
       }
@@ -125,9 +148,43 @@ export default function MyPlans() {
     }
   };
 
-  // Listen for plan updates (e.g., plan item completion changes)
+  // Listen for plan events (created, updated, deleted)
   useEffect(() => {
-    const unsubscribe = eventBus.subscribe('plan:updated', async (event) => {
+    // Handle plan:created - add new plan to list
+    const unsubscribeCreated = eventBus.subscribe('plan:created', async (event) => {
+      const detail = event.detail || {};
+      const plan = detail.plan || detail.data;
+      if (!plan || !plan._id) return;
+
+      // Add new plan to list (at the beginning, most recent first)
+      setPlans(prev => {
+        // Check if plan already exists (deduplication)
+        const exists = prev.some(p => p._id === plan._id);
+        if (exists) {
+          // Update existing instead of adding duplicate
+          return prev.map(p => p._id === plan._id ? { ...p, ...plan } : p);
+        }
+        // Add to beginning of list
+        return [plan, ...prev];
+      });
+
+      // Update pagination count
+      setPagination(prev => ({
+        ...prev,
+        totalCount: prev.totalCount + 1
+      }));
+
+      // Fetch collaborators for new plan
+      try {
+        const planCollaborators = await getCollaborators(plan._id);
+        setCollaborators(prev => new Map(prev).set(plan._id, planCollaborators || []));
+      } catch (e) {
+        // If collaborators fetch fails, keep existing data
+      }
+    });
+
+    // Handle plan:updated - merge updates into existing plan
+    const unsubscribeUpdated = eventBus.subscribe('plan:updated', async (event) => {
       // Event payload may have plan data in different locations depending on the source
       // - updatePlanItem: { plan, planId }
       // - updatePlan: { data, planId, version }
@@ -163,7 +220,37 @@ export default function MyPlans() {
       }
     });
 
-    return unsubscribe;
+    // Handle plan:deleted - remove plan from list
+    const unsubscribeDeleted = eventBus.subscribe('plan:deleted', (event) => {
+      const detail = event.detail || {};
+      const planId = detail.planId;
+      if (!planId) return;
+
+      // Remove plan from list
+      setPlans(prev => prev.filter(p => p._id !== planId));
+
+      // Update pagination count
+      setPagination(prev => ({
+        ...prev,
+        totalCount: Math.max(0, prev.totalCount - 1)
+      }));
+
+      // Remove collaborators for deleted plan
+      setCollaborators(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(planId);
+        return newMap;
+      });
+
+      // If expanded plan was deleted, clear expansion
+      setExpandedPlanId(prev => prev === planId ? null : prev);
+    });
+
+    return () => {
+      unsubscribeCreated();
+      unsubscribeUpdated();
+      unsubscribeDeleted();
+    };
   }, []);
 
   const togglePlan = (planId) => {

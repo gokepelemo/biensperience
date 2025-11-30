@@ -7,25 +7,27 @@ import { calculateButtonWidth } from '../../utilities/button-utils';
  * Button component with unified design system styling
  *
  * Uses standardized design tokens for consistent:
- * - Heights (36px sm, 44px md, 52px lg)
+ * - Heights (28px xs, 32px sm, 40px md, 48px lg, 56px xl)
  * - Padding (based on size)
- * - Font sizes (14px sm, 16px md, 18px lg)
+ * - Font sizes (12px xs, 14px sm, 16px md, 18px lg, 20px xl)
  * - Font weight (600 semibold)
  *
  * @param {Object} props - Component props
  * @param {React.ReactNode} props.children - Button content
- * @param {string} props.variant - Button variant: 'gradient', 'outline', 'tertiary', 'link', 'danger', 'success', 'bootstrap'
+ * @param {string} props.variant - Button variant: 'gradient', 'outline', 'light', 'tertiary', 'link', 'danger', 'success', 'bootstrap'
  * @param {string} props.bootstrapVariant - Bootstrap variant when variant='bootstrap'
  * @param {boolean} props.rounded - Whether button should be fully rounded (pill shape)
  * @param {boolean} props.shadow - Whether button should have enhanced shadow
  * @param {boolean} props.disabled - Whether button is disabled
- * @param {string} props.size - Button size: 'sm', 'md', 'lg'
+ * @param {string} props.size - Button size: 'xs', 'sm', 'md', 'lg', 'xl'
  * @param {string} props.type - Button type attribute
  * @param {function} props.onClick - Click handler
  * @param {string} props.className - Additional CSS classes
  * @param {Object} props.style - Inline styles
  * @param {string|string[]} props.matchWidth - Text string(s) to calculate consistent width from
  * @param {boolean} props.fullWidth - Whether button should take full container width
+ * @param {React.ReactNode} props.leftIcon - Icon to display before text
+ * @param {React.ReactNode} props.rightIcon - Icon to display after text
  * @param {Object} props... - Other props passed to button element
  */
 export default function Button({
@@ -45,6 +47,8 @@ export default function Button({
   to,
   matchWidth = null,
   fullWidth = false,
+  leftIcon = null,
+  rightIcon = null,
   ...props
 }) {
   // Normalize legacy variant names: 'primary' -> 'gradient'
@@ -55,6 +59,7 @@ export default function Button({
   const variantClass = {
     gradient: styles.btnGradient,
     outline: styles.btnOutline,
+    light: styles.btnLight,
     tertiary: styles.btnTertiary,
     link: styles.btnLink,
     danger: styles.btnDanger,
@@ -62,8 +67,10 @@ export default function Button({
   }[normalizedVariant] || '';
 
   const sizeClass = {
+    xs: styles.btnXs,
     sm: styles.btnSm,
     lg: styles.btnLg,
+    xl: styles.btnXl,
   }[size] || '';
 
   const classes = [
@@ -97,6 +104,15 @@ export default function Button({
     return baseStyle;
   }, [matchWidth, fullWidth, size, style]);
 
+  // Render content with optional icons
+  const buttonContent = (
+    <>
+      {leftIcon && <span className={styles.btnIcon}>{leftIcon}</span>}
+      {children}
+      {rightIcon && <span className={styles.btnIcon}>{rightIcon}</span>}
+    </>
+  );
+
   // If caller requested a custom element via `as` (string tag or component), render it
   if (as) {
     const As = as;
@@ -111,7 +127,7 @@ export default function Button({
 
     return (
       <As {...forwarded}>
-        {children}
+        {buttonContent}
       </As>
     );
   }
@@ -126,7 +142,7 @@ export default function Button({
       style={calculatedStyle}
       {...props}
     >
-      {children}
+      {buttonContent}
     </button>
   );
 }
@@ -137,6 +153,7 @@ Button.propTypes = {
   variant: PropTypes.oneOf([
     'gradient',   // Primary action (purple gradient)
     'outline',    // Secondary action (outlined)
+    'light',      // Light/soft variant (light purple bg, purple text)
     'tertiary',   // Ghost button (minimal)
     'link',       // Text-only
     'danger',     // Destructive action (red)
@@ -152,7 +169,7 @@ Button.propTypes = {
   rounded: PropTypes.bool,
   shadow: PropTypes.bool,
   disabled: PropTypes.bool,
-  size: PropTypes.oneOf(['sm', 'md', 'lg']),
+  size: PropTypes.oneOf(['xs', 'sm', 'md', 'lg', 'xl']),
   type: PropTypes.oneOf(['button', 'submit', 'reset']),
   onClick: PropTypes.func,
   className: PropTypes.string,
@@ -166,4 +183,6 @@ Button.propTypes = {
     PropTypes.arrayOf(PropTypes.string)
   ]),
   fullWidth: PropTypes.bool,
+  leftIcon: PropTypes.node,
+  rightIcon: PropTypes.node,
 };

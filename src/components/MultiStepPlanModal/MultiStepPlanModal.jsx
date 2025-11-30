@@ -403,34 +403,7 @@ export default function MultiStepPlanModal() {
                     <ImageUpload data={newExperience} setData={setNewExperience} />
                   </div>
 
-                  <div className="row">
-                    <div className="col-md-6">
-                      <FormField
-                        name="max_planning_days"
-                        label={lang.current.label.planningDays}
-                        type="number"
-                        value={newExperience.max_planning_days || ''}
-                        onChange={handleChange}
-                        placeholder={lang.current.placeholder.planningDays}
-                        min="1"
-                        tooltip={lang.current.helper.planningTimeTooltip}
-                        append="days"
-                      />
-                    </div>
-                    <div className="col-md-6">
-                      <FormField
-                        name="cost_estimate"
-                        label={lang.current.label.costEstimate}
-                        type="number"
-                        value={newExperience.cost_estimate || ''}
-                        onChange={handleChange}
-                        placeholder={lang.current.placeholder.costEstimate}
-                        min="0"
-                        tooltip={lang.current.helper.costEstimateOptional}
-                        prepend="$"
-                      />
-                    </div>
-                  </div>
+                  {/* Planning days and cost estimate are virtuals computed from plan items; removed from the modal form. */}
                 </Form>
               )}
 

@@ -18,6 +18,7 @@ const ERROR_CODES = {
   INVALID_TOKEN: 'INVALID_TOKEN',
   EXPIRED_TOKEN: 'EXPIRED_TOKEN',
   ACCOUNT_LOCKED: 'ACCOUNT_LOCKED',
+  API_ACCESS_DISABLED: 'API_ACCESS_DISABLED',
 
   // Resource Errors
   RESOURCE_NOT_FOUND: 'RESOURCE_NOT_FOUND',
@@ -222,6 +223,23 @@ function accountLockedError(reason = 'Security violation') {
 }
 
 /**
+ * API access disabled error
+ */
+function apiAccessDisabledError() {
+  return createErrorResponse({
+    code: ERROR_CODES.API_ACCESS_DISABLED,
+    message: 'API access is disabled for this account',
+    userMessage: 'API access is disabled for your account. Please enable it in your profile settings.',
+    status: 403,
+    action: {
+      type: ACTION_TYPES.NAVIGATE,
+      label: 'Open Settings',
+      url: '/profile'
+    }
+  });
+}
+
+/**
  * Resource not found error
  *
  * @param {string} resourceType - Type of resource (experience, destination, plan, user)
@@ -314,6 +332,7 @@ module.exports = {
   notAuthenticatedError,
   invalidTokenError,
   accountLockedError,
+  apiAccessDisabledError,
   resourceNotFoundError,
   validationError,
   rateLimitError,

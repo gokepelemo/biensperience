@@ -16,7 +16,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { useUser } from "../../contexts/UserContext";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import EntitySchema from "../OpenGraph/EntitySchema";
-import imagePreloader from '../../utilities/imagePreloader';
+import imagePreloader from '../../utilities/image-preloader';
 
 function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false }) {
   const { user } = useUser();

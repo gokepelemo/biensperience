@@ -8,10 +8,14 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
+import Pagination from "../../components/Pagination/Pagination";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { logger } from "../../utilities/logger";
 import * as experiencesAPI from "../../utilities/experiences-api";
 import { Button, Container, FlexBetween, FadeIn } from "../../components/design-system";
+import { FaUser, FaArrowRight } from "react-icons/fa";
+
+const ITEMS_PER_PAGE = 12;
 
 export default function ExperiencesByTag() {
   const { tagName } = useParams();
@@ -19,6 +23,7 @@ export default function ExperiencesByTag() {
   const [actualTagName, setActualTagName] = useState("");
   const [fetchedExperiences, setFetchedExperiences] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Helper: Convert slug/snake/kebab to Title Case synchronously (no state)
   const toTitleCase = (str) => {
@@ -61,7 +66,17 @@ export default function ExperiencesByTag() {
   }, [contextExperiences, tagName]);
 
   // Use fetched experiences if available, otherwise show filtered context experiences
-  const displayedExperiences = fetchedExperiences !== null ? fetchedExperiences : filteredContextExperiences;
+  const allExperiences = fetchedExperiences !== null ? fetchedExperiences : filteredContextExperiences;
+
+  // Calculate pagination
+  const totalPages = Math.ceil(allExperiences.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const displayedExperiences = allExperiences.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  // Reset page when tag changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [tagName]);
 
   // Show loading if:
   // 1. Context is loading AND we don't have fetched data yet
@@ -157,7 +172,13 @@ export default function ExperiencesByTag() {
           {/* Row 2: Actions (right-aligned) */}
           <div className={styles.actionsRow}>
             <div className={styles.actionsRight}>
-              <Button as={Link} to="/experiences" variant="gradient" className="btn-gradient">
+              <Button
+                as={Link}
+                to="/experiences"
+                variant="light"
+                leftIcon={<FaUser />}
+                rightIcon={<FaArrowRight />}
+              >
                 View All Experiences
               </Button>
             </div>
@@ -205,6 +226,17 @@ export default function ExperiencesByTag() {
               </Alert>
             )}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={allExperiences.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+            />
+          )}
         </FadeIn>
       )}
     </PageWrapper>

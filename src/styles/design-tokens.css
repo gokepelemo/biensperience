@@ -20,6 +20,13 @@
 
 :root {
   /* ============================================
+     BASE COLORS - Fundamental color constants
+     ============================================ */
+
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* ============================================
      SEMANTIC COLOR STATES - For alerts, badges, etc.
      ============================================ */
 

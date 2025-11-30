@@ -10,7 +10,7 @@ import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { sortItems, filterDestinations } from "../../utilities/sort-filter";
-import { Container, Mobile, Desktop } from "../../components/design-system";
+import { Container, Mobile, Desktop, EmptyState } from "../../components/design-system";
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { logger } from "../../utilities/logger";
 
@@ -141,10 +141,11 @@ export default function Destinations() {
                 )
               ))
             ) : (
-              <Alert
-                type="info"
-                message="No destinations found matching your criteria."
-                style={{ textAlign: 'center', width: '100%' }}
+              <EmptyState
+                variant="search"
+                title="No Destinations Found"
+                description="No destinations match your current filters. Try adjusting your search criteria or browse all destinations."
+                size="md"
               />
             )}
             {destinationsMeta?.hasMore && !loadingMore && (

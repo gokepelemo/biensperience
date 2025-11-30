@@ -111,15 +111,18 @@ export default function AppHome() {
           <h2 className="my-4 animation-fade-in">{lang.current.heading.popularDestinations}</h2>
           {isDestinationsLoading ? (
             // Skeleton loaders matching DestinationCard layout:
+            // - Wrapper with m-2 margin (matches DestinationCard.jsx line 111)
             // - Centered blurred title overlay (like destinationCardTitle)
             // - Count matches DESTINATIONS_INITIAL_DISPLAY
             <FlexCenter className="animation-fade-in">
               <div className={styles.destinationsList}>
                 {Array.from({ length: DESTINATIONS_INITIAL_DISPLAY }, (_, i) => (
-                  <div key={i} className={styles.destinationSkeleton}>
-                    {/* Centered title overlay with blur - mirrors destinationCardTitle */}
-                    <div className={styles.destinationSkeletonOverlay}>
-                      <SkeletonLoader variant="text" width={`${65 + (i % 4) * 8}%`} height={20} />
+                  <div key={i} className={styles.destinationSkeletonWrapper}>
+                    <div className={styles.destinationSkeleton}>
+                      {/* Centered title overlay with blur - mirrors destinationCardTitle */}
+                      <div className={styles.destinationSkeletonOverlay}>
+                        <SkeletonLoader variant="text" width={`${65 + (i % 4) * 8}%`} height={20} />
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -172,23 +175,26 @@ export default function AppHome() {
           <h2 className="my-4 animation-fade-in">{lang.current.heading.curatedExperiences}</h2>
           {isExperiencesLoading ? (
             // Skeleton loaders matching ExperienceCard layout:
+            // - Wrapper with m-2 margin and 20rem width (matches ExperienceCard.jsx line 465)
             // - Title centered in flex-grow area with blur overlay
-            // - Action button at bottom right
+            // - Action button at bottom
             // Count matches EXPERIENCES_INITIAL_DISPLAY
             <FlexCenter className="animation-fade-in">
               <div className={styles.experiencesList}>
                 {Array.from({ length: EXPERIENCES_INITIAL_DISPLAY }, (_, i) => (
-                  <div key={i} className={styles.experienceSkeleton}>
-                    {/* Title area - centered with blur overlay (mirrors experienceCardTitle) */}
-                    <div className={styles.experienceSkeletonTitle}>
-                      <div className={styles.experienceSkeletonTitleOverlay}>
-                        <SkeletonLoader variant="text" width={`${75 + (i % 3) * 8}%`} height={20} />
-                        <SkeletonLoader variant="text" width={`${50 + (i % 4) * 10}%`} height={16} className="mt-1" />
+                  <div key={i} className={styles.experienceSkeletonWrapper}>
+                    <div className={styles.experienceSkeleton}>
+                      {/* Title area - centered with blur overlay (mirrors experienceCardTitle) */}
+                      <div className={styles.experienceSkeletonTitle}>
+                        <div className={styles.experienceSkeletonTitleOverlay}>
+                          <SkeletonLoader variant="text" width={`${75 + (i % 3) * 8}%`} height={20} />
+                          <SkeletonLoader variant="text" width={`${50 + (i % 4) * 10}%`} height={16} className="mt-1" />
+                        </div>
                       </div>
-                    </div>
-                    {/* Actions area - bottom right (mirrors experienceCardActions) */}
-                    <div className={styles.experienceSkeletonActions}>
-                      <SkeletonLoader variant="circle" width={44} height={44} />
+                      {/* Actions area - bottom (mirrors experienceCardActions) */}
+                      <div className={styles.experienceSkeletonActions}>
+                        <SkeletonLoader variant="circle" width={44} height={44} />
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -18,11 +18,11 @@ const ACTIVITY_TYPES = [
   { value: 'food', label: '🍽️ Food & Dining' },
   { value: 'transport', label: '🚗 Transportation' },
   { value: 'accommodation', label: '🏨 Accommodation' },
-  { value: 'activity', label: '🎯 Activity' },
+  { value: 'activity', label: '🎯 Task' },
   { value: 'shopping', label: '🛍️ Shopping' },
   { value: 'entertainment', label: '🎭 Entertainment' },
   { value: 'sightseeing', label: '📸 Sightseeing' },
-  { value: 'custom', label: '✨ Custom' }
+  { value: 'custom', label: '✨ Custom Activity' }
 ];
 
 export default function PlanItemModal({

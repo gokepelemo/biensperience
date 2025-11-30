@@ -16,6 +16,7 @@ import {
   MyPlans,
   Preferences,
 } from '../../components/Dashboard';
+import ViewNav from '../../components/ViewNav';
 import styles from './Dashboard.module.scss';
 
 export default function Dashboard() {
@@ -157,43 +158,36 @@ export default function Dashboard() {
   const destinationsValue = typeof stats.destinations === 'number' ? stats.destinations : 0;
   const totalSpentValue = typeof stats.totalSpent === 'number' ? stats.totalSpent : 0;
 
+  // Navigation items with optional badges
+  const navItems = [
+    { key: 'overview', label: 'Dashboard' },
+    { key: 'plans', label: 'My Plans', badge: activePlansValue || undefined },
+    { key: 'preferences', label: 'Preferences' },
+  ];
+
   return (
     <div className={styles.dashboardContainer}>
+      {/* Mobile/Tablet navigation - shown at top before content */}
+      <div className={styles.mobileNav}>
+        <ViewNav
+          items={navItems}
+          activeKey={activeTab}
+          onSelect={setActiveTab}
+        />
+      </div>
+
       <Container fluid>
         <Row>
+          {/* Desktop sidebar navigation */}
           <Col
             lg={2}
             className={`${styles.dashboardSidebar} ${styles.dashboardSidebarMobileHidden}`}
           >
-            <nav>
-              {[
-                { key: 'overview', label: 'Overview' },
-                { key: 'plans', label: 'My Plans' },
-                { key: 'preferences', label: 'Preferences' },
-              ].map((item) => {
-                const isActive = activeTab === item.key;
-                return (
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    key={item.key}
-                    onClick={() => {
-                      setActiveTab(item.key);
-                      try { window.history.pushState(null, '', `${window.location.pathname}#${item.key}`); } catch (e) {}
-                    }}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        setActiveTab(item.key);
-                        try { window.history.pushState(null, '', `${window.location.pathname}#${item.key}`); } catch (e) {}
-                      }
-                    }}
-                    className={`${styles.sidebarNavItem} ${isActive ? styles.sidebarNavItemActive : ''}`}
-                  >
-                    {item.label}
-                  </div>
-                );
-              })}
-            </nav>
+            <ViewNav
+              items={navItems}
+              activeKey={activeTab}
+              onSelect={setActiveTab}
+            />
           </Col>
 
           <Col

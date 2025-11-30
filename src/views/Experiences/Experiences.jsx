@@ -9,7 +9,7 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import Alert from "../../components/Alert/Alert";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
-import { Container, Mobile, Desktop, FadeIn } from "../../components/design-system";
+import { Container, Mobile, Desktop, FadeIn, EmptyState } from "../../components/design-system";
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { getDestinations, showDestination } from '../../utilities/destinations-api';
@@ -764,10 +764,11 @@ export default function Experiences() {
                 </FadeIn>
               ))
             ) : (
-              <Alert
-                type="info"
-                message="No experiences found matching your criteria."
-                style={{ textAlign: 'center', width: '100%' }}
+              <EmptyState
+                variant="search"
+                title="No Experiences Found"
+                description="No experiences match your current filters. Try adjusting your search criteria or browse all experiences."
+                size="md"
               />
             )}
             {experiencesMeta?.hasMore && !loadingMore && (

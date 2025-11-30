@@ -785,8 +785,8 @@ async function updateExperience(req, res) {
 
     // Filter out fields that shouldn't be updated
     const allowedFields = [
-      'name', 'destination', 'map_location', 'experience_type', 
-      'plan_items', 'photos', 'default_photo_id', 'permissions'
+      'name', 'overview', 'destination', 'map_location', 'experience_type', 
+      'plan_items', 'photos', 'default_photo_id', 'visibility', 'permissions'
     ];
     
     const updateData = {};

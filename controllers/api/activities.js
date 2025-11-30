@@ -5,14 +5,19 @@
  */
 
 const Activity = require('../../models/activity');
+const Experience = require('../../models/experience');
+const Destination = require('../../models/destination');
+const Plan = require('../../models/plan');
+const User = require('../../models/user');
 const { restoreState, getHistory } = require('../../utilities/activity-tracker');
-const { isSuperAdmin } = require('../../utilities/permissions');
+const { isSuperAdmin, isOwner, isCollaborator } = require('../../utilities/permissions');
+const { insufficientPermissionsError, sendErrorResponse } = require('../../utilities/error-responses');
 const backendLogger = require('../../utilities/backend-logger');
 const mongoose = require('mongoose');
 
 /**
  * Get activity history for a resource
- * Super admin or resource owner can view
+ * Super admin, resource owner, or collaborator can view
  */
 async function getResourceHistory(req, res) {
   try {
@@ -22,6 +27,30 @@ async function getResourceHistory(req, res) {
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(resourceId)) {
       return res.status(400).json({ error: 'Invalid resource ID' });
+    }
+
+    // Super admins can view any resource history
+    if (!isSuperAdmin(req.user)) {
+      // Need to determine resource type and check permissions
+      // First, check if this is the user's own profile
+      if (resourceId === req.user._id.toString()) {
+        // User can view their own activity history
+      } else {
+        // Try to find the resource and check permissions
+        const resource = await findResourceById(resourceId);
+
+        if (!resource) {
+          return res.status(404).json({ error: 'Resource not found' });
+        }
+
+        // Check if user has access to this resource
+        const hasAccess = await checkResourceAccess(req.user, resource);
+
+        if (!hasAccess) {
+          const errorResponse = insufficientPermissionsError('owner or collaborator', 'none');
+          return sendErrorResponse(res, errorResponse);
+        }
+      }
     }
 
     const options = {
@@ -49,6 +78,75 @@ async function getResourceHistory(req, res) {
 }
 
 /**
+ * Find a resource by ID across all resource types
+ * @param {string} resourceId - The resource ID to find
+ * @returns {Promise<Object|null>} - The resource with its type, or null if not found
+ */
+async function findResourceById(resourceId) {
+  // Try each resource type in order of likelihood
+  const resourceTypes = [
+    { model: Experience, type: 'Experience' },
+    { model: Destination, type: 'Destination' },
+    { model: Plan, type: 'Plan' },
+    { model: User, type: 'User' }
+  ];
+
+  for (const { model, type } of resourceTypes) {
+    try {
+      const resource = await model.findById(resourceId);
+      if (resource) {
+        return { resource, type };
+      }
+    } catch (e) {
+      // Continue to next type
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check if user has access to view a resource's activity history
+ * @param {Object} user - The requesting user
+ * @param {Object} resourceData - Object with { resource, type }
+ * @returns {Promise<boolean>} - True if user has access
+ */
+async function checkResourceAccess(user, resourceData) {
+  const { resource, type } = resourceData;
+  const models = { Destination, Experience };
+
+  switch (type) {
+    case 'User':
+      // Users can only view their own user activity
+      return resource._id.toString() === user._id.toString();
+
+    case 'Experience':
+    case 'Destination':
+      // Check if owner or collaborator
+      if (isOwner(user._id, resource)) {
+        return true;
+      }
+      return await isCollaborator(user._id, resource, models);
+
+    case 'Plan':
+      // Plan owner or collaborator can view
+      if (resource.user && resource.user.toString() === user._id.toString()) {
+        return true;
+      }
+      // Check plan permissions array
+      if (resource.permissions && Array.isArray(resource.permissions)) {
+        return resource.permissions.some(p =>
+          p.user && p.user.toString() === user._id.toString()
+        );
+      }
+      return false;
+
+    default:
+      return false;
+  }
+}
+
+/**
  * Get activity history by actor (user)
  * Super admin or the user themselves can view
  */
@@ -64,10 +162,8 @@ async function getActorHistory(req, res) {
 
     // Check permissions: super admin or user viewing their own history
     if (!isSuperAdmin(req.user) && req.user._id.toString() !== actorId) {
-      return res.status(403).json({
-        error: 'Unauthorized',
-        message: 'Only super admins can view other users\' activity'
-      });
+      const errorResponse = insufficientPermissionsError('super admin or self', 'none');
+      return sendErrorResponse(res, errorResponse);
     }
 
     const options = {
@@ -102,10 +198,8 @@ async function restoreResourceState(req, res) {
 
     // Only super admins can restore states
     if (!isSuperAdmin(req.user)) {
-      return res.status(403).json({
-        error: 'Unauthorized',
-        message: 'Only super admins can restore resource states'
-      });
+      const errorResponse = insufficientPermissionsError('super admin', 'none');
+      return sendErrorResponse(res, errorResponse);
     }
 
     if (!rollbackToken || rollbackToken.length !== 64) {
@@ -148,10 +242,8 @@ async function getAllActivities(req, res) {
   try {
     // Only super admins can view all activities
     if (!isSuperAdmin(req.user)) {
-      return res.status(403).json({
-        error: 'Unauthorized',
-        message: 'Only super admins can view all activities'
-      });
+      const errorResponse = insufficientPermissionsError('super admin', 'none');
+      return sendErrorResponse(res, errorResponse);
     }
 
     const {
@@ -282,10 +374,8 @@ async function getActivityStats(req, res) {
   try {
     // Only super admins can view statistics
     if (!isSuperAdmin(req.user)) {
-      return res.status(403).json({
-        error: 'Unauthorized',
-        message: 'Only super admins can view activity statistics'
-      });
+      const errorResponse = insufficientPermissionsError('super admin', 'none');
+      return sendErrorResponse(res, errorResponse);
     }
 
     const { startDate, endDate } = req.query;

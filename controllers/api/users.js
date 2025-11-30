@@ -7,6 +7,7 @@ const mongoose = require("mongoose");
 const { USER_ROLES } = require("../../utilities/user-roles");
 const { isSuperAdmin } = require("../../utilities/permissions");
 const backendLogger = require("../../utilities/backend-logger");
+const { geocodeAddress } = require("../../utilities/geocoding-utils");
 
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
@@ -223,7 +224,8 @@ async function updateUser(req, res, next) {
 
     // Whitelist allowed fields to prevent mass assignment vulnerabilities
     // Allow `preferences` so users can update theme, language, currency, etc.
-    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'oldPassword', 'preferences'];
+    // Allow `location` for user location with geocoding support
+    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'oldPassword', 'preferences', 'location'];
     
     // Super admins can also update their email confirmation status
     if (isSuperAdmin(req.user)) {
@@ -355,6 +357,30 @@ async function updateUser(req, res, next) {
         }
       }
 
+      // timezone: validate against available timezone options
+      if (p.timezone && typeof p.timezone === 'string' && p.timezone.length <= 50) {
+        const tzValue = p.timezone.trim();
+        try {
+          const path = require('path');
+          const { pathToFileURL } = require('url');
+          const prefsPath = path.resolve(__dirname, '..', '..', 'src', 'utilities', 'preferences-utils.js');
+          // Dynamic import of ESM module
+          const prefsModule = await import(pathToFileURL(prefsPath).href);
+          const availableTimezones = typeof prefsModule.getTimezoneOptions === 'function'
+            ? prefsModule.getTimezoneOptions().map(tz => tz.value)
+            : [];
+          if (Array.isArray(availableTimezones) && availableTimezones.includes(tzValue)) {
+            prefs.timezone = tzValue;
+          } else {
+            // If timezone not available, skip (don't save invalid timezone)
+            backendLogger.warn('Invalid timezone provided in preferences', { timezone: tzValue });
+          }
+        } catch (e) {
+          // On any error, ignore and don't save timezone
+          backendLogger.warn('Error validating timezone in preferences', { timezone: tzValue, error: e.message });
+        }
+      }
+
       // profileVisibility
       if (p.profileVisibility && ['private', 'public'].includes(p.profileVisibility)) {
         prefs.profileVisibility = p.profileVisibility;
@@ -376,6 +402,70 @@ async function updateUser(req, res, next) {
       // Only set preferences if at least one valid value present
       if (Object.keys(prefs).length > 0) {
         validatedUpdateData.preferences = prefs;
+      }
+    }
+
+    // Handle location update with geocoding
+    if (updateData.location !== undefined) {
+      if (updateData.location === null || updateData.location === '') {
+        // Clear location if null or empty string
+        validatedUpdateData.location = null;
+      } else if (typeof updateData.location === 'string') {
+        // If location is a string (query), geocode it
+        const locationQuery = updateData.location.trim();
+        if (locationQuery.length >= 2) {
+          try {
+            const geocodedLocation = await geocodeAddress(locationQuery);
+            if (geocodedLocation) {
+              validatedUpdateData.location = {
+                displayName: geocodedLocation.displayName,
+                city: geocodedLocation.city,
+                state: geocodedLocation.state,
+                country: geocodedLocation.country,
+                countryCode: geocodedLocation.countryCode,
+                postalCode: geocodedLocation.postalCode,
+                coordinates: geocodedLocation.coordinates,
+                originalQuery: geocodedLocation.originalQuery,
+                geocodedAt: geocodedLocation.geocodedAt
+              };
+              backendLogger.info('Location geocoded successfully', {
+                userId: userId.toString(),
+                query: locationQuery,
+                city: geocodedLocation.city,
+                country: geocodedLocation.country
+              });
+            } else {
+              backendLogger.warn('Location geocoding returned no results', {
+                userId: userId.toString(),
+                query: locationQuery
+              });
+              return res.status(400).json({
+                error: 'Could not find location. Please try a different address, city, or zip code.'
+              });
+            }
+          } catch (geocodeError) {
+            backendLogger.error('Location geocoding failed', {
+              error: geocodeError.message,
+              userId: userId.toString(),
+              query: locationQuery
+            });
+            return res.status(500).json({ error: 'Failed to geocode location. Please try again.' });
+          }
+        }
+      } else if (typeof updateData.location === 'object') {
+        // If location is already an object (from previous geocoding), validate and use it
+        const loc = updateData.location;
+        validatedUpdateData.location = {
+          displayName: loc.displayName,
+          city: loc.city,
+          state: loc.state,
+          country: loc.country,
+          countryCode: loc.countryCode?.toUpperCase()?.substring(0, 2),
+          postalCode: loc.postalCode,
+          coordinates: loc.coordinates,
+          originalQuery: loc.originalQuery,
+          geocodedAt: loc.geocodedAt || new Date()
+        };
       }
     }
 

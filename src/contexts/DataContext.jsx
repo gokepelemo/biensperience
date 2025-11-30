@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 import { getDestinations, getDestinationsPage } from '../utilities/destinations-api';
 import { getExperiences, getExperiencesPage } from '../utilities/experiences-api';
 import { showExperience } from '../utilities/experiences-api';
@@ -66,6 +67,30 @@ export function DataProvider({ children }) {
       if (typeof val === 'undefined') return; // preserve existing value
       merged[key] = val;
     });
+    return merged;
+  }, []);
+
+  /**
+   * Smart merge for plans: merge canonical data immediately while preserving
+   * optimistic flags. This eliminates the need for setTimeout delays.
+   * PRINCIPLE: Where there was data, never show empty state. Always merge.
+   * @param {Object} existing - Existing plan (may be optimistic)
+   * @param {Object} canonical - Canonical data from server
+   * @returns {Object} Merged plan with canonical data and cleared optimistic flag
+   */
+  const mergePlanWithCanonical = useCallback((existing, canonical) => {
+    if (!existing) return canonical;
+    if (!canonical) return existing; // NEVER return null if we have existing data
+
+    // Merge canonical over existing, preserving any fields not in canonical
+    const merged = { ...existing, ...canonical };
+
+    // Preserve local-only tracking fields
+    merged.__ctx_merged_at = Date.now();
+
+    // Clear optimistic flag since we now have canonical data
+    delete merged._optimistic;
+
     return merged;
   }, []);
 
@@ -663,87 +688,71 @@ export function DataProvider({ children }) {
         const detail = e?.detail || {};
         const plan = detail.plan;
         if (!plan || !plan._id) return;
-        // If there's a recent optimistic marker for the experience, delay applying
-        // the canonical plan create so the optimistic UI isn't immediately overwritten.
+
         const rawExp = detail.experienceId || plan?.experience?._id || plan?.experience || null;
         const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-        const opt = optimisticPlanState[expId];
-        const now = Date.now();
-        const GRACE_MS = 2000;
-        if (opt && now - (opt.at || 0) < GRACE_MS) {
-          logger.debug('[DataContext] delaying plan:create apply due to optimistic plan state', { expId, delayMs: GRACE_MS });
-          setTimeout(() => {
-            setPlans(prev => {
-              const exists = prev.some(p => p._id && p._id.toString() === plan._id.toString());
-              if (exists) {
-                return prev.map(p => (p._id && p._id.toString() === plan._id.toString() ? plan : p));
-              }
-              return [plan, ...prev];
-            });
-            setLastUpdated(prev => ({ ...prev, plans: new Date() }));
-            // after applying canonical plan, clear optimistic marker for this experience
-            setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
-            logger.debug('[DataContext] applied delayed plan:create update', { expId, appliedAt: Date.now() });
-          }, Math.max(800, GRACE_MS));
-        } else {
+
+        // BATCH all state updates to prevent UI flashing (single re-render)
+        batchedUpdates(() => {
+          // IMMEDIATE MERGE: Apply canonical data right away, merging with any optimistic state
+          // No more setTimeout delays - merge preserves existing data while updating with canonical
           setPlans(prev => {
-            const exists = prev.some(p => p._id && p._id.toString() === plan._id.toString());
-            if (exists) {
-              return prev.map(p => (p._id && p._id.toString() === plan._id.toString() ? plan : p));
+            const existingIndex = prev.findIndex(p => p._id && p._id.toString() === plan._id.toString());
+            if (existingIndex >= 0) {
+              // Merge canonical with existing (may be optimistic)
+              return prev.map((p, idx) =>
+                idx === existingIndex ? mergePlanWithCanonical(p, plan) : p
+              );
             }
+            // Check if there's an optimistic plan with temp ID that should be replaced
+            const optimisticIndex = prev.findIndex(p =>
+              p._optimistic && p.experience?.toString() === expId
+            );
+            if (optimisticIndex >= 0) {
+              // Replace optimistic with canonical
+              return prev.map((p, idx) =>
+                idx === optimisticIndex ? mergePlanWithCanonical(p, plan) : p
+              );
+            }
+            // New plan - add to list
             return [plan, ...prev];
           });
           setLastUpdated(prev => ({ ...prev, plans: new Date() }));
-        }
+          // Clear optimistic marker immediately
+          if (expId) {
+            setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
+          }
+        });
+
+        logger.debug('[DataContext] plan:created applied immediately via merge', { planId: plan._id, expId });
+
         // Also refresh the related experience in context so views that read
         // from DataContext don't get a stale experience after a plan change.
+        // IMMEDIATE MERGE - no setTimeout delays
         (async () => {
           try {
-            const rawExp = detail.experienceId || plan?.experience?._id || plan?.experience || null;
-            const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
             if (!expId) return;
             const updatedExp = await showExperience(expId);
             if (!updatedExp) return;
 
-            // Instrumentation: log previous and incoming experience payloads
             logger.debug('[DataContext] plan:create -> fetched experience', { expId, fetchedAt: Date.now(), fetchedPreview: { _id: updatedExp._id, plan_items_count: (updatedExp.plan_items || []).length } });
 
-            // If there's a recent optimistic plan state for this experience, delay applying
-            // the canonical update briefly so optimistic UI isn't stomped. If we don't have
-            // optimistic state, apply immediately.
-            const opt = optimisticPlanState[expId];
-            const now = Date.now();
-            const GRACE_MS = 2000;
-            if (opt && now - (opt.at || 0) < GRACE_MS) {
-              logger.debug('[DataContext] delaying canonical experience apply due to optimistic plan state', { expId, delayMs: GRACE_MS });
-              setTimeout(() => {
-                setExperiences(prev => {
-                  const found = prev.findIndex(x => x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id));
-                  if (found >= 0) {
-                    const copy = [...prev];
-                    copy[found] = { ...safeMergeObj(copy[found], updatedExp), __ctx_merged_at: Date.now() };
-                    return copy;
-                  }
-                  return [{ ...updatedExp, __ctx_merged_at: Date.now() }, ...prev];
-                });
-                setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
-                // Clear optimistic marker once canonical applied
-                setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
-                logger.debug('[DataContext] applied delayed canonical experience update', { expId, appliedAt: Date.now() });
-              }, Math.max(800, GRACE_MS));
-            } else {
+            // IMMEDIATE MERGE: Apply canonical experience data right away
+            // Merge preserves existing local state while adding canonical updates
+            batchedUpdates(() => {
               setExperiences(prev => {
                 const found = prev.findIndex(x => x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id));
                 if (found >= 0) {
-                  const copy = [...prev];
-                  copy[found] = { ...safeMergeObj(copy[found], updatedExp), __ctx_merged_at: Date.now() };
-                  return copy;
+                  // NEVER replace, always merge to preserve local state
+                  return prev.map((x, idx) =>
+                    idx === found ? { ...safeMergeObj(x, updatedExp), __ctx_merged_at: Date.now() } : x
+                  );
                 }
                 // If experience not in list, add it to front to ensure freshness
                 return [{ ...updatedExp, __ctx_merged_at: Date.now() }, ...prev];
               });
               setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
-            }
+            });
           } catch (err) {
             logger.debug('Failed to refresh experience after plan create', { error: err?.message });
           }
@@ -758,56 +767,49 @@ export function DataProvider({ children }) {
         const detail = e?.detail || {};
         const plan = detail.plan;
         if (!plan || !plan._id) return;
-        // Guard plan updates by optimistic marker for the related experience
-        (async () => {
-          try {
-            const rawExp = detail.experienceId || plan?.experience?._id || plan?.experience || null;
-            const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-            const opt = optimisticPlanState[expId];
-            const now = Date.now();
-            const GRACE_MS = 2000;
-            if (opt && now - (opt.at || 0) < GRACE_MS) {
-              logger.debug('[DataContext] delaying plan:update apply due to optimistic plan state', { expId, delayMs: GRACE_MS });
-              setTimeout(() => {
-                setPlans(prev => prev.map(p => (p._id && plan._id && p._id.toString() === plan._id.toString() ? { ...p, ...plan } : p)));
-                setLastUpdated(prev => ({ ...prev, plans: new Date() }));
-                setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
-                logger.debug('[DataContext] applied delayed plan:update', { expId, appliedAt: Date.now() });
-              }, Math.max(800, GRACE_MS));
-            } else {
-              setPlans(prev => prev.map(p => (p._id && plan._id && p._id.toString() === plan._id.toString() ? { ...p, ...plan } : p)));
-              setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+
+        const rawExp = detail.experienceId || plan?.experience?._id || plan?.experience || null;
+        const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+
+        // BATCH all state updates to prevent UI flashing (single re-render)
+        // IMMEDIATE MERGE - no setTimeout delays
+        batchedUpdates(() => {
+          setPlans(prev => prev.map(p => {
+            if (p._id && plan._id && p._id.toString() === plan._id.toString()) {
+              // NEVER replace, always merge to preserve local state
+              return { ...p, ...plan, __ctx_merged_at: Date.now() };
             }
-          } catch (err) {
-            logger.warn('Failed handling delayed plan:update', { error: err?.message });
+            return p;
+          }));
+          setLastUpdated(prev => ({ ...prev, plans: new Date() }));
+          if (expId) {
+            setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
           }
-        })();
-        // Keep the related experience fresh as well. Use same cautious merge strategy
+        });
+
+        logger.debug('[DataContext] plan:updated applied immediately via merge', { planId: plan._id, expId });
+
+        // Keep the related experience fresh as well. IMMEDIATE MERGE - no setTimeout delays
         (async () => {
           try {
-            const rawExp = detail.experienceId || plan?.experience?._id || plan?.experience || null;
-            const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
             if (!expId) return;
             const updatedExp = await showExperience(expId);
             if (!updatedExp) return;
 
             logger.debug('[DataContext] plan:update -> fetched experience', { expId, fetchedAt: Date.now(), fetchedPreview: { _id: updatedExp._id, plan_items_count: (updatedExp.plan_items || []).length } });
 
-            const opt = optimisticPlanState[expId];
-            const now = Date.now();
-            const GRACE_MS = 2000;
-            if (opt && now - (opt.at || 0) < GRACE_MS) {
-              logger.debug('[DataContext] delaying canonical experience apply due to optimistic plan state (update)', { expId, delayMs: GRACE_MS });
-              setTimeout(() => {
-                setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...safeMergeObj(x, updatedExp), __ctx_merged_at: Date.now() } : x)));
-                setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
-                setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
-                logger.debug('[DataContext] applied delayed canonical experience update (update)', { expId, appliedAt: Date.now() });
-              }, Math.max(800, GRACE_MS));
-            } else {
-              setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...safeMergeObj(x, updatedExp), __ctx_merged_at: Date.now() } : x)));
+            // IMMEDIATE MERGE: Apply canonical experience data right away
+            // Merge preserves existing local state while adding canonical updates
+            batchedUpdates(() => {
+              setExperiences(prev => prev.map(x => {
+                if (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id)) {
+                  // NEVER replace, always merge to preserve local state
+                  return { ...safeMergeObj(x, updatedExp), __ctx_merged_at: Date.now() };
+                }
+                return x;
+              }));
               setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
-            }
+            });
           } catch (err) {
             logger.debug('Failed to refresh experience after plan update', { error: err?.message });
           }
@@ -822,19 +824,28 @@ export function DataProvider({ children }) {
         const detail = e?.detail || {};
         const plan = detail.plan;
         const experienceId = detail.experienceId || (plan && (plan.experience?._id || plan.experience)) || null;
-        if (plan && plan._id) {
-          setPlans(prev => prev.filter(p => !(p._id && p._id.toString() === plan._id.toString())));
+        const expId = experienceId && experienceId.toString ? experienceId.toString() : experienceId;
+
+        // BATCH all state updates to prevent UI flashing (single re-render)
+        batchedUpdates(() => {
+          if (plan && plan._id) {
+            setPlans(prev => prev.filter(p => !(p._id && p._id.toString() === plan._id.toString())));
+          } else if (expId) {
+            setPlans(prev => prev.filter(p => {
+              const pExp = p.experience?._id || p.experience || null;
+              return !(pExp && pExp.toString ? pExp.toString() === expId : pExp === expId);
+            }));
+          }
           setLastUpdated(prev => ({ ...prev, plans: new Date() }));
-          return;
-        }
-        if (experienceId) {
-          const expId = experienceId && experienceId.toString ? experienceId.toString() : experienceId;
-          setPlans(prev => prev.filter(p => {
-            const pExp = p.experience?._id || p.experience || null;
-            return !(pExp && pExp.toString ? pExp.toString() === expId : pExp === expId);
-          }));
-          setLastUpdated(prev => ({ ...prev, plans: new Date() }));
-          // Also refresh the experience to remove plan-related flags using cautious merge
+          if (expId) {
+            setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
+          }
+        });
+
+        logger.debug('[DataContext] plan:deleted applied immediately', { planId: plan?._id, expId });
+
+        // Also refresh the experience to remove plan-related flags. IMMEDIATE MERGE - no setTimeout delays
+        if (expId) {
           (async () => {
             try {
               const updatedExp = await showExperience(expId);
@@ -842,21 +853,18 @@ export function DataProvider({ children }) {
 
               logger.debug('[DataContext] plan:delete -> fetched experience', { expId, fetchedAt: Date.now(), fetchedPreview: { _id: updatedExp._id, plan_items_count: (updatedExp.plan_items || []).length } });
 
-              const opt = optimisticPlanState[expId];
-              const now = Date.now();
-              const GRACE_MS = 2000;
-              if (opt && now - (opt.at || 0) < GRACE_MS) {
-                logger.debug('[DataContext] delaying canonical experience apply due to optimistic plan state (delete)', { expId, delayMs: GRACE_MS });
-                setTimeout(() => {
-                  setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...safeMergeObj(x, updatedExp), __ctx_merged_at: Date.now() } : x)));
-                  setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
-                  setOptimisticPlanState(prev => { const c = { ...prev }; delete c[expId]; return c; });
-                  logger.debug('[DataContext] applied delayed canonical experience update (delete)', { expId, appliedAt: Date.now() });
-                }, Math.max(800, GRACE_MS));
-              } else {
-                setExperiences(prev => prev.map(x => (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id) ? { ...safeMergeObj(x, updatedExp), __ctx_merged_at: Date.now() } : x)));
+              // IMMEDIATE MERGE: Apply canonical experience data right away
+              // Merge preserves existing local state while adding canonical updates
+              batchedUpdates(() => {
+                setExperiences(prev => prev.map(x => {
+                  if (x._id && (x._id.toString ? x._id.toString() === updatedExp._id.toString() : x._id === updatedExp._id)) {
+                    // NEVER replace, always merge to preserve local state
+                    return { ...safeMergeObj(x, updatedExp), __ctx_merged_at: Date.now() };
+                  }
+                  return x;
+                }));
                 setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
-              }
+              });
             } catch (err) {
               logger.debug('Failed to refresh experience after plan delete', { error: err?.message });
             }

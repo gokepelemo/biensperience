@@ -3,9 +3,9 @@
  * Unified Button Design System
  *
  * All buttons use standardized design tokens for consistent:
- * - Heights (36px sm, 44px md, 52px lg)
+ * - Heights (28px xs, 32px sm, 40px md, 48px lg, 56px xl)
  * - Padding (based on size)
- * - Font sizes (14px sm, 16px md, 18px lg)
+ * - Font sizes (12px xs, 14px sm, 16px md, 18px lg, 20px xl)
  * - Font weight (600 semibold)
  * - Border radius (8px default, pill optional)
  */
@@ -87,6 +87,27 @@
   }
 
   &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   VARIANT: LIGHT (Soft/Tonal)
+   Light purple background with purple text
+   ============================================ */
+.btnLight {
+  background: var(--btn-light-bg, rgba(102, 126, 234, 0.1));
+  color: var(--btn-light-color, var(--color-primary));
+  border: var(--btn-light-border, 1px solid transparent);
+
+  &:hover:not(:disabled) {
+    background: var(--btn-light-hover-bg, rgba(102, 126, 234, 0.2));
+    color: var(--btn-light-hover-color, var(--color-primary-dark));
+    transform: translateY(var(--btn-hover-lift));
+  }
+
+  &:active:not(:disabled) {
+    background: var(--btn-light-active-bg, rgba(102, 126, 234, 0.25));
     transform: translateY(0);
   }
 }
@@ -177,6 +198,13 @@
 /* ============================================
    SIZE MODIFIERS
    ============================================ */
+.btnXs {
+  min-height: var(--btn-height-xs, 28px);
+  padding: var(--btn-padding-y-xs, 2px) var(--btn-padding-x-xs, 8px);
+  font-size: var(--btn-font-size-xs, 12px);
+  gap: var(--space-1);
+}
+
 .btnSm {
   min-height: var(--btn-height-sm);
   padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
@@ -187,6 +215,13 @@
   min-height: var(--btn-height-lg);
   padding: var(--btn-padding-y-lg) var(--btn-padding-x-lg);
   font-size: var(--btn-font-size-lg);
+}
+
+.btnXl {
+  min-height: var(--btn-height-xl, 56px);
+  padding: var(--btn-padding-y-xl, 14px) var(--btn-padding-x-xl, 28px);
+  font-size: var(--btn-font-size-xl, 20px);
+  gap: var(--space-3);
 }
 
 /* ============================================
@@ -259,4 +294,21 @@
     --btn-link-color: #9f93f7;
     --btn-link-hover-color: #b8aef9;
   }
+
+  .btnLight {
+    --btn-light-bg: rgba(159, 147, 247, 0.15);
+    --btn-light-color: #9f93f7;
+    --btn-light-hover-bg: rgba(159, 147, 247, 0.25);
+    --btn-light-hover-color: #b8aef9;
+  }
+}
+
+/* ============================================
+   ICON STYLES
+   ============================================ */
+.btnIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }

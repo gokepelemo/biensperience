@@ -58,31 +58,39 @@ export function highlightPlanItem(id) {
  * @param {string} itemId - The plan item ID to scroll to
  * @param {Object} options - Configuration options
  * @param {number} options.maxAttempts - Maximum retry attempts (default: 8)
- * @param {number} options.delayMs - Delay between retries in ms (default: 200)
- * @param {number} options.anticipationDelay - Delay before scroll starts for user re-orientation (default: 250ms)
+ * @param {number} options.delayMs - Delay between retries in ms (default: 150)
+ * @param {number} options.anticipationDelay - Delay before scroll starts (default: 0ms - immediate)
  * @param {boolean} options.shouldHighlight - Whether to apply shake animation (default: true for deep-links, false otherwise)
  */
-export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, anticipationDelay = 250, shouldHighlight = true } = {}) {
+export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 150, anticipationDelay = 0, shouldHighlight = true } = {}) {
+  // Helper to execute immediately or with delay
+  const scheduleScroll = (fn) => {
+    if (anticipationDelay > 0) {
+      setTimeout(fn, anticipationDelay);
+    } else {
+      requestAnimationFrame(fn);
+    }
+  };
+
   return new Promise((resolve) => {
     if (!itemId) {
       logger.debug('[Scroll] No itemId provided, scrolling to plan section');
       const planSection = document.querySelector('.my-plan-view');
       if (planSection) {
         logger.debug('[Scroll] Found plan section, scrolling...');
-        setTimeout(() => {
+        scheduleScroll(() => {
           try {
             const elementTop = planSection.getBoundingClientRect().top + window.pageYOffset;
             animateScroll.scrollTo(elementTop - 80, {
-              duration: 300, // Reduced from 800ms for subtle scroll
+              duration: 300,
               delay: 0,
-              smooth: 'easeOutQuad', // Gentler easing to prevent bounce
+              smooth: 'easeOutQuad',
               offset: -80
             });
           } catch (e) {
-            // Fallback to native scrollIntoView
             planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
-        }, anticipationDelay);
+        });
       } else {
         logger.debug('[Scroll] ❌ Plan section .my-plan-view not found');
       }
@@ -105,8 +113,6 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
       if (itemElement) {
         logger.debug('[Scroll] ✅ Found item element, scrolling...');
 
-        // Callback to trigger shake animation after scroll completes
-        // Using callback instead of setTimeout for reliable cross-browser sync
         const onScrollComplete = () => {
           if (shouldHighlight) {
             logger.debug('[Scroll] Scroll complete, triggering shake animation via callback');
@@ -114,28 +120,20 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
           }
         };
 
-        // Use react-scroll for smoother animation with anticipation delay
-        setTimeout(() => {
+        scheduleScroll(() => {
           try {
-            // Get element position for react-scroll
             const elementTop = itemElement.getBoundingClientRect().top + window.pageYOffset;
-
-            // Scroll with increased offset to center the item nicely in viewport
-            // Additional offset accounts for navbar (80px) + extra space for visual comfort (120px)
             animateScroll.scrollTo(elementTop - 200, {
-              duration: 300, // Reduced from 800ms for subtle scroll
+              duration: 300,
               delay: 0,
-              smooth: 'easeOutQuad', // Gentler easing to prevent bounce
+              smooth: 'easeOutQuad',
               offset: -200,
-              // Callback fired when scroll animation completes - more reliable than setTimeout
               onComplete: onScrollComplete
             });
           } catch (e) {
-            // Fallback to native scrollIntoView
             logger.debug('[Scroll] react-scroll failed, using fallback');
             try {
               itemElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              // For native scrollIntoView, use IntersectionObserver as callback
               if (shouldHighlight) {
                 const observer = new IntersectionObserver((entries) => {
                   if (entries[0].isIntersecting) {
@@ -144,15 +142,13 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
                   }
                 }, { threshold: 0.5 });
                 observer.observe(itemElement);
-                // Cleanup observer after reasonable time if element never intersects
                 setTimeout(() => observer.disconnect(), 2000);
               }
             } catch (err) {
-              // Last resort: just highlight immediately
               if (shouldHighlight) highlightPlanItem(itemId);
             }
           }
-        }, anticipationDelay);
+        });
 
         return resolve(itemElement);
       }
@@ -163,25 +159,23 @@ export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 200, an
         return;
       }
 
-      // final fallback: scroll to plan section and resolve null
       logger.debug('[Scroll] ❌ Item not found after max attempts, falling back to plan section');
       const planSection = document.querySelector('.my-plan-view');
       if (planSection) {
         logger.debug('[Scroll] Found plan section, scrolling...');
-        setTimeout(() => {
+        scheduleScroll(() => {
           try {
             const elementTop = planSection.getBoundingClientRect().top + window.pageYOffset;
             animateScroll.scrollTo(elementTop - 80, {
-              duration: 300, // Reduced from 800ms for subtle scroll
+              duration: 300,
               delay: 0,
-              smooth: 'easeOutQuad', // Gentler easing to prevent bounce
+              smooth: 'easeOutQuad',
               offset: -80
             });
           } catch (e) {
-            // Fallback to native scrollIntoView
             planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
-        }, anticipationDelay);
+        });
       } else {
         logger.debug('[Scroll] ❌ Plan section .my-plan-view not found');
       }

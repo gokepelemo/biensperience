@@ -28,10 +28,12 @@ async function createPhoto(req, res) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    // S3 prefix: photos/ for photos uploaded to entities
+    const photoName = req.body.name ? req.body.name : "Biensperience";
     s3Upload(
       req.file.path,
       req.file.originalname,
-      `${rand}-${req.body.name ? req.body.name : "Biensperience"}`
+      `photos/${rand}-${photoName}`
     )
       .then((response) => {
         // S3 upload successful
@@ -254,10 +256,11 @@ async function createPhotoBatch(req, res) {
       const name = req.body.name || "Biensperience";
       const fileDimensions = dimensionsArray[index] || {};
 
+      // S3 prefix: photos/ for photos uploaded to entities
       return s3Upload(
         file.path,
         file.originalname,
-        `${rand}-${name}-${index}`
+        `photos/${rand}-${name}-${index}`
       )
         .then((response) => {
           const photoData = {

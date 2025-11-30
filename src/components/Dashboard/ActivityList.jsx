@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, Button } from 'react-bootstrap';
 import { FaClock, FaStar, FaExternalLinkAlt } from 'react-icons/fa';
 import PropTypes from 'prop-types';
-import { Heading, HashLink } from '../design-system';
+import { Heading, HashLink, EmptyState } from '../design-system';
 import { getUser } from '../../utilities/users-service';
 import { getActivityFeed } from '../../utilities/dashboard-api';
 import { logger } from '../../utilities/logger';
@@ -224,14 +224,11 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
             )}
           </div>
         )) : (
-          <div style={{
-            textAlign: 'center',
-            padding: 'var(--space-8)',
-            color: 'var(--color-text-muted)',
-          }}>
-            <FaStar size={32} style={{ marginBottom: 'var(--space-2)', opacity: 0.5 }} />
-            <div>No recent activity</div>
-          </div>
+          <EmptyState
+            variant="activity"
+            size="sm"
+            compact
+          />
         )}
 
         {/* Loading indicator */}

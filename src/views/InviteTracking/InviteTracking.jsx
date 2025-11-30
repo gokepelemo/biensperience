@@ -20,7 +20,7 @@ import { getDefaultPhoto } from '../../utilities/photo-utils';
 import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
-import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, SpaceY, Pill } from '../../components/design-system';
+import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, SpaceY, Pill, EmptyState } from '../../components/design-system';
 import styles from './InviteTracking.module.scss';
 
 export default function InviteTracking() {
@@ -159,66 +159,68 @@ export default function InviteTracking() {
         </Card.Header>
         <Card.Body className="p-0">
           {invites.length === 0 ? (
-            <div className="p-5 text-center">
-              <Alert type="info" message={lang.current.message.noInviteCodes} />
-            </div>
+            <EmptyState
+              variant="invites"
+              title={lang.current.message.noInviteCodes || "No Invite Codes Yet"}
+              description="Create invite codes to share Biensperience with friends and family."
+              size="md"
+              compact
+            />
           ) : (
-            <div className="table-responsive">
-              <table className="table table-hover table-unified table-gradient-header mb-0">
-                <thead>
-                  <tr>
-                    <th>Code</th>
-                    <th>Status</th>
-                    <th>Email</th>
-                    <th>Used</th>
-                    <th>Created</th>
-                    <th>Expires</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invites.map((invite) => (
-                    <tr key={invite._id}>
-                      <td>
-                        <code className={styles.inviteCode}>{invite.code}</code>
-                      </td>
-                      <td>{getStatusBadge(invite)}</td>
-                      <td>
-                        {invite.email ? (
-                          <span>
-                            <FaEnvelope className="me-1" />
-                            {invite.email}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--bs-gray-600)' }}>Any</span>
-                        )}
-                      </td>
-                      <td>
-                        <Badge className="badge badge-secondary">
-                          {invite.usedCount}/{invite.maxUses || '∞'}
-                        </Badge>
-                      </td>
-                      <td>{formatDate(invite.createdAt)}</td>
-                      <td>
-                        {invite.expiresAt ? (
-                          formatDate(invite.expiresAt)
-                        ) : (
-                          <span style={{ color: 'var(--bs-gray-600)' }}>Never</span>
-                        )}
-                      </td>
-                      <td>
-                        <button
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => loadInviteDetails(invite.code)}
-                        >
-                          {lang.current.button.viewDetails}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table hover striped responsive>
+              <TableHead>
+                <TableRow>
+                  <th>Code</th>
+                  <th>Status</th>
+                  <th>Email</th>
+                  <th>Used</th>
+                  <th>Created</th>
+                  <th>Expires</th>
+                  <th>Actions</th>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {invites.map((invite) => (
+                  <TableRow key={invite._id}>
+                    <TableCell>
+                      <code className={styles.inviteCode}>{invite.code}</code>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(invite)}</TableCell>
+                    <TableCell>
+                      {invite.email ? (
+                        <span>
+                          <FaEnvelope className="me-1" />
+                          {invite.email}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--bs-gray-600)' }}>Any</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="badge badge-secondary">
+                        {invite.usedCount}/{invite.maxUses || '∞'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatDate(invite.createdAt)}</TableCell>
+                    <TableCell>
+                      {invite.expiresAt ? (
+                        formatDate(invite.expiresAt)
+                      ) : (
+                        <span style={{ color: 'var(--bs-gray-600)' }}>Never</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => loadInviteDetails(invite.code)}
+                      >
+                        {lang.current.button.viewDetails}
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </Card.Body>
       </Card>
@@ -340,46 +342,49 @@ export default function InviteTracking() {
               </Card.Header>
               <Card.Body className="p-0">
                 {!selectedInvite.redeemedBy || selectedInvite.redeemedBy.length === 0 ? (
-                  <div className="p-5 text-center">
-                    <Alert type="info" message={lang.current.message.noInviteRedemptions} />
-                  </div>
+                  <EmptyState
+                    variant="users"
+                    icon="👥"
+                    title={lang.current.message.noInviteRedemptions || "No Redemptions Yet"}
+                    description="No one has used this invite code yet. Share it to get started!"
+                    size="sm"
+                    compact
+                  />
                 ) : (
-                  <div className="table-responsive">
-                    <table className="table table-hover table-unified table-gradient-header mb-0">
-                      <thead>
-                        <tr>
-                          <th>User</th>
-                          <th>Email</th>
-                          <th>Joined</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedInvite.redeemedBy.map((user) => {
-                          const defaultPhoto = getDefaultPhoto(user);
-                          const photoUrl = defaultPhoto?.url || user.oauthProfilePhoto;
+                  <Table hover striped responsive>
+                    <TableHead>
+                      <TableRow>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Joined</th>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {selectedInvite.redeemedBy.map((user) => {
+                        const defaultPhoto = getDefaultPhoto(user);
+                        const photoUrl = defaultPhoto?.url || user.oauthProfilePhoto;
 
-                          return (
-                            <tr key={user._id}>
-                              <td>
-                                <div className="d-flex align-items-center">
-                                  {photoUrl && (
-                                    <img
-                                      src={photoUrl}
-                                      alt={user.name}
-                                      className={`${styles.userAvatarSmall} me-2`}
-                                    />
-                                  )}
-                                  <span>{user.name}</span>
-                                </div>
-                              </td>
-                              <td>{user.email}</td>
-                              <td>{formatDate(user.createdAt)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                        return (
+                          <TableRow key={user._id}>
+                            <TableCell>
+                              <div className="d-flex align-items-center">
+                                {photoUrl && (
+                                  <img
+                                    src={photoUrl}
+                                    alt={user.name}
+                                    className={`${styles.userAvatarSmall} me-2`}
+                                  />
+                                )}
+                                <span>{user.name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>{user.email}</TableCell>
+                            <TableCell>{formatDate(user.createdAt)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
                 )}
               </Card.Body>
             </Card>

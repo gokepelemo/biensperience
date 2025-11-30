@@ -10,7 +10,7 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
 import InviteCodeModal from "../../components/InviteCodeModal/InviteCodeModal";
-import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, FormControl } from "../../components/design-system";
+import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, FormControl, EmptyState, Pill } from "../../components/design-system";
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
 import { logger } from "../../utilities/logger";
@@ -326,21 +326,29 @@ export default function AllUsers() {
           ) : (
             <Card>
               <Card.Header>
-                <h2>
-                  <FaUser className="me-2" />
-                  Users ({filteredUsers.length}{filteredUsers.length !== users.length ? ` of ${users.length}` : ''})
-                </h2>
+                <FlexBetween>
+                  <h2 className="mb-0">
+                    <FaUser className="me-2" />
+                    Users
+                  </h2>
+                  <Pill variant="primary" size="md">
+                    {filteredUsers.length}{filteredUsers.length !== users.length ? ` of ${users.length}` : ''}
+                  </Pill>
+                </FlexBetween>
               </Card.Header>
               <Card.Body className="p-0">
                 {filteredUsers.length === 0 ? (
-                  <div className="p-5" style={{ textAlign: 'center', color: 'var(--bs-gray-600)' }}>
-                    <FaUser size={48} className="mb-3 opacity-50" />
-                    <p className="mb-0">
-                      {searchTerm || roleFilter !== 'all'
-                        ? lang.current.admin.noUsersMatch
-                        : lang.current.admin.noUsersFound}
-                    </p>
-                  </div>
+                  <EmptyState
+                    variant="users"
+                    title={searchTerm || roleFilter !== 'all' ? lang.current.admin.noUsersMatch : lang.current.admin.noUsersFound}
+                    description={searchTerm || roleFilter !== 'all'
+                      ? "Try adjusting your search terms or filters to find more users."
+                      : "No users have been registered yet."}
+                    primaryAction={searchTerm || roleFilter !== 'all' ? "Clear Filters" : null}
+                    onPrimaryAction={searchTerm || roleFilter !== 'all' ? () => { setSearchTerm(''); setRoleFilter('all'); } : null}
+                    size="md"
+                    compact
+                  />
                 ) : (
                   <Table hover striped responsive>
                     <TableHead>

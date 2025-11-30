@@ -9,6 +9,7 @@
 
 const ApiToken = require('../models/apiToken');
 const backendLogger = require('./backend-logger');
+const { apiAccessDisabledError, sendErrorResponse } = require('./error-responses');
 
 /**
  * Middleware to check for API token authentication
@@ -61,9 +62,8 @@ async function checkApiToken(req, res, next) {
         email: user.email,
         ip: req.ip
       });
-      return res.status(403).json({
-        error: 'API access is disabled for your account. Please enable it in your profile settings.'
-      });
+      const errorResponse = apiAccessDisabledError();
+      return sendErrorResponse(res, errorResponse);
     }
 
     // Set user on request object

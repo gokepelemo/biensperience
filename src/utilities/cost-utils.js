@@ -159,7 +159,7 @@ export function getCostEstimateTooltip(exactCost, options = {}) {
   const symbol = getCurrencySymbol(currency);
 
   if (!exactCost || exactCost <= 0) {
-    return isActual ? 'Actual cost for this item' : 'Estimated cost for this experience';
+    return isActual ? 'Actual cost for this item' : 'Actual estimated cost for this experience';
   }
 
   const formatted = exactCost.toLocaleString('en-US', {
@@ -167,7 +167,7 @@ export function getCostEstimateTooltip(exactCost, options = {}) {
     maximumFractionDigits: 2
   });
 
-  return isActual ? `Actual cost: ${symbol}${formatted}` : `Estimated cost: ${symbol}${formatted}`;
+  return isActual ? `Actual cost: ${symbol}${formatted}` : `Actual estimated cost: ${symbol}${formatted}`;
 }
 
 /**

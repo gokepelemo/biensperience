@@ -1,4 +1,12 @@
-// Backend language constants for email templates and server messages
+/**
+ * Backend Language Constants
+ *
+ * Contains all language strings used for email templates and server messages.
+ * Supports internationalization with English as the default language.
+ *
+ * @module lang.constants
+ */
+
 const en = {
   email: {
     passwordReset: {
@@ -87,21 +95,33 @@ const en = {
   },
 };
 
-// All available languages
+/**
+ * All available languages
+ * @type {Object}
+ */
 const languages = { en };
 
-// Get current language from environment or default to 'en'
+/**
+ * Get current language from environment or default to 'en'
+ * @returns {string} Current language code
+ */
 const getCurrentLanguage = () => {
   return process.env.LANG || "en";
 };
 
-// Get language object for current language
+/**
+ * Get language object for current language
+ * @returns {Object} Language object for current language, defaults to English
+ */
 const getLang = () => {
   const currentLang = getCurrentLanguage();
   return languages[currentLang] || languages.en;
 };
 
-// Export both the full language object and the getter function
+/**
+ * Language utilities with backward compatibility
+ * @type {Object}
+ */
 const lang = {
   get current() {
     return getLang();

@@ -51,6 +51,13 @@
 
 /* Skeleton loader styles matching actual card dimensions */
 
+/* DestinationCard skeleton wrapper: matches the d-block m-2 wrapper in DestinationCard.jsx */
+.destinationSkeletonWrapper {
+  display: block;
+  margin: $space-2; /* Matches Bootstrap m-2 class used in DestinationCard.jsx line 111 */
+  vertical-align: top;
+}
+
 /* DestinationCard skeleton: 12rem × 8rem with centered blurred title */
 .destinationSkeleton {
   width: 12rem;
@@ -59,12 +66,12 @@
   overflow: hidden;
   position: relative;
   background: linear-gradient(135deg, var(--color-bg-tertiary) 0%, var(--color-bg-hover) 100%);
-  /* Mirror the flex layout of DestinationCard */
+  /* Mirror the flex layout of DestinationCard: d-flex flex-column align-items-center justify-content-center p-3 */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: $space-3;
+  padding: $space-3; /* Matches Bootstrap p-3 class used in DestinationCard.jsx */
 }
 
 .destinationSkeletonOverlay {
@@ -81,20 +88,28 @@
   max-width: 90%;
 }
 
+/* ExperienceCard skeleton wrapper: matches the d-block m-2 wrapper in ExperienceCard.jsx line 465 */
+.experienceSkeletonWrapper {
+  display: block;
+  margin: $space-2; /* Matches Bootstrap m-2 class used in ExperienceCard.jsx */
+  width: 20rem; /* Matches inline style width in ExperienceCard.jsx */
+  vertical-align: top;
+}
+
 /* ExperienceCard skeleton: 20rem × 12rem with title center, buttons bottom */
 .experienceSkeleton {
-  width: 20rem;
+  width: 100%; /* Fill wrapper width */
   min-height: 12rem;
   border-radius: $radius-md;
   overflow: hidden;
   position: relative;
   background: linear-gradient(145deg, var(--color-bg-tertiary) 0%, var(--color-bg-hover) 50%, var(--color-bg-tertiary) 100%);
-  /* Mirror the flex layout of ExperienceCard: justify-content-between */
+  /* Mirror the flex layout of ExperienceCard: d-flex flex-column justify-content-between */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  padding: $space-3;
+  padding: $space-3; /* Matches Bootstrap p-3 class used in ExperienceCard.jsx */
 }
 
 /* Title area - centered like experienceCardTitle */

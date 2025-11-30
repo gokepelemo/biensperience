@@ -1,5 +1,6 @@
 import styles from "./NewPlanItem.module.scss";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
+import Modal from "../Modal/Modal";
 import { addPlanItem, updatePlanItem } from "../../utilities/experiences-api";
 import { lang } from "../../lang.constants";
 import { handleError } from "../../utilities/error-handler";
@@ -31,6 +32,10 @@ export default function NewPlanItem({
       if (formState) {
         let updatedExperience = await addPlanItem(experience._id, newPlanItem);
         setExperience(updatedExperience);
+        // Show success modal offering to add another
+        setFormVisible(false);
+        setShowSuccessModal(true);
+        setSavedParent(newPlanItem.parent || '');
       } else {
         let updatedExperience = await updatePlanItem(
           experience._id,
@@ -38,7 +43,6 @@ export default function NewPlanItem({
         );
         setExperience(updatedExperience);
       }
-      setFormVisible(!formVisible);
       setNewPlanItem({});
       updateData();
     } catch (err) {
@@ -52,6 +56,22 @@ export default function NewPlanItem({
     setFormVisible(!formVisible);
     setFormState(1);
   }, [formVisible, setNewPlanItem, setFormVisible, setFormState]);
+  
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [savedParent, setSavedParent] = useState('');
+
+  const handleAddAnother = useCallback((sameParent = true) => {
+    // Open form and preset parent as requested
+    setNewPlanItem({ parent: sameParent ? savedParent : '' });
+    setFormState(1);
+    setFormVisible(true);
+    setShowSuccessModal(false);
+  }, [savedParent, setNewPlanItem, setFormState, setFormVisible]);
+
+  const handleDone = useCallback(() => {
+    setShowSuccessModal(false);
+  }, []);
   return (
     <>
       <button
@@ -123,6 +143,31 @@ export default function NewPlanItem({
       ) : (
         <div></div>
       )}
+      {/* Success modal shown after adding a plan item */}
+      <Modal
+        show={showSuccessModal}
+        onClose={handleDone}
+        title={lang.current.message.planItemAdded || 'Plan item added'}
+        footer={(
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button type="button" className="btn btn-outline-primary" onClick={() => handleAddAnother(true)}>
+              {lang.current.button.addAnotherSameParent || 'Add Another (same parent)'}
+            </button>
+            <button type="button" className="btn btn-outline-secondary" onClick={() => handleAddAnother(false)}>
+              {lang.current.button.addAnotherTopLevel || 'Add Another (top-level)'}
+            </button>
+            <button type="button" className="btn btn-primary" onClick={handleDone}>
+              {lang.current.button.done || 'Done'}
+            </button>
+          </div>
+        )}
+        showSubmitButton={false}
+        showHeader={true}
+      >
+        <div style={{ padding: '8px 0' }}>
+          <p style={{ margin: 0 }}>{lang.current.message.planItemAddSuccess || 'Plan item created successfully.'}</p>
+        </div>
+      </Modal>
     </>
   );
 }

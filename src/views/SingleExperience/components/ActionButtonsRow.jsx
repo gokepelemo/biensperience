@@ -10,7 +10,7 @@ import { FadeIn } from '../../../components/design-system';
 import Loading from '../../../components/Loading/Loading';
 import { isOwner } from '../../../utilities/permissions';
 import { formatDateForInput, formatDateOrdinal } from '../../../utilities/date-utils';
-import useButtonWidth from '../../../utilities/useButtonWidth';
+import useButtonWidth from '../../../hooks/useButtonWidth';
 import styles from './ActionButtonsRow.module.scss';
 
 export default function ActionButtonsRow({

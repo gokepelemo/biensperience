@@ -1,5 +1,11 @@
-// Hash navigation utilities for preserving URL fragments across React Router navigation
-// Solves React Router limitation where hash fragments are stripped during navigation
+/**
+ * Hash Navigation Utilities
+ *
+ * Utilities for preserving URL fragments across React Router navigation.
+ * Solves React Router limitation where hash fragments are stripped during navigation.
+ *
+ * @module hash-navigation
+ */
 
 // Common localStorage key for hash navigation (reusable across all navigation)
 const HASH_STORAGE_KEY = 'bien:pending_hash';
@@ -7,7 +13,9 @@ const HASH_STORAGE_KEY = 'bien:pending_hash';
 /**
  * Store hash fragment before navigation
  * Uses localStorage for cross-tab compatibility and persistence
+ *
  * @param {string} hash - Hash fragment (e.g., "#plan-123-item-456")
+ * @param {string} [originPath] - Original path where hash was created
  * @param {Object} [meta] - Optional metadata to store alongside the hash
  */
 export function storeHash(hash, originPath = null, meta = null) {
@@ -24,6 +32,7 @@ export function storeHash(hash, originPath = null, meta = null) {
 /**
  * Retrieve stored hash WITHOUT clearing it
  * Allows destination component to read hash for navigation
+ *
  * @returns {Object|null} - Stored object { hash, originPath, storedAt, meta } or null
  */
 export function getStoredHash() {
@@ -98,43 +107,49 @@ export function parseHash(hash) {
 
 /**
  * Scroll to element and trigger shake animation
+ *
  * @param {string} elementId - DOM element ID to scroll to
- * @param {boolean} shake - Whether to trigger shake animation
- * @param {Object} options - Scroll configuration
- * @param {number} options.renderDelay - Delay for React render (default: 300ms)
- * @param {number} options.anticipationDelay - Delay before scroll starts for user re-orientation (default: 250ms)
+ * @param {boolean} [shake=false] - Whether to trigger shake animation
+ * @param {Object} [options] - Scroll configuration
+ * @param {number} [options.renderDelay=0] - Delay for React render (default: 0ms - immediate)
+ * @param {number} [options.anticipationDelay=0] - Delay before scroll starts (default: 0ms - immediate)
  */
 export function scrollToElement(elementId, shake = false, options = {}) {
   if (!elementId || typeof window === 'undefined') return;
 
-  const { renderDelay = 300, anticipationDelay = 250 } = options;
+  const { renderDelay = 0, anticipationDelay = 0 } = options;
 
-  // Allow DOM to settle before scrolling
-  setTimeout(() => {
+  const doScroll = () => {
     const element = document.getElementById(elementId);
     if (!element) return;
 
-    // Add anticipation delay for user re-orientation
-    setTimeout(() => {
-      // Scroll to element with offset for fixed headers
-      const headerOffset = 80;
-      const elementPosition = element.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    // Scroll to element with offset for fixed headers
+    const headerOffset = 80;
+    const elementPosition = element.getBoundingClientRect().top;
+    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
 
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth'
-      });
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: 'smooth'
+    });
 
-      // Trigger shake animation if requested
-      if (shake) {
-        element.classList.add('shake-animation');
-        setTimeout(() => {
-          element.classList.remove('shake-animation');
-        }, 2000); // Match animation duration
-      }
-    }, anticipationDelay);
-  }, renderDelay); // Wait for React render
+    // Trigger shake animation if requested
+    if (shake) {
+      element.classList.add('shake-animation');
+      setTimeout(() => {
+        element.classList.remove('shake-animation');
+      }, 2000); // Match animation duration
+    }
+  };
+
+  // Execute immediately or with minimal delay
+  const totalDelay = renderDelay + anticipationDelay;
+  if (totalDelay > 0) {
+    setTimeout(doScroll, totalDelay);
+  } else {
+    // Use requestAnimationFrame for next paint if no delay
+    requestAnimationFrame(doScroll);
+  }
 }
 
 /**
@@ -142,7 +157,7 @@ export function scrollToElement(elementId, shake = false, options = {}) {
  * Returns parsed plan/item IDs without modifying URL or scrolling
  * (Destination component handles URL update and scrolling)
  *
- * @returns {{planId: string|null, itemId: string|null, hash: string|null}}
+ * @returns {{planId: string|null, itemId: string|null, hash: string|null, originPath: string|null, meta: Object|null}}
  */
 export function handleStoredHash() {
   const stored = getStoredHash();
@@ -157,17 +172,13 @@ export function handleStoredHash() {
 }
 
 /**
- * Restore hash to URL using pushState (adds to history)
- * Should be called by destination component after handling stored hash
- * @param {string} hash - Hash fragment to restore (e.g., "#plan-123-item-456")
- */
-/**
  * Restore hash to URL using history API.
  * By default this will push a new history entry, but callers can request
  * replacement to avoid introducing an extra intermediate entry.
  *
  * @param {string} hash - Hash fragment to restore (e.g., "#plan-123-item-456")
- * @param {{replace?: boolean}} [options]
+ * @param {Object} [options] - Options for URL restoration
+ * @param {boolean} [options.replace=false] - Whether to replace current history entry instead of pushing
  */
 export function restoreHashToUrl(hash, options = {}) {
   if (!hash || typeof window === 'undefined') return;

@@ -31,6 +31,7 @@ const ERROR_MESSAGES = {
   INVALID_TOKEN: 'Your session has expired. Please log in again.',
   EXPIRED_TOKEN: 'Your session has expired. Please log in again.',
   ACCOUNT_LOCKED: 'Your account has been locked. Please contact support.',
+  API_ACCESS_DISABLED: 'API access is disabled. Please enable it in your profile settings.',
 
   // Resource Errors
   RESOURCE_NOT_FOUND: 'The requested resource was not found',

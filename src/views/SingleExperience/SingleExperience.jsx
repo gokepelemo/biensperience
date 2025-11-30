@@ -32,7 +32,7 @@ import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay
 import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
-import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text } from "../../components/design-system";
+import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text, EmptyState } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import SingleExperienceSkeleton from "./components/SingleExperienceSkeleton";
@@ -60,6 +60,7 @@ import { isOwner, canEditPlan } from "../../utilities/permissions";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import usePlanManagement from "../../hooks/usePlanManagement";
 import usePlanCosts from "../../hooks/usePlanCosts";
+import { usePresence } from "../../hooks/usePresence";
 import {
   showExperienceWithContext,
   deleteExperience,
@@ -182,6 +183,20 @@ export default function SingleExperience() {
     deleteCost,
     fetchCosts
   } = usePlanCosts(selectedPlanId);
+
+  // Presence hook - real-time collaboration awareness
+  const {
+    isConnected: presenceConnected,
+    experienceMembers,
+    planMembers,
+    setTyping,
+    setTab: setPresenceTab
+  } = usePresence({
+    experienceId,
+    planId: selectedPlanId,
+    initialTab: 'the-plan', // Default to experience tab, will be updated by useEffect
+    enabled: !!user?._id  // Only enable for logged-in users
+  });
 
   // Navigation intent hook - single source of truth for deep-link navigation
   const { intent, consumeIntent, clearIntent } = useNavigationIntent();
@@ -1360,6 +1375,14 @@ export default function SingleExperience() {
     return () => clearInterval(intervalId);
   }, [fetchCollaborativePlans]);
 
+  // Sync tab changes to presence system
+  useEffect(() => {
+    if (setPresenceTab) {
+      const presenceTabName = activeTab === 'myplan' ? 'my-plan' : 'the-plan';
+      setPresenceTab(presenceTabName);
+    }
+  }, [activeTab, setPresenceTab]);
+
   const handleSyncPlan = useCallback(async () => {
     if (!selectedPlanId || !experience) return;
 
@@ -1964,12 +1987,13 @@ export default function SingleExperience() {
       const firstPlan = collaborativePlans[0];
       const firstPlanId = firstPlan._id && firstPlan._id.toString ? firstPlan._id.toString() : firstPlan._id;
 
-      debug.log('[Auto-select] Auto-selecting first plan:', {
+      debug.log('[Auto-select] Auto-selecting first plan and switching to My Plan tab:', {
         planId: firstPlanId,
         isOwnPlan: idEquals(firstPlan.user?._id || firstPlan.user, user._id)
       });
 
       setSelectedPlanId(firstPlanId);
+      setActiveTab('myplan'); // Switch to My Plan tab when auto-selecting
       handlePlanChange(firstPlanId);
     }
   }, [plansLoading, collaborativePlans, selectedPlanId, intent, user._id, idEquals, handlePlanChange]);
@@ -2649,26 +2673,26 @@ export default function SingleExperience() {
                   </div>
                 )}
 
-                {/* Plan Items Card */}
-                {experience.plan_items && experience.plan_items.length > 0 && (
-                  <div className={styles.contentCard}>
-                    <div className={styles.cardBody}>
-                      {/* Plan Navigation Tabs */}
-                      <PlanTabsNavigation
-                        activeTab={activeTab}
-                        setActiveTab={setActiveTab}
-                        user={user}
-                        idEquals={idEquals}
-                        collaborativePlans={collaborativePlans}
-                        plansLoading={plansLoading}
-                        selectedPlanId={selectedPlanId}
-                        setSelectedPlanId={setSelectedPlanId}
-                        handlePlanChange={handlePlanChange}
-                        lang={lang}
-                      />
+                {/* Plan Items Card - always show (render EmptyState when no plan items) */}
+                <div className={styles.contentCard}>
+                  <div className={styles.cardBody}>
+                    {/* Plan Navigation Tabs */}
+                    <PlanTabsNavigation
+                      activeTab={activeTab}
+                      setActiveTab={setActiveTab}
+                      user={user}
+                      idEquals={idEquals}
+                      collaborativePlans={collaborativePlans}
+                      plansLoading={plansLoading}
+                      selectedPlanId={selectedPlanId}
+                      setSelectedPlanId={setSelectedPlanId}
+                      handlePlanChange={handlePlanChange}
+                      lang={lang}
+                    />
 
-                      {/* Experience Plan Items Tab Content */}
-                      {activeTab === "experience" && (
+                    {/* Experience Plan Items Tab Content */}
+                    {activeTab === "experience" && (
+                      (experience.plan_items && experience.plan_items.length > 0) ? (
                         <ExperienceTabContent
                           user={user}
                           experience={experience}
@@ -2686,58 +2710,86 @@ export default function SingleExperience() {
                           setShowPlanDeleteModal={setShowPlanDeleteModal}
                           onReorderExperiencePlanItems={handleReorderExperiencePlanItems}
                           lang={lang}
+                          // Real-time presence
+                          presenceConnected={presenceConnected}
+                          experienceMembers={experienceMembers}
                         />
-                      )}
+                      ) : (
+                        <EmptyState
+                          variant="plans"
+                          title={isOwner ? "No Plan Items" : "No Plan Items"}
+                          description={isOwner ? "This experience has no plan items yet. Add some to help others plan their trip." : `${experience.name} doesn't have any plan items yet.`}
+                          primaryAction={isOwner ? "Add Plan Item" : null}
+                          onPrimaryAction={isOwner ? () => handleAddExperiencePlanItem() : null}
+                          size="md"
+                        />
+                      )
+                    )}
 
-                      {/* My Plan Tab Content */}
-                      {activeTab === "myplan" && selectedPlanId && (
-                        <MyPlanTabContent
-                          selectedPlanId={selectedPlanId}
-                          user={user}
-                          idEquals={idEquals}
-                          collaborativePlans={collaborativePlans}
-                          planOwner={planOwner}
-                          planCollaborators={planCollaborators}
-                          planOwnerLoading={planOwnerLoading}
-                          planCollaboratorsLoading={planCollaboratorsLoading}
-                          hashSelecting={!!(intent && !intent.consumed)}
-                          showSyncButton={showSyncButton}
-                          showSyncAlert={showSyncAlert}
-                          dismissSyncAlert={dismissSyncAlert}
-                          loading={loading}
-                          plansLoading={plansLoading}
-                          expandedParents={expandedParents}
-                          animatingCollapse={animatingCollapse}
-                          displayedPlannedDate={displayedPlannedDate}
-                          setIsEditingDate={setIsEditingDate}
-                          setPlannedDate={setPlannedDate}
-                          setShowDatePicker={setShowDatePicker}
-                          plannedDateRef={plannedDateRef}
-                          handleSyncPlan={handleSyncPlan}
-                          handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                          handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                          handleViewPlanItemDetails={handleViewPlanItemDetails}
-                          openCollaboratorModal={collaboratorManager.openCollaboratorModal}
-                          toggleExpanded={toggleExpanded}
-                          setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                          setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                          handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                          onReorderPlanItems={handleReorderPlanItems}
-                          hoveredPlanItem={hoveredPlanItem}
-                          setHoveredPlanItem={setHoveredPlanItem}
-                          lang={lang}
-                          // Cost tracking
-                          costs={costs}
-                          costSummary={costSummary}
-                          costsLoading={costsLoading}
-                          onAddCost={addCost}
-                          onUpdateCost={updateCost}
-                          onDeleteCost={deleteCost}
-                        />
-                      )}
-                    </div>
+                    {/* My Plan Tab Content */}
+                    {activeTab === "myplan" && selectedPlanId && (
+                      <MyPlanTabContent
+                        selectedPlanId={selectedPlanId}
+                        user={user}
+                        idEquals={idEquals}
+                        collaborativePlans={collaborativePlans}
+                        planOwner={planOwner}
+                        planCollaborators={planCollaborators}
+                        planOwnerLoading={planOwnerLoading}
+                        planCollaboratorsLoading={planCollaboratorsLoading}
+                        hashSelecting={!!(intent && !intent.consumed)}
+                        showSyncButton={showSyncButton}
+                        showSyncAlert={showSyncAlert}
+                        dismissSyncAlert={dismissSyncAlert}
+                        loading={loading}
+                        plansLoading={plansLoading}
+                        expandedParents={expandedParents}
+                        animatingCollapse={animatingCollapse}
+                        displayedPlannedDate={displayedPlannedDate}
+                        setIsEditingDate={setIsEditingDate}
+                        setPlannedDate={setPlannedDate}
+                        setShowDatePicker={setShowDatePicker}
+                        plannedDateRef={plannedDateRef}
+                        handleSyncPlan={handleSyncPlan}
+                        handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                        handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                        handleViewPlanItemDetails={handleViewPlanItemDetails}
+                        openCollaboratorModal={collaboratorManager.openCollaboratorModal}
+                        toggleExpanded={toggleExpanded}
+                        setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                        setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                        handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                        onReorderPlanItems={handleReorderPlanItems}
+                        hoveredPlanItem={hoveredPlanItem}
+                        setHoveredPlanItem={setHoveredPlanItem}
+                        lang={lang}
+                        // Cost tracking
+                        costs={costs}
+                        costSummary={costSummary}
+                        costsLoading={costsLoading}
+                        onAddCost={addCost}
+                        onUpdateCost={updateCost}
+                        onDeleteCost={deleteCost}
+                        // Real-time presence
+                        presenceConnected={presenceConnected}
+                        planMembers={planMembers}
+                        setTyping={setTyping}
+                      />
+                    )}
+
+                    {/* If My Plan tab selected but no plan is selected, show empty state */}
+                    {activeTab === "myplan" && !selectedPlanId && (
+                      <EmptyState
+                        variant="plans"
+                        title="No Plans"
+                        description={`There are no user plans for this experience yet.`}
+                        primaryAction={!userHasExperience ? "Plan This Experience" : null}
+                        onPrimaryAction={!userHasExperience ? () => handleExperience() : null}
+                        size="md"
+                      />
+                    )}
                   </div>
-                )}
+                </div>
               </Col>
 
               {/* Sidebar Column (4 cols on lg+) */}

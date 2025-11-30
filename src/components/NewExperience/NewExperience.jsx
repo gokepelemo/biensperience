@@ -150,15 +150,21 @@ export default function NewExperience() {
       return;
     }
 
+    // Basic client-side validation to avoid server-side CastErrors (400 Bad Request)
+    if (!newExperience.name || String(newExperience.name).trim().length === 0) {
+      setError('Please enter a title for the experience.');
+      return;
+    }
+
+    // Destination must be selected from the autocomplete and be an ObjectId-like string
+    const dest = newExperience.destination;
+    const isObjectId = typeof dest === 'string' && /^[0-9a-fA-F]{24}$/.test(dest);
+    if (!dest || !isObjectId) {
+      setError('Please select a destination from the list or create a new destination first.');
+      return;
+    }
+
     try {
-      setNewExperience(
-        Object.assign(newExperience, {
-          destination: destinations.find(
-            (destination) =>
-              destination.name === newExperience.destination.split(", ")[0]
-          )._id,
-        })
-      );
       let experience = await createExperience(newExperience);
       addExperience(experience); // Instant UI update!
 
@@ -380,31 +386,7 @@ export default function NewExperience() {
               <ImageUpload data={newExperience} setData={setNewExperience} />
             </div>
 
-            <FormField
-              name="max_planning_days"
-              label={lang.current.label.planningDays}
-              type="number"
-              value={newExperience.max_planning_days || ''}
-              onChange={handleChange}
-              placeholder={lang.current.placeholder.planningDays}
-              min="1"
-              tooltip={lang.current.helper.planningTimeTooltip}
-              tooltipPlacement="top"
-              append="days"
-            />
-
-            <FormField
-              name="cost_estimate"
-              label={lang.current.label.costEstimate}
-              type="number"
-              value={newExperience.cost_estimate || ''}
-              onChange={handleChange}
-              placeholder={lang.current.placeholder.costEstimate}
-              min="0"
-              tooltip={lang.current.helper.costEstimateOptional}
-              tooltipPlacement="top"
-              prepend="$"
-            />
+            {/* Planning days and cost estimate are computed from plan items (virtuals). Removed from creation form. */}
 
             <div className="d-flex justify-content-end mt-4">
               <button

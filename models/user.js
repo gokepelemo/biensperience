@@ -286,6 +286,87 @@ const userSchema = new Schema(
     apiEnabled: {
       type: Boolean,
       default: false
+    },
+
+    /**
+     * User's location with GeoJSON-compatible coordinates
+     * Supports city names, zip codes, and full addresses via geocoding
+     * @type {Object}
+     */
+    location: {
+      type: new Schema({
+        /**
+         * Full formatted address from geocoding
+         * @type {string}
+         */
+        displayName: { type: String },
+
+        /**
+         * City/Town/Village name
+         * @type {string}
+         */
+        city: { type: String },
+
+        /**
+         * State/Province/Region name
+         * @type {string}
+         */
+        state: { type: String },
+
+        /**
+         * Country name
+         * @type {string}
+         */
+        country: { type: String },
+
+        /**
+         * ISO 3166-1 alpha-2 country code (e.g., 'US', 'FR')
+         * @type {string}
+         */
+        countryCode: { type: String, uppercase: true, maxLength: 2 },
+
+        /**
+         * Postal/Zip code
+         * @type {string}
+         */
+        postalCode: { type: String },
+
+        /**
+         * GeoJSON Point for MongoDB 2dsphere index
+         * Format: { type: 'Point', coordinates: [longitude, latitude] }
+         * @type {Object}
+         */
+        coordinates: {
+          type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+          },
+          coordinates: {
+            type: [Number], // [longitude, latitude]
+            validate: {
+              validator: function(coords) {
+                if (!coords || coords.length !== 2) return true; // Allow empty
+                const [lng, lat] = coords;
+                return lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90;
+              },
+              message: 'Invalid coordinates: longitude must be -180 to 180, latitude must be -90 to 90'
+            }
+          }
+        },
+
+        /**
+         * Original query string entered by user
+         * @type {string}
+         */
+        originalQuery: { type: String },
+
+        /**
+         * Timestamp when location was geocoded
+         * @type {Date}
+         */
+        geocodedAt: { type: Date }
+      }, { _id: false })
     }
   },
   {
@@ -362,5 +443,8 @@ userSchema.index({ sessionExpiresAt: 1 });
 userSchema.index({ createdAt: -1 });
 userSchema.index({ photos: 1 });
 userSchema.index({ default_photo_id: 1 });
+userSchema.index({ 'location.coordinates': '2dsphere' });
+userSchema.index({ 'location.city': 1 });
+userSchema.index({ 'location.country': 1 });
 
 module.exports = mongoose.model("User", userSchema);

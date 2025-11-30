@@ -84,7 +84,7 @@ const UsersListDisplay = ({
 
       {/* Loading State: Show only "Loading..." text with animated dots */}
       {loading ? (
-        <div className="d-flex align-items-center">
+        <div className="d-flex align-items-center" style={{ minHeight: '44px' }}>
           <p className="mb-0 text-muted small">
             Loading
             <span className={styles.animatedDots} aria-hidden="true">

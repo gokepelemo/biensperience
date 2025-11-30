@@ -625,8 +625,8 @@ const en = {
   },
 
   admin: {
-    userManagement: "User Management",
-    superAdminPanel: "Super Admin Panel",
+    userManagement: "Users",
+    superAdminPanel: "Administer users and roles on the platform",
     totalUsers: "Total Users",
     superAdmins: "Super Admins",
     regularUsers: "Regular Users",

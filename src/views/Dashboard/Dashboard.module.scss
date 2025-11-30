@@ -6,7 +6,18 @@
 .dashboardContainer {
   background-color: var(--color-bg-primary);
   min-height: 100vh;
-  padding: 0; // Removed top padding as requested
+  padding: 0;
+}
+
+/* Mobile/Tablet navigation - shown at top */
+.mobileNav {
+  display: none;
+  padding: $space-4;
+  background: var(--color-bg-primary);
+
+  @media (max-width: 991px) {
+    display: block;
+  }
 }
 
 /* Error state container */
@@ -206,5 +217,18 @@
   /* Reduce main content padding on mobile */
   .dashboardMainMobilePadding {
     padding: $space-4 !important;
+  }
+
+  /* Center welcome section content on mobile/tablet */
+  .welcomeSection {
+    text-align: center;
+  }
+
+  .welcomeTitle {
+    text-align: center;
+  }
+
+  .welcomeSubtitle {
+    text-align: center;
   }
 }

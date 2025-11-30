@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useMemo, memo, useRef, useEffect, useState } from "react";
 import SkeletonLoader from "../SkeletonLoader/SkeletonLoader";
 import EntitySchema from "../OpenGraph/EntitySchema";
-import imagePreloader from '../../utilities/imagePreloader';
+import imagePreloader from '../../utilities/image-preloader';
 
 /**
  * Destination card component that displays a destination with background image and title.

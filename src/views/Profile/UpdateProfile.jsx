@@ -268,7 +268,12 @@ export default function UpdateProfile() {
         if (field !== 'password' && changes[field]) {
           // Map display key to actual model field name
           const actualFieldName = field === 'default_photo' ? 'default_photo_id' : field;
-          dataToUpdate[actualFieldName] = formData[actualFieldName] || formData[field];
+          // For location, send the query string for backend geocoding
+          if (field === 'location') {
+            dataToUpdate.location = formData.locationQuery || '';
+          } else {
+            dataToUpdate[actualFieldName] = formData[actualFieldName] || formData[field];
+          }
         }
       });
 
@@ -407,6 +412,44 @@ export default function UpdateProfile() {
               tooltip={lang.current.helper.profileEmail}
               tooltipPlacement="top"
             />
+
+            <FormField
+              name="location"
+              label="Location"
+              type="text"
+              value={formData.location?.displayName || formData.locationQuery || ''}
+              onChange={(e) => {
+                // Store the query string for geocoding on submit
+                setFormData(prev => ({
+                  ...prev,
+                  locationQuery: e.target.value
+                }));
+                // Track changes
+                const originalLocation = originalUser?.location?.displayName || '';
+                const newLocation = e.target.value;
+                if (originalLocation !== newLocation) {
+                  setChanges(prev => ({
+                    ...prev,
+                    location: { from: originalLocation || 'Not set', to: newLocation || 'Not set' }
+                  }));
+                } else {
+                  setChanges(prev => {
+                    const newChanges = { ...prev };
+                    delete newChanges.location;
+                    return newChanges;
+                  });
+                }
+              }}
+              placeholder="Enter city, zip code, or address"
+              autoComplete="address-level2"
+              tooltip="Enter a city name, zip/postal code, or full address. We'll look up the location to show your city and country on your profile."
+              tooltipPlacement="top"
+            />
+            {formData.location?.city && formData.location?.country && !formData.locationQuery && (
+              <p className="text-muted small mt-n2 mb-3">
+                📍 Current location: {formData.location.city}{formData.location.state ? `, ${formData.location.state}` : ''}, {formData.location.country}
+              </p>
+            )}
 
             {isSuperAdmin(user) && (
               <Form.Group className="mb-3">

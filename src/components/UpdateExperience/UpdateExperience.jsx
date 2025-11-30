@@ -618,37 +618,7 @@ export default function UpdateExperience() {
               tooltipPlacement="top"
             />
 
-            <div className="row mb-4">
-              <div className="col-md-6 mb-3 mb-md-0">
-                <FormField
-                  name="max_planning_days"
-                  label={lang.current.label.planningDays}
-                  type="number"
-                  value={experience.max_planning_days || ''}
-                  onChange={handleChange}
-                  placeholder={lang.current.placeholder.planningDays}
-                  min="1"
-                  append="days"
-                  tooltip={lang.current.helper.planningTimeTooltip}
-                  tooltipPlacement="top"
-                />
-              </div>
-
-              <div className="col-md-6">
-                <FormField
-                  name="cost_estimate"
-                  label={lang.current.label.costEstimate}
-                  type="number"
-                  value={experience.cost_estimate || ''}
-                  onChange={handleChange}
-                  placeholder={lang.current.placeholder.costEstimate}
-                  min="0"
-                  prepend="$"
-                  tooltip={lang.current.helper.costEstimateOptional}
-                  tooltipPlacement="top"
-                />
-              </div>
-            </div>
+            {/* Planning days and cost estimate removed from update form — computed from plan items (virtuals). */}
 
             <div className="mb-4">
               <Form.Label>

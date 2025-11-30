@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { confirmEmail } from '../../utilities/users-api';
+import { useUser } from '../../contexts/UserContext';
 import { handleError } from '../../utilities/error-handler';
 import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
@@ -12,32 +13,54 @@ import { lang } from '../../lang.constants';
 export default function ConfirmEmail() {
   const { token } = useParams();
   const navigate = useNavigate();
+  const { user, updateUser } = useUser();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  // Determine redirect destination based on auth state
+  const redirectPath = user ? '/dashboard' : '/login';
+  const redirectMessage = user
+    ? 'Redirecting you to your dashboard...'
+    : 'Redirecting you to the login page...';
 
   useEffect(() => {
     document.title = 'Confirm Email - Biensperience';
 
     const confirmEmailAddress = async () => {
+      // Validate token before making request
+      if (!token) {
+        setError('No confirmation token provided. Please check your email link.');
+        setLoading(false);
+        return;
+      }
+
       try {
         await confirmEmail(token);
         setSuccess(true);
 
-        // Redirect to login after 3 seconds
+        // Update user context if logged in to reflect confirmed email
+        if (user && updateUser) {
+          updateUser({ ...user, emailConfirmed: true });
+        }
+
+        // Redirect after 3 seconds - to dashboard if logged in, login otherwise
         setTimeout(() => {
-          navigate('/login');
+          navigate(redirectPath);
         }, 3000);
       } catch (err) {
-        const errorMsg = handleError(err, { context: 'Confirm email' });
-        setError(errorMsg || 'Failed to confirm email. The link may be invalid or expired.');
+        // Extract error message from response
+        const errorMsg = err?.response?.data?.error
+          || handleError(err, { context: 'Confirm email', silent: true })
+          || 'Failed to confirm email. The link may be invalid or expired.';
+        setError(errorMsg);
       } finally {
         setLoading(false);
       }
     };
 
     confirmEmailAddress();
-  }, [token, navigate]);
+  }, [token, navigate, redirectPath, user, updateUser]);
 
   return (
     <>
@@ -60,7 +83,7 @@ export default function ConfirmEmail() {
                   <Alert type="success">
                     <h5 className="alert-heading">Email Confirmed!</h5>
                     <p className="mb-0">
-                      Your email address has been successfully verified. Redirecting you to the login page...
+                      Your email address has been successfully verified. {redirectMessage}
                     </p>
                   </Alert>
                 ) : (

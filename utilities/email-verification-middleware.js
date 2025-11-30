@@ -6,6 +6,7 @@
 const User = require('../models/user');
 const { USER_ROLES } = require('./user-roles');
 const backendLogger = require('./backend-logger');
+const { emailNotVerifiedError, sendErrorResponse } = require('./error-responses');
 
 /**
  * Middleware to require email verification
@@ -66,14 +67,8 @@ function requireEmailVerification(req, res, next) {
 
         // Check if email is confirmed
         if (!freshUser.emailConfirmed) {
-          return res.status(403).json({
-            error: 'Email verification required. Please check your email for a verification link.',
-            code: 'EMAIL_NOT_VERIFIED',
-            details: {
-              userEmail: freshUser.email,
-              message: 'You must verify your email address before creating or updating content.'
-            }
-          });
+          const errorResponse = emailNotVerifiedError(freshUser.email);
+          return sendErrorResponse(res, errorResponse);
         }
 
         // Email is verified, proceed

@@ -20,23 +20,76 @@
   /* Base transition properties for smooth state changes */
   transition: box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
               transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Prevent content jump when transitioning */
+  /* Fixed navbar height for consistent alignment */
   min-height: 56px;
+  height: 56px;
 
-  /* Align all navbar items to text baseline for pixel-perfect alignment */
+  /* Center all navbar items vertically using flexbox */
   :global(.container-fluid) {
     display: flex;
-    align-items: baseline; /* Align all items to text baseline */
+    align-items: center; /* Vertical center alignment */
+    height: 100%;
   }
 
-  /* Ensure navbar-collapse also aligns to baseline */
+  /* Desktop: Ensure navbar-collapse centers items horizontally */
   :global(.navbar-collapse) {
-    align-items: baseline;
+    display: flex;
+    align-items: center;
+    height: 100%;
   }
 
-  /* Ensure navbar-nav ul aligns items to baseline */
+  /* Desktop: Ensure navbar-nav ul centers items vertically */
   :global(.navbar-nav) {
-    align-items: baseline;
+    display: flex;
+    align-items: center;
+    height: 100%;
+  }
+}
+
+/* Mobile navbar collapse menu */
+.navbarCollapse {
+  /* Mobile styles */
+  @media (max-width: 991.98px) {
+    /* Base state - always positioned, visibility controlled by show class */
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: #1e1e1e !important;
+    z-index: 1000 !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35) !important;
+    padding: $space-4 0 !important;
+    flex-direction: column !important;
+
+    /* Hidden by default - use transform instead of height for absolute positioning */
+    &:global(.collapse:not(.show):not(.collapsing)) {
+      display: none !important;
+    }
+
+    /* Collapsing state - animating open or closed */
+    &:global(.collapsing) {
+      display: flex !important;
+      overflow: hidden !important;
+      /* Height animation handled by JS */
+    }
+
+    /* Shown state */
+    &:global(.show) {
+      display: flex !important;
+      height: auto !important;
+    }
+
+    /* Nav links container */
+    :global(.navbar-nav) {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: $space-1;
+      padding: 0 $space-4;
+      order: 1;
+      height: auto !important;
+      width: 100%;
+    }
   }
 }
 
@@ -57,16 +110,7 @@
   min-height: 56px;
 }
 
-@keyframes slideDown {
-  from {
-    transform: translate3d(0, -100%, 0);
-    opacity: 0;
-  }
-  to {
-    transform: translate3d(0, 0, 0);
-    opacity: 1;
-  }
-}
+/* slideDown animation removed - using height-based collapse instead */
 
 /* Body padding for sticky navbar - use CSS transition for smoothness */
 :global(body) {
@@ -78,11 +122,11 @@
 }
 
 .logo {
-  margin: 0 $space-4 0 0;
+  margin: 0;
   font-size: $font-size-2xl; /* Match experience card buttons */
   font-weight: $font-weight-normal; /* Lighter weight for better centering */
   padding: 0;
-  line-height: $line-height-tight;
+  line-height: 1;
   @include flex-center;
   /* Use standardized button height for WCAG touch target (44px) */
   width: var(--btn-height-md);
@@ -93,6 +137,8 @@
   border-radius: var(--btn-radius-default);
   @include transition-all(var(--btn-transition));
   font-family: var(--font-family-base);
+  /* Ensure logo is vertically centered */
+  flex-shrink: 0;
 
   &:hover {
     background: var(--gradient-primary);
@@ -106,15 +152,57 @@
 
 /* Navbar brand wrapper for dynamic text */
 .navbarBrandWrapper {
-  @include flex-start;
-  align-items: baseline; /* Align brand to text baseline */
+  display: flex;
+  align-items: center; /* Vertical center alignment */
+  height: 100%; /* Match navbar height for consistent alignment */
+  gap: $space-2; /* Consistent gap between logo and text */
+}
+
+/* Logo link wrapper - separate from brand text */
+.logoLink {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  height: 100%; /* Match parent height */
 }
 
 .brandText {
   @include transition-all($transition-normal);
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   color: white !important;
   font-weight: $font-weight-bold;
+  opacity: 1; /* Site title is always full opacity */
+  /* Use same font size as nav-links for consistency */
+  font-size: var(--font-size-base);
+  line-height: 1;
+}
+
+/* Brand text as clickable button - matches nav-link styling exactly */
+.brandTextButton {
+  background: none;
+  border: none;
+  padding: $space-3 $space-4; /* Same padding as nav-link */
+  margin: 0 $space-1; /* Same margin as nav-link */
+  cursor: pointer;
+  font-size: var(--font-size-base); /* Same as nav-links */
+  font-family: inherit;
+  line-height: 1;
+  /* Match nav-link height for alignment */
+  height: var(--btn-height-md);
+  min-height: var(--btn-height-md);
+  display: inline-flex;
+  align-items: center;
+
+  &:hover {
+    opacity: 0.85;
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: $radius-sm;
+  }
 }
 
 /* Mobile: Center brand, keep hamburger aligned right */
@@ -179,30 +267,7 @@
     order: 1;
   }
 
-  /* When the mobile menu is open, position it below the navbar so it
-     does not cover the navbar content. This makes the dropdown "drop"
-     under the bar rather than overlaying it. */
-  :global(.navbar-collapse.collapse.show) {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    width: 100%;
-    background: #1e1e1e; /* Match navbar background */
-    z-index: 15; /* Below the toggler but above page content */
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-    padding: $space-4 0;
-    /* Smooth reveal animation */
-    animation: slideDown 0.2s ease-out;
-  }
-
-  /* Ensure collapse children stack vertically and have expected spacing */
-  :global(.navbar-collapse .navbar-nav) {
-    display: flex;
-    flex-direction: column;
-    gap: $space-1;
-    padding: 0 $space-4;
-  }
+  /* Mobile collapse menu styles are in .navbarCollapse class above */
 
   /* Mobile nav links need full width for easy tapping */
   .navbar :global(.nav-link),
@@ -241,9 +306,14 @@
   color: white !important;
   opacity: 0.75;
   font-weight: $font-weight-bold; /* All nav items bold */
-  /* WCAG 2.1 Level AA minimum touch target */
+  font-size: var(--font-size-base); /* Consistent with brand text */
+  line-height: 1;
+  /* WCAG 2.1 Level AA minimum touch target - fixed height for alignment */
+  height: var(--btn-height-md);
   min-height: var(--btn-height-md);
-  @include flex-center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
   &:hover,
   &:focus {
@@ -290,10 +360,15 @@
   border: none;
   background: transparent;
   font-weight: $font-weight-bold;
+  font-size: var(--font-size-base); /* Consistent with nav-links and brand text */
+  line-height: 1;
   @include inline-stack($space-2);
   @include transition-all(var(--btn-transition));
-  /* WCAG 2.1 Level AA minimum touch target */
+  /* WCAG 2.1 Level AA minimum touch target - fixed height for alignment */
+  height: var(--btn-height-md);
   min-height: var(--btn-height-md);
+  display: inline-flex;
+  align-items: center;
   /* Override global .dropdown-toggle button styles from theme.scss */
   box-shadow: none !important;
   border-radius: 0;
@@ -476,13 +551,20 @@
   transition: height 0.35s ease; /* Custom timing for collapse animation */
 }
 
-:global(.navbar-collapse.collapse:not(.show)) {
-  display: none;
+/* Desktop only: standard Bootstrap collapse behavior */
+@media (min-width: 992px) {
+  :global(.navbar-collapse.collapse:not(.show)) {
+    display: none;
+  }
+
+  :global(.navbar-collapse.collapse.show) {
+    display: block;
+  }
 }
 
-:global(.navbar-collapse.collapse.show) {
-  display: block;
-}
+/* Mobile: handled by .navbarCollapse class above */
+
+/* Mobile: flex display for ordering - applied via breakpoint-specific rules above */
 
 /* ============================================
    NAVBAR RIGHT SECTION (Search + Actions)
@@ -507,10 +589,13 @@
 
   @include breakpoint-max(lg) {
     flex: 1 1 100%;
-    max-width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
     min-width: unset;
-    margin: $space-3 $space-4;
-    order: 1; /* Search first on mobile */
+    margin: $space-3 0;
+    padding: 0 $space-4;
+    order: 3; /* Search last on mobile (after nav links and actions) */
+    box-sizing: border-box;
 
     &:focus-within {
       flex-basis: 100%;

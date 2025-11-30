@@ -7,7 +7,7 @@
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-xl);
-  margin-bottom: $space-8;
+  margin-bottom: var(--space-8);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
@@ -21,8 +21,8 @@
 
 /* Profile Header Body - contains avatar, info, stats */
 .profileHeaderBody {
-  padding: $space-6;
-  margin-top: -80px;
+  padding: var(--space-6);
+  margin-top: calc(var(--space-20) * -1);
   position: relative;
   z-index: 1;
 }
@@ -30,7 +30,7 @@
 /* Flex container for avatar + info + actions */
 .profileHeaderFlex {
   display: flex;
-  gap: $space-6;
+  gap: var(--space-6);
   flex-wrap: wrap;
   align-items: flex-end; /* Align items to bottom so name doesn't appear in cover area */
 }
@@ -96,41 +96,41 @@
 .profileInfo {
   flex: 1;
   min-width: 250px;
-  padding-top: 80px; /* Push content below the cover overlap area (avatar extends 80px into body) */
+  padding-top: var(--space-20); /* Push content below the cover overlap area (avatar extends 80px into body) */
 }
 
 .profileName {
   font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  margin-bottom: $space-2;
+  margin-bottom: var(--space-2);
   margin-top: 0;
   display: flex;
   align-items: center;
-  gap: $space-2;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .profileLocation {
   font-size: var(--font-size-base);
   color: var(--color-text-muted);
-  margin-bottom: $space-3;
+  margin-bottom: var(--space-3);
   display: flex;
   align-items: center;
-  gap: $space-2;
+  gap: var(--space-2);
 }
 
 .profileBio {
   font-size: var(--font-size-base);
   color: var(--color-text-secondary);
   line-height: var(--line-height-relaxed);
-  margin-bottom: $space-4;
+  margin-bottom: var(--space-4);
 }
 
 /* Stats row */
 .profileStats {
   display: flex;
-  gap: $space-6;
+  gap: var(--space-6);
   flex-wrap: wrap;
 }
 
@@ -149,35 +149,61 @@
   color: var(--color-text-muted);
 }
 
+/* Compact Metrics Bar */
+.profileMetricsBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.profileMetric {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+
+  strong {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+.profileMetricDivider {
+  color: var(--color-text-disabled);
+  font-weight: var(--font-weight-normal);
+}
+
 /* Action buttons */
 .profileActions {
   display: flex;
-  gap: $space-3;
+  gap: var(--space-3);
   align-items: flex-end;
-  padding-top: 80px; /* Push content below the cover overlap area */
+  padding-top: var(--space-20); /* Push content below the cover overlap area */
   flex-shrink: 0;
 }
 
 /* Tab Navigation - underline style */
 .profileTabs {
   display: flex;
-  gap: $space-4;
-  margin-bottom: $space-6;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
   border-bottom: 2px solid var(--color-border-light);
-  padding-bottom: $space-2;
+  padding-bottom: var(--space-2);
 }
 
 .profileTab {
   background: none;
   border: none;
-  padding: $space-3 0;
+  padding: var(--space-3) 0;
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   cursor: pointer;
   transition: all var(--transition-fast);
   border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
+  margin-bottom: calc(var(--space-1) * -1);
 
   &:hover {
     color: var(--color-text-primary);
@@ -193,7 +219,7 @@
 .profileGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: $space-6;
+  gap: var(--space-6);
 
   /* Ensure cards fill their grid cells properly */
   > * {
@@ -205,8 +231,22 @@
   :global(nav[aria-label="Pagination"]) {
     grid-column: 1 / -1;
     justify-self: center;
-    margin-top: $space-4;
+    margin-top: var(--space-4);
   }
+
+  /* Empty state should span full width */
+  > div:has(.empty-state),
+  > [class*="emptyState"] {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Destinations Grid - smaller cards (12rem x 8rem) */
+.destinationsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, max-content));
+  gap: var(--space-4);
+  justify-content: center;
 
   /* Empty state should span full width */
   > div:has(.empty-state),
@@ -230,7 +270,7 @@
 
   .profileName {
     justify-content: center;
-    margin-top: $space-4;
+    margin-top: var(--space-4);
   }
 
   .profileLocation {
@@ -245,6 +285,10 @@
     text-align: center;
   }
 
+  .profileMetricsBar {
+    justify-content: center;
+  }
+
   .profileActions {
     padding-top: 0; /* Reset padding when stacked vertically */
     justify-content: center;
@@ -254,12 +298,17 @@
     justify-content: center;
     flex-wrap: wrap;
   }
+
+  .profileGrid {
+    justify-items: center;
+  }
 }
 
 @media (max-width: 767px) {
   .profileGrid {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: $space-4;
+    gap: var(--space-4);
+    justify-items: center;
   }
 }
 
@@ -269,8 +318,8 @@
   }
 
   .profileHeaderBody {
-    margin-top: -60px;
-    padding: $space-4;
+    margin-top: calc(var(--space-15) * -1);
+    padding: var(--space-4);
   }
 
   .profileAvatar,
@@ -284,7 +333,7 @@
   }
 
   .profileStats {
-    gap: $space-4;
+    gap: var(--space-4);
   }
 
   .profileStatValue {
@@ -293,7 +342,7 @@
 
   .profileGrid {
     grid-template-columns: 1fr;
-    gap: $space-4;
+    gap: var(--space-4);
   }
 }
 
@@ -303,7 +352,7 @@
 .profileHeadingWrapper {
   display: flex;
   align-items: center;
-  gap: $space-2;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -329,10 +378,19 @@
 .dropdownItem {
   display: flex !important;
   align-items: center;
-  gap: $space-3;
+  gap: var(--space-3);
+  color: var(--color-text-primary) !important;
+  background: transparent !important;
+  transition: all var(--transition-fast);
 
   span {
     flex: 1;
+  }
+
+  &:hover,
+  &:focus {
+    background: var(--color-bg-hover) !important;
+    color: var(--color-text-primary) !important;
   }
 }
 
@@ -341,7 +399,8 @@
   height: 16px;
   flex-shrink: 0;
   opacity: 0.8;
-  @include transition-all($transition-fast);
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
 }
 
 .dropdownItem:hover .dropdownIcon,
@@ -354,6 +413,7 @@
 .dropdownItemAdmin {
   &:hover,
   &:focus {
+    background: var(--color-bg-hover) !important;
     color: var(--color-warning) !important;
 
     .dropdownIcon {
@@ -368,7 +428,7 @@
   z-index: 100;
   display: flex;
   align-items: center;
-  margin: $space-8 0;
+  margin: var(--space-8) 0;
 
   :global(.col-md-6) {
     display: flex;
@@ -393,7 +453,7 @@
   @media (max-width: 991px) {
     flex-direction: column;
     align-items: center;
-    gap: $space-4;
+    gap: var(--space-4);
 
     :global(.col-md-6) {
       &:first-child,
@@ -418,18 +478,18 @@
   background: var(--color-white) !important; /* Override TagPill color variants */
   color: var(--color-primary) !important;
   box-shadow: var(--shadow-sm);
-  font-weight: $font-weight-semibold;
+  font-weight: var(--font-weight-semibold);
   border: none;
-  padding: $space-2 $space-3;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-full);
   display: inline-flex;
   align-items: center;
-  gap: $space-2;
+  gap: var(--space-2);
   transition: all var(--transition-fast);
 
   &:hover {
     background: var(--color-white) !important; /* Retain white background on hover, override gradients */
-    transform: translateY(-2px);
+    transform: translateY(calc(var(--space-1) * -1));
     box-shadow: var(--shadow-md);
     color: var(--color-primary-dark) !important;
   }
@@ -462,7 +522,7 @@
 }
 
 .profileDetailSection {
-  padding: $space-8;
+  padding: var(--space-8);
   border-bottom: 1px solid var(--color-border-light);
     font-size: var(--font-size-base);
   color: var(--color-text-primary);
@@ -500,7 +560,7 @@
       &:hover {
         background: rgba(255,255,255,0.12) !important;
         color: var(--color-white) !important;
-        transform: translateY(-1px);
+        transform: translateY(calc(var(--space-1) * -1));
         box-shadow: var(--shadow-sm);
       }
 
@@ -530,7 +590,7 @@
     /* Pagination button styling on gradient background */
     :global(.btn-link) {
       color: var(--color-white) !important;
-      font-weight: $font-weight-semibold;
+      font-weight: var(--font-weight-semibold);
       text-decoration: none;
       transition: all var(--transition-normal);
 
@@ -538,16 +598,16 @@
         color: var(--color-white) !important;
         text-decoration: underline;
         text-underline-offset: 4px;
-        transform: translateY(-1px);
+        transform: translateY(calc(var(--space-1) * -1));
       }
     }
 
     /* Prominent link styling for "add some favorite destinations" */
     .noFavoriteDestinations a.fw-bold {
-      padding: $space-1;
-      border-radius: $radius-sm;
+      padding: var(--space-1);
+      border-radius: var(--radius-sm);
       text-decoration: none;
-      font-weight: $font-weight-bold;
+      font-weight: var(--font-weight-bold);
       display: inline-block;
       transition: all var(--transition-normal);
       border: 2px solid rgba(255, 255, 255, 0.4);
@@ -557,7 +617,7 @@
       &:hover {
         background: rgba(255, 255, 255, 0.3);
         border-color: rgba(255, 255, 255, 0.6);
-        transform: translateY(-2px);
+        transform: translateY(calc(var(--space-1) * -2));
         box-shadow: var(--shadow-md);
         color: var(--color-white);
       }
@@ -570,9 +630,9 @@
 }
 
 .profileDetailSectionTitle {
-  font-weight: $font-weight-bold;
+  font-weight: var(--font-weight-bold);
   font-size: var(--font-size-xl);
-  margin: 0 0 $space-5 0;
+  margin: 0 0 var(--space-5) 0;
   color: var(--color-text-primary);
   text-align: center;
 }
@@ -582,15 +642,15 @@
   color: var(--color-text-primary);
   display: flex;
   flex-wrap: wrap;
-  gap: $space-3;
+  gap: var(--space-3);
   justify-content: center;
-  padding-bottom: $space-2;
+  padding-bottom: var(--space-2);
 }
 
 .noFavoriteDestinations {
   text-align: center;
-  margin: $space-4 0;
-  padding: $space-6;
+  margin: var(--space-4) 0;
+  padding: var(--space-6);
   background: var(--color-bg-surface-variant, rgba(102, 126, 234, 0.05));
   border-radius: var(--radius-lg);
   font-size: 1.1rem;
@@ -600,11 +660,11 @@
   /* Button styling */
   :global(.btn) {
     display: inline-block;
-    margin-top: $space-3;
-    padding: $space-3 $space-6;
-    font-weight: $font-weight-semibold;
+    margin-top: var(--space-3);
+    padding: var(--space-3) var(--space-6);
+    font-weight: var(--font-weight-semibold);
     font-size: var(--font-size-base);
-    border-radius: $radius-md;
+    border-radius: var(--radius-md);
     transition: all var(--transition-normal);
     text-decoration: none;
     border: none;
@@ -618,7 +678,7 @@
     &:hover {
       background: var(--gradient-primary);
       box-shadow: var(--shadow-lg);
-      transform: translateY(-2px);
+      transform: translateY(calc(var(--space-1) * -2));
       color: var(--color-white) !important;
     }
   }
@@ -626,18 +686,18 @@
   /* Legacy link styling (if not using btn class) */
   a:not(:global(.btn)) {
     display: inline-block;
-    margin-top: $space-2;
+    margin-top: var(--space-2);
     color: var(--color-primary);
     text-decoration: none;
-    font-weight: $font-weight-semibold;
+    font-weight: var(--font-weight-semibold);
     transition: all var(--transition-base);
-    padding: $space-1 $space-2;
-    border-radius: $radius-sm;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
 
     &:hover {
       background: rgba(102, 126, 234, 0.1);
       color: var(--color-primary-dark);
-      transform: translateY(-1px);
+      transform: translateY(calc(var(--space-1) * -1));
     }
   }
 }
@@ -659,22 +719,22 @@
   padding: 0 !important;
   overflow: hidden;
   display: flex;
-  border-radius: $radius-full;
+  border-radius: var(--radius-full);
 
   span {
-    padding: $space-2 $space-8;
-    font-weight: $font-weight-normal;
+    padding: var(--space-2) var(--space-8);
+    font-weight: var(--font-weight-normal);
     cursor: pointer;
     color: var(--color-text-primary);
     transition: all var(--transition-normal);
     position: relative;
 
     &:first-child {
-      border-radius: $radius-full 0 0 $radius-full;
+      border-radius: var(--radius-full) 0 0 var(--radius-full);
     }
 
     &:last-child {
-      border-radius: 0 $radius-full $radius-full 0;
+      border-radius: 0 var(--radius-full) var(--radius-full) 0;
     }
 
     &:hover {
@@ -700,12 +760,12 @@
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: center;
-  gap: $space-4;
-  padding: $space-2 0;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
 
   /* Ensure skeleton placeholders center nicely */
   .loading-skeleton {
-    border-radius: $radius-md;
+    border-radius: var(--radius-md);
     background: linear-gradient(90deg, rgba(240,240,240,0.6) 25%, rgba(230,230,230,0.4) 37%, rgba(240,240,240,0.6) 63%);
     background-size: 400% 100%;
     animation: pulse 1.6s ease-in-out infinite;
@@ -725,7 +785,7 @@
     width: 100%;
     display: flex;
     justify-content: center;
-    margin-top: $space-4;
-    padding: $space-2 0;
+    margin-top: var(--space-4);
+    padding: var(--space-2) 0;
   }
 }

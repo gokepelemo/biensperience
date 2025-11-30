@@ -6,14 +6,14 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import UpdateExperience from '../UpdateExperience';
+import UpdateExperience from '../../src/components/UpdateExperience/UpdateExperience';
 import { UserProvider } from '../../../contexts/UserContext';
 import { DataProvider } from '../../../contexts/DataContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
-import { updateExperience, showExperience } from '../../../utilities/experiences-api';
+import { updateExperience, showExperience } from '../../utilities/experiences-api';
 
 // Mock modules
-jest.mock('../../../utilities/experiences-api');
+jest.mock('../../utilities/experiences-api');
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => jest.fn(),
