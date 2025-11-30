@@ -31,6 +31,50 @@ const SUPPORTED_DOCUMENT_TYPES = {
 // Flatten for quick lookup
 const ALL_SUPPORTED_MIMES = Object.values(SUPPORTED_DOCUMENT_TYPES).flat();
 
+// Allowed base directories for file operations (security)
+const ALLOWED_BASE_DIRS = [
+  path.resolve(process.cwd(), 'uploads'),
+  path.resolve(process.cwd(), 'tmp'),
+  '/tmp'
+];
+
+/**
+ * Sanitize and validate file path to prevent path traversal attacks
+ * @param {string} filePath - The file path to validate
+ * @returns {string} The validated absolute path
+ * @throws {Error} If path is invalid or outside allowed directories
+ */
+function sanitizePath(filePath) {
+  if (!filePath || typeof filePath !== 'string') {
+    throw new Error('Invalid file path: path must be a non-empty string');
+  }
+
+  // Resolve to absolute path
+  const absolutePath = path.resolve(filePath);
+
+  // Check for path traversal attempts
+  if (filePath.includes('..') || filePath.includes('\0')) {
+    throw new Error('Invalid file path: path traversal not allowed');
+  }
+
+  // Verify path is within allowed directories
+  const isAllowed = ALLOWED_BASE_DIRS.some(baseDir => {
+    const resolvedBase = path.resolve(baseDir);
+    return absolutePath.startsWith(resolvedBase + path.sep) || absolutePath === resolvedBase;
+  });
+
+  if (!isAllowed) {
+    backendLogger.warn('Path traversal attempt blocked', {
+      requestedPath: filePath,
+      resolvedPath: absolutePath,
+      allowedDirs: ALLOWED_BASE_DIRS
+    });
+    throw new Error('Invalid file path: access to this location is not allowed');
+  }
+
+  return absolutePath;
+}
+
 // Maximum file sizes (in bytes)
 const MAX_FILE_SIZES = {
   pdf: 50 * 1024 * 1024, // 50MB
@@ -134,7 +178,8 @@ async function extractText(filePath, mimeType, options = {}) {
  */
 async function extractPlainText(filePath) {
   try {
-    const content = await fs.promises.readFile(filePath, 'utf-8');
+    const safePath = sanitizePath(filePath);
+    const content = await fs.promises.readFile(safePath, 'utf-8');
     return {
       text: content,
       metadata: {
@@ -158,6 +203,8 @@ async function extractPlainText(filePath) {
  */
 async function extractPdfText(filePath, options = {}) {
   try {
+    const safePath = sanitizePath(filePath);
+
     // Try to use pdf-parse if available
     let pdfParse;
     try {
@@ -173,7 +220,7 @@ async function extractPdfText(filePath, options = {}) {
       };
     }
 
-    const dataBuffer = await fs.promises.readFile(filePath);
+    const dataBuffer = await fs.promises.readFile(safePath);
     const data = await pdfParse(dataBuffer);
 
     return {
@@ -337,6 +384,7 @@ async function tryTesseractOCR(filePath, options = {}) {
  */
 async function extractImageTextWithLLM(filePath, options = {}) {
   try {
+    const safePath = sanitizePath(filePath);
     const Anthropic = require('@anthropic-ai/sdk');
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -352,7 +400,7 @@ async function extractImageTextWithLLM(filePath, options = {}) {
     }
 
     // Read image and convert to base64
-    const imageBuffer = await fs.promises.readFile(filePath);
+    const imageBuffer = await fs.promises.readFile(safePath);
 
     // Check file size limit for Claude Vision
     if (imageBuffer.length > OCR_CONFIG.maxVisionImageSize) {

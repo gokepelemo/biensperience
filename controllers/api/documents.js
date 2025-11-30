@@ -31,11 +31,64 @@ const {
 } = require('../../utilities/ai-document-utils');
 
 // Temporary directory for processing
-const TEMP_DIR = path.join(__dirname, '../../uploads/temp');
+const TEMP_DIR = path.resolve(__dirname, '../../uploads/temp');
 
 // Ensure temp directory exists
 if (!fs.existsSync(TEMP_DIR)) {
   fs.mkdirSync(TEMP_DIR, { recursive: true });
+}
+
+/**
+ * Sanitize file path to prevent path traversal attacks
+ * Only allows paths within the uploads/temp directory
+ * @param {string} filePath - Path to validate
+ * @returns {string} Sanitized absolute path
+ * @throws {Error} If path is invalid or outside allowed directory
+ */
+function sanitizeFilePath(filePath) {
+  if (!filePath || typeof filePath !== 'string') {
+    throw new Error('Invalid file path');
+  }
+
+  // Resolve to absolute path
+  const absolutePath = path.resolve(filePath);
+
+  // Check for null bytes and traversal attempts
+  if (filePath.includes('\0') || filePath.includes('..')) {
+    backendLogger.warn('[Document] Path traversal attempt blocked', { path: filePath });
+    throw new Error('Invalid file path: path traversal not allowed');
+  }
+
+  // Verify path is within TEMP_DIR
+  if (!absolutePath.startsWith(TEMP_DIR + path.sep) && absolutePath !== TEMP_DIR) {
+    backendLogger.warn('[Document] Access outside temp directory blocked', {
+      requestedPath: filePath,
+      resolvedPath: absolutePath,
+      allowedDir: TEMP_DIR
+    });
+    throw new Error('Invalid file path: access denied');
+  }
+
+  return absolutePath;
+}
+
+/**
+ * Sanitize MongoDB ObjectId to prevent injection
+ * @param {string} id - The ID to validate
+ * @returns {mongoose.Types.ObjectId} Valid ObjectId
+ * @throws {Error} If ID is invalid
+ */
+function sanitizeObjectId(id) {
+  if (!id || typeof id !== 'string') {
+    throw new Error('Invalid ID: must be a string');
+  }
+
+  // Strict ObjectId validation - only hex characters, exactly 24 chars
+  if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+    throw new Error('Invalid ID format');
+  }
+
+  return new mongoose.Types.ObjectId(id);
 }
 
 /**
@@ -73,7 +126,13 @@ async function uploadDocument(req, res) {
       return res.status(400).json({ error: validation.error });
     }
 
-    localFilePath = req.file.path;
+    // Sanitize file path to prevent path traversal
+    try {
+      localFilePath = sanitizeFilePath(req.file.path);
+    } catch (pathError) {
+      backendLogger.error('[Document] Invalid file path', { error: pathError.message });
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
 
     // Verify user has access to the entity
     const hasAccess = await verifyEntityAccess(req.user._id, entityType, entityId, planId);
@@ -525,10 +584,23 @@ async function getSupportedTypes(req, res) {
  */
 async function verifyEntityAccess(userId, entityType, entityId, planId = null) {
   try {
+    // Sanitize IDs to prevent query injection
+    let safeEntityId, safePlanId;
+    try {
+      safeEntityId = sanitizeObjectId(entityId);
+      if (planId) {
+        safePlanId = sanitizeObjectId(planId);
+      }
+    } catch (idError) {
+      backendLogger.warn('[Document] Invalid ObjectId in access check', { error: idError.message });
+      return false;
+    }
+
     switch (entityType) {
       case 'plan':
       case 'plan_item': {
-        const checkPlanId = entityType === 'plan_item' ? planId : entityId;
+        const checkPlanId = entityType === 'plan_item' ? safePlanId : safeEntityId;
+        if (!checkPlanId) return false;
         const plan = await Plan.findById(checkPlanId);
         if (!plan) return false;
 
@@ -538,7 +610,7 @@ async function verifyEntityAccess(userId, entityType, entityId, planId = null) {
 
       case 'experience': {
         const Experience = require('../../models/experience');
-        const experience = await Experience.findById(entityId);
+        const experience = await Experience.findById(safeEntityId);
         if (!experience) return false;
 
         return isOwner(userId, experience) || isCollaborator(userId, experience);
@@ -546,7 +618,7 @@ async function verifyEntityAccess(userId, entityType, entityId, planId = null) {
 
       case 'destination': {
         const Destination = require('../../models/destination');
-        const destination = await Destination.findById(entityId);
+        const destination = await Destination.findById(safeEntityId);
         if (!destination) return false;
 
         return isOwner(userId, destination) || isCollaborator(userId, destination);

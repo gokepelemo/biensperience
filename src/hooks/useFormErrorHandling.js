@@ -5,6 +5,7 @@
 
 import { useCallback } from 'react';
 import { handleError } from '../utilities/error-handler';
+import { useToast } from '../contexts/ToastContext';
 
 /**
  * Hook for handling form submission errors
@@ -13,14 +14,17 @@ import { handleError } from '../utilities/error-handler';
  * @param {Function} options.onEmailNotVerified - Callback for email verification errors
  * @param {Function} options.onValidationError - Callback for validation errors
  * @param {Function} options.onDuplicateError - Callback for duplicate entry errors
+ * @param {boolean} options.showToast - Whether to show a toast notification (default: true)
  * @returns {Function} Error handler function
  */
 export function useFormErrorHandling(setError, options = {}) {
   const {
     onEmailNotVerified,
     onValidationError,
-    onDuplicateError
+    onDuplicateError,
+    showToast = true
   } = options;
+  const { error: showError } = useToast();
 
   const handleFormError = useCallback((err, context = {}) => {
     // Get formatted error message
@@ -58,8 +62,13 @@ export function useFormErrorHandling(setError, options = {}) {
       setError(errorMsg);
     }
 
+    // Show toast notification for user visibility
+    if (showToast && showError && errorMsg) {
+      showError(errorMsg);
+    }
+
     return errorMsg;
-  }, [setError, onEmailNotVerified, onValidationError, onDuplicateError]);
+  }, [setError, showToast, showError, onEmailNotVerified, onValidationError, onDuplicateError]);
 
   return handleFormError;
 }
