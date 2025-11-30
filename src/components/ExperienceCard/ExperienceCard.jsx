@@ -18,7 +18,7 @@ import useOptimisticAction from "../../hooks/useOptimisticAction";
 import EntitySchema from "../OpenGraph/EntitySchema";
 import imagePreloader from '../../utilities/image-preloader';
 
-function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false }) {
+function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false, onOptimisticDelete }) {
   const { user } = useUser();
   const { fetchPlans, plans: globalPlans } = useData();
   const { error: showError } = useToast();
@@ -423,6 +423,12 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     apply: () => {
       setIsDeleted(true); // hide card immediately
       setShowDeleteModal(false);
+      try {
+        // Inform parent immediately so it can update its local list (e.g., show EmptyState)
+        if (typeof onOptimisticDelete === 'function') onOptimisticDelete(experience?._id);
+      } catch (e) {
+        // ignore
+      }
     },
     apiCall: async () => {
       await deleteExperience(experience._id);
@@ -523,42 +529,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
             )}
           </div>
         </div>
-      ) : (
-        <div
-          ref={containerRef}
-          className={`${styles.experienceCard} d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden`}
-          style={{ backgroundImage: backgroundImage, minHeight: '12rem', width: '20rem' }}
-        >
-          <div
-            aria-hidden="true"
-            className="position-absolute w-100 h-100 start-0 top-0"
-            style={{
-              zIndex: 5,
-              pointerEvents: 'none',
-              transition: 'opacity 260ms ease',
-              opacity: imageLoaded ? 0 : 1
-            }}
-          >
-            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-          </div>
-          <Link to="/" className={`${styles.experienceCardLink} flex-grow-1 d-flex align-items-center justify-content-center w-100`} style={{ textDecoration: 'none' }}>
-            <span className={`h4 fw-bold ${styles.experienceCardTitle} d-flex align-items-center justify-content-center p-3 w-100`} style={{ textAlign: 'center' }}>
-              Dinner Party with locals at the Rhodopo Mountains in Bulgaria
-            </span>
-          </Link>
-          <div className={`${styles.experienceCardActions} d-flex gap-2 flex-shrink-0`}>
-            <button
-              className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'} ${isLoading ? 'loading' : ''}`}
-              onClick={handleExperienceAction}
-              disabled={isLoading}
-              aria-label={experienceAdded ? lang.current.button.removeFromPlan : lang.current.button.addToPlan}
-              title={experienceAdded ? lang.current.button.removeFromPlan : lang.current.button.addToPlan}
-            >
-              {experienceAdded ? "-" : "✚"}
-            </button>
-          </div>
-        </div>
-      )}
+      ) : null}
       {includeSchema && experience && (
         <EntitySchema entity={experience} entityType="experience" />
       )}

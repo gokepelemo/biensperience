@@ -19,6 +19,7 @@ import { getAdapter } from './adapters';
  * @param {number} [options.temperature] - Temperature (0-1)
  * @param {number} [options.maxTokens] - Max output tokens
  * @param {string} [options.task] - Task type for routing
+ * @param {Object} [options.prompts] - Optional prompts override. When provided, higher-level helpers may use these to override system prompts for a given AI task. `complete` will pass this through to adapters but does not itself select system prompts.
  * @returns {Promise<{content: string, usage: Object, model: string, provider: string}>}
  */
 export async function complete(messages, options = {}) {

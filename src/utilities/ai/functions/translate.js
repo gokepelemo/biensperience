@@ -15,13 +15,16 @@ import { complete } from '../complete';
  * @param {Object} options - Options
  * @param {string} [options.sourceLanguage] - Source language (auto-detected if not provided)
  * @param {string} [options.provider] - Override provider
+ * @param {Object} [options.prompts] - Optional prompts override. An object mapping AI task keys (see `AI_TASKS`) to system prompt strings. When provided, the task-specific prompt will be used instead of the central `SYSTEM_PROMPTS`.
  * @returns {Promise<string>} Translated text
  */
 export async function translate(text, targetLanguage, options = {}) {
   const { sourceLanguage = 'auto-detect' } = options;
 
+  const systemPrompt = (options.prompts && options.prompts[AI_TASKS.TRANSLATE]) || SYSTEM_PROMPTS[AI_TASKS.TRANSLATE];
+
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPTS[AI_TASKS.TRANSLATE] },
+    { role: 'system', content: systemPrompt },
     {
       role: 'user',
       content: sourceLanguage === 'auto-detect'

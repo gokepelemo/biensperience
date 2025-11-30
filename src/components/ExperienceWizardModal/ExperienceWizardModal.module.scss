@@ -1,0 +1,710 @@
+@use '../../styles/scss/abstracts' as *;
+
+.modalContainer {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  z-index: $z-index-modal-backdrop !important;
+  display: flex !important;
+  /* Anchor to the top so the modal can grow downward when content expands.
+     This avoids vertically centering a modal that becomes taller than the
+     viewport and prevents the footer from being visually overlapped. */
+  align-items: flex-start !important;
+  justify-content: center !important;
+  padding: var(--space-6) var(--space-4);
+  overflow-y: auto;
+  pointer-events: auto !important;
+}
+
+.modalDialog {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  position: relative;
+  z-index: $z-index-modal + 1;
+  pointer-events: auto !important;
+
+  @media (min-width: 992px) {
+    max-width: 800px;
+  }
+}
+
+.modalContent {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-xl);
+  overflow: visible;
+  box-shadow: var(--shadow-xl);
+  /* Allow the modal to expand naturally with its content so the footer is
+     pushed down instead of being overlaid by body content. The outer
+     `.modalContainer` handles scrolling when the modal exceeds the
+     viewport. */
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  pointer-events: auto !important;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-light);
+  padding: var(--space-4) var(--space-5);
+  pointer-events: auto !important;
+}
+
+.modalTitle {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  line-height: 1;
+  border-radius: var(--radius-md);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  pointer-events: auto !important;
+
+  &:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-tertiary);
+  }
+}
+
+.modalBody {
+  padding: var(--space-5);
+  /* Keep overflow visible so dropdowns (autocomplete, selects) can
+     render outside the body box without being clipped. The modal itself
+     will grow with its content; large content will cause the page-level
+     scroll on `.modalContainer`. */
+  overflow-y: visible;
+  overflow-x: visible;
+  flex: 1;
+  position: relative;
+  pointer-events: auto !important;
+}
+
+// Step Indicator
+.stepIndicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: color var(--transition-fast);
+
+  .stepNumber {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-sm);
+    transition: all var(--transition-fast);
+  }
+
+  &.active {
+    color: var(--color-primary);
+
+    .stepNumber {
+      background: var(--color-primary);
+      color: white;
+    }
+  }
+
+  &.completed {
+    color: var(--color-success);
+
+    .stepNumber {
+      background: var(--color-success);
+      color: white;
+    }
+  }
+}
+
+.stepConnector {
+  width: 32px;
+  height: 2px;
+  background: var(--color-border-light);
+  transition: background var(--transition-fast);
+
+  &.active {
+    background: var(--color-success);
+  }
+}
+
+.stepContent {
+  min-height: 320px;
+
+  /* Make the helper small text inline so links like "Create a new one" appear
+     on the same line as the helper text across all screen sizes. */
+  small.form-text.d-block {
+    display: inline-block;
+    margin-bottom: var(--space-3);
+  }
+
+  small.form-text.d-block .btn-link {
+    display: inline;
+    padding: 0;
+    vertical-align: baseline;
+    text-decoration: none;
+  }
+}
+
+.stepDescription {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  margin-bottom: var(--space-5);
+  line-height: var(--line-height-relaxed);
+}
+
+// Footer
+.modalFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg-secondary);
+  pointer-events: auto !important;
+  /* Ensure the footer has rounded bottom corners so the modal appears rounded
+     even when body content (e.g., expanding textarea) visually goes under it. */
+  border-bottom-left-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
+  /* Footer should participate in normal flow so it is pushed down by body
+     content instead of being an overlay. Remove z-index/positioning that
+     caused overlap. */
+  position: static;
+  z-index: auto;
+  overflow: visible;
+}
+
+.footerLeft {
+  flex: 1;
+}
+
+.footerRight {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  display: flex;
+  align-items: center;
+
+  &:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-tertiary);
+  }
+}
+
+.skipLink {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  padding: var(--space-2);
+  transition: color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+}
+
+// Plan Items (Step 3)
+.planItemsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.planItemsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.planItemRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:hover {
+    border-color: var(--color-border-medium);
+  }
+
+  &:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+}
+
+.planItemNumber {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+.planItemContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.planItemInput {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  background: var(--color-bg-primary);
+  transition: border-color var(--transition-fast);
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+  }
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+}
+
+.planItemMeta {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.metaField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+.counterControl {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-1);
+}
+
+.counterBtn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast), color var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.counterValue {
+  min-width: 32px;
+  text-align: center;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+}
+
+.costInput {
+  display: flex;
+  align-items: center;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-2);
+  transition: border-color var(--transition-fast);
+
+  &:focus-within {
+    border-color: var(--color-primary);
+  }
+
+  .currencySymbol {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    margin-right: var(--space-1);
+  }
+
+  input {
+    width: 80px;
+    border: none;
+    background: transparent;
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    padding: var(--space-1);
+
+    &:focus {
+      outline: none;
+    }
+
+    &::placeholder {
+      color: var(--color-text-muted);
+    }
+  }
+}
+
+.removeItemBtn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+  }
+}
+
+.addItemBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 2px dashed var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+
+  &:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: var(--color-primary-bg);
+  }
+}
+
+// Collaborators (Step 4)
+.collaboratorsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.inviteModeToggle {
+  display: flex;
+  gap: var(--space-2);
+  background: var(--color-bg-secondary);
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+}
+
+.modeBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &.active {
+    background: var(--color-bg-primary);
+    color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &:hover:not(.active) {
+    color: var(--color-text-primary);
+  }
+}
+
+.searchSection,
+.emailSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.emailSection {
+  padding: var(--space-4);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+}
+
+.selectedCollaborators {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-light);
+
+  label {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-3);
+  }
+}
+
+.collaboratorPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+// Success Step
+.successContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+  min-height: 300px;
+}
+
+.successIcon {
+  color: var(--color-success);
+  margin-bottom: var(--space-5);
+  animation: scaleIn 0.5s ease-out;
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.successTitle {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.successMessage {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  max-width: 400px;
+  line-height: var(--line-height-relaxed);
+  margin-bottom: var(--space-6);
+}
+
+.successActions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .stepIndicator {
+    gap: var(--space-2);
+    padding: var(--space-3);
+
+    .stepLabel {
+      display: none;
+    }
+  }
+
+  .stepConnector {
+    width: 20px;
+  }
+
+  .planItemRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .planItemNumber {
+    align-self: flex-start;
+  }
+
+  .planItemMeta {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .metaField {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+
+    label {
+      margin-bottom: 0;
+    }
+  }
+
+  .removeItemBtn {
+    align-self: flex-end;
+    margin-top: var(--space-2);
+  }
+
+  .modalFooter {
+    flex-direction: column;
+    gap: var(--space-3);
+
+    .footerLeft,
+    .footerRight {
+      width: 100%;
+    }
+
+    .footerRight {
+      flex-direction: column;
+
+      button {
+        width: 100%;
+      }
+    }
+  }
+
+  /* On small screens, place the primary action (Next/Create) above the secondary
+     Cancel/back action so the prominent action is easier to reach (per UX request). */
+  .footerLeft {
+    order: 2;
+  }
+
+  .footerRight {
+    order: 1;
+  }
+
+  /* Make the small helper text with the "Create a new one" link render inline
+     rather than forcing a block, so the link appears on the same line. Target
+     only the form-text elements inside the modal to avoid global overrides. */
+  .stepContent {
+    small.form-text.d-block {
+      display: inline-block;
+      margin-bottom: var(--space-3);
+    }
+
+    /* Ensure the inline link isn't treated like a full-width bootstrap link */
+    small.form-text.d-block .btn-link {
+      display: inline;
+      padding: 0;
+      vertical-align: baseline;
+      text-decoration: none;
+    }
+  }
+
+  /* Center the Cancel/back action in its row on small screens */
+  .footerLeft {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .backButton {
+    width: auto;
+    text-align: center;
+  }
+
+  .inviteModeToggle {
+    flex-direction: column;
+  }
+
+  .successActions {
+    flex-direction: column;
+    width: 100%;
+
+    button {
+      width: 100%;
+    }
+  }
+}

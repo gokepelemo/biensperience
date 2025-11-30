@@ -17,7 +17,7 @@ export default function PlanTabsNavigation({
   idEquals,
 
   // Plan data
-  collaborativePlans,
+  sharedPlans,
   plansLoading,
   selectedPlanId,
   setSelectedPlanId,
@@ -68,22 +68,22 @@ export default function PlanTabsNavigation({
         (() => {
           // Debug log
           debug.log(
-            "Rendering tabs. collaborativePlans:",
-            collaborativePlans,
+            "Rendering tabs. sharedPlans:",
+            sharedPlans,
             "length:",
-            collaborativePlans.length
+            sharedPlans.length
           );
 
           // Determine how many plans belong to others (collaborator plans)
-          const otherPlansCount = collaborativePlans.filter((plan) => {
+          const otherPlansCount = sharedPlans.filter((plan) => {
             const planUserId = plan.user?._id || plan.user;
             return !idEquals(planUserId, user._id);
           }).length;
 
           // If there are multiple plans (user + collaborators OR multiple collaborators), show a custom dropdown
-          if (collaborativePlans.length > 1 || otherPlansCount > 0) {
+          if (sharedPlans.length > 1 || otherPlansCount > 0) {
             // Get the selected plan's display name
-            const selectedPlan = collaborativePlans.find(p => {
+            const selectedPlan = sharedPlans.find(p => {
               const planId = p._id && p._id.toString ? p._id.toString() : p._id;
               return planId === selectedPlanId;
             });
@@ -145,7 +145,7 @@ export default function PlanTabsNavigation({
                 {/* Dropdown menu */}
                 {dropdownOpen && (
                   <div className="plan-tab-dropdown-menu">
-                    {collaborativePlans.map((plan, ci) => {
+                    {sharedPlans.map((plan, ci) => {
                       const planUserId = plan.user?._id || plan.user;
                       const isOwnPlan = idEquals(planUserId, user._id);
                       let displayName = "Plan";
@@ -184,8 +184,8 @@ export default function PlanTabsNavigation({
           }
 
           // Otherwise, render a simple button for the (single) user's plan
-          if (collaborativePlans.length === 1) {
-            const onlyPlan = collaborativePlans[0];
+          if (sharedPlans.length === 1) {
+            const onlyPlan = sharedPlans[0];
             const planUserId = onlyPlan.user?._id || onlyPlan.user;
             const isOwnPlan = idEquals(planUserId, user._id);
             // Only show the button if it's the user's own plan

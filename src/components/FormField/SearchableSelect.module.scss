@@ -267,16 +267,20 @@
 @include breakpoint-max(sm) {
   .dropdown {
     position: fixed;
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    max-height: 60vh;
+    z-index: 1000;
+    border-radius: var(--radius-md);
+    /* Clear any static geometry so JavaScript can fully control placement */
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    max-height: none !important;
+    /* Position and size will be set dynamically by JavaScript */
   }
 
   .optionsList {
-    max-height: calc(60vh - 60px);
+    /* Height will be constrained by parent max-height */
   }
 }
 

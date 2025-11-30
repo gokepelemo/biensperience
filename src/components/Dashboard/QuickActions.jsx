@@ -3,6 +3,7 @@ import { Card, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { Heading } from '../design-system';
+import { useExperienceWizard } from '../../contexts/ExperienceWizardContext';
 
 /**
  * QuickActions component for displaying common user actions
@@ -13,9 +14,10 @@ export default function QuickActions({
   title = "Quick Actions"
 }) {
   const navigate = useNavigate();
+  const { openExperienceWizard } = useExperienceWizard();
 
   const defaultActions = [
-    { label: 'Create New Experience', variant: 'primary', onClick: () => navigate('/experiences/new') },
+    { label: 'Create New Experience', variant: 'primary', onClick: () => openExperienceWizard() },
     { label: 'Add Destination', variant: 'outline-secondary', onClick: () => navigate('/destinations/new') },
     { label: 'Browse Experiences', variant: 'outline-secondary', onClick: () => navigate('/experiences') },
   ];

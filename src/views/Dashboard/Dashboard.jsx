@@ -161,7 +161,7 @@ export default function Dashboard() {
   // Navigation items with optional badges
   const navItems = [
     { key: 'overview', label: 'Dashboard' },
-    { key: 'plans', label: 'My Plans', badge: activePlansValue || undefined },
+    { key: 'plans', label: 'Plans', badge: activePlansValue || undefined },
     { key: 'preferences', label: 'Preferences' },
   ];
 

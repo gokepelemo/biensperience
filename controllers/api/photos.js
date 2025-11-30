@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const Photo = require("../../models/photo");
 const User = require("../../models/user");
-const { s3Upload, s3Delete } = require("../../uploads/aws-s3-upload");
+const { s3Upload, s3Delete } = require("../../uploads/aws-s3");
 const { getEnforcer } = require("../../utilities/permission-enforcer");
 const { isOwner } = require("../../utilities/permissions");
 const backendLogger = require("../../utilities/backend-logger");

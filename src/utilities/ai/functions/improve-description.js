@@ -16,6 +16,7 @@ import { complete } from '../complete';
  * @param {string} [options.name] - Name of the destination/experience
  * @param {string} [options.location] - Location context
  * @param {string} [options.provider] - Override provider
+ * @param {Object} [options.prompts] - Optional prompts override. An object mapping AI task keys (see `AI_TASKS`) to system prompt strings. When provided, the task-specific prompt will be used instead of the central `SYSTEM_PROMPTS`.
  * @returns {Promise<string>} Improved description
  */
 export async function improveDescription(description, options = {}) {
@@ -26,8 +27,10 @@ export async function improveDescription(description, options = {}) {
   if (location) contextInfo += `Location: ${location}\n`;
   if (type) contextInfo += `Type: ${type}\n`;
 
+  const systemPrompt = (options.prompts && options.prompts[AI_TASKS.IMPROVE_DESCRIPTION]) || SYSTEM_PROMPTS[AI_TASKS.IMPROVE_DESCRIPTION];
+
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPTS[AI_TASKS.IMPROVE_DESCRIPTION] },
+    { role: 'system', content: systemPrompt },
     {
       role: 'user',
       content: contextInfo

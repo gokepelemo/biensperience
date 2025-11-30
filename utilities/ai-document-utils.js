@@ -10,7 +10,7 @@ require('dotenv').config();
 
 const path = require('path');
 const fs = require('fs');
-const { s3Upload, s3Delete } = require('../uploads/aws-s3-upload');
+const { s3Upload, s3Delete } = require('../uploads/aws-s3');
 const backendLogger = require('./backend-logger');
 
 // Supported document types and their MIME types
@@ -565,6 +565,7 @@ async function extractWordText(filePath, options = {}) {
  * @param {string} text - Extracted text content
  * @param {string} documentType - Type of document (flight, hotel, activity, etc.)
  * @param {Object} options - Parsing options
+ * @param {Object} [options.prompts] - Optional prompts override. An object mapping prompt keys (e.g., `flight`, `hotel`, `travel`) to custom prompt strings. If provided, these will override the default parsing prompts for the corresponding document types.
  * @returns {Promise<Object>} Structured data extracted from text
  */
 async function parseWithAI(text, documentType = 'travel', options = {}) {
@@ -582,7 +583,11 @@ async function parseWithAI(text, documentType = 'travel', options = {}) {
 
   const client = new Anthropic({ apiKey });
 
-  // Build prompt based on document type
+  // Build prompt based on document type. Allow callers to pass `options.prompts`
+  // to override any of these defaults (useful for testing or A/B messaging).
+  const promptsSource = options.prompts || require('./lang.constants').lang.en.prompts || {};
+
+  // Backwards-compatible defaults if prompts not available from language constants
   const prompts = {
     flight: `Extract flight details from this document. Return JSON with: airline, flightNumber, departureCity, arrivalCity, departureDate, departureTime, arrivalDate, arrivalTime, confirmationNumber, passengerName, seatNumber, terminal, gate. If a field is not found, use null.`,
 
@@ -597,7 +602,10 @@ async function parseWithAI(text, documentType = 'travel', options = {}) {
     travel: `This is a travel-related document. Analyze the content and extract any relevant travel information. Return JSON with: documentType (flight, hotel, activity, restaurant, transport, or other), summary (brief description), and any extracted details structured appropriately. If a field is not found, use null.`
   };
 
-  const prompt = prompts[documentType] || prompts.travel;
+  // If promptsSource contains overrides for the document types, merge them
+  const mergedPrompts = { ...prompts, ...(promptsSource.documentTypes || {}), ...(promptsSource || {}) };
+
+  const prompt = mergedPrompts[documentType] || mergedPrompts.travel;
 
   try {
     const response = await client.messages.create({

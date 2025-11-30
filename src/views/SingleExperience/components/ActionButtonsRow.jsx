@@ -119,7 +119,7 @@ export default function ActionButtonsRow({
                 }}
                 title={userOwnsSelectedPlan
                   ? (showDatePicker ? "Click to close date picker" : "Click to update planned date")
-                  : "Collaborative plan date (view only)"
+                  : "Shared plan date (view only)"
                 }
               >
                 <FaCalendarAlt className={styles.dateIcon} />
@@ -241,7 +241,7 @@ export default function ActionButtonsRow({
             }}
             title={userOwnsSelectedPlan
               ? (showDatePicker ? "Click to close date picker" : "Click to update planned date")
-              : "Collaborative plan date (view only)"
+              : "Shared plan date (view only)"
             }
           >
             <FaCalendarAlt className={styles.dateIcon} />

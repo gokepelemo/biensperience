@@ -7,22 +7,33 @@
 
 /* Plan Filter Dropdown Wrapper */
 .planFilterDropdown {
-  width: 160px;
+  width: 225px;
   flex-shrink: 0;
-
-  // Full width on mobile/tablet
-  @include breakpoint-max(md) {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 140px;
-  }
 }
 
-// Wrapper for header to support absolute positioning on mobile
+// Wrapper for header - stacks vertically on mobile/tablet
 .headerWrapper {
-  position: relative;
+  @include breakpoint-max(md) {
+    // Override FlexBetween to stack vertically
+    :global(.d-flex) {
+      flex-direction: column;
+      align-items: stretch;
+      gap: $space-3;
+    }
+
+    .planFilterDropdown {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin-bottom: $space-2;
+      order: 1; // Move below heading
+
+      // Limit width for centered appearance
+      > * {
+        width: 225px;
+      }
+    }
+  }
 }
 
 /* Empty State */

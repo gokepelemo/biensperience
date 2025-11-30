@@ -59,9 +59,9 @@ export default function MyPlans() {
 
   // Filter options for searchable select with icons
   const filterOptions = useMemo(() => [
-    { value: PLAN_FILTERS.ALL, label: 'All Plans', icon: FaList, suffix: `${plans.length}` },
+    { value: PLAN_FILTERS.ALL, label: 'All', icon: FaList, suffix: `${plans.length}` },
     { value: PLAN_FILTERS.OWNED, label: 'My Plans', icon: FaUser, suffix: `${ownedPlans.length}` },
-    { value: PLAN_FILTERS.SHARED, label: 'Shared', icon: FaUserFriends, suffix: `${sharedPlans.length}` }
+    { value: PLAN_FILTERS.SHARED, label: 'Shared Plans', icon: FaUserFriends, suffix: `${sharedPlans.length}` }
   ], [plans.length, ownedPlans.length, sharedPlans.length]);
 
   // Fetch collaborators for a list of plans in parallel
@@ -314,7 +314,7 @@ export default function MyPlans() {
       >
         <div className={styles.headerWrapper}>
           <FlexBetween className="mb-2">
-            <Heading level={4}>{lang.en.heading.myPlans}</Heading>
+            <Heading level={4}>{lang.en.heading.plans}</Heading>
             {plans.length > 0 && (
               <div className={styles.planFilterDropdown}>
                 <SearchableSelect
@@ -323,7 +323,7 @@ export default function MyPlans() {
                   onChange={setPlanFilter}
                   placeholder="Filter plans"
                   searchable={false}
-                  size="sm"
+                  size="md"
                   aria-label="Filter plans"
                 />
               </div>

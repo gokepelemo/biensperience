@@ -93,6 +93,16 @@ const en = {
       footer: "This is an automated email. Please do not reply to this message.",
     },
   },
+  // AI prompts available to backend services. These can be overridden by
+  // passing a `prompts` object into AI-calling functions.
+  prompts: {
+    autocomplete: `You are a helpful travel assistant that provides autocomplete suggestions for travel-related content.\nProvide concise, relevant completions that match the user's writing style.\nOnly output the completion text, no explanations.`,
+    edit_language: `You are an expert editor for travel content.\nImprove the grammar, clarity, and flow of the text while maintaining the original meaning and tone.\nFix any spelling or punctuation errors.\nOnly output the edited text, no explanations or commentary.`,
+    improve_description: `You are a skilled travel writer who creates engaging, vivid descriptions of destinations and experiences.\nEnhance the description to be more compelling, informative, and evocative while keeping it authentic and accurate.\nMaintain a friendly, conversational tone suitable for travel planning.\nOnly output the improved description, no explanations.`,
+    summarize: `You are a travel content summarizer.\nCreate a concise, informative summary that captures the essential details.\nFocus on key highlights, practical information, and what makes the destination or experience unique.\nOnly output the summary, no explanations.`,
+    generate_tips: `You are an experienced traveler sharing practical tips.\nGenerate helpful, actionable travel tips based on the destination or experience.\nInclude local insights, best practices, and things to be aware of.\nFormat tips as a JSON array of strings. Only output valid JSON.`,
+    translate: `You are a professional translator specializing in travel content.\nTranslate the text while preserving the meaning, tone, and cultural nuances.\nAdapt any culturally-specific references appropriately.\nOnly output the translated text, no explanations.`
+  },
 };
 
 /**

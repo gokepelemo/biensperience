@@ -5,6 +5,7 @@ import styles from "./Profile.module.scss";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
+import { useExperienceWizard } from "../../contexts/ExperienceWizardContext";
 import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
@@ -23,7 +24,7 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { deduplicateById } from "../../utilities/deduplication";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
-import { Button, EmptyState, Container } from "../../components/design-system";
+import { Button, EmptyState, Container, EntityNotFound } from "../../components/design-system";
 import { Card, Row, Col } from "react-bootstrap";
 import { useToast } from '../../contexts/ToastContext';
 import { getDefaultPhoto } from "../../utilities/photo-utils";
@@ -36,6 +37,7 @@ export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
   const { destinations, plans } = useData();
   const { registerH1, clearActionButtons, updateShowH1InNavbar, setPageActionButtons } = useApp();
+  const { openExperienceWizard } = useExperienceWizard();
   const navigate = useNavigate();
   let { profileId } = useParams();
 
@@ -610,18 +612,7 @@ export default function Profile() {
     return (
       <div style={{ padding: 'var(--space-20) 0' }}>
         <Container>
-          <div style={{ maxWidth: '32rem', margin: '0 auto' }}>
-            <Alert
-                type="danger"
-                title={lang.current.modal.userNotFound || 'User Not Found'}
-              >
-                <p>{lang.current.alert.userNotFoundMessage || "The user profile you're looking for doesn't exist or has been removed."}</p>
-              <hr />
-              <p style={{ marginBottom: 0 }}>
-                  <Link to="/" className="alert-link">{lang.current.alert.returnToHome || 'Return to Home'}</Link>
-              </p>
-            </Alert>
-          </div>
+          <EntityNotFound entityType="user" />
         </Container>
       </div>
     );
@@ -1051,7 +1042,7 @@ export default function Profile() {
                         ? "You haven't created any experiences yet. Share your travel knowledge with the community."
                         : `${getFirstName(currentProfile?.name)} hasn't created any experiences yet.`}
                       primaryAction={isOwnProfile ? "Create an Experience" : null}
-                      onPrimaryAction={isOwnProfile ? () => window.location.href = '/experiences/new' : null}
+                      onPrimaryAction={isOwnProfile ? () => openExperienceWizard() : null}
                       size="md"
                     />
                   );

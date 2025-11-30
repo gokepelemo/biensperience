@@ -32,7 +32,7 @@ import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay
 import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
-import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text, EmptyState } from "../../components/design-system";
+import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text, EmptyState, EntityNotFound } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import SingleExperienceSkeleton from "./components/SingleExperienceSkeleton";
@@ -150,8 +150,8 @@ export default function SingleExperience() {
   const {
     userPlan,
     setUserPlan,
-    collaborativePlans,
-    setCollaborativePlans,
+    sharedPlans,
+    setSharedPlans,
     selectedPlanId,
     setSelectedPlanId,
     selectedPlan,
@@ -166,7 +166,7 @@ export default function SingleExperience() {
     userHasExperience,
     setUserHasExperience,
     fetchUserPlan,
-    fetchCollaborativePlans,
+    fetchSharedPlans,
     // fetchPlans from DataContext (useData) is used instead of hook's fetchPlans
     createPlan,
     updatePlan,
@@ -212,6 +212,7 @@ export default function SingleExperience() {
   const [experience, setExperience] = useState(null);
   const [travelTips, setTravelTips] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [experienceNotFound, setExperienceNotFound] = useState(false);
 
   // UI state
   const [favHover, setFavHover] = useState(false);
@@ -353,9 +354,9 @@ export default function SingleExperience() {
       activeTab === "experience"
         ? null
         : selectedPlanId
-        ? collaborativePlans.find((p) => idEquals(p._id, selectedPlanId))
+        ? sharedPlans.find((p) => idEquals(p._id, selectedPlanId))
         : userPlan,
-    [activeTab, selectedPlanId, collaborativePlans, userPlan]
+    [activeTab, selectedPlanId, sharedPlans, userPlan]
   );
 
   // Get plan owner and collaborator user IDs
@@ -795,11 +796,11 @@ export default function SingleExperience() {
   // Reduces 3 API calls to 1 for dramatically faster page load
   const fetchAllData = useCallback(async () => {
     try {
-      const { experience: experienceData, userPlan: fetchedUserPlan, collaborativePlans: fetchedCollaborativePlans } = await showExperienceWithContext(experienceId);
+      const { experience: experienceData, userPlan: fetchedUserPlan, sharedPlans: fetchedSharedPlans } = await showExperienceWithContext(experienceId);
 
       debug.log("Experience data:", experienceData);
       debug.log("User plan:", fetchedUserPlan);
-      debug.log("Collaborative plans:", fetchedCollaborativePlans);
+      debug.log("Shared plans:", fetchedSharedPlans);
 
       // Set experience data
       setExperience(experienceData);
@@ -828,7 +829,7 @@ export default function SingleExperience() {
 
       // Set collaborative plans data
       // Filter to only show plans where user is owner or collaborator
-      const accessiblePlans = fetchedCollaborativePlans.filter((plan) => {
+      const accessiblePlans = fetchedSharedPlans.filter((plan) => {
         // Check if user owns this plan
         const isUserPlan =
           plan.user &&
@@ -846,10 +847,10 @@ export default function SingleExperience() {
         return isUserPlan || hasPermission;
       });
 
-      // CRITICAL: getExperiencePlans returns BOTH user's own plan AND collaborative plans
+      // CRITICAL: getExperiencePlans returns BOTH user's own plan AND shared plans
       // If we have a fetchedUserPlan from checkUserPlanForExperience, we need to filter
       // it out from accessiblePlans to prevent duplicates when merging
-      const collaborativePlansOnly = fetchedUserPlan
+      const sharedPlansOnly = fetchedUserPlan
         ? accessiblePlans.filter((plan) => {
             // Exclude user's own plan - it will be prepended separately
             const planUserId = plan.user?._id?.toString() || plan.user?.toString();
@@ -857,10 +858,10 @@ export default function SingleExperience() {
           })
         : accessiblePlans;
 
-      // Combine user's own plan with collaborative plans for unified display
-      // Backend returns userPlan separately from collaborativePlans array
+      // Combine user's own plan with shared plans for unified display
+      // Backend returns userPlan separately from sharedPlans array
       const allPlans = fetchedUserPlan
-        ? [fetchedUserPlan, ...collaborativePlansOnly]
+        ? [fetchedUserPlan, ...sharedPlansOnly]
         : accessiblePlans;
 
       // Sort plans: user's own plan first, then others
@@ -889,17 +890,28 @@ export default function SingleExperience() {
       // Hash navigation handler will select plan if there's a hash in URL
       debug.log("Plans loaded. Auto-select or hash handler will set selectedPlanId.");
 
-      // Set collaborative plans and mark loading complete
+      // Set shared plans and mark loading complete
       // Use flushSync to force synchronous rendering and prevent layout shift
       flushSync(() => {
-        setCollaborativePlans(normalizedSorted);
+        setSharedPlans(normalizedSorted);
         setPlansLoading(false);
       });
     } catch (err) {
       debug.error("Error fetching all data:", err);
+      
+      // Check if this is a 404 error (experience not found)
+      if (err.response?.status === 404) {
+        setExperienceNotFound(true);
+        setExperience(null);
+        setUserPlan(null);
+        setSharedPlans([]);
+        setPlansLoading(false);
+        return;
+      }
+      
       setExperience(null);
       setUserPlan(null);
-      setCollaborativePlans([]);
+      setSharedPlans([]);
       // Loading complete even on error
       setPlansLoading(false);
     }
@@ -911,13 +923,13 @@ export default function SingleExperience() {
     experience,
     selectedPlanId,
     userPlan,
-    collaborativePlans,
+    sharedPlans,
     setExperience,
     setUserPlan,
-    setCollaborativePlans,
+    setSharedPlans,
     fetchExperience: fetchAllData,
     fetchPlans,
-    fetchCollaborativePlans,
+    fetchSharedPlans,
     experienceCollaborators,
     planCollaborators,
     user,
@@ -992,7 +1004,7 @@ export default function SingleExperience() {
     setUserPlannedDate(null);
     setDisplayedPlannedDate(null);
     setTravelTips([]);
-    setCollaborativePlans([]);
+    setSharedPlans([]);
     setSelectedPlanId(null);
     setPlansLoading(true);
     setActiveTab("experience");
@@ -1013,6 +1025,7 @@ export default function SingleExperience() {
     setPlanItemToDelete(null);
     setShowPlanInstanceDeleteModal(false);
     setPlanInstanceItemToDelete(null);
+    setExperienceNotFound(false); // Reset 404 state
     // Reset hash refs so URL hash can be processed for new experience
     processedHashRef.current = null;
     initialHashHandledRef.current = false;
@@ -1032,7 +1045,7 @@ export default function SingleExperience() {
       intentExists: !!intent,
       intentConsumed: intent?.consumed,
       plansLoading,
-      collaborativePlansCount: collaborativePlans.length,
+      sharedPlansCount: sharedPlans.length,
       intentId: intent?.id,
       targetPlanId: intent?.targetPlanId,
       targetItemId: intent?.targetItemId
@@ -1051,10 +1064,10 @@ export default function SingleExperience() {
     }
 
     // Skip if plans haven't loaded yet
-    if (plansLoading || collaborativePlans.length === 0) {
+    if (plansLoading || sharedPlans.length === 0) {
       debug.log('[NavigationIntent] Plans still loading, waiting...', {
         plansLoading,
-        collaborativePlansCount: collaborativePlans.length,
+        sharedPlansCount: sharedPlans.length,
         intentId: intent.id
       });
       return;
@@ -1071,12 +1084,12 @@ export default function SingleExperience() {
     });
 
     // Find the target plan
-    const targetPlan = collaborativePlans.find((p) => idEquals(p._id, targetPlanId));
+    const targetPlan = sharedPlans.find((p) => idEquals(p._id, targetPlanId));
 
     if (!targetPlan) {
-      debug.warn('[NavigationIntent] Plan not found in collaborativePlans:', {
+      debug.warn('[NavigationIntent] Plan not found in sharedPlans:', {
         targetPlanId,
-        availablePlans: collaborativePlans.map(p => p._id?.toString())
+        availablePlans: sharedPlans.map(p => p._id?.toString())
       });
       // Clear the intent since it can't be fulfilled
       clearIntent();
@@ -1124,7 +1137,7 @@ export default function SingleExperience() {
       debug.log('[NavigationIntent] No targetItemId, skipping scroll');
     }
 
-  }, [intent, plansLoading, collaborativePlans, idEquals, consumeIntent, clearIntent, scrollToItem]);
+  }, [intent, plansLoading, sharedPlans, idEquals, consumeIntent, clearIntent, scrollToItem]);
 
   // Fallback handler for direct URL navigation (when no intent exists)
   // This handles cases where user pastes URL directly or navigates via browser history
@@ -1146,7 +1159,7 @@ export default function SingleExperience() {
     }
 
     // Skip if plans haven't loaded
-    if (plansLoading || collaborativePlans.length === 0) {
+    if (plansLoading || sharedPlans.length === 0) {
       return;
     }
 
@@ -1172,7 +1185,7 @@ export default function SingleExperience() {
 
     debug.log('[SingleExperience] Fallback URL hash handler:', { planId, itemId, selectedPlanId, hash });
 
-    const targetPlan = collaborativePlans.find((p) => idEquals(p._id, planId));
+    const targetPlan = sharedPlans.find((p) => idEquals(p._id, planId));
     if (!targetPlan) {
       debug.warn('[Fallback Hash] Plan not found:', planId);
       return;
@@ -1207,7 +1220,7 @@ export default function SingleExperience() {
         scrollToItem(itemId, { shouldHighlight: true });
       }
     }
-  }, [plansLoading, collaborativePlans, selectedPlanId, intent, idEquals, scrollToItem]);
+  }, [plansLoading, sharedPlans, selectedPlanId, intent, idEquals, scrollToItem]);
 
   // Register h1 and action buttons for navbar
   useEffect(() => {
@@ -1257,8 +1270,8 @@ export default function SingleExperience() {
 
   // Check for divergence when plan or experience changes
   useEffect(() => {
-    if (selectedPlanId && collaborativePlans.length > 0 && experience) {
-      const currentPlan = collaborativePlans.find(
+    if (selectedPlanId && sharedPlans.length > 0 && experience) {
+      const currentPlan = sharedPlans.find(
   (p) => idEquals(p._id, selectedPlanId)
       );
       if (currentPlan) {
@@ -1274,7 +1287,7 @@ export default function SingleExperience() {
         }
       }
     }
-  }, [selectedPlanId, collaborativePlans, experience, checkPlanDivergence]);
+  }, [selectedPlanId, sharedPlans, experience, checkPlanDivergence]);
 
   // Update displayed planned date based on active tab and selected plan, gated by ownership state
   useEffect(() => {
@@ -1286,7 +1299,7 @@ export default function SingleExperience() {
 
     if (activeTab === "myplan" && selectedPlanId) {
       // Show the selected plan's planned date
-      const selectedPlan = collaborativePlans.find(
+      const selectedPlan = sharedPlans.find(
   (p) => idEquals(p._id, selectedPlanId)
       );
       setDisplayedPlannedDate(selectedPlan?.planned_date || null);
@@ -1294,7 +1307,7 @@ export default function SingleExperience() {
       // Show the user's experience planned date
       setDisplayedPlannedDate(userPlannedDate);
     }
-  }, [activeTab, selectedPlanId, collaborativePlans, userPlannedDate, userHasExperience]);
+  }, [activeTab, selectedPlanId, sharedPlans, userPlannedDate, userHasExperience]);
 
   /**
    * Update URL hash when a plan is selected to enable direct linking
@@ -1366,14 +1379,14 @@ export default function SingleExperience() {
     };
   }, [displayedPlannedDate]);
 
-  // Periodically refresh collaborative plans to pick up new collaborator additions
+  // Periodically refresh shared plans to pick up new collaborator additions
   useEffect(() => {
     const intervalId = setInterval(() => {
-      fetchCollaborativePlans();
+      fetchSharedPlans();
     }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(intervalId);
-  }, [fetchCollaborativePlans]);
+  }, [fetchSharedPlans]);
 
   // Sync tab changes to presence system
   useEffect(() => {
@@ -1388,7 +1401,7 @@ export default function SingleExperience() {
 
     try {
       // Calculate changes between experience and plan
-      const currentPlan = collaborativePlans.find(
+      const currentPlan = sharedPlans.find(
         (p) => idEquals(p._id, selectedPlanId)
       );
       if (!currentPlan) return;
@@ -1489,7 +1502,7 @@ export default function SingleExperience() {
       const errorMsg = handleError(err, { context: "Calculate sync changes" });
       showError(errorMsg);
     }
-  }, [selectedPlanId, experience, collaborativePlans]);
+  }, [selectedPlanId, experience, sharedPlans]);
 
   const confirmSyncPlan = useCallback(async () => {
     if (!selectedPlanId || !experience || !syncChanges) return;
@@ -1497,7 +1510,7 @@ export default function SingleExperience() {
     try {
       setLoading(true);
 
-      const currentPlan = collaborativePlans.find(
+      const currentPlan = sharedPlans.find(
   (p) => idEquals(p._id, selectedPlanId)
       );
       if (!currentPlan) {
@@ -1574,7 +1587,7 @@ export default function SingleExperience() {
       await updatePlan(selectedPlanId, { plan: updatedPlanSnapshot });
 
       // Refresh plans
-      await fetchCollaborativePlans();
+      await fetchSharedPlans();
       await fetchUserPlan();
       await fetchPlans(); // Refresh global plans state
 
@@ -1597,8 +1610,8 @@ export default function SingleExperience() {
   }, [
     selectedPlanId,
     experience,
-    collaborativePlans,
-    fetchCollaborativePlans,
+    sharedPlans,
+    fetchSharedPlans,
     fetchUserPlan,
     selectedSyncItems,
     syncChanges,
@@ -1647,7 +1660,7 @@ export default function SingleExperience() {
       const updatedPlan = await addPlanItemNote(selectedPlanId, selectedDetailsItem._id, content);
 
       // Update collaborative plans with the new note
-      setCollaborativePlans(prevPlans =>
+      setSharedPlans(prevPlans =>
         prevPlans.map(p => idEquals(p._id, selectedPlanId) ? updatedPlan : p)
       );
 
@@ -1661,7 +1674,7 @@ export default function SingleExperience() {
     } catch (error) {
       showError(error.message || 'Failed to add note');
     }
-  }, [selectedPlanId, selectedDetailsItem, idEquals, setCollaborativePlans, success, showError]);
+  }, [selectedPlanId, selectedDetailsItem, idEquals, setSharedPlans, success, showError]);
 
   const handleUpdateNoteOnItem = useCallback(async (noteId, content) => {
     if (!selectedPlanId || !selectedDetailsItem?._id || !noteId || !content.trim()) return;
@@ -1670,7 +1683,7 @@ export default function SingleExperience() {
       const updatedPlan = await updatePlanItemNote(selectedPlanId, selectedDetailsItem._id, noteId, content);
 
       // Update collaborative plans
-      setCollaborativePlans(prevPlans =>
+      setSharedPlans(prevPlans =>
         prevPlans.map(p => idEquals(p._id, selectedPlanId) ? updatedPlan : p)
       );
 
@@ -1684,7 +1697,7 @@ export default function SingleExperience() {
     } catch (error) {
       showError(error.message || 'Failed to update note');
     }
-  }, [selectedPlanId, selectedDetailsItem, idEquals, setCollaborativePlans, success, showError]);
+  }, [selectedPlanId, selectedDetailsItem, idEquals, setSharedPlans, success, showError]);
 
   const handleDeleteNoteFromItem = useCallback(async (noteId) => {
     if (!selectedPlanId || !selectedDetailsItem?._id || !noteId) return;
@@ -1692,8 +1705,8 @@ export default function SingleExperience() {
     try {
       const updatedPlan = await deletePlanItemNote(selectedPlanId, selectedDetailsItem._id, noteId);
 
-      // Update collaborative plans
-      setCollaborativePlans(prevPlans =>
+      // Update shared plans
+      setSharedPlans(prevPlans =>
         prevPlans.map(p => idEquals(p._id, selectedPlanId) ? updatedPlan : p)
       );
 
@@ -1707,7 +1720,7 @@ export default function SingleExperience() {
     } catch (error) {
       showError(error.message || 'Failed to delete note');
     }
-  }, [selectedPlanId, selectedDetailsItem, idEquals, setCollaborativePlans, success, showError]);
+  }, [selectedPlanId, selectedDetailsItem, idEquals, setSharedPlans, success, showError]);
 
   const handleSavePlanInstanceItem = useCallback(
     async (e) => {
@@ -1715,16 +1728,16 @@ export default function SingleExperience() {
       if (!selectedPlanId) return;
 
       // Optimistic update for plan instance items
-      const prevPlans = [...collaborativePlans];
-  const planIndex = collaborativePlans.findIndex((p) => idEquals(p._id, selectedPlanId));
-      const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex], plan: [...collaborativePlans[planIndex].plan] } : null;
+      const prevPlans = [...sharedPlans];
+  const planIndex = sharedPlans.findIndex((p) => idEquals(p._id, selectedPlanId));
+      const prevPlan = planIndex >= 0 ? { ...sharedPlans[planIndex], plan: [...sharedPlans[planIndex].plan] } : null;
 
       const isAdd = planItemFormState === 1;
       const tempId = `temp-${Date.now()}`;
 
       const apply = () => {
         if (!prevPlan || planIndex < 0) return;
-        const updatedPlans = [...collaborativePlans];
+        const updatedPlans = [...sharedPlans];
         const updatedPlan = { ...prevPlan, plan: [...prevPlan.plan] };
         if (isAdd) {
           updatedPlan.plan.push({
@@ -1755,7 +1768,7 @@ export default function SingleExperience() {
           }
         }
         updatedPlans[planIndex] = updatedPlan;
-        setCollaborativePlans(updatedPlans);
+        setSharedPlans(updatedPlans);
         setShowPlanItemModal(false);
         setEditingPlanItem({});
       };
@@ -1770,13 +1783,13 @@ export default function SingleExperience() {
       };
 
       const rollback = () => {
-        setCollaborativePlans(prevPlans);
+        setSharedPlans(prevPlans);
         setShowPlanItemModal(true);
         setEditingPlanItem(isAdd ? (editingPlanItem || {}) : editingPlanItem);
       };
 
       const onSuccess = async () => {
-        fetchCollaborativePlans().catch(() => {});
+        fetchSharedPlans().catch(() => {});
         fetchUserPlan().catch(() => {});
         fetchPlans().catch(() => {});
       };
@@ -1793,9 +1806,9 @@ export default function SingleExperience() {
       selectedPlanId,
       editingPlanItem,
       planItemFormState,
-      fetchCollaborativePlans,
+      fetchSharedPlans,
       fetchUserPlan,
-      collaborativePlans,
+      sharedPlans,
       fetchPlans,
       showError,
     ]
@@ -1804,16 +1817,16 @@ export default function SingleExperience() {
   const handlePlanInstanceItemDelete = useCallback(async () => {
     if (!selectedPlanId || !planInstanceItemToDelete) return;
     // Optimistic removal from selected plan snapshot
-    const prevPlans = [...collaborativePlans];
-  const planIndex = collaborativePlans.findIndex((p) => idEquals(p._id, selectedPlanId));
-    const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex], plan: [...collaborativePlans[planIndex].plan] } : null;
+    const prevPlans = [...sharedPlans];
+  const planIndex = sharedPlans.findIndex((p) => idEquals(p._id, selectedPlanId));
+    const prevPlan = planIndex >= 0 ? { ...sharedPlans[planIndex], plan: [...sharedPlans[planIndex].plan] } : null;
 
     const apply = () => {
       if (!prevPlan || planIndex < 0) return;
-      const updatedPlans = [...collaborativePlans];
+      const updatedPlans = [...sharedPlans];
       const updatedPlan = { ...prevPlan, plan: prevPlan.plan.filter((i) => i._id?.toString() !== planInstanceItemToDelete._id?.toString()) };
       updatedPlans[planIndex] = updatedPlan;
-      setCollaborativePlans(updatedPlans);
+      setSharedPlans(updatedPlans);
       setShowPlanInstanceDeleteModal(false);
       setPlanInstanceItemToDelete(null);
     };
@@ -1823,16 +1836,14 @@ export default function SingleExperience() {
     };
 
     const rollback = () => {
-      setCollaborativePlans(prevPlans);
+      setSharedPlans(prevPlans);
     };
 
-    const onSuccess = async () => {
-      fetchCollaborativePlans().catch(() => {});
-      fetchUserPlan().catch(() => {});
-      fetchPlans().catch(() => {});
-    };
-
-    const onError = (err, defaultMsg) => {
+      const onSuccess = async () => {
+        fetchSharedPlans().catch(() => {});
+        fetchUserPlan().catch(() => {});
+        fetchPlans().catch(() => {});
+      };    const onError = (err, defaultMsg) => {
       const errorMsg = handleError(err, { context: "Delete plan item" }) || defaultMsg;
       showError(errorMsg);
     };
@@ -1842,8 +1853,8 @@ export default function SingleExperience() {
   }, [
     selectedPlanId,
     planInstanceItemToDelete,
-    collaborativePlans,
-    fetchCollaborativePlans,
+    sharedPlans,
+    fetchSharedPlans,
     fetchUserPlan,
     fetchPlans,
     showError,
@@ -1963,12 +1974,12 @@ export default function SingleExperience() {
       setSelectedPlanId(pid);
 
       // Update displayed planned date to the selected plan's date
-      const selectedPlan = collaborativePlans.find((p) => idEquals(p._id, pid));
+      const selectedPlan = sharedPlans.find((p) => idEquals(p._id, pid));
       if (selectedPlan) {
         setDisplayedPlannedDate(selectedPlan.planned_date || null);
       }
     },
-    [collaborativePlans]
+    [sharedPlans]
   );
 
   // Auto-select first plan when plans load (if no hash navigation)
@@ -1979,7 +1990,7 @@ export default function SingleExperience() {
     // 3. No plan is currently selected
     // 4. Not waiting for intent-based navigation (pending intent or hash in URL)
     const hasPendingIntent = intent && !intent.consumed;
-    if (!plansLoading && collaborativePlans.length > 0 && !selectedPlanId && !hasPendingIntent) {
+    if (!plansLoading && sharedPlans.length > 0 && !selectedPlanId && !hasPendingIntent) {
       // Check if there's a hash in the URL - if so, let hash navigation handle it
       const hash = window.location.hash || '';
       if (hash.startsWith('#plan-')) {
@@ -1988,7 +1999,7 @@ export default function SingleExperience() {
       }
 
       // Auto-select the first plan (user's own plan is always first due to sorting)
-      const firstPlan = collaborativePlans[0];
+      const firstPlan = sharedPlans[0];
       const firstPlanId = firstPlan._id && firstPlan._id.toString ? firstPlan._id.toString() : firstPlan._id;
 
       debug.log('[Auto-select] Auto-selecting first plan and switching to My Plan tab:', {
@@ -2000,7 +2011,7 @@ export default function SingleExperience() {
       setActiveTab('myplan'); // Switch to My Plan tab when auto-selecting
       handlePlanChange(firstPlanId);
     }
-  }, [plansLoading, collaborativePlans, selectedPlanId, intent, user._id, idEquals, handlePlanChange]);
+  }, [plansLoading, sharedPlans, selectedPlanId, intent, user._id, idEquals, handlePlanChange]);
 
   // Collaborator handlers now provided by useCollaboratorManager hook
 
@@ -2192,7 +2203,7 @@ export default function SingleExperience() {
 
         // Refresh plans immediately - version-based reconciliation prevents overwrites
         fetchUserPlan().catch(() => {});
-        fetchCollaborativePlans().catch(() => {});
+        fetchSharedPlans().catch(() => {});
         fetchPlans().catch(() => {});
 
         debug.log("Plan date updated successfully");
@@ -2216,7 +2227,7 @@ export default function SingleExperience() {
 
           // Refresh plans immediately - version-based reconciliation prevents overwrites
           fetchUserPlan().catch(() => {});
-          fetchCollaborativePlans().catch(() => {});
+          fetchSharedPlans().catch(() => {});
           fetchPlans().catch(() => {});
 
           debug.log("Existing plan date updated successfully");
@@ -2244,7 +2255,7 @@ export default function SingleExperience() {
 
           // Refresh plans immediately - version-based reconciliation prevents overwrites
           fetchUserPlan().catch(() => {});
-          fetchCollaborativePlans().catch(() => {});
+          fetchSharedPlans().catch(() => {});
           fetchPlans().catch(() => {});
 
           debug.log("Owner's existing plan date updated successfully");
@@ -2281,7 +2292,7 @@ export default function SingleExperience() {
     userPlan,
     handleAddExperience,
     fetchUserPlan,
-    fetchCollaborativePlans,
+    fetchSharedPlans,
     fetchAllData,
   ]);
 
@@ -2369,10 +2380,10 @@ export default function SingleExperience() {
       };
 
       // Save previous state for rollback
-      const prevPlans = collaborativePlans;
+      const prevPlans = sharedPlans;
 
       // 1. Optimistic update - only change the complete property of this specific item
-      setCollaborativePlans(plans =>
+      setSharedPlans(plans =>
         plans.map(p =>
           idEquals(p._id, selectedPlanId)
             ? updateItemComplete(p, itemId, newComplete)
@@ -2386,14 +2397,14 @@ export default function SingleExperience() {
         // Success - optimistic state is already correct, no further action needed
       } catch (err) {
         // 3. Rollback on error
-        setCollaborativePlans(prevPlans);
+        setSharedPlans(prevPlans);
         const errorMsg = handleError(err, { context: "Toggle plan item completion" }) || "Failed to update item. Please try again.";
         showError(errorMsg);
       } finally {
         userInteractionRef.current = false;
       }
     },
-    [selectedPlanId, collaborativePlans, setCollaborativePlans, idEquals, showError]
+    [selectedPlanId, sharedPlans, setSharedPlans, idEquals, showError]
   );
 
   /**
@@ -2412,16 +2423,16 @@ export default function SingleExperience() {
         draggedItemId
       });
 
-      // Optimistic update to collaborativePlans state
-      const prevPlans = [...collaborativePlans];
-      const planIndex = collaborativePlans.findIndex((p) => idEquals(p._id, planId));
-      const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex] } : null;
+      // Optimistic update to sharedPlans state
+      const prevPlans = [...sharedPlans];
+      const planIndex = sharedPlans.findIndex((p) => idEquals(p._id, planId));
+      const prevPlan = planIndex >= 0 ? { ...sharedPlans[planIndex] } : null;
 
       const apply = () => {
         if (!prevPlan || planIndex < 0) return;
-        const updatedPlans = [...collaborativePlans];
+        const updatedPlans = [...sharedPlans];
         updatedPlans[planIndex] = { ...prevPlan, plan: reorderedItems };
-        setCollaborativePlans(updatedPlans);
+        setSharedPlans(updatedPlans);
       };
 
       const apiCall = async () => {
@@ -2429,7 +2440,7 @@ export default function SingleExperience() {
       };
 
       const rollback = () => {
-        setCollaborativePlans(prevPlans);
+        setSharedPlans(prevPlans);
       };
 
       const onSuccess = async () => {
@@ -2445,7 +2456,7 @@ export default function SingleExperience() {
         }
 
         // Refresh plan data to ensure consistency
-        fetchCollaborativePlans().catch(() => {});
+        fetchSharedPlans().catch(() => {});
         fetchUserPlan().catch(() => {});
         fetchPlans().catch(() => {});
         success(lang.current.notification?.plan?.reordered || 'Your plan order has been saved');
@@ -2467,8 +2478,8 @@ export default function SingleExperience() {
       await run();
     },
     [
-      collaborativePlans,
-      fetchCollaborativePlans,
+      sharedPlans,
+      fetchSharedPlans,
       fetchUserPlan,
       fetchPlans,
       success,
@@ -2686,7 +2697,7 @@ export default function SingleExperience() {
                       setActiveTab={setActiveTab}
                       user={user}
                       idEquals={idEquals}
-                      collaborativePlans={collaborativePlans}
+                      sharedPlans={sharedPlans}
                       plansLoading={plansLoading}
                       selectedPlanId={selectedPlanId}
                       setSelectedPlanId={setSelectedPlanId}
@@ -2736,7 +2747,7 @@ export default function SingleExperience() {
                         selectedPlanId={selectedPlanId}
                         user={user}
                         idEquals={idEquals}
-                        collaborativePlans={collaborativePlans}
+                        sharedPlans={sharedPlans}
                         planOwner={planOwner}
                         planCollaborators={planCollaborators}
                         planOwnerLoading={planOwnerLoading}
@@ -2904,6 +2915,11 @@ export default function SingleExperience() {
             </Row>
           </Container>
         </div>
+      ) : experienceNotFound ? (
+        <EntityNotFound
+          entityType="experience"
+          size="lg"
+        />
       ) : (
         <SingleExperienceSkeleton />
       )}
@@ -3089,8 +3105,8 @@ export default function SingleExperience() {
               } : prev);
             }
 
-            // Update collaborativePlans if it's in there
-            setCollaborativePlans(prev => updatePlanItemAssignment(prev, selectedPlan._id, selectedDetailsItem._id, userId));
+            // Update sharedPlans if it's in there
+            setSharedPlans(prev => updatePlanItemAssignment(prev, selectedPlan._id, selectedDetailsItem._id, userId));
 
             // Update selectedDetailsItem for the modal (both camelCase and snake_case for compatibility)
             setSelectedDetailsItem(prev => prev ? { ...prev, assignedTo: userId, assigned_to: userId } : prev);
@@ -3119,7 +3135,7 @@ export default function SingleExperience() {
               } : prev);
             }
 
-            setCollaborativePlans(prev => prev.map(plan => {
+            setSharedPlans(prev => prev.map(plan => {
               if (plan._id === selectedPlan._id) {
                 return {
                   ...plan,
@@ -3159,7 +3175,7 @@ export default function SingleExperience() {
               } : prev);
             }
 
-            setCollaborativePlans(prev => prev.map(plan => {
+            setSharedPlans(prev => prev.map(plan => {
               if (plan._id === selectedPlan._id) {
                 return {
                   ...plan,
@@ -3200,7 +3216,7 @@ export default function SingleExperience() {
               } : prev);
             }
 
-            setCollaborativePlans(prev => prev.map(plan => {
+            setSharedPlans(prev => prev.map(plan => {
               if (plan._id === selectedPlan._id) {
                 return {
                   ...plan,

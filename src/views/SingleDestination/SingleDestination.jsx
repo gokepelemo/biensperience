@@ -5,6 +5,7 @@ import { showDestination } from "../../utilities/destinations-api";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
+import { useExperienceWizard } from "../../contexts/ExperienceWizardContext";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import TravelTipsList from "../../components/TravelTipsList/TravelTipsList";
@@ -17,7 +18,7 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageSchema from '../../components/PageSchema/PageSchema';
 import { buildDestinationSchema } from '../../utilities/schema-utils';
 import { isOwner } from "../../utilities/permissions";
-import { Container, Button, SkeletonLoader } from "../../components/design-system";
+import { Container, Button, SkeletonLoader, EntityNotFound, EmptyState } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
 import { toggleUserFavoriteDestination, deleteDestination } from "../../utilities/destinations-api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
@@ -30,6 +31,7 @@ export default function SingleDestination() {
   const { user } = useUser();
   const { experiences, destinations, plans, fetchDestinations } = useData();
   const { registerH1, setPageActionButtons, clearActionButtons, updateShowH1InNavbar } = useApp();
+  const { openExperienceWizard } = useExperienceWizard();
   const { destinationId } = useParams();
   const navigate = useNavigate();
   const [destination, setDestination] = useState(null);
@@ -54,8 +56,13 @@ export default function SingleDestination() {
    */
   const mergeDestination = useCallback((updates) => {
     setDestination(prev => {
-      if (!prev) return updates; // First load - use full data
-      if (!updates) return prev; // No updates - keep existing
+      // Explicit `null` means clear the local destination state
+      if (updates === null) return null;
+
+      // First load - use full data
+      if (!prev) return updates;
+      // No updates - keep existing
+      if (!updates) return prev;
 
       // Smart merge for photos: preserve populated photos if incoming is unpopulated
       const mergedPhotos = (() => {
@@ -84,11 +91,18 @@ export default function SingleDestination() {
       // Fetch destination data
       const destinationData = await showDestination(destinationId);
       // ✅ Use merge to preserve unchanged data (prevents photo/name flash)
-      mergeDestination(destinationData);
+      // If the server returns no data (deleted/missing), ensure we clear local state
+      if (!destinationData) {
+        mergeDestination(null);
+      } else {
+        mergeDestination(destinationData);
+      }
       // Refresh destinations list in background
       fetchDestinations();
     } catch (error) {
       logger.error('Error fetching destination', { destinationId, error: error.message });
+      // If fetch fails (404 or network), clear local destination to avoid showing stale data
+      mergeDestination(null);
     } finally {
       setIsLoading(false);
     }
@@ -155,11 +169,29 @@ export default function SingleDestination() {
   // Update local state when global destinations or experiences change
   useEffect(() => {
     const foundDestination = destinations.find((dest) => dest._id === destinationId);
+    // If DataContext has the destination, merge/update local state.
+    // Do NOT clear local state when it's missing from the global `destinations`
+    // (global lists may be paginated and not include this item). Only update
+    // when we actually have a populated destination object to merge.
     if (foundDestination) {
       // ✅ Use merge to preserve unchanged data (prevents flash on context update)
       mergeDestination(foundDestination);
     }
   }, [destinations, destinationId, mergeDestination]);
+
+  // Listen for explicit destination deletion events and clear local view
+  useEffect(() => {
+    const handleDestinationDeleted = (event) => {
+      const destinationIdFromEvent = event.destinationId || event.detail?.destinationId;
+      if (destinationIdFromEvent && String(destinationIdFromEvent) === String(destinationId)) {
+        // Destination deleted -> clear local state so Error / Not Found shows
+        mergeDestination(null);
+      }
+    };
+
+    const unsubscribe = eventBus.subscribe('destination:deleted', handleDestinationDeleted);
+    return () => unsubscribe();
+  }, [destinationId, mergeDestination]);
 
   // Listen for destination update events to refresh this specific destination
   useEffect(() => {
@@ -326,13 +358,7 @@ export default function SingleDestination() {
     return (
       <div className={styles.destinationContainer}>
         <Container>
-          <Alert type="warning" title="Destination Not Found">
-            <p>The destination you're looking for doesn't exist or has been removed.</p>
-            <hr />
-            <p className="mb-0">
-              <Link to="/destinations" className="alert-link">Browse all destinations</Link>
-            </p>
-          </Alert>
+          <EntityNotFound entityType="destination" />
         </Container>
       </div>
     );
@@ -455,6 +481,16 @@ export default function SingleDestination() {
                                 experience={experience}
                                 userPlans={plans}
                                 forcePreload={true}
+                                onOptimisticDelete={(id) => {
+                                  // Remove the experience from directDestinationExperiences immediately
+                                  setDirectDestinationExperiences((prev) => {
+                                    if (!prev) return prev;
+                                    return prev.filter((e) => {
+                                      const eid = e?._id || e;
+                                      return String(eid) !== String(id);
+                                    });
+                                  });
+                                }}
                               />
                             </Col>
                           ) : (
@@ -484,17 +520,13 @@ export default function SingleDestination() {
                       )}
                     </>
                   ) : (
-                    <Alert
-                      type="info"
-                      className="alert-centered"
-                      message={lang.current.alert.noExperiencesInDestination}
-                      actions={
-                        <Link to="/experiences/new">
-                          <Button variant="gradient" size="md">
-                            Add Experience
-                          </Button>
-                        </Link>
-                      }
+                      <EmptyState
+                      variant="experiences"
+                      title="No experiences in this destination yet"
+                      description="Be the first to add one and help others discover amazing activities here."
+                      primaryAction="Add Experience"
+                      onPrimaryAction={() => openExperienceWizard({ destinationId, destinationName: `${destination?.name}, ${destination?.country}` })}
+                      size="md"
                     />
                   )}
                 </Card.Body>
@@ -527,7 +559,7 @@ export default function SingleDestination() {
 
                   {/* Share Button */}
                   <Button
-                    variant="outline-secondary"
+                    variant="outline"
                     rounded
                     fullWidth
                     onClick={() => {
@@ -548,7 +580,7 @@ export default function SingleDestination() {
                   {user && isOwner(user, destination) && (
                     <>
                       <Button
-                        variant="outline-secondary"
+                        variant="outline"
                         rounded
                         fullWidth
                         onClick={() => navigate(`/destinations/${destinationId}/update`)}
@@ -556,7 +588,7 @@ export default function SingleDestination() {
                         <FaEdit style={{ marginRight: '8px' }} /> Edit Destination
                       </Button>
                       <Button
-                        variant="outline-danger"
+                        variant="danger"
                         rounded
                         fullWidth
                         onClick={() => setShowDeleteModal(true)}

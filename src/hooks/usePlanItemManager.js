@@ -16,10 +16,10 @@ import { idEquals } from '../utilities/user-roles';
  * @param {Object} options
  * @param {Object} options.plan - Current plan object
  * @param {Object} options.experience - Experience object
- * @param {Array} options.collaborativePlans - Array of collaborative plans
- * @param {Function} options.setCollaborativePlans - Setter for collaborative plans
+ * @param {Array} options.sharedPlans - Array of shared plans
+ * @param {Function} options.setSharedPlans - Setter for shared plans
  * @param {Function} options.setExperience - Setter for experience
- * @param {Function} options.fetchCollaborativePlans - Fetch collaborative plans
+ * @param {Function} options.fetchSharedPlans - Fetch shared plans
  * @param {Function} options.fetchUserPlan - Fetch user plan
  * @param {Function} options.fetchPlans - Fetch global plans
  * @param {Function} options.fetchExperience - Fetch experience data
@@ -29,10 +29,10 @@ import { idEquals } from '../utilities/user-roles';
 export default function usePlanItemManager({
   plan,
   experience,
-  collaborativePlans,
-  setCollaborativePlans,
+  sharedPlans,
+  setSharedPlans,
   setExperience,
-  fetchCollaborativePlans,
+  fetchSharedPlans,
   fetchUserPlan,
   fetchPlans,
   fetchExperience,
@@ -97,16 +97,16 @@ export default function usePlanItemManager({
       e.preventDefault();
       if (!selectedPlanId) return;
 
-      const prevPlans = [...collaborativePlans];
-      const planIndex = collaborativePlans.findIndex((p) => idEquals(p._id, selectedPlanId));
-      const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex], plan: [...collaborativePlans[planIndex].plan] } : null;
+      const prevPlans = [...sharedPlans];
+      const planIndex = sharedPlans.findIndex((p) => idEquals(p._id, selectedPlanId));
+      const prevPlan = planIndex >= 0 ? { ...sharedPlans[planIndex], plan: [...sharedPlans[planIndex].plan] } : null;
 
       const isAdd = formState === 1;
       const tempId = `temp-${Date.now()}`;
 
       const apply = () => {
         if (!prevPlan || planIndex < 0) return;
-        const updatedPlans = [...collaborativePlans];
+        const updatedPlans = [...sharedPlans];
         const updatedPlan = { ...prevPlan, plan: [...prevPlan.plan] };
         if (isAdd) {
           updatedPlan.plan.push({
@@ -133,7 +133,7 @@ export default function usePlanItemManager({
           }
         }
         updatedPlans[planIndex] = updatedPlan;
-        setCollaborativePlans(updatedPlans);
+        setSharedPlans(updatedPlans);
         setShowModal(false);
         setEditingItem({});
       };
@@ -148,13 +148,13 @@ export default function usePlanItemManager({
       };
 
       const rollback = () => {
-        setCollaborativePlans(prevPlans);
+        setSharedPlans(prevPlans);
         setShowModal(true);
         setEditingItem(isAdd ? (editingItem || {}) : editingItem);
       };
 
       const onSuccess = async () => {
-        fetchCollaborativePlans().catch(() => {});
+        fetchSharedPlans().catch(() => {});
         fetchUserPlan().catch(() => {});
         fetchPlans().catch(() => {});
       };
@@ -167,7 +167,7 @@ export default function usePlanItemManager({
       const run = useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context: isAdd ? 'Add plan item' : 'Update plan item' });
       await run();
     },
-    [selectedPlanId, editingItem, formState, collaborativePlans, fetchCollaborativePlans, fetchUserPlan, fetchPlans, showError, setCollaborativePlans]
+    [selectedPlanId, editingItem, formState, sharedPlans, fetchSharedPlans, fetchUserPlan, fetchPlans, showError, setSharedPlans]
   );
 
   /**
@@ -259,16 +259,16 @@ export default function usePlanItemManager({
   const handleDeletePlanItem = useCallback(async () => {
     if (!selectedPlanId || !deleteItem) return;
 
-    const prevPlans = [...collaborativePlans];
-    const planIndex = collaborativePlans.findIndex((p) => idEquals(p._id, selectedPlanId));
-    const prevPlan = planIndex >= 0 ? { ...collaborativePlans[planIndex], plan: [...collaborativePlans[planIndex].plan] } : null;
+    const prevPlans = [...sharedPlans];
+    const planIndex = sharedPlans.findIndex((p) => idEquals(p._id, selectedPlanId));
+    const prevPlan = planIndex >= 0 ? { ...sharedPlans[planIndex], plan: [...sharedPlans[planIndex].plan] } : null;
 
     const apply = () => {
       if (!prevPlan || planIndex < 0) return;
-      const updatedPlans = [...collaborativePlans];
+      const updatedPlans = [...sharedPlans];
       const updatedPlan = { ...prevPlan, plan: prevPlan.plan.filter((i) => i._id?.toString() !== deleteItem._id?.toString()) };
       updatedPlans[planIndex] = updatedPlan;
-      setCollaborativePlans(updatedPlans);
+      setSharedPlans(updatedPlans);
       setShowDeleteModal(false);
       setDeleteItem(null);
     };
@@ -278,11 +278,11 @@ export default function usePlanItemManager({
     };
 
     const rollback = () => {
-      setCollaborativePlans(prevPlans);
+      setSharedPlans(prevPlans);
     };
 
     const onSuccess = async () => {
-      fetchCollaborativePlans().catch(() => {});
+      fetchSharedPlans().catch(() => {});
       fetchUserPlan().catch(() => {});
       fetchPlans().catch(() => {});
     };
@@ -294,7 +294,7 @@ export default function usePlanItemManager({
 
     const run = useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context: 'Delete plan item' });
     await run();
-  }, [selectedPlanId, deleteItem, collaborativePlans, fetchCollaborativePlans, fetchUserPlan, fetchPlans, showError, setCollaborativePlans]);
+  }, [selectedPlanId, deleteItem, sharedPlans, fetchSharedPlans, fetchUserPlan, fetchPlans, showError, setSharedPlans]);
 
   /**
    * Open delete confirmation modal (plan item)

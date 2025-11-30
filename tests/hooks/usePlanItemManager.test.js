@@ -31,10 +31,10 @@ describe('usePlanItemManager', () => {
   const createMockProps = (overrides = {}) => ({
     plan: { _id: 'plan-123', plan: [] },
     experience: { _id: 'exp-456', plan_items: [] },
-    collaborativePlans: [{ _id: 'plan-123', plan: [] }],
-    setCollaborativePlans: jest.fn(),
+    sharedPlans: [{ _id: 'plan-123', plan: [] }],
+    setSharedPlans: jest.fn(),
     setExperience: jest.fn(),
-    fetchCollaborativePlans: jest.fn().mockResolvedValue([]),
+    fetchSharedPlans: jest.fn().mockResolvedValue([]),
     fetchUserPlan: jest.fn().mockResolvedValue(null),
     fetchPlans: jest.fn().mockResolvedValue([]),
     fetchExperience: jest.fn().mockResolvedValue({}),
@@ -327,16 +327,16 @@ describe('usePlanItemManager', () => {
 
   describe('Plan Mode - Save Item', () => {
     it('should add new plan item with optimistic update', async () => {
-      const setCollaborativePlans = jest.fn();
-      const fetchCollaborativePlans = jest.fn().mockResolvedValue([]);
+      const setSharedPlans = jest.fn();
+      const fetchSharedPlans = jest.fn().mockResolvedValue([]);
       const fetchUserPlan = jest.fn().mockResolvedValue(null);
       const fetchPlans = jest.fn().mockResolvedValue([]);
 
       const mockProps = createMockProps({
         plan: { _id: 'plan-123' },
-        collaborativePlans: [{ _id: 'plan-123', plan: [] }],
-        setCollaborativePlans,
-        fetchCollaborativePlans,
+        sharedPlans: [{ _id: 'plan-123', plan: [] }],
+        setSharedPlans,
+        fetchSharedPlans,
         fetchUserPlan,
         fetchPlans
       });
@@ -367,19 +367,19 @@ describe('usePlanItemManager', () => {
       }));
 
       // Verify refresh functions called
-      expect(fetchCollaborativePlans).toHaveBeenCalled();
+      expect(fetchSharedPlans).toHaveBeenCalled();
       expect(fetchUserPlan).toHaveBeenCalled();
       expect(fetchPlans).toHaveBeenCalled();
     });
 
     it('should update existing plan item', async () => {
-      const setCollaborativePlans = jest.fn();
+      const setSharedPlans = jest.fn();
       const existingItem = { _id: 'item-123', plan_item_id: 'pi-123', text: 'Original', cost: 10 };
 
       const mockProps = createMockProps({
         plan: { _id: 'plan-123' },
-        collaborativePlans: [{ _id: 'plan-123', plan: [existingItem] }],
-        setCollaborativePlans
+        sharedPlans: [{ _id: 'plan-123', plan: [existingItem] }],
+        setSharedPlans
       });
 
       plansApi.updatePlanItem.mockResolvedValue({ _id: 'item-123', text: 'Updated' });
@@ -498,13 +498,13 @@ describe('usePlanItemManager', () => {
 
   describe('Delete Plan Item', () => {
     it('should delete plan item with optimistic update', async () => {
-      const setCollaborativePlans = jest.fn();
+      const setSharedPlans = jest.fn();
       const itemToDelete = { _id: 'item-123', text: 'Delete me' };
 
       const mockProps = createMockProps({
         plan: { _id: 'plan-123' },
-        collaborativePlans: [{ _id: 'plan-123', plan: [itemToDelete] }],
-        setCollaborativePlans
+        sharedPlans: [{ _id: 'plan-123', plan: [itemToDelete] }],
+        setSharedPlans
       });
 
       plansApi.deletePlanItemFromInstance.mockResolvedValue({});
@@ -562,12 +562,12 @@ describe('usePlanItemManager', () => {
   describe('Error Handling', () => {
     it('should handle API error on add plan item', async () => {
       const showError = jest.fn();
-      const setCollaborativePlans = jest.fn();
+      const setSharedPlans = jest.fn();
 
       const mockProps = createMockProps({
         plan: { _id: 'plan-123' },
-        collaborativePlans: [{ _id: 'plan-123', plan: [] }],
-        setCollaborativePlans,
+        sharedPlans: [{ _id: 'plan-123', plan: [] }],
+        setSharedPlans,
         showError
       });
 
@@ -590,13 +590,13 @@ describe('usePlanItemManager', () => {
 
     it('should handle API error on delete plan item', async () => {
       const showError = jest.fn();
-      const setCollaborativePlans = jest.fn();
+      const setSharedPlans = jest.fn();
       const itemToDelete = { _id: 'item-123', text: 'Test' };
 
       const mockProps = createMockProps({
         plan: { _id: 'plan-123' },
-        collaborativePlans: [{ _id: 'plan-123', plan: [itemToDelete] }],
-        setCollaborativePlans,
+        sharedPlans: [{ _id: 'plan-123', plan: [itemToDelete] }],
+        setSharedPlans,
         showError
       });
 
@@ -679,13 +679,13 @@ describe('usePlanItemManager', () => {
 
   describe('Optimistic Update Rollback', () => {
     it('should rollback state on API failure for add', async () => {
-      const setCollaborativePlans = jest.fn();
+      const setSharedPlans = jest.fn();
       const originalPlans = [{ _id: 'plan-123', plan: [] }];
 
       const mockProps = createMockProps({
         plan: { _id: 'plan-123' },
-        collaborativePlans: originalPlans,
-        setCollaborativePlans
+        sharedPlans: originalPlans,
+        setSharedPlans
       });
 
       plansApi.addPlanItemToInstance.mockRejectedValue(new Error('Failed'));
@@ -702,7 +702,7 @@ describe('usePlanItemManager', () => {
       });
 
       // Verify rollback was called with original plans
-      expect(setCollaborativePlans).toHaveBeenCalledWith(originalPlans);
+      expect(setSharedPlans).toHaveBeenCalledWith(originalPlans);
     });
 
     it('should rollback experience state on API failure', async () => {

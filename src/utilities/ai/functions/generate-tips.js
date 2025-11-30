@@ -20,6 +20,7 @@ import { complete } from '../complete';
  * @param {number} [options.count] - Number of tips to generate
  * @param {string[]} [options.categories] - Tip categories to focus on
  * @param {string} [options.provider] - Override provider
+ * @param {Object} [options.prompts] - Optional prompts override. An object mapping AI task keys (see `AI_TASKS`) to system prompt strings. When provided, the task-specific prompt will be used instead of the central `SYSTEM_PROMPTS`.
  * @returns {Promise<string[]>} Array of travel tips
  */
 export async function generateTravelTips(context, options = {}) {
@@ -33,8 +34,10 @@ export async function generateTravelTips(context, options = {}) {
   if (description) contextStr += `Description: ${description}\n`;
   if (categories.length > 0) contextStr += `Focus on: ${categories.join(', ')}\n`;
 
+  const systemPrompt = (options.prompts && options.prompts[AI_TASKS.GENERATE_TIPS]) || SYSTEM_PROMPTS[AI_TASKS.GENERATE_TIPS];
+
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPTS[AI_TASKS.GENERATE_TIPS] },
+    { role: 'system', content: systemPrompt },
     {
       role: 'user',
       content: `${contextStr}\nGenerate ${count} practical travel tips. Return as a JSON array of strings.`

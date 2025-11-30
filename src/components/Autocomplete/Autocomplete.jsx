@@ -186,7 +186,9 @@ export default function Autocomplete({
         if (multi) {
           onSelect([]);
         } else {
-          onSelect({});
+          // Pass `null` for single-select to indicate no selection. Parents should
+          // handle null/undefined values rather than assuming an object with fields.
+          onSelect(null);
         }
       } catch (err) {
         // swallow errors from parent handlers

@@ -207,6 +207,125 @@
   margin-top: var(--space-2);
 }
 
+// Plan items styles
+.planItemsSection {
+  .sectionTitle {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--space-2);
+    color: var(--color-text-primary);
+  }
+
+  .sectionDescription {
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-4);
+    font-size: var(--font-size-sm);
+  }
+}
+
+.addPlanItemForm {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.planItemsList {
+  margin-top: var(--space-4);
+}
+
+.planItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .planItemGrip {
+    color: var(--color-text-muted);
+    cursor: grab;
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast);
+
+    &:hover {
+      color: var(--color-primary);
+    }
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  .planItemContent {
+    flex: 1;
+
+    .planItemText {
+      font-weight: var(--font-weight-medium);
+      margin-bottom: var(--space-1);
+    }
+
+    .planItemUrl {
+      font-size: var(--font-size-sm);
+      margin-bottom: var(--space-1);
+
+      a {
+        color: var(--color-primary);
+        text-decoration: none;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+
+    .planItemMeta {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+      display: flex;
+      gap: var(--space-3);
+    }
+  }
+
+  .planItemDelete {
+    color: var(--color-danger);
+    background: none;
+    border: none;
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+
+    &:hover {
+      background: var(--color-danger-light);
+      color: white;
+    }
+  }
+}
+
+.emptyState {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.summaryPlanItems {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
 // Responsive adjustments
 @media (max-width: 576px) {
   .stepIndicator {
@@ -232,6 +351,20 @@
       button {
         flex: 1;
       }
+    }
+  }
+
+  .planItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+
+    .planItemGrip {
+      align-self: flex-end;
+    }
+
+    .planItemDelete {
+      align-self: flex-end;
     }
   }
 }

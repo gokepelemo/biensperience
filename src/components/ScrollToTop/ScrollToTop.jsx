@@ -12,12 +12,8 @@ export default function ScrollToTop() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    // Scroll to top of the page
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: 'smooth'
-    });
+    // Scroll to top of the page instantly for faster navigation
+    window.scrollTo(0, 0);
   }, [pathname]);
 
   return null;

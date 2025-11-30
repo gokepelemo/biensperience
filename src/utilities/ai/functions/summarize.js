@@ -15,6 +15,7 @@ import { complete } from '../complete';
  * @param {number} [options.maxLength] - Max summary length in words
  * @param {string} [options.style] - Summary style (brief, detailed, bullet-points)
  * @param {string} [options.provider] - Override provider
+ * @param {Object} [options.prompts] - Optional prompts override. An object mapping AI task keys (see `AI_TASKS`) to system prompt strings. When provided, the task-specific prompt will be used instead of the central `SYSTEM_PROMPTS`.
  * @returns {Promise<string>} Summary
  */
 export async function summarize(content, options = {}) {
@@ -32,8 +33,10 @@ export async function summarize(content, options = {}) {
       styleInstruction = 'Provide a concise summary capturing the essential points.';
   }
 
+  const systemPrompt = (options.prompts && options.prompts[AI_TASKS.SUMMARIZE]) || SYSTEM_PROMPTS[AI_TASKS.SUMMARIZE];
+
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPTS[AI_TASKS.SUMMARIZE] },
+    { role: 'system', content: systemPrompt },
     {
       role: 'user',
       content: `${styleInstruction}\nMax length: ${maxLength} words.\n\nContent to summarize:\n\n${content}`

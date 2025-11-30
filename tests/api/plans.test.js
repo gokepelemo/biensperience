@@ -78,6 +78,9 @@ describe('Plan Integration Tests', () => {
       expect(plan).toBeTruthy();
       expect(plan.plan).toHaveLength(2); // Should have snapshot of 2 plan items
 
+      // Wait for async contributor permission addition to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Verify user became contributor
       const updatedExperience = await Experience.findById(experience._id);
       const contributorPerm = updatedExperience.permissions.find(
@@ -235,6 +238,83 @@ describe('Plan Integration Tests', () => {
       // Verify plan snapshot unchanged
       const plan = await Plan.findById(response.body._id);
       expect(plan.plan[0].text).toBe('Plan Item 1'); // Original text
+    });
+  });
+
+  describe('Experience Deletion Cascade', () => {
+    let user2, user3;
+
+    beforeEach(async () => {
+      // Create additional test users for cascade testing
+      user2 = await createTestUser({ name: 'Test User 2', email: 'testuser2@example.com' });
+      user3 = await createTestUser({ name: 'Test User 3', email: 'testuser3@example.com' });
+    });
+
+    test('should delete all associated plans when experience is deleted', async () => {
+      // Create multiple plans for the experience as different users
+      const plan1Response = await request(app)
+        .post(`/api/plans/experience/${experience._id}`)
+        .set('Authorization', generateAuthToken(user))
+        .send({ planned_date: new Date() });
+
+      const plan2Response = await request(app)
+        .post(`/api/plans/experience/${experience._id}`)
+        .set('Authorization', generateAuthToken(user2))
+        .send({ planned_date: new Date() });
+
+      const plan3Response = await request(app)
+        .post(`/api/plans/experience/${experience._id}`)
+        .set('Authorization', generateAuthToken(user3))
+        .send({ planned_date: new Date() });
+
+      // Verify plans were created
+      expect(plan1Response.status).toBe(201);
+      expect(plan2Response.status).toBe(201);
+      expect(plan3Response.status).toBe(201);
+
+      const plansBeforeDelete = await Plan.find({ experience: experience._id });
+      expect(plansBeforeDelete).toHaveLength(3);
+
+      // Delete the experience as the owner
+      const ownerToken = generateAuthToken(experienceOwner);
+      const deleteResponse = await request(app)
+        .delete(`/api/experiences/${experience._id}`)
+        .set('Authorization', ownerToken);
+
+      expect(deleteResponse.status).toBe(200);
+
+      // Verify experience was deleted
+      const deletedExperience = await Experience.findById(experience._id);
+      expect(deletedExperience).toBeNull();
+
+      // Verify all associated plans were deleted
+      const plansAfterDelete = await Plan.find({ experience: experience._id });
+      expect(plansAfterDelete).toHaveLength(0);
+    });
+
+    test('should allow experience deletion with cascade when other users have plans', async () => {
+      // Create a plan for the experience as a different user
+      await request(app)
+        .post(`/api/plans/experience/${experience._id}`)
+        .set('Authorization', authToken)
+        .send({ planned_date: new Date() });
+
+      // Delete the experience as the owner - should succeed with cascade
+      const ownerToken = generateAuthToken(experienceOwner);
+      const deleteResponse = await request(app)
+        .delete(`/api/experiences/${experience._id}`)
+        .set('Authorization', ownerToken);
+
+      // Should succeed with 200 status
+      expect(deleteResponse.status).toBe(200);
+
+      // Verify experience was deleted
+      const experienceDeleted = await Experience.findById(experience._id);
+      expect(experienceDeleted).toBeNull();
+
+      // Verify all associated plans were cascade deleted
+      const plansAfterDelete = await Plan.find({ experience: experience._id });
+      expect(plansAfterDelete).toHaveLength(0);
     });
   });
 });

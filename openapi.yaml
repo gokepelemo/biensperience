@@ -1,0 +1,4117 @@
+openapi: 3.1.0
+info:
+  title: Biensperience API
+  description: |
+    # Biensperience Travel Experience Platform API
+
+    Biensperience is a visual travel experience platform that enables users to plan experiences and share their plans with other users who can plan similar experiences. Users can create detailed travel plans with checklists, photos, and hierarchical plan items, then share these experiences to inspire and guide others in planning their own adventures.
+
+    ## Authentication
+
+    The API supports multiple authentication methods:
+
+    ### JWT Authentication
+    Most endpoints require JWT authentication via the `Authorization` header:
+    ```
+    Authorization: Bearer <jwt_token>
+    ```
+
+    ### OAuth Authentication
+    Social login via Facebook, Google, and Twitter is supported through dedicated OAuth endpoints.
+
+    ### API Tokens
+    For programmatic access, API tokens can be used instead of JWT tokens.
+
+    ## Rate Limiting
+
+    The API implements comprehensive rate limiting:
+    - **Authentication endpoints**: 5 requests per 15 minutes
+    - **API endpoints**: 1000 requests per 15 minutes (configurable)
+    - **Modification endpoints**: 100 requests per 15 minutes
+    - **Collaborator management**: 50 requests per 15 minutes
+
+    ## Permissions Framework
+
+    Resources implement a role-based permissions system:
+
+    ### Permission Roles
+    - **Owner**: Full control over resource (edit, delete, manage permissions)
+    - **Collaborator**: Can edit content but cannot manage permissions or delete
+    - **Contributor**: Can view and create derivative works (fork/clone)
+
+    ### Permission Inheritance
+    Resources can inherit permissions from related resources with a maximum depth of 3 levels.
+
+    ## Error Responses
+
+    All API errors follow a consistent format:
+    ```json
+    {
+      "success": false,
+      "error": "Error message",
+      "details": {
+        "field": "validation error details"
+      }
+    }
+    ```
+
+    Common HTTP status codes:
+    - `200`: Success
+    - `201`: Created
+    - `400`: Bad Request
+    - `401`: Unauthorized
+    - `403`: Forbidden
+    - `404`: Not Found
+    - `409`: Conflict
+    - `422`: Validation Error
+    - `429`: Too Many Requests
+    - `500`: Internal Server Error
+
+    ## File Upload
+
+    The API supports file uploads for photos and documents:
+
+    ### Photo Upload
+    - **Formats**: JPEG, PNG, WebP
+    - **Max size**: 10MB per file
+    - **Storage**: AWS S3 with automatic optimization
+
+    ### Document Upload
+    - **Formats**: PDF, DOC, DOCX, TXT
+    - **Max size**: 25MB per file
+    - **Storage**: Protected S3 bucket for sensitive documents
+
+    ## WebSocket Support
+
+    Real-time features are available via WebSocket when enabled:
+    - Live collaboration on plans
+    - Real-time notifications
+    - Activity feed updates
+
+    ## Data Models
+
+    ### User
+    Represents authenticated users with profile information, preferences, and social accounts.
+
+    ### Destination
+    Travel locations with fuzzy matching for duplicates and collaborative permissions.
+
+    ### Experience
+    Core travel experiences with hierarchical plan items, photos, and sharing capabilities.
+
+    ### Plan
+    User-specific instances of experiences with completion tracking and collaboration features.
+
+    ### Photo
+    Image assets with permission-based visibility control and AWS S3 storage.
+
+    ### Document
+    Uploaded documents with secure storage and access controls.
+  version: 0.3.1
+  contact:
+    name: Biensperience Support
+    url: https://github.com/gokepelemo/biensperience
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001/api
+    description: Development server
+  - url: https://api.biensperience.com/api
+    description: Production server
+
+security:
+  - bearerAuth: []
+  - apiTokenAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login or OAuth flow
+    apiTokenAuth:
+      type: apiKey
+      in: header
+      name: X-API-Token
+      description: API token for programmatic access
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Error message
+        details:
+          type: object
+          description: Additional error details
+      required:
+        - success
+        - error
+
+    Success:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          description: Response data
+        message:
+          type: string
+          description: Success message
+      required:
+        - success
+
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: User ID
+        name:
+          type: string
+          description: Full name
+        email:
+          type: string
+          format: email
+          description: Email address
+        provider:
+          type: string
+          enum: [local, facebook, google, twitter]
+          description: Authentication provider
+        photos:
+          type: array
+          items:
+            type: string
+          description: Array of photo IDs
+        default_photo_id:
+          type: string
+          description: Default profile photo ID
+        isSuperAdmin:
+          type: boolean
+          description: Super admin status
+        role:
+          type: string
+          enum: [super_admin, regular_user]
+          description: User role
+        emailConfirmed:
+          type: boolean
+          description: Email verification status
+        visibility:
+          type: string
+          enum: [private, public]
+          description: Profile visibility
+        preferences:
+          type: object
+          properties:
+            theme:
+              type: string
+              enum: [light, dark, system-default]
+            currency:
+              type: string
+            language:
+              type: string
+            timezone:
+              type: string
+            profileVisibility:
+              type: string
+              enum: [private, public]
+            notifications:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                channels:
+                  type: array
+                  items:
+                    type: string
+                    enum: [email, push, sms]
+                types:
+                  type: array
+                  items:
+                    type: string
+                    enum: [activity, reminder, marketing, updates]
+        location:
+          type: object
+          properties:
+            displayName:
+              type: string
+            city:
+              type: string
+            state:
+              type: string
+            country:
+              type: string
+            countryCode:
+              type: string
+            postalCode:
+              type: string
+            coordinates:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [Point]
+                coordinates:
+                  type: array
+                  items:
+                    type: number
+                  minItems: 2
+                  maxItems: 2
+                  description: "[longitude, latitude]"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - _id
+        - name
+        - email
+
+    Destination:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+        description:
+          type: string
+        photos:
+          type: array
+          items:
+            type: string
+        default_photo_id:
+          type: string
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - _id
+        - name
+        - country
+
+    Experience:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        overview:
+          type: string
+        destination:
+          $ref: '#/components/schemas/Destination'
+        experience_type:
+          type: array
+          items:
+            type: string
+        plan_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanItem'
+        photos:
+          type: array
+          items:
+            type: string
+        default_photo_id:
+          type: string
+        visibility:
+          type: string
+          enum: [private, contributors, public]
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+        difficulty:
+          type: number
+          minimum: 1
+          maximum: 10
+        rating:
+          type: number
+          minimum: 0
+          maximum: 5
+        cost_estimate:
+          type: number
+          description: Virtual property - total estimated cost
+        max_planning_days:
+          type: number
+          description: Virtual property - maximum planning days
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - _id
+        - name
+        - destination
+
+    PlanItem:
+      type: object
+      properties:
+        _id:
+          type: string
+        text:
+          type: string
+        photo:
+          type: string
+        url:
+          type: string
+        cost_estimate:
+          type: number
+        planning_days:
+          type: number
+        parent:
+          type: string
+          description: Parent plan item ID for hierarchy
+        activity_type:
+          type: string
+          enum: [food, transport, accommodation, activity, shopping, entertainment, sightseeing, custom, null]
+        location:
+          $ref: '#/components/schemas/Location'
+      required:
+        - text
+
+    Plan:
+      type: object
+      properties:
+        _id:
+          type: string
+        experience:
+          $ref: '#/components/schemas/Experience'
+        user:
+          $ref: '#/components/schemas/User'
+        planned_date:
+          type: string
+          format: date
+        plan:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanItemSnapshot'
+        costs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Cost'
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+        notes:
+          type: string
+        total_cost:
+          type: number
+          description: Virtual property - total cost
+        max_planning_days:
+          type: number
+          description: Virtual property - maximum planning days
+        completion_percentage:
+          type: number
+          description: Virtual property - completion percentage
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - _id
+        - experience
+        - user
+
+    PlanItemSnapshot:
+      type: object
+      properties:
+        _id:
+          type: string
+        plan_item_id:
+          type: string
+        complete:
+          type: boolean
+        cost:
+          type: number
+        planning_days:
+          type: number
+        text:
+          type: string
+        url:
+          type: string
+        photo:
+          type: string
+        parent:
+          type: string
+        activity_type:
+          type: string
+          enum: [food, transport, accommodation, activity, shopping, entertainment, sightseeing, custom, null]
+        scheduled_date:
+          type: string
+          format: date
+        scheduled_time:
+          type: string
+        location:
+          $ref: '#/components/schemas/Location'
+        details:
+          type: object
+          properties:
+            notes:
+              type: array
+              items:
+                $ref: '#/components/schemas/Note'
+            photos:
+              type: array
+              items:
+                type: string
+            documents:
+              type: array
+              items:
+                $ref: '#/components/schemas/DocumentReference'
+            transport:
+              $ref: '#/components/schemas/TransportExtension'
+            parking:
+              $ref: '#/components/schemas/ParkingExtension'
+            discount:
+              $ref: '#/components/schemas/DiscountExtension'
+        assignedTo:
+          type: string
+          description: User ID of assigned collaborator
+      required:
+        - plan_item_id
+
+    Permission:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: User or resource ID
+        entity:
+          type: string
+          enum: [user, destination, experience]
+        type:
+          type: string
+          enum: [owner, collaborator, contributor]
+        granted_at:
+          type: string
+          format: date-time
+        granted_by:
+          type: string
+          description: User ID who granted permission
+      required:
+        - _id
+        - entity
+        - type
+
+    Location:
+      type: object
+      properties:
+        address:
+          type: string
+        geo:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [Point]
+            coordinates:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+              description: "[longitude, latitude]"
+        city:
+          type: string
+        state:
+          type: string
+        country:
+          type: string
+        postalCode:
+          type: string
+        placeId:
+          type: string
+      required:
+        - address
+
+    Cost:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        cost:
+          type: number
+        currency:
+          type: string
+          default: USD
+        plan_item:
+          type: string
+          description: Linked plan item ID
+        collaborator:
+          type: string
+          description: User ID who paid or is responsible
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - title
+        - cost
+
+    Note:
+      type: object
+      properties:
+        _id:
+          type: string
+        user:
+          type: string
+          description: User ID who created the note
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - user
+        - content
+
+    DocumentReference:
+      type: object
+      properties:
+        document:
+          type: string
+          description: Document ID
+        addedBy:
+          type: string
+          description: User ID who added the document
+        addedAt:
+          type: string
+          format: date-time
+        displayName:
+          type: string
+        contextNotes:
+          type: string
+      required:
+        - document
+
+    TransportExtension:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [flight, train, cruise, ferry, bus, coach, car_share, ride, metro, local_transit, bike_rental, scooter]
+        vendor:
+          type: string
+        trackingNumber:
+          type: string
+        country:
+          type: string
+        departureTime:
+          type: string
+          format: date-time
+        arrivalTime:
+          type: string
+          format: date-time
+        departureLocation:
+          type: string
+        arrivalLocation:
+          type: string
+        status:
+          type: string
+          enum: [scheduled, active, completed, cancelled, delayed]
+        transportNotes:
+          type: string
+        flight:
+          type: object
+          properties:
+            terminal:
+              type: string
+            arrivalTerminal:
+              type: string
+            gate:
+              type: string
+            arrivalGate:
+              type: string
+        train:
+          type: object
+          properties:
+            carriageNumber:
+              type: string
+            platform:
+              type: string
+            arrivalPlatform:
+              type: string
+        cruise:
+          type: object
+          properties:
+            deck:
+              type: string
+            shipName:
+              type: string
+            embarkationPort:
+              type: string
+            disembarkationPort:
+              type: string
+        bus:
+          type: object
+          properties:
+            stopName:
+              type: string
+            arrivalStopName:
+              type: string
+        carShare:
+          type: object
+          properties:
+            vehicleModel:
+              type: string
+            vehicleColor:
+              type: string
+            licensePlate:
+              type: string
+            pickupSpot:
+              type: string
+        metro:
+          type: object
+          properties:
+            lineNumber:
+              type: string
+            direction:
+              type: string
+            platform:
+              type: string
+      required:
+        - mode
+
+    ParkingExtension:
+      type: object
+      properties:
+        parkingType:
+          type: string
+          enum: [street, garage, lot, valet, hotel, airport, venue, private, other]
+        facilityName:
+          type: string
+        address:
+          type: string
+        spotNumber:
+          type: string
+        level:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        cost:
+          type: number
+        currency:
+          type: string
+        prepaid:
+          type: boolean
+        confirmationNumber:
+          type: string
+        accessCode:
+          type: string
+        status:
+          type: string
+          enum: [reserved, active, completed, cancelled]
+        parkingNotes:
+          type: string
+      required:
+        - parkingType
+
+    DiscountExtension:
+      type: object
+      properties:
+        discountType:
+          type: string
+          enum: [promo_code, coupon, loyalty, member, early_bird, group, seasonal, referral, other]
+        code:
+          type: string
+        description:
+          type: string
+        discountValue:
+          type: number
+        isPercentage:
+          type: boolean
+        currency:
+          type: string
+        minimumPurchase:
+          type: number
+        maxDiscount:
+          type: number
+        expiresAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [active, applied, expired, invalid]
+        source:
+          type: string
+        discountNotes:
+          type: string
+      required:
+        - discountType
+
+    Photo:
+      type: object
+      properties:
+        _id:
+          type: string
+        filename:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: number
+        s3Key:
+          type: string
+        url:
+          type: string
+        caption:
+          type: string
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - _id
+        - filename
+        - s3Key
+
+    Document:
+      type: object
+      properties:
+        _id:
+          type: string
+        filename:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: number
+        s3Key:
+          type: string
+        url:
+          type: string
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - _id
+        - filename
+        - s3Key
+
+    Activity:
+      type: object
+      properties:
+        _id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        action:
+          type: string
+          enum: [created, updated, deleted, permission_added, permission_removed, collaborator_added, collaborator_removed, plan_item_completed, plan_item_note_added, plan_item_note_updated, plan_item_note_deleted]
+        actor:
+          type: object
+          properties:
+            _id:
+              type: string
+            email:
+              type: string
+            name:
+              type: string
+            role:
+              type: string
+        resource:
+          type: object
+          properties:
+            id:
+              type: string
+            type:
+              type: string
+              enum: [User, Destination, Experience, Plan, Photo, Document, PlanItem]
+            name:
+              type: string
+        target:
+          type: object
+          properties:
+            id:
+              type: string
+            type:
+              type: string
+            name:
+              type: string
+        previousState:
+          type: object
+        newState:
+          type: object
+        reason:
+          type: string
+        metadata:
+          type: object
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [success, error, pending]
+      required:
+        - timestamp
+        - action
+        - actor
+        - resource
+
+    SearchResult:
+      type: object
+      properties:
+        destinations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Destination'
+        experiences:
+          type: array
+          items:
+            $ref: '#/components/schemas/Experience'
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plan'
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        total:
+          type: number
+
+    Dashboard:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        stats:
+          type: object
+          properties:
+            totalExperiences:
+              type: number
+            totalPlans:
+              type: number
+            completedPlans:
+              type: number
+            upcomingPlans:
+              type: number
+        recentActivity:
+          type: array
+          items:
+            $ref: '#/components/schemas/Activity'
+        upcomingPlans:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plan'
+
+    Invite:
+      type: object
+      properties:
+        _id:
+          type: string
+        email:
+          type: string
+          format: email
+        invitedBy:
+          type: string
+          description: User ID who sent the invite
+        inviteCode:
+          type: string
+        status:
+          type: string
+          enum: [pending, accepted, expired, cancelled]
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        acceptedAt:
+          type: string
+          format: date-time
+      required:
+        - email
+        - invitedBy
+        - inviteCode
+
+    Token:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        token:
+          type: string
+        user:
+          type: string
+          description: User ID
+        permissions:
+          type: array
+          items:
+            type: string
+            enum: [read, write, admin]
+        expiresAt:
+          type: string
+          format: date-time
+        lastUsed:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - name
+        - token
+        - user
+
+  parameters:
+    experienceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Experience ID
+    planId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Plan ID
+    userId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: User ID
+    destinationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Destination ID
+    photoId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Photo ID
+    documentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Document ID
+    planItemId:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Plan item ID
+    noteId:
+      name: noteId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Note ID
+    costId:
+      name: costId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Cost ID
+    tokenId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Token ID
+    inviteId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Invite ID
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Page number for pagination
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 10
+      description: Number of items per page
+    paginate:
+      name: paginate
+      in: query
+      schema:
+        type: boolean
+        default: false
+      description: Whether to use pagination
+    searchQuery:
+      name: q
+      in: query
+      schema:
+        type: string
+      description: Search query string
+    searchTypes:
+      name: types
+      in: query
+      schema:
+        type: array
+        items:
+          type: string
+          enum: [destination, experience, plan, user]
+      description: Types of resources to search
+    tag:
+      name: tag
+      in: query
+      schema:
+        type: string
+      description: Experience tag filter
+
+paths:
+  /:
+    get:
+      summary: API Information
+      description: Returns API information and available endpoints
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  status:
+                    type: string
+                  version:
+                    type: string
+                  frontend:
+                    type: object
+                  api:
+                    type: object
+
+  /health-check:
+    get:
+      summary: Health Check
+      description: Simple health check endpoint
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+
+  /auth/csrf-token:
+    get:
+      summary: Get CSRF Token
+      description: Generates and returns a CSRF token for the client
+      responses:
+        '200':
+          description: CSRF token generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  csrfToken:
+                    type: string
+
+  /auth/facebook:
+    get:
+      summary: Facebook OAuth Initiation
+      description: Initiates Facebook OAuth login flow
+      parameters:
+        - name: state
+          in: query
+          schema:
+            type: string
+          description: CSRF state parameter
+      responses:
+        '302':
+          description: Redirect to Facebook OAuth
+
+  /auth/facebook/callback:
+    get:
+      summary: Facebook OAuth Callback
+      description: Handles Facebook OAuth callback
+      responses:
+        '302':
+          description: Redirect to frontend with OAuth result
+
+  /auth/google:
+    get:
+      summary: Google OAuth Initiation
+      description: Initiates Google OAuth login flow
+      responses:
+        '302':
+          description: Redirect to Google OAuth
+
+  /auth/google/callback:
+    get:
+      summary: Google OAuth Callback
+      description: Handles Google OAuth callback
+      responses:
+        '302':
+          description: Redirect to frontend with OAuth result
+
+  /auth/twitter:
+    get:
+      summary: Twitter OAuth Initiation
+      description: Initiates Twitter OAuth login flow
+      responses:
+        '302':
+          description: Redirect to Twitter OAuth
+
+  /auth/twitter/callback:
+    get:
+      summary: Twitter OAuth Callback
+      description: Handles Twitter OAuth callback
+      responses:
+        '302':
+          description: Redirect to frontend with OAuth result
+
+  /auth/link/facebook:
+    get:
+      summary: Link Facebook Account
+      description: Links Facebook account to existing user
+      security:
+        - bearerAuth: []
+      responses:
+        '302':
+          description: Redirect to profile settings
+
+  /auth/link/google:
+    get:
+      summary: Link Google Account
+      description: Links Google account to existing user
+      security:
+        - bearerAuth: []
+      responses:
+        '302':
+          description: Redirect to profile settings
+
+  /auth/link/twitter:
+    get:
+      summary: Link Twitter Account
+      description: Links Twitter account to existing user
+      security:
+        - bearerAuth: []
+      responses:
+        '302':
+          description: Redirect to profile settings
+
+  /auth/unlink/{provider}:
+    delete:
+      summary: Unlink Social Account
+      description: Removes social account link from user profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [facebook, google, twitter]
+      responses:
+        '200':
+          description: Account unlinked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Invalid provider or cannot unlink only auth method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/linked-accounts:
+    get:
+      summary: Get Linked Accounts
+      description: Returns user's linked social accounts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Linked accounts information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  facebook:
+                    type: boolean
+                  google:
+                    type: boolean
+                  twitter:
+                    type: boolean
+                  hasPassword:
+                    type: boolean
+                  accounts:
+                    type: array
+                    items:
+                      type: object
+
+  /auth/logout:
+    post:
+      summary: Logout
+      description: Logs out the current user and clears session
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /users:
+    post:
+      summary: Create User
+      description: Creates a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 3
+                inviteCode:
+                  type: string
+              required:
+                - name
+                - email
+                - password
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: Get All Users
+      description: Returns a list of all users (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalCount:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      hasMore:
+                        type: boolean
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/bulk:
+    get:
+      summary: Get Bulk Users
+      description: Returns multiple users by IDs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+          description: User IDs to fetch
+      responses:
+        '200':
+          description: Bulk user data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+  /users/search:
+    get:
+      summary: Search Users
+      description: Searches for users by name or email
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+  /users/profile:
+    get:
+      summary: Get Current User Profile
+      description: Returns the current user's profile information
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      summary: Get User by ID
+      description: Returns a specific user by ID
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update User
+      description: Updates user information
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                visibility:
+                  type: string
+                  enum: [private, public]
+                preferences:
+                  type: object
+                  properties:
+                    theme:
+                      type: string
+                      enum: [light, dark, system-default]
+                    currency:
+                      type: string
+                    language:
+                      type: string
+                    timezone:
+                      type: string
+                    profileVisibility:
+                      type: string
+                      enum: [private, public]
+                    notifications:
+                      type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                        channels:
+                          type: array
+                          items:
+                            type: string
+                            enum: [email, push, sms]
+                        types:
+                          type: array
+                          items:
+                            type: string
+                            enum: [activity, reminder, marketing, updates]
+                location:
+                  type: object
+                  properties:
+                    displayName:
+                      type: string
+                    city:
+                      type: string
+                    state:
+                      type: string
+                    country:
+                      type: string
+                    countryCode:
+                      type: string
+                    postalCode:
+                      type: string
+                    coordinates:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum: [Point]
+                        coordinates:
+                          type: array
+                          items:
+                            type: number
+                            minItems: 2
+                            maxItems: 2
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/{id}/admin:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    put:
+      summary: Update User as Admin
+      description: Updates user information as an administrator (super admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                isSuperAdmin:
+                  type: boolean
+                role:
+                  type: string
+                  enum: [super_admin, regular_user]
+                emailConfirmed:
+                  type: boolean
+                visibility:
+                  type: string
+                  enum: [private, public]
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions (super admin required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/login:
+    post:
+      summary: User Login
+      description: Authenticates a user and returns a JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+              required:
+                - email
+                - password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+                    description: JWT token
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/check-token:
+    get:
+      summary: Check Token Validity
+      description: Validates the current JWT token and returns user information
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/forgot-password:
+    post:
+      summary: Request Password Reset
+      description: Sends a password reset email to the user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required:
+                - email
+      responses:
+        '200':
+          description: Password reset email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/reset-password:
+    post:
+      summary: Reset Password
+      description: Resets user password using reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 3
+              required:
+                - token
+                - password
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/confirm-email/{token}:
+    get:
+      summary: Confirm Email
+      description: Confirms user email address using confirmation token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Email confirmation token
+      responses:
+        '200':
+          description: Email confirmed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/resend-confirmation:
+    post:
+      summary: Resend Email Confirmation
+      description: Resends email confirmation to the current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Confirmation email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Email already confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/{id}/role:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    put:
+      summary: Update User Role
+      description: Updates user role (super admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [super_admin, regular_user]
+              required:
+                - role
+      responses:
+        '200':
+          description: Role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /destinations:
+    get:
+      summary: Get Destinations
+      description: Returns a list of destinations
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/searchQuery'
+      responses:
+        '200':
+          description: List of destinations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Destination'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalCount:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      hasMore:
+                        type: boolean
+
+    post:
+      summary: Create Destination
+      description: Creates a new destination
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                country:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+              required:
+                - name
+                - country
+      responses:
+        '201':
+          description: Destination created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /destinations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/destinationId'
+    get:
+      summary: Get Destination
+      description: Returns a specific destination by ID
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Destination data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Destination'
+        '404':
+          description: Destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update Destination
+      description: Updates destination information
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                country:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Destination updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete Destination
+      description: Deletes a destination
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Destination deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /destinations/{destinationId}/user/{userId}:
+    parameters:
+      - name: destinationId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Destination ID
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: User ID
+    post:
+      summary: Toggle Destination Favorite
+      description: Adds or removes a destination from user's favorites
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Favorite status toggled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /experiences:
+    get:
+      summary: Get Experiences
+      description: Returns a list of experiences
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/searchQuery'
+        - $ref: '#/components/parameters/tag'
+      responses:
+        '200':
+          description: List of experiences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Experience'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalCount:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      hasMore:
+                        type: boolean
+
+    post:
+      summary: Create Experience
+      description: Creates a new experience
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                overview:
+                  type: string
+                destination:
+                  type: string
+                experience_type:
+                  type: array
+                  items:
+                    type: string
+                plan_items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/PlanItem'
+                visibility:
+                  type: string
+                  enum: [private, contributors, public]
+                  default: public
+                difficulty:
+                  type: number
+                  minimum: 1
+                  maximum: 10
+                rating:
+                  type: number
+                  minimum: 0
+                  maximum: 5
+              required:
+                - name
+                - destination
+      responses:
+        '201':
+          description: Experience created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Email verification required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /experiences/tag/{tagSlug}:
+    parameters:
+      - name: tagSlug
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Experience tag slug
+    get:
+      summary: Get Experiences by Tag
+      description: Returns experiences filtered by tag
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Experiences with tag
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tagName:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Experience'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalCount:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      hasMore:
+                        type: boolean
+
+  /experiences/tags:
+    get:
+      summary: Get Experience Tags
+      description: Returns all available experience tags
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /experiences/user/{userId}/created:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: User ID
+    get:
+      summary: Get User's Created Experiences
+      description: Returns experiences created by a specific user
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: User's created experiences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Experience'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalCount:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      hasMore:
+                        type: boolean
+
+  /experiences/user/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: User ID
+    get:
+      summary: Get User's Experiences
+      description: Returns experiences accessible to a specific user
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: User's accessible experiences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Experience'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalCount:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      hasMore:
+                        type: boolean
+
+  /experiences/{id}:
+    parameters:
+      - $ref: '#/components/parameters/experienceId'
+    get:
+      summary: Get Experience
+      description: Returns a specific experience by ID
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Experience data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Experience'
+        '404':
+          description: Experience not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update Experience
+      description: Updates experience information
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                overview:
+                  type: string
+                destination:
+                  type: string
+                experience_type:
+                  type: array
+                  items:
+                    type: string
+                plan_items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/PlanItem'
+                visibility:
+                  type: string
+                  enum: [private, contributors, public]
+                difficulty:
+                  type: number
+                  minimum: 1
+                  maximum: 10
+                rating:
+                  type: number
+                  minimum: 0
+                  maximum: 5
+      responses:
+        '200':
+          description: Experience updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions or email verification required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete Experience
+      description: Deletes an experience and all associated plans
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Experience deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /experiences/{id}/with-context:
+    parameters:
+      - $ref: '#/components/parameters/experienceId'
+    get:
+      summary: Get Experience with Context
+      description: Returns experience with additional context (user's plan status, permissions, etc.)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Experience with context
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experience:
+                    $ref: '#/components/schemas/Experience'
+                  userPlan:
+                    $ref: '#/components/schemas/Plan'
+                  permissions:
+                    type: object
+                    properties:
+                      canEdit:
+                        type: boolean
+                      canDelete:
+                        type: boolean
+                      canManagePermissions:
+                        type: boolean
+                      role:
+                        type: string
+        '404':
+          description: Experience not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /experiences/{experienceId}/transfer-ownership:
+    parameters:
+      - name: experienceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Experience ID
+    put:
+      summary: Transfer Experience Ownership
+      description: Transfers ownership of an experience to another user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newOwnerId:
+                  type: string
+              required:
+                - newOwnerId
+      responses:
+        '200':
+          description: Ownership transferred successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans:
+    get:
+      summary: Get User Plans
+      description: Returns all plans for the current user
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/paginate'
+      responses:
+        '200':
+          description: List of user plans
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Plan'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Plan'
+                      pagination:
+                        type: object
+                        properties:
+                          page:
+                            type: integer
+                          limit:
+                            type: integer
+                          totalCount:
+                            type: integer
+                          totalPages:
+                            type: integer
+                          hasMore:
+                            type: boolean
+
+  /plans/experience/{experienceId}:
+    parameters:
+      - name: experienceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Experience ID
+    post:
+      summary: Create Plan
+      description: Creates a new plan for an experience
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                planned_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Plan created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Plan already exists for this experience
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/experience/{experienceId}/all:
+    parameters:
+      - name: experienceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Experience ID
+    get:
+      summary: Get All Plans for Experience
+      description: Returns all plans for a specific experience
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of plans for the experience
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+
+  /plans/experience/{experienceId}/check:
+    parameters:
+      - name: experienceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Experience ID
+    get:
+      summary: Check User Plan for Experience
+      description: Checks if user has a plan for the experience
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plan status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasPlan:
+                    type: boolean
+                  plans:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                        isOwn:
+                          type: boolean
+                        owner:
+                          type: string
+                  planId:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+                  ownPlanId:
+                    type: string
+
+  /plans/{id}:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+    get:
+      summary: Get Plan
+      description: Returns a specific plan by ID
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plan data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update Plan
+      description: Updates plan information
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                planned_date:
+                  type: string
+                  format: date
+                plan:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/PlanItemSnapshot'
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Plan updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete Plan
+      description: Deletes a plan
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plan deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions (only plan owner can delete)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/reorder:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+    put:
+      summary: Reorder Plan Items
+      description: Updates the order of plan items in a plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/PlanItemSnapshot'
+              required:
+                - plan
+      responses:
+        '200':
+          description: Plan items reordered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/items:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+    post:
+      summary: Add Plan Item
+      description: Adds a new item to a plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                url:
+                  type: string
+                cost:
+                  type: number
+                planning_days:
+                  type: number
+                parent:
+                  type: string
+                photo:
+                  type: string
+                activity_type:
+                  type: string
+                  enum: [food, transport, accommodation, activity, shopping, entertainment, sightseeing, custom, null]
+                location:
+                  $ref: '#/components/schemas/Location'
+                plan_item_id:
+                  type: string
+              required:
+                - text
+      responses:
+        '200':
+          description: Plan item added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/items/{itemId}:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+      - $ref: '#/components/parameters/planItemId'
+    patch:
+      summary: Update Plan Item
+      description: Updates a specific plan item
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                complete:
+                  type: boolean
+                cost:
+                  type: number
+                planning_days:
+                  type: number
+                text:
+                  type: string
+                url:
+                  type: string
+                activity_type:
+                  type: string
+                  enum: [food, transport, accommodation, activity, shopping, entertainment, sightseeing, custom, null]
+                scheduled_date:
+                  type: string
+                  format: date
+                scheduled_time:
+                  type: string
+                location:
+                  $ref: '#/components/schemas/Location'
+      responses:
+        '200':
+          description: Plan item updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plan item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete Plan Item
+      description: Deletes a plan item and its children
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plan item deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plan item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/collaborators:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+    get:
+      summary: Get Plan Collaborators
+      description: Returns all collaborators for a plan
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of collaborators
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/permissions/collaborator:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+    post:
+      summary: Add Collaborator
+      description: Adds a collaborator to a plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+              required:
+                - userId
+      responses:
+        '200':
+          description: Collaborator added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Remove Collaborator
+      description: Removes a collaborator from a plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID of collaborator to remove
+      responses:
+        '200':
+          description: Collaborator removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/items/{itemId}/notes:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+      - $ref: '#/components/parameters/planItemId'
+    post:
+      summary: Add Plan Item Note
+      description: Adds a note to a plan item
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+              required:
+                - content
+      responses:
+        '200':
+          description: Note added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/items/{itemId}/notes/{noteId}:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+      - $ref: '#/components/parameters/planItemId'
+      - $ref: '#/components/parameters/noteId'
+    patch:
+      summary: Update Plan Item Note
+      description: Updates a note on a plan item (note author only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+              required:
+                - content
+      responses:
+        '200':
+          description: Note updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions (only note author can update)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Note not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete Plan Item Note
+      description: Deletes a note from a plan item (note author only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Note deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions (only note author can delete)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Note not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/items/{itemId}/assign:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+      - $ref: '#/components/parameters/planItemId'
+    post:
+      summary: Assign Plan Item
+      description: Assigns a plan item to a collaborator
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assignedTo:
+                  type: string
+              required:
+                - assignedTo
+      responses:
+        '200':
+          description: Plan item assigned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Unassign Plan Item
+      description: Removes assignment from a plan item
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plan item unassigned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/costs:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+    get:
+      summary: Get Plan Costs
+      description: Returns all costs for a plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [all, item, collaborator, plan]
+            default: all
+          description: Filter costs by type
+      responses:
+        '200':
+          description: List of costs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Cost'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Add Cost
+      description: Adds a cost entry to a plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                cost:
+                  type: number
+                  minimum: 0
+                currency:
+                  type: string
+                  default: USD
+                plan_item:
+                  type: string
+                collaborator:
+                  type: string
+              required:
+                - title
+                - cost
+      responses:
+        '200':
+          description: Cost added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/costs/{costId}:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+      - $ref: '#/components/parameters/costId'
+    patch:
+      summary: Update Cost
+      description: Updates a cost entry
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                cost:
+                  type: number
+                  minimum: 0
+                currency:
+                  type: string
+                plan_item:
+                  type: string
+                collaborator:
+                  type: string
+      responses:
+        '200':
+          description: Cost updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cost not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete Cost
+      description: Deletes a cost entry
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cost deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cost not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /photos:
+    post:
+      summary: Upload Photo
+      description: Uploads a single photo file
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Image file (JPEG, PNG, WebP, max 10MB)
+              required:
+                - image
+      responses:
+        '201':
+          description: Photo uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Invalid file format or size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /photos/batch:
+    post:
+      summary: Upload Multiple Photos
+      description: Uploads multiple photo files at once
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Image files (JPEG, PNG, WebP, max 10MB each, max 10 files)
+              required:
+                - images
+      responses:
+        '201':
+          description: Photos uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Invalid file format or size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /photos/url:
+    post:
+      summary: Create Photo from URL
+      description: Creates a photo from a URL
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  format: uri
+                caption:
+                  type: string
+              required:
+                - url
+      responses:
+        '201':
+          description: Photo created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Invalid URL or format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /photos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/photoId'
+    get:
+      summary: Get Photo
+      description: Returns photo metadata (not the actual image file)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Photo metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+        '404':
+          description: Photo not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update Photo
+      description: Updates photo metadata
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                caption:
+                  type: string
+      responses:
+        '200':
+          description: Photo updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete Photo
+      description: Deletes a photo
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Photo deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /photos/{id}/permissions/collaborator:
+    parameters:
+      - $ref: '#/components/parameters/photoId'
+    post:
+      summary: Add Photo Collaborator
+      description: Adds a collaborator to a photo
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+              required:
+                - userId
+      responses:
+        '200':
+          description: Collaborator added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Remove Photo Collaborator
+      description: Removes a collaborator from a photo
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID of collaborator to remove
+      responses:
+        '200':
+          description: Collaborator removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /photos/{id}/permissions/contributor:
+    parameters:
+      - $ref: '#/components/parameters/photoId'
+    post:
+      summary: Add Photo Contributor
+      description: Adds a contributor to a photo
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+              required:
+                - userId
+      responses:
+        '200':
+          description: Contributor added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Remove Photo Contributor
+      description: Removes a contributor from a photo
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID of contributor to remove
+      responses:
+        '200':
+          description: Contributor removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /search:
+    get:
+      summary: Global Search
+      description: Searches across all collections (destinations, experiences, plans, users)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/searchQuery'
+        - $ref: '#/components/parameters/searchTypes'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+
+  /search/destinations:
+    get:
+      summary: Search Destinations
+      description: Searches destinations by name or country
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/searchQuery'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Destination search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Destination'
+
+  /search/experiences:
+    get:
+      summary: Search Experiences
+      description: Searches experiences by name, overview, or tags
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/searchQuery'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Experience search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Experience'
+
+  /search/plans:
+    get:
+      summary: Search Plans
+      description: Searches plans by experience name or notes
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/searchQuery'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Plan search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+
+  /search/users:
+    get:
+      summary: Search Users
+      description: Searches users by name or email
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/searchQuery'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: User search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+  /dashboard:
+    get:
+      summary: Get Dashboard
+      description: Returns user's dashboard with stats, recent activity, and upcoming plans
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+
+  /dashboard/activity-feed:
+    get:
+      summary: Get Activity Feed
+      description: Returns user's activity feed
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Activity'
+
+  /dashboard/upcoming-plans:
+    get:
+      summary: Get Upcoming Plans
+      description: Returns user's upcoming plans
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Upcoming plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+
+  /tokens:
+    get:
+      summary: Get API Tokens
+      description: Returns all API tokens for the current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of API tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Token'
+
+    post:
+      summary: Create API Token
+      description: Creates a new API token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                permissions:
+                  type: array
+                  items:
+                    type: string
+                    enum: [read, write, admin]
+                  default: [read]
+                expiresAt:
+                  type: string
+                  format: date-time
+              required:
+                - name
+      responses:
+        '201':
+          description: Token created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  token:
+                    type: string
+                    description: The actual API token (only shown once)
+                  tokenData:
+                    $ref: '#/components/schemas/Token'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /tokens/{id}:
+    parameters:
+      - $ref: '#/components/parameters/tokenId'
+    delete:
+      summary: Delete API Token
+      description: Deletes an API token
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Token deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Token not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /invites:
+    get:
+      summary: Get Sent Invites
+      description: Returns invites sent by the current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of sent invites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invite'
+
+    post:
+      summary: Send Invite
+      description: Sends an invitation to join the platform
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                message:
+                  type: string
+              required:
+                - email
+      responses:
+        '201':
+          description: Invite sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: User already exists or invite already sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /invites/{id}:
+    parameters:
+      - $ref: '#/components/parameters/inviteId'
+    delete:
+      summary: Cancel Invite
+      description: Cancels a pending invite
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Invite cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Invite not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /invite-tracking/{code}:
+    get:
+      summary: Track Invite
+      description: Tracks invite usage and redirects appropriately
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Invite code
+      responses:
+        '302':
+          description: Redirect to signup or login
+        '404':
+          description: Invalid invite code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /activities:
+    get:
+      summary: Get Activities
+      description: Returns activity feed with optional filtering
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [user, resource, all]
+            default: user
+          description: Activity scope
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+            enum: [User, Destination, Experience, Plan, Photo, Document]
+          description: Filter by resource type
+        - name: resourceId
+          in: query
+          schema:
+            type: string
+          description: Filter by specific resource ID
+        - name: action
+          in: query
+          schema:
+            type: string
+          description: Filter by action type
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Activity'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalCount:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      hasMore:
+                        type: boolean
+
+  /follows:
+    get:
+      summary: Get Follows
+      description: Returns user's follows/followers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [following, followers]
+          description: Type of follows to retrieve
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Follow relationships
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        follower:
+                          $ref: '#/components/schemas/User'
+                        following:
+                          $ref: '#/components/schemas/User'
+                        createdAt:
+                          type: string
+                          format: date-time
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalCount:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      hasMore:
+                        type: boolean
+
+    post:
+      summary: Follow User
+      description: Follows another user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+              required:
+                - userId
+      responses:
+        '201':
+          description: User followed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Already following
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Unfollow User
+      description: Unfollows a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: User ID to unfollow
+      responses:
+        '200':
+          description: User unfollowed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '404':
+          description: Follow relationship not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

@@ -12,7 +12,8 @@
  * - Legacy event compatibility
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react-hooks';
+import { waitFor } from '@testing-library/react';
 import usePlanManagement from '../../src/hooks/usePlanManagement';
 
 // Mock the API functions
@@ -46,7 +47,22 @@ jest.mock('../../src/utilities/event-bus', () => ({
     }
     return event.data || currentState;
   }),
-  generateOptimisticId: jest.fn(() => `optimistic_${Date.now()}`)
+  generateOptimisticId: jest.fn(() => `optimistic_${Date.now()}`),
+  getProtectedFields: jest.fn(() => []),
+  LOCAL_CHANGE_PROTECTION_MS: 5000,
+  VectorClock: {
+    createVectorClock: jest.fn(() => ({})),
+    increment: jest.fn(() => ({})),
+    format: jest.fn(() => ''),
+    compare: jest.fn(() => 'after'),
+    isConcurrent: jest.fn(() => false),
+    clone: jest.fn(() => ({})),
+    merge: jest.fn(() => ({}))
+  },
+  eventBus: {
+    subscribe: jest.fn(() => jest.fn()), // Return a mock unsubscribe function
+    emit: jest.fn()
+  }
 }));
 
 const {
@@ -115,7 +131,7 @@ describe('usePlanManagement', () => {
       );
 
       expect(result.current.userPlan).toBeNull();
-      expect(result.current.collaborativePlans).toEqual([]);
+      expect(result.current.sharedPlans).toEqual([]);
       expect(result.current.selectedPlanId).toBeNull();
       expect(result.current.userHasExperience).toBe(false);
       expect(result.current.plannedDate).toBe('');
@@ -163,7 +179,7 @@ describe('usePlanManagement', () => {
 
       await waitFor(() => {
         expect(getExperiencePlans).toHaveBeenCalledWith(experienceId);
-        expect(result.current.collaborativePlans).toHaveLength(2);
+        expect(result.current.sharedPlans).toHaveLength(2);
       });
     });
 
@@ -520,7 +536,7 @@ describe('usePlanManagement', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.collaborativePlans).toHaveLength(2);
+        expect(result.current.sharedPlans).toHaveLength(2);
       });
 
       act(() => {

@@ -41,7 +41,7 @@ import {
 export default function usePlanManagement(experienceId, userId) {
   // Core plan state
   const [userPlan, setUserPlan] = useState(null);
-  const [collaborativePlans, setCollaborativePlans] = useState([]);
+  const [sharedPlans, setSharedPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [plansLoading, setPlansLoading] = useState(false);
 
@@ -295,21 +295,21 @@ export default function usePlanManagement(experienceId, userId) {
   }, [experienceId, userId]);
 
   /**
-   * Fetch all collaborative plans for the current experience
+   * Fetch all shared plans for the current experience
    */
-  const fetchCollaborativePlans = useCallback(async () => {
+  const fetchSharedPlans = useCallback(async () => {
     if (!experienceId) return;
 
     // Capture experienceId at start of fetch for race condition check
     const fetchExperienceId = experienceId;
 
     try {
-      logger.debug('[usePlanManagement] Fetching collaborative plans', { experienceId });
+      logger.debug('[usePlanManagement] Fetching shared plans', { experienceId });
       const plans = await getExperiencePlans(experienceId);
 
       // RACE CONDITION CHECK: If experienceId changed during fetch, discard results
       if (currentExperienceIdRef.current !== fetchExperienceId) {
-        logger.debug('[usePlanManagement] Discarding stale collaborative plans - experienceId changed', {
+        logger.debug('[usePlanManagement] Discarding stale shared plans - experienceId changed', {
           fetchedFor: fetchExperienceId,
           currentExperienceId: currentExperienceIdRef.current
         });
@@ -318,11 +318,11 @@ export default function usePlanManagement(experienceId, userId) {
 
       // CRITICAL FIX (biensperience-ed99): Use merge pattern instead of full replacement
       // This prevents UI flash when API returns fewer plans than currently displayed
-      setCollaborativePlans(prev => {
+      setSharedPlans(prev => {
         if (!plans || plans.length === 0) {
           // API returned empty - check if we should preserve existing
           if (!prev || prev.length === 0) {
-            logger.debug('[usePlanManagement] No collaborative plans found');
+            logger.debug('[usePlanManagement] No shared plans found');
             return [];
           }
           // Preserve existing plans - trust event system for actual deletions
@@ -332,30 +332,30 @@ export default function usePlanManagement(experienceId, userId) {
           return prev;
         }
         // Merge strategy: Use new data but ensure consistency
-        logger.debug('[usePlanManagement] Collaborative plans loaded', { count: plans.length });
+        logger.debug('[usePlanManagement] Shared plans loaded', { count: plans.length });
         return plans;
       });
     } catch (error) {
-      logger.error('[usePlanManagement] Failed to fetch collaborative plans', { error: error.message }, error);
+      logger.error('[usePlanManagement] Failed to fetch shared plans', { error: error.message }, error);
       // CRITICAL FIX (biensperience-ed99): Don't clear on error - preserve existing state
       // This prevents UI flash when API temporarily fails
     }
   }, [experienceId]);
 
   /**
-   * Fetch all plans (user + collaborative)
+   * Fetch all plans (user + shared)
    */
   const fetchPlans = useCallback(async () => {
     setPlansLoading(true);
     try {
       await Promise.all([
         fetchUserPlan(),
-        fetchCollaborativePlans()
+        fetchSharedPlans()
       ]);
     } finally {
       setPlansLoading(false);
     }
-  }, [fetchUserPlan, fetchCollaborativePlans]);
+  }, [fetchUserPlan, fetchSharedPlans]);
 
   /**
    * Create a new plan for the current user
@@ -431,8 +431,8 @@ export default function usePlanManagement(experienceId, userId) {
       setUserPlan(prev => ({ ...prev, ...updates, _vectorClock: vectorClock }));
     }
 
-    // Optimistic update for collaborative plans
-    setCollaborativePlans(prev =>
+    // Optimistic update for shared plans
+    setSharedPlans(prev =>
       prev.map(p => p._id === planId ? { ...p, ...updates, _vectorClock: vectorClock } : p)
     );
 
@@ -463,7 +463,7 @@ export default function usePlanManagement(experienceId, userId) {
       setDisplayedPlannedDate(null);
     }
 
-    setCollaborativePlans(prev => prev.filter(p => p._id !== planId));
+    setSharedPlans(prev => prev.filter(p => p._id !== planId));
 
     try {
       const result = await deletePlanAPI(planId);
@@ -538,8 +538,8 @@ export default function usePlanManagement(experienceId, userId) {
           return reconciledPlan || prev; // NEVER return null if we had data
         });
 
-        // Update collaborative plans - merge, don't replace
-        setCollaborativePlans(prev => {
+        // Update shared plans - merge, don't replace
+        setSharedPlans(prev => {
           const exists = prev.some(p => p._id === planId);
           if (exists) {
             return prev.map(p => {
@@ -690,9 +690,9 @@ export default function usePlanManagement(experienceId, userId) {
           return reconciled || prev; // NEVER return null - keep previous if reconciliation fails
         });
 
-        // Update collaborative plans - but only if something actually changes
+        // Update shared plans - but only if something actually changes
         // to prevent unnecessary re-renders that cause scroll issues
-        setCollaborativePlans(prev => {
+        setSharedPlans(prev => {
           let changed = false;
           const updated = prev.map(p => {
             if (p._id !== planId) return p;
@@ -772,8 +772,8 @@ export default function usePlanManagement(experienceId, userId) {
           return null;
         });
 
-        // Remove from collaborative plans
-        setCollaborativePlans(prev => prev.filter(p => p._id !== planId));
+        // Remove from shared plans
+        setSharedPlans(prev => prev.filter(p => p._id !== planId));
       });
     };
 
@@ -839,14 +839,14 @@ export default function usePlanManagement(experienceId, userId) {
           return newState || prev;
         });
 
-        // Apply operation to collaborative plans
-        setCollaborativePlans(prev =>
+        // Apply operation to shared plans
+        setSharedPlans(prev =>
           prev.map(p => {
             if (p._id !== planId) return p;
 
             const newState = applyOperation(p, operation);
             if (newState !== p) {
-              logger.debug('[usePlanManagement] Operation applied to collaborativePlan', {
+              logger.debug('[usePlanManagement] Operation applied to sharedPlan', {
                 planId,
                 operationId: operation.id,
                 type: operation.type
@@ -916,7 +916,7 @@ export default function usePlanManagement(experienceId, userId) {
   // Compute selected plan from ID
   // Use string comparison since _id can be ObjectId or string
   const selectedPlan = selectedPlanId
-    ? collaborativePlans.find(p => {
+    ? sharedPlans.find(p => {
         const planId = p._id?.toString ? p._id.toString() : p._id;
         const targetId = selectedPlanId?.toString ? selectedPlanId.toString() : selectedPlanId;
         return planId === targetId;
@@ -927,8 +927,8 @@ export default function usePlanManagement(experienceId, userId) {
     // State
     userPlan,
     setUserPlan,
-    collaborativePlans,
-    setCollaborativePlans,
+    sharedPlans,
+    setSharedPlans,
     selectedPlanId,
     setSelectedPlanId,
     selectedPlan,
@@ -945,7 +945,7 @@ export default function usePlanManagement(experienceId, userId) {
 
     // Functions
     fetchUserPlan,
-    fetchCollaborativePlans,
+    fetchSharedPlans,
     fetchPlans,
     createPlan,
     updatePlan,

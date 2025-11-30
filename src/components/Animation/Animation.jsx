@@ -85,7 +85,7 @@ Animation.propTypes = {
  */
 export function FadeIn({
   children,
-  duration = 'normal',
+  duration = 'fast',
   delay = 'none',
   trigger = true,
   once = true,
@@ -260,11 +260,11 @@ function getDelayMs(delay) {
 
   switch (delay) {
     case 'short':
-      return 200;
+      return 50;
     case 'medium':
-      return 400;
+      return 100;
     case 'long':
-      return 600;
+      return 200;
     default:
       return 0;
   }

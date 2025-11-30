@@ -8,6 +8,7 @@ import { AppProvider, useApp } from "../../contexts/AppContext";
 import { TooltipProvider } from "../../contexts/TooltipContext";
 import { PlanExperienceProvider } from "../../contexts/PlanExperienceContext";
 import { NavigationIntentProvider } from "../../contexts/NavigationIntentContext";
+import { ExperienceWizardProvider } from "../../contexts/ExperienceWizardContext";
 import { lang } from "../../lang.constants";
 import NavBar from "../../components/NavBar/NavBar";
 import Loading from "../../components/Loading/Loading";
@@ -112,7 +113,9 @@ export default function App() {
               <TooltipProvider>
                 <PlanExperienceProvider>
                   <NavigationIntentProvider>
-                    <AppContent />
+                    <ExperienceWizardProvider>
+                      <AppContent />
+                    </ExperienceWizardProvider>
                   </NavigationIntentProvider>
                 </PlanExperienceProvider>
               </TooltipProvider>

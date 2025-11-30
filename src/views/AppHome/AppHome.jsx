@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
 import { useUser } from "../../contexts/UserContext";
+import { useExperienceWizard } from "../../contexts/ExperienceWizardContext";
 import { lang } from "../../lang.constants";
 import HeroBanner from "../../components/HeroBanner/HeroBanner";
 import DestinationCard from "../../components/DestinationCard/DestinationCard";
@@ -17,6 +18,7 @@ import styles from "./AppHome.module.scss";
 export default function AppHome() {
   const { experiences, destinations, plans, loading, applyDestinationsFilter, applyExperiencesFilter } = useData();
   const { user } = useUser();
+  const { openExperienceWizard } = useExperienceWizard();
   const navigate = useNavigate();
   const [showAllDestinations, setShowAllDestinations] = useState(false);
   const [showAllExperiences, setShowAllExperiences] = useState(false);
@@ -86,7 +88,7 @@ export default function AppHome() {
               primaryAction={lang.current.button.createDestination}
               onPrimaryAction={() => navigate('/destinations/new')}
               secondaryAction={lang.current.button.createExperience}
-              onSecondaryAction={() => navigate('/experiences/new')}
+              onSecondaryAction={() => openExperienceWizard()}
               size="md"
             />
           </div>
@@ -221,7 +223,7 @@ export default function AppHome() {
                   <Button
                     variant="primary"
                     size="sm"
-                    onClick={() => navigate('/experiences/new')}
+                    onClick={() => openExperienceWizard()}
                   >
                     {lang.current.button.createExperience}
                   </Button>

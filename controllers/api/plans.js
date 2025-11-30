@@ -1451,7 +1451,7 @@ const getCollaborators = asyncHandler(async (req, res) => {
  */
 const addPlanItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { text, url, cost, planning_days, parent, photo, activity_type, location, lat, lng, address } = req.body;
+  const { text, url, cost, planning_days, parent, photo, activity_type, location, lat, lng, address, plan_item_id } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: "Invalid plan ID" });
@@ -1512,7 +1512,7 @@ const addPlanItem = asyncHandler(async (req, res) => {
 
   // Create new plan item (Mongoose will auto-generate _id)
   const newPlanItem = {
-    plan_item_id: new mongoose.Types.ObjectId(), // Generate new ID for reference
+    plan_item_id: plan_item_id || new mongoose.Types.ObjectId(), // Use provided or generate new
     text,
     url,
     cost: cost || 0,

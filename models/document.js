@@ -187,6 +187,19 @@ const documentSchema = new Schema(
       type: String,
       required: true
     },
+    // Whether document is stored in protected (private) bucket
+    // Protected documents require signed URLs for access
+    isProtected: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    // Bucket type for easier querying and routing
+    bucketType: {
+      type: String,
+      enum: ['public', 'protected'],
+      default: 'public'
+    },
 
     // Processing status
     status: {

@@ -61,13 +61,13 @@ describe('useCollaboratorManager', () => {
     experience: { _id: 'exp-123', title: 'Test Experience', permissions: [] },
     selectedPlanId: 'plan-456',
     userPlan: { _id: 'plan-456', permissions: [] },
-    collaborativePlans: [],
+    sharedPlans: [],
     setExperience: jest.fn(),
     setUserPlan: jest.fn(),
-    setCollaborativePlans: jest.fn(),
+    setSharedPlans: jest.fn(),
     fetchExperience: jest.fn().mockResolvedValue({}),
     fetchPlans: jest.fn().mockResolvedValue([]),
-    fetchCollaborativePlans: jest.fn().mockResolvedValue([]),
+    fetchSharedPlans: jest.fn().mockResolvedValue([]),
     experienceCollaborators: [],
     planCollaborators: [],
     user: mockUser,
@@ -719,14 +719,14 @@ describe('useCollaboratorManager', () => {
     });
 
     it('should update collaborative plans when selected plan is not user plan', async () => {
-      const setCollaborativePlans = jest.fn();
+      const setSharedPlans = jest.fn();
       plansApi.addCollaborator.mockResolvedValue({});
 
       const mockProps = createMockProps({
-        setCollaborativePlans,
+        setSharedPlans,
         selectedPlanId: 'collab-plan-789',
         userPlan: { _id: 'user-plan-123', permissions: [] },
-        collaborativePlans: [{ _id: 'collab-plan-789', permissions: [] }]
+        sharedPlans: [{ _id: 'collab-plan-789', permissions: [] }]
       });
       const { result } = renderHook(() => useCollaboratorManager(mockProps));
 
@@ -739,7 +739,7 @@ describe('useCollaboratorManager', () => {
         await result.current.handleAddCollaborator({ preventDefault: jest.fn() });
       });
 
-      expect(setCollaborativePlans).toHaveBeenCalled();
+      expect(setSharedPlans).toHaveBeenCalled();
     });
   });
 
@@ -765,14 +765,14 @@ describe('useCollaboratorManager', () => {
 
     it('should fetch plans after plan collaborator change', async () => {
       const fetchPlans = jest.fn().mockResolvedValue([]);
-      const fetchCollaborativePlans = jest.fn().mockResolvedValue([]);
+      const fetchSharedPlans = jest.fn().mockResolvedValue([]);
       plansApi.addCollaborator.mockResolvedValue({});
 
       const mockProps = createMockProps({
         selectedPlanId: 'plan-123',
         userPlan: { _id: 'plan-123', permissions: [] },
         fetchPlans,
-        fetchCollaborativePlans
+        fetchSharedPlans
       });
       const { result } = renderHook(() => useCollaboratorManager(mockProps));
 
@@ -785,7 +785,7 @@ describe('useCollaboratorManager', () => {
         await result.current.handleAddCollaborator({ preventDefault: jest.fn() });
       });
 
-      expect(fetchCollaborativePlans).toHaveBeenCalled();
+      expect(fetchSharedPlans).toHaveBeenCalled();
       expect(fetchPlans).toHaveBeenCalled();
     });
   });

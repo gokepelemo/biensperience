@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { FaCheck, FaArrowLeft } from 'react-icons/fa';
+import { FaCheck, FaArrowLeft, FaGripVertical, FaPlus, FaTrash } from 'react-icons/fa';
 import { useData } from '../../contexts/DataContext';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
 import { usePlanExperience } from '../../contexts/PlanExperienceContext';
-import { createExperience } from '../../utilities/experiences-api';
+import { createExperience, updateExperience, addPlanItem } from '../../utilities/experiences-api';
 import { createPlan } from '../../utilities/plans-api';
 import { isDuplicateName } from '../../utilities/deduplication';
 import { createFilter } from '../../utilities/trie';
@@ -20,18 +20,38 @@ import ImageUpload from '../ImageUpload/ImageUpload';
 import NewDestinationModal from '../NewDestinationModal/NewDestinationModal';
 import Alert from '../Alert/Alert';
 import { Form } from 'react-bootstrap';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import styles from './MultiStepPlanModal.module.scss';
 
 const STEPS = {
   CREATE_EXPERIENCE: 1,
-  SELECT_DATE: 2,
+  ADD_PLAN_ITEMS: 2,
+  SELECT_DATE: 3,
 };
 
 /**
  * MultiStepPlanModal - A multi-step modal for creating an experience and planning it
  *
  * Step 1: Create Experience (with optional destination creation)
- * Step 2: Select planned date and create the plan
+ * Step 2: Add Plan Items (with hierarchical support and drag & drop)
+ * Step 3: Select planned date and create the plan
  */
 export default function MultiStepPlanModal() {
   const navigate = useNavigate();
@@ -56,6 +76,24 @@ export default function MultiStepPlanModal() {
 
   // Plan date state
   const [plannedDate, setPlannedDate] = useState('');
+
+  // Plan items state
+  const [planItems, setPlanItems] = useState([]);
+  const [newPlanItem, setNewPlanItem] = useState({
+    text: '',
+    parent_id: null,
+    url: '',
+    cost_estimate: '',
+    planning_days: ''
+  });
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Destination modal state
   const [showDestinationModal, setShowDestinationModal] = useState(false);
@@ -93,6 +131,14 @@ export default function MultiStepPlanModal() {
       setCreatedExperience(null);
       setPlannedDate('');
       setCurrentStep(1);
+      setPlanItems([]);
+      setNewPlanItem({
+        text: '',
+        parent_id: null,
+        url: '',
+        cost_estimate: '',
+        planning_days: ''
+      });
     }
   }, [isModalOpen]);
 
@@ -141,7 +187,7 @@ export default function MultiStepPlanModal() {
     setShowDestinationModal(false);
   }, []);
 
-  // Step 1: Create Experience
+  // Step 1: Create or Update Experience
   const handleCreateExperience = async () => {
     setError('');
     setLoading(true);
@@ -159,8 +205,8 @@ export default function MultiStepPlanModal() {
       return;
     }
 
-    // Check for duplicates
-    if (isDuplicateName(expData || [], newExperience.name)) {
+    // Check for duplicates (only for new experiences)
+    if (!createdExperience && isDuplicateName(expData || [], newExperience.name)) {
       setError(`An experience named "${newExperience.name}" already exists. Please choose a different name.`);
       setLoading(false);
       return;
@@ -173,21 +219,29 @@ export default function MultiStepPlanModal() {
         experience_type: tags,
       };
 
-      const experience = await createExperience(experienceData);
-      addExperience(experience);
+      let experience;
+      if (createdExperience) {
+        // Update existing experience
+        experience = await updateExperience(createdExperience._id, experienceData);
+        success('Experience updated! Now add plan items.');
+      } else {
+        // Create new experience
+        experience = await createExperience(experienceData);
+        addExperience(experience);
+        setCreatedExperience(experience);
+        success('Experience created! Now add plan items.');
+      }
 
-      setCreatedExperience(experience);
-      setCurrentStep(STEPS.SELECT_DATE);
-      success('Experience created! Now select a date to plan it.');
+      setCurrentStep(STEPS.ADD_PLAN_ITEMS);
     } catch (err) {
-      const errorMsg = err.response?.data?.error || err.message || 'Failed to create experience';
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to save experience';
       setError(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Step 2: Create Plan
+  // Step 3: Create Plan and add plan items
   const handleCreatePlan = async () => {
     if (!createdExperience) {
       setError('No experience selected');
@@ -198,7 +252,26 @@ export default function MultiStepPlanModal() {
     setError('');
 
     try {
+      // Add plan items to the experience first (so they can be snapshotted into the plan)
+      if (planItems.length > 0) {
+        const planItemPromises = planItems.map(async (item, index) => {
+          const planItemData = {
+            text: item.text,
+            url: item.url || undefined,
+            cost_estimate: item.cost_estimate ? parseFloat(item.cost_estimate) : undefined,
+            planning_days: item.planning_days ? parseInt(item.planning_days) : undefined,
+            parent_id: item.parent_id || undefined,
+            order: index
+          };
+          return addPlanItem(createdExperience._id, planItemData);
+        });
+
+        await Promise.all(planItemPromises);
+      }
+
+      // Create the plan (which will snapshot the experience's plan_items)
       await createPlan(createdExperience._id, plannedDate || null);
+
       success(`You're now planning "${createdExperience.name}"!`);
       closePlanExperienceModal();
       // Navigate to the experience page
@@ -211,15 +284,128 @@ export default function MultiStepPlanModal() {
     }
   };
 
-  // Skip date and create plan without date
-  const handleSkipDate = async () => {
+  // Skip date selection and create plan
+  const handleSkipDate = () => {
     setPlannedDate('');
-    await handleCreatePlan();
+    handleCreatePlan();
   };
 
-  // Go back to step 1
+  // Plan item handlers
+  const handleAddPlanItem = () => {
+    if (!newPlanItem.text.trim()) return;
+
+    const item = {
+      id: `temp-${Date.now()}`,
+      text: newPlanItem.text,
+      parent_id: newPlanItem.parent_id,
+      url: newPlanItem.url || '',
+      cost_estimate: newPlanItem.cost_estimate || '',
+      planning_days: newPlanItem.planning_days || '',
+      order: planItems.length
+    };
+
+    setPlanItems(prev => [...prev, item]);
+    setNewPlanItem({
+      text: '',
+      parent_id: null,
+      url: '',
+      cost_estimate: '',
+      planning_days: ''
+    });
+  };
+
+  const handleDeletePlanItem = (itemId) => {
+    setPlanItems(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      setPlanItems((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+
+        return arrayMove(items, oldIndex, newIndex).map((item, index) => ({
+          ...item,
+          order: index
+        }));
+      });
+    }
+  };
+
+  // Get available parent items (items without parents)
+  const getAvailableParents = () => {
+    return planItems.filter(item => !item.parent_id);
+  };
+
+  // Get child items for a parent
+  const getChildItems = (parentId) => {
+    return planItems.filter(item => item.parent_id === parentId);
+  };
+
+  // Sortable Plan Item Component
+  const SortablePlanItem = ({ item, onDelete }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+    } = useSortable({ id: item.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+    };
+
+    const parentItem = item.parent_id ? planItems.find(p => p.id === item.parent_id) : null;
+
+    return (
+      <div ref={setNodeRef} style={style} className={styles.planItem}>
+        <div className={styles.planItemGrip} {...attributes} {...listeners}>
+          <FaGripVertical />
+        </div>
+        <div className={styles.planItemContent}>
+          <div className={styles.planItemText}>
+            {item.text}
+            {parentItem && (
+              <small className="text-muted ms-2">
+                (under: {parentItem.text})
+              </small>
+            )}
+          </div>
+          {item.url && (
+            <div className={styles.planItemUrl}>
+              <a href={item.url} target="_blank" rel="noopener noreferrer">
+                {item.url}
+              </a>
+            </div>
+          )}
+          <div className={styles.planItemMeta}>
+            {item.cost_estimate && <span>Cost: ${item.cost_estimate}</span>}
+            {item.planning_days && <span>Days: {item.planning_days}</span>}
+          </div>
+        </div>
+        <button
+          type="button"
+          className={styles.planItemDelete}
+          onClick={() => onDelete(item.id)}
+          aria-label="Delete plan item"
+        >
+          <FaTrash />
+        </button>
+      </div>
+    );
+  };
+
+  // Go back to previous step
   const handleBack = () => {
-    setCurrentStep(STEPS.CREATE_EXPERIENCE);
+    if (currentStep === STEPS.SELECT_DATE) {
+      setCurrentStep(STEPS.ADD_PLAN_ITEMS);
+    } else if (currentStep === STEPS.ADD_PLAN_ITEMS) {
+      setCurrentStep(STEPS.CREATE_EXPERIENCE);
+    }
     setError('');
   };
 
@@ -274,12 +460,14 @@ export default function MultiStepPlanModal() {
 
   const modalContent = (
     <div className={`${styles.modalContainer} modal show d-block`} tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div className="modal-content" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
           {/* Header */}
           <div className="modal-header" style={{ borderBottom: '1px solid var(--color-border-light)' }}>
             <h5 className="modal-title" style={{ fontWeight: 'var(--font-weight-bold)' }}>
-              {currentStep === STEPS.CREATE_EXPERIENCE ? 'Create New Experience' : 'Plan Your Experience'}
+              {currentStep === STEPS.CREATE_EXPERIENCE ? 'Create New Experience' :
+               currentStep === STEPS.ADD_PLAN_ITEMS ? 'Add Plan Items' :
+               'Plan Your Experience'}
             </h5>
             <button
               type="button"
@@ -298,8 +486,15 @@ export default function MultiStepPlanModal() {
               <span className={styles.stepLabel}>Create Experience</span>
             </div>
             <div className={`${styles.stepConnector} ${currentStep > 1 ? styles.active : ''}`} />
-            <div className={`${styles.step} ${currentStep >= 2 ? styles.active : ''}`}>
-              <span className={styles.stepNumber}>2</span>
+            <div className={`${styles.step} ${currentStep >= 2 ? styles.active : ''} ${currentStep > 2 ? styles.completed : ''}`}>
+              <span className={styles.stepNumber}>
+                {currentStep > 2 ? <FaCheck size={12} /> : '2'}
+              </span>
+              <span className={styles.stepLabel}>Add Plan Items</span>
+            </div>
+            <div className={`${styles.stepConnector} ${currentStep > 2 ? styles.active : ''}`} />
+            <div className={`${styles.step} ${currentStep >= 3 ? styles.active : ''}`}>
+              <span className={styles.stepNumber}>3</span>
               <span className={styles.stepLabel}>Select Date</span>
             </div>
           </div>
@@ -338,6 +533,7 @@ export default function MultiStepPlanModal() {
                       </Form.Label>
                       <Autocomplete
                         placeholder={lang.current.placeholder.destination}
+                        value={destinationSearchTerm}
                         entityType="destination"
                         items={getFilteredDestinations()}
                         onSelect={(destination) => {
@@ -407,6 +603,131 @@ export default function MultiStepPlanModal() {
                 </Form>
               )}
 
+              {currentStep === STEPS.ADD_PLAN_ITEMS && createdExperience && (
+                <div>
+                  <div className={styles.experienceSummary}>
+                    <div className={styles.summaryTitle}>{createdExperience.name}</div>
+                    <div className={styles.summaryDestination}>
+                      {createdExperience.destination?.name
+                        ? `${createdExperience.destination.name}, ${createdExperience.destination.country}`
+                        : 'Destination selected'}
+                    </div>
+                  </div>
+
+                  <div className={styles.planItemsSection}>
+                    <h6 className={styles.sectionTitle}>Plan Items</h6>
+                    <p className={styles.sectionDescription}>
+                      Add items to plan for this experience. You can create hierarchical items and reorder them by dragging.
+                    </p>
+
+                    {/* Add new plan item form */}
+                    <div className={styles.addPlanItemForm}>
+                      <FormField
+                        name="text"
+                        label="Plan Item"
+                        type="text"
+                        value={newPlanItem.text}
+                        onChange={(e) => setNewPlanItem(prev => ({ ...prev, text: e.target.value }))}
+                        placeholder="What do you need to plan?"
+                        required
+                      />
+
+                      <div className="row">
+                        <div className="col-md-6">
+                          <Form.Group className="mb-3">
+                            <Form.Label>Parent Item (Optional)</Form.Label>
+                            <Form.Select
+                              value={newPlanItem.parent_id || ''}
+                              onChange={(e) => setNewPlanItem(prev => ({
+                                ...prev,
+                                parent_id: e.target.value || null
+                              }))}
+                            >
+                              <option value="">No parent (top level)</option>
+                              {getAvailableParents().map(parent => (
+                                <option key={parent.id} value={parent.id}>
+                                  {parent.text}
+                                </option>
+                              ))}
+                            </Form.Select>
+                          </Form.Group>
+                        </div>
+                        <div className="col-md-3">
+                          <FormField
+                            name="cost_estimate"
+                            label="Cost ($)"
+                            type="number"
+                            value={newPlanItem.cost_estimate}
+                            onChange={(e) => setNewPlanItem(prev => ({ ...prev, cost_estimate: e.target.value }))}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="col-md-3">
+                          <FormField
+                            name="planning_days"
+                            label="Days"
+                            type="number"
+                            value={newPlanItem.planning_days}
+                            onChange={(e) => setNewPlanItem(prev => ({ ...prev, planning_days: e.target.value }))}
+                            placeholder="0"
+                          />
+                        </div>
+                      </div>
+
+                      <FormField
+                        name="url"
+                        label="URL (Optional)"
+                        type="url"
+                        value={newPlanItem.url}
+                        onChange={(e) => setNewPlanItem(prev => ({ ...prev, url: e.target.value }))}
+                        placeholder="https://example.com"
+                      />
+
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={handleAddPlanItem}
+                        disabled={!newPlanItem.text.trim()}
+                        className="mt-2"
+                      >
+                        <FaPlus className="me-2" />
+                        Add Plan Item
+                      </Button>
+                    </div>
+
+                    {/* Plan items list with drag and drop */}
+                    {planItems.length > 0 && (
+                      <div className={styles.planItemsList}>
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={handleDragEnd}
+                        >
+                          <SortableContext
+                            items={planItems.map(item => item.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {planItems.map((item) => (
+                              <SortablePlanItem
+                                key={item.id}
+                                item={item}
+                                onDelete={handleDeletePlanItem}
+                              />
+                            ))}
+                          </SortableContext>
+                        </DndContext>
+                      </div>
+                    )}
+
+                    {planItems.length === 0 && (
+                      <div className={styles.emptyState}>
+                        <p>No plan items added yet. Add some items above to get started!</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {currentStep === STEPS.SELECT_DATE && createdExperience && (
                 <div>
                   <div className={styles.experienceSummary}>
@@ -416,6 +737,11 @@ export default function MultiStepPlanModal() {
                         ? `${createdExperience.destination.name}, ${createdExperience.destination.country}`
                         : 'Destination selected'}
                     </div>
+                    {planItems.length > 0 && (
+                      <div className={styles.summaryPlanItems}>
+                        {planItems.length} plan item{planItems.length !== 1 ? 's' : ''} added
+                      </div>
+                    )}
                   </div>
 
                   <div className={styles.datePickerContainer}>
@@ -441,7 +767,7 @@ export default function MultiStepPlanModal() {
           {/* Footer */}
           <div className={`modal-footer ${styles.modalFooter}`}>
             <div className={styles.footerLeft}>
-              {currentStep === STEPS.SELECT_DATE && (
+              {(currentStep === STEPS.ADD_PLAN_ITEMS || currentStep === STEPS.SELECT_DATE) && (
                 <button type="button" className={styles.backButton} onClick={handleBack}>
                   <FaArrowLeft size={12} className="me-2" />
                   Back
@@ -456,7 +782,17 @@ export default function MultiStepPlanModal() {
                   onClick={handleCreateExperience}
                   disabled={loading || !newExperience.name || !newExperience.destination}
                 >
-                  {loading ? 'Creating...' : 'Create & Continue'}
+                  {loading ? 'Saving...' : createdExperience ? 'Update & Continue' : 'Create & Continue'}
+                </Button>
+              )}
+              {currentStep === STEPS.ADD_PLAN_ITEMS && (
+                <Button
+                  variant="gradient"
+                  size="lg"
+                  onClick={() => setCurrentStep(STEPS.SELECT_DATE)}
+                  disabled={loading}
+                >
+                  {planItems.length > 0 ? `Continue with ${planItems.length} item${planItems.length !== 1 ? 's' : ''}` : 'Skip Plan Items'}
                 </Button>
               )}
               {currentStep === STEPS.SELECT_DATE && (

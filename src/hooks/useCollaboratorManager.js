@@ -14,13 +14,13 @@
  * @param {Object} params.experience - Experience object
  * @param {string} params.selectedPlanId - Selected plan ID
  * @param {Object} params.userPlan - User's plan object
- * @param {Array} params.collaborativePlans - All collaborative plans
+ * @param {Array} params.sharedPlans - All shared plans
  * @param {Function} params.setExperience - Update experience state
  * @param {Function} params.setUserPlan - Update user plan state
- * @param {Function} params.setCollaborativePlans - Update collaborative plans state
+ * @param {Function} params.setSharedPlans - Update shared plans state
  * @param {Function} params.fetchExperience - Fetch experience data
  * @param {Function} params.fetchPlans - Fetch user's plans
- * @param {Function} params.fetchCollaborativePlans - Fetch collaborative plans
+ * @param {Function} params.fetchSharedPlans - Fetch shared plans
  * @param {Array} params.experienceCollaborators - Experience collaborators with user data
  * @param {Array} params.planCollaborators - Plan collaborators with user data
  * @param {Object} params.user - Current user object
@@ -56,13 +56,13 @@ export default function useCollaboratorManager({
   experience,
   selectedPlanId,
   userPlan,
-  collaborativePlans,
+  sharedPlans,
   setExperience,
   setUserPlan,
-  setCollaborativePlans,
+  setSharedPlans,
   fetchExperience,
   fetchPlans,
-  fetchCollaborativePlans,
+  fetchSharedPlans,
   experienceCollaborators,
   planCollaborators,
   user,
@@ -222,8 +222,8 @@ export default function useCollaboratorManager({
       // Snapshot previous state for rollback
       const prevExperience = experience ? { ...experience } : null;
       const prevUserPlan = userPlan ? { ...userPlan } : null;
-      const prevCollaborativePlans = collaborativePlans
-        ? collaborativePlans.map((p) => ({ ...p }))
+      const prevSharedPlans = sharedPlans
+        ? sharedPlans.map((p) => ({ ...p }))
         : [];
 
       const apply = () => {
@@ -273,7 +273,7 @@ export default function useCollaboratorManager({
           if (userPlan && idEquals(userPlan._id, selectedPlanId)) {
             setUserPlan((prev) => applyToPlan(prev));
           } else {
-            setCollaborativePlans((prev) =>
+            setSharedPlans((prev) =>
               prev.map((p) =>
                 idEquals(p._id, selectedPlanId) ? applyToPlan(p) : p
               )
@@ -290,8 +290,8 @@ export default function useCollaboratorManager({
           if (prevUserPlan && idEquals(prevUserPlan._id, selectedPlanId)) {
             setUserPlan(prevUserPlan);
           }
-          if (prevCollaborativePlans?.length) {
-            setCollaborativePlans(prevCollaborativePlans);
+          if (prevSharedPlans?.length) {
+            setSharedPlans(prevSharedPlans);
           }
         }
       };
@@ -333,7 +333,7 @@ export default function useCollaboratorManager({
           if (isExperienceContext) {
             await fetchExperience();
           } else {
-            await fetchCollaborativePlans();
+            await fetchSharedPlans();
             await fetchPlans();
           }
           // Track the added and removed collaborators for success message
@@ -368,15 +368,15 @@ export default function useCollaboratorManager({
       selectedPlanId,
       collaboratorContext,
       experienceId,
-      fetchCollaborativePlans,
+      fetchSharedPlans,
       fetchExperience,
       userPlan,
-      collaborativePlans,
+      sharedPlans,
       fetchPlans,
       experience,
       setExperience,
       setUserPlan,
-      setCollaborativePlans,
+      setSharedPlans,
       showError
     ]
   );

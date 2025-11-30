@@ -463,7 +463,7 @@ export default function MyPlanTabContent({
   idEquals,
 
   // Plan data
-  collaborativePlans,
+  sharedPlans,
   planOwner,
   planCollaborators,
   planOwnerLoading,
@@ -767,7 +767,7 @@ export default function MyPlanTabContent({
   };
 
   // Get current plan
-  const currentPlan = collaborativePlans.find(
+  const currentPlan = sharedPlans.find(
     (p) => idEquals(p._id, selectedPlanId)
   );
 

@@ -623,7 +623,7 @@ async function showExperienceWithContext(req, res) {
       experience.max_planning_days = 0;
     }
 
-    // Will compute collaborativePlans below; log using plansForUser length as an initial indicator
+    // Will compute sharedPlans below; log using plansForUser length as an initial indicator
     backendLogger.info('Experience context fetched', {
       experienceId,
       userId: userId.toString(),
@@ -635,18 +635,18 @@ async function showExperienceWithContext(req, res) {
       userPlan.total_cost = userPlan.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
     }
 
-    // From plansForUser derive collaborativePlans (exclude the user's own plan)
-    let collaborativePlans = [];
+    // From plansForUser derive sharedPlans (exclude the user's own plan)
+    let sharedPlans = [];
     if (plansForUser && plansForUser.length > 0) {
       // find user's own plan in the set (may duplicate userPlan)
       const ownIdStr = userId.toString();
-      collaborativePlans = plansForUser.filter(p => {
+      sharedPlans = plansForUser.filter(p => {
         const planUserId = p.user && p.user._id ? p.user._id.toString() : (p.user ? p.user.toString() : null);
         return planUserId !== ownIdStr;
       });
 
-      // Compute totals for each collaborative plan
-      collaborativePlans.forEach(plan => {
+      // Compute totals for each shared plan
+      sharedPlans.forEach(plan => {
         if (plan.plan) {
           plan.total_cost = plan.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
         }
@@ -654,7 +654,7 @@ async function showExperienceWithContext(req, res) {
     }
 
     // Fallback: if none found above, explicitly query for plans where the user is a collaborator
-    if ((!collaborativePlans || collaborativePlans.length === 0)) {
+    if ((!sharedPlans || sharedPlans.length === 0)) {
       try {
         const fallbackPlans = await Plan.find({
           experience: experienceId,
@@ -677,7 +677,7 @@ async function showExperienceWithContext(req, res) {
           .exec();
 
         if (fallbackPlans && fallbackPlans.length > 0) {
-          collaborativePlans = fallbackPlans.map(plan => {
+          sharedPlans = fallbackPlans.map(plan => {
             if (plan.plan) {
               plan.total_cost = plan.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
             }
@@ -695,7 +695,7 @@ async function showExperienceWithContext(req, res) {
     res.status(200).json({
       experience,
       userPlan,
-      collaborativePlans
+      sharedPlans
     });
   } catch (err) {
     backendLogger.error('Error fetching experience with context', {
@@ -912,6 +912,7 @@ async function deleteExperience(req, res) {
     }
     
     // Check if any other users have plans for this experience
+    // Only prevent deletion if non-owner users have plans (owners can cascade delete)
     const existingPlans = await Plan.find({ experience: req.params.id })
       .populate({
         path: 'user',
@@ -930,7 +931,9 @@ async function deleteExperience(req, res) {
         plan => plan.user._id.toString() !== req.user._id.toString()
       );
       
-      if (otherUserPlans.length > 0) {
+      // If there are plans by other users, the owner can still delete (cascade delete)
+      // Only non-owners are prevented from deleting experiences with other users' plans
+      if (otherUserPlans.length > 0 && !permCheck.allowed) {
         // Get unique users with their plan details
         const usersWithPlans = otherUserPlans.map(plan => ({
           userId: plan.user._id,
@@ -942,8 +945,8 @@ async function deleteExperience(req, res) {
           plannedDate: plan.planned_date
       }));
         
-        return res.status(409).json({ 
-          error: 'Cannot delete experience',
+        return res.status(409).json({
+          error: 'Experience cannot be deleted',
           message: 'This experience cannot be deleted because other users have created plans for it. You can transfer ownership to one of these users instead.',
           planCount: otherUserPlans.length,
           usersWithPlans: usersWithPlans
@@ -959,6 +962,23 @@ async function deleteExperience(req, res) {
       req,
       reason: `Experience "${experience.name}" deleted`
     });
+    
+    // Delete all plans associated with this experience
+    // This prevents orphaned plans showing as "Unnamed Experience" on dashboards
+    try {
+      const deletedPlansCount = await Plan.deleteMany({ experience: req.params.id });
+      backendLogger.info('Deleted associated plans', { 
+        experienceId: req.params.id, 
+        plansDeleted: deletedPlansCount.deletedCount 
+      });
+    } catch (planDeleteErr) {
+      backendLogger.error('Error deleting associated plans', { 
+        error: planDeleteErr.message, 
+        experienceId: req.params.id 
+      });
+      // Don't fail the experience deletion if plan deletion fails
+      // The plans will become orphaned but the experience deletion should succeed
+    }
     
     await experience.deleteOne();
     res.status(200).json({ message: 'Experience deleted successfully' });

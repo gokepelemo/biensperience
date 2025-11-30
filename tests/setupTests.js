@@ -37,9 +37,25 @@ global.CustomEvent = class CustomEvent extends Event {
 // Mock window.dispatchEvent
 window.dispatchEvent = jest.fn();
 
-// Suppress console warnings during tests
-const originalWarn = console.warn;
-console.warn = (...args) => {
-  if (args[0]?.includes?.('ReactDOM.render')) return;
-  originalWarn(...args);
-};
+// Mock crypto API
+Object.defineProperty(global, 'crypto', {
+  value: {
+    getRandomValues: jest.fn((array) => {
+      for (let i = 0; i < array.length; i++) {
+        array[i] = Math.floor(Math.random() * 256);
+      }
+      return array;
+    })
+  }
+});
+
+// Mock logger utility
+jest.mock('../src/utilities/logger', () => ({
+  logger: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    trace: jest.fn()
+  }
+}));

@@ -83,12 +83,17 @@
   border: none;
   color: var(--color-text-muted);
   font-size: var(--font-size-base);
-  padding: $space-1;
+  /* Fixed square size prevents the button expanding to full width on hover */
+  width: $space-7; /* 28px */
+  height: $space-7; /* 28px */
+  min-width: $space-7;
+  padding: 0; /* center glyph with inline-flex */
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: content-box;
   z-index: 2; /* Above input but below dropdown */
 
   &:hover {
