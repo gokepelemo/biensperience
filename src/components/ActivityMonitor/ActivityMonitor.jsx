@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Form, Badge, Alert, InputGroup } from 'react-bootstrap';
 import { FaSearch, FaFilter, FaUndo, FaEye, FaTimes } from 'react-icons/fa';
 import Modal from '../Modal/Modal';
@@ -31,6 +32,7 @@ const RESOURCE_TYPES = ['User', 'Experience', 'Destination', 'Photo', 'Plan', 'P
 
 export default function ActivityMonitor({ show, onHide }) {
   const { success, error } = useToast();
+  const navigate = useNavigate();
   
   // State management
   const [activities, setActivities] = useState([]);
@@ -139,9 +141,33 @@ export default function ActivityMonitor({ show, onHide }) {
 
     try {
       setRollbackLoading(true);
-      await restoreResourceState(activity.rollbackToken);
-      success(lang.current.notification?.admin?.stateRestored || 'Your previous state has been restored');
-      fetchActivities();
+      const result = await restoreResourceState(activity.rollbackToken);
+
+      if (result.wasRecreated) {
+        // Resource was deleted and recreated - redirect to the new resource
+        success(result.message || 'Deleted resource has been recreated');
+        onHide(); // Close the activity monitor modal
+
+        // Build redirect URL based on resource type
+        const resourceId = result.resource._id;
+        const resourceType = result.resourceType?.toLowerCase();
+
+        if (resourceType === 'experience') {
+          navigate(`/experiences/${resourceId}`);
+        } else if (resourceType === 'destination') {
+          navigate(`/destinations/${resourceId}`);
+        } else if (resourceType === 'plan') {
+          navigate(`/experiences/${result.resource.experience}#plan-${resourceId}`);
+        } else if (resourceType === 'user') {
+          navigate(`/profile/${resourceId}`);
+        } else {
+          // For other types, just refresh activities
+          fetchActivities();
+        }
+      } else {
+        success(lang.current.notification?.admin?.stateRestored || 'Your previous state has been restored');
+        fetchActivities();
+      }
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Rollback state' });
       error(errorMsg);

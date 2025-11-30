@@ -381,12 +381,12 @@ export default function SingleDestination() {
           <Row>
             {/* Main Content Column */}
             <Col lg={8}>
-              {/* About Section */}
-              {destination.description && (
+              {/* Overview Section */}
+              {destination.overview && (
                 <Card className={styles.contentCard}>
                   <Card.Body className={styles.contentCardBody}>
-                    <h3 className={styles.sectionTitle}>About This Destination</h3>
-                    <p className={styles.sectionText}>{destination.description}</p>
+                    <h3 className={styles.sectionTitle}>Overview</h3>
+                    <p className={styles.sectionText}>{destination.overview}</p>
                   </Card.Body>
                 </Card>
               )}

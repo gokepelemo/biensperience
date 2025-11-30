@@ -27,6 +27,8 @@ import { Button, EmptyState, Container } from "../../components/design-system";
 import { Card, Row, Col } from "react-bootstrap";
 import { useToast } from '../../contexts/ToastContext';
 import { getDefaultPhoto } from "../../utilities/photo-utils";
+import { getFirstName } from "../../utilities/name-utils";
+import { formatLocation } from "../../utilities/address-utils";
 
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
@@ -42,6 +44,8 @@ export default function Profile() {
 
   let userId = profileId ? profileId : user._id;
   const isOwner = !profileId || profileId === user._id || isSuperAdmin(user);
+  // For empty state messaging, only check if viewing own profile (not super admin override)
+  const isOwnProfile = !profileId || profileId === user._id;
   
   // NEVER initialize with profile from context to prevent showing wrong user's data
   const [currentProfile, setCurrentProfile] = useState(null);
@@ -637,7 +641,7 @@ export default function Profile() {
 
                   {currentProfile?.location && (
                     <p className={styles.profileLocation}>
-                      <FaMapMarkerAlt /> {currentProfile.location}
+                      <FaMapMarkerAlt /> {formatLocation(currentProfile.location)}
                     </p>
                   )}
 
@@ -842,12 +846,12 @@ export default function Profile() {
                   ) : (
                     <EmptyState
                       variant="destinations"
-                      title={isOwner ? "No Destinations Yet" : "No Destinations"}
-                      description={isOwner
+                      title={isOwnProfile ? "No Destinations Yet" : "No Destinations"}
+                      description={isOwnProfile
                         ? "You haven't favorited any destinations yet. Browse destinations and add some to your favorites."
-                        : `${currentProfile?.name || 'This user'} hasn't favorited any destinations yet.`}
-                      primaryAction={isOwner ? "Browse Destinations" : null}
-                      onPrimaryAction={isOwner ? () => window.location.href = '/destinations' : null}
+                        : `${getFirstName(currentProfile?.name)} hasn't favorited any destinations yet.`}
+                      primaryAction={isOwnProfile ? "Browse Destinations" : null}
+                      onPrimaryAction={isOwnProfile ? () => window.location.href = '/destinations' : null}
                       size="md"
                     />
                   );
@@ -900,12 +904,12 @@ export default function Profile() {
                   ) : (
                     <EmptyState
                       variant="experiences"
-                      title={isOwner ? "No Planned Experiences" : "No Planned Experiences"}
-                      description={isOwner
-                        ? lang.current.message.noExperiencesYet
-                        : `${currentProfile?.name || 'This user'} hasn't planned any experiences yet.`}
-                      primaryAction={isOwner ? "Plan Some Experiences" : null}
-                      onPrimaryAction={isOwner ? () => window.location.href = '/experiences' : null}
+                      title={isOwnProfile ? "No Planned Experiences" : "No Planned Experiences"}
+                      description={isOwnProfile
+                        ? "You haven't planned any experiences yet. Browse experiences and start planning your next adventure."
+                        : `${getFirstName(currentProfile?.name)} hasn't planned any experiences yet.`}
+                      primaryAction={isOwnProfile ? "Browse Experiences" : null}
+                      onPrimaryAction={isOwnProfile ? () => window.location.href = '/experiences' : null}
                       size="md"
                     />
                   );
@@ -959,12 +963,12 @@ export default function Profile() {
                     <EmptyState
                       variant="experiences"
                       icon="✨"
-                      title={isOwner ? "No Created Experiences" : "No Created Experiences"}
-                      description={isOwner
+                      title={isOwnProfile ? "No Created Experiences" : "No Created Experiences"}
+                      description={isOwnProfile
                         ? "You haven't created any experiences yet. Share your travel knowledge with the community."
-                        : `${currentProfile?.name || 'This user'} hasn't created any experiences yet.`}
-                      primaryAction={isOwner ? "Create Some Experiences" : null}
-                      onPrimaryAction={isOwner ? () => window.location.href = '/experiences/new' : null}
+                        : `${getFirstName(currentProfile?.name)} hasn't created any experiences yet.`}
+                      primaryAction={isOwnProfile ? "Create an Experience" : null}
+                      onPrimaryAction={isOwnProfile ? () => window.location.href = '/experiences/new' : null}
                       size="md"
                     />
                   );

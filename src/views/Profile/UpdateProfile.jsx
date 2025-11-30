@@ -1,6 +1,7 @@
 import styles from "./Profile.module.scss";
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { FaCrosshairs } from "react-icons/fa";
 import ImageUpload from "../../components/ImageUpload/ImageUpload";
 import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
@@ -16,6 +17,8 @@ import FormField from "../../components/FormField/FormField";
 import { FormTooltip } from "../../components/Tooltip/Tooltip";
 import { Form } from "react-bootstrap";
 import { isSuperAdmin } from "../../utilities/permissions";
+import { reverseGeocode } from "../../utilities/address-utils";
+import { Button } from "../../components/design-system";
 
 export default function UpdateProfile() {
   const { user, profile, updateUser: updateUserContext, fetchProfile } = useUser();
@@ -35,6 +38,7 @@ export default function UpdateProfile() {
     confirmPassword: ''
   });
   const [passwordError, setPasswordError] = useState("");
+  const [geolocating, setGeolocating] = useState(false);
   const navigate = useNavigate();
   const { userId } = useParams();
 
@@ -136,6 +140,78 @@ export default function UpdateProfile() {
       const newChanges = { ...changes };
       delete newChanges.password;
       setChanges(newChanges);
+    }
+  }
+
+  // Handle "Use Current Location" button
+  async function handleUseCurrentLocation() {
+    if (!navigator.geolocation) {
+      showError('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setGeolocating(true);
+
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+      const geocoded = await reverseGeocode(latitude, longitude);
+
+      if (geocoded && geocoded.components) {
+        const { city, state, country, countryShort } = geocoded.components;
+
+        // Build location object matching the expected format
+        const locationObj = {
+          displayName: geocoded.formattedAddress,
+          city: city || '',
+          state: state || '',
+          country: country || '',
+          countryCode: countryShort || '',
+          coordinates: { lat: latitude, lng: longitude },
+          originalQuery: geocoded.formattedAddress,
+          geocodedAt: new Date().toISOString()
+        };
+
+        // Update form data with geocoded location
+        setFormData(prev => ({
+          ...prev,
+          location: locationObj,
+          locationQuery: '' // Clear query since we have a full location object
+        }));
+
+        // Track the change
+        const originalLocation = originalUser?.location?.displayName || '';
+        const newLocation = geocoded.formattedAddress;
+        if (originalLocation !== newLocation) {
+          setChanges(prev => ({
+            ...prev,
+            location: { from: originalLocation || 'Not set', to: newLocation }
+          }));
+        }
+
+        success(`Location set to ${city || geocoded.formattedAddress}`);
+      } else {
+        showError('Could not determine your location. Please enter it manually.');
+      }
+    } catch (err) {
+      if (err.code === 1) {
+        showError('Location access denied. Please enable location permissions in your browser.');
+      } else if (err.code === 2) {
+        showError('Could not determine your location. Please try again or enter manually.');
+      } else if (err.code === 3) {
+        showError('Location request timed out. Please try again.');
+      } else {
+        showError('Failed to get your location. Please enter it manually.');
+      }
+    } finally {
+      setGeolocating(false);
     }
   }
 
@@ -413,38 +489,67 @@ export default function UpdateProfile() {
               tooltipPlacement="top"
             />
 
-            <FormField
-              name="location"
-              label="Location"
-              type="text"
-              value={formData.location?.displayName || formData.locationQuery || ''}
-              onChange={(e) => {
-                // Store the query string for geocoding on submit
-                setFormData(prev => ({
-                  ...prev,
-                  locationQuery: e.target.value
-                }));
-                // Track changes
-                const originalLocation = originalUser?.location?.displayName || '';
-                const newLocation = e.target.value;
-                if (originalLocation !== newLocation) {
-                  setChanges(prev => ({
-                    ...prev,
-                    location: { from: originalLocation || 'Not set', to: newLocation || 'Not set' }
-                  }));
-                } else {
-                  setChanges(prev => {
-                    const newChanges = { ...prev };
-                    delete newChanges.location;
-                    return newChanges;
-                  });
-                }
-              }}
-              placeholder="Enter city, zip code, or address"
-              autoComplete="address-level2"
-              tooltip="Enter a city name, zip/postal code, or full address. We'll look up the location to show your city and country on your profile."
-              tooltipPlacement="top"
-            />
+            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <FormField
+                  name="location"
+                  label="Location"
+                  type="text"
+                  value={formData.location?.displayName || formData.locationQuery || ''}
+                  onChange={(e) => {
+                    // Store the query string for geocoding on submit
+                    setFormData(prev => ({
+                      ...prev,
+                      locationQuery: e.target.value
+                    }));
+                    // Track changes
+                    const originalLocation = originalUser?.location?.displayName || '';
+                    const newLocation = e.target.value;
+                    if (originalLocation !== newLocation) {
+                      setChanges(prev => ({
+                        ...prev,
+                        location: { from: originalLocation || 'Not set', to: newLocation || 'Not set' }
+                      }));
+                    } else {
+                      setChanges(prev => {
+                        const newChanges = { ...prev };
+                        delete newChanges.location;
+                        return newChanges;
+                      });
+                    }
+                  }}
+                  placeholder="Enter city, zip code, or address"
+                  autoComplete="address-level2"
+                  tooltip="Enter a city name, zip/postal code, or full address. We'll look up the location to show your city and country on your profile."
+                  tooltipPlacement="top"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleUseCurrentLocation}
+                disabled={geolocating}
+                title="Use current location"
+                aria-label="Use current location"
+                style={{
+                  flexShrink: 0,
+                  width: '36px',
+                  height: '36px',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 'var(--space-4)'
+                }}
+              >
+                {geolocating ? (
+                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                ) : (
+                  <FaCrosshairs />
+                )}
+              </Button>
+            </div>
             {formData.location?.city && formData.location?.country && !formData.locationQuery && (
               <p className="text-muted small mt-n2 mb-3">
                 📍 Current location: {formData.location.city}{formData.location.state ? `, ${formData.location.state}` : ''}, {formData.location.country}

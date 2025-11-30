@@ -511,6 +511,72 @@ function toRadians(degrees) {
 }
 
 /**
+ * Format a location value for display
+ * Handles both string locations and geocoded location objects
+ *
+ * @param {string|Object} location - Location string or geocoded location object
+ * @param {Object} options - Formatting options
+ * @param {string} [options.format='short'] - 'short' (city, country) or 'full' (displayName)
+ * @returns {string} Formatted location string
+ *
+ * @example
+ * formatLocation('New York, NY, USA') // 'New York, NY, USA'
+ * formatLocation({ displayName: 'New York, NY', city: 'New York', country: 'USA' }) // 'New York, USA'
+ * formatLocation({ city: 'Paris', country: 'France' }) // 'Paris, France'
+ */
+export function formatLocation(location, options = {}) {
+  const { format = 'short' } = options;
+
+  // Handle null/undefined
+  if (!location) {
+    return '';
+  }
+
+  // Handle string location (legacy format)
+  if (typeof location === 'string') {
+    return location;
+  }
+
+  // Handle object location (geocoded format)
+  if (typeof location === 'object') {
+    // If displayName exists and format is 'full', use it
+    if (format === 'full' && location.displayName) {
+      return location.displayName;
+    }
+
+    // Build from components for short format
+    const parts = [];
+
+    // Prefer city, fall back to displayName parsing
+    if (location.city) {
+      parts.push(location.city);
+    }
+
+    // Add state if different from city (for US locations)
+    if (location.state && location.state !== location.city) {
+      // Use short state code if available
+      parts.push(location.state);
+    }
+
+    // Add country
+    if (location.country) {
+      // Use country code for brevity if available
+      parts.push(location.countryCode || location.country);
+    }
+
+    // If we have parts, join them
+    if (parts.length > 0) {
+      return parts.join(', ');
+    }
+
+    // Fallback to displayName or originalQuery
+    return location.displayName || location.originalQuery || '';
+  }
+
+  return '';
+}
+
+/**
  * Clear geocoding cache
  */
 export function clearGeocodeCache() {

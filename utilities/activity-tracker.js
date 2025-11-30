@@ -710,19 +710,45 @@ async function restoreState(rollbackToken, actor) {
         return { success: false, error: `Unknown resource type: ${resourceType}` };
     }
 
-    // Find the resource
-    const resource = await Model.findById(resourceId);
+    // Normalize previousState for schema migrations
+    // Map old field names to new field names
+    const normalizedState = { ...previousState };
 
-    if (!resource) {
-      return { success: false, error: 'Resource not found' };
+    // Destination: description -> overview migration
+    if (resourceType === 'Destination' && normalizedState.description !== undefined && normalizedState.overview === undefined) {
+      normalizedState.overview = normalizedState.description;
+      delete normalizedState.description;
     }
 
-    // Store current state for rollback of the rollback
-    const currentState = resource.toObject();
+    // Find the resource
+    let resource = await Model.findById(resourceId);
+    let wasRecreated = false;
+    let currentState = null;
 
-    // Restore previous state
-    Object.assign(resource, previousState);
-    await resource.save();
+    if (!resource) {
+      // Resource was deleted - recreate it from previousState
+      backendLogger.info('Resource not found, recreating from previousState', {
+        resourceType,
+        resourceId
+      });
+
+      // Create new document with the previousState data
+      // Remove _id to let MongoDB generate a new one, but keep track of original
+      const recreateData = { ...normalizedState };
+      delete recreateData._id;
+      delete recreateData.__v;
+
+      // Create the resource
+      resource = new Model(recreateData);
+      await resource.save();
+      wasRecreated = true;
+      currentState = null; // No previous state since resource was deleted
+    } else {
+      // Resource exists - update it
+      currentState = resource.toObject();
+      Object.assign(resource, normalizedState);
+      await resource.save();
+    }
 
     // Track the rollback
     Activity.create({
@@ -730,43 +756,50 @@ async function restoreState(rollbackToken, actor) {
       action: 'rollback_performed',
       actor: extractActor(actor),
       resource: {
-        id: resourceId,
+        id: resource._id, // Use new ID if recreated
         type: resourceType,
         name: resource.name || resource.email || 'Unnamed'
       },
       previousState: currentState,
-      newState: previousState,
-      reason: `State restored using rollback token`,
+      newState: normalizedState,
+      reason: wasRecreated
+        ? `Deleted resource recreated using rollback token (original ID: ${resourceId})`
+        : `State restored using rollback token`,
       rollbackToken: generateRollbackToken(),
       status: 'success',
-      tags: [resourceType.toLowerCase(), 'rollback', 'admin']
+      tags: [resourceType.toLowerCase(), 'rollback', 'admin', ...(wasRecreated ? ['recreated'] : [])]
     }).catch(err => {
       backendLogger.error('Failed to track rollback activity', {
         error: err.message,
         resourceType,
-        resourceId
+        resourceId: resource._id
       });
     });
 
-    backendLogger.info('State restored successfully', {
+    backendLogger.info(wasRecreated ? 'Deleted resource recreated successfully' : 'State restored successfully', {
       resourceType,
-      resourceId,
+      originalResourceId: resourceId,
+      newResourceId: resource._id.toString(),
+      wasRecreated,
       actor: actor._id
     });
 
     return {
       success: true,
       resource,
-      message: 'State restored successfully'
+      message: wasRecreated
+        ? `Deleted ${resourceType.toLowerCase()} has been recreated with a new ID`
+        : 'State restored successfully',
+      wasRecreated
     };
   } catch (error) {
     backendLogger.error('Error restoring state', {
-      error: error.message,
+      error: error.message || error.toString(),
       rollbackToken
     });
     return {
       success: false,
-      error: error.message
+      error: error.message || error.toString() || 'Unknown error during state restoration'
     };
   }
 }

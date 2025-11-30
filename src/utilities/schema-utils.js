@@ -14,7 +14,7 @@ export function buildDestinationSchema(destination, siteBaseUrl = '') {
     "@context": "https://schema.org",
     "@type": "Place",
     name: destination.name,
-    description: destination.description || undefined,
+    description: destination.overview || undefined,
     image: image || undefined,
     url: url || undefined,
   };

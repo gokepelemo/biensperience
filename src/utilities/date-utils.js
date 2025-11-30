@@ -564,27 +564,66 @@ export function formatDate(date, locale = 'en-US', options = {}) {
 
 /**
  * Formats a date with time for display (e.g., "Jan 15, 2024 at 3:45 PM")
+ * Respects user's timezone preference from profile or localStorage.
  * @param {string|Date} date - The date to format
- * @param {string} locale - The locale for formatting (default: 'en-US')
+ * @param {Object} options - Additional options
+ * @param {string} options.locale - The locale for formatting (default: 'en-US')
+ * @param {Object} options.profile - User profile for timezone preference
+ * @param {string} options.timezone - Override timezone (IANA format)
  * @returns {string} Formatted date and time string
  */
-export function formatDateTime(date, locale = 'en-US') {
+export function formatDateTime(date, options = {}) {
   if (!date) return '';
 
-  const options = {
+  const { locale = 'en-US', profile = null, timezone: overrideTimezone } = options;
+
+  // Get user's preferred timezone
+  let timezone;
+  if (overrideTimezone) {
+    timezone = overrideTimezone;
+  } else if (profile?.preferences?.timezone && profile.preferences.timezone !== 'system-default') {
+    timezone = profile.preferences.timezone;
+  } else {
+    // Check localStorage for timezone preference
+    try {
+      const stored = localStorage.getItem('biensperience:timezone');
+      if (stored && stored !== 'system-default') {
+        timezone = stored;
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }
+
+  const formatOptions = {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true
+    hour12: true,
+    ...(timezone && { timeZone: timezone })
   };
 
   try {
-    const dateObj = toLocalDate(date) || (date instanceof Date ? date : new Date(date));
-    return dateObj.toLocaleString(locale, options);
+    const dateObj = date instanceof Date ? date : new Date(date);
+    if (isNaN(dateObj.getTime())) return '';
+    return dateObj.toLocaleString(locale, formatOptions);
   } catch (error) {
-    return '';
+    // Fallback without timezone if invalid
+    try {
+      const dateObj = date instanceof Date ? date : new Date(date);
+      return dateObj.toLocaleString(locale, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return '';
+    }
   }
 }
 

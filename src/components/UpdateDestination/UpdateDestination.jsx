@@ -255,7 +255,7 @@ export default function UpdateDestination() {
         name: destination.name,
         country: destination.country,
         state: destination.state,
-        description: destination.description,
+        overview: destination.overview,
         photos: photosToSend,
         default_photo_id: destination.default_photo_id,
         travel_tips: travelTips,
@@ -371,14 +371,14 @@ export default function UpdateDestination() {
             </div>
 
             <FormField
-              name="description"
-              label="Description"
+              name="overview"
+              label="Overview"
               type="textarea"
-              value={destination?.description || ''}
+              value={destination?.overview || ''}
               onChange={handleChange}
-              placeholder={lang.current.placeholder.destinationDescription}
+              placeholder={lang.current.placeholder.destinationOverview}
               rows={4}
-              tooltip={lang.current.helper.descriptionOptional}
+              tooltip={lang.current.helper.overviewOptional}
               tooltipPlacement="top"
             />
 

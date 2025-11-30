@@ -493,13 +493,14 @@ const en = {
     planItemExample: "e.g., Book flight tickets",
     enterYourName: "Enter your name",
     enterYourEmail: "Enter your email",
+    destinationOverview: "Describe what makes this destination special, what travelers can expect, and any highlights they should know about...",
   },
 
   helper: {
     nameRequired:
       "Give your experience an exciting name that captures what makes it special.",
     overviewOptional:
-      "Share a brief description of this experience to help travelers understand what they're in for.",
+      "Share a brief description to help travelers understand what they're in for.",
     destinationRequired: "Pick where this adventure takes place, or ",
     createNewDestination: "add a new destination to our map 🗺️",
     experienceTypesOptional:

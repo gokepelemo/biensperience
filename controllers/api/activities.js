@@ -209,7 +209,7 @@ async function restoreResourceState(req, res) {
     const result = await restoreState(rollbackToken, req.user);
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return res.status(400).json({ error: result.error || 'Failed to restore state' });
     }
 
     backendLogger.info('Resource state restored', {
@@ -222,7 +222,9 @@ async function restoreResourceState(req, res) {
     res.json({
       success: true,
       message: result.message,
-      resource: result.resource
+      resource: result.resource,
+      resourceType: result.resource.constructor.modelName,
+      wasRecreated: result.wasRecreated || false
     });
   } catch (error) {
     backendLogger.error('Error restoring resource state', {

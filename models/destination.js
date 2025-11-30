@@ -35,7 +35,7 @@ const destinationSchema = new Schema(
     state: {
       type: String,
     },
-    description: {
+    overview: {
       type: String,
     },
     map_location: { type: String },

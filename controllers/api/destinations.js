@@ -101,7 +101,7 @@ async function index(req, res) {
 async function createDestination(req, res) {
   try {
     // Whitelist allowed fields to prevent mass assignment
-    const allowedFields = ['name', 'country', 'state', 'description', 'photos', 'default_photo_id', 'travel_tips', 'tags'];
+    const allowedFields = ['name', 'country', 'state', 'overview', 'photos', 'default_photo_id', 'travel_tips', 'tags'];
     const destinationData = {};
     
     allowedFields.forEach(field => {

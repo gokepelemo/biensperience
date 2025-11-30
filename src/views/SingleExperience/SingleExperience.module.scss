@@ -130,12 +130,20 @@
   .locationText {
     font-size: var(--font-size-lg);
     color: var(--color-text-secondary);
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: $space-2;
 
     svg {
       color: var(--color-primary);
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+
+    a {
+      display: inline-flex;
+      align-items: center;
+      line-height: 1;
     }
   }
 
@@ -224,7 +232,7 @@
   padding: $space-6;
 
   @include breakpoint-max(lg) {
-    padding: $space-4;
+    padding: $space-4 $space-3;
     width: 100%;
   }
 
@@ -237,6 +245,8 @@
     // Center on mobile and tablet viewports
     @include breakpoint-max(lg) {
       text-align: center;
+      font-size: var(--font-size-xl);
+      margin-bottom: $space-3;
     }
   }
 }
@@ -247,6 +257,11 @@
   flex-direction: column;
   gap: $space-4;
   margin-bottom: $space-6;
+
+  @include breakpoint-max(lg) {
+    gap: $space-3;
+    margin-bottom: $space-4;
+  }
 }
 
 .detailItem {
@@ -268,12 +283,20 @@
     flex-direction: column;
     align-items: center;
 
-    .detailLabel,
+    .detailLabel {
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      font-size: var(--font-size-base);
+    }
+
     .detailValue {
       text-align: center;
       display: flex;
       justify-content: center;
       width: 100%;
+      font-size: var(--font-size-lg);
     }
   }
 }
@@ -288,6 +311,7 @@
   @include breakpoint-max(lg) {
     align-items: center;
     width: 100%;
+    gap: $space-2;
   }
 
   .primaryAction {

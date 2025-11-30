@@ -214,14 +214,14 @@ export default function NewDestination() {
             </div>
 
             <FormField
-              name="description"
-              label="Description"
+              name="overview"
+              label="Overview"
               type="textarea"
-              value={newDestination.description || ''}
+              value={newDestination.overview || ''}
               onChange={handleChange}
-              placeholder={lang.current.placeholder.destinationDescription}
+              placeholder={lang.current.placeholder.destinationOverview}
               rows={4}
-              tooltip={lang.current.helper.descriptionOptional}
+              tooltip={lang.current.helper.overviewOptional}
               tooltipPlacement="top"
             />
 
