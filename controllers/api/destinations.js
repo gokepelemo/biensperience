@@ -391,6 +391,8 @@ async function toggleUserFavoriteDestination(req, res) {
       }
       
       await destination.save();
+      // Populate photos before returning to ensure frontend has complete data
+      await destination.populate("photos", "url caption photo_credit photo_credit_url width height");
       res.status(201).json(destination);
     } else {
       // Removing from favorites
@@ -412,8 +414,10 @@ async function toggleUserFavoriteDestination(req, res) {
           }
         });
       }
-      
+
       await destination.save();
+      // Populate photos before returning to ensure frontend has complete data
+      await destination.populate("photos", "url caption photo_credit photo_credit_url width height");
       res.status(200).json(destination);
     }
   } catch (err) {

@@ -9,6 +9,7 @@ import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import TravelTipsList from "../../components/TravelTipsList/TravelTipsList";
 import { logger } from "../../utilities/logger";
+import { eventBus } from "../../utilities/event-bus";
 import { getExperiences } from "../../utilities/experiences-api";
 import Alert from "../../components/Alert/Alert";
 import { lang } from "../../lang.constants";
@@ -49,12 +50,31 @@ export default function SingleDestination() {
   /**
    * Merge helper function to update destination state without full replacement
    * Preserves unchanged data and prevents UI flashing
+   * Smart merge: preserves populated arrays when incoming data is unpopulated
    */
   const mergeDestination = useCallback((updates) => {
     setDestination(prev => {
       if (!prev) return updates; // First load - use full data
       if (!updates) return prev; // No updates - keep existing
-      return { ...prev, ...updates }; // Merge - preserve unchanged data
+
+      // Smart merge for photos: preserve populated photos if incoming is unpopulated
+      const mergedPhotos = (() => {
+        if (!updates.photos) return prev.photos; // No photos in update - keep existing
+        if (!prev.photos || prev.photos.length === 0) return updates.photos; // No existing photos
+
+        // Check if incoming photos are unpopulated (just ObjectId strings)
+        const isUnpopulated = updates.photos.length > 0 &&
+          typeof updates.photos[0] === 'string';
+
+        // If incoming is unpopulated but we have populated data, keep existing
+        if (isUnpopulated && prev.photos.length > 0 && typeof prev.photos[0] === 'object') {
+          return prev.photos;
+        }
+
+        return updates.photos;
+      })();
+
+      return { ...prev, ...updates, photos: mergedPhotos };
     });
   }, []);
 
@@ -144,7 +164,8 @@ export default function SingleDestination() {
   // Listen for destination update events to refresh this specific destination
   useEffect(() => {
     const handleDestinationUpdated = (event) => {
-      const { destination: updatedDestination } = event.detail || {};
+      // Event bus spreads payload at top level
+      const updatedDestination = event.destination;
       if (updatedDestination && updatedDestination._id === destinationId) {
         logger.debug('[SingleDestination] Destination updated event received', { id: updatedDestination._id });
         // ✅ Use merge to preserve unchanged data (prevents flash on event update)
@@ -152,10 +173,8 @@ export default function SingleDestination() {
       }
     };
 
-    window.addEventListener('destination:updated', handleDestinationUpdated);
-    return () => {
-      window.removeEventListener('destination:updated', handleDestinationUpdated);
-    };
+    const unsubscribe = eventBus.subscribe('destination:updated', handleDestinationUpdated);
+    return () => unsubscribe();
   }, [destinationId, mergeDestination]);
 
   useEffect(() => {

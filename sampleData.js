@@ -1337,7 +1337,11 @@ class DataGenerator {
       if (existingPlan) continue;
 
       // Get destination name for location generation
-      const destinationName = experience.destination?.name || experience.destination || 'Unknown Location';
+      // Handle both populated destination objects and unpopulated ObjectIds
+      const destRef = experience.destination;
+      const destinationName = (destRef && typeof destRef === 'object' && destRef.name)
+        ? destRef.name
+        : (typeof destRef === 'string' ? destRef : 'Unknown Location');
 
       // Generate base plan items with completion status
       const planItems = experience.plan_items.map(item => {

@@ -57,10 +57,9 @@ export async function getDestinationsPage(page = 1, limit = 30, filters = {}) {
 export async function createDestination (destinationData) {
     const result = await sendRequest(`${BASE_URL}`, "POST", destinationData);
 
-    // Emit events so components can react
+    // Emit event via event bus (handles local + cross-tab dispatch)
     try {
-        if (typeof window !== 'undefined' && window.dispatchEvent && result) {
-            window.dispatchEvent(new CustomEvent('destination:created', { detail: { destination: result } }));
+        if (result) {
             broadcastEvent('destination:created', { destination: result });
             logger.debug('[destinations-api] Destination created event dispatched', { id: result._id });
         }
@@ -93,10 +92,9 @@ export async function showDestination (id) {
 export async function updateDestination (id, destinationData) {
     const result = await sendRequest(`${BASE_URL}${id}`, "PUT", destinationData);
 
-    // Emit events so components can react
+    // Emit event via event bus (handles local + cross-tab dispatch)
     try {
-        if (typeof window !== 'undefined' && window.dispatchEvent && result) {
-            window.dispatchEvent(new CustomEvent('destination:updated', { detail: { destination: result } }));
+        if (result) {
             broadcastEvent('destination:updated', { destination: result });
             logger.debug('[destinations-api] Destination updated event dispatched', { id: result._id });
         }
@@ -117,13 +115,10 @@ export async function updateDestination (id, destinationData) {
 export async function deleteDestination (id) {
     const result = await sendRequest(`${BASE_URL}${id}`, "DELETE");
 
-    // Emit events so components can react
+    // Emit event via event bus (handles local + cross-tab dispatch)
     try {
-        if (typeof window !== 'undefined' && window.dispatchEvent) {
-            window.dispatchEvent(new CustomEvent('destination:deleted', { detail: { destinationId: id } }));
-            broadcastEvent('destination:deleted', { destinationId: id });
-            logger.debug('[destinations-api] Destination deleted event dispatched', { id });
-        }
+        broadcastEvent('destination:deleted', { destinationId: id });
+        logger.debug('[destinations-api] Destination deleted event dispatched', { id });
     } catch (e) {
         // ignore
     }
@@ -137,8 +132,20 @@ export async function deleteDestination (id) {
  * @async
  * @param {string} destinationId - Destination ID
  * @param {string} userId - User ID
- * @returns {Promise<Object>} Favorite toggle response
+ * @returns {Promise<Object>} Updated destination object
  */
 export async function toggleUserFavoriteDestination (destinationId, userId) {
-    return await sendRequest(`${BASE_URL}${destinationId}/user/${userId}`, "POST")
+    const result = await sendRequest(`${BASE_URL}${destinationId}/user/${userId}`, "POST");
+
+    // Emit event via event bus (handles local + cross-tab dispatch)
+    try {
+        if (result) {
+            broadcastEvent('destination:updated', { destination: result });
+            logger.debug('[destinations-api] Destination favorite toggled event dispatched', { id: result._id });
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return result;
 }

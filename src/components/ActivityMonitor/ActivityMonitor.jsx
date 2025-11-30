@@ -210,11 +210,11 @@ export default function ActivityMonitor({ show, onHide }) {
         show={show} 
         onClose={onHide} 
         title={
-          <>
-            <FaEye className="me-2" />
-            Activity Monitor
-            <Badge className="badge badge-secondary activity-monitor-badge">Super Admin</Badge>
-          </>
+          <span className={styles.modalTitle}>
+            <FaEye className={styles.titleIcon} />
+            <span>Activity Monitor</span>
+            <Badge className={styles.titleBadge}>Super Admin</Badge>
+          </span>
         }
         size="xl"
         scrollable={true}
@@ -231,49 +231,26 @@ export default function ActivityMonitor({ show, onHide }) {
           {/* Search and Filters */}
           <div className={`${styles.filtersSection} mb-4`}>
             <Form onSubmit={handleSearch}>
-              <div className="row align-items-end">
-                {/* Search */}
-                <div className="col-lg-3 col-md-6">
-                  <Form.Label>Search</Form.Label>
-                  <InputGroup style={{
-                    border: 'var(--form-field-border)',
-                    borderRadius: 'var(--form-field-border-radius)',
-                    overflow: 'var(--form-field-overflow)',
-                    minHeight: 'var(--form-field-min-height)',
-                  }}>
-                    <Form.Control
-                      type="text"
-                      placeholder={lang.current.placeholder.searchActivities}
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      style={{
-                        backgroundColor: 'var(--form-field-control-bg)',
-                        border: 'var(--form-field-control-border)',
-                        color: 'var(--form-field-control-color)',
-                        fontSize: 'var(--form-field-control-font-size)',
-                        padding: 'var(--form-field-control-padding)',
-                        minHeight: 'var(--form-field-control-min-height)',
-                        outline: 'var(--form-field-control-outline)',
-                        boxShadow: 'var(--form-field-control-box-shadow)',
-                        borderRadius: '0',
-                      }}
-                    />
-                    <Button variant="outline-secondary" type="submit" disabled={loading} style={{
-                      backgroundColor: 'var(--form-field-addon-bg)',
-                      border: 'var(--form-field-addon-border)',
-                      color: 'var(--form-field-addon-color)',
-                      minHeight: 'var(--form-field-addon-min-height)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <FaSearch />
-                    </Button>
-                  </InputGroup>
-                </div>
+              {/* Search - Full Width Row */}
+              <div className={styles.searchRow}>
+                <Form.Label>Search Activities</Form.Label>
+                <InputGroup className={styles.searchInputGroup}>
+                  <Form.Control
+                    type="text"
+                    placeholder={lang.current.placeholder.searchActivities}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <Button variant="outline-secondary" type="submit" disabled={loading}>
+                    <FaSearch />
+                  </Button>
+                </InputGroup>
+              </div>
 
+              {/* Filter Fields Row */}
+              <div className={styles.filtersRow}>
                 {/* Action Filter */}
-                <div className="col-lg-2 col-md-6">
+                <div className={styles.filterField}>
                   <Form.Label>Action</Form.Label>
                   <Form.Select
                     value={filters.action}
@@ -289,7 +266,7 @@ export default function ActivityMonitor({ show, onHide }) {
                 </div>
 
                 {/* Resource Type Filter */}
-                <div className="col-lg-2 col-md-6">
+                <div className={styles.filterField}>
                   <Form.Label>Resource</Form.Label>
                   <Form.Select
                     value={filters.resourceType}
@@ -302,59 +279,37 @@ export default function ActivityMonitor({ show, onHide }) {
                   </Form.Select>
                 </div>
 
-                {/* Date Range */}
-                <div className="col-lg-2 col-md-6">
+                {/* Start Date */}
+                <div className={styles.filterField}>
                   <Form.Label>Start Date</Form.Label>
                   <Form.Control
                     type="date"
                     value={filters.startDate}
                     onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                    style={{
-                      backgroundColor: 'var(--form-field-control-bg)',
-                      border: 'var(--form-field-border)',
-                      color: 'var(--form-field-control-color)',
-                      fontSize: 'var(--form-field-control-font-size)',
-                      padding: 'var(--form-field-control-padding)',
-                      minHeight: 'var(--form-field-min-height)',
-                      outline: 'var(--form-field-control-outline)',
-                      boxShadow: 'var(--form-field-control-box-shadow)',
-                      borderRadius: 'var(--form-field-border-radius)',
-                    }}
                   />
                 </div>
-                <div className="col-lg-2 col-md-6">
+
+                {/* End Date */}
+                <div className={styles.filterField}>
                   <Form.Label>End Date</Form.Label>
                   <Form.Control
                     type="date"
                     value={filters.endDate}
                     onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                    style={{
-                      backgroundColor: 'var(--form-field-control-bg)',
-                      border: 'var(--form-field-border)',
-                      color: 'var(--form-field-control-color)',
-                      fontSize: 'var(--form-field-control-font-size)',
-                      padding: 'var(--form-field-control-padding)',
-                      minHeight: 'var(--form-field-min-height)',
-                      outline: 'var(--form-field-control-outline)',
-                      boxShadow: 'var(--form-field-control-box-shadow)',
-                      borderRadius: 'var(--form-field-border-radius)',
-                    }}
                   />
                 </div>
+              </div>
 
-                {/* Actions */}
-                <div className="col-12">
-                  <div className="filter-actions d-flex justify-center-mobile-tablet">
-                    <Button variant="primary" type="submit" disabled={loading}>
-                      <FaFilter className="me-1" />
-                      Apply Filters
-                    </Button>
-                    <Button variant="outline-secondary" onClick={clearFilters} disabled={loading}>
-                      <FaTimes className="me-1" />
-                      Clear Filters
-                    </Button>
-                  </div>
-                </div>
+              {/* Actions Row */}
+              <div className={styles.actionsRow}>
+                <Button variant="primary" type="submit" disabled={loading}>
+                  <FaFilter className="me-1" />
+                  Apply Filters
+                </Button>
+                <Button variant="outline-secondary" onClick={clearFilters} disabled={loading}>
+                  <FaTimes className="me-1" />
+                  Clear
+                </Button>
               </div>
             </Form>
           </div>

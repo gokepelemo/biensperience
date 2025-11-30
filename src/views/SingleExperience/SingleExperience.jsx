@@ -1516,7 +1516,7 @@ export default function SingleExperience() {
           updatedPlanSnapshot.push({
             plan_item_id: item._id,
             complete: false,
-            cost: item.cost_estimate || 0,
+            cost: item.cost || 0,
             planning_days: item.planning_days || 0,
             text: item.text,
             url: item.url,
@@ -1552,11 +1552,15 @@ export default function SingleExperience() {
               (ei) => ei._id.toString() === modItem._id.toString()
             );
             if (expItem) {
+              // Determine whether cost was among the selected modifications for this item
+              const changedFields = (modItem.modifications || []).map(m => m.field);
+              const shouldUpdateCost = changedFields.includes('cost');
+
               updatedPlanSnapshot[itemIndex] = {
                 ...existingItem,
                 text: expItem.text,
                 url: expItem.url,
-                cost: existingItem.cost, // Preserve actual cost
+                cost: shouldUpdateCost ? (expItem.cost_estimate || 0) : existingItem.cost,
                 planning_days: expItem.planning_days || 0,
                 photo: expItem.photo,
                 parent: expItem.parent,

@@ -5,6 +5,7 @@
 
 import { getToken } from './users-service';
 import { logger } from './logger';
+import { broadcastEvent } from './event-bus';
 
 const BASE_URL = '/api/invites';
 
@@ -41,6 +42,13 @@ export async function sendEmailInvite(data) {
       resourceType: data.resourceType,
       resourceId: data.resourceId
     });
+
+    // Emit event via event bus (handles local + cross-tab dispatch)
+    try {
+      broadcastEvent('invite:created', { invite: result });
+    } catch (e) {
+      // ignore
+    }
 
     return result;
   } catch (error) {
@@ -133,6 +141,13 @@ export async function redeemInviteCode(code) {
       destinationsCount: result.destinations?.length || 0
     });
 
+    // Emit event via event bus (handles local + cross-tab dispatch)
+    try {
+      broadcastEvent('invite:redeemed', { result });
+    } catch (e) {
+      // ignore
+    }
+
     return result;
   } catch (error) {
     logger.error('Error redeeming invite code', { error: error.message, code });
@@ -160,7 +175,17 @@ export async function deactivateInvite(inviteId) {
     }
 
     logger.info('Invite deactivated successfully', { inviteId });
-    return await response.json();
+
+    const result = await response.json();
+
+    // Emit event via event bus (handles local + cross-tab dispatch)
+    try {
+      broadcastEvent('invite:deleted', { inviteId });
+    } catch (e) {
+      // ignore
+    }
+
+    return result;
   } catch (error) {
     logger.error('Error deactivating invite', { error: error.message, inviteId });
     throw error;

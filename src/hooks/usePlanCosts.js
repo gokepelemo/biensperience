@@ -161,7 +161,8 @@ export default function usePlanCosts(planId, options = {}) {
     if (!planId) return;
 
     const handleCostAdded = (event) => {
-      const { planId: eventPlanId, cost, version } = event.detail || event;
+      // Event bus spreads payload at top level
+      const { planId: eventPlanId, cost, version } = event;
 
       // Only process events for this plan
       if (eventPlanId !== planId && eventPlanId?.toString() !== planId?.toString()) return;
@@ -184,7 +185,8 @@ export default function usePlanCosts(planId, options = {}) {
     };
 
     const handleCostUpdated = (event) => {
-      const { planId: eventPlanId, costId, cost, version } = event.detail || event;
+      // Event bus spreads payload at top level
+      const { planId: eventPlanId, costId, cost, version } = event;
 
       // Only process events for this plan
       if (eventPlanId !== planId && eventPlanId?.toString() !== planId?.toString()) return;
@@ -205,7 +207,8 @@ export default function usePlanCosts(planId, options = {}) {
     };
 
     const handleCostDeleted = (event) => {
-      const { planId: eventPlanId, costId, version } = event.detail || event;
+      // Event bus spreads payload at top level
+      const { planId: eventPlanId, costId, version } = event;
 
       // Only process events for this plan
       if (eventPlanId !== planId && eventPlanId?.toString() !== planId?.toString()) return;
@@ -223,23 +226,15 @@ export default function usePlanCosts(planId, options = {}) {
       }
     };
 
-    // Subscribe via event bus (handles cross-tab sync)
+    // Subscribe via event bus (handles local + cross-tab dispatch)
     const unsubscribeAdded = eventBus.subscribe('plan:cost_added', handleCostAdded);
     const unsubscribeUpdated = eventBus.subscribe('plan:cost_updated', handleCostUpdated);
     const unsubscribeDeleted = eventBus.subscribe('plan:cost_deleted', handleCostDeleted);
-
-    // Also listen for direct window events (same-tab)
-    window.addEventListener('plan:cost_added', handleCostAdded);
-    window.addEventListener('plan:cost_updated', handleCostUpdated);
-    window.addEventListener('plan:cost_deleted', handleCostDeleted);
 
     return () => {
       unsubscribeAdded();
       unsubscribeUpdated();
       unsubscribeDeleted();
-      window.removeEventListener('plan:cost_added', handleCostAdded);
-      window.removeEventListener('plan:cost_updated', handleCostUpdated);
-      window.removeEventListener('plan:cost_deleted', handleCostDeleted);
     };
   }, [planId]);
 

@@ -29,6 +29,8 @@ import { useToast } from '../../contexts/ToastContext';
 import { getDefaultPhoto } from "../../utilities/photo-utils";
 import { getFirstName } from "../../utilities/name-utils";
 import { formatLocation } from "../../utilities/address-utils";
+import { logger } from "../../utilities/logger";
+import { eventBus } from "../../utilities/event-bus";
 
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
@@ -172,12 +174,31 @@ export default function Profile() {
   /**
    * Merge helper function to update profile state without full replacement
    * Preserves unchanged data and prevents UI flashing
+   * Smart merge: preserves populated arrays when incoming data is unpopulated
    */
   const mergeProfile = useCallback((updates) => {
     setCurrentProfile(prev => {
       if (!prev) return updates; // First load - use full data
       if (!updates) return prev; // No updates - keep existing
-      return { ...prev, ...updates }; // Merge - preserve unchanged data
+
+      // Smart merge for photos: preserve populated photos if incoming is unpopulated
+      const mergedPhotos = (() => {
+        if (!updates.photos) return prev.photos; // No photos in update - keep existing
+        if (!prev.photos || prev.photos.length === 0) return updates.photos; // No existing photos
+
+        // Check if incoming photos are unpopulated (just ObjectId strings)
+        const isUnpopulated = updates.photos.length > 0 &&
+          typeof updates.photos[0] === 'string';
+
+        // If incoming is unpopulated but we have populated data, keep existing
+        if (isUnpopulated && prev.photos.length > 0 && typeof prev.photos[0] === 'object') {
+          return prev.photos;
+        }
+
+        return updates.photos;
+      })();
+
+      return { ...prev, ...updates, photos: mergedPhotos };
     });
   }, []);
 
@@ -408,17 +429,16 @@ export default function Profile() {
   // Listen for user profile update events
   useEffect(() => {
     const handleUserUpdated = (event) => {
-      const { user: updatedUser } = event.detail || {};
+      // Event bus spreads payload at top level
+      const updatedUser = event.user;
       if (updatedUser && updatedUser._id === userId) {
         logger.debug('[Profile] User updated event received', { id: updatedUser._id });
         setCurrentProfile(updatedUser);
       }
     };
 
-    window.addEventListener('user:updated', handleUserUpdated);
-    return () => {
-      window.removeEventListener('user:updated', handleUserUpdated);
-    };
+    const unsubscribe = eventBus.subscribe('user:updated', handleUserUpdated);
+    return () => unsubscribe();
   }, [userId]);
 
   // Register h1 for navbar integration - clicking scrolls to top
@@ -628,16 +648,18 @@ export default function Profile() {
 
                 {/* Info */}
                 <div className={styles.profileInfo}>
-                  <h1 className={styles.profileName}>
-                    {currentProfile?.name}
+                  <div className={styles.profileNameRow}>
+                    <h1 className={styles.profileName}>
+                      {currentProfile?.name}
+                    </h1>
                     {currentProfile?.emailConfirmed && (
                       <FaCheckCircle
-                        style={{ color: 'var(--color-success)', fontSize: 'var(--font-size-xl)' }}
+                        className={styles.verifiedBadge}
                         title={lang.current.aria.emailConfirmed}
                         aria-label={lang.current.aria.emailConfirmed}
                       />
                     )}
-                  </h1>
+                  </div>
 
                   {currentProfile?.location && (
                     <p className={styles.profileLocation}>

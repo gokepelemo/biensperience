@@ -58,6 +58,7 @@ export function DataProvider({ children }) {
   // Safe shallow merge helper: copy defined keys from incoming onto existing.
   // This avoids overwriting existing nested objects with `undefined` from
   // partial or inconsistent API payloads (observed with destination fields).
+  // Also preserves populated arrays (objects) when incoming has unpopulated (strings).
   const safeMergeObj = useCallback((existing = {}, incoming = {}) => {
     if (!existing) return { ...incoming };
     if (!incoming) return { ...existing };
@@ -65,6 +66,22 @@ export function DataProvider({ children }) {
     Object.keys(incoming).forEach(key => {
       const val = incoming[key];
       if (typeof val === 'undefined') return; // preserve existing value
+
+      // Smart array merge: preserve populated data when incoming is unpopulated
+      if (Array.isArray(val) && Array.isArray(existing[key])) {
+        const existingArr = existing[key];
+        // If existing has populated objects but incoming has unpopulated strings, keep existing
+        if (
+          existingArr.length > 0 &&
+          typeof existingArr[0] === 'object' &&
+          existingArr[0] !== null &&
+          val.length > 0 &&
+          typeof val[0] === 'string'
+        ) {
+          return; // preserve existing populated array
+        }
+      }
+
       merged[key] = val;
     });
     return merged;
@@ -430,15 +447,16 @@ export function DataProvider({ children }) {
   /**
    * Update a single destination in state (optimistic update)
    * Uses upsert pattern: adds if not found, updates if exists
+   * Uses safeMergeObj to preserve populated arrays (e.g., photos)
    * @param {Object} updatedDestination - Full updated destination object
    */
   const updateDestination = useCallback((updatedDestination) => {
     setDestinations(prev => {
       const existingIndex = prev.findIndex(dest => dest._id === updatedDestination._id);
       if (existingIndex >= 0) {
-        // Destination exists - update it
+        // Destination exists - merge carefully to preserve populated data
         return prev.map(dest =>
-          dest._id === updatedDestination._id ? { ...dest, ...updatedDestination } : dest
+          dest._id === updatedDestination._id ? safeMergeObj(dest, updatedDestination) : dest
         );
       } else {
         // Destination doesn't exist - add it
@@ -446,7 +464,7 @@ export function DataProvider({ children }) {
       }
     });
     setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
-  }, []);
+  }, [safeMergeObj]);
 
   /**
    * Add a new destination to state (optimistic update)
@@ -928,9 +946,13 @@ export function DataProvider({ children }) {
   ]);
 
   // Event bus listeners - update DataContext when events are broadcast
+  // Note: eventBus.subscribe() receives event object with data at top level (e.g., event.destination)
+  // while CustomEvent via window.dispatchEvent has data in event.detail (e.g., event.detail.destination)
+  // We support both formats for compatibility
   useEffect(() => {
     const handleExperienceUpdated = (event) => {
-      const { experience } = event.detail || {};
+      // Support both eventBus format (event.experience) and CustomEvent format (event.detail.experience)
+      const experience = event.experience || event.detail?.experience;
       if (experience && experience._id) {
         logger.debug('[DataContext] experience:updated event received', { id: experience._id });
         updateExperience(experience);
@@ -938,7 +960,7 @@ export function DataProvider({ children }) {
     };
 
     const handleExperienceCreated = (event) => {
-      const { experience } = event.detail || {};
+      const experience = event.experience || event.detail?.experience;
       if (experience && experience._id) {
         logger.debug('[DataContext] experience:created event received', { id: experience._id });
         addExperience(experience);
@@ -946,7 +968,7 @@ export function DataProvider({ children }) {
     };
 
     const handleExperienceDeleted = (event) => {
-      const { experienceId } = event.detail || {};
+      const experienceId = event.experienceId || event.detail?.experienceId;
       if (experienceId) {
         logger.debug('[DataContext] experience:deleted event received', { id: experienceId });
         removeExperience(experienceId);
@@ -954,7 +976,7 @@ export function DataProvider({ children }) {
     };
 
     const handleDestinationUpdated = (event) => {
-      const { destination } = event.detail || {};
+      const destination = event.destination || event.detail?.destination;
       if (destination && destination._id) {
         logger.debug('[DataContext] destination:updated event received', { id: destination._id });
         updateDestination(destination);
@@ -962,7 +984,7 @@ export function DataProvider({ children }) {
     };
 
     const handleDestinationCreated = (event) => {
-      const { destination } = event.detail || {};
+      const destination = event.destination || event.detail?.destination;
       if (destination && destination._id) {
         logger.debug('[DataContext] destination:created event received', { id: destination._id });
         addDestination(destination);
@@ -970,7 +992,7 @@ export function DataProvider({ children }) {
     };
 
     const handleDestinationDeleted = (event) => {
-      const { destinationId } = event.detail || {};
+      const destinationId = event.destinationId || event.detail?.destinationId;
       if (destinationId) {
         logger.debug('[DataContext] destination:deleted event received', { id: destinationId });
         removeDestination(destinationId);
@@ -982,9 +1004,9 @@ export function DataProvider({ children }) {
       // - updatePlanItem: { plan, planId }
       // - updatePlan: { data, planId, version }
       // - reorderPlanItems: { data, planId, version }
-      const detail = event.detail || {};
-      const plan = detail.plan || detail.data;
-      const planId = detail.planId;
+      // Support both eventBus format (event.plan) and CustomEvent format (event.detail.plan)
+      const plan = event.plan || event.data || event.detail?.plan || event.detail?.data;
+      const planId = event.planId || event.detail?.planId;
       if (plan || planId) {
         const id = planId || plan?._id;
         logger.debug('[DataContext] plan:updated event received', { id });
@@ -998,7 +1020,7 @@ export function DataProvider({ children }) {
     };
 
     const handlePlanCreated = (event) => {
-      const { plan } = event.detail || {};
+      const plan = event.plan || event.detail?.plan;
       if (plan && plan._id) {
         logger.debug('[DataContext] plan:created event received', { id: plan._id });
         addPlan(plan);
@@ -1006,7 +1028,7 @@ export function DataProvider({ children }) {
     };
 
     const handlePlanDeleted = (event) => {
-      const { planId } = event.detail || {};
+      const planId = event.planId || event.detail?.planId;
       if (planId) {
         logger.debug('[DataContext] plan:deleted event received', { id: planId });
         removePlan(planId);

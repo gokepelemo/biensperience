@@ -15,23 +15,19 @@ const BASE_URL = "/api/plans";
  */
 function emitOperation(planId, type, payload) {
   try {
-    if (typeof window !== 'undefined' && window.dispatchEvent) {
-      const sessionId = eventBus.getSessionId();
-      const operation = createOperation(type, payload, sessionId);
+    const sessionId = eventBus.getSessionId();
+    const operation = createOperation(type, payload, sessionId);
 
-      const eventPayload = { planId, operation };
+    const eventPayload = { planId, operation };
 
-      // Emit operation event locally
-      window.dispatchEvent(new CustomEvent('plan:operation', { detail: eventPayload }));
-      // Broadcast to other tabs
-      broadcastEvent('plan:operation', eventPayload);
+    // Emit via event bus (handles local + cross-tab dispatch)
+    broadcastEvent('plan:operation', eventPayload);
 
-      logger.debug('[plans-api] Operation emitted', {
-        planId,
-        operationId: operation.id,
-        type
-      });
-    }
+    logger.debug('[plans-api] Operation emitted', {
+      planId,
+      operationId: operation.id,
+      type
+    });
   } catch (e) {
     logger.warn('[plans-api] Failed to emit operation', { type, planId }, e);
   }
@@ -87,40 +83,37 @@ export async function createPlan(experienceId, plannedDate) {
       experienceId
     });
 
-    // Emit events so components can react
+    // Emit event via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        // Normalize experienceId for consumers: prefer explicit param, then plan.experience
-        const rawExp = experienceId || result?.experience?._id || result?.experience;
-        const normalizedExpId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+      // Normalize experienceId for consumers: prefer explicit param, then plan.experience
+      const rawExp = experienceId || result?.experience?._id || result?.experience;
+      const normalizedExpId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
 
-        // Generate version for this event (timestamp-based)
-        const version = Date.now();
+      // Generate version for this event (timestamp-based)
+      const version = Date.now();
 
-        // Event payload with version and data structure
-        const eventPayload = {
-          planId: result._id,
-          experienceId: normalizedExpId,
-          version,
-          data: result,
-          action: 'plan_created'
-        };
+      // Event payload with version and data structure
+      const eventPayload = {
+        planId: result._id,
+        experienceId: normalizedExpId,
+        version,
+        data: result,
+        action: 'plan_created'
+      };
 
-        logger.debug('[plans-api] Dispatching plan:created event', {
-          timestamp: Date.now(),
-          planId: result._id,
-          version
-        });
+      logger.debug('[plans-api] Dispatching plan:created event', {
+        timestamp: Date.now(),
+        planId: result._id,
+        version
+      });
 
-        // Standardized event for DataContext, Dashboard, and usePlanManagement
-        window.dispatchEvent(new CustomEvent('plan:created', { detail: eventPayload }));
-        broadcastEvent('plan:created', eventPayload);
+      // Standardized event for DataContext, Dashboard, and usePlanManagement
+      broadcastEvent('plan:created', eventPayload);
 
-        logger.debug('[plans-api] plan:created event dispatched successfully', {
-          timestamp: Date.now(),
-          version
-        });
-      }
+      logger.debug('[plans-api] plan:created event dispatched successfully', {
+        timestamp: Date.now(),
+        version
+      });
     } catch (e) {
       // ignore
     }
@@ -156,29 +149,26 @@ export function checkUserPlanForExperience(experienceId) {
 export function updatePlan(planId, updates) {
   return sendRequest(`${BASE_URL}/${planId}`, "PUT", updates)
     .then((result) => {
-      // Emit events so components can react to plan edits (planned_date changes, etc.)
+      // Emit event via event bus (handles local + cross-tab dispatch)
       try {
-        if (typeof window !== 'undefined' && window.dispatchEvent) {
-          const rawExp = result?.experience?._id || result?.experience || null;
-          const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        const rawExp = result?.experience?._id || result?.experience || null;
+        const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
 
-          // Generate version for this event
-          const version = Date.now();
+        // Generate version for this event
+        const version = Date.now();
 
-          // Event payload with version and data structure
-          const eventPayload = {
-            planId,
-            experienceId,
-            version,
-            changes: updates,
-            data: result,
-            action: 'plan_updated'
-          };
+        // Event payload with version and data structure
+        const eventPayload = {
+          planId,
+          experienceId,
+          version,
+          changes: updates,
+          data: result,
+          action: 'plan_updated'
+        };
 
-          // Standardized event for DataContext, Dashboard, and usePlanManagement
-          window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
-          broadcastEvent('plan:updated', eventPayload);
-        }
+        // Standardized event for DataContext, Dashboard, and usePlanManagement
+        broadcastEvent('plan:updated', eventPayload);
       } catch (e) {
         // ignore
       }
@@ -192,28 +182,25 @@ export function updatePlan(planId, updates) {
 export async function deletePlan(planId) {
   const result = await sendRequest(`${BASE_URL}/${planId}`, "DELETE");
 
-  // Emit events so components can react (e.g., ExperienceCard)
+  // Emit event via event bus (handles local + cross-tab dispatch)
   try {
-    if (typeof window !== 'undefined' && window.dispatchEvent) {
-      const rawExp = result?.experience?._id || result?.experience || null;
-      const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+    const rawExp = result?.experience?._id || result?.experience || null;
+    const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
 
-      // Generate version for this event
-      const version = Date.now();
+    // Generate version for this event
+    const version = Date.now();
 
-      // Event payload with version
-      const eventPayload = {
-        planId,
-        experienceId,
-        version,
-        data: result,
-        action: 'plan_deleted'
-      };
+    // Event payload with version
+    const eventPayload = {
+      planId,
+      experienceId,
+      version,
+      data: result,
+      action: 'plan_deleted'
+    };
 
-      // Standardized event for DataContext, Dashboard, and usePlanManagement
-      window.dispatchEvent(new CustomEvent('plan:deleted', { detail: eventPayload }));
-      broadcastEvent('plan:deleted', eventPayload);
-    }
+    // Standardized event for DataContext, Dashboard, and usePlanManagement
+    broadcastEvent('plan:deleted', eventPayload);
   } catch (e) {
     // ignore
   }
@@ -233,43 +220,40 @@ export function updatePlanItem(planId, itemId, updates) {
 
   return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "PATCH", normalizedUpdates)
     .then((result) => {
+      // Emit events via event bus (handles local + cross-tab dispatch)
       try {
-        if (typeof window !== 'undefined' && window.dispatchEvent) {
-          const rawExp = result?.experience?._id || result?.experience || null;
-          const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-          const version = Date.now();
+        const rawExp = result?.experience?._id || result?.experience || null;
+        const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        const version = Date.now();
 
-          // Standardized event payload
-          const eventPayload = {
-            planId,
-            itemId,
-            experienceId,
-            version,
-            data: result,
-            changes: normalizedUpdates,
-            action: normalizedUpdates.completed !== undefined
-              ? (normalizedUpdates.completed ? 'item_completed' : 'item_uncompleted')
-              : 'item_updated'
-          };
+        // Standardized event payload
+        const eventPayload = {
+          planId,
+          itemId,
+          experienceId,
+          version,
+          data: result,
+          changes: normalizedUpdates,
+          action: normalizedUpdates.completed !== undefined
+            ? (normalizedUpdates.completed ? 'item_completed' : 'item_uncompleted')
+            : 'item_updated'
+        };
 
-          // Standardized event for DataContext, Dashboard, and usePlanManagement
-          window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
-          broadcastEvent('plan:updated', eventPayload);
+        // Standardized event for DataContext, Dashboard, and usePlanManagement
+        broadcastEvent('plan:updated', eventPayload);
 
-          // Granular item event for real-time updates
-          const itemEvent = normalizedUpdates.completed !== undefined
-            ? (normalizedUpdates.completed ? 'plan:item:completed' : 'plan:item:uncompleted')
-            : 'plan:item:updated';
-          window.dispatchEvent(new CustomEvent(itemEvent, { detail: eventPayload }));
-          broadcastEvent(itemEvent, eventPayload);
+        // Granular item event for real-time updates
+        const itemEvent = normalizedUpdates.completed !== undefined
+          ? (normalizedUpdates.completed ? 'plan:item:completed' : 'plan:item:uncompleted')
+          : 'plan:item:updated';
+        broadcastEvent(itemEvent, eventPayload);
 
-          // Operation-based event for CRDT sync
-          if (normalizedUpdates.completed !== undefined) {
-            const opType = normalizedUpdates.completed ? OperationType.COMPLETE_ITEM : OperationType.UNCOMPLETE_ITEM;
-            emitOperation(planId, opType, { itemId });
-          } else {
-            emitOperation(planId, OperationType.UPDATE_ITEM, { itemId, changes: normalizedUpdates });
-          }
+        // Operation-based event for CRDT sync
+        if (normalizedUpdates.completed !== undefined) {
+          const opType = normalizedUpdates.completed ? OperationType.COMPLETE_ITEM : OperationType.UNCOMPLETE_ITEM;
+          emitOperation(planId, opType, { itemId });
+        } else {
+          emitOperation(planId, OperationType.UPDATE_ITEM, { itemId, changes: normalizedUpdates });
         }
       } catch (e) {
         // ignore
@@ -290,34 +274,31 @@ export function addPlanItem(planId, planItem) {
 
   return sendRequest(`${BASE_URL}/${planId}/items`, "POST", normalizedItem)
     .then((result) => {
+      // Emit events via event bus (handles local + cross-tab dispatch)
       try {
-        if (typeof window !== 'undefined' && window.dispatchEvent) {
-          const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
-          const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-          const version = Date.now();
-          const addedItem = result?.item || result;
+        const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
+        const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        const version = Date.now();
+        const addedItem = result?.item || result;
 
-          // Standardized event payload
-          const eventPayload = {
-            planId,
-            experienceId,
-            version,
-            data: result?.plan || result,
-            item: addedItem,
-            action: 'item_added'
-          };
+        // Standardized event payload
+        const eventPayload = {
+          planId,
+          experienceId,
+          version,
+          data: result?.plan || result,
+          item: addedItem,
+          action: 'item_added'
+        };
 
-          // Standardized event for DataContext, Dashboard, and usePlanManagement
-          window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
-          broadcastEvent('plan:updated', eventPayload);
+        // Standardized event for DataContext, Dashboard, and usePlanManagement
+        broadcastEvent('plan:updated', eventPayload);
 
-          // Granular item event for real-time updates
-          window.dispatchEvent(new CustomEvent('plan:item:added', { detail: eventPayload }));
-          broadcastEvent('plan:item:added', eventPayload);
+        // Granular item event for real-time updates
+        broadcastEvent('plan:item:added', eventPayload);
 
-          // Operation-based event for CRDT sync
-          emitOperation(planId, OperationType.ADD_ITEM, { item: addedItem });
-        }
+        // Operation-based event for CRDT sync
+        emitOperation(planId, OperationType.ADD_ITEM, { item: addedItem });
       } catch (e) {
         // ignore
       }
@@ -331,34 +312,31 @@ export function addPlanItem(planId, planItem) {
 export function deletePlanItem(planId, itemId) {
   return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "DELETE")
     .then((result) => {
+      // Emit events via event bus (handles local + cross-tab dispatch)
       try {
-        if (typeof window !== 'undefined' && window.dispatchEvent) {
-          const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
-          const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-          const version = Date.now();
+        const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
+        const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        const version = Date.now();
 
-          // Standardized event payload
-          const eventPayload = {
-            planId,
-            itemId,
-            experienceId,
-            version,
-            data: result?.plan || result,
-            deletedItemId: itemId,
-            action: 'item_deleted'
-          };
+        // Standardized event payload
+        const eventPayload = {
+          planId,
+          itemId,
+          experienceId,
+          version,
+          data: result?.plan || result,
+          deletedItemId: itemId,
+          action: 'item_deleted'
+        };
 
-          // Standardized event for DataContext, Dashboard, and usePlanManagement
-          window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
-          broadcastEvent('plan:updated', eventPayload);
+        // Standardized event for DataContext, Dashboard, and usePlanManagement
+        broadcastEvent('plan:updated', eventPayload);
 
-          // Granular item event for real-time updates
-          window.dispatchEvent(new CustomEvent('plan:item:deleted', { detail: eventPayload }));
-          broadcastEvent('plan:item:deleted', eventPayload);
+        // Granular item event for real-time updates
+        broadcastEvent('plan:item:deleted', eventPayload);
 
-          // Operation-based event for CRDT sync
-          emitOperation(planId, OperationType.DELETE_ITEM, { itemId });
-        }
+        // Operation-based event for CRDT sync
+        emitOperation(planId, OperationType.DELETE_ITEM, { itemId });
       } catch (e) {
         // ignore
       }
@@ -380,39 +358,36 @@ export function addCollaborator(planId, userId) {
   return sendRequest(`${BASE_URL}/${planId}/permissions/collaborator`, "POST", {
     userId,
   }).then((result) => {
+    // Emit events via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
-        const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-        const version = Date.now();
-        const permissions = result?.plan?.permissions || result?.permissions || [];
-        const collaborator = permissions.find(p => {
-          const permUserId = p.user?._id || p.user;
-          return permUserId?.toString() === userId?.toString();
-        });
+      const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
+      const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+      const version = Date.now();
+      const permissions = result?.plan?.permissions || result?.permissions || [];
+      const collaborator = permissions.find(p => {
+        const permUserId = p.user?._id || p.user;
+        return permUserId?.toString() === userId?.toString();
+      });
 
-        // Standardized event payload
-        const eventPayload = {
-          planId,
-          experienceId,
-          version,
-          data: result?.plan || result,
-          collaboratorAdded: userId,
-          collaborator: collaborator || { user: userId, role: 'collaborator' },
-          action: 'collaborator_added'
-        };
+      // Standardized event payload
+      const eventPayload = {
+        planId,
+        experienceId,
+        version,
+        data: result?.plan || result,
+        collaboratorAdded: userId,
+        collaborator: collaborator || { user: userId, role: 'collaborator' },
+        action: 'collaborator_added'
+      };
 
-        // Standardized event for DataContext, Dashboard, and usePlanManagement
-        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
-        broadcastEvent('plan:updated', eventPayload);
+      // Standardized event for DataContext, Dashboard, and usePlanManagement
+      broadcastEvent('plan:updated', eventPayload);
 
-        // Granular collaborator event for real-time updates
-        window.dispatchEvent(new CustomEvent('plan:collaborator:added', { detail: eventPayload }));
-        broadcastEvent('plan:collaborator:added', eventPayload);
+      // Granular collaborator event for real-time updates
+      broadcastEvent('plan:collaborator:added', eventPayload);
 
-        // Operation-based event for CRDT sync
-        emitOperation(planId, OperationType.ADD_COLLABORATOR, { collaborator: collaborator || { user: userId, role: 'collaborator' } });
-      }
+      // Operation-based event for CRDT sync
+      emitOperation(planId, OperationType.ADD_COLLABORATOR, { collaborator: collaborator || { user: userId, role: 'collaborator' } });
     } catch (e) {
       // ignore
     }
@@ -428,33 +403,30 @@ export function removeCollaborator(planId, userId) {
     `${BASE_URL}/${planId}/permissions/collaborator/${userId}`,
     "DELETE"
   ).then((result) => {
+    // Emit events via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
-        const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-        const version = Date.now();
+      const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
+      const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+      const version = Date.now();
 
-        // Standardized event payload
-        const eventPayload = {
-          planId,
-          experienceId,
-          version,
-          data: result?.plan || result,
-          collaboratorRemoved: userId,
-          action: 'collaborator_removed'
-        };
+      // Standardized event payload
+      const eventPayload = {
+        planId,
+        experienceId,
+        version,
+        data: result?.plan || result,
+        collaboratorRemoved: userId,
+        action: 'collaborator_removed'
+      };
 
-        // Standardized event for DataContext, Dashboard, and usePlanManagement
-        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
-        broadcastEvent('plan:updated', eventPayload);
+      // Standardized event for DataContext, Dashboard, and usePlanManagement
+      broadcastEvent('plan:updated', eventPayload);
 
-        // Granular collaborator event for real-time updates
-        window.dispatchEvent(new CustomEvent('plan:collaborator:removed', { detail: eventPayload }));
-        broadcastEvent('plan:collaborator:removed', eventPayload);
+      // Granular collaborator event for real-time updates
+      broadcastEvent('plan:collaborator:removed', eventPayload);
 
-        // Operation-based event for CRDT sync
-        emitOperation(planId, OperationType.REMOVE_COLLABORATOR, { userId });
-      }
+      // Operation-based event for CRDT sync
+      emitOperation(planId, OperationType.REMOVE_COLLABORATOR, { userId });
     } catch (e) {
       // ignore
     }
@@ -485,39 +457,35 @@ export async function reorderPlanItems(planId, reorderedItems) {
       itemCount: reorderedItems.length
     });
 
-    // Emit events so components can react
+    // Emit events via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const rawExp = result?.experience?._id || result?.experience || null;
-        const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-        const version = Date.now();
+      const rawExp = result?.experience?._id || result?.experience || null;
+      const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+      const version = Date.now();
 
-        const itemIds = reorderedItems.map(item => item._id || item.plan_item_id).filter(Boolean);
+      const itemIds = reorderedItems.map(item => item._id || item.plan_item_id).filter(Boolean);
 
-        const eventPayload = {
-          planId: result._id,
-          experienceId,
-          version,
-          data: result,
-          itemIds,
-          action: 'items_reordered'
-        };
+      const eventPayload = {
+        planId: result._id,
+        experienceId,
+        version,
+        data: result,
+        itemIds,
+        action: 'items_reordered'
+      };
 
-        // Standardized event for DataContext, Dashboard, and usePlanManagement
-        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
-        broadcastEvent('plan:updated', eventPayload);
+      // Standardized event for DataContext, Dashboard, and usePlanManagement
+      broadcastEvent('plan:updated', eventPayload);
 
-        // Granular item event for real-time updates
-        window.dispatchEvent(new CustomEvent('plan:item:reordered', { detail: eventPayload }));
-        broadcastEvent('plan:item:reordered', eventPayload);
+      // Granular item event for real-time updates
+      broadcastEvent('plan:item:reordered', eventPayload);
 
-        // Operation-based event for CRDT sync
-        emitOperation(planId, OperationType.REORDER_ITEMS, { itemIds });
+      // Operation-based event for CRDT sync
+      emitOperation(planId, OperationType.REORDER_ITEMS, { itemIds });
 
-        logger.debug('[plans-api] Reorder events dispatched successfully', {
-          version
-        });
-      }
+      logger.debug('[plans-api] Reorder events dispatched successfully', {
+        version
+      });
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch reorder events', {}, e);
     }
@@ -541,24 +509,20 @@ export async function addPlanItemNote(planId, itemId, content) {
       content
     });
 
-    // Emit events with proper payload structure for usePlanManagement
+    // Emit events via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const version = Date.now();
-        const eventPayload = {
-          planId,
-          itemId,
-          data: result,
-          version,
-          action: 'note_added'
-        };
-        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
-        broadcastEvent('plan:updated', eventPayload);
+      const version = Date.now();
+      const eventPayload = {
+        planId,
+        itemId,
+        data: result,
+        version,
+        action: 'note_added'
+      };
+      broadcastEvent('plan:updated', eventPayload);
 
-        // Also dispatch specific note event for granular handling
-        window.dispatchEvent(new CustomEvent('plan:item:note:added', { detail: eventPayload }));
-        broadcastEvent('plan:item:note:added', eventPayload);
-      }
+      // Also dispatch specific note event for granular handling
+      broadcastEvent('plan:item:note:added', eventPayload);
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch note added events', {}, e);
     }
@@ -583,25 +547,21 @@ export async function updatePlanItemNote(planId, itemId, noteId, content) {
       content
     });
 
-    // Emit events with proper payload structure for usePlanManagement
+    // Emit events via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const version = Date.now();
-        const eventPayload = {
-          planId,
-          itemId,
-          noteId,
-          data: result,
-          version,
-          action: 'note_updated'
-        };
-        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
-        broadcastEvent('plan:updated', eventPayload);
+      const version = Date.now();
+      const eventPayload = {
+        planId,
+        itemId,
+        noteId,
+        data: result,
+        version,
+        action: 'note_updated'
+      };
+      broadcastEvent('plan:updated', eventPayload);
 
-        // Also dispatch specific note event for granular handling
-        window.dispatchEvent(new CustomEvent('plan:item:note:updated', { detail: eventPayload }));
-        broadcastEvent('plan:item:note:updated', eventPayload);
-      }
+      // Also dispatch specific note event for granular handling
+      broadcastEvent('plan:item:note:updated', eventPayload);
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch note updated events', {}, e);
     }
@@ -625,25 +585,21 @@ export async function deletePlanItemNote(planId, itemId, noteId) {
   try {
     const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}`, "DELETE");
 
-    // Emit events with proper payload structure for usePlanManagement
+    // Emit events via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const version = Date.now();
-        const eventPayload = {
-          planId,
-          itemId,
-          noteId,
-          data: result,
-          version,
-          action: 'note_deleted'
-        };
-        window.dispatchEvent(new CustomEvent('plan:updated', { detail: eventPayload }));
-        broadcastEvent('plan:updated', eventPayload);
+      const version = Date.now();
+      const eventPayload = {
+        planId,
+        itemId,
+        noteId,
+        data: result,
+        version,
+        action: 'note_deleted'
+      };
+      broadcastEvent('plan:updated', eventPayload);
 
-        // Also dispatch specific note event for granular handling
-        window.dispatchEvent(new CustomEvent('plan:item:note:deleted', { detail: eventPayload }));
-        broadcastEvent('plan:item:note:deleted', eventPayload);
-      }
+      // Also dispatch specific note event for granular handling
+      broadcastEvent('plan:item:note:deleted', eventPayload);
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch note deleted events', {}, e);
     }
@@ -669,15 +625,10 @@ export async function assignPlanItem(planId, itemId, assignedTo) {
       assignedTo
     });
 
-    // Emit events
+    // Emit event via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const version = Date.now();
-        window.dispatchEvent(new CustomEvent('plan:updated', {
-          detail: { plan: result, version }
-        }));
-        broadcastEvent('plan:updated', { plan: result, version });
-      }
+      const version = Date.now();
+      broadcastEvent('plan:updated', { plan: result, version });
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch assign events', {}, e);
     }
@@ -701,15 +652,10 @@ export async function unassignPlanItem(planId, itemId) {
   try {
     const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/assign`, "DELETE");
 
-    // Emit events
+    // Emit event via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const version = Date.now();
-        window.dispatchEvent(new CustomEvent('plan:updated', {
-          detail: { plan: result, version }
-        }));
-        broadcastEvent('plan:updated', { plan: result, version });
-      }
+      const version = Date.now();
+      broadcastEvent('plan:updated', { plan: result, version });
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch unassign events', {}, e);
     }
@@ -784,19 +730,11 @@ export async function addPlanCost(planId, costData) {
     // Return the newly added cost (last item in the costs array)
     const newCost = result.costs[result.costs.length - 1];
 
-    // Emit events
+    // Emit events via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const version = Date.now();
-        window.dispatchEvent(new CustomEvent('plan:cost_added', {
-          detail: { plan: result, planId, costData, cost: newCost, version }
-        }));
-        window.dispatchEvent(new CustomEvent('plan:updated', {
-          detail: { plan: result, version }
-        }));
-        broadcastEvent('plan:cost_added', { plan: result, planId, costData, cost: newCost, version });
-        broadcastEvent('plan:updated', { plan: result, version });
-      }
+      const version = Date.now();
+      broadcastEvent('plan:cost_added', { plan: result, planId, costData, cost: newCost, version });
+      broadcastEvent('plan:updated', { plan: result, version });
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch cost added events', {}, e);
     }
@@ -825,19 +763,11 @@ export async function updatePlanCost(planId, costId, updates) {
     // Find and return the updated cost
     const updatedCost = result.costs.find(cost => cost._id === costId);
 
-    // Emit events
+    // Emit events via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const version = Date.now();
-        window.dispatchEvent(new CustomEvent('plan:cost_updated', {
-          detail: { plan: result, planId, costId, updates, cost: updatedCost, version }
-        }));
-        window.dispatchEvent(new CustomEvent('plan:updated', {
-          detail: { plan: result, version }
-        }));
-        broadcastEvent('plan:cost_updated', { plan: result, planId, costId, updates, cost: updatedCost, version });
-        broadcastEvent('plan:updated', { plan: result, version });
-      }
+      const version = Date.now();
+      broadcastEvent('plan:cost_updated', { plan: result, planId, costId, updates, cost: updatedCost, version });
+      broadcastEvent('plan:updated', { plan: result, version });
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch cost updated events', {}, e);
     }
@@ -863,19 +793,11 @@ export async function deletePlanCost(planId, costId) {
   try {
     const result = await sendRequest(`${BASE_URL}/${planId}/costs/${costId}`, "DELETE");
 
-    // Emit events
+    // Emit events via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const version = Date.now();
-        window.dispatchEvent(new CustomEvent('plan:cost_deleted', {
-          detail: { planId, costId, version }
-        }));
-        window.dispatchEvent(new CustomEvent('plan:updated', {
-          detail: { planId, version }
-        }));
-        broadcastEvent('plan:cost_deleted', { planId, costId, version });
-        broadcastEvent('plan:updated', { planId, version });
-      }
+      const version = Date.now();
+      broadcastEvent('plan:cost_deleted', { planId, costId, version });
+      broadcastEvent('plan:updated', { planId, version });
     } catch (e) {
       logger.warn('[plans-api] Failed to dispatch cost deleted events', {}, e);
     }

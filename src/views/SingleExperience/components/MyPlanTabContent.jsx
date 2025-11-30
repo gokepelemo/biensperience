@@ -838,10 +838,10 @@ export default function MyPlanTabContent({
       id: 'planning-time',
       title: lang.current.label.planningTime,
       type: 'days',
-      value: currentPlan.max_days > 0 ? currentPlan.max_days : null,
+      value: currentPlan.max_planning_days > 0 ? currentPlan.max_planning_days : null,
       icon: '⏱️',
       // Tooltip shows full planning time when truncated
-      tooltip: currentPlan.max_days > 0 ? formatPlanningTime(currentPlan.max_days) : null
+      tooltip: currentPlan.max_planning_days > 0 ? formatPlanningTime(currentPlan.max_planning_days) : null
     }
   ];
 

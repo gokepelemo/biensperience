@@ -482,7 +482,8 @@ export default function usePlanManagement(experienceId, userId) {
    */
   useEffect(() => {
     const handlePlanCreated = (event) => {
-      const { planId, experienceId: eventExpId, version, data } = event.detail || {};
+      // Event bus spreads payload at top level
+      const { planId, experienceId: eventExpId, version, data } = event;
 
       if (!planId || !data) return;
 
@@ -565,8 +566,8 @@ export default function usePlanManagement(experienceId, userId) {
       });
     };
 
-    window.addEventListener('plan:created', handlePlanCreated);
-    return () => window.removeEventListener('plan:created', handlePlanCreated);
+    const unsubscribe = eventBus.subscribe('plan:created', handlePlanCreated);
+    return () => unsubscribe();
   }, [experienceId, userId]);
 
   /**
@@ -574,16 +575,16 @@ export default function usePlanManagement(experienceId, userId) {
    */
   useEffect(() => {
     const handlePlanUpdated = (event) => {
+      // Event bus spreads payload at top level
       // Event payload may have plan data in different locations:
       // - updatePlanItem: { plan, planId }
       // - updatePlan: { data, planId, version }
       // - reorderPlanItems: { data, planId, version }
-      const detail = event.detail || {};
-      const planId = detail.planId;
-      const experienceId_event = detail.experienceId;
-      const version = detail.version;
-      const data = detail.data || detail.plan;
-      const eventVectorClock = detail.vectorClock;
+      const planId = event.planId;
+      const experienceId_event = event.experienceId;
+      const version = event.version;
+      const data = event.data || event.plan;
+      const eventVectorClock = event.vectorClock;
 
       if (!planId || !data) return;
 
@@ -731,8 +732,8 @@ export default function usePlanManagement(experienceId, userId) {
       });
     };
 
-    window.addEventListener('plan:updated', handlePlanUpdated);
-    return () => window.removeEventListener('plan:updated', handlePlanUpdated);
+    const unsubscribe = eventBus.subscribe('plan:updated', handlePlanUpdated);
+    return () => unsubscribe();
   }, [experienceId, userId, getProtectedFieldsForPlan, getPlanVectorClock, mergePlanVectorClock]);
 
   /**
@@ -740,7 +741,8 @@ export default function usePlanManagement(experienceId, userId) {
    */
   useEffect(() => {
     const handlePlanDeleted = (event) => {
-      const { planId, experienceId: eventExpId, version } = event.detail || {};
+      // Event bus spreads payload at top level
+      const { planId, experienceId: eventExpId, version } = event;
 
       if (!planId) return;
 
@@ -775,8 +777,8 @@ export default function usePlanManagement(experienceId, userId) {
       });
     };
 
-    window.addEventListener('plan:deleted', handlePlanDeleted);
-    return () => window.removeEventListener('plan:deleted', handlePlanDeleted);
+    const unsubscribe = eventBus.subscribe('plan:deleted', handlePlanDeleted);
+    return () => unsubscribe();
   }, [experienceId, userId]);
 
   /**
@@ -785,7 +787,8 @@ export default function usePlanManagement(experienceId, userId) {
    */
   useEffect(() => {
     const handlePlanOperation = (event) => {
-      const { planId, operation } = event.detail || {};
+      // Event bus spreads payload at top level
+      const { planId, operation } = event;
 
       if (!planId || !operation) {
         logger.debug('[usePlanManagement] Invalid plan:operation event', { planId, operation });
@@ -885,8 +888,8 @@ export default function usePlanManagement(experienceId, userId) {
       });
     };
 
-    window.addEventListener('plan:operation', handlePlanOperation);
-    return () => window.removeEventListener('plan:operation', handlePlanOperation);
+    const unsubscribe = eventBus.subscribe('plan:operation', handlePlanOperation);
+    return () => unsubscribe();
   }, [userId, mergePlanVectorClock]);
 
   /**

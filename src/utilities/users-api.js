@@ -31,10 +31,9 @@ export async function getBulkUserData(ids) {
 export async function updateUser(id, userData) {
   const result = await sendRequest(`${BASE_URL}${id}`, "PUT", userData);
 
-  // Emit events so components can react
+  // Emit event via event bus (handles local + cross-tab dispatch)
   try {
-    if (typeof window !== 'undefined' && window.dispatchEvent && result) {
-      window.dispatchEvent(new CustomEvent('user:updated', { detail: { user: result } }));
+    if (result) {
       broadcastEvent('user:updated', { user: result });
       logger.debug('[users-api] User updated event dispatched', { id: result._id });
     }
@@ -48,10 +47,9 @@ export async function updateUser(id, userData) {
 export async function updateUserAsAdmin(id, userData) {
   const result = await sendRequest(`${BASE_URL}${id}/admin`, "PUT", userData);
 
-  // Emit events so components can react
+  // Emit event via event bus (handles local + cross-tab dispatch)
   try {
-    if (typeof window !== 'undefined' && window.dispatchEvent && result) {
-      window.dispatchEvent(new CustomEvent('user:updated', { detail: { user: result } }));
+    if (result) {
       broadcastEvent('user:updated', { user: result });
       logger.debug('[users-api] User updated (admin) event dispatched', { id: result._id });
     }
@@ -67,7 +65,19 @@ export async function searchUsers(query) {
 }
 
 export async function updateUserRole(userId, roleData) {
-  return await sendRequest(`${BASE_URL}${userId}/role`, "PUT", roleData);
+  const result = await sendRequest(`${BASE_URL}${userId}/role`, "PUT", roleData);
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  try {
+    if (result) {
+      broadcastEvent('user:updated', { user: result });
+      logger.debug('[users-api] User role updated event dispatched', { id: result._id });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function getAllUsers() {

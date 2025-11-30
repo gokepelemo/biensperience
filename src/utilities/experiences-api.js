@@ -45,10 +45,9 @@ export async function getExperienceTags(filters = {}) {
 export async function createExperience(experienceData) {
   const result = await sendRequest(`${BASE_URL}`, "POST", experienceData);
 
-  // Emit events so components can react
+  // Emit event via event bus (handles local + cross-tab dispatch)
   try {
-    if (typeof window !== 'undefined' && window.dispatchEvent && result) {
-      window.dispatchEvent(new CustomEvent('experience:created', { detail: { experience: result } }));
+    if (result) {
       broadcastEvent('experience:created', { experience: result });
       logger.debug('[experiences-api] Experience created event dispatched', { id: result._id });
     }
@@ -72,13 +71,10 @@ export async function showExperienceWithContext(id) {
 export async function deleteExperience(id) {
   const result = await sendRequest(`${BASE_URL}${id}`, "DELETE");
 
-  // Emit events so components can react
+  // Emit event via event bus (handles local + cross-tab dispatch)
   try {
-    if (typeof window !== 'undefined' && window.dispatchEvent) {
-      window.dispatchEvent(new CustomEvent('experience:deleted', { detail: { experienceId: id } }));
-      broadcastEvent('experience:deleted', { experienceId: id });
-      logger.debug('[experiences-api] Experience deleted event dispatched', { id });
-    }
+    broadcastEvent('experience:deleted', { experienceId: id });
+    logger.debug('[experiences-api] Experience deleted event dispatched', { id });
   } catch (e) {
     // ignore
   }
@@ -101,10 +97,9 @@ export async function updateExperience(experienceId, experienceData) {
     experienceData
   );
 
-  // Emit events so components can react
+  // Emit event via event bus (handles local + cross-tab dispatch)
   try {
-    if (typeof window !== 'undefined' && window.dispatchEvent && result) {
-      window.dispatchEvent(new CustomEvent('experience:updated', { detail: { experience: result } }));
+    if (result) {
       broadcastEvent('experience:updated', { experience: result });
       logger.debug('[experiences-api] Experience updated event dispatched', { id: result._id });
     }
@@ -231,24 +226,21 @@ export async function reorderExperiencePlanItems(experienceId, reorderedItems) {
       itemCount: reorderedItems.length
     });
 
-    // Emit events for cross-tab sync
+    // Emit event via event bus (handles local + cross-tab dispatch)
     try {
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        const version = Date.now();
+      const version = Date.now();
 
-        const eventPayload = {
-          experienceId: result._id,
-          version,
-          data: result,
-          experience: result, // DataContext expects 'experience' key
-          reordered: true
-        };
+      const eventPayload = {
+        experienceId: result._id,
+        version,
+        data: result,
+        experience: result, // DataContext expects 'experience' key
+        reordered: true
+      };
 
-        window.dispatchEvent(new CustomEvent('experience:updated', { detail: eventPayload }));
-        broadcastEvent('experience:updated', eventPayload);
+      broadcastEvent('experience:updated', eventPayload);
 
-        logger.debug('[experiences-api] Reorder events dispatched successfully', { version });
-      }
+      logger.debug('[experiences-api] Reorder events dispatched successfully', { version });
     } catch (e) {
       logger.warn('[experiences-api] Failed to dispatch reorder events', {}, e);
     }

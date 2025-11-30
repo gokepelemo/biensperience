@@ -577,8 +577,9 @@ function flattenPlanItems(items) {
 /**
  * Virtual property for maximum planning days
  * Considers all plan items in the hierarchy, not just top-level items
+ * Named max_planning_days to be consistent with Experience model
  */
-planSchema.virtual("max_days").get(function () {
+planSchema.virtual("max_planning_days").get(function () {
   if (!this.plan || !Array.isArray(this.plan)) return 0;
 
   // Flatten the hierarchy to consider all items

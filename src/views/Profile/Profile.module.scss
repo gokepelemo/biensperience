@@ -99,16 +99,28 @@
   padding-top: var(--space-20); /* Push content below the cover overlap area (avatar extends 80px into body) */
 }
 
-.profileName {
-  font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-2);
-  margin-top: 0;
+/* Name row - contains h1 and verified badge */
+.profileNameRow {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
+.profileName {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+/* Email verified badge - outside h1 for proper semantics */
+.verifiedBadge {
+  color: var(--color-success);
+  font-size: var(--font-size-xl);
+  flex-shrink: 0;
 }
 
 .profileLocation {
@@ -268,9 +280,13 @@
     padding-top: 0; /* Reset padding when stacked vertically - name appears after avatar */
   }
 
-  .profileName {
+  .profileNameRow {
     justify-content: center;
     margin-top: var(--space-4);
+  }
+
+  .profileName {
+    text-align: center;
   }
 
   .profileLocation {

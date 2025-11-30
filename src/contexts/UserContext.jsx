@@ -5,6 +5,7 @@ import { getUserData } from '../utilities/users-api';
 import { redeemInviteCode } from '../utilities/invite-codes-service';
 import { getFavorites } from '../utilities/destinations-api';
 import { logger } from '../utilities/logger';
+import { eventBus } from '../utilities/event-bus';
 
 const UserContext = createContext();
 
@@ -386,6 +387,41 @@ export function UserProvider({ children }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id]); // Only re-fetch when user ID changes (fetchProfile intentionally excluded to prevent loops)
+
+  // Listen for user:updated events to keep user state in sync
+  // Supports both eventBus format (event.user) and CustomEvent format (event.detail.user)
+  useEffect(() => {
+    const handleUserUpdated = (event) => {
+      const updatedUser = event.user || event.detail?.user;
+      if (!updatedUser || !updatedUser._id) return;
+
+      // Only update if this is the current logged-in user
+      if (user && user._id === updatedUser._id) {
+        logger.debug('[UserContext] user:updated event received', { id: updatedUser._id });
+
+        // Update user state with new data
+        setUser(prev => prev ? { ...prev, ...updatedUser } : updatedUser);
+
+        // Update profile if we have one
+        setProfile(prev => prev ? { ...prev, ...updatedUser } : null);
+
+        // Re-apply theme if preferences changed
+        if (updatedUser.preferences?.theme) {
+          try {
+            themeManager.applyTheme(updatedUser.preferences.theme);
+          } catch (e) {
+            // ignore theme errors
+          }
+        }
+      }
+    };
+
+    const unsubscribe = eventBus.subscribe('user:updated', handleUserUpdated);
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user]);
 
   const value = {
     // Authentication state
