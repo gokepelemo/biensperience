@@ -314,7 +314,7 @@ export default function MyPlans() {
       >
         <div className={styles.headerWrapper}>
           <FlexBetween className="mb-2">
-            <Heading level={4}>{lang.en.heading.plans}</Heading>
+            <Heading level={4}>{lang.current.heading.plans}</Heading>
             {plans.length > 0 && (
               <div className={styles.planFilterDropdown}>
                 <SearchableSelect
@@ -331,7 +331,7 @@ export default function MyPlans() {
           </FlexBetween>
         </div>
         <Text size="sm" variant="muted" className="mb-4">
-          {lang.en.dashboard.myPlansDescription}
+          {lang.current.dashboard.myPlansDescription}
         </Text>
 
         {loading && (
@@ -409,11 +409,11 @@ export default function MyPlans() {
                             <span className={styles.sharedBadgeWrapper}>
                               <Pill variant="info" size="sm" rounded>
                                 <FaUsers size={10} style={{ marginRight: '4px' }} />
-                                {lang.en.label.sharedPlan}
+                                {lang.current.label.sharedPlan}
                               </Pill>
                               <InfoTooltip
                                 id={`shared-plan-${plan._id}`}
-                                content={lang.en.label.sharedPlanTooltip.replace('{ownerName}', plan.user?.name || 'the owner')}
+                                content={lang.current.label.sharedPlanTooltip.replace('{ownerName}', plan.user?.name || 'the owner')}
                                 ariaLabel="Shared plan information"
                               />
                             </span>
@@ -438,7 +438,7 @@ export default function MyPlans() {
                           {hasActualCosts ? (
                             <div className={styles.costBreakdown}>
                               <div className={styles.costRow}>
-                                <Text size="sm" variant="muted">{lang.en.label.estimatedLabel}</Text>
+                                <Text size="sm" variant="muted">{lang.current.label.estimatedLabel}</Text>
                                 <Text weight="semibold" size="md">
                                   <CostEstimate
                                     cost={planEstimate}
@@ -449,7 +449,7 @@ export default function MyPlans() {
                                 </Text>
                               </div>
                               <div className={styles.costRow}>
-                                <Text size="sm" variant="muted">{lang.en.label.actualLabel}</Text>
+                                <Text size="sm" variant="muted">{lang.current.label.actualLabel}</Text>
                                 <Text weight="bold" size="lg">
                                   <CostEstimate
                                     cost={actualTotalCost}
@@ -553,7 +553,7 @@ export default function MyPlans() {
                       {/* Additional Costs */}
                       {plan.costs && plan.costs.length > 0 && (
                         <div className={styles.additionalCosts}>
-                          <Heading level={6} className="mb-3">{lang.en.heading.actualCosts}</Heading>
+                          <Heading level={6} className="mb-3">{lang.current.heading.actualCosts}</Heading>
                           
                           {/* Total Cost Accordion */}
                           <div className={styles.totalCostAccordion}>
@@ -575,7 +575,7 @@ export default function MyPlans() {
                               }}
                             >
                               <div className={styles.totalCostHeader}>
-                                <Text weight="semibold" size="md">{lang.en.label.totalSpent}</Text>
+                                <Text weight="semibold" size="md">{lang.current.label.totalSpent}</Text>
                                 <div className={styles.totalCostValue}>
                                   <CostEstimate
                                     cost={actualTotalCost}

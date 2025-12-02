@@ -119,12 +119,15 @@ export async function decryptData(encryptedString, userId) {
     const decoder = new TextDecoder();
     return JSON.parse(decoder.decode(decryptedData));
   } catch (error) {
-    // If decryption fails, try parsing as plain JSON
-    logger.warn('Decryption failed, attempting plain JSON parse', { error: error.message });
+    // If decryption fails, try parsing as plain JSON (expected for legacy/unencrypted data)
     try {
-      return JSON.parse(encryptedString);
+      const parsed = JSON.parse(encryptedString);
+      // Only log at debug level - this is expected for legacy data
+      logger.debug('Data was not encrypted, parsed as plain JSON');
+      return parsed;
     } catch {
-      logger.error('Failed to decrypt or parse data', { error: error.message }, error);
+      // Only log error if both decryption AND JSON parsing fail
+      logger.debug('Failed to decrypt or parse data', { error: error.message });
       return null;
     }
   }

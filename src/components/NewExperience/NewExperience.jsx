@@ -6,7 +6,7 @@ import { useUser } from "../../contexts/UserContext";
 import { useToast } from "../../contexts/ToastContext";
 import { createExperience } from "../../utilities/experiences-api";
 import { lang } from "../../lang.constants";
-import ImageUpload from "../../components/ImageUpload/ImageUpload";
+import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
 import TagInput from "../../components/TagInput/TagInput";
 import Autocomplete from "../../components/Autocomplete/Autocomplete";
 import Alert from "../Alert/Alert";
@@ -380,7 +380,7 @@ export default function NewExperience() {
                   placement="top"
                 />
               </Form.Label>
-              <ImageUpload data={newExperience} setData={setNewExperience} />
+              <PhotoUpload data={newExperience} setData={setNewExperience} />
             </div>
 
             {/* Planning days and cost estimate are computed from plan items (virtuals). Removed from creation form. */}

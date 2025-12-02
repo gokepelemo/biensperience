@@ -43,13 +43,19 @@ React • MongoDB • Node.js • Express • AWS S3 • Bootstrap
    S3_BUCKET_NAME=your-bucket
    ```
 
-3. **Generate sample data** (optional)
+3. **Create upload directories** (required for file uploads)
+   ```bash
+   mkdir -p uploads/images uploads/documents uploads/temp
+   ```
+   These directories store user-uploaded content and are gitignored.
+
+4. **Generate sample data** (optional)
    ```bash
    node sampleData.js
    # Creates 180 users, 90 destinations, 270 experiences, 450 plans, 600 photos
    ```
 
-4. **Start with PM2**
+5. **Start with PM2**
    ```bash
    pm2 start ecosystem.config.js
    # API: http://localhost:3000

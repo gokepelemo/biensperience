@@ -766,6 +766,73 @@ const en = {
   Only output the translated text, no explanations.`
     },
 
+  // Feature flag error messages and descriptions
+  featureFlags: {
+    // Generic messages
+    accessDenied: "Feature Access Denied",
+    featureNotAvailable: "This feature is not available for your account.",
+    upgradeToPremium: "Upgrade to premium to unlock this feature.",
+    joinBeta: "Join the beta program to access this feature.",
+    contactSupport: "Contact support for more information.",
+
+    // Specific flag messages
+    ai_features: {
+      name: "AI Features",
+      description: "AI-powered text assistance including autocomplete, improvement, translation, and summarization.",
+      deniedTitle: "AI Features Not Available",
+      deniedMessage: "AI-powered features require a premium subscription. These features include intelligent autocomplete, text improvement, translation, and content summarization.",
+      upgradeMessage: "Upgrade your account to unlock AI-powered writing assistance.",
+      tier: "premium"
+    },
+    beta_ui: {
+      name: "Beta UI",
+      description: "Access to new user interface features currently in testing.",
+      deniedTitle: "Beta Features Not Available",
+      deniedMessage: "This feature is part of our beta program. Beta users get early access to new features before they're released to everyone.",
+      upgradeMessage: "Join our beta program to try new features before anyone else.",
+      tier: "beta"
+    },
+    advanced_analytics: {
+      name: "Advanced Analytics",
+      description: "Detailed insights and analytics about your travel planning.",
+      deniedTitle: "Advanced Analytics Not Available",
+      deniedMessage: "Advanced analytics provide detailed insights into your travel patterns, spending, and planning habits.",
+      upgradeMessage: "Upgrade to premium to access advanced analytics.",
+      tier: "premium"
+    },
+    real_time_collaboration: {
+      name: "Real-Time Collaboration",
+      description: "Collaborate with others in real-time on shared plans.",
+      deniedTitle: "Real-Time Collaboration Not Available",
+      deniedMessage: "Real-time collaboration allows multiple users to edit and update plans simultaneously.",
+      upgradeMessage: "Upgrade to premium for real-time collaboration features.",
+      tier: "premium"
+    },
+    document_ai_parsing: {
+      name: "AI Document Parsing",
+      description: "Automatically extract information from travel documents.",
+      deniedTitle: "AI Document Parsing Not Available",
+      deniedMessage: "AI document parsing automatically extracts booking details, confirmations, and other information from uploaded documents.",
+      upgradeMessage: "Upgrade to premium for AI-powered document processing.",
+      tier: "premium"
+    },
+    bulk_export: {
+      name: "Bulk Export",
+      description: "Export multiple plans and experiences at once.",
+      deniedTitle: "Bulk Export Not Available",
+      deniedMessage: "Bulk export allows you to download multiple plans and experiences in various formats.",
+      upgradeMessage: "Upgrade to premium for bulk export functionality.",
+      tier: "premium"
+    },
+
+    // Error codes
+    errorCodes: {
+      FEATURE_FLAG_REQUIRED: "This feature requires a specific subscription or access level.",
+      FEATURE_EXPIRED: "Your access to this feature has expired.",
+      FEATURE_NOT_ENABLED: "This feature is not enabled for your account."
+    }
+  },
+
   dashboard: {
     myPlansDescription: "Your saved plans with progress and cost tracking",
   },

@@ -29,6 +29,23 @@ info:
     - **API endpoints**: 1000 requests per 15 minutes (configurable)
     - **Modification endpoints**: 100 requests per 15 minutes
     - **Collaborator management**: 50 requests per 15 minutes
+    - **AI endpoints**: 100 requests per 15 minutes
+
+    ## Feature Flags
+
+    Certain features require feature flags to be enabled on the user account:
+
+    | Flag | Description |
+    |------|-------------|
+    | `ai_features` | Access to AI-powered features (autocomplete, improve, translate, summarize, generate tips) |
+    | `beta_ui` | Access to beta UI features |
+    | `advanced_analytics` | Access to advanced analytics features |
+    | `premium_features` | Access to premium tier features |
+    | `document_processing` | Access to AI document processing |
+    | `collaboration_plus` | Enhanced collaboration features |
+
+    Requests to feature-gated endpoints without the required flag return 403 Forbidden.
+    Super admins bypass all feature flag requirements.
 
     ## Permissions Framework
 
@@ -107,7 +124,7 @@ info:
 
     ### Document
     Uploaded documents with secure storage and access controls.
-  version: 0.3.1
+  version: 0.5.4
   contact:
     name: Biensperience Support
     url: https://github.com/gokepelemo/biensperience
@@ -266,6 +283,11 @@ components:
                   minItems: 2
                   maxItems: 2
                   description: "[longitude, latitude]"
+        feature_flags:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureFlag'
+          description: Feature flags controlling access to platform features
         createdAt:
           type: string
           format: date-time
@@ -809,38 +831,6 @@ components:
         - filename
         - s3Key
 
-    Document:
-      type: object
-      properties:
-        _id:
-          type: string
-        filename:
-          type: string
-        originalName:
-          type: string
-        mimeType:
-          type: string
-        size:
-          type: number
-        s3Key:
-          type: string
-        url:
-          type: string
-        permissions:
-          type: array
-          items:
-            $ref: '#/components/schemas/Permission'
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-      required:
-        - _id
-        - filename
-        - s3Key
-
     Activity:
       type: object
       properties:
@@ -902,6 +892,132 @@ components:
         - action
         - actor
         - resource
+
+    Document:
+      type: object
+      properties:
+        _id:
+          type: string
+        user:
+          type: string
+          description: Document owner ID
+        entityType:
+          type: string
+          enum: [plan, plan_item, experience, destination]
+        entityId:
+          type: string
+        planId:
+          type: string
+        planItemId:
+          type: string
+        originalFilename:
+          type: string
+        mimeType:
+          type: string
+        fileSize:
+          type: integer
+        documentType:
+          type: string
+          enum: [pdf, image, word, text]
+        s3Key:
+          type: string
+        s3Url:
+          type: string
+        s3Bucket:
+          type: string
+        isProtected:
+          type: boolean
+        bucketType:
+          type: string
+          enum: [public, protected]
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, reprocessing]
+        extractedText:
+          type: string
+        processingResult:
+          type: object
+          properties:
+            method:
+              type: string
+              enum: [tesseract-ocr, llm-vision, pdf-parse, mammoth, direct-read, placeholder, failed]
+            confidence:
+              type: number
+            characterCount:
+              type: integer
+            pageCount:
+              type: integer
+            language:
+              type: string
+            processedAt:
+              type: string
+              format: date-time
+        aiParsedData:
+          type: object
+          properties:
+            documentType:
+              type: string
+              enum: [flight, hotel, activity, restaurant, transport, receipt, itinerary, other]
+            summary:
+              type: string
+            confirmationNumber:
+              type: string
+            totalCost:
+              type: number
+            currency:
+              type: string
+        aiParsingEnabled:
+          type: boolean
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+        metadata:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+              type:
+                type: string
+        lastProcessedAt:
+          type: string
+          format: date-time
+        processAttempts:
+          type: integer
+        maxProcessAttempts:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - _id
+        - user
+        - entityType
+        - entityId
+        - originalFilename
+        - mimeType
+        - fileSize
+        - documentType
+        - s3Key
+        - s3Url
+        - s3Bucket
+
+    DocumentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Document'
+        message:
+          type: string
 
     SearchResult:
       type: object
@@ -1010,6 +1126,125 @@ components:
         - name
         - token
         - user
+
+    FeatureFlag:
+      type: object
+      description: Feature flag controlling access to platform features
+      properties:
+        flag:
+          type: string
+          description: Unique feature flag identifier
+          enum: [ai_features, beta_ui, advanced_analytics, premium_features, document_processing, collaboration_plus]
+        enabled:
+          type: boolean
+          default: true
+          description: Whether the flag is enabled
+        config:
+          type: object
+          description: Optional JSON configuration for the flag
+        granted_at:
+          type: string
+          format: date-time
+          description: When the flag was granted
+        granted_by:
+          type: string
+          description: User ID who granted the flag
+        expires_at:
+          type: string
+          format: date-time
+          description: Optional expiration date (null = never expires)
+        reason:
+          type: string
+          description: Optional reason for granting the flag
+      required:
+        - flag
+
+    AICompletionRequest:
+      type: object
+      description: Request for AI text completion
+      properties:
+        messages:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum: [system, user, assistant]
+              content:
+                type: string
+            required:
+              - role
+              - content
+        task:
+          type: string
+          enum: [autocomplete, improve, translate, summarize, general]
+          default: general
+        options:
+          type: object
+          properties:
+            provider:
+              type: string
+              enum: [openai, anthropic, mistral, gemini]
+            model:
+              type: string
+            temperature:
+              type: number
+              minimum: 0
+              maximum: 1
+            maxTokens:
+              type: integer
+              minimum: 1
+              maximum: 4096
+      required:
+        - messages
+
+    AICompletionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            content:
+              type: string
+              description: Generated text content
+            usage:
+              type: object
+              properties:
+                inputTokens:
+                  type: integer
+                outputTokens:
+                  type: integer
+                totalTokens:
+                  type: integer
+            model:
+              type: string
+              description: Model used for completion
+            provider:
+              type: string
+              description: AI provider used
+
+    AIStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            available:
+              type: boolean
+              description: Whether AI features are available
+            defaultProvider:
+              type: string
+              description: Default AI provider
+            providers:
+              type: object
+              description: Map of provider name to configured status
+              additionalProperties:
+                type: boolean
 
   parameters:
     experienceId:
@@ -4002,6 +4237,258 @@ paths:
                       hasMore:
                         type: boolean
 
+  # Document endpoints
+  /documents/supported-types:
+    get:
+      summary: Get Supported Document Types
+      description: Returns list of supported document types and size limits
+      tags:
+        - Documents
+      responses:
+        '200':
+          description: Supported document types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      pdf:
+                        type: object
+                        properties:
+                          maxSize:
+                            type: integer
+                          mimeTypes:
+                            type: array
+                            items:
+                              type: string
+                      image:
+                        type: object
+                        properties:
+                          maxSize:
+                            type: integer
+                          mimeTypes:
+                            type: array
+                            items:
+                              type: string
+                      word:
+                        type: object
+                        properties:
+                          maxSize:
+                            type: integer
+                          mimeTypes:
+                            type: array
+                            items:
+                              type: string
+                      text:
+                        type: object
+                        properties:
+                          maxSize:
+                            type: integer
+                          mimeTypes:
+                            type: array
+                            items:
+                              type: string
+
+  /documents:
+    post:
+      summary: Upload Document
+      description: Upload and process a document with optional AI parsing
+      tags:
+        - Documents
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - document
+                - entityType
+                - entityId
+              properties:
+                document:
+                  type: string
+                  format: binary
+                  description: Document file (PDF, image, Word, or text)
+                entityType:
+                  type: string
+                  enum: [plan, plan_item, experience, destination]
+                entityId:
+                  type: string
+                  description: ID of the entity to attach document to
+                planId:
+                  type: string
+                  description: Required when entityType is plan_item
+                planItemId:
+                  type: string
+                  description: Optional plan item reference
+                aiParsingEnabled:
+                  type: boolean
+                  default: true
+                documentTypeHint:
+                  type: string
+                  enum: [flight, hotel, activity, restaurant, transport, travel]
+                language:
+                  type: string
+                  default: eng
+                forceLLM:
+                  type: boolean
+                skipLLMFallback:
+                  type: boolean
+      responses:
+        '201':
+          description: Document uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '400':
+          description: Invalid request or unsupported file type
+        '401':
+          description: Unauthorized
+        '413':
+          description: File too large
+
+  /documents/{id}:
+    get:
+      summary: Get Document
+      description: Get a document by ID
+      tags:
+        - Documents
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Document details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Document not found
+    delete:
+      summary: Delete Document
+      description: Delete a document (owner only)
+      tags:
+        - Documents
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Document deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Only document owner can delete
+        '404':
+          description: Document not found
+
+  /documents/entity/{entityType}/{entityId}:
+    get:
+      summary: Get Documents by Entity
+      description: Get all documents attached to an entity
+      tags:
+        - Documents
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [plan, plan_item, experience, destination]
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Document'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Insufficient permissions
+
+  /documents/{id}/reprocess:
+    post:
+      summary: Reprocess Document
+      description: Re-extract text and/or re-parse document with AI
+      tags:
+        - Documents
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                language:
+                  type: string
+                forceLLM:
+                  type: boolean
+                skipLLMFallback:
+                  type: boolean
+                documentTypeHint:
+                  type: string
+      responses:
+        '200':
+          description: Document reprocessed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '400':
+          description: Cannot reprocess - max attempts reached
+        '401':
+          description: Unauthorized
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Document not found
+
   /follows:
     get:
       summary: Get Follows
@@ -4111,6 +4598,295 @@ paths:
                 $ref: '#/components/schemas/Success'
         '404':
           description: Follow relationship not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # AI API Endpoints
+  # These endpoints require the 'ai_features' feature flag to be enabled for the user
+
+  /ai/status:
+    get:
+      summary: Get AI Status
+      description: Check AI service availability and configured providers
+      tags:
+        - AI
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: AI status information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIStatusResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ai/complete:
+    post:
+      summary: AI Completion
+      description: |
+        General AI text completion. Requires the 'ai_features' feature flag.
+        Rate limited to 100 requests per 15 minutes.
+      tags:
+        - AI
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AICompletionRequest'
+      responses:
+        '200':
+          description: AI completion response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AICompletionResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Feature flag 'ai_features' not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ai/autocomplete:
+    post:
+      summary: AI Autocomplete
+      description: |
+        Autocomplete text with AI suggestions. Requires the 'ai_features' feature flag.
+      tags:
+        - AI
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Text to autocomplete
+                context:
+                  type: string
+                  description: Optional context for better suggestions
+                options:
+                  type: object
+                  properties:
+                    provider:
+                      type: string
+                      enum: [openai, anthropic, mistral, gemini]
+                    temperature:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+              required:
+                - text
+      responses:
+        '200':
+          description: Autocomplete suggestion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AICompletionResponse'
+        '403':
+          description: Feature flag 'ai_features' not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ai/improve:
+    post:
+      summary: Improve Text
+      description: |
+        Improve text description quality. Requires the 'ai_features' feature flag.
+      tags:
+        - AI
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Text to improve
+                type:
+                  type: string
+                  enum: [experience, destination, plan, general]
+                  default: general
+                  description: Type of content for context-aware improvements
+                options:
+                  type: object
+              required:
+                - text
+      responses:
+        '200':
+          description: Improved text
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AICompletionResponse'
+        '403':
+          description: Feature flag 'ai_features' not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ai/translate:
+    post:
+      summary: Translate Text
+      description: |
+        Translate text to another language. Requires the 'ai_features' feature flag.
+      tags:
+        - AI
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Text to translate
+                targetLanguage:
+                  type: string
+                  description: Target language code or name
+                sourceLanguage:
+                  type: string
+                  description: Optional source language (auto-detected if not provided)
+                options:
+                  type: object
+              required:
+                - text
+                - targetLanguage
+      responses:
+        '200':
+          description: Translated text
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AICompletionResponse'
+        '403':
+          description: Feature flag 'ai_features' not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ai/summarize:
+    post:
+      summary: Summarize Text
+      description: |
+        Summarize text content. Requires the 'ai_features' feature flag.
+      tags:
+        - AI
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Text to summarize
+                maxLength:
+                  type: integer
+                  description: Maximum length of summary in characters
+                options:
+                  type: object
+              required:
+                - text
+      responses:
+        '200':
+          description: Summarized text
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AICompletionResponse'
+        '403':
+          description: Feature flag 'ai_features' not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ai/generate-tips:
+    post:
+      summary: Generate Travel Tips
+      description: |
+        Generate travel tips for a destination. Requires the 'ai_features' feature flag.
+      tags:
+        - AI
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                destination:
+                  type: string
+                  description: Destination name
+                category:
+                  type: string
+                  enum: [general, food, safety, transport, culture]
+                  default: general
+                  description: Category of tips to generate
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  default: 5
+                  description: Number of tips to generate
+                options:
+                  type: object
+              required:
+                - destination
+      responses:
+        '200':
+          description: Generated travel tips
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AICompletionResponse'
+        '403':
+          description: Feature flag 'ai_features' not enabled
           content:
             application/json:
               schema:

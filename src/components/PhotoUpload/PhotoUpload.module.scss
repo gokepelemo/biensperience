@@ -190,8 +190,6 @@
     border-color: var(--color-primary);
   }
 
-  /* Improve visual hierarchy: lift image preview and actions slightly
-     and use consistent card layout similar to Photo gallery in design */
   &.photo-item-disabled {
     border-color: var(--color-error);
     background: var(--color-bg-tertiary);
@@ -240,7 +238,6 @@
   box-shadow: 0 4px 10px rgba(16,24,40,0.06);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 
-  /* Slight lift on hover to match card hover */
   .photoItem:hover & {
     transform: translateY(-4px) scale(1.01);
     box-shadow: 0 8px 20px rgba(16,24,40,0.08);
@@ -294,7 +291,6 @@
   gap: $space-2;
   width: 100%;
 
-  /* Make primary action more prominent and match design tokens */
   .btn {
     width: 100%;
     font-size: var(--font-size-sm);
@@ -308,7 +304,6 @@
     gap: $space-2;
   }
 
-  /* Specific styling for action types based on bootstrap classes used */
   .btn-warning {
     background: var(--color-warning, #f6c244);
     color: var(--color-text-on-warning, #111827);
@@ -345,7 +340,6 @@
   }
 }
 
-/* URL Queue Styles - Design System Compliant */
 .urlQueue {
   border: 0.125rem solid var(--color-border-medium); /* $space-0-5 hardcoded */
   border-radius: var(--radius-lg);
@@ -446,7 +440,6 @@
   }
 }
 
-/* Input group styling for URL input with add button */
 :global(.input-group) {
   display: flex;
   width: 100%;
@@ -486,7 +479,6 @@
   }
 }
 
-/* Button spacing container */
 :global(.d-flex.gap-2) {
   display: flex;
   gap: $space-2;
@@ -494,7 +486,6 @@
   align-items: center;
 }
 
-/* Responsive Design */
 @media (max-width: 768px) {
   .photosGrid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

@@ -434,7 +434,7 @@ describe('UpdateExperience Integration Tests', () => {
         expect(screen.getByText('Photos')).toBeInTheDocument();
       });
 
-      // Photo tracking is done in useEffect, verified by presence of ImageUpload
+      // Photo tracking is done in useEffect, verified by presence of PhotoUpload
       const photoSection = screen.getByText('Photos');
       expect(photoSection).toBeInTheDocument();
     });

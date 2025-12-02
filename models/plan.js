@@ -369,7 +369,7 @@ const planItemSnapshotSchema = new Schema({
   // Store snapshot of original item data in case experience changes
   text: String,
   url: String,
-  photo: { type: Schema.Types.ObjectId, ref: "Photo" },
+  photos: { type: [Schema.Types.ObjectId], ref: 'Photo', default: [] },
   parent: { type: Schema.Types.ObjectId },
   // Activity type for grouping plan items (e.g., 'food', 'transport', 'accommodation', 'activity', 'custom')
   activity_type: {

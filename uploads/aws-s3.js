@@ -1,4 +1,3 @@
-// ref: ga-wdi-boston/express-multer-upload-api
 require("dotenv").config();
 
 const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");

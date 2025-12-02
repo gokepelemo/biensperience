@@ -566,6 +566,7 @@ function formatActivityAction(action) {
 
 /**
  * Format timestamp to relative time (e.g., "2 hours ago")
+ * For dates older than 7 days, uses format "Fri, Jan 9 2026"
  */
 function formatTimeAgo(timestamp) {
   const now = new Date();
@@ -579,7 +580,13 @@ function formatTimeAgo(timestamp) {
   if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
   if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
 
-  return new Date(timestamp).toLocaleDateString();
+  // For older dates, use format: "Fri, Jan 9 2026"
+  return new Date(timestamp).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
 }
 
 /**

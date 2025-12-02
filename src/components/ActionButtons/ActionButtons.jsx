@@ -89,64 +89,64 @@ export const ButtonPresets = {
   }),
 
   add: (onClick, options = {}) => ({
-    label: lang.en.button.add,
+    label: lang.current.button.add,
     onClick,
     variant: 'primary',
     icon: '✚',
-    tooltip: lang.en.button.addNewItemTooltip,
+    tooltip: lang.current.button.addNewItemTooltip,
     ...options,
   }),
 
   save: (onClick, options = {}) => ({
-    label: lang.en.button.save,
+    label: lang.current.button.save,
     onClick,
     variant: 'success',
     icon: '💾',
-    tooltip: lang.en.button.saveChangesTooltip,
+    tooltip: lang.current.button.saveChangesTooltip,
     ...options,
   }),
 
   cancel: (onClick, options = {}) => ({
-    label: lang.en.button.cancel,
+    label: lang.current.button.cancel,
     onClick,
     variant: 'secondary',
-    tooltip: lang.en.button.cancelTooltip,
+    tooltip: lang.current.button.cancelTooltip,
     ...options,
   }),
 
   back: (onClick, options = {}) => ({
-    label: lang.en.button.back,
+    label: lang.current.button.back,
     onClick,
     variant: 'outline-secondary',
     icon: '←',
-    tooltip: lang.en.button.backTooltip,
+    tooltip: lang.current.button.backTooltip,
     ...options,
   }),
 
   favorite: (onClick, isFavorited, options = {}) => ({
-    label: isFavorited ? lang.en.button.unfavorite : lang.en.button.favorite,
+    label: isFavorited ? lang.current.button.unfavorite : lang.current.button.favorite,
     onClick,
     variant: isFavorited ? 'warning' : 'outline-warning',
     icon: isFavorited ? '⭐' : '☆',
-    tooltip: isFavorited ? lang.en.button.unfavoriteTooltip : lang.en.button.favoriteTooltip,
+    tooltip: isFavorited ? lang.current.button.unfavoriteTooltip : lang.current.button.favoriteTooltip,
     ...options,
   }),
 
   plan: (onClick, isPlanned, options = {}) => ({
-    label: isPlanned ? lang.en.button.removeFromPlan : lang.en.button.addToPlan,
+    label: isPlanned ? lang.current.button.removeFromPlan : lang.current.button.addToPlan,
     onClick,
     variant: isPlanned ? 'danger' : 'success',
     icon: isPlanned ? '−' : '✚',
-    tooltip: isPlanned ? lang.en.button.removeFromPlanTooltip : lang.en.button.planTooltip,
+    tooltip: isPlanned ? lang.current.button.removeFromPlanTooltip : lang.current.button.planTooltip,
     ...options,
   }),
 
   share: (onClick, options = {}) => ({
-    label: lang.en.button.share,
+    label: lang.current.button.share,
     onClick,
     variant: 'outline-info',
     icon: '↗',
-    tooltip: lang.en.button.shareTooltip,
+    tooltip: lang.current.button.shareTooltip,
     ...options,
   }),
 };

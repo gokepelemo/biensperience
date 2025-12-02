@@ -6,6 +6,7 @@ import { redeemInviteCode } from '../utilities/invite-codes-service';
 import { getFavorites } from '../utilities/destinations-api';
 import { logger } from '../utilities/logger';
 import { eventBus } from '../utilities/event-bus';
+import { LOCAL_CHANGE_PROTECTION_MS } from '../utilities/event-bus';
 
 const UserContext = createContext();
 
@@ -33,6 +34,7 @@ export function UserProvider({ children }) {
   const [favoriteDestinations, setFavoriteDestinations] = useState([]);
   const [plannedExperiences, setPlannedExperiences] = useState([]);
   const inviteCodeRedeemedRef = useRef(false);
+  const lastLocalPhotosUpdateRef = useRef(0);
 
   // Initialization tracking
   useEffect(() => {
@@ -402,8 +404,55 @@ export function UserProvider({ children }) {
         // Update user state with new data
         setUser(prev => prev ? { ...prev, ...updatedUser } : updatedUser);
 
-        // Update profile if we have one
-        setProfile(prev => prev ? { ...prev, ...updatedUser } : null);
+        // Update profile if we have one, but merge carefully to avoid
+        // replacing populated `photos` (objects with url/_id) with
+        // unpopulated arrays of IDs that the server may return. Skip the
+        // profile update entirely if the merged result would be identical
+        // to avoid unnecessary re-renders that could produce loops.
+        setProfile(prev => {
+          if (!prev) return updatedUser; // No existing profile - use server value
+          if (!updatedUser) return prev; // Nothing to update
+
+          // Smart-merge photos: preserve populated photos on the client
+          const mergedPhotos = (() => {
+            if (!Object.prototype.hasOwnProperty.call(updatedUser, 'photos')) return prev.photos;
+            if (!prev.photos || prev.photos.length === 0) return updatedUser.photos;
+
+            // Determine if incoming photos are unpopulated (strings/ObjectId)
+            const incoming = updatedUser.photos;
+            const isUnpopulated = Array.isArray(incoming) && incoming.length > 0 && (typeof incoming[0] === 'string');
+
+            // If we recently edited photos locally, prefer local copy to avoid
+            // re-applying server changes that reflect an earlier state. This
+            // protects against a save -> server event -> re-init loop.
+            try {
+              const recent = lastLocalPhotosUpdateRef.current && (Date.now() - lastLocalPhotosUpdateRef.current) < LOCAL_CHANGE_PROTECTION_MS;
+              if (recent) {
+                return prev.photos;
+              }
+            } catch (e) {}
+
+            if (isUnpopulated && Array.isArray(prev.photos) && prev.photos.length > 0 && typeof prev.photos[0] === 'object') {
+              return prev.photos; // keep client-side populated previews
+            }
+
+            return updatedUser.photos;
+          })();
+
+          try {
+            const merged = { ...prev, ...updatedUser, photos: mergedPhotos };
+            try {
+              if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
+            } catch (e) {
+              // Serialization failed, fall through to return merged
+            }
+            return merged;
+          } catch (e) {
+            // Fallback - if merge fails, don't wipe existing profile
+            logger.warn('[UserContext] Failed to merge profile on user:updated', { error: e?.message });
+            return prev;
+          }
+        });
 
         // Re-apply theme if preferences changed
         if (updatedUser.preferences?.theme) {
@@ -418,8 +467,22 @@ export function UserProvider({ children }) {
 
     const unsubscribe = eventBus.subscribe('user:updated', handleUserUpdated);
 
+    // Listen for local modification markers (e.g., photos updated locally)
+    const unsubscribeLocal = eventBus.subscribe('local:photos-updated', (e) => {
+      try {
+        const detail = e || e.detail || {};
+        if (detail && detail.userId && user && user._id && String(detail.userId) === String(user._id)) {
+          lastLocalPhotosUpdateRef.current = detail.at || Date.now();
+          logger.debug('[UserContext] Marked local photos update', { at: lastLocalPhotosUpdateRef.current });
+        }
+      } catch (err) {
+        // ignore
+      }
+    });
+
     return () => {
       unsubscribe();
+      unsubscribeLocal();
     };
   }, [user]);
 

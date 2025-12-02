@@ -325,7 +325,7 @@ export const SelectionList = {
 // UPLOAD MODALS
 // ============================================================
 
-export const ImageUpload = {
+export const PhotoUpload = {
   render: () => {
     const [show, setShow] = useState(false);
 

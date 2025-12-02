@@ -28,7 +28,7 @@ import FormField from '../FormField/FormField';
 import { FormTooltip } from '../Tooltip/Tooltip';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import TagInput from '../TagInput/TagInput';
-import ImageUpload from '../ImageUpload/ImageUpload';
+import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import NewDestinationModal from '../NewDestinationModal/NewDestinationModal';
 import Alert from '../Alert/Alert';
 import styles from './ExperienceWizardModal.module.scss';
@@ -58,7 +58,7 @@ const STEP_LABELS = {
  * Step 4: Collaborators (Search users or invite by email)
  * Step 5: Success
  */
-export default function ExperienceWizardModal({ show, onClose, initialValues }) {
+export default function ExperienceWizardModal({ show, onClose, initialValues = {} }) {
   const navigate = useNavigate();
   const { destinations: destData, experiences: expData, addExperience } = useData();
   const { user } = useUser();
@@ -143,6 +143,8 @@ export default function ExperienceWizardModal({ show, onClose, initialValues }) 
           experience_type: initialValues.experience_type || [],
         };
         setExperienceData(pre);
+        // Prefill tags (experience types) when initial values are provided
+        setTags(pre.experience_type || []);
 
         // If a destination name was provided, set search term to help Autocomplete
         if (initialValues.destinationName) {
@@ -351,7 +353,14 @@ export default function ExperienceWizardModal({ show, onClose, initialValues }) 
         experience_type: tags,
       };
 
-      const experience = await createExperience(data);
+      // Defensive: remove client-only preview field `photos_full` before
+      // sending to the API. The backend expects `photos` as an array of IDs
+      // and `default_photo_id` for the default photo. `photos_full` is used
+      // only client-side to preserve previews when navigating modal steps.
+      const payload = { ...data };
+      if (payload.photos_full) delete payload.photos_full;
+
+      const experience = await createExperience(payload);
       addExperience(experience);
       setCreatedExperience(experience);
 
@@ -614,7 +623,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues }) 
           Photos
           <FormTooltip content="Add photos to make your experience more appealing" placement="top" />
         </Form.Label>
-        <ImageUpload data={experienceData} setData={setExperienceData} />
+        <PhotoUpload data={experienceData} setData={setExperienceData} />
       </div>
     </Form>
   );

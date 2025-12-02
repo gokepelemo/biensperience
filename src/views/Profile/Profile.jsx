@@ -15,6 +15,7 @@ import Loading from "../../components/Loading/Loading";
 import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
 import ActivityMonitor from "../../components/ActivityMonitor/ActivityMonitor";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
+import PhotoUploadModal from '../../components/PhotoUploadModal/PhotoUploadModal';
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
 import { getUserData, updateUserRole, updateUser as updateUserApi } from "../../utilities/users-api";
 import { resendConfirmation } from "../../utilities/users-api";
@@ -32,6 +33,7 @@ import { getFirstName } from "../../utilities/name-utils";
 import { formatLocation } from "../../utilities/address-utils";
 import { logger } from "../../utilities/logger";
 import { eventBus } from "../../utilities/event-bus";
+import { broadcastEvent } from "../../utilities/event-bus";
 
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
@@ -65,6 +67,8 @@ export default function Profile() {
   const [showActivityMonitor, setShowActivityMonitor] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
+  const photoSaveTimerRef = useRef(null);
 
   // Initialize tab from hash (supports deep links like /profile#created)
   useEffect(() => {
@@ -180,6 +184,8 @@ export default function Profile() {
   // Track if initial page 1 has been loaded (to distinguish from user navigation back to page 1)
   const experiencesInitialLoadRef = useRef(true);
   const createdInitialLoadRef = useRef(true);
+  // Track last buttons we set in AppContext to avoid repeatedly calling setter
+  const lastPageButtonsRef = useRef(null);
 
   /**
    * Merge helper function to update profile state without full replacement
@@ -208,7 +214,16 @@ export default function Profile() {
         return updates.photos;
       })();
 
-      return { ...prev, ...updates, photos: mergedPhotos };
+      const merged = { ...prev, ...updates, photos: mergedPhotos };
+
+      try {
+        // Avoid triggering a state update if nothing meaningful changed.
+        if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
+      } catch (e) {
+        // If serialization fails for any reason, fall back to returning merged
+      }
+
+      return merged;
     });
   }, []);
 
@@ -494,6 +509,15 @@ export default function Profile() {
     getProfile();
   }, [getProfile]);
 
+  // Cleanup any pending save timer when leaving
+  useEffect(() => {
+    return () => {
+      if (photoSaveTimerRef.current) {
+        clearTimeout(photoSaveTimerRef.current);
+      }
+    };
+  }, []);
+
   // Listen for user profile update events
   useEffect(() => {
     const handleUserUpdated = (event) => {
@@ -501,7 +525,13 @@ export default function Profile() {
       const updatedUser = event.user;
       if (updatedUser && updatedUser._id === userId) {
         logger.debug('[Profile] User updated event received', { id: updatedUser._id });
-        setCurrentProfile(updatedUser);
+        // Use smart merge to avoid replacing populated photos with unpopulated IDs
+        try {
+          mergeProfile(updatedUser);
+        } catch (e) {
+          // Fallback to direct set if merge fails for any reason
+          setCurrentProfile(updatedUser);
+        }
       }
     };
 
@@ -513,31 +543,43 @@ export default function Profile() {
   // Re-run when currentProfile loads so h1 element is available
   useEffect(() => {
     const h1 = document.querySelector('h1');
-    if (h1) {
-      registerH1(h1);
+    if (!h1) return;
 
-      // Enable h1 text in navbar - clicking scrolls to top
-      updateShowH1InNavbar(true);
+    registerH1(h1);
 
-      // Set action buttons if user is viewing their own profile
-      if (isOwner && user) {
-        setPageActionButtons([
-          {
-            label: "Edit Profile",
-            onClick: () => navigate('/profile/update'),
-            variant: "outline-primary",
-            icon: "✏️",
-            tooltip: "Edit Your Profile",
-            compact: true,
-          },
-        ]);
-      } else {
-        clearActionButtons();
+    // Enable h1 text in navbar - clicking scrolls to top
+    updateShowH1InNavbar(true);
+
+    // Set action buttons if user is viewing their own profile. Guard the
+    // setter so we don't repeatedly push identical arrays into AppContext,
+    // which can trigger re-renders leading to update loops.
+    if (isOwner && user) {
+      const editOnClick = () => navigate('/profile/update');
+      const newButtons = [
+        {
+          label: "Edit Profile",
+          onClick: editOnClick,
+          variant: "outline-primary",
+          icon: "✏️",
+          tooltip: "Edit Your Profile",
+          compact: true,
+        },
+      ];
+
+      const last = lastPageButtonsRef.current;
+      // Compare by label and existence of handler to avoid tight equality checks on function refs
+      if (!last || last[0]?.label !== newButtons[0].label) {
+        setPageActionButtons(newButtons);
+        lastPageButtonsRef.current = newButtons;
       }
+    } else {
+      clearActionButtons();
+      lastPageButtonsRef.current = null;
     }
 
     return () => {
       clearActionButtons();
+      lastPageButtonsRef.current = null;
       // Disable h1 in navbar when leaving this view
       updateShowH1InNavbar(false);
     };
@@ -689,22 +731,29 @@ export default function Profile() {
                       );
                       setSelectedPhotoIndex(Math.max(0, photoIndex));
                       setShowPhotoModal(true);
+                    } else if (isOwner) {
+                      // Owner with no photos -> open upload/manage modal
+                      setShowPhotoUploadModal(true);
                     }
                   }}
-                  role={currentProfile?.photos?.length > 0 ? "button" : undefined}
-                  tabIndex={currentProfile?.photos?.length > 0 ? 0 : undefined}
+                  role={currentProfile?.photos?.length > 0 || isOwner ? "button" : undefined}
+                  tabIndex={currentProfile?.photos?.length > 0 || isOwner ? 0 : undefined}
                   onKeyDown={(e) => {
-                    if ((e.key === 'Enter' || e.key === ' ') && currentProfile?.photos?.length > 0) {
+                    if ((e.key === 'Enter' || e.key === ' ') && (currentProfile?.photos?.length > 0 || isOwner)) {
                       e.preventDefault();
-                      const defaultPhoto = getDefaultPhoto(currentProfile);
-                      const photoIndex = currentProfile.photos.findIndex(
-                        p => (p._id || p) === (defaultPhoto?._id || defaultPhoto)
-                      );
-                      setSelectedPhotoIndex(Math.max(0, photoIndex));
-                      setShowPhotoModal(true);
+                      if (currentProfile?.photos?.length > 0) {
+                        const defaultPhoto = getDefaultPhoto(currentProfile);
+                        const photoIndex = currentProfile.photos.findIndex(
+                          p => (p._id || p) === (defaultPhoto?._id || defaultPhoto)
+                        );
+                        setSelectedPhotoIndex(Math.max(0, photoIndex));
+                        setShowPhotoModal(true);
+                      } else if (isOwner) {
+                        setShowPhotoUploadModal(true);
+                      }
                     }
                   }}
-                  aria-label={currentProfile?.photos?.length > 0 ? "View profile photos" : undefined}
+                  aria-label={currentProfile?.photos?.length > 0 ? "View profile photos" : (isOwner ? "Manage profile photos" : undefined)}
                 >
                   {avatarPhoto ? (
                     <img
@@ -816,6 +865,18 @@ export default function Profile() {
                             </li>
                           </>
                         )}
+                        <li>
+                          <button
+                            className={`dropdown-item ${styles.dropdownItem}`}
+                            type="button"
+                            onClick={() => setShowPhotoUploadModal(true)}
+                            title={(lang.current && lang.current.aria && lang.current.aria.managePhotos) || 'Manage Photos'}
+                            aria-label={(lang.current && lang.current.aria && lang.current.aria.managePhotos) || 'Manage Photos'}
+                          >
+                            <FaCamera className={styles.dropdownIcon} />
+                            <span>Manage Photos</span>
+                          </button>
+                        </li>
                         <li>
                           <Link
                             to="/profile/update"
@@ -960,10 +1021,10 @@ export default function Profile() {
             )}
             {/* Planned Experiences Tab - API-level pagination */}
             {uiState.experiences && (
-              <div className={styles.profileGrid}>
+              <div className={styles.profileGrid} style={experiencesLoading && uniqueUserExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
                 {(() => {
-                  // Loading state (initial load or page change)
-                  if (uniqueUserExperiences === null || experiencesLoading) {
+                  // Initial load - show skeleton loaders
+                  if (uniqueUserExperiences === null) {
                     return Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
                       <div key={`skeleton-exp-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
                         <div className="position-relative" style={{ minHeight: '12rem' }}>
@@ -976,6 +1037,7 @@ export default function Profile() {
                   }
 
                   // API returns the current page directly - no client-side slicing needed
+                  // Keep existing content visible during page transitions (experiencesLoading)
                   const displayedExperiences = uniqueUserExperiences;
 
                   return displayedExperiences.length > 0 ? (
@@ -1005,10 +1067,10 @@ export default function Profile() {
             )}
             {/* Created Experiences Tab - API-level pagination */}
             {uiState.created && (
-              <div className={styles.profileGrid}>
+              <div className={styles.profileGrid} style={createdLoading && uniqueCreatedExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
                 {(() => {
-                  // Loading state (initial load or page change)
-                  if (uniqueCreatedExperiences === null || createdLoading) {
+                  // Initial load - show skeleton loaders
+                  if (uniqueCreatedExperiences === null) {
                     return Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
                       <div key={`skeleton-created-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
                         <div className="position-relative" style={{ minHeight: '12rem' }}>
@@ -1021,6 +1083,7 @@ export default function Profile() {
                   }
 
                   // API returns the current page directly - no client-side slicing needed
+                  // Keep existing content visible during page transitions (createdLoading)
                   const displayedCreated = uniqueCreatedExperiences;
 
                   return displayedCreated.length > 0 ? (
@@ -1189,6 +1252,59 @@ export default function Profile() {
           photo={currentProfile.photos[selectedPhotoIndex]}
           photos={currentProfile.photos}
           initialIndex={selectedPhotoIndex}
+        />
+      )}
+      {/* Photo Upload Modal - for owners to manage photos when none exist (or to be used elsewhere) */}
+      {showPhotoUploadModal && (
+        <PhotoUploadModal
+          show={showPhotoUploadModal}
+          onClose={() => setShowPhotoUploadModal(false)}
+          entityType="user"
+          entity={currentProfile}
+          photos={currentProfile ? (currentProfile.photos_full && currentProfile.photos_full.length > 0 ? currentProfile.photos_full : (currentProfile.photos || [])) : []}
+          onChange={(data) => {
+            // Immediately merge UI changes so profile updates live while modal is open
+            try {
+              const photosFull = Array.isArray(data.photos_full) && data.photos_full.length > 0
+                ? data.photos_full
+                : (Array.isArray(data.photos) ? data.photos : []);
+
+              // Merge into currentProfile for immediate UI update
+              mergeProfile({ photos: photosFull, default_photo_id: data.default_photo_id || null });
+            } catch (e) {
+              // ignore merge failures
+            }
+
+            // Debounce background save to avoid hammering API during uploads/edits
+            if (photoSaveTimerRef.current) clearTimeout(photoSaveTimerRef.current);
+            photoSaveTimerRef.current = setTimeout(async () => {
+              try {
+                try { logger.debug('[Profile] Debounced save triggered', { userId: user._id, photosCount: (data.photos || []).length }); } catch (e) {}
+                try { broadcastEvent('local:photos-updated', { at: Date.now(), userId: user._id, field: 'photos' }); } catch (e) {}
+                // Persist only the photo IDs and default id to backend
+                const resp = await updateUserApi(user._id, { photos: data.photos || [], default_photo_id: data.default_photo_id || null });
+                // If API returns authoritative user data, merge it into current profile
+                if (resp && typeof resp === 'object') {
+                  try { mergeProfile(resp); } catch (e) { /* ignore merge errors */ }
+                }
+              } catch (err) {
+                // Log but don't interrupt UI
+                try { logger.error('[Profile] Failed to persist photo changes', err); } catch (e) {}
+              }
+            }, 800);
+          }}
+          onSave={async (data) => {
+            // Final save: persist and merge authoritative server response
+            try {
+              try { broadcastEvent('local:photos-updated', { at: Date.now(), userId: user._id, field: 'photos' }); } catch (e) {}
+              const updated = await updateUserApi(user._id, { photos: data.photos || [], default_photo_id: data.default_photo_id || null });
+              if (updated) {
+                mergeProfile(updated);
+              }
+            } catch (err) {
+              throw err;
+            }
+          }}
         />
       )}
       </Container>

@@ -10,7 +10,7 @@ import { useFormChangeHandler } from "../../hooks/useFormChangeHandler";
 import { useTravelTipsManager } from "../../hooks/useTravelTipsManager";
 import { useFormErrorHandling } from "../../hooks/useFormErrorHandling";
 import { formatRestorationMessage } from "../../utilities/time-utils";
-import ImageUpload from "../ImageUpload/ImageUpload";
+import PhotoUpload from "../PhotoUpload/PhotoUpload";
 import Alert from "../Alert/Alert";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import SuccessModal from "../SuccessModal/SuccessModal";
@@ -231,7 +231,7 @@ export default function NewDestination() {
               <Form.Label>
                 {lang.current.heading.photos}
               </Form.Label>
-              <ImageUpload data={newDestination} setData={setNewDestination} />
+              <PhotoUpload data={newDestination} setData={setNewDestination} />
             </div>
 
             <TravelTipsManager

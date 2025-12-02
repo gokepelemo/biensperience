@@ -8,7 +8,7 @@ import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useToast } from "../../contexts/ToastContext";
 import { lang } from "../../lang.constants";
-import ImageUpload from "../../components/ImageUpload/ImageUpload";
+import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
 import TagInput from "../../components/TagInput/TagInput";
 import Autocomplete from "../../components/Autocomplete/Autocomplete";
 import Alert from "../Alert/Alert";
@@ -166,9 +166,7 @@ export default function UpdateExperience() {
 
   // Track photo changes (robust: compare by stable IDs, ignore order)
   useEffect(() => {
-    if (!experience || !originalExperience || isInitialLoad || !isMediaSettled) return;
-
-    const newChanges = { ...changes };
+    if (!experience || !originalExperience || isInitialLoad) return;
 
     // Normalize photos by ID and ignore order
     const getId = (p) => {
@@ -187,15 +185,6 @@ export default function UpdateExperience() {
 
     const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
 
-    if (photosChanged) {
-      const fromText = originalPhotoIds.length === 0 ? 'No photos' : `${originalPhotoIds.length} photo${originalPhotoIds.length > 1 ? 's' : ''}`;
-      const toText = currentPhotoIds.length === 0 ? 'No photos' : `${currentPhotoIds.length} photo${currentPhotoIds.length > 1 ? 's' : ''}`;
-
-      newChanges.photos = { from: fromText, to: toText };
-    } else {
-      delete newChanges.photos;
-    }
-
     // Check if default photo changed by ID (fallback to first photo when unset)
     const originalDefaultId = originalExperience.default_photo_id;
     const currentDefaultId = experience.default_photo_id;
@@ -210,53 +199,70 @@ export default function UpdateExperience() {
     // If there are no current photos, treat default as null
     if (currentPhotoIds.length === 0) normalizedCurrentDefault = null;
 
-    if (
-      normalizedOriginalDefault !== normalizedCurrentDefault &&
-      currentPhotoIds.length > 0
-    ) {
-      const originalIndex = normalizedOriginalDefault
-        ? originalPhotoIds.indexOf(normalizedOriginalDefault)
-        : -1;
-      const currentIndex = normalizedCurrentDefault
-        ? currentPhotoIds.indexOf(normalizedCurrentDefault)
-        : -1;
+    const defaultPhotoChanged = normalizedOriginalDefault !== normalizedCurrentDefault && currentPhotoIds.length > 0;
 
-      newChanges.default_photo = {
-        from: originalIndex >= 0 ? `Photo #${originalIndex + 1}` : 'None',
-        to: currentIndex >= 0 ? `Photo #${currentIndex + 1}` : 'None'
-      };
-    } else {
-      delete newChanges.default_photo;
-    }
+    // Use functional update to avoid stale closure issues with changes
+    setChanges(prevChanges => {
+      const newChanges = { ...prevChanges };
 
-    // Only update if changes actually differ
-    if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
-      setChanges(newChanges);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [experience, originalExperience, isInitialLoad, isMediaSettled]);
+      if (photosChanged) {
+        const fromText = originalPhotoIds.length === 0 ? 'No photos' : `${originalPhotoIds.length} photo${originalPhotoIds.length > 1 ? 's' : ''}`;
+        const toText = currentPhotoIds.length === 0 ? 'No photos' : `${currentPhotoIds.length} photo${currentPhotoIds.length > 1 ? 's' : ''}`;
+        newChanges.photos = { from: fromText, to: toText };
+      } else {
+        delete newChanges.photos;
+      }
+
+      if (defaultPhotoChanged) {
+        const originalIndex = normalizedOriginalDefault
+          ? originalPhotoIds.indexOf(normalizedOriginalDefault)
+          : -1;
+        const currentIndex = normalizedCurrentDefault
+          ? currentPhotoIds.indexOf(normalizedCurrentDefault)
+          : -1;
+
+        newChanges.default_photo = {
+          from: originalIndex >= 0 ? `Photo #${originalIndex + 1}` : 'None',
+          to: currentIndex >= 0 ? `Photo #${currentIndex + 1}` : 'None'
+        };
+      } else {
+        delete newChanges.default_photo;
+      }
+
+      // Only return new object if changes actually differ
+      if (JSON.stringify(newChanges) !== JSON.stringify(prevChanges)) {
+        return newChanges;
+      }
+      return prevChanges;
+    });
+  }, [experience, originalExperience, isInitialLoad]);
 
   // Track tags changes
   useEffect(() => {
     if (!experience || !originalExperience || isInitialLoad) return;
 
-    const newChanges = { ...changes };
     const originalTags = Array.isArray(originalExperience?.experience_type)
       ? originalExperience.experience_type
       : [];
     const tagsChanged = JSON.stringify(originalTags.sort()) !== JSON.stringify([...tags].sort());
 
-    if (tagsChanged) {
-      newChanges.experience_type = { from: originalTags.join(', '), to: tags.join(', ') };
-    } else {
-      delete newChanges.experience_type;
-    }
+    // Use functional update to avoid stale closure issues with changes
+    setChanges(prevChanges => {
+      const newChanges = { ...prevChanges };
 
-    if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
-      setChanges(newChanges);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tags, originalExperience]);
+      if (tagsChanged) {
+        newChanges.experience_type = { from: originalTags.join(', '), to: tags.join(', ') };
+      } else {
+        delete newChanges.experience_type;
+      }
+
+      // Only return new object if changes actually differ
+      if (JSON.stringify(newChanges) !== JSON.stringify(prevChanges)) {
+        return newChanges;
+      }
+      return prevChanges;
+    });
+  }, [tags, originalExperience, isInitialLoad]);
 
   function handleTagsChange(newTags) {
     setTags(newTags);
@@ -644,7 +650,7 @@ export default function UpdateExperience() {
                   placement="top"
                 />
               </Form.Label>
-              <ImageUpload
+                <PhotoUpload
                 data={experience}
                 setData={setExperience}
               />

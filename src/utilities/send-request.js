@@ -63,7 +63,7 @@ async function getCsrfToken() {
  * @throws {Error} Throws 'Bad Request' if response is not ok
  */
 export async function sendRequest(url, method = "GET", payload = null) {
-    logger.debug('[send-request] Starting request', { method, url, hasPayload: !!payload });
+    logger.trace('[send-request] Starting request', { method, url, hasPayload: !!payload });
 
     // Default timeout for fetch requests (ms)
     const DEFAULT_TIMEOUT = 30000; // 30s
@@ -82,9 +82,9 @@ export async function sendRequest(url, method = "GET", payload = null) {
     
     if (isStateChanging) {
         try {
-            logger.debug('[send-request] Fetching CSRF token for state-changing request');
+            logger.trace('[send-request] Fetching CSRF token for state-changing request');
             const token = await getCsrfToken();
-            logger.debug('[send-request] CSRF token received', { hasToken: !!token });
+            logger.trace('[send-request] CSRF token received', { hasToken: !!token });
             options.headers = options.headers || {};
             options.headers['x-csrf-token'] = token;
         } catch (error) {
@@ -94,31 +94,31 @@ export async function sendRequest(url, method = "GET", payload = null) {
     
     const token = getToken();
     if (token) {
-        logger.debug('[send-request] JWT token found, adding to headers');
+        logger.trace('[send-request] JWT token found, adding to headers');
         options.headers = options.headers || {};
         options.headers.Authorization = `Bearer ${token}`;
-        
+
         // Add session ID for authenticated requests
         try {
             // Get user from token payload
             const payload = JSON.parse(atob(token.split('.')[1]));
             const userId = payload.user?._id;
-            
+
             if (userId) {
                 // Refresh session if needed
                 const { sessionId } = await refreshSessionIfNeeded(userId);
-                
+
                 if (sessionId) {
                     options.headers['bien-session-id'] = sessionId;
-                    logger.debug('[send-request] Session ID attached');
+                    logger.trace('[send-request] Session ID attached');
                 }
             }
         } catch (error) {
-            logger.debug('[send-request] Session handling warning', { error: error.message });
+            logger.trace('[send-request] Session handling warning', { error: error.message });
             // Continue without session ID - not critical
         }
     } else {
-        logger.warn('[send-request] No JWT token found - user may not be authenticated');
+        logger.debug('[send-request] No JWT token found - user may not be authenticated');
     }
     
     // Always add trace ID for request tracking
@@ -127,22 +127,22 @@ export async function sendRequest(url, method = "GET", payload = null) {
     options.headers['bien-trace-id'] = traceId;
 
     try {
-        logger.debug('[send-request] Making fetch request', { 
-            url, 
-            method, 
+        logger.trace('[send-request] Making fetch request', {
+            url,
+            method,
             headers: Object.keys(options.headers || {})
         });
         const res = await fetch(url, options);
         clearTimeout(timeoutId);
-        logger.debug('[send-request] Response received', { 
-            status: res.status, 
+        logger.trace('[send-request] Response received', {
+            status: res.status,
             statusText: res.statusText,
             ok: res.ok
         });
-        
+
         if (res.ok) {
             const data = await res.json();
-            logger.debug('[send-request] Request successful', { hasData: !!data });
+            logger.trace('[send-request] Request successful', { hasData: !!data });
             return data;
         }
 

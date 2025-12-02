@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import styles from "./ImageUpload.module.scss";
+import styles from "./PhotoUpload.module.scss";
 import DOMPurify from "dompurify";
 import { uploadPhoto, uploadPhotoBatch, uploadPhotoUrl, deletePhoto } from "../../utilities/photos-api";
 import { handleError } from "../../utilities/error-handler";
@@ -12,88 +12,43 @@ import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import { logger } from "../../utilities/logger";
 import { FormControl } from "../../components/design-system";
 
-/**
- * Sanitizes text for safe display in JSX
- * React automatically escapes JSX text content, but we ensure the value is a string
- * @param {string} text - The text to sanitize
- * @returns {string} - The sanitized text (empty string if null/undefined)
- */
 function sanitizeText(text) {
-  // Return empty string for null/undefined, or convert to string and trim
   return text ? String(text).trim() : '';
 }
 
-/**
- * Validate that a URL is safe for use in img src attribute
- * Prevents XSS via javascript:, data:, or other dangerous protocols
- *
- * @param {string} url - URL to validate
- * @returns {boolean} True if URL is safe
- */
 function isSafeImageUrl(url) {
   if (!url || typeof url !== 'string') return false;
 
-  // Only allow http:, https:, and relative URLs
   const trimmedUrl = url.trim().toLowerCase();
   if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/')) {
     return true;
   }
 
-  // Block dangerous protocols
-  if (trimmedUrl.startsWith('javascript:') ||
-      trimmedUrl.startsWith('data:') ||
-      trimmedUrl.startsWith('vbscript:')) {
+  if (trimmedUrl.startsWith('javascript:') || trimmedUrl.startsWith('data:') || trimmedUrl.startsWith('vbscript:')) {
     return false;
   }
 
-  // Allow relative URLs without protocol
-  if (!trimmedUrl.includes(':')) {
-    return true;
-  }
+  if (!trimmedUrl.includes(':')) return true;
 
   return false;
 }
 
-/**
- * Sanitize a URL for safe use in img src attribute
- * Uses DOMPurify to prevent XSS via javascript:, data:, or other dangerous protocols
- *
- * @param {string} url - URL to sanitize
- * @returns {string|null} Sanitized URL or null if unsafe
- */
 function sanitizeImageUrl(url) {
   if (!url || typeof url !== 'string') return null;
-
   const trimmedUrl = url.trim();
-
-  // Block dangerous protocols before sanitization
   const lowerUrl = trimmedUrl.toLowerCase();
-  if (lowerUrl.startsWith('javascript:') ||
-      lowerUrl.startsWith('data:') ||
-      lowerUrl.startsWith('vbscript:')) {
+  if (lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:') || lowerUrl.startsWith('vbscript:')) {
     return null;
   }
-
-  // Only allow http:, https:, and relative URLs
-  if (!lowerUrl.startsWith('http://') &&
-      !lowerUrl.startsWith('https://') &&
-      !lowerUrl.startsWith('/') &&
-      lowerUrl.includes(':')) {
+  if (!lowerUrl.startsWith('http://') && !lowerUrl.startsWith('https://') && !lowerUrl.startsWith('/') && lowerUrl.includes(':')) {
     return null;
   }
-
-  // Use DOMPurify to sanitize the URL
   const sanitized = DOMPurify.sanitize(trimmedUrl, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
-
-  // Return null if DOMPurify removed content (indicates malicious URL)
-  if (!sanitized || sanitized !== trimmedUrl) {
-    return null;
-  }
-
+  if (!sanitized || sanitized !== trimmedUrl) return null;
   return trimmedUrl;
 }
 
-export default function ImageUpload({ data, setData }) {
+export default function PhotoUpload({ data, setData }) {
   const [uploadForm, setUploadForm] = useState({});
   const [uploading, setUploading] = useState(false);
   const [useUrl, setUseUrl] = useState(false);
@@ -106,11 +61,16 @@ export default function ImageUpload({ data, setData }) {
   const [urlQueue, setUrlQueue] = useState([]);
   const [editingUrlIndex, setEditingUrlIndex] = useState(null);
 
-  const [photos, setPhotos] = useState(() => data.photos || []);
+  const [photos, setPhotos] = useState(() => {
+    if (Array.isArray(data.photos_full) && data.photos_full.length > 0) return data.photos_full;
+    return data.photos || [];
+  });
+
   const [defaultPhotoIndex, setDefaultPhotoIndex] = useState(() => {
-    if (data.default_photo_id && data.photos) {
-      const index = data.photos.findIndex(photo =>
-        photo._id === data.default_photo_id || photo === data.default_photo_id
+    const source = Array.isArray(data.photos_full) && data.photos_full.length > 0 ? data.photos_full : data.photos || [];
+    if (data.default_photo_id && source) {
+      const index = source.findIndex(photo =>
+        (photo && photo._id && String(photo._id) === String(data.default_photo_id)) || String(photo) === String(data.default_photo_id)
       );
       return index >= 0 ? index : 0;
     }
@@ -121,6 +81,45 @@ export default function ImageUpload({ data, setData }) {
 
   const prevPhotosRef = useRef();
   const prevDefaultIndexRef = useRef();
+  // Track if we've initialized from external data to avoid resetting user's edits
+  const initializedFromDataRef = useRef(false);
+
+  // Sync photos from external data prop when it changes (e.g., when modal opens with existing photos)
+  // This handles the case where data.photos_full is populated after the component mounts
+  useEffect(() => {
+    const externalPhotos = Array.isArray(data.photos_full) && data.photos_full.length > 0
+      ? data.photos_full
+      : (Array.isArray(data.photos) ? data.photos : []);
+
+    // Only sync if we have external photos AND we haven't initialized yet
+    // OR if external photos changed significantly (e.g., modal reopened with different entity)
+    if (externalPhotos.length > 0 && !initializedFromDataRef.current) {
+      setPhotos(externalPhotos);
+
+      // Also sync default photo index
+      if (data.default_photo_id) {
+        const index = externalPhotos.findIndex(photo =>
+          (photo && photo._id && String(photo._id) === String(data.default_photo_id)) ||
+          String(photo) === String(data.default_photo_id)
+        );
+        if (index >= 0) setDefaultPhotoIndex(index);
+      }
+
+      initializedFromDataRef.current = true;
+      logger.debug('[PhotoUpload] Synced photos from external data', { count: externalPhotos.length });
+    }
+  }, [data.photos_full, data.photos, data.default_photo_id]);
+
+  // Reset initialized flag when photos are cleared (e.g., modal closed and reopened)
+  useEffect(() => {
+    const externalPhotos = Array.isArray(data.photos_full) && data.photos_full.length > 0
+      ? data.photos_full
+      : (Array.isArray(data.photos) ? data.photos : []);
+
+    if (externalPhotos.length === 0 && photos.length === 0) {
+      initializedFromDataRef.current = false;
+    }
+  }, [data.photos_full, data.photos, photos.length]);
 
   useEffect(() => {
     const activePhotos = photos.filter((_, index) => !disabledPhotos.has(index));
@@ -145,9 +144,14 @@ export default function ImageUpload({ data, setData }) {
       prevPhotosRef.current = activePhotos;
       prevDefaultIndexRef.current = newDefaultIndex;
 
+      try {
+        logger.debug('[PhotoUpload] setData called', { activeCount: activePhotos.length, newDefaultIndex });
+      } catch (e) {}
+
       setData((prevData) => ({
         ...prevData,
         photos: activePhotos.map(photo => photo._id || photo),
+        photos_full: activePhotos,
         default_photo_id: activePhotos.length > 0 ? (activePhotos[newDefaultIndex]?._id || activePhotos[newDefaultIndex]) : null
       }));
     }
@@ -175,7 +179,6 @@ export default function ImageUpload({ data, setData }) {
 
         const capitalizedDomain = mainDomain.charAt(0).toUpperCase() + mainDomain.slice(1);
 
-        // Only assign the credit URL if the provided URL is safe
         const safeCreditUrl = isSafeImageUrl(url) ? domain : '';
 
         setUploadForm({
@@ -209,7 +212,6 @@ export default function ImageUpload({ data, setData }) {
       return;
     }
 
-    // Block potentially dangerous URLs (javascript:, data:, etc.)
     if (!isSafeImageUrl(uploadForm.photo_url)) {
       setAlertTitle(lang.current.modal.photoUrlRequired);
       setAlertMessage('This URL uses an unsupported protocol or is unsafe');
@@ -276,7 +278,6 @@ export default function ImageUpload({ data, setData }) {
     setUploading(true);
 
     try {
-      // Upload each URL to the backend to persist in database
       const uploadPromises = urlQueue.map(item =>
         uploadPhotoUrl({
           url: item.url,
@@ -325,7 +326,6 @@ export default function ImageUpload({ data, setData }) {
           return;
         }
 
-        // Get image dimensions for layout shift prevention
         if (!isSafeImageUrl(uploadForm.photo_url)) {
           setAlertTitle(lang.current.modal.photoUrlRequired);
           setAlertMessage('This URL uses an unsupported protocol or is unsafe');
@@ -479,9 +479,7 @@ export default function ImageUpload({ data, setData }) {
 
   return (
     <div className={styles.uploadPhoto} role="region" aria-label={lang.current.aria.photoUpload}>
-      {/* Upload Form */}
       <div className={styles.uploadFormSection}>
-        {/* Photo Credit Fields - One Per Line */}
         <div className="mb-3">
           <label htmlFor="photo_credit" className="visually-hidden">
             Photo credit name
@@ -564,7 +562,6 @@ export default function ImageUpload({ data, setData }) {
               </button>
             </div>
 
-            {/* URL Queue Display */}
             {urlQueue.length > 0 && (
               <div className="url-queue mb-3">
                 <div className="d-flex justify-content-between align-items-center mb-2">
@@ -652,7 +649,6 @@ export default function ImageUpload({ data, setData }) {
         </div>
       </div>
 
-      {/* Uploaded Photos List */}
       {photos.length > 0 && (
         <div className={styles.uploadedPhotosList} role="region" aria-label={lang.current.aria.uploadedPhotos}>
           <h5 className="mt-4 mb-3">
@@ -672,9 +668,7 @@ export default function ImageUpload({ data, setData }) {
             {photos.map((photo, index) => {
               const isDisabled = disabledPhotos.has(index);
               const isDefault = index === defaultPhotoIndex && !isDisabled;
-              // Sanitize photo credit to prevent XSS - React will escape JSX text content
               const sanitizedCredit = sanitizeText(photo.photo_credit);
-              // Sanitize URL using DOMPurify to prevent XSS
               const safeUrl = sanitizeImageUrl(photo.url);
 
               return (

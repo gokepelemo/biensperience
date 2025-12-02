@@ -1,7 +1,11 @@
 # screenshots
 /screenshots/
-/uploads/images/
 /documentation/
+
+# uploads (user-generated content, not tracked in git)
+/uploads/images/
+/uploads/documents/
+/uploads/temp/
 
 # issue management
 /.beads

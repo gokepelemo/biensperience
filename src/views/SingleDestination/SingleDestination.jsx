@@ -5,6 +5,7 @@ import { showDestination } from "../../utilities/destinations-api";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
+import { useToast } from "../../contexts/ToastContext";
 import { useExperienceWizard } from "../../contexts/ExperienceWizardContext";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
@@ -26,11 +27,14 @@ import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage 
 import { Row, Col, Card } from "react-bootstrap";
 import { getDefaultPhoto } from "../../utilities/photo-utils";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
+import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
+import { updateDestination } from "../../utilities/destinations-api";
 
 export default function SingleDestination() {
   const { user } = useUser();
   const { experiences, destinations, plans, fetchDestinations } = useData();
   const { registerH1, setPageActionButtons, clearActionButtons, updateShowH1InNavbar } = useApp();
+  const { success, error: showError } = useToast();
   const { openExperienceWizard } = useExperienceWizard();
   const { destinationId } = useParams();
   const navigate = useNavigate();
@@ -48,6 +52,7 @@ export default function SingleDestination() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
+  const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
 
   /**
    * Merge helper function to update destination state without full replacement
@@ -409,14 +414,30 @@ export default function SingleDestination() {
                 <span><FaPlane /> {experienceCount} {experienceCount === 1 ? 'experience' : 'experiences'}</span>
               </div>
             </div>
+            {/* Hero photo button - opens upload modal when no photos and user can edit */}
             <button
               type="button"
               className={styles.heroPhotoButton}
               onClick={() => {
-                setPhotoViewerIndex(0);
-                setShowPhotoViewer(true);
+                // Check if there are no photos on the destination
+                const hasDestinationPhotos = destination.photos && destination.photos.length > 0;
+                // Check if user can edit (owner or collaborator)
+                const canEdit = destination.permissions?.some(p =>
+                  p.entity === 'user' &&
+                  (p.type === 'owner' || p.type === 'collaborator') &&
+                  p._id?.toString() === user?._id?.toString()
+                );
+
+                if (!hasDestinationPhotos && canEdit) {
+                  // No photos and user can edit - open upload modal
+                  setShowPhotoUploadModal(true);
+                } else {
+                  // Has photos or user can't edit - open photo viewer
+                  setPhotoViewerIndex(0);
+                  setShowPhotoViewer(true);
+                }
               }}
-              aria-label="View photos"
+              aria-label={destination.photos && destination.photos.length > 0 ? "View photos" : "Add photos"}
             >
               <FaRegImage />
             </button>
@@ -622,6 +643,52 @@ export default function SingleDestination() {
         ]}
         confirmText="Delete Permanently"
         confirmVariant="danger"
+      />
+
+      {/* Photo Upload Modal - for adding photos when destination has none */}
+      <PhotoUploadModal
+        show={showPhotoUploadModal}
+        onClose={() => setShowPhotoUploadModal(false)}
+        entityType="destination"
+        entity={destination}
+        photos={destination?.photos_full || destination?.photos || []}
+        onSave={async (data) => {
+          try {
+            // Extract photo IDs for API
+            const photoIds = Array.isArray(data.photos)
+              ? data.photos.map(p => (typeof p === 'object' ? p._id : p))
+              : [];
+
+            // Update destination with new photos
+            const updated = await updateDestination(destination._id, {
+              photos: photoIds,
+              default_photo_id: data.default_photo_id
+            });
+
+            // Update local destination state using mergeDestination
+            // Use photos_full (full objects with URLs) for immediate display
+            if (updated) {
+              const fullPhotos = data.photos_full || [];
+              mergeDestination({
+                // Use full photo objects for display (they have .url)
+                photos: fullPhotos.length > 0 ? fullPhotos : (updated.photos || photoIds),
+                photos_full: fullPhotos,
+                default_photo_id: data.default_photo_id || updated.default_photo_id
+              });
+
+              // Refresh destinations in context if available
+              if (fetchDestinations) {
+                fetchDestinations();
+              }
+
+              success('Photos updated successfully');
+            }
+          } catch (err) {
+            logger.error('[SingleDestination] Failed to save photos', { error: err.message });
+            showError(err.message || 'Failed to save photos');
+            throw err; // Re-throw to let modal handle error state
+          }
+        }}
       />
     </>
   );

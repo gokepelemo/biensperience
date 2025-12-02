@@ -1,11 +1,10 @@
 /**
  * AI Utilities for Biensperience
  *
- * Provides text autocomplete, language editing, description improvement,
- * and content summarization for destinations, locations, and travel activities.
+ * SECURITY: All AI API calls now go through the backend proxy.
+ * API keys are stored server-side only - never exposed to the frontend.
  *
- * Supports multiple AI providers with configurable defaults and task-based routing.
- * Includes event-bus integration for cross-tab/real-time synchronization.
+ * Requires the 'ai_features' feature flag to be enabled for the user.
  *
  * @module ai
  *
@@ -13,31 +12,29 @@
  * // Import specific functions
  * import { autocomplete, improveDescription, AI_PROVIDERS } from '../utilities/ai';
  *
- * // Use with default provider
+ * // Use with default provider (via backend proxy)
  * const suggestion = await autocomplete('The best time to visit');
  *
- * // Override provider for specific call
- * const improved = await improveDescription(text, { provider: AI_PROVIDERS.ANTHROPIC });
+ * // Check if AI is available (async)
+ * import { isAIAvailableAsync } from '../utilities/ai';
+ * const available = await isAIAvailableAsync();
  *
- * // Check if AI is available
- * import { isAIAvailable } from '../utilities/ai';
- * if (isAIAvailable()) {
- *   // Show AI features
- * }
- *
- * // Use React hook with event-bus integration
+ * // Use React hook
  * import { useAI } from '../utilities/ai';
  *
  * function MyComponent() {
- *   const { autocomplete, loading, error } = useAI({
- *     context: { entityId: experienceId, entityType: 'experience' }
- *   });
+ *   const { autocomplete, loading, error } = useAI();
  *
  *   const handleSuggest = async () => {
  *     const suggestion = await autocomplete('The best time to visit');
- *     // Handle suggestion
  *   };
  * }
+ *
+ * // Feature flag gating
+ * import { FeatureFlag } from '../components/FeatureFlag';
+ * <FeatureFlag flag="ai_features">
+ *   <AIToolbar />
+ * </FeatureFlag>
  */
 
 // Constants
@@ -74,7 +71,11 @@ export {
   isProviderConfigured,
   getConfiguredProviders,
   isAIAvailable,
-  getDefaultProvider
+  isAIAvailableAsync,
+  getDefaultProvider,
+  getDefaultProviderSync,
+  prefetchAIStatus,
+  clearAIStatusCache
 } from './utils';
 
 // Event-bus integration
@@ -120,7 +121,9 @@ import {
   isProviderConfigured,
   getConfiguredProviders,
   isAIAvailable,
-  getDefaultProvider
+  isAIAvailableAsync,
+  getDefaultProvider,
+  prefetchAIStatus
 } from './utils';
 import { AI_EVENTS, subscribeToAIEvent, subscribeToAIRequests } from './events';
 import { useAI } from './useAI';
@@ -146,8 +149,9 @@ export default {
   isProviderConfigured,
   getConfiguredProviders,
   isAIAvailable,
+  isAIAvailableAsync,
   getDefaultProvider,
-  getAIConfig,
+  prefetchAIStatus,
 
   // Event-bus integration
   subscribeToAIEvent,

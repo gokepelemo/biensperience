@@ -28,6 +28,7 @@ import PageSchema from '../../components/PageSchema/PageSchema';
 import { buildExperienceSchema } from '../../utilities/schema-utils';
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
+import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
@@ -70,6 +71,7 @@ import {
   addExperienceCollaborator,
   removeExperienceCollaborator,
   reorderExperiencePlanItems,
+  updateExperience,
 } from "../../utilities/experiences-api";
 import {
   getUserPlans,
@@ -252,6 +254,9 @@ export default function SingleExperience() {
   // Photo viewer state for hero overlay button
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
+
+  // Photo upload modal state (for hero button when no photos)
+  const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
 
   // Refs
   const planButtonRef = useRef(null);
@@ -2617,15 +2622,30 @@ export default function SingleExperience() {
                       No image available
                     </div>
                   )}
-                  {/* Hero photo viewer button */}
+                  {/* Hero photo viewer button - opens upload modal when no photos and user can edit */}
                   <button
                     type="button"
                     className={styles.heroPhotoButton}
                     onClick={() => {
-                      setPhotoViewerIndex(0);
-                      setShowPhotoViewer(true);
+                      // Check if there are no photos on the experience itself
+                      const hasExperiencePhotos = experience.photos && experience.photos.length > 0;
+                      // Check if user can edit (owner or collaborator)
+                      const canEdit = experience.permissions?.some(p =>
+                        p.entity === 'user' &&
+                        (p.type === 'owner' || p.type === 'collaborator') &&
+                        p._id?.toString() === user?._id?.toString()
+                      );
+
+                      if (!hasExperiencePhotos && canEdit) {
+                        // No photos on experience and user can edit - open upload modal
+                        setShowPhotoUploadModal(true);
+                      } else {
+                        // Has photos or user can't edit - open photo viewer
+                        setPhotoViewerIndex(0);
+                        setShowPhotoViewer(true);
+                      }
                     }}
-                    aria-label="View photos"
+                    aria-label={experience.photos && experience.photos.length > 0 ? "View photos" : "Add photos"}
                   >
                     <FaRegImage />
                   </button>
@@ -3246,6 +3266,54 @@ export default function SingleExperience() {
           // Scroll immediately to the plan item and highlight it
           logger.debug('[SingleExperience] Plan item click from notes', { itemId, entity });
           attemptScrollToItem(itemId, { shouldHighlight: true, anticipationDelay: 0 });
+        }}
+      />
+
+      {/* Photo Upload Modal - for adding photos when experience has none */}
+      <PhotoUploadModal
+        show={showPhotoUploadModal}
+        onClose={() => setShowPhotoUploadModal(false)}
+        entityType="experience"
+        entity={experience}
+        photos={experience?.photos_full || experience?.photos || []}
+        onSave={async (data) => {
+          try {
+            // Extract photo IDs for API
+            const photoIds = Array.isArray(data.photos)
+              ? data.photos.map(p => (typeof p === 'object' ? p._id : p))
+              : [];
+
+            // Update experience with new photos
+            const updated = await updateExperience(experience._id, {
+              photos: photoIds,
+              default_photo_id: data.default_photo_id
+            });
+
+            // Update local experience state
+            // Use photos_full (full objects with URLs) for immediate display,
+            // falling back to updated.photos (IDs) if photos_full isn't available
+            if (updated) {
+              const fullPhotos = data.photos_full || [];
+              setExperience(prev => ({
+                ...prev,
+                // Use full photo objects for display (they have .url)
+                photos: fullPhotos.length > 0 ? fullPhotos : (updated.photos || photoIds),
+                photos_full: fullPhotos,
+                default_photo_id: data.default_photo_id || updated.default_photo_id
+              }));
+
+              // Update in context if available
+              if (updateExperienceInContext) {
+                updateExperienceInContext(updated);
+              }
+
+              success('Photos updated successfully');
+            }
+          } catch (err) {
+            logger.error('[SingleExperience] Failed to save photos', { error: err.message });
+            showError(err.message || 'Failed to save photos');
+            throw err; // Re-throw to let modal handle error state
+          }
         }}
       />
     </>

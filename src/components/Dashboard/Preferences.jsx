@@ -7,11 +7,11 @@ import {
   FormGroup,
   FormLabel,
   FormControl,
-  FormCheck,
   Container,
   SpaceY,
   FadeIn
 } from '../design-system';
+import Checkbox from '../Checkbox/Checkbox';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
 import { updateUser } from '../../utilities/users-api';
@@ -203,14 +203,13 @@ export default function Preferences() {
             </FormGroup>
 
             <FormGroup>
-              <FormCheck
-                type="checkbox"
+              <Checkbox
                 id="notifications-enabled"
                 checked={form.notificationsEnabled}
-                onChange={e => handleChange('notificationsEnabled', e.target.checked)}
-              >
-                Enable Notifications
-              </FormCheck>
+                onChange={(e) => handleChange('notificationsEnabled', e.target.checked)}
+                label="Enable Notifications"
+                size="md"
+              />
             </FormGroup>
 
             {form.notificationsEnabled && (
@@ -218,68 +217,61 @@ export default function Preferences() {
                 <FormGroup>
                   <FormLabel>Notification Channels</FormLabel>
                   <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-                    <FormCheck
-                      type="checkbox"
+                    <Checkbox
                       id="channel-email"
                       checked={form.notificationChannels.includes('email')}
                       onChange={() => toggleChannel('email')}
-                    >
-                      Email
-                    </FormCheck>
-                    <FormCheck
-                      type="checkbox"
+                      label="Email"
+                      size="sm"
+                    />
+                    <Checkbox
                       id="channel-push"
                       checked={form.notificationChannels.includes('push')}
                       onChange={() => toggleChannel('push')}
-                    >
-                      Push
-                    </FormCheck>
-                    <FormCheck
-                      type="checkbox"
+                      label="Push"
+                      size="sm"
+                    />
+                    <Checkbox
                       id="channel-sms"
                       checked={form.notificationChannels.includes('sms')}
                       onChange={() => toggleChannel('sms')}
-                    >
-                      SMS
-                    </FormCheck>
+                      label="SMS"
+                      size="sm"
+                    />
                   </div>
                 </FormGroup>
 
                 <FormGroup>
                   <FormLabel>Notification Types</FormLabel>
                   <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-                    <FormCheck
-                      type="checkbox"
+                    <Checkbox
                       id="type-activity"
                       checked={form.notificationTypes.includes('activity')}
                       onChange={() => toggleType('activity')}
-                    >
-                      Activity
-                    </FormCheck>
-                    <FormCheck
-                      type="checkbox"
+                      label="Activity"
+                      size="sm"
+                    />
+                    <Checkbox
                       id="type-reminder"
                       checked={form.notificationTypes.includes('reminder')}
                       onChange={() => toggleType('reminder')}
-                    >
-                      Reminders
-                    </FormCheck>
-                    <FormCheck
-                      type="checkbox"
+                      label="Reminders"
+                      size="sm"
+                    />
+                    <Checkbox
                       id="type-marketing"
                       checked={form.notificationTypes.includes('marketing')}
                       onChange={() => toggleType('marketing')}
-                    >
-                      Marketing
-                    </FormCheck>
-                    <FormCheck
-                      type="checkbox"
+                      label="Marketing"
+                      size="sm"
+                    />
+                    <Checkbox
                       id="type-updates"
                       checked={form.notificationTypes.includes('updates')}
                       onChange={() => toggleType('updates')}
-                    >
-                      Updates
-                    </FormCheck>
+                      label="Updates"
+                      size="sm"
+                    />
                   </div>
                 </FormGroup>
               </>

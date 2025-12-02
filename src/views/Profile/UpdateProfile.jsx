@@ -2,7 +2,7 @@ import styles from "./Profile.module.scss";
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { FaCrosshairs } from "react-icons/fa";
-import ImageUpload from "../../components/ImageUpload/ImageUpload";
+import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
 import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
 import { updateUser as updateUserAPI, updateUserAsAdmin, getUserData } from "../../utilities/users-api";
@@ -74,7 +74,7 @@ export default function UpdateProfile() {
 
         // Deep clone to ensure originalUser and formData are independent
         const clonedUserData = JSON.parse(JSON.stringify(userData));
-        // Normalize photos to IDs for consistent comparison (if ImageUpload is used)
+        // Normalize photos to IDs for consistent comparison (if PhotoUpload is used)
         if (clonedUserData.photos) {
           clonedUserData.photos = clonedUserData.photos.map(photo => 
             photo._id ? photo._id : photo
@@ -637,7 +637,7 @@ export default function UpdateProfile() {
                   placement="top"
                 />
               </h5>
-              <ImageUpload data={formData} setData={setFormData} />
+              <PhotoUpload data={formData} setData={setFormData} />
             </div>
 
             <div className="d-flex justify-content-between mt-4 gap-3">

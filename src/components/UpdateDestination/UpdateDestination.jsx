@@ -5,7 +5,7 @@ import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useToast } from "../../contexts/ToastContext";
 import { lang } from "../../lang.constants";
-import ImageUpload from "../../components/ImageUpload/ImageUpload";
+import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
 import Alert from "../Alert/Alert";
 import Loading from "../Loading/Loading";
 import { handleError } from "../../utilities/error-handler";
@@ -388,7 +388,7 @@ export default function UpdateDestination() {
               <Form.Label>
                 Photos
               </Form.Label>
-              <ImageUpload data={destination} setData={setDestination} />
+              <PhotoUpload data={destination} setData={setDestination} />
               <small className="form-text text-muted">
                 Upload photo(s) to this destination (optional)
               </small>

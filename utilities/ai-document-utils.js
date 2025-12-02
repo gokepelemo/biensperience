@@ -585,7 +585,7 @@ async function parseWithAI(text, documentType = 'travel', options = {}) {
 
   // Build prompt based on document type. Allow callers to pass `options.prompts`
   // to override any of these defaults (useful for testing or A/B messaging).
-  const promptsSource = options.prompts || require('./lang.constants').lang.en.prompts || {};
+  const promptsSource = options.prompts || require('./lang.constants').lang.current.prompts || {};
 
   // Backwards-compatible defaults if prompts not available from language constants
   const prompts = {

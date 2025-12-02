@@ -1,0 +1,134 @@
+.container {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  font-family: var(--font-family, inherit);
+}
+
+.label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: var(--color-text-muted, #6c757d);
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--color-bg, #fff);
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 1.4rem;
+}
+
+.icon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+}
+
+.flag {
+  width: 20px;
+  height: 14px;
+  display: inline-block;
+  background-size: cover;
+}
+
+.valueLabel {
+  font-size: 0.95rem;
+  color: var(--color-text, #222);
+}
+
+.placeholder {
+  color: var(--color-text-muted, #6c757d);
+}
+
+.caret {
+  color: var(--color-text-muted, #6c757d);
+}
+
+.popup {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1200;
+  margin-top: 8px;
+  background: var(--color-bg, #fff);
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  max-height: 320px;
+  overflow: auto;
+}
+
+.searchRow {
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border, #eee);
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border, #e9ecef);
+  border-radius: 6px;
+}
+
+.optionList {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.option:hover, .highlight {
+  background: var(--color-hover, #f8f9fa);
+}
+
+.optionLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.optionLabel {
+  font-size: 0.95rem;
+}
+
+.optionCode {
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #6c757d);
+}
+
+.selected {
+  font-weight: 600;
+}
+
+.empty {
+  padding: 12px;
+  color: var(--color-text-muted, #6c757d);
+}
+
+/* sizes */
+.size-sm .control { padding: 6px 8px; border-radius: 6px; }
+.size-md .control { padding: 8px 12px; border-radius: 8px; }
+.size-lg .control { padding: 10px 14px; border-radius: 10px; }

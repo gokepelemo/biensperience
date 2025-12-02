@@ -289,6 +289,75 @@ const userSchema = new Schema(
     },
 
     /**
+     * Feature flags for the user
+     * Controls access to experimental or premium features
+     * @type {Array<Object>}
+     */
+    feature_flags: {
+      type: [new Schema({
+        /**
+         * Unique feature flag identifier (e.g., 'ai_features', 'beta_ui')
+         * @type {string}
+         */
+        flag: {
+          type: String,
+          required: true,
+          trim: true,
+          lowercase: true
+        },
+        /**
+         * Whether the flag is enabled
+         * @type {boolean}
+         */
+        enabled: {
+          type: Boolean,
+          default: true
+        },
+        /**
+         * Optional configuration for the flag (JSON-compatible)
+         * @type {Object}
+         */
+        config: {
+          type: Schema.Types.Mixed,
+          default: {}
+        },
+        /**
+         * When the flag was granted
+         * @type {Date}
+         */
+        granted_at: {
+          type: Date,
+          default: Date.now
+        },
+        /**
+         * Who granted the flag (admin user ID)
+         * @type {ObjectId}
+         */
+        granted_by: {
+          type: Schema.Types.ObjectId,
+          ref: 'User'
+        },
+        /**
+         * Optional expiration date for time-limited flags
+         * @type {Date}
+         */
+        expires_at: {
+          type: Date,
+          default: null
+        },
+        /**
+         * Reason for granting the flag
+         * @type {string}
+         */
+        reason: {
+          type: String,
+          trim: true
+        }
+      }, { _id: true })],
+      default: []
+    },
+
+    /**
      * User's location with GeoJSON-compatible coordinates
      * Supports city names, zip codes, and full addresses via geocoding
      * @type {Object}
@@ -446,5 +515,7 @@ userSchema.index({ default_photo_id: 1 });
 userSchema.index({ 'location.coordinates': '2dsphere' });
 userSchema.index({ 'location.city': 1 });
 userSchema.index({ 'location.country': 1 });
+userSchema.index({ 'feature_flags.flag': 1 });
+userSchema.index({ 'feature_flags.enabled': 1, 'feature_flags.flag': 1 });
 
 module.exports = mongoose.model("User", userSchema);

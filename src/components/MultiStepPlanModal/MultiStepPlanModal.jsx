@@ -16,7 +16,7 @@ import FormField from '../FormField/FormField';
 import { FormTooltip } from '../Tooltip/Tooltip';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import TagInput from '../TagInput/TagInput';
-import ImageUpload from '../ImageUpload/ImageUpload';
+import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import NewDestinationModal from '../NewDestinationModal/NewDestinationModal';
 import Alert from '../Alert/Alert';
 import { Form } from 'react-bootstrap';
@@ -596,7 +596,7 @@ export default function MultiStepPlanModal() {
                       Photos
                       <FormTooltip content={lang.current.helper.photosOptional} placement="top" />
                     </Form.Label>
-                    <ImageUpload data={newExperience} setData={setNewExperience} />
+                    <PhotoUpload data={newExperience} setData={setNewExperience} />
                   </div>
 
                   {/* Planning days and cost estimate are virtuals computed from plan items; removed from the modal form. */}

@@ -195,6 +195,7 @@ Authentication and profile data for platform users.
 | `resetPasswordExpires` | Date | Token expiration |
 | `emailConfirmed` | Boolean | Email verification status |
 | `emailConfirmationToken` | String | Email confirmation token |
+| `emailConfirmationExpires` | Date | Email confirmation token expiration |
 | `currentSessionId` | String | Active session ID |
 | `sessionCreatedAt` | Number | Session creation timestamp |
 | `sessionExpiresAt` | Number | Session expiration timestamp |
@@ -203,10 +204,32 @@ Authentication and profile data for platform users.
 | `inviteCode` | String | Invite code used during signup |
 | `apiEnabled` | Boolean | API access enabled |
 | `location` | Object | GeoJSON location with city, state, country, coordinates |
+| `feature_flags` | [FeatureFlag] | Array of feature flags controlling access to features |
 | `createdAt` | Date | Document creation timestamp |
 | `updatedAt` | Date | Last update timestamp |
 
-**Indexes:** `email`, `role`, `provider`, `resetPasswordToken`, `emailConfirmationToken`, `currentSessionId`, `sessionExpiresAt`, `createdAt`, `photos`, `default_photo_id`, `location.coordinates` (2dsphere), `location.city`, `location.country`
+**FeatureFlag Sub-schema:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `flag` | String | Unique feature flag identifier (e.g., 'ai_features', 'beta_ui') |
+| `enabled` | Boolean | Whether the flag is enabled (default: true) |
+| `config` | Mixed | Optional JSON configuration for the flag |
+| `granted_at` | Date | When the flag was granted |
+| `granted_by` | ObjectId | User who granted the flag |
+| `expires_at` | Date | Optional expiration date (null = never expires) |
+| `reason` | String | Optional reason for granting the flag |
+
+**Available Feature Flags:**
+| Flag | Description |
+|------|-------------|
+| `ai_features` | Access to AI-powered features (autocomplete, improve, translate, summarize) |
+| `beta_ui` | Access to beta UI features |
+| `advanced_analytics` | Access to advanced analytics features |
+| `premium_features` | Access to premium tier features |
+| `document_processing` | Access to AI document processing |
+| `collaboration_plus` | Enhanced collaboration features |
+
+**Indexes:** `email`, `role`, `provider`, `resetPasswordToken`, `emailConfirmationToken`, `currentSessionId`, `sessionExpiresAt`, `createdAt`, `photos`, `default_photo_id`, `location.coordinates` (2dsphere), `location.city`, `location.country`, `feature_flags.flag`, `feature_flags.enabled+flag`
 
 ---
 
@@ -237,6 +260,8 @@ Travel destinations that contain experiences.
 | `_id` | ObjectId | User/entity ID |
 | `entity` | String | `user`, `destination`, or `experience` |
 | `type` | String | `owner`, `collaborator`, or `contributor` |
+| `granted_at` | Date | When permission was granted (Plan/Photo only) |
+| `granted_by` | ObjectId | User who granted permission (Plan/Photo only) |
 
 **Indexes:** `name+country`, `country`, `permissions._id`, `users_favorite`, `createdAt`, `photos`, `default_photo_id`
 
@@ -298,7 +323,7 @@ User-specific plan derived from an experience.
 | `user` | ObjectId | Plan owner |
 | `planned_date` | Date | Scheduled date |
 | `plan` | [PlanItemSnapshot] | Point-in-time item snapshots |
-| `costs` | [Cost] | Additional costs |
+| `costs` | [Cost] | Actual costs |
 | `permissions` | [Permission] | Access control list |
 | `notes` | String | Plan notes |
 | `createdAt` | Date | Document creation timestamp |
@@ -392,6 +417,8 @@ Uploaded documents with S3 storage and AI processing.
 | `s3Key` | String | S3 object key |
 | `s3Url` | String | S3 URL |
 | `s3Bucket` | String | S3 bucket name |
+| `isProtected` | Boolean | Whether document is in protected (private) bucket |
+| `bucketType` | String | `public` or `protected` |
 | `status` | String | `pending`, `processing`, `completed`, `failed`, `reprocessing` |
 | `extractedText` | String | OCR/extracted text |
 | `processingResult` | Object | Extraction method, confidence, page count |
@@ -407,6 +434,8 @@ Uploaded documents with S3 storage and AI processing.
 | `updatedAt` | Date | Last update timestamp |
 
 **aiParsedData Fields:** documentType, summary, airline, flightNumber, hotelName, confirmationNumber, totalCost, currency, and type-specific fields.
+
+**Note:** Document permissions use entity enum `['user', 'plan', 'experience']` (not `destination`).
 
 **Virtual Fields:**
 - `canReprocess` - Whether document can be reprocessed

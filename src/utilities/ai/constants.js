@@ -55,7 +55,7 @@ import { lang } from '../../lang.constants';
 
 // Export system prompts from language constants so prompts can be localized
 // and centrally managed. Callers may still pass overrides via options.prompts.
-export const SYSTEM_PROMPTS = (lang && lang.en && lang.en.prompts) || {
+export const SYSTEM_PROMPTS = (lang && lang.current && lang.current.prompts) || {
   // Fallbacks (should not be used in normal operation if lang.prompts is present)
   [AI_TASKS.AUTOCOMPLETE]: `You are a helpful travel assistant that provides autocomplete suggestions for travel-related content.
 Provide concise, relevant completions that match the user's writing style.
