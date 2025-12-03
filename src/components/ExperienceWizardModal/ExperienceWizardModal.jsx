@@ -407,6 +407,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
           text: experienceItem.text,
           planning_days: experienceItem.planning_days,
           cost: experienceItem.cost_estimate,
+          url: experienceItem.url || null, // Match experience item's url field
         });
       }
 
@@ -650,7 +651,10 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
 
               <div className={styles.planItemMeta}>
                 <div className={styles.metaField}>
-                  <label>Days</label>
+                  <label>
+                    Planning Days
+                    <FormTooltip content="Days needed to plan this experience without rushing" placement="top" />
+                  </label>
                   <div className={styles.counterControl}>
                     <button
                       type="button"
@@ -672,7 +676,10 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
                 </div>
 
                 <div className={styles.metaField}>
-                  <label>Est. Cost</label>
+                  <label>
+                    Est. Cost
+                    <FormTooltip content="Estimated cost for this activity in your preferred currency" placement="top" />
+                  </label>
                   <div className={styles.costInput}>
                     <span className={styles.currencySymbol}>$</span>
                     <input

@@ -21,6 +21,8 @@
   justify-content: center !important;
   opacity: 1 !important;
   pointer-events: auto !important; /* Allow backdrop to capture clicks for onClose */
+  overflow: hidden !important; /* Prevent any overflow from modal backdrop */
+  overscroll-behavior: contain; /* Prevent scroll chaining to parent */
 }
 
 /* Modal Dialog Centered */
@@ -41,6 +43,12 @@
   color: var(--color-text-primary);
   max-height: 90vh;
   pointer-events: auto !important; /* Ensure content captures clicks */
+  overscroll-behavior: contain; /* Prevent scroll chaining to parent */
+}
+
+/* Modal Body - Base scroll containment */
+.modalBody {
+  overscroll-behavior: contain; /* Prevent scroll chaining to parent */
 }
 
 /* Gradient Header Variant (opt-in) */
@@ -68,6 +76,7 @@
   .modalBody {
     overflow-y: auto;
     max-height: calc(90vh - 120px);
+    overscroll-behavior: contain; /* Prevent scroll chaining to parent */
   }
 }
 
@@ -91,12 +100,22 @@
   height: 100vh;
   max-height: 100vh;
   margin: 0;
+  overflow: hidden; /* Prevent scroll on fullscreen modal container */
 
   .modalContent {
     width: 100%;
     height: 100%;
     max-height: 100%;
     border-radius: 0; /* Edge-to-edge fullscreen */
+    overflow: hidden; /* Let children handle their own scrolling */
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modalBody {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain; /* Prevent scroll chaining to parent */
   }
 }
 

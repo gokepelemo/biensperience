@@ -136,14 +136,6 @@ export default function SingleExperience() {
   const { experienceId } = useParams();
   const navigate = useNavigate();
 
-  // DEBUG: Log initial URL state on component mount
-  debug.log('SingleExperience component mounted', {
-    experienceId,
-    pathname: window.location.pathname,
-    hash: window.location.hash,
-    href: window.location.href
-  });
-
   // ============================================================================
   // CUSTOM HOOKS
   // ============================================================================
@@ -400,8 +392,21 @@ export default function SingleExperience() {
 
           // Merge updated experience into local state but preserve deeply local plan UI fields if present
           try {
+            // Helper to check if array contains populated objects (with .url)
+            const isPopulatedPhotoArray = (arr) =>
+              Array.isArray(arr) && arr.length > 0 &&
+              typeof arr[0] === 'object' && arr[0] !== null && arr[0].url;
+
             // Avoid storing volatile metadata (like timestamps) on the merged object
             const merged = { ...(experience || {}), ...(updated || {}) };
+
+            // Preserve populated photos array if local has full objects with URLs
+            // and incoming from context only has IDs (strings or unpopulated)
+            if (isPopulatedPhotoArray(experience?.photos) && !isPopulatedPhotoArray(updated?.photos)) {
+              merged.photos = experience.photos;
+              merged.photos_full = experience.photos_full || experience.photos;
+            }
+
             setExperience(merged);
             setTravelTips(merged.travel_tips || []);
           } catch (errMerge) {
@@ -957,6 +962,9 @@ export default function SingleExperience() {
       return true;
     }
 
+    // Helper to normalize null/undefined to null for comparison
+    const normalize = (val) => (val === undefined || val === null ? null : val);
+
     // Check if any plan item has changed
     for (let i = 0; i < (plan.plan || []).length; i++) {
       const planItem = plan.plan[i];
@@ -969,11 +977,12 @@ export default function SingleExperience() {
       }
 
       // Check if key fields have changed
+      // Use normalize() to treat null and undefined as equivalent
       if (
-        experienceItem.text !== planItem.text ||
-        experienceItem.url !== planItem.url ||
-        experienceItem.cost_estimate !== planItem.cost ||
-        experienceItem.planning_days !== planItem.planning_days
+        normalize(experienceItem.text) !== normalize(planItem.text) ||
+        normalize(experienceItem.url) !== normalize(planItem.url) ||
+        normalize(experienceItem.cost_estimate) !== normalize(planItem.cost) ||
+        normalize(experienceItem.planning_days) !== normalize(planItem.planning_days)
       ) {
         return true;
       }
@@ -986,19 +995,6 @@ export default function SingleExperience() {
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
-
-  // DEBUG: Track all state changes for Plan It button and badge
-  useEffect(() => {
-    debug.log('[STATE_TRACKER] State changed', {
-      timestamp: Date.now(),
-      userHasExperience,
-      displayedPlannedDate,
-      userPlanId: userPlan?._id,
-      plansLoading,
-      loading,
-      userId: user?._id
-    });
-  }, [userHasExperience, displayedPlannedDate, userPlan, plansLoading, loading, user]);
 
   // Reset component state when navigating to a different experience
   useEffect(() => {
@@ -1450,34 +1446,42 @@ export default function SingleExperience() {
       });
 
       // Find modified items (text, url, cost, or days changed)
+      // Normalize falsy values to empty string for string comparisons
+      const normalizeString = (val) => val || '';
+      const normalizeNumber = (val) => val || 0;
+
       experience.plan_items.forEach((expItem) => {
         const planItem = currentPlan.plan.find(
           (pItem) => pItem.plan_item_id?.toString() === expItem._id.toString()
         );
         if (planItem) {
           const modifications = [];
-          if (planItem.text !== expItem.text) {
+          // Compare text - normalize to empty string for consistent comparison
+          if (normalizeString(planItem.text) !== normalizeString(expItem.text)) {
             modifications.push({
               field: "text",
               old: planItem.text,
               new: expItem.text,
             });
           }
-          if (planItem.url !== expItem.url) {
+          // Compare url - normalize to empty string (handles null, undefined, empty string as equivalent)
+          if (normalizeString(planItem.url) !== normalizeString(expItem.url)) {
             modifications.push({
               field: "url",
               old: planItem.url,
               new: expItem.url,
             });
           }
-          if ((planItem.cost || 0) !== (expItem.cost_estimate || 0)) {
+          // Compare cost - normalize to 0
+          if (normalizeNumber(planItem.cost) !== normalizeNumber(expItem.cost_estimate)) {
             modifications.push({
               field: "cost",
               old: planItem.cost,
               new: expItem.cost_estimate || 0,
             });
           }
-          if ((planItem.planning_days || 0) !== (expItem.planning_days || 0)) {
+          // Compare planning_days - normalize to 0
+          if (normalizeNumber(planItem.planning_days) !== normalizeNumber(expItem.planning_days)) {
             modifications.push({
               field: "days",
               old: planItem.planning_days,
@@ -3255,6 +3259,86 @@ export default function SingleExperience() {
             setSelectedDetailsItem(prev => prev ? { ...prev, assignedTo: previousAssignedTo, assigned_to: previousAssignedTo } : prev);
 
             showError(error.message || 'Failed to unassign plan item');
+          }
+        }}
+        onUpdateTitle={async (newTitle) => {
+          if (!selectedPlan || !selectedDetailsItem) return;
+
+          // Store previous state for rollback
+          const previousText = selectedDetailsItem.text;
+
+          try {
+            // Optimistic update: Update local state immediately
+            if (userPlan?._id === selectedPlan._id) {
+              setUserPlan(prev => prev ? {
+                ...prev,
+                plan: prev.plan.map(item =>
+                  item._id === selectedDetailsItem._id
+                    ? { ...item, text: newTitle }
+                    : item
+                )
+              } : prev);
+            }
+
+            setSharedPlans(prev => prev.map(plan => {
+              if (plan._id === selectedPlan._id) {
+                return {
+                  ...plan,
+                  plan: plan.plan.map(item => {
+                    if (item._id === selectedDetailsItem._id) {
+                      return { ...item, text: newTitle };
+                    }
+                    return item;
+                  })
+                };
+              }
+              return plan;
+            }));
+
+            // Update selectedDetailsItem for the modal
+            setSelectedDetailsItem(prev => prev ? { ...prev, text: newTitle } : prev);
+
+            // Call API
+            await updatePlanItem(selectedPlan._id, selectedDetailsItem._id, { text: newTitle });
+
+            // Show success toast
+            success('Plan item title updated', { duration: 2000 });
+
+          } catch (error) {
+            logger.error('Error updating plan item title', { error: error.message });
+
+            // Rollback optimistic update on error
+            if (userPlan?._id === selectedPlan._id) {
+              setUserPlan(prev => prev ? {
+                ...prev,
+                plan: prev.plan.map(item =>
+                  item._id === selectedDetailsItem._id
+                    ? { ...item, text: previousText }
+                    : item
+                )
+              } : prev);
+            }
+
+            setSharedPlans(prev => prev.map(plan => {
+              if (plan._id === selectedPlan._id) {
+                return {
+                  ...plan,
+                  plan: plan.plan.map(item => {
+                    if (item._id === selectedDetailsItem._id) {
+                      return { ...item, text: previousText };
+                    }
+                    return item;
+                  })
+                };
+              }
+              return plan;
+            }));
+
+            // Rollback selectedDetailsItem for the modal
+            setSelectedDetailsItem(prev => prev ? { ...prev, text: previousText } : prev);
+
+            showError(error.message || 'Failed to update plan item title');
+            throw error; // Re-throw so the modal can revert
           }
         }}
         canEdit={selectedPlan ? canEditPlan(user, selectedPlan) : false}

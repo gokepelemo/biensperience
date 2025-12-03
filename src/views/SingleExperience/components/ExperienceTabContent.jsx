@@ -4,9 +4,9 @@
  * This is the "The Plan" tab showing the master plan items defined by the experience owner
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
-import { BsPlusCircle, BsPersonPlus } from 'react-icons/bs';
+import { BsPlusCircle, BsPersonPlus, BsThreeDotsVertical, BsListUl, BsCardList } from 'react-icons/bs';
 import {
   DndContext,
   closestCenter,
@@ -27,11 +27,18 @@ import UsersListDisplay from '../../../components/UsersListDisplay/UsersListDisp
 import DragHandle from '../../../components/DragHandle/DragHandle';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import PlanningTime from '../../../components/PlanningTime/PlanningTime';
+import SearchableSelect from '../../../components/FormField/SearchableSelect';
 import { Text } from '../../../components/design-system';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { isOwner } from '../../../utilities/permissions';
 import debug from '../../../utilities/debug';
+
+// View options for experience plan items display
+const VIEW_OPTIONS = [
+  { value: 'card', label: 'Card View', icon: BsCardList },
+  { value: 'compact', label: 'Compact View', icon: BsListUl }
+];
 
 // Sortable plan item component for drag and drop
 function SortableExperiencePlanItem({
@@ -258,6 +265,156 @@ function ExperiencePlanActionsDropdown({
   );
 }
 
+/**
+ * SortableCompactExperiencePlanItem - Compact one-line view with drag-and-drop for experience plan items
+ * Memoized to prevent unnecessary re-renders
+ */
+const SortableCompactExperiencePlanItem = memo(function SortableCompactExperiencePlanItem({
+  planItem,
+  canEdit,
+  handleEditExperiencePlanItem,
+  setPlanItemToDelete,
+  setShowPlanDeleteModal,
+  lang
+}) {
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const actionsMenuRef = useRef(null);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: planItem._id.toString(),
+    disabled: !canEdit,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 1000 : 'auto',
+  };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!showActionsMenu) return;
+
+    function handleClickOutside(event) {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
+        setShowActionsMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showActionsMenu]);
+
+  const isChild = !!planItem.parent;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      data-plan-item-id={planItem._id}
+      className={`compact-plan-item ${isChild ? 'is-child' : ''} ${isDragging ? 'dragging' : ''}`}
+    >
+      {/* Drag handle */}
+      {canEdit && (
+        <div {...attributes} {...listeners} className="compact-drag-handle" style={{ cursor: isDragging ? 'grabbing' : 'grab' }}>
+          <DragHandle
+            isDragging={isDragging}
+            disabled={!canEdit}
+          />
+        </div>
+      )}
+
+      {/* Hierarchy indicator */}
+      <span className="compact-item-indent">
+        {isChild ? '↳' : '•'}
+      </span>
+
+      {/* Item text */}
+      <span className="compact-item-text">
+        {planItem.url ? (
+          <a
+            href={planItem.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {planItem.text}
+          </a>
+        ) : (
+          planItem.text
+        )}
+      </span>
+
+      {/* Meta info - cost and planning days */}
+      <span className="compact-item-meta">
+        {Number(planItem.cost_estimate) > 0 && (
+          <span className="compact-meta-cost" title={`Cost: $${planItem.cost_estimate}`}>
+            💰
+          </span>
+        )}
+        {Number(planItem.planning_days) > 0 && (
+          <span className="compact-meta-days" title={`${planItem.planning_days} days`}>
+            ⏱️
+          </span>
+        )}
+      </span>
+
+      {/* Actions menu (overflow button with dropdown) */}
+      {canEdit && (
+        <div className="compact-item-actions-wrapper" ref={actionsMenuRef}>
+          <button
+            className="compact-actions-toggle"
+            onClick={() => setShowActionsMenu(!showActionsMenu)}
+            aria-expanded={showActionsMenu}
+            aria-haspopup="true"
+            aria-label="Item actions"
+            title="Actions"
+          >
+            <BsThreeDotsVertical />
+          </button>
+          {showActionsMenu && (
+            <div className="compact-actions-menu">
+              <button
+                className="compact-actions-item"
+                onClick={() => {
+                  handleEditExperiencePlanItem(planItem);
+                  setShowActionsMenu(false);
+                }}
+              >
+                ✏️ {lang.current.tooltip.edit}
+              </button>
+              <button
+                className="compact-actions-item compact-actions-item-danger"
+                onClick={() => {
+                  setPlanItemToDelete(planItem._id);
+                  setShowPlanDeleteModal(true);
+                  setShowActionsMenu(false);
+                }}
+              >
+                🗑️ {lang.current.tooltip.delete}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.planItem._id === nextProps.planItem._id &&
+    prevProps.planItem.text === nextProps.planItem.text &&
+    prevProps.planItem.parent === nextProps.planItem.parent &&
+    prevProps.planItem.cost_estimate === nextProps.planItem.cost_estimate &&
+    prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
+    prevProps.canEdit === nextProps.canEdit
+  );
+});
+
 export default function ExperienceTabContent({
   // User data
   user,
@@ -285,6 +442,9 @@ export default function ExperienceTabContent({
   // Language strings
   lang
 }) {
+  // View state for plan items display (card or compact) - default to compact
+  const [planItemsView, setPlanItemsView] = useState('compact');
+
   // Setup sensors for drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -589,34 +749,77 @@ export default function ExperienceTabContent({
         )}
       </div>
 
-      {/* Plan Items List with Drag and Drop */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={allItemIds}
-          strategy={verticalListSortingStrategy}
+      {/* View Toggle - Right aligned */}
+      <div className="plan-view-toggle mb-3 d-flex justify-content-end">
+        <SearchableSelect
+          options={VIEW_OPTIONS}
+          value={planItemsView}
+          onChange={setPlanItemsView}
+          placeholder="View"
+          searchable={false}
+          size="sm"
+          className="plan-view-select"
+        />
+      </div>
+
+      {/* Plan Items List - Card View with Drag and Drop */}
+      {planItemsView === 'card' && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
         >
-          {itemsToRender.map((planItem) => (
-            <SortableExperiencePlanItem
-              key={planItem._id}
-              planItem={planItem}
-              experience={experience}
-              user={user}
-              expandedParents={expandedParents}
-              canEdit={canEdit}
-              toggleExpanded={toggleExpanded}
-              handleAddExperiencePlanItem={handleAddExperiencePlanItem}
-              handleEditExperiencePlanItem={handleEditExperiencePlanItem}
-              setPlanItemToDelete={setPlanItemToDelete}
-              setShowPlanDeleteModal={setShowPlanDeleteModal}
-              lang={lang}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
+          <SortableContext
+            items={allItemIds}
+            strategy={verticalListSortingStrategy}
+          >
+            {itemsToRender.map((planItem) => (
+              <SortableExperiencePlanItem
+                key={planItem._id}
+                planItem={planItem}
+                experience={experience}
+                user={user}
+                expandedParents={expandedParents}
+                canEdit={canEdit}
+                toggleExpanded={toggleExpanded}
+                handleAddExperiencePlanItem={handleAddExperiencePlanItem}
+                handleEditExperiencePlanItem={handleEditExperiencePlanItem}
+                setPlanItemToDelete={setPlanItemToDelete}
+                setShowPlanDeleteModal={setShowPlanDeleteModal}
+                lang={lang}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+      )}
+
+      {/* Plan Items List - Compact View with Drag and Drop */}
+      {planItemsView === 'compact' && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={allItemIds}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="compact-plan-items-list">
+              {itemsToRender.map((planItem) => (
+                <SortableCompactExperiencePlanItem
+                  key={planItem._id}
+                  planItem={planItem}
+                  canEdit={canEdit}
+                  handleEditExperiencePlanItem={handleEditExperiencePlanItem}
+                  setPlanItemToDelete={setPlanItemToDelete}
+                  setShowPlanDeleteModal={setShowPlanDeleteModal}
+                  lang={lang}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
     </div>
   );
 }

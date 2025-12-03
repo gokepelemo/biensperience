@@ -70,13 +70,15 @@ export function DataProvider({ children }) {
       // Smart array merge: preserve populated data when incoming is unpopulated
       if (Array.isArray(val) && Array.isArray(existing[key])) {
         const existingArr = existing[key];
-        // If existing has populated objects but incoming has unpopulated strings, keep existing
+        // If existing has populated objects (with .url for photos) but incoming is unpopulated, keep existing
+        // Unpopulated means: array of strings OR array of objects without .url property
         if (
           existingArr.length > 0 &&
           typeof existingArr[0] === 'object' &&
           existingArr[0] !== null &&
+          existingArr[0].url && // existing has populated photos with URLs
           val.length > 0 &&
-          typeof val[0] === 'string'
+          (typeof val[0] === 'string' || (typeof val[0] === 'object' && !val[0]?.url))
         ) {
           return; // preserve existing populated array
         }

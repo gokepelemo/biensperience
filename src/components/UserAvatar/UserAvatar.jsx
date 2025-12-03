@@ -85,17 +85,45 @@ const UserAvatar = ({
 
   debug.log('UserAvatar - user:', user);
   debug.log('UserAvatar - user.name:', user.name);
-  debug.log('UserAvatar - user.photo:', user.photo);
+  debug.log('UserAvatar - user.photos:', user.photos);
+  debug.log('UserAvatar - user.default_photo_id:', user.default_photo_id);
 
-  // Helper function to get photo URL from photos array
+  // Helper function to get photo URL from user data
+  // Handles multiple cases:
+  // 1. photos array with populated photo objects containing url
+  // 2. default_photo_id pointing to a specific photo
+  // 3. oauthProfilePhoto for OAuth users
+  // 4. Legacy photo field (single URL string)
   const getPhotoUrl = (user) => {
-    // If using photos array with default_photo_index
-    if (user.photos && user.photos.length > 0) {
-      const photoIndex = user.default_photo_index || 0;
-      const photo = user.photos[photoIndex];
-      if (photo && photo.url) {
-        return photo.url;
+    // Case 1: Check for populated photos array with default_photo_id
+    if (user.photos && user.photos.length > 0 && user.default_photo_id) {
+      // Find the photo matching default_photo_id
+      const defaultPhoto = user.photos.find(photo => {
+        const photoId = photo._id || photo;
+        const defaultId = user.default_photo_id._id || user.default_photo_id;
+        return photoId?.toString() === defaultId?.toString();
+      });
+      if (defaultPhoto && typeof defaultPhoto === 'object' && defaultPhoto.url) {
+        return defaultPhoto.url;
       }
+    }
+
+    // Case 2: Check for populated photos array without default_photo_id - use first photo
+    if (user.photos && user.photos.length > 0) {
+      const firstPhoto = user.photos[0];
+      if (firstPhoto && typeof firstPhoto === 'object' && firstPhoto.url) {
+        return firstPhoto.url;
+      }
+    }
+
+    // Case 3: OAuth profile photo
+    if (user.oauthProfilePhoto) {
+      return user.oauthProfilePhoto;
+    }
+
+    // Case 4: Legacy single photo field
+    if (user.photo && typeof user.photo === 'string') {
+      return user.photo;
     }
 
     return null;

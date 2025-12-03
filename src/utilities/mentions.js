@@ -2,6 +2,7 @@
  * Mentions utility for parsing and rendering mentions in text
  * Supports mentioning users (@user), destinations (@destination), and experiences (@experience)
  * Converts mentions to interactive links with popovers
+ * Also supports URL detection and rendering with optional link previews
  *
  * @module mentions
  */
@@ -11,6 +12,9 @@ import { Link } from 'react-router-dom';
 import { OverlayTrigger, Popover } from 'react-bootstrap';
 import { logger } from '../utilities/logger';
 import HashLink from '../components/HashLink/HashLink';
+
+// URL regex pattern for detecting URLs in text
+const URL_REGEX = /https?:\/\/[-_.!~*'()a-zA-Z0-9;/?:@&=+$,%#]+/g;
 
 /**
  * Entity types supported for mentions
@@ -68,6 +72,79 @@ export function parseMentions(text) {
   }
 
   return segments;
+}
+
+/**
+ * Parse text for mentions AND URLs
+ * Returns segments for text, mentions, and urls
+ * @param {string} text - Text containing mentions and/or URLs
+ * @returns {Array} Array of text/mention/url segments
+ */
+export function parseMentionsAndUrls(text) {
+  if (!text) return [{ type: 'text', content: '' }];
+
+  // First, parse mentions
+  const mentionSegments = parseMentions(text);
+
+  // Then, within each text segment, parse URLs
+  const finalSegments = [];
+
+  for (const segment of mentionSegments) {
+    if (segment.type === 'mention') {
+      finalSegments.push(segment);
+    } else if (segment.type === 'text') {
+      // Parse URLs within this text segment
+      const textContent = segment.content;
+      let lastIndex = 0;
+      let match;
+
+      // Reset regex lastIndex
+      URL_REGEX.lastIndex = 0;
+
+      while ((match = URL_REGEX.exec(textContent)) !== null) {
+        // Add text before the URL
+        if (match.index > lastIndex) {
+          finalSegments.push({
+            type: 'text',
+            content: textContent.slice(lastIndex, match.index)
+          });
+        }
+
+        // Add URL segment
+        finalSegments.push({
+          type: 'url',
+          url: match[0]
+        });
+
+        lastIndex = URL_REGEX.lastIndex;
+      }
+
+      // Add remaining text
+      if (lastIndex < textContent.length) {
+        finalSegments.push({
+          type: 'text',
+          content: textContent.slice(lastIndex)
+        });
+      } else if (lastIndex === 0 && textContent.length > 0) {
+        // No URLs found, keep original text segment
+        finalSegments.push(segment);
+      }
+    }
+  }
+
+  return finalSegments;
+}
+
+/**
+ * Extract all URLs from text
+ * @param {string} text - Text to search
+ * @returns {string[]} Array of unique URLs found
+ */
+export function extractUrls(text) {
+  if (!text) return [];
+  URL_REGEX.lastIndex = 0;
+  const matches = text.match(URL_REGEX);
+  return matches ? [...new Set(matches)] : [];
 }
 
 /**
@@ -228,7 +305,33 @@ export function renderMention(mention, entity, onEntityClick) {
 }
 
 /**
+ * Render text content with line breaks preserved
+ * Converts newlines to <br> elements for proper HTML rendering
+ * @param {string} content - Text content that may contain newlines
+ * @param {string} keyPrefix - Prefix for React keys
+ * @returns {Array} Array of text and <br> elements
+ */
+function renderTextWithLineBreaks(content, keyPrefix) {
+  if (!content) return null;
+
+  const lines = content.split('\n');
+  const result = [];
+
+  lines.forEach((line, lineIndex) => {
+    if (lineIndex > 0) {
+      result.push(<br key={`${keyPrefix}-br-${lineIndex}`} />);
+    }
+    if (line) {
+      result.push(line);
+    }
+  });
+
+  return result;
+}
+
+/**
  * Render text with mentions as interactive elements
+ * Preserves line breaks by converting \n to <br> elements
  * @param {string} text - Text containing mentions
  * @param {Object} entities - Map of entityId -> entity data
  * @param {Function} onEntityClick - Optional click handler for mentions
@@ -241,7 +344,12 @@ export function renderTextWithMentions(text, entities = {}, onEntityClick) {
     <>
       {segments.map((segment, index) => {
         if (segment.type === 'text') {
-          return <span key={index}>{segment.content}</span>;
+          // Render text with line breaks preserved
+          return (
+            <span key={index}>
+              {renderTextWithLineBreaks(segment.content, `seg-${index}`)}
+            </span>
+          );
         } else if (segment.type === 'mention') {
           const entity = entities[segment.entityId];
 
@@ -259,6 +367,98 @@ export function renderTextWithMentions(text, entities = {}, onEntityClick) {
               {renderMention(segment, entity, onEntityClick)}
             </span>
           );
+        }
+        return null;
+      })}
+    </>
+  );
+}
+
+/**
+ * Render a URL as a clickable link
+ * @param {string} url - URL to render
+ * @param {string} key - React key for the element
+ * @returns {ReactElement} Clickable link element
+ */
+function renderUrl(url, key) {
+  // Try to get a friendly display text from the URL
+  let displayText = url;
+  try {
+    const urlObj = new URL(url);
+    displayText = urlObj.hostname + (urlObj.pathname !== '/' ? urlObj.pathname : '');
+    // Truncate if too long
+    if (displayText.length > 50) {
+      displayText = displayText.substring(0, 47) + '...';
+    }
+  } catch {
+    // Use full URL if parsing fails
+  }
+
+  return (
+    <a
+      key={key}
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="url-link"
+      style={{
+        color: '#0066cc',
+        textDecoration: 'underline',
+        wordBreak: 'break-all'
+      }}
+    >
+      {displayText}
+    </a>
+  );
+}
+
+/**
+ * Render text with mentions AND URLs as interactive elements
+ * Preserves line breaks by converting \n to <br> elements
+ * @param {string} text - Text containing mentions and/or URLs
+ * @param {Object} entities - Map of entityId -> entity data
+ * @param {Function} onEntityClick - Optional click handler for mentions
+ * @param {Object} options - Rendering options
+ * @param {boolean} options.renderUrls - Whether to render URLs as links (default: true)
+ * @returns {ReactElement} Text with interactive mentions and URLs
+ */
+export function renderTextWithMentionsAndUrls(text, entities = {}, onEntityClick, options = {}) {
+  const { renderUrls = true } = options;
+
+  // If not rendering URLs, use the simpler function
+  if (!renderUrls) {
+    return renderTextWithMentions(text, entities, onEntityClick);
+  }
+
+  const segments = parseMentionsAndUrls(text);
+
+  return (
+    <>
+      {segments.map((segment, index) => {
+        if (segment.type === 'text') {
+          // Render text with line breaks preserved
+          return (
+            <span key={index}>
+              {renderTextWithLineBreaks(segment.content, `seg-${index}`)}
+            </span>
+          );
+        } else if (segment.type === 'mention') {
+          const entity = entities[segment.entityId];
+
+          if (!entity) {
+            logger.debug('[renderTextWithMentionsAndUrls] Entity not found', {
+              entityId: segment.entityId,
+              entityType: segment.entityType
+            });
+          }
+
+          return (
+            <span key={index}>
+              {renderMention(segment, entity, onEntityClick)}
+            </span>
+          );
+        } else if (segment.type === 'url') {
+          return renderUrl(segment.url, index);
         }
         return null;
       })}

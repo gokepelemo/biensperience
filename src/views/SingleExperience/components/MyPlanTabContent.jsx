@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsThreeDotsVertical } from 'react-icons/bs';
+import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsThreeDotsVertical, BsListUl, BsCardList } from 'react-icons/bs';
 import {
   DndContext,
   closestCenter,
@@ -25,7 +25,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import UsersListDisplay from '../../../components/UsersListDisplay/UsersListDisplay';
 import Loading from '../../../components/Loading/Loading';
-import Alert from '../../../components/Alert/Alert';
+import Banner from '../../../components/Banner/Banner';
 import { Text } from '../../../components/design-system';
 import SkeletonLoader from '../../../components/SkeletonLoader/SkeletonLoader';
 import DragHandle from '../../../components/DragHandle/DragHandle';
@@ -33,12 +33,20 @@ import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import PlanningTime from '../../../components/PlanningTime/PlanningTime';
 import MetricsBar from '../../../components/MetricsBar/MetricsBar';
 import CostsList from '../../../components/CostsList';
+import Checkbox from '../../../components/Checkbox/Checkbox';
+import SearchableSelect from '../../../components/FormField/SearchableSelect';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatDateMetricCard, formatDateForInput } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { formatCostEstimate } from '../../../utilities/cost-utils';
 import { lang } from '../../../lang.constants';
 import debug from '../../../utilities/debug';
+
+// View options for plan items display
+const VIEW_OPTIONS = [
+  { value: 'card', label: 'Card View', icon: BsCardList },
+  { value: 'compact', label: 'Compact View', icon: BsListUl }
+];
 
 /**
  * PlanActionsDropdown - Unified dropdown for Add, Manage Collaborators, and Sync actions
@@ -456,6 +464,193 @@ const SortablePlanItem = memo(function SortablePlanItem({
   );
 });
 
+/**
+ * SortableCompactPlanItem - One-line view with checkbox and drag-and-drop for plan items
+ * Memoized to prevent unnecessary re-renders
+ */
+const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
+  planItem,
+  canEdit,
+  handlePlanItemToggleComplete,
+  handleViewPlanItemDetails,
+  handleEditPlanInstanceItem,
+  setPlanInstanceItemToDelete,
+  setShowPlanInstanceDeleteModal,
+  lang
+}) {
+  const itemId = planItem.plan_item_id || planItem._id;
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const actionsMenuRef = useRef(null);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: (planItem.plan_item_id || planItem._id).toString(),
+    disabled: !canEdit,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 1000 : 'auto',
+  };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!showActionsMenu) return;
+
+    function handleClickOutside(event) {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
+        setShowActionsMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showActionsMenu]);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      data-plan-item-id={planItem._id}
+      className={`compact-plan-item ${planItem.complete ? 'completed' : ''} ${planItem.isChild ? 'is-child' : ''} ${isDragging ? 'dragging' : ''}`}
+    >
+      {/* Drag handle */}
+      {canEdit && (
+        <div {...attributes} {...listeners} className="compact-drag-handle" style={{ cursor: isDragging ? 'grabbing' : 'grab' }}>
+          <DragHandle
+            isDragging={isDragging}
+            disabled={!canEdit}
+          />
+        </div>
+      )}
+
+      {/* Hierarchy indicator */}
+      <span className="compact-item-indent">
+        {planItem.isChild ? '↳' : '•'}
+      </span>
+
+      {/* Checkbox for completion */}
+      <Checkbox
+        id={`compact-item-${itemId}`}
+        checked={!!planItem.complete}
+        onChange={() => handlePlanItemToggleComplete(planItem)}
+        disabled={!canEdit}
+        size="sm"
+        className="compact-item-checkbox"
+      />
+
+      {/* Item text - clickable to view details */}
+      <span
+        className={`compact-item-text ${planItem.complete ? 'text-decoration-line-through text-muted' : ''}`}
+        onClick={() => handleViewPlanItemDetails(planItem)}
+        title="Click to view details"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleViewPlanItemDetails(planItem);
+          }
+        }}
+      >
+        {planItem.url ? (
+          <a
+            href={planItem.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {planItem.text}
+          </a>
+        ) : (
+          planItem.text
+        )}
+      </span>
+
+      {/* Meta info - cost and planning days */}
+      <span className="compact-item-meta">
+        {Number(planItem.cost) > 0 && (
+          <span className="compact-meta-cost" title={`Cost: $${planItem.cost}`}>
+            💰
+          </span>
+        )}
+        {Number(planItem.planning_days) > 0 && (
+          <span className="compact-meta-days" title={`${planItem.planning_days} days`}>
+            ⏱️
+          </span>
+        )}
+        {planItem.details?.notes?.length > 0 && (
+          <span className="compact-meta-notes" title={`${planItem.details.notes.length} notes`}>
+            📝 {planItem.details.notes.length}
+          </span>
+        )}
+        {planItem.assignedTo && (
+          <span className="compact-meta-assigned" title="Assigned">
+            👤
+          </span>
+        )}
+      </span>
+
+      {/* Actions menu (overflow button with dropdown) */}
+      {canEdit && (
+        <div className="compact-item-actions-wrapper" ref={actionsMenuRef}>
+          <button
+            className="compact-actions-toggle"
+            onClick={() => setShowActionsMenu(!showActionsMenu)}
+            aria-expanded={showActionsMenu}
+            aria-haspopup="true"
+            aria-label="Item actions"
+            title="Actions"
+          >
+            <BsThreeDotsVertical />
+          </button>
+          {showActionsMenu && (
+            <div className="compact-actions-menu">
+              <button
+                className="compact-actions-item"
+                onClick={() => {
+                  handleEditPlanInstanceItem(planItem);
+                  setShowActionsMenu(false);
+                }}
+              >
+                ✏️ {lang.current.tooltip.edit}
+              </button>
+              <button
+                className="compact-actions-item compact-actions-item-danger"
+                onClick={() => {
+                  setPlanInstanceItemToDelete(planItem);
+                  setShowPlanInstanceDeleteModal(true);
+                  setShowActionsMenu(false);
+                }}
+              >
+                🗑️ {lang.current.tooltip.delete}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.planItem._id === nextProps.planItem._id &&
+    prevProps.planItem.complete === nextProps.planItem.complete &&
+    prevProps.planItem.text === nextProps.planItem.text &&
+    prevProps.planItem.isChild === nextProps.planItem.isChild &&
+    prevProps.planItem.cost === nextProps.planItem.cost &&
+    prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
+    prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
+    prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
+    prevProps.canEdit === nextProps.canEdit
+  );
+});
+
 export default function MyPlanTabContent({
   // Plan selection & user
   selectedPlanId,
@@ -515,6 +710,9 @@ export default function MyPlanTabContent({
   onUpdateCost,
   onDeleteCost
 }) {
+  // View state for plan items display (card or compact) - default to compact
+  const [planItemsView, setPlanItemsView] = useState('compact');
+
   // Setup sensors for drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -900,23 +1098,18 @@ export default function MyPlanTabContent({
           </div>
         )}
         {showSyncButton && showSyncAlert && (
-          <Alert
-            type="warning"
+          <Banner
+            type="info"
+            size="sm"
             dismissible={true}
             onDismiss={dismissSyncAlert}
-            title={lang.current.alert.planOutOfSync}
             message={lang.current.alert.planOutOfSyncMessage}
+            button={{
+              text: loading ? lang.current.button.syncing : lang.current.button.syncNow,
+              onClick: handleSyncPlan,
+              disabled: loading
+            }}
             className="mb-4"
-            actions={
-              <button
-                className="btn btn-warning btn-sm"
-                onClick={handleSyncPlan}
-                disabled={loading}
-              >
-                <BsArrowRepeat className={`me-1 ${loading ? 'spin' : ''}`} />
-                {loading ? lang.current.button.syncing : lang.current.button.syncNow}
-              </button>
-            }
           />
         )}
         <div className="plan-header-row mb-4">
@@ -964,25 +1157,20 @@ export default function MyPlanTabContent({
         </div>
       )}
 
-      {/* Alert Area - For all plan-related alerts */}
+      {/* Info Banner - Plan Items Out of Sync */}
       {showSyncButton && showSyncAlert && (
-        <Alert
-          type="warning"
+        <Banner
+          type="info"
+          size="sm"
           dismissible={true}
           onDismiss={dismissSyncAlert}
-          title={lang.current.alert.planOutOfSync}
           message={lang.current.alert.planOutOfSyncMessage}
+          button={{
+            text: loading ? lang.current.button.syncing : lang.current.button.syncNow,
+            onClick: handleSyncPlan,
+            disabled: loading
+          }}
           className="mb-4"
-          actions={
-            <button
-              className="btn btn-warning btn-sm"
-              onClick={handleSyncPlan}
-              disabled={loading}
-            >
-              <BsArrowRepeat className={`me-1 ${loading ? 'spin' : ''}`} />
-              {loading ? lang.current.button.syncing : lang.current.button.syncNow}
-            </button>
-          }
         />
       )}
 
@@ -1014,41 +1202,86 @@ export default function MyPlanTabContent({
       {/* Plan Metrics Cards */}
       {planMetadata}
 
-      {/* Plan Items List with Drag-and-Drop */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={itemsToRender.map(item => (item.plan_item_id || item._id).toString())}
-          strategy={verticalListSortingStrategy}
+      {/* View Toggle - Right aligned */}
+      <div className="plan-view-toggle mb-3 d-flex justify-content-end">
+        <SearchableSelect
+          options={VIEW_OPTIONS}
+          value={planItemsView}
+          onChange={setPlanItemsView}
+          placeholder="View"
+          searchable={false}
+          size="sm"
+          className="plan-view-select"
+        />
+      </div>
+
+      {/* Plan Items List - Card View with Drag-and-Drop */}
+      {planItemsView === 'card' && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
         >
-          {itemsToRender.map((planItem) => (
-            <SortablePlanItem
-              key={planItem.plan_item_id || planItem._id}
-              planItem={planItem}
-              currentPlan={currentPlan}
-              user={user}
-              idEquals={idEquals}
-              expandedParents={expandedParents}
-              canEdit={canEdit}
-              toggleExpanded={toggleExpanded}
-              handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-              handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-              setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-              setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-              handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-              hoveredPlanItem={hoveredPlanItem}
-              setHoveredPlanItem={setHoveredPlanItem}
-              handleViewPlanItemDetails={handleViewPlanItemDetails}
-              planOwner={planOwner}
-              planCollaborators={planCollaborators}
-              lang={lang}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
+          <SortableContext
+            items={itemsToRender.map(item => (item.plan_item_id || item._id).toString())}
+            strategy={verticalListSortingStrategy}
+          >
+            {itemsToRender.map((planItem) => (
+              <SortablePlanItem
+                key={planItem.plan_item_id || planItem._id}
+                planItem={planItem}
+                currentPlan={currentPlan}
+                user={user}
+                idEquals={idEquals}
+                expandedParents={expandedParents}
+                canEdit={canEdit}
+                toggleExpanded={toggleExpanded}
+                handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                hoveredPlanItem={hoveredPlanItem}
+                setHoveredPlanItem={setHoveredPlanItem}
+                handleViewPlanItemDetails={handleViewPlanItemDetails}
+                planOwner={planOwner}
+                planCollaborators={planCollaborators}
+                lang={lang}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+      )}
+
+      {/* Plan Items List - Compact View with Drag and Drop */}
+      {planItemsView === 'compact' && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={itemsToRender.map(item => (item.plan_item_id || item._id).toString())}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="compact-plan-items-list">
+              {itemsToRender.map((planItem) => (
+                <SortableCompactPlanItem
+                  key={planItem.plan_item_id || planItem._id}
+                  planItem={planItem}
+                  canEdit={canEdit}
+                  handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                  handleViewPlanItemDetails={handleViewPlanItemDetails}
+                  handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                  setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                  setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                  lang={lang}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
 
       {/* Costs Section */}
       <CostsList

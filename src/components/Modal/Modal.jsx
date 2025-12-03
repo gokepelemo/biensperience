@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import styles from "./Modal.module.scss";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
@@ -30,6 +31,19 @@ export default function Modal({
   icon,
   showHeader = true
 }) {
+  // Lock body scroll when modal is open to prevent background scrolling
+  useEffect(() => {
+    if (show) {
+      // Store original overflow value to restore later
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [show]);
+
   if (!show) return null;
 
   const handleSubmit = (e) => {

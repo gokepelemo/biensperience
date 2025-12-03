@@ -904,7 +904,7 @@ const en = {
     costUpdated: "Cost updated successfully",
     costDeleted: "Cost deleted",
     confirmDeleteCost: "Are you sure you want to delete this cost?",
-    noCostsYet: "No costs tracked yet. Add your first cost.",
+    noCostsYet: "No costs tracked yet.",
     totalCosts: "Total Costs",
     costsByPerson: "Costs by Person",
     costsByItem: "Costs by Item",

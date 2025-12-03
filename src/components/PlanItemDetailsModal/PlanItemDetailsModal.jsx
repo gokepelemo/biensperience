@@ -22,6 +22,7 @@ export default function PlanItemDetailsModal({
   onDeleteNote,
   onAssign,
   onUnassign,
+  onUpdateTitle,
   canEdit = false,
   // For mentions support
   availableEntities = [],
@@ -36,8 +37,11 @@ export default function PlanItemDetailsModal({
   const [assignmentSearch, setAssignmentSearch] = useState('');
   const [filteredCollaborators, setFilteredCollaborators] = useState([]);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleText, setTitleText] = useState('');
   const assignmentInputRef = useRef(null);
   const dropdownRef = useRef(null);
+  const titleInputRef = useRef(null);
 
   // Reset to specified initial tab when modal opens or plan item changes
   useEffect(() => {
@@ -45,8 +49,57 @@ export default function PlanItemDetailsModal({
       setActiveTab(initialTab);
       setIsEditingAssignment(false);
       setAssignmentSearch('');
+      setIsEditingTitle(false);
+      setTitleText(planItem?.text || '');
     }
-  }, [show, planItem?._id, initialTab]);
+  }, [show, planItem?._id, initialTab, planItem?.text]);
+
+  // Focus title input when editing starts
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
+
+  // Handle title click to start editing
+  const handleTitleClick = useCallback(() => {
+    if (canEdit && onUpdateTitle) {
+      setTitleText(planItem?.text || '');
+      setIsEditingTitle(true);
+    }
+  }, [canEdit, onUpdateTitle, planItem?.text]);
+
+  // Handle title blur to save
+  const handleTitleBlur = useCallback(async () => {
+    setIsEditingTitle(false);
+    const trimmedTitle = titleText.trim();
+    // Only save if title changed and is not empty
+    if (trimmedTitle && trimmedTitle !== planItem?.text && onUpdateTitle) {
+      try {
+        await onUpdateTitle(trimmedTitle);
+      } catch (error) {
+        logger.error('[PlanItemDetailsModal] Failed to update title', { error });
+        // Revert to original on error
+        setTitleText(planItem?.text || '');
+      }
+    } else {
+      // Revert to original if empty or unchanged
+      setTitleText(planItem?.text || '');
+    }
+  }, [titleText, planItem?.text, onUpdateTitle]);
+
+  // Handle title key events
+  const handleTitleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      titleInputRef.current?.blur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setTitleText(planItem?.text || '');
+      setIsEditingTitle(false);
+    }
+  }, [planItem?.text]);
 
   // Build trie index for fast collaborator search
   const collaboratorTrieFilter = useMemo(() => {
@@ -221,18 +274,46 @@ export default function PlanItemDetailsModal({
     }
   };
 
+  // Editable title component - shows input when editing, clickable text otherwise
+  const editableTitle = canEdit && onUpdateTitle ? (
+    isEditingTitle ? (
+      <input
+        ref={titleInputRef}
+        type="text"
+        className={styles.titleInput}
+        value={titleText}
+        onChange={(e) => setTitleText(e.target.value)}
+        onBlur={handleTitleBlur}
+        onKeyDown={handleTitleKeyDown}
+        aria-label="Edit plan item title"
+      />
+    ) : (
+      <span
+        className={styles.editableTitle}
+        onClick={handleTitleClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && handleTitleClick()}
+        title="Click to edit title"
+      >
+        {planItem.text || 'Plan Item'}
+      </span>
+    )
+  ) : (
+    planItem.text || 'Plan Item'
+  );
+
   return (
     <Modal
       show={show}
       onClose={onClose}
-      title="Plan Item Details"
+      title={editableTitle}
       size="fullscreen"
     >
       <div className={styles.planItemDetailsModal}>
-        {/* Plan item header */}
-        <div className={styles.planItemHeader}>
-          <h3 className={styles.planItemTitle}>{planItem.text || 'Plan Item'}</h3>
-          {planItem.url && (
+        {/* Link to external URL if available */}
+        {planItem.url && (
+          <div className={styles.planItemLinkBar}>
             <a
               href={planItem.url}
               target="_blank"
@@ -241,8 +322,8 @@ export default function PlanItemDetailsModal({
             >
               🔗 View Link
             </a>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Assignment section */}
         <div className={styles.assignmentSection}>

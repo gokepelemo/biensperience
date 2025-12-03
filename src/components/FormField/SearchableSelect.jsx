@@ -77,15 +77,15 @@ export default function SearchableSelect({
     if (!isOpen) return;
 
     const handleClickOutside = (e) => {
-      // On mobile/tablet, the dropdown is positioned as fixed bottom sheet
+      // On mobile/tablet, the dropdown is positioned as fixed
       // so we need to check if the click is outside both the container AND the dropdown
-      const isMobileDropdown = window.innerWidth <= 575; // breakpoint-sm - 1
+      const isMobileOrTablet = window.innerWidth <= 767; // breakpoint-md - 1
       const dropdownRef = document.querySelector(`[data-searchable-select="${selectId}"]`);
 
       const clickedOutsideContainer = containerRef.current && !containerRef.current.contains(e.target);
-      const clickedOutsideDropdown = isMobileDropdown && dropdownRef && !dropdownRef.contains(e.target);
+      const clickedOutsideDropdown = isMobileOrTablet && dropdownRef && !dropdownRef.contains(e.target);
 
-      if (clickedOutsideContainer && (!isMobileDropdown || clickedOutsideDropdown)) {
+      if (clickedOutsideContainer && (!isMobileOrTablet || clickedOutsideDropdown)) {
         setIsOpen(false);
         setSearchQuery('');
       }
@@ -95,12 +95,12 @@ export default function SearchableSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, selectId]);
 
-  // Position dropdown on mobile
+  // Position dropdown on mobile and tablet
   const positionDropdown = useCallback(() => {
     if (!isOpen) return;
 
-    const isMobile = window.innerWidth <= 575;
-    if (!isMobile) return;
+    const isMobileOrTablet = window.innerWidth <= 767; // breakpoint-md - 1
+    if (!isMobileOrTablet) return;
 
     // Query dropdown and trigger
     const dropdown = document.querySelector(`[data-searchable-select="${selectId}"]`);

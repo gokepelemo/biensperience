@@ -263,24 +263,18 @@
   font-size: var(--font-size-sm);
 }
 
-/* Responsive adjustments */
-@include breakpoint-max(sm) {
+/* Responsive adjustments - Mobile and Tablet */
+@include breakpoint-max(md) {
   .dropdown {
     position: fixed;
-    z-index: 1000;
+    z-index: 1050; /* Higher z-index for mobile/tablet overlay */
     border-radius: var(--radius-md);
-    /* Clear any static geometry so JavaScript can fully control placement */
-    left: auto !important;
-    right: auto !important;
-    top: auto !important;
-    bottom: auto !important;
-    width: auto !important;
-    max-height: none !important;
+    box-shadow: var(--shadow-xl);
     /* Position and size will be set dynamically by JavaScript */
   }
 
   .optionsList {
-    /* Height will be constrained by parent max-height */
+    /* Height will be constrained by parent max-height set by JS */
   }
 }
 

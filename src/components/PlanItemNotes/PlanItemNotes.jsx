@@ -12,18 +12,22 @@ import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import FormField from '../FormField/FormField';
-import { renderTextWithMentions, mentionsToPlainText } from '../../utilities/mentions';
+import { renderTextWithMentionsAndUrls, extractUrls, mentionsToPlainText } from '../../utilities/mentions';
+import { LinkPreviewList } from '../LinkPreview/LinkPreview';
 import useEntityResolver from '../../hooks/useEntityResolver';
 import { createFilter } from '../../utilities/trie';
 import styles from './PlanItemNotes.module.scss';
 
 /**
  * NoteMessage Component
- * Individual note message with entity resolution for mentions
+ * Individual note message with entity resolution for mentions and URL previews
  */
-function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, formatDate, onEntityClick }) {
+function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, formatDate, onEntityClick, showLinkPreviews = true }) {
   // Resolve any missing entities in this note's content
   const { entityData: mergedEntityData } = useEntityResolver(note.content, entityData);
+
+  // Extract URLs from the note content for previews
+  const urls = useMemo(() => extractUrls(note.content), [note.content]);
 
   return (
     <div
@@ -40,7 +44,17 @@ function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, format
         wordWrap: 'break-word'
       }}
     >
-      {renderTextWithMentions(note.content, mergedEntityData, onEntityClick)}
+      {/* Render text with mentions and clickable URLs */}
+      {renderTextWithMentionsAndUrls(note.content, mergedEntityData, onEntityClick)}
+
+      {/* Link previews/embeds for URLs found in the note */}
+      {showLinkPreviews && urls.length > 0 && (
+        <LinkPreviewList
+          urls={urls}
+          showEmbed={true}
+          maxPreviews={2}
+        />
+      )}
 
       {/* Timestamp and actions */}
       <div style={{
@@ -261,29 +275,31 @@ export default function PlanItemNotes({
     <div className={styles.planItemNotesChat}>
       {/* Search and Add Note Header */}
       <div className={styles.notesHeader}>
-        <div className={styles.searchContainer}>
-          <FormField
-            name="searchNotes"
-            type="text"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1); // Reset to first page on search
-            }}
-            placeholder="Search notes..."
-            prepend={<FaSearch />}
-            disabled={disabled}
-          />
-        </div>
+        <div className={styles.headerControls}>
+          <div className={styles.searchPill}>
+            <FaSearch className={styles.searchIcon} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1); // Reset to first page on search
+              }}
+              placeholder="Search notes..."
+              disabled={disabled}
+              className={styles.searchInput}
+            />
+          </div>
 
-        <Button
-          variant="primary"
-          onClick={() => setShowAddNoteForm(!showAddNoteForm)}
-          className={styles.addNoteButton}
-          disabled={disabled}
-        >
-          <FaPlus /> Add Note
-        </Button>
+          <button
+            type="button"
+            onClick={() => setShowAddNoteForm(!showAddNoteForm)}
+            className={styles.addNotePill}
+            disabled={disabled}
+          >
+            <FaPlus /> Add Note
+          </button>
+        </div>
       </div>
 
       {/* Add Note Form (with InteractiveTextArea) */}
@@ -315,6 +331,7 @@ export default function PlanItemNotes({
             placeholder="Type your note... Use @ to mention users, destinations, or experiences"
             rows={4}
             disabled={isAdding}
+            highlightUrls={true}
           />
 
           <div className={styles.formActions}>
@@ -392,6 +409,7 @@ export default function PlanItemNotes({
                           placeholder="Edit your note..."
                           rows={3}
                           showFooter={false}
+                          highlightUrls={true}
                         />
                       </div>
                       {/* Custom footer row with Visibility on left, Save/Cancel on right */}

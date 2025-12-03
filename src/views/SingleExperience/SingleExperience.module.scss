@@ -1721,27 +1721,39 @@
   }
 }
 
-/* Shake Animation for Deep Link Navigation */
-@keyframes shake {
+/* Shake Animation for Deep Link Navigation - MUST be global for .shake-animation class */
+@keyframes :global(deepLinkShakeGlobal) {
   0%, 100% {
     transform: translateX(0);
   }
   10%, 30%, 50%, 70%, 90% {
-    transform: translateX(-4px);
+    transform: translateX(-8px);
   }
   20%, 40%, 60%, 80% {
-    transform: translateX(4px);
+    transform: translateX(8px);
   }
 }
 
-@keyframes borderPulse {
-  0%, 100% {
-    border-color: var(--color-border-medium);
-    box-shadow: 0 0 0 0 transparent;
+@keyframes :global(borderPulseGlobal) {
+  0% {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4);
+  }
+  25% {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 8px rgba(102, 126, 234, 0.3);
   }
   50% {
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+    box-shadow: 0 0 0 12px rgba(102, 126, 234, 0.2);
+  }
+  75% {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 8px rgba(102, 126, 234, 0.1);
+  }
+  100% {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 
@@ -1818,9 +1830,21 @@
 }
 
 :global(.shake-animation) {
-  animation: shake 2s cubic-bezier(0.36, 0.07, 0.19, 0.97) both,
-             borderPulse 2s ease-in-out both;
+  animation: deepLinkShakeGlobal 2.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both,
+             borderPulseGlobal 2.5s ease-in-out both;
   border: 2px solid var(--color-primary) !important;
+  position: relative;
+  z-index: 10;
+}
+
+/* Shake animation for Compact View plan items - more prominent for smaller items */
+:global(.compact-plan-item.shake-animation) {
+  animation: deepLinkShakeGlobal 2.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both,
+             borderPulseGlobal 2.5s ease-in-out both;
+  border: 2px solid var(--color-primary) !important;
+  background: rgba(102, 126, 234, 0.15) !important;
+  position: relative;
+  z-index: 10;
 }
 
 /* ==============================================
@@ -2168,6 +2192,270 @@
 
   :global(.grey) {
     color: var(--color-text-muted);
+  }
+}
+
+/* ==============================================
+   COMPACT PLAN ITEMS VIEW
+   ============================================== */
+
+/* View toggle select - positioned at top right */
+:global(.plan-view-toggle) {
+  display: flex !important; /* Ensure visible on all screen sizes */
+
+  .plan-view-select {
+    min-width: 140px;
+    max-width: 160px;
+  }
+
+  /* Ensure SearchableSelect is visible on mobile and tablet */
+  @include breakpoint-max(md) {
+    justify-content: flex-end;
+
+    .plan-view-select {
+      min-width: 120px;
+      max-width: 140px;
+    }
+  }
+}
+
+/* Compact plan items list container */
+:global(.compact-plan-items-list) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-primary);
+}
+
+/* Individual compact plan item - single line layout */
+:global(.compact-plan-item) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-secondary);
+
+    .compact-item-actions {
+      opacity: 1;
+    }
+  }
+
+  &.completed {
+    background: var(--color-bg-tertiary);
+    opacity: 0.7;
+  }
+
+  &.is-child {
+    margin-left: var(--space-6);
+  }
+
+  // Dragging state for compact items
+  &:global(.dragging) {
+    opacity: 0.9;
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-primary);
+    background: var(--color-bg-primary);
+  }
+}
+
+/* Hierarchy indicator */
+:global(.compact-item-indent) {
+  width: 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+/* Checkbox spacing in compact view */
+:global(.compact-item-checkbox) {
+  margin-right: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Item text - clickable area */
+:global(.compact-item-text) {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: var(--color-primary);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+/* Meta info icons */
+:global(.compact-item-meta) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+
+  > span {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+}
+
+:global(.compact-meta-cost),
+:global(.compact-meta-days),
+:global(.compact-meta-notes),
+:global(.compact-meta-assigned) {
+  opacity: 0.8;
+}
+
+:global(.compact-meta-notes) {
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+/* Drag handle for compact view */
+:global(.compact-drag-handle) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0 var(--space-1);
+  color: var(--color-text-muted);
+  touch-action: none; /* Prevent touch scrolling while dragging */
+
+  &:hover {
+    color: var(--color-text-secondary);
+  }
+}
+
+/* Actions wrapper with overflow menu */
+:global(.compact-item-actions-wrapper) {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Overflow toggle button (three dots) */
+:global(.compact-actions-toggle) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-primary-alpha-20);
+  }
+
+  svg {
+    font-size: 1rem;
+  }
+}
+
+/* Actions dropdown menu */
+:global(.compact-actions-menu) {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  min-width: 120px;
+  margin-top: var(--space-1);
+  padding: var(--space-1) 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Individual action item in dropdown */
+:global(.compact-actions-item) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  &.compact-actions-item-danger {
+    color: var(--color-danger);
+
+    &:hover {
+      background: rgba(var(--color-danger-rgb, 220, 53, 69), 0.1);
+    }
+  }
+}
+
+/* Mobile responsive adjustments */
+@include breakpoint-max(sm) {
+  :global(.compact-plan-items-list) {
+    padding: var(--space-2);
+  }
+
+  :global(.compact-plan-item) {
+    padding: var(--space-2);
+    gap: var(--space-1);
+
+    &.is-child {
+      margin-left: var(--space-4);
+    }
+  }
+
+  :global(.compact-item-indent) {
+    width: 16px;
+  }
+
+  /* Show meta info on mobile - just hide notes count to save space */
+  :global(.compact-item-meta) {
+    gap: var(--space-1);
+
+    :global(.compact-meta-notes) {
+      display: none; /* Hide notes count on mobile */
+    }
   }
 }
 

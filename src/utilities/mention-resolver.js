@@ -7,6 +7,7 @@
 
 import { parseMentions } from './mentions';
 import { logger } from './logger';
+import { sendRequest } from './send-request';
 
 /**
  * Cache for resolved entities to avoid repeated API calls
@@ -54,18 +55,8 @@ async function fetchEntityFromAPI(entityType, entityId) {
         return null;
     }
 
-    const response = await fetch(endpoint);
-
-    if (!response.ok) {
-      logger.error('Failed to fetch entity for mention', {
-        entityType,
-        entityId,
-        status: response.status
-      });
-      return null;
-    }
-
-    const data = await response.json();
+    // Use sendRequest which handles authentication headers
+    const data = await sendRequest(endpoint, 'GET');
     return data;
   } catch (error) {
     logger.error('Error fetching entity for mention', { entityType, entityId }, error);

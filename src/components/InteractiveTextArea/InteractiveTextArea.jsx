@@ -2,12 +2,18 @@
  * InteractiveTextArea component with mentions support
  * Allows mentioning users, destinations, and experiences with interactive popovers
  *
+ * Additional rich-textarea features (opt-in via props):
+ * - highlightUrls: Detects and highlights URLs, making them clickable
+ * - highlightHashtags: Detects and highlights #hashtags
+ * - highlightEmoji: Detects and highlights emoji characters
+ * - customHighlights: Array of { pattern: RegExp, style: CSSObject } for custom highlighting
+ *
  * @module InteractiveTextArea
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Dropdown } from 'react-bootstrap';
-import { RichTextarea } from 'rich-textarea';
+import { RichTextarea, createRegexRenderer } from 'rich-textarea';
 import {
   createMention,
   MENTION_TYPES,
@@ -20,6 +26,15 @@ import { searchAll } from '../../utilities/search-api';
 import { logger } from '../../utilities/logger';
 import { createFilter } from '../../utilities/trie';
 import styles from './InteractiveTextArea.module.scss';
+
+/**
+ * Highlight styles for createRegexRenderer (defined at module level for performance)
+ * These CSS objects are applied to matched text in the textarea overlay
+ */
+const URL_STYLE = { color: '#0066cc', textDecoration: 'underline' };
+const HASHTAG_STYLE = { color: '#1da1f2', fontWeight: '500' };
+const EMOJI_STYLE = { background: 'rgba(255,220,100,0.3)', borderRadius: '2px' };
+const MENTION_STYLE = { background: 'rgba(124,143,240,0.25)', color: '#5b6cdb', borderRadius: '3px', fontWeight: '600' };
 
 /**
  * Interactive TextArea with mentions support
@@ -36,6 +51,11 @@ import styles from './InteractiveTextArea.module.scss';
  * @param {boolean} props.disabled - Whether the textarea is disabled
  * @param {boolean} props.showFooter - Whether to show the visibility footer (default: true)
  * @param {string} props.className - Additional CSS classes
+ * @param {boolean} props.highlightUrls - Enable URL detection and highlighting (default: false)
+ * @param {boolean} props.highlightHashtags - Enable hashtag highlighting (default: false)
+ * @param {boolean} props.highlightEmoji - Enable emoji highlighting (default: false)
+ * @param {Array} props.customHighlights - Array of { pattern: RegExp, style: CSSObject } for custom highlighting
+ * @param {Function} props.onUrlClick - Callback when a highlighted URL is clicked (url) => void
  */
 const InteractiveTextArea = ({
   value = '',
@@ -49,6 +69,12 @@ const InteractiveTextArea = ({
   disabled = false,
   showFooter = true,
   className = '',
+  // New highlighting features
+  highlightUrls = false,
+  highlightHashtags = false,
+  highlightEmoji = false,
+  customHighlights = [],
+  onUrlClick,
   ...props
 }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -57,6 +83,8 @@ const InteractiveTextArea = ({
   const [cursorPosition, setCursorPosition] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
   const [isSearching, setIsSearching] = useState(false);
+  // Track confirmed mention ranges: [{ start, end, entityId, type }]
+  const confirmedMentionsRef = useRef([]);
   const textareaRef = useRef(null);
   const containerRef = useRef(null);
   const searchDebounceRef = useRef(null);
@@ -244,7 +272,11 @@ const InteractiveTextArea = ({
 
       // For # mentions (plan items), only use local matches - plan items aren't globally searchable
       // For @ mentions, also search globally for users, destinations, experiences
-      let mergedEntities = localMatches;
+      // Normalize local matches to ensure displayName is always set
+      let mergedEntities = localMatches.map(entity => ({
+        ...entity,
+        displayName: entity.displayName || entity.name || 'Unknown'
+      }));
 
       if (isUserMention) {
         // Global search for @mentions: users, destinations, experiences
@@ -273,10 +305,10 @@ const InteractiveTextArea = ({
             };
           });
 
-          // Merge: local matches first, then global results (removing duplicates)
-          const localIds = new Set(localMatches.map(e => e.id));
+          // Merge: local matches first (already normalized above), then global results (removing duplicates)
+          const localIds = new Set(mergedEntities.map(e => e.id));
           const uniqueGlobalEntities = globalEntities.filter(e => !localIds.has(e.id));
-          mergedEntities = [...localMatches, ...uniqueGlobalEntities];
+          mergedEntities = [...mergedEntities, ...uniqueGlobalEntities];
         } catch (searchError) {
           // If global search fails, just use local matches
           logger.warn('[InteractiveTextArea] Global search failed, using local matches only', {
@@ -286,6 +318,10 @@ const InteractiveTextArea = ({
         }
       }
 
+      logger.debug('[InteractiveTextArea] Setting suggestions', {
+        count: mergedEntities.length,
+        suggestions: mergedEntities.slice(0, 3).map(e => ({ type: e.type, id: e.id, displayName: e.displayName }))
+      });
       setSuggestions(mergedEntities);
       setShowSuggestions(true);
       setIsSearching(false);
@@ -295,6 +331,126 @@ const InteractiveTextArea = ({
       setIsSearching(false);
     }
   }, [availableEntities, entityTrieFilter]);
+
+  /**
+   * Find the active (unconfirmed) mention trigger before the cursor.
+   * Returns { type: 'user'|'plan-item', start: number, query: string } or null.
+   * Skips over confirmed mention ranges.
+   *
+   * RULES:
+   * 1. If cursor is immediately after a confirmed mention (even with trailing space), don't trigger
+   * 2. If cursor is inside a confirmed mention, don't trigger (user would need to backspace to edit)
+   * 3. Only trigger search when user types @ or # followed by a query that doesn't match existing entity
+   */
+  const findActiveMentionTrigger = useCallback((text, cursorPos) => {
+    const confirmed = confirmedMentionsRef.current;
+
+    // Check if cursor is inside a confirmed mention range - no search
+    const cursorInsideConfirmedMention = confirmed.some(m => cursorPos > m.start && cursorPos <= m.end);
+    if (cursorInsideConfirmedMention) {
+      return null;
+    }
+
+    // Check if cursor is immediately after a confirmed mention (at end or after trailing space)
+    // This prevents re-triggering search when typing after selecting a mention
+    const cursorAfterConfirmedMention = confirmed.some(m => {
+      // Cursor is exactly at end of mention
+      if (cursorPos === m.end) return true;
+      // Cursor is 1 position after mention (the space we add after selection)
+      if (cursorPos === m.end + 1 && text[m.end] === ' ') return true;
+      return false;
+    });
+    if (cursorAfterConfirmedMention) {
+      return null;
+    }
+
+    // Search backwards from cursor to find the most recent @ or #
+    for (let i = cursorPos - 1; i >= 0; i--) {
+      const char = text[i];
+
+      // Stop if we hit a space, newline, or other word boundary (unless it's the trigger itself)
+      if (char === ' ' || char === '\n' || char === '\t') {
+        // Check if there's a trigger before this space that we should use
+        // But only if we haven't gone too far back
+        continue;
+      }
+
+      // Check if this position is inside a confirmed mention - skip search entirely
+      const inConfirmed = confirmed.some(m => i >= m.start && i < m.end);
+      if (inConfirmed) {
+        // We've hit a confirmed mention, stop searching backwards
+        return null;
+      }
+
+      if (char === '@' || char === '#') {
+        // Found a trigger - extract query from trigger to cursor
+        const queryText = text.slice(i + 1, cursorPos);
+
+        // Validate query: allow letters, numbers, spaces, hyphens, apostrophes
+        if (/^[A-Za-z0-9\s\-']*$/.test(queryText)) {
+          const queryTrimmed = queryText.trim();
+          const isHashMention = char === '#';
+          const typesToCheck = isHashMention ? ['plan-item'] : ['user', 'destination', 'experience'];
+
+          // Check if the full text matches a known entity - if so, it's complete, not active
+          const matchesExistingEntity = (availableEntities || []).some(e =>
+            typesToCheck.includes(e.type) &&
+            e.displayName?.toLowerCase() === queryTrimmed.toLowerCase()
+          );
+
+          if (matchesExistingEntity) {
+            // This is a complete mention, not an active search trigger
+            return null;
+          }
+
+          return {
+            type: char === '#' ? 'plan-item' : 'user',
+            start: i,
+            query: queryText
+          };
+        }
+        // If query has invalid chars, this trigger is stale
+        return null;
+      }
+    }
+    return null;
+  }, [availableEntities]);
+
+  /**
+   * Rebuild confirmed mentions list by scanning for valid mentions in text
+   * Returns array of { start, end, entityId, type, displayName }
+   */
+  const rebuildConfirmedMentions = useCallback((text) => {
+    const newConfirmed = [];
+    // Match mentions that end at word boundary, newline, or end of string
+    const mentionRegex = /(@|#)([A-Za-z0-9][A-Za-z0-9\s\-']*?)(?=\s|@|#|$|\n)/g;
+    let match;
+
+    while ((match = mentionRegex.exec(text)) !== null) {
+      const prefix = match[1];
+      const name = match[2].trim();
+      const type = prefix === '#' ? 'plan-item' : 'user';
+      const typesToCheck = type === 'plan-item' ? ['plan-item'] : ['user', 'destination', 'experience'];
+
+      // Check if this matches a known entity
+      const entity = (availableEntities || []).find(e =>
+        typesToCheck.includes(e.type) &&
+        e.displayName?.toLowerCase() === name.toLowerCase()
+      );
+
+      if (entity) {
+        newConfirmed.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          entityId: entity.id,
+          type: entity.type,
+          displayName: entity.displayName
+        });
+      }
+    }
+
+    return newConfirmed;
+  }, [availableEntities]);
 
   /**
    * Handle textarea input changes
@@ -307,101 +463,79 @@ const InteractiveTextArea = ({
     setCursorPosition(newCursorPosition);
     setInternalValue(newDisplayValue);
 
-    // Skip mention detection if we just selected a mention (prevents re-triggering search)
-    if (justSelectedMentionRef.current) {
-      // Convert display format back to storage format before emitting
+    // Skip mention detection if we just selected a mention (within last 500ms)
+    // This prevents search from re-triggering when typing space/newline after selecting
+    const timeSinceSelect = Date.now() - mentionSelectTimeRef.current;
+    if (justSelectedMentionRef.current || timeSinceSelect < 500) {
+      // Reset the flag after processing
+      if (timeSinceSelect >= 100) {
+        justSelectedMentionRef.current = false;
+      }
       const storageValue = editableTextToMentions(newDisplayValue, availableEntities);
       onChange(storageValue);
       return;
     }
 
-    // Check for mention triggers (@ for users, # for plan items)
-    const textBeforeCursor = newDisplayValue.slice(0, newCursorPosition);
-    // Allow spaces, hyphens and apostrophes in mention queries (matches like "@John", "@New York", "#Plan Item")
-    const userMentionMatch = textBeforeCursor.match(/@([A-Za-z0-9\s\-']*)$/);
-    const planItemMentionMatch = textBeforeCursor.match(/#([A-Za-z0-9\s\-']*)$/);
+    // Update confirmed mentions based on current text (handle edits/deletions)
+    confirmedMentionsRef.current = rebuildConfirmedMentions(newDisplayValue);
 
-    // Helper to check if a mention is complete (has content followed by a trailing space)
-    // A complete mention looks like "@John Doe " - has text and ends with space
-    // An incomplete mention looks like "@John" or "@" - still typing
-    const isMentionComplete = (match) => {
-      if (!match || !match[1]) return false;
-      const query = match[1];
-      // If query has content AND ends with a space, mention is complete
-      return query.length > 0 && query.endsWith(' ');
-    };
+    // Find active mention trigger (not inside a confirmed mention)
+    const activeTrigger = findActiveMentionTrigger(newDisplayValue, newCursorPosition);
 
-    if (userMentionMatch && !isMentionComplete(userMentionMatch)) {
-      const query = userMentionMatch[1].trim(); // Trim whitespace from query
-      setMentionStart(newCursorPosition - userMentionMatch[1].length - 1);
+    if (activeTrigger) {
+      const query = activeTrigger.query.trim();
+      setMentionStart(activeTrigger.start);
 
-      // Clear existing debounce timer
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
       }
 
-      // If query is empty, show empty suggestions
       if (!query) {
         setSuggestions([]);
         setShowSuggestions(true);
       } else {
-        // Debounce global search for @ mentions using abstracted function
         setIsSearching(true);
         searchDebounceRef.current = setTimeout(() => {
-          performMentionSearch(query, 'user');
-        }, 300);
-      }
-    } else if (planItemMentionMatch && !isMentionComplete(planItemMentionMatch)) {
-      const query = planItemMentionMatch[1].trim(); // Trim whitespace from query
-      setMentionStart(newCursorPosition - planItemMentionMatch[1].length - 1);
-
-      // Clear existing debounce timer
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current);
-      }
-
-      // If query is empty, show empty suggestions
-      if (!query) {
-        setSuggestions([]);
-        setShowSuggestions(true);
-      } else {
-        // Debounce global search for # mentions using same abstracted function
-        setIsSearching(true);
-        searchDebounceRef.current = setTimeout(() => {
-          performMentionSearch(query, 'plan-item');
+          performMentionSearch(query, activeTrigger.type);
         }, 300);
       }
     } else {
-      // Clear suggestions if no mention trigger
       setShowSuggestions(false);
       setMentionStart(-1);
 
-      // Clear debounce timer
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
       }
     }
 
-    // Convert display format back to storage format before emitting
-    // This ensures parent always receives {entity/id} format
     const storageValue = editableTextToMentions(newDisplayValue, availableEntities);
     onChange(storageValue);
-  }, [onChange, availableEntities, performMentionSearch]);
+  }, [onChange, availableEntities, performMentionSearch, findActiveMentionTrigger, rebuildConfirmedMentions]);
 
   // Track if we just selected a mention to prevent re-triggering search
+  // This ref prevents search from triggering immediately after selecting an entity
   const justSelectedMentionRef = useRef(false);
+  // Track the timestamp when a mention was selected to prevent re-triggering for a short period
+  const mentionSelectTimeRef = useRef(0);
 
   /**
    * Handle mention selection from suggestions
-   * Insert storage format {entity/id} which will be displayed as @Name or #Name
+   * Insert display format @Name or #Name and track as confirmed mention
    */
   const handleMentionSelect = useCallback(async (entity) => {
+    logger.debug('[InteractiveTextArea] handleMentionSelect', {
+      type: entity?.type,
+      id: entity?.id,
+      displayName: entity?.displayName
+    });
+
     if (!textareaRef.current) return;
 
     const textarea = textareaRef.current;
 
-    // Set flag to prevent re-triggering search after selection
+    // Set flag and timestamp to prevent re-triggering search after selection
     justSelectedMentionRef.current = true;
+    mentionSelectTimeRef.current = Date.now();
 
     // Clear any pending search
     if (searchDebounceRef.current) {
@@ -415,41 +549,59 @@ const InteractiveTextArea = ({
     setIsSearching(false);
     setSuggestions([]);
 
-    // Insert into the display text (`internalValue`) at the mentionStart position.
-    // This avoids mapping display->storage offsets and preserves anchors for multiple mentions.
     try {
       const displayBefore = internalValue.slice(0, Math.max(0, mentionStart));
       const displayAfter = internalValue.slice(cursorPosition || displayBefore.length);
       const prefix = entity.type === 'plan-item' ? '#' : '@';
-      const inserted = `${prefix}${entity.displayName}`;
+
+      // Ensure we have a valid display name - fallback to name field or type-specific default
+      const entityDisplayName = entity.displayName || entity.name ||
+        (entity.type === 'user' ? 'Unknown User' :
+         entity.type === 'destination' ? 'Unknown Destination' :
+         entity.type === 'experience' ? 'Unknown Experience' :
+         entity.type === 'plan-item' ? 'Unknown Item' : 'Unknown');
+      const inserted = `${prefix}${entityDisplayName}`;
       const newDisplayValue = `${displayBefore}${inserted} ${displayAfter}`;
 
-      // Update local display state immediately
+      // Add this mention to confirmed list immediately
+      const mentionEnd = displayBefore.length + inserted.length;
+      confirmedMentionsRef.current = [
+        ...confirmedMentionsRef.current,
+        {
+          start: displayBefore.length,
+          end: mentionEnd,
+          entityId: entity.id,
+          type: entity.type,
+          displayName: entityDisplayName
+        }
+      ];
+
+      // Update local display state
       setInternalValue(newDisplayValue);
 
-      // Ensure the selected entity is in availableEntities for conversion
-      // Check if entity already exists in availableEntities
+      // Ensure entity is in availableEntities for conversion with resolved displayName
+      const entityWithDisplayName = { ...entity, displayName: entityDisplayName };
       const entityExists = (availableEntities || []).some(e => e.id === entity.id && e.type === entity.type);
       const entitiesForConversion = entityExists
         ? availableEntities
-        : [...(availableEntities || []), entity];
+        : [...(availableEntities || []), entityWithDisplayName];
 
       // Convert to storage format and emit to parent
       const storage = editableTextToMentions(newDisplayValue, entitiesForConversion);
       onChange(storage);
 
-      // Move cursor to just after the inserted mention
-      const newCursorPosition = displayBefore.length + inserted.length + 1;
+      // Move cursor to just after the inserted mention (after the space)
+      const newCursorPos = mentionEnd + 1;
       setTimeout(() => {
         textarea.focus();
         try {
-          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
         } catch (err) {}
-        // Reset the flag after cursor is positioned
-        justSelectedMentionRef.current = false;
+        // Don't reset justSelectedMentionRef here - let the timestamp-based check handle it
+        // This ensures we have protection for at least 500ms after selection
       }, 0);
     } catch (err) {
-      console.error('[InteractiveTextArea] Error inserting mention:', err);
+      logger.error('[InteractiveTextArea] Error inserting mention:', err);
       justSelectedMentionRef.current = false;
     }
   }, [internalValue, mentionStart, cursorPosition, onChange, availableEntities]);
@@ -478,30 +630,66 @@ const InteractiveTextArea = ({
     updateSuggestionsPosition();
 
     window.addEventListener('resize', updateSuggestionsPosition);
-    window.addEventListener('scroll', updateSuggestionsPosition, true);
+    window.addEventListener('scroll', updateSuggestionsPosition, { capture: true, passive: true });
     return () => {
       window.removeEventListener('resize', updateSuggestionsPosition);
-      window.removeEventListener('scroll', updateSuggestionsPosition, true);
+      window.removeEventListener('scroll', updateSuggestionsPosition, { capture: true });
     };
   }, [showSuggestions, internalValue, updateSuggestionsPosition]);
 
   /**
    * Handle keyboard navigation in suggestions
+   * IMPORTANT: Only prevent Enter for auto-selecting a single mention suggestion.
+   * In all other cases, allow Enter to create line breaks naturally.
    */
   const handleKeyDown = useCallback((e) => {
-    if (!showSuggestions || suggestions.length === 0) return;
+    // Allow normal Enter behavior (line breaks) when:
+    // - Suggestions dropdown is not showing
+    // - No suggestions available
+    // - Multiple suggestions (user must click to select)
+    if (!showSuggestions || suggestions.length === 0) {
+      return; // Let Enter create line breaks
+    }
 
     if (e.key === 'Escape') {
+      e.preventDefault();
       setShowSuggestions(false);
       setMentionStart(-1);
     } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       // Could implement arrow key navigation for suggestions
-    } else if (e.key === 'Enter' && suggestions.length === 1) {
-      e.preventDefault();
-      handleMentionSelect(suggestions[0]);
+    } else if (e.key === 'Enter') {
+      // Only auto-select if there's exactly one suggestion
+      // Otherwise, allow line break
+      if (suggestions.length === 1) {
+        e.preventDefault();
+        handleMentionSelect(suggestions[0]);
+      }
+      // If multiple suggestions, Enter creates a line break (default behavior)
     }
   }, [showSuggestions, suggestions, handleMentionSelect]);
+
+  /**
+   * Handle selection changes from RichTextarea's onSelectionChange
+   * This provides better caret tracking than onSelect
+   * If user places cursor inside a highlighted mention, we don't trigger search
+   */
+  const handleSelectionChange = useCallback((range) => {
+    if (!range) return;
+
+    const pos = range.selectionStart;
+    setCursorPosition(pos);
+
+    // Check if cursor is inside a confirmed mention
+    const confirmed = confirmedMentionsRef.current;
+    const insideMention = confirmed.find(m => pos > m.start && pos < m.end);
+
+    if (insideMention) {
+      // Cursor is inside a mention - close any open suggestions
+      setShowSuggestions(false);
+      setMentionStart(-1);
+    }
+  }, []);
 
   /**
    * Handle clicks outside to close suggestions
@@ -530,47 +718,91 @@ const InteractiveTextArea = ({
     };
   }, []);
 
-  // Style function for rich-textarea to make mentions bold
-  const mentionStyle = useCallback((value) => {
-    // Match @Name or #Name patterns (mentions in display format)
-    const mentionRegex = /(@|#)([A-Za-z0-9\s\-']+)/g;
-    const matches = [];
-    let match;
+  /**
+   * Build regex pattern for highlighting known entity mentions
+   * Creates pattern like (@Name1|@Name2|#Item1|#Item2)
+   */
+  const mentionHighlightRegex = useMemo(() => {
+    if (!availableEntities || availableEntities.length === 0) return null;
 
-    while ((match = mentionRegex.exec(value)) !== null) {
-      const prefix = match[1];
-      const text = match[0];
-      // Styles per prefix: @ => user/destination/experience, # => plan-item
-      const baseStyle = {
-        fontWeight: 600,
-        padding: '2px 6px',
-        borderRadius: '6px',
-        display: 'inline-block',
-        lineHeight: '1.2',
-        pointerEvents: 'none'
-      };
+    // Build patterns for all known entities
+    const patterns = [];
+    (availableEntities || []).forEach(e => {
+      if (e.displayName) {
+        // Escape special regex characters in entity names
+        const escapedName = e.displayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const prefix = e.type === 'plan-item' ? '#' : '@';
+        patterns.push(`${prefix}${escapedName}`);
+      }
+    });
 
-      const atStyle = {
-        background: 'rgba(124,143,240,0.12)',
-        color: 'var(--color-text-primary)'
-      };
+    if (patterns.length === 0) return null;
 
-      const hashStyle = {
-        background: 'rgba(72,201,176,0.12)',
-        color: 'var(--color-text-primary)'
-      };
+    // Create regex that matches any known mention
+    // Use word boundary or lookahead for space/newline/@ /#/end
+    return new RegExp(`(${patterns.join('|')})(?=\\s|@|#|$|\\n)`, 'gi');
+  }, [availableEntities]);
 
-      const style = Object.assign({}, baseStyle, prefix === '@' ? atStyle : hashStyle);
+  /**
+   * Create combined renderer for all highlight patterns
+   * Includes: mentions, URLs, hashtags, emoji, and custom patterns
+   * This renderer is passed as children to RichTextarea
+   *
+   * IMPORTANT: createRegexRenderer requires regex with global 'g' flag.
+   * Each regex must be created fresh to avoid lastIndex issues.
+   */
+  const combinedRenderer = useMemo(() => {
+    // Build array of [pattern, style] pairs for createRegexRenderer
+    const renderers = [];
 
-      matches.push({
-        start: match.index,
-        end: match.index + text.length,
-        style
+    // 1. Mention highlighting (highest priority - entities)
+    if (mentionHighlightRegex) {
+      renderers.push([mentionHighlightRegex, MENTION_STYLE]);
+    }
+
+    // 2. URL highlighting - makes URLs visually distinct
+    if (highlightUrls) {
+      // Create fresh regex instance to avoid lastIndex state issues
+      renderers.push([
+        /https?:\/\/[-_.!~*'()a-zA-Z0-9;/?:@&=+$,%#]+/g,
+        URL_STYLE
+      ]);
+    }
+
+    // 3. Hashtag highlighting (general hashtags, not plan-item mentions)
+    if (highlightHashtags) {
+      renderers.push([
+        /#[a-zA-Z][a-zA-Z0-9_]*/g,
+        HASHTAG_STYLE
+      ]);
+    }
+
+    // 4. Emoji highlighting - subtle background to make emojis stand out
+    if (highlightEmoji) {
+      renderers.push([
+        /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu,
+        EMOJI_STYLE
+      ]);
+    }
+
+    // 5. Custom highlights from props
+    if (customHighlights && customHighlights.length > 0) {
+      customHighlights.forEach(({ pattern, style }) => {
+        if (pattern && style) {
+          renderers.push([pattern, style]);
+        }
       });
     }
 
-    return matches;
-  }, []);
+    // If no renderers configured, return undefined so RichTextarea renders plain text
+    if (renderers.length === 0) {
+      return undefined;
+    }
+
+    // Use createRegexRenderer with all patterns
+    // This returns a function: (value: string) => React.ReactNode
+    return createRegexRenderer(renderers);
+  }, [mentionHighlightRegex, highlightUrls, highlightHashtags, highlightEmoji, customHighlights]);
 
   return (
     <div ref={containerRef} className={`${styles.interactiveTextarea} ${className}`}>
@@ -579,13 +811,15 @@ const InteractiveTextArea = ({
         value={internalValue}
         onChange={(e) => handleInputChange(e)}
         onKeyDown={handleKeyDown}
+        onSelectionChange={handleSelectionChange}
         placeholder={placeholder}
         rows={rows}
         disabled={disabled}
         className={styles.interactiveTextareaInput}
-        style={mentionStyle}
         {...props}
-      />
+      >
+        {combinedRenderer || undefined}
+      </RichTextarea>
 
       {/* Suggestions dropdown */}
       {showSuggestions && (
@@ -598,24 +832,32 @@ const InteractiveTextArea = ({
               </div>
             </div>
           ) : suggestions.length > 0 ? (
-            suggestions.map((entity, index) => (
-              <div
-                key={`${entity.type}-${entity.id}`}
-                className={styles.mentionSuggestionItem}
-                onClick={() => handleMentionSelect(entity)}
-              >
-                <div className={styles.mentionSuggestionIcon}>
-                  {entity.type === MENTION_TYPES.USER && '👤'}
-                  {entity.type === MENTION_TYPES.DESTINATION && '📍'}
-                  {entity.type === MENTION_TYPES.EXPERIENCE && '🎯'}
-                  {entity.type === 'plan-item' && '✅'}
+            suggestions.map((entity) => {
+              // Ensure displayName is always defined - compute once for both display and click
+              const displayName = entity.displayName || entity.name ||
+                (entity.type === 'user' ? 'Unknown User' :
+                 entity.type === 'destination' ? 'Unknown Destination' :
+                 entity.type === 'experience' ? 'Unknown Experience' :
+                 entity.type === 'plan-item' ? 'Unknown Item' : 'Unknown');
+              return (
+                <div
+                  key={`${entity.type}-${entity.id}`}
+                  className={styles.mentionSuggestionItem}
+                  onClick={() => handleMentionSelect({ ...entity, displayName })}
+                >
+                  <div className={styles.mentionSuggestionIcon}>
+                    {entity.type === MENTION_TYPES.USER && '👤'}
+                    {entity.type === MENTION_TYPES.DESTINATION && '📍'}
+                    {entity.type === MENTION_TYPES.EXPERIENCE && '🎯'}
+                    {entity.type === 'plan-item' && '✅'}
+                  </div>
+                  <div className={styles.mentionSuggestionContent}>
+                    <div className={styles.mentionSuggestionName}>{displayName}</div>
+                    <div className={styles.mentionSuggestionType}>{formatEntityTypeLabel(entity.type)}</div>
+                  </div>
                 </div>
-                <div className={styles.mentionSuggestionContent}>
-                  <div className={styles.mentionSuggestionName}>{entity.displayName}</div>
-                  <div className={styles.mentionSuggestionType}>{formatEntityTypeLabel(entity.type)}</div>
-                </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className={styles.mentionSuggestionItem}>
               <div className={styles.mentionSuggestionIcon}>🔍</div>

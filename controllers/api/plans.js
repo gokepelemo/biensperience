@@ -299,6 +299,14 @@ const getUserPlans = asyncHandler(async (req, res) => {
         select: 'name country'
       }
     })
+    .populate({
+      path: 'plan.details.notes.user',
+      select: 'name email photos default_photo_id oauthProfilePhoto',
+      populate: {
+        path: 'photos',
+        select: 'url caption'
+      }
+    })
     .sort({ updatedAt: -1 });
 
   if (paginate) {
@@ -364,6 +372,14 @@ const getPlanById = asyncHandler(async (req, res) => {
         path: 'destination',
         select: 'name country'
       }
+    })
+    .populate({
+      path: 'plan.details.notes.user',
+      select: 'name email photos default_photo_id oauthProfilePhoto',
+      populate: {
+        path: 'photos',
+        select: 'url caption'
+      }
     });
 
   if (!plan) {
@@ -404,7 +420,7 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
     experience: experienceId,
     $or: [
       { user: req.user._id }, // User's own plan
-      { 
+      {
         'permissions': {
           $elemMatch: {
             '_id': req.user._id,
@@ -428,6 +444,14 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
     populate: {
       path: 'destination',
       select: 'name country'
+    }
+  })
+  .populate({
+    path: 'plan.details.notes.user',
+    select: 'name email photos default_photo_id oauthProfilePhoto',
+    populate: {
+      path: 'photos',
+      select: 'url caption'
     }
   })
   .sort({ updatedAt: -1 });
@@ -1745,8 +1769,15 @@ const addPlanItemNote = asyncHandler(async (req, res) => {
 
   await plan.save();
 
-  // Populate user data for response
-  await plan.populate('plan.details.notes.user', 'name email');
+  // Populate user data for response (include photo fields for avatar display)
+  await plan.populate({
+    path: 'plan.details.notes.user',
+    select: 'name email photos default_photo_id oauthProfilePhoto',
+    populate: {
+      path: 'photos',
+      select: 'url caption'
+    }
+  });
   await plan.populate('experience', 'name');
 
   backendLogger.info('Note added to plan item', {
@@ -1855,7 +1886,15 @@ const updatePlanItemNote = asyncHandler(async (req, res) => {
   note.content = content.trim();
   await plan.save();
 
-  await plan.populate('plan.details.notes.user', 'name email');
+  // Populate user data for response (include photo fields for avatar display)
+  await plan.populate({
+    path: 'plan.details.notes.user',
+    select: 'name email photos default_photo_id oauthProfilePhoto',
+    populate: {
+      path: 'photos',
+      select: 'url caption'
+    }
+  });
   await plan.populate('experience', 'name');
 
   backendLogger.info('Note updated on plan item', {
@@ -1976,7 +2015,15 @@ const deletePlanItemNote = asyncHandler(async (req, res) => {
   planItem.details.notes.pull(noteId);
   await plan.save();
 
-  await plan.populate('plan.details.notes.user', 'name email');
+  // Populate user data for response (include photo fields for avatar display)
+  await plan.populate({
+    path: 'plan.details.notes.user',
+    select: 'name email photos default_photo_id oauthProfilePhoto',
+    populate: {
+      path: 'photos',
+      select: 'url caption'
+    }
+  });
   await plan.populate('experience', 'name');
 
   backendLogger.info('Note deleted from plan item', {

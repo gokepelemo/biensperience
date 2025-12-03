@@ -30,9 +30,9 @@
     box-sizing: border-box;
   }
 
-  // Override any position: absolute on textarea
+  // Ensure textarea is full width without affecting position
+  // NOTE: Do NOT override position - RichTextarea needs absolute positioning for overlay alignment
   textarea {
-    position: relative !important;
     width: 100% !important;
   }
 }

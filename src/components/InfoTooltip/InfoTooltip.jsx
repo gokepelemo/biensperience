@@ -154,8 +154,8 @@ export default function InfoTooltip({
       closeTooltip(tooltipId);
     };
 
-    window.addEventListener('scroll', handleScroll, true);
-    return () => window.removeEventListener('scroll', handleScroll, true);
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    return () => window.removeEventListener('scroll', handleScroll, { capture: true });
   }, [isOpen, closeTooltip, tooltipId]);
 
   // Recalculate position on window resize

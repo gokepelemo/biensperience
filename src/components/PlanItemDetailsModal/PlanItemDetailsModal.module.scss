@@ -2,6 +2,53 @@
 
 /* Plan Item Details Modal - Theme-aware, mobile-friendly design */
 
+/* Editable title in modal header */
+.editableTitle {
+  cursor: pointer;
+  padding: $space-1 $space-2;
+  margin: -#{$space-1} -#{$space-2};
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast), text-decoration-color var(--transition-fast);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--color-text-muted);
+  text-underline-offset: 3px;
+
+  &:hover {
+    background: rgba(var(--color-primary-rgb), 0.1);
+    text-decoration-style: solid;
+    text-decoration-color: var(--color-primary);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.titleInput {
+  width: 100%;
+  min-width: 200px;
+  padding: $space-1 $space-2;
+  font-size: inherit;
+  font-weight: inherit;
+  font-family: inherit;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.2);
+
+  &:focus {
+    border-color: var(--color-primary);
+  }
+
+  @media (max-width: 768px) {
+    min-width: 150px;
+  }
+}
+
 .planItemDetailsModal {
   padding: 0;
   background: var(--color-bg-primary);
@@ -13,52 +60,34 @@
   min-height: 0; /* Allow flexbox to shrink */
 }
 
-/* Plan item header */
-.planItemHeader {
-  padding: $space-5 $space-6;
-  margin-bottom: 0;
-  background: var(--color-primary);
+/* Link bar - shown when plan item has external URL */
+.planItemLinkBar {
+  padding: $space-3 $space-6;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: $space-4;
-  border-bottom: none;
+  justify-content: flex-end;
 
   @media (max-width: 768px) {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: $space-4;
+    padding: $space-3 $space-4;
   }
-}
-
-.planItemTitle {
-  @include fluid-font($font-size-xl, 3vw, $font-size-2xl);
-  font-weight: $font-weight-semibold;
-  color: var(--color-text-on-primary, #ffffff);
-  margin: 0;
-  flex: 1;
-  word-break: break-word;
 }
 
 .planItemLink {
   @include button-base;
   font-size: $font-size-sm;
-  color: var(--color-text-on-primary, #ffffff);
-  background: rgba(255, 255, 255, 0.15);
-  border: 2px solid rgba(255, 255, 255, 0.5);
+  color: var(--color-primary);
+  background: transparent;
+  border: 1px solid var(--color-primary);
   text-decoration: none;
   white-space: nowrap;
   padding: $space-2 $space-4;
+  border-radius: var(--radius-md);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.25);
-    color: var(--color-text-on-primary, #ffffff);
-    border-color: rgba(255, 255, 255, 0.8);
+    background: rgba(var(--color-primary-rgb), 0.1);
+    color: var(--color-primary);
     transform: translateY(-1px);
-  }
-
-  @media (max-width: 768px) {
-    align-self: flex-end;
   }
 }
 
@@ -253,52 +282,17 @@
 .detailsContent {
   flex: 1; /* Take remaining space in flex container */
   min-height: 0; /* Allow flex item to shrink below content size */
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: $space-6;
+  overflow: hidden; /* Let child handle scrolling */
+  padding: 0; /* Remove padding - let child components handle their own padding */
   background: var(--color-bg-primary);
-  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-
-  /* Hide scrollbar unless hovering (desktop) - appears only when needed */
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-
-  &:hover {
-    scrollbar-color: var(--color-border-medium) transparent;
-  }
-
-  /* Webkit browsers */
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: transparent;
-    border-radius: 3px;
-  }
-
-  &:hover::-webkit-scrollbar-thumb {
-    background: var(--color-border-medium);
-  }
-
-  @media (max-width: 768px) {
-    padding: $space-4;
-    /* On mobile, use native scroll behavior */
-    scrollbar-width: none;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
-  }
+  display: flex;
+  flex-direction: column;
 }
 
 .comingSoonMessage {
   @include flex-center;
-  height: 200px;
+  flex: 1; /* Fill available space */
+  min-height: 200px;
   color: var(--color-text-muted);
   font-style: italic;
   font-size: $font-size-base;

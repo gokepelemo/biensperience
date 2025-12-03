@@ -20,10 +20,12 @@ export function escapeSelector(s) {
 }
 
 /**
- * Apply a transient shake animation to the closest `.plan-item-card` for the
- * given plan item id. Looks for `[data-plan-item-id]` first, then falls back
+ * Apply a transient shake animation to the closest `.plan-item-card` or `.compact-plan-item`
+ * for the given plan item id. Looks for `[data-plan-item-id]` first, then falls back
  * to `document.getElementById`.
- * Returns the card element when successful, otherwise null.
+ * Returns the card/item element when successful, otherwise null.
+ *
+ * Supports both Card View (.plan-item-card) and Compact View (.compact-plan-item)
  */
 export function highlightPlanItem(id) {
   if (!id || typeof window === 'undefined') return null;
@@ -38,16 +40,25 @@ export function highlightPlanItem(id) {
     try { el = document.getElementById(id); } catch (e) { el = null; }
   }
   if (!el) return null;
-  const card = el.closest && el.closest('.plan-item-card') ? el.closest('.plan-item-card') : el;
-    try {
-    card.classList.add('shake-animation');
+
+  // Support both Card View and Compact View
+  // Try .plan-item-card first (Card View), then .compact-plan-item (Compact View), fallback to element itself
+  let targetEl = el;
+  if (el.closest) {
+    const cardView = el.closest('.plan-item-card');
+    const compactView = el.closest('.compact-plan-item');
+    targetEl = cardView || compactView || el;
+  }
+
+  try {
+    targetEl.classList.add('shake-animation');
     setTimeout(() => {
-      try { card.classList.remove('shake-animation'); } catch (e) {}
-    }, 2000);
+      try { targetEl.classList.remove('shake-animation'); } catch (e) {}
+    }, 2500); // Match animation duration of 2.5s
   } catch (e) {
     // ignore DOM errors
   }
-  return card;
+  return targetEl;
 }
 
 /**
