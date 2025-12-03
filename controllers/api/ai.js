@@ -34,6 +34,43 @@ const DEFAULT_MODELS = {
   [AI_PROVIDERS.GEMINI]: 'gemini-1.5-flash'
 };
 
+// Allowlists of valid model names for each provider (prevents SSRF attacks)
+const VALID_MODELS = {
+  [AI_PROVIDERS.OPENAI]: [
+    'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4-turbo-preview', 'gpt-4',
+    'gpt-3.5-turbo', 'gpt-3.5-turbo-16k', 'o1-preview', 'o1-mini'
+  ],
+  [AI_PROVIDERS.ANTHROPIC]: [
+    'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307',
+    'claude-3-5-sonnet-20240620', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022',
+    'claude-sonnet-4-20250514', 'claude-opus-4-5-20251101'
+  ],
+  [AI_PROVIDERS.MISTRAL]: [
+    'mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest',
+    'open-mistral-7b', 'open-mixtral-8x7b', 'open-mixtral-8x22b',
+    'codestral-latest', 'mistral-embed'
+  ],
+  [AI_PROVIDERS.GEMINI]: [
+    'gemini-1.5-pro', 'gemini-1.5-pro-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-latest',
+    'gemini-1.0-pro', 'gemini-1.0-pro-latest', 'gemini-pro', 'gemini-pro-vision',
+    'gemini-2.0-flash-exp', 'gemini-exp-1206'
+  ]
+};
+
+/**
+ * Validate that a model name is in the allowlist for the given provider.
+ * This prevents SSRF attacks where malicious model names could redirect requests.
+ * @param {string} provider - The AI provider
+ * @param {string} model - The model name to validate
+ * @returns {boolean} - True if valid, false otherwise
+ */
+function isValidModel(provider, model) {
+  if (!model || typeof model !== 'string') return false;
+  const allowlist = VALID_MODELS[provider];
+  if (!allowlist) return false;
+  return allowlist.includes(model);
+}
+
 // Task types for routing
 const AI_TASKS = {
   AUTOCOMPLETE: 'autocomplete',
@@ -106,7 +143,20 @@ async function callOpenAI(messages, options = {}) {
     throw new Error('OpenAI API key not configured');
   }
 
-  const model = options.model || DEFAULT_MODELS[AI_PROVIDERS.OPENAI];
+  const requestedModel = options.model || DEFAULT_MODELS[AI_PROVIDERS.OPENAI];
+
+  // Validate model against allowlist for defense in depth
+  if (!isValidModel(AI_PROVIDERS.OPENAI, requestedModel)) {
+    logger.warn('Invalid OpenAI model requested, using default', {
+      requestedModel,
+      defaultModel: DEFAULT_MODELS[AI_PROVIDERS.OPENAI]
+    });
+  }
+
+  const model = isValidModel(AI_PROVIDERS.OPENAI, requestedModel)
+    ? requestedModel
+    : DEFAULT_MODELS[AI_PROVIDERS.OPENAI];
+
   const temperature = options.temperature ?? 0.7;
   const maxTokens = options.maxTokens || 1000;
 
@@ -153,7 +203,20 @@ async function callAnthropic(messages, options = {}) {
     throw new Error('Anthropic API key not configured');
   }
 
-  const model = options.model || DEFAULT_MODELS[AI_PROVIDERS.ANTHROPIC];
+  const requestedModel = options.model || DEFAULT_MODELS[AI_PROVIDERS.ANTHROPIC];
+
+  // Validate model against allowlist for defense in depth
+  if (!isValidModel(AI_PROVIDERS.ANTHROPIC, requestedModel)) {
+    logger.warn('Invalid Anthropic model requested, using default', {
+      requestedModel,
+      defaultModel: DEFAULT_MODELS[AI_PROVIDERS.ANTHROPIC]
+    });
+  }
+
+  const model = isValidModel(AI_PROVIDERS.ANTHROPIC, requestedModel)
+    ? requestedModel
+    : DEFAULT_MODELS[AI_PROVIDERS.ANTHROPIC];
+
   const temperature = options.temperature ?? 0.7;
   const maxTokens = options.maxTokens || 1000;
 
@@ -216,7 +279,20 @@ async function callMistral(messages, options = {}) {
     throw new Error('Mistral API key not configured');
   }
 
-  const model = options.model || DEFAULT_MODELS[AI_PROVIDERS.MISTRAL];
+  const requestedModel = options.model || DEFAULT_MODELS[AI_PROVIDERS.MISTRAL];
+
+  // Validate model against allowlist for defense in depth
+  if (!isValidModel(AI_PROVIDERS.MISTRAL, requestedModel)) {
+    logger.warn('Invalid Mistral model requested, using default', {
+      requestedModel,
+      defaultModel: DEFAULT_MODELS[AI_PROVIDERS.MISTRAL]
+    });
+  }
+
+  const model = isValidModel(AI_PROVIDERS.MISTRAL, requestedModel)
+    ? requestedModel
+    : DEFAULT_MODELS[AI_PROVIDERS.MISTRAL];
+
   const temperature = options.temperature ?? 0.7;
   const maxTokens = options.maxTokens || 1000;
 
@@ -262,7 +338,22 @@ async function callGemini(messages, options = {}) {
     throw new Error('Gemini API key not configured');
   }
 
-  const model = options.model || DEFAULT_MODELS[AI_PROVIDERS.GEMINI];
+  const requestedModel = options.model || DEFAULT_MODELS[AI_PROVIDERS.GEMINI];
+
+  // Validate model against allowlist to prevent SSRF attacks
+  // The model is used in the URL path, so we must validate it strictly
+  if (!isValidModel(AI_PROVIDERS.GEMINI, requestedModel)) {
+    logger.warn('Invalid Gemini model requested, using default', {
+      requestedModel,
+      defaultModel: DEFAULT_MODELS[AI_PROVIDERS.GEMINI]
+    });
+  }
+
+  // Use default if the requested model is not in the allowlist
+  const model = isValidModel(AI_PROVIDERS.GEMINI, requestedModel)
+    ? requestedModel
+    : DEFAULT_MODELS[AI_PROVIDERS.GEMINI];
+
   const temperature = options.temperature ?? 0.7;
   const maxTokens = options.maxTokens || 1000;
 
