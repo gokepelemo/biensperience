@@ -179,8 +179,9 @@ async function getBulkUsers(req, res) {
     }
 
     // Fetch all users in one query
+    // Include feature_flags and bio for curator status detection
     const users = await User.find({ _id: { $in: validIds } })
-      .select('name email photos default_photo_id createdAt')
+      .select('name email photos default_photo_id createdAt feature_flags bio')
       .populate("photos", "url caption")
       .lean();
 
@@ -225,11 +226,13 @@ async function updateUser(req, res, next) {
     // Whitelist allowed fields to prevent mass assignment vulnerabilities
     // Allow `preferences` so users can update theme, language, currency, etc.
     // Allow `location` for user location with geocoding support
-    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'oldPassword', 'preferences', 'location'];
+    // Allow `bio` and `links` for curator profile features
+    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'oldPassword', 'preferences', 'location', 'bio', 'links'];
     
-    // Super admins can also update their email confirmation status
+    // Super admins can also update email confirmation status and feature flags
     if (isSuperAdmin(req.user)) {
       allowedFields.push('emailConfirmed');
+      allowedFields.push('feature_flags');
     }
     
     const updateData = {};
@@ -469,9 +472,83 @@ async function updateUser(req, res, next) {
       }
     }
 
+    // Validate bio field if provided (curator profile feature)
+    if (updateData.bio !== undefined) {
+      if (updateData.bio === null || updateData.bio === '') {
+        validatedUpdateData.bio = null;
+      } else if (typeof updateData.bio === 'string' && updateData.bio.length <= 500) {
+        validatedUpdateData.bio = updateData.bio.trim();
+      }
+    }
+
+    // Validate links array if provided (curator profile feature)
+    if (updateData.links !== undefined) {
+      if (!Array.isArray(updateData.links)) {
+        validatedUpdateData.links = [];
+      } else {
+        const validLinks = updateData.links
+          .filter(link => {
+            if (!link || typeof link !== 'object') return false;
+            if (!link.title || typeof link.title !== 'string' || link.title.trim().length === 0) return false;
+            if (!link.url || typeof link.url !== 'string') return false;
+            // Basic URL validation
+            try {
+              new URL(link.url);
+              return true;
+            } catch (e) {
+              return false;
+            }
+          })
+          .map(link => ({
+            title: link.title.trim().substring(0, 100),
+            url: link.url.trim(),
+            meta: link.meta && typeof link.meta === 'object' ? link.meta : {}
+          }))
+          .slice(0, 10); // Limit to 10 links
+
+        validatedUpdateData.links = validLinks;
+      }
+    }
+
     // Add password to validated data if it passed validation
     if (updateData.password) {
       validatedUpdateData.password = updateData.password;
+    }
+
+    // Validate feature_flags if provided (super admin only)
+    if (updateData.feature_flags !== undefined && isSuperAdmin(req.user)) {
+      if (!Array.isArray(updateData.feature_flags)) {
+        validatedUpdateData.feature_flags = [];
+      } else {
+        // Known valid flags
+        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator'];
+
+        const validatedFlags = updateData.feature_flags
+          .filter(flag => {
+            if (!flag || typeof flag !== 'object') return false;
+            if (!flag.flag || typeof flag.flag !== 'string') return false;
+            // Only allow known flags
+            return validFlagKeys.includes(flag.flag.toLowerCase());
+          })
+          .map(flag => ({
+            flag: flag.flag.toLowerCase(),
+            enabled: Boolean(flag.enabled),
+            config: flag.config && typeof flag.config === 'object' ? flag.config : {},
+            granted_at: flag.granted_at || new Date(),
+            granted_by: flag.granted_by || req.user._id,
+            expires_at: flag.expires_at ? new Date(flag.expires_at) : null,
+            reason: typeof flag.reason === 'string' ? flag.reason.substring(0, 500) : null
+          }));
+
+        validatedUpdateData.feature_flags = validatedFlags;
+
+        backendLogger.info('Feature flags updated by super admin', {
+          adminId: req.user._id.toString(),
+          targetUserId: userId.toString(),
+          flagCount: validatedFlags.length,
+          flags: validatedFlags.map(f => ({ flag: f.flag, enabled: f.enabled }))
+        });
+      }
     }
 
     user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true })
@@ -499,8 +576,8 @@ async function updateUserAsAdmin(req, res) {
     }
     const userId = new mongoose.Types.ObjectId(req.params.id);
 
-    // Whitelist allowed fields for admin updates (includes emailConfirmed)
-    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'emailConfirmed'];
+    // Whitelist allowed fields for admin updates (includes emailConfirmed and feature_flags)
+    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'emailConfirmed', 'feature_flags', 'bio', 'links'];
     const updateData = {};
 
     for (const field of allowedFields) {
@@ -579,6 +656,64 @@ async function updateUserAsAdmin(req, res) {
     // Add emailConfirmed to validated data if provided
     if (updateData.emailConfirmed !== undefined) {
       validatedUpdateData.emailConfirmed = updateData.emailConfirmed;
+    }
+
+    // Validate and add feature_flags if provided
+    if (updateData.feature_flags !== undefined) {
+      if (!Array.isArray(updateData.feature_flags)) {
+        validatedUpdateData.feature_flags = [];
+      } else {
+        // Known valid flags
+        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator'];
+
+        const validatedFlags = updateData.feature_flags
+          .filter(flag => {
+            if (!flag || typeof flag !== 'object') return false;
+            if (!flag.flag || typeof flag.flag !== 'string') return false;
+            // Only allow known flags
+            return validFlagKeys.includes(flag.flag.toLowerCase());
+          })
+          .map(flag => ({
+            flag: flag.flag.toLowerCase(),
+            enabled: !!flag.enabled,
+            config: flag.config || {},
+            granted_at: flag.granted_at ? new Date(flag.granted_at) : new Date(),
+            granted_by: flag.granted_by || req.user._id,
+            expires_at: flag.expires_at ? new Date(flag.expires_at) : null,
+            reason: typeof flag.reason === 'string' ? flag.reason.substring(0, 500) : null
+          }));
+
+        validatedUpdateData.feature_flags = validatedFlags;
+
+        backendLogger.info('Feature flags updated by super admin', {
+          adminId: req.user._id.toString(),
+          targetUserId: userId.toString(),
+          flagCount: validatedFlags.length,
+          flags: validatedFlags.map(f => ({ flag: f.flag, enabled: f.enabled }))
+        });
+      }
+    }
+
+    // Validate and add bio if provided (curator feature)
+    if (updateData.bio !== undefined) {
+      if (typeof updateData.bio === 'string') {
+        validatedUpdateData.bio = updateData.bio.substring(0, 500).trim();
+      }
+    }
+
+    // Validate and add links if provided (curator feature)
+    if (updateData.links !== undefined) {
+      if (Array.isArray(updateData.links)) {
+        const validatedLinks = updateData.links
+          .filter(link => link && typeof link === 'object' && typeof link.url === 'string')
+          .slice(0, 10) // Limit to 10 links
+          .map(link => ({
+            title: typeof link.title === 'string' ? link.title.substring(0, 100).trim() : '',
+            url: link.url.substring(0, 2048).trim(),
+            meta: link.meta || {}
+          }));
+        validatedUpdateData.links = validatedLinks;
+      }
     }
 
     const user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true })

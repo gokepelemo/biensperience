@@ -8,7 +8,7 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-xl);
   margin-bottom: var(--space-8);
-  overflow: hidden;
+  overflow: visible; /* Allow dropdown to escape - border-radius handled on children */
   box-shadow: var(--shadow-sm);
 }
 
@@ -17,6 +17,7 @@
   height: 200px;
   background: var(--gradient-primary);
   position: relative;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0; /* Match parent border-radius for top corners */
 }
 
 /* Profile Header Body - contains avatar, info, stats */
@@ -32,7 +33,7 @@
   display: flex;
   gap: var(--space-6);
   flex-wrap: wrap;
-  align-items: flex-end; /* Align items to bottom so name doesn't appear in cover area */
+  align-items: flex-start; /* Align avatar and content to top */
 }
 
 /* Avatar Container - clickable wrapper for photo modal */
@@ -139,6 +140,60 @@
   margin-bottom: var(--space-4);
 }
 
+/* Curator Badge */
+.curatorBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%);
+  color: white;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-3);
+}
+
+/* Profile Links */
+.profileLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.profileLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: var(--color-bg-hover);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  span {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 /* Stats row */
 .profileStats {
   display: flex;
@@ -194,6 +249,8 @@
   align-items: flex-end;
   padding-top: var(--space-20); /* Push content below the cover overlap area */
   flex-shrink: 0;
+  position: relative;
+  z-index: 10; /* Ensure dropdown floats above other profile content */
 }
 
 /* Tab Navigation - underline style */
@@ -823,4 +880,77 @@
     justify-content: center;
     width: 100%;
   }
+}
+
+/* Feature Flags Pills - Super Admin Only */
+.featureFlagsPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.featureFlagPillActive {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%);
+  color: var(--color-white);
+  font-size: var(--font-size-sm);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .featureFlagName {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-white);
+  }
+
+  .featureFlagTier {
+    font-size: var(--font-size-xs);
+    padding: var(--space-0-5, 2px) var(--space-1);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--color-white);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+.featureFlagRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--color-white);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-left: var(--space-1);
+  padding: 0;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(1.1);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-white);
+    outline-offset: 1px;
+  }
+}
+
+.featureFlagAutocomplete {
+  margin-bottom: var(--space-2);
+  max-width: 300px;
 }

@@ -1,4 +1,4 @@
-import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera } from "react-icons/fa";
+import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera, FaStar, FaGlobe, FaExternalLinkAlt } from "react-icons/fa";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
 import styles from "./Profile.module.scss";
@@ -34,6 +34,7 @@ import { formatLocation } from "../../utilities/address-utils";
 import { logger } from "../../utilities/logger";
 import { eventBus } from "../../utilities/event-bus";
 import { broadcastEvent } from "../../utilities/event-bus";
+import { hasFeatureFlag } from "../../utilities/feature-flags";
 
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
@@ -798,6 +799,33 @@ export default function Profile() {
                     <p className={styles.profileBio}>
                       {currentProfile.bio}
                     </p>
+                  )}
+
+                  {/* Curator Badge */}
+                  {hasFeatureFlag(currentProfile, 'curator') && (
+                    <div className={styles.curatorBadge}>
+                      <FaStar /> Curator
+                    </div>
+                  )}
+
+                  {/* Curator Links */}
+                  {hasFeatureFlag(currentProfile, 'curator') && currentProfile?.links?.length > 0 && (
+                    <div className={styles.profileLinks}>
+                      {currentProfile.links.map((link, index) => (
+                        <a
+                          key={link._id || index}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.profileLink}
+                          title={link.title}
+                        >
+                          <FaGlobe />
+                          <span>{link.title}</span>
+                          <FaExternalLinkAlt size={10} />
+                        </a>
+                      ))}
+                    </div>
                   )}
 
                   {/* Compact Metrics Bar */}

@@ -106,6 +106,18 @@ export function formatFieldName(fieldName) {
 export function formatChanges(field, change, entityType = '') {
   const icon = getFieldIcon(field, entityType);
 
+  // Special handling for feature_flags
+  if (field === 'feature_flags' && change.added !== undefined && change.removed !== undefined) {
+    const changes = [];
+    if (change.added && change.added.length > 0) {
+      changes.push(`🚩 Added flags: ${change.added.join(', ')}`);
+    }
+    if (change.removed && change.removed.length > 0) {
+      changes.push(`🚩 Removed flags: ${change.removed.join(', ')}`);
+    }
+    return changes.length > 0 ? changes.join('\n') : '🚩 Feature Flags updated';
+  }
+
   // Handle numeric changes (costs, counts, etc.) with delta formatting
   if (typeof change.from === 'number' && typeof change.to === 'number') {
     const delta = change.to - change.from;

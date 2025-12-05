@@ -358,6 +358,67 @@ const userSchema = new Schema(
     },
 
     /**
+     * User's bio/about text (curator profile)
+     * Only displayed if user has curator feature flag
+     * @type {string}
+     */
+    bio: {
+      type: String,
+      trim: true,
+      maxLength: 500
+    },
+
+    /**
+     * User's external links (website, social, etc.)
+     * Only displayed if user has curator feature flag
+     * @type {Array<Object>}
+     */
+    links: {
+      type: [new Schema({
+        /**
+         * Display title for the link
+         * @type {string}
+         */
+        title: {
+          type: String,
+          required: true,
+          trim: true,
+          maxLength: 100
+        },
+        /**
+         * URL of the link
+         * @type {string}
+         */
+        url: {
+          type: String,
+          required: true,
+          trim: true,
+          validate: {
+            validator: function(v) {
+              // Basic URL validation
+              try {
+                new URL(v);
+                return true;
+              } catch (e) {
+                return false;
+              }
+            },
+            message: 'Invalid URL format'
+          }
+        },
+        /**
+         * Optional metadata for the link
+         * @type {Object}
+         */
+        meta: {
+          type: Schema.Types.Mixed,
+          default: {}
+        }
+      }, { _id: true })],
+      default: []
+    },
+
+    /**
      * User's location with GeoJSON-compatible coordinates
      * Supports city names, zip codes, and full addresses via geocoding
      * @type {Object}

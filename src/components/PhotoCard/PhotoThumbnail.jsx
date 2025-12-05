@@ -138,7 +138,7 @@ export default function PhotoThumbnail({
           src={displayPhoto.url}
           className="img-fluid"
           alt={hasRealPhotos ? `${imageAlt} thumbnail ${photoIndex + 1}` : `${imageAlt} placeholder thumbnail`}
-          title={hasRealPhotos ? (sanitizedCredit || `${imageAlt} ${photoIndex + 1}`) : undefined}
+          title={hasRealPhotos ? ((sanitizedCredit && sanitizedCredit.toLowerCase() !== 'biensperience') ? sanitizedCredit : `${imageAlt} ${photoIndex + 1}`) : undefined}
           loading="lazy"
           decoding="async"
           role={hasRealPhotos ? undefined : "presentation"}

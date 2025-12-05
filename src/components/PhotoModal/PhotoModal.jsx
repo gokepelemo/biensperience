@@ -168,7 +168,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
                   }
                 }}
                 aria-label={`View photo ${index + 1} of ${photoArray.length}${index === currentIndex ? ' (current)' : ''}`}
-                title={photo.photo_credit || `Photo ${index + 1}`}
+                title={(photo.photo_credit && photo.photo_credit.toLowerCase() !== 'biensperience') ? photo.photo_credit : `Photo ${index + 1}`}
               >
                 <img
                   src={photo.url}
@@ -180,7 +180,8 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
           </div>
         )}
 
-        {sanitizedCredit && (
+        {/* Photo credit - hide "Biensperience" default */}
+        {sanitizedCredit && sanitizedCredit.toLowerCase() !== "biensperience" && (
           <div className={styles.photoModalCredits}>
             <span>Photo by: </span>
             {sanitizedCreditUrl ? (

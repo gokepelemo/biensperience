@@ -44,6 +44,11 @@ export const FEATURE_FLAGS = {
     key: 'bulk_export',
     description: 'Bulk export of plans and experiences',
     tier: 'premium'
+  },
+  CURATOR: {
+    key: 'curator',
+    description: 'Curator designation for creating curated experiences',
+    tier: 'curator'
   }
 };
 

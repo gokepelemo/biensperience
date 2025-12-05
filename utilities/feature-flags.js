@@ -67,6 +67,15 @@ const FEATURE_FLAGS = {
     defaultEnabled: false,
     requiresAuth: true,
     tier: 'premium'
+  },
+
+  // Curator Features - Curated experience creators
+  CURATOR: {
+    key: 'curator',
+    description: 'Curator designation for creating curated experiences',
+    defaultEnabled: false,
+    requiresAuth: true,
+    tier: 'curator'
   }
 };
 

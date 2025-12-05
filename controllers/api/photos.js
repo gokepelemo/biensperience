@@ -206,7 +206,7 @@ async function createPhotoFromUrl(req, res) {
     }
 
     const photoData = {
-      photo_credit: photo_credit || 'Unknown',
+      photo_credit: photo_credit || 'Biensperience',
       photo_credit_url: photo_credit_url || url,
       url: url,
       permissions: [{

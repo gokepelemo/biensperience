@@ -171,7 +171,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
           src={displayPhoto.url}
           className={`img-fluid ${imageLoading ? 'loading' : 'loaded'}`}
           alt={hasRealPhotos ? imageAlt : `${imageAlt} placeholder`}
-          title={hasRealPhotos ? (sanitizedCredit || title) : undefined}
+          title={hasRealPhotos ? ((sanitizedCredit && sanitizedCredit.toLowerCase() !== 'biensperience') ? sanitizedCredit : title) : undefined}
           loading="lazy"
           decoding="async"
           role={hasRealPhotos ? undefined : "presentation"}
@@ -221,8 +221,8 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
         </div>
       )}
 
-      {/* Photo credit - only show for real photos with credit info */}
-      {hasRealPhotos && sanitizedCredit && sanitizedCredit !== "undefined" && (
+      {/* Photo credit - only show for real photos with credit info, hide "Biensperience" default */}
+      {hasRealPhotos && sanitizedCredit && sanitizedCredit !== "undefined" && sanitizedCredit.toLowerCase() !== "biensperience" && (
         <figcaption className={styles.photoCreditBlock}>
           <small>
             Photo by{" "}

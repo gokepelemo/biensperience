@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { FaUserPlus, FaTimes, FaUser, FaMapMarkerAlt, FaShare, FaRegImage } from "react-icons/fa";
+import { FaUserPlus, FaTimes, FaUser, FaMapMarkerAlt, FaShare, FaRegImage, FaStar } from "react-icons/fa";
 import { Row, Col, Badge } from "react-bootstrap";
 import { BsPlusCircle, BsPersonPlus, BsCheckCircleFill } from "react-icons/bs";
 import { useUser } from "../../contexts/UserContext";
@@ -32,6 +32,7 @@ import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
+import Tooltip from "../../components/Tooltip/Tooltip";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text, EmptyState, EntityNotFound } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
@@ -58,6 +59,7 @@ import { handleError } from "../../utilities/error-handler";
 import { createExpirableStorage, getCookieValue, setCookieValue } from "../../utilities/cookie-utils";
 import { formatCurrency } from "../../utilities/currency-utils";
 import { isOwner, canEditPlan } from "../../utilities/permissions";
+import { hasFeatureFlag } from "../../utilities/feature-flags";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import usePlanManagement from "../../hooks/usePlanManagement";
 import usePlanCosts from "../../hooks/usePlanCosts";
@@ -249,6 +251,9 @@ export default function SingleExperience() {
 
   // Photo upload modal state (for hero button when no photos)
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
+
+  // Curator tooltip state (two-click pattern: first shows tooltip, second navigates)
+  const [curatorTooltipVisible, setCuratorTooltipVisible] = useState(false);
 
   // Refs
   const planButtonRef = useRef(null);
@@ -2656,8 +2661,64 @@ export default function SingleExperience() {
                 </div>
 
                 {/* Tags Section */}
-                {(experience.experience_type || experience.destination) && (
+                {(experience.experience_type || experience.destination || (experienceOwner && hasFeatureFlag(experienceOwner, 'curator'))) && (
                   <div className={styles.tagsSection}>
+                    {/* Curated Experience Tag with tooltip - shown when owner has curator flag */}
+                    {experienceOwner && hasFeatureFlag(experienceOwner, 'curator') && (
+                      <Tooltip
+                        content={
+                          <div className={styles.curatorTooltipContent}>
+                            <div className={styles.curatorTooltipHeader}>
+                              <FaStar size={14} />
+                              <span className={styles.curatorTooltipName}>
+                                {experienceOwner.name || 'Curator'}
+                              </span>
+                            </div>
+                            {experienceOwner.bio && (
+                              <p className={styles.curatorTooltipBio}>
+                                {experienceOwner.bio.length > 150
+                                  ? `${experienceOwner.bio.substring(0, 150)}...`
+                                  : experienceOwner.bio}
+                              </p>
+                            )}
+                            <p className={styles.curatorTooltipCta}>
+                              Tap again to view profile
+                            </p>
+                          </div>
+                        }
+                        placement="bottom"
+                        trigger={['click']}
+                        rootClose
+                        show={curatorTooltipVisible}
+                        onToggle={(nextShow) => {
+                          if (curatorTooltipVisible && !nextShow) {
+                            // Tooltip was visible and user clicked again - navigate to profile
+                            navigate(`/profile/${experienceOwner._id}`);
+                            setCuratorTooltipVisible(false);
+                          } else {
+                            setCuratorTooltipVisible(nextShow);
+                          }
+                        }}
+                      >
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Curated by ${experienceOwner.name || 'Curator'}. Click for more info.`}
+                          style={{ textDecoration: 'none', cursor: 'pointer' }}
+                        >
+                          <Badge
+                            bg="secondary"
+                            className={styles.tag}
+                            style={{
+                              background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%)',
+                              color: 'white'
+                            }}
+                          >
+                            Curated Experience
+                          </Badge>
+                        </span>
+                      </Tooltip>
+                    )}
                     {experience.experience_type && (
                       Array.isArray(experience.experience_type)
                         ? experience.experience_type.map((type, index) => (

@@ -11,6 +11,7 @@ const mongoose = require("mongoose");
 const Activity = require('../../models/activity');
 const { sendCollaboratorInviteEmail } = require('../../utilities/email-service');
 const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion, trackCostAdded } = require('../../utilities/activity-tracker');
+const { hasFeatureFlag } = require('../../utilities/feature-flags');
 
 /**
  * Sanitize location data to prevent GeoJSON validation errors
@@ -256,6 +257,56 @@ const createPlan = asyncHandler(async (req, res) => {
         req,
         reason: `Plan created for experience "${experience.name}"`
       });
+
+      // If experience owner is a curator, log an activity for their dashboard
+      // Find the owner from permissions and check if they have the curator flag
+      const ownerPermission = experience.permissions?.find(p => p.type === 'owner' && p.entity === 'user');
+      if (ownerPermission && ownerPermission._id.toString() !== req.user._id.toString()) {
+        try {
+          // Fetch the owner to check their feature flags
+          const owner = await User.findById(ownerPermission._id).select('name feature_flags').lean();
+          if (owner && hasFeatureFlag(owner, 'curator')) {
+            await Activity.log({
+              action: 'plan_created',
+              actor: {
+                _id: req.user._id,
+                name: req.user.name,
+                email: req.user.email
+              },
+              resource: {
+                id: plan._id,
+                type: 'Plan',
+                name: `Plan for ${experience.name}`
+              },
+              target: {
+                id: owner._id,
+                type: 'User',
+                name: owner.name || 'Curator'
+              },
+              reason: `${req.user.name} planned your curated experience "${experience.name}"`,
+              metadata: {
+                ipAddress: req.ip,
+                userAgent: req.get('user-agent'),
+                requestPath: req.path,
+                requestMethod: req.method
+              },
+              tags: ['curator_activity', 'experience_planned']
+            });
+
+            backendLogger.info('Curator activity logged for experience plan', {
+              curatorId: owner._id.toString(),
+              experienceId: experience._id.toString(),
+              plannedByUserId: req.user._id.toString()
+            });
+          }
+        } catch (activityErr) {
+          backendLogger.warn('Failed to log curator activity', {
+            error: activityErr.message,
+            ownerId: ownerPermission._id.toString(),
+            experienceId: experience._id.toString()
+          });
+        }
+      }
     } catch (err) {
       backendLogger.error('Error in async post-creation tasks', {
         planId: plan._id.toString(),

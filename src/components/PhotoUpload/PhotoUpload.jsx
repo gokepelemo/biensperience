@@ -60,6 +60,7 @@ export default function PhotoUpload({ data, setData }) {
 
   const [urlQueue, setUrlQueue] = useState([]);
   const [editingUrlIndex, setEditingUrlIndex] = useState(null);
+  const [showCreditFields, setShowCreditFields] = useState(false);
 
   const [photos, setPhotos] = useState(() => {
     if (Array.isArray(data.photos_full) && data.photos_full.length > 0) return data.photos_full;
@@ -231,7 +232,7 @@ export default function PhotoUpload({ data, setData }) {
 
     const urlObject = {
       url: uploadForm.photo_url,
-      photo_credit: uploadForm.photo_credit || 'Unknown',
+      photo_credit: uploadForm.photo_credit || 'Biensperience',
       photo_credit_url: isSafeImageUrl(uploadForm.photo_credit_url) ? uploadForm.photo_credit_url : (isSafeImageUrl(uploadForm.photo_url) ? uploadForm.photo_url : ''),
       width: dimensions.width,
       height: dimensions.height
@@ -281,7 +282,7 @@ export default function PhotoUpload({ data, setData }) {
       const uploadPromises = urlQueue.map(item =>
         uploadPhotoUrl({
           url: item.url,
-          photo_credit: item.photo_credit || 'Unknown',
+          photo_credit: item.photo_credit || 'Biensperience',
           photo_credit_url: item.photo_credit_url || item.url,
           width: item.width || undefined,
           height: item.height || undefined
@@ -338,7 +339,7 @@ export default function PhotoUpload({ data, setData }) {
 
         const urlData = {
           url: uploadForm.photo_url,
-          photo_credit: uploadForm.photo_credit || 'Unknown',
+          photo_credit: uploadForm.photo_credit || 'Biensperience',
           photo_credit_url: isSafeImageUrl(uploadForm.photo_credit_url) ? uploadForm.photo_credit_url : uploadForm.photo_url,
           width: dimensions.width || undefined,
           height: dimensions.height || undefined
@@ -480,35 +481,50 @@ export default function PhotoUpload({ data, setData }) {
   return (
     <div className={styles.uploadPhoto} role="region" aria-label={lang.current.aria.photoUpload}>
       <div className={styles.uploadFormSection}>
-        <div className="mb-3">
-          <label htmlFor="photo_credit" className="visually-hidden">
-            Photo credit name
-          </label>
-          <FormControl
-            type="text"
-            name="photo_credit"
-            id="photo_credit"
-            onChange={handleFileChange}
-            value={uploadForm.photo_credit || ''}
-            placeholder={lang.current.placeholder.photoCredit}
-            aria-label={lang.current.aria.photoCreditName}
-          />
-        </div>
-        
-        <div className="mb-3">
-          <label htmlFor="photo_credit_url" className="visually-hidden">
-            Photo credit URL
-          </label>
-          <FormControl
-            type="text"
-            name="photo_credit_url"
-            id="photo_credit_url"
-            onChange={handleFileChange}
-            value={uploadForm.photo_credit_url || ''}
-            placeholder={lang.current.placeholder.photoCreditUrl}
-            aria-label={lang.current.aria.photoCreditUrl}
-          />
-        </div>
+        {showCreditFields ? (
+          <>
+            <div className="mb-3">
+              <label htmlFor="photo_credit" className="visually-hidden">
+                Photo credit name
+              </label>
+              <FormControl
+                type="text"
+                name="photo_credit"
+                id="photo_credit"
+                onChange={handleFileChange}
+                value={uploadForm.photo_credit || ''}
+                placeholder={lang.current.placeholder.photoCredit}
+                aria-label={lang.current.aria.photoCreditName}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label htmlFor="photo_credit_url" className="visually-hidden">
+                Photo credit URL
+              </label>
+              <FormControl
+                type="text"
+                name="photo_credit_url"
+                id="photo_credit_url"
+                onChange={handleFileChange}
+                value={uploadForm.photo_credit_url || ''}
+                placeholder={lang.current.placeholder.photoCreditUrl}
+                aria-label={lang.current.aria.photoCreditUrl}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="mb-3">
+            <button
+              type="button"
+              className="btn btn-link p-0 text-decoration-none"
+              onClick={() => setShowCreditFields(true)}
+              aria-expanded={showCreditFields}
+            >
+              + Add Photo Credits
+            </button>
+          </div>
+        )}
 
         {!useUrl ? (
           <>

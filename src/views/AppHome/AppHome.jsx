@@ -22,14 +22,25 @@ export default function AppHome() {
   const navigate = useNavigate();
   const [showAllDestinations, setShowAllDestinations] = useState(false);
   const [showAllExperiences, setShowAllExperiences] = useState(false);
+
   // Track whether initial data fetch has completed
-  const [initialFetchComplete, setInitialFetchComplete] = useState(false);
+  // Initialize to true if data already exists (prevents skeleton flash on cached data)
+  const [initialFetchComplete, setInitialFetchComplete] = useState(
+    () => (destinations.length > 0 || experiences.length > 0) && !loading
+  );
+
   const DESTINATIONS_INITIAL_DISPLAY = 10;
   const EXPERIENCES_INITIAL_DISPLAY = 12;
 
-  // Fetch fresh, unfiltered data when AppHome mounts
+  // Fetch fresh, unfiltered data when AppHome mounts (only if no data exists)
   // This ensures we show all destinations and experiences, not filtered data from other views
   useEffect(() => {
+    // Skip fetch if data already exists (was cached)
+    if (initialFetchComplete) {
+      logger.debug('AppHome: Data already loaded, skipping fetch');
+      return;
+    }
+
     let mounted = true;
     (async () => {
       try {
@@ -40,10 +51,6 @@ export default function AppHome() {
           applyExperiencesFilter({})
         ]);
         if (mounted) {
-          logger.debug('AppHome: Data fetch completed', {
-            destinationsCount: destinations.length,
-            experiencesCount: experiences.length
-          });
           setInitialFetchComplete(true);
         }
       } catch (err) {
@@ -54,7 +61,7 @@ export default function AppHome() {
       }
     })();
     return () => { mounted = false; };
-    // Run once on mount, not when destinations/experiences change
+    // Run once on mount - initialFetchComplete is stable after first render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

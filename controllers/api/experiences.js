@@ -8,6 +8,7 @@ const permissions = require('../../utilities/permissions');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require('../../utilities/backend-logger');
 const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activity-tracker');
+const { hasFeatureFlag } = require('../../utilities/feature-flags');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -399,6 +400,11 @@ async function createExperience(req, res) {
       });
     }
 
+    // Log if curator is creating experience (curated status derived from owner's feature flag)
+    if (hasFeatureFlag(req.user, 'curator')) {
+      backendLogger.info('Curator creating experience', { userId: req.user._id.toString(), name: req.body.name });
+    }
+
     let experience = await Experience.create(req.body);
     
     trackCreate({
@@ -429,7 +435,7 @@ async function showExperience(req, res) {
           model: "Photo",
           select: 'url caption'
         },
-        select: "name photos default_photo_id"
+        select: "name photos default_photo_id feature_flags bio"
       })
       .lean()
       .exec();

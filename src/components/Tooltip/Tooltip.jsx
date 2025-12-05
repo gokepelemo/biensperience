@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
 /**
  * Tooltip Component - Bootstrap Tooltip with Popper.js
  * Wraps child element with a tooltip that appears on hover/focus
- * 
+ *
  * @param {Object} props
  * @param {React.ReactNode} props.children - Element to attach tooltip to
  * @param {string|React.ReactNode} props.content - Tooltip content
@@ -17,6 +17,7 @@ import PropTypes from 'prop-types';
  * @param {string} [props.className] - Additional CSS class for tooltip
  * @param {boolean} [props.show] - Controlled show state
  * @param {Function} [props.onToggle] - Callback when tooltip toggles
+ * @param {boolean} [props.rootClose=false] - Close on click outside (for click-triggered tooltips)
  */
 export default function Tooltip({
   children,
@@ -29,6 +30,7 @@ export default function Tooltip({
   className = '',
   show,
   onToggle,
+  rootClose = false,
 }) {
 
   // If no content, just return children without tooltip
@@ -69,6 +71,7 @@ export default function Tooltip({
       show={show}
       onToggle={onToggle}
       popperConfig={popperConfig}
+      rootClose={rootClose}
     >
       {children}
     </OverlayTrigger>
@@ -86,6 +89,7 @@ Tooltip.propTypes = {
   className: PropTypes.string,
   show: PropTypes.bool,
   onToggle: PropTypes.func,
+  rootClose: PropTypes.bool,
 };
 
 /**

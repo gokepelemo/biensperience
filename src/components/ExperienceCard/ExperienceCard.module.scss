@@ -187,3 +187,36 @@
   animation: buttonPulse 0.8s $easing-ease-in-out infinite;
   opacity: 0.7;
 }
+
+/* Curator Badge */
+.curatorBadge {
+  position: absolute;
+  top: $space-2;
+  left: $space-2;
+  z-index: 10;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%);
+  color: white;
+  padding: $space-1 $space-2;
+  border-radius: $radius-md;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  display: flex;
+  align-items: center;
+  gap: $space-1;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+  max-width: calc(100% - #{$space-4});
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  .curatorIcon {
+    flex-shrink: 0;
+  }
+
+  .curatorName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
