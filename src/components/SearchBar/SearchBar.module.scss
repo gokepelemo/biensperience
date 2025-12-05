@@ -5,13 +5,30 @@
 .searchBarWrapper {
   position: relative;
   width: 100%;
-  max-width: 500px;
+  max-width: 280px;
+  transition: max-width 0.3s ease, width 0.3s ease;
+
+  /* Expand on focus-within (when input inside is focused) */
+  &:focus-within {
+    max-width: 75%;
+    min-width: 400px;
+
+    /* Ensure the dropdown is at least as wide as the expanded input */
+    :global(.autocompleteDropdown) {
+      min-width: 400px;
+    }
+  }
 }
 
 /* Sticky navbar search - using :global() for navbar class */
 :global(.navbar.sticky) {
   .searchBarWrapper {
-    max-width: 400px;
+    max-width: 240px;
+
+    &:focus-within {
+      max-width: 75%;
+      min-width: 400px;
+    }
   }
 }
 
@@ -20,6 +37,11 @@
   .searchBarWrapper {
     max-width: 100%;
     width: 100%;
+
+    &:focus-within {
+      max-width: 100%;
+      min-width: unset;
+    }
   }
 }
 
@@ -30,6 +52,11 @@
       max-width: 100%;
       width: 100%;
       margin-top: $space-2;
+
+      &:focus-within {
+        max-width: 100%;
+        min-width: unset;
+      }
     }
   }
 }
