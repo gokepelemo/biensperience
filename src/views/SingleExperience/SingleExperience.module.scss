@@ -12,6 +12,41 @@
    TWO-COLUMN LAYOUT (Storybook ExperienceDetailView)
    ============================================== */
 
+/* Breadcrumb Navigation */
+.breadcrumbNav {
+  margin-bottom: $space-4;
+
+  :global(.breadcrumb) {
+    background: transparent;
+    padding: 0;
+    margin-bottom: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  :global(.breadcrumb-item) {
+    color: var(--color-text-muted);
+
+    a {
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      transition: color var(--transition-fast);
+
+      &:hover {
+        color: var(--color-primary);
+      }
+    }
+
+    &.active {
+      color: var(--color-text-primary);
+      font-weight: var(--font-weight-medium);
+    }
+
+    + :global(.breadcrumb-item)::before {
+      color: var(--color-text-muted);
+    }
+  }
+}
+
 /* Main container for the experience detail view */
 .experienceDetailContainer {
   min-height: 100vh;
@@ -60,16 +95,20 @@
   background: rgba(255,255,255,0.06);
   border: 2px solid rgba(255,255,255,0.9);
   color: white;
-  width: 44px;
+  min-width: 44px;
   height: 44px;
+  padding: 0 $space-3;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: $space-2;
   cursor: pointer;
   z-index: 5;
   backdrop-filter: blur(4px);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
 
   &:hover {
     transform: translateY(-2px);
@@ -88,9 +127,16 @@
   @include breakpoint-max(md) {
     right: 8px;
     bottom: 8px;
-    width: 40px;
-    height: 40px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0 $space-2;
   }
+}
+
+/* Photo count text inside button */
+.photoCount {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
 }
 
 /* Tags Section - Below Hero */
@@ -798,12 +844,16 @@
   box-shadow: var(--shadow-sm);
   @include transition-all($transition-normal);
   border: 1px solid var(--color-border-light);
+  border-left: 3px solid transparent;
   padding: clamp(var(--space-3), 2.5vw, var(--space-6));
   margin-bottom: $space-3;
+  position: relative;
 
   &:hover {
     box-shadow: var(--shadow-md);
     border-color: var(--color-border-medium);
+    border-left-color: var(--color-primary);
+    background: var(--color-bg-hover, rgba(var(--color-primary-rgb, 99, 102, 241), 0.02));
   }
 
   &:last-child {

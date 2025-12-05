@@ -115,11 +115,30 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-full);
-  background-color: var(--color-bg-secondary);
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary, var(--color-bg-secondary)) 100%);
+  box-shadow: var(--shadow-sm);
+  animation: gentleFloat 3s ease-in-out infinite;
+}
+
+@keyframes gentleFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+// Respect reduced motion preference
+@media (prefers-reduced-motion: reduce) {
+  .iconContainer {
+    animation: none;
+  }
 }
 
 .icon {
   line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .title {

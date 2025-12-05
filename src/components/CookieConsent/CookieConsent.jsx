@@ -5,21 +5,24 @@
  * Integrates with cookie-utils to manage consent state
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useToast } from '../../contexts/ToastContext';
-import { 
-  hasConsentDecided, 
-  setConsentGiven, 
-  setConsentDeclined 
+import {
+  hasConsentDecided,
+  setConsentGiven,
+  setConsentDeclined
 } from '../../utilities/cookie-utils';
 import { lang } from '../../lang.constants';
 
 export default function CookieConsent() {
   const { addToast } = useToast();
+  // Track if we've already shown the consent toast this session
+  const hasShownRef = useRef(false);
 
   useEffect(() => {
-    // Only show consent toast if user hasn't decided yet
-    if (!hasConsentDecided()) {
+    // Only show consent toast if user hasn't decided yet AND we haven't shown it this session
+    if (!hasConsentDecided() && !hasShownRef.current) {
+      hasShownRef.current = true;
       addToast({
         message: lang.current.cookieConsent.message,
         type: 'primary',
@@ -48,7 +51,7 @@ export default function CookieConsent() {
         ]
       });
     }
-  }, [addToast]); // Re-run if addToast changes (shouldn't happen due to useCallback in context)
+  }, [addToast]); // Re-run if addToast changes - ref prevents duplicate toasts
 
   // This component doesn't render anything visible
   // It only manages the toast notification

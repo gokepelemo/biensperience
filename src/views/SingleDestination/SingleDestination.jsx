@@ -23,7 +23,7 @@ import { Container, Button, SkeletonLoader, EntityNotFound, EmptyState } from ".
 import Loading from "../../components/Loading/Loading";
 import { toggleUserFavoriteDestination, deleteDestination } from "../../utilities/destinations-api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
-import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage } from "react-icons/fa";
+import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage, FaLightbulb, FaCamera } from "react-icons/fa";
 import { Row, Col, Card } from "react-bootstrap";
 import { getDefaultPhoto } from "../../utilities/photo-utils";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
@@ -437,10 +437,41 @@ export default function SingleDestination() {
                   setShowPhotoViewer(true);
                 }
               }}
-              aria-label={destination.photos && destination.photos.length > 0 ? "View photos" : "Add photos"}
+              aria-label={heroPhotos.length > 0 ? `View ${heroPhotos.length} photo${heroPhotos.length !== 1 ? 's' : ''}` : "Add photos"}
             >
               <FaRegImage />
+              {heroPhotos.length > 0 && (
+                <span className={styles.photoCount}>{heroPhotos.length}</span>
+              )}
             </button>
+          </div>
+
+          {/* Stats Bar */}
+          <div className={styles.statsBar}>
+            <div className={styles.statItem}>
+              <FaPlane className={styles.statIcon} />
+              <span className={styles.statValue}>{experienceCount}</span>
+              <span className={styles.statLabel}>{experienceCount === 1 ? 'Experience' : 'Experiences'}</span>
+            </div>
+            <div className={styles.statItem}>
+              <FaHeart className={styles.statIcon} />
+              <span className={styles.statValue}>{favoriteCount}</span>
+              <span className={styles.statLabel}>{favoriteCount === 1 ? 'Favorite' : 'Favorites'}</span>
+            </div>
+            {destination.travel_tips?.length > 0 && (
+              <div className={styles.statItem}>
+                <FaLightbulb className={styles.statIcon} />
+                <span className={styles.statValue}>{destination.travel_tips.length}</span>
+                <span className={styles.statLabel}>{destination.travel_tips.length === 1 ? 'Travel Tip' : 'Travel Tips'}</span>
+              </div>
+            )}
+            {heroPhotos.length > 0 && (
+              <div className={styles.statItem}>
+                <FaCamera className={styles.statIcon} />
+                <span className={styles.statValue}>{heroPhotos.length}</span>
+                <span className={styles.statLabel}>{heroPhotos.length === 1 ? 'Photo' : 'Photos'}</span>
+              </div>
+            )}
           </div>
 
           {/* Content Grid */}

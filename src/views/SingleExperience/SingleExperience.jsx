@@ -13,8 +13,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { FaUserPlus, FaTimes, FaUser, FaMapMarkerAlt, FaShare, FaRegImage, FaStar } from "react-icons/fa";
-import { Row, Col, Badge } from "react-bootstrap";
+import { FaUserPlus, FaTimes, FaUser, FaMapMarkerAlt, FaShare, FaRegImage, FaStar, FaHome } from "react-icons/fa";
+import { Row, Col, Badge, Breadcrumb } from "react-bootstrap";
 import { BsPlusCircle, BsPersonPlus, BsCheckCircleFill } from "react-icons/bs";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
@@ -2611,6 +2611,27 @@ export default function SingleExperience() {
       {experience ? (
         <div className={styles.experienceDetailContainer}>
           <Container>
+            {/* Breadcrumb Navigation */}
+            <nav className={styles.breadcrumbNav} aria-label="breadcrumb">
+              <Breadcrumb>
+                <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
+                  <FaHome size={12} style={{ marginRight: '4px' }} />
+                  Home
+                </Breadcrumb.Item>
+                {experience.destination && (
+                  <Breadcrumb.Item
+                    linkAs={Link}
+                    linkProps={{ to: `/destinations/${experience.destination._id}` }}
+                  >
+                    {experience.destination.name}
+                  </Breadcrumb.Item>
+                )}
+                <Breadcrumb.Item active>
+                  {experience.name}
+                </Breadcrumb.Item>
+              </Breadcrumb>
+            </nav>
+
             <Row>
               {/* Main Content Column (8 cols on lg+) */}
               <Col lg={8}>
@@ -2654,9 +2675,12 @@ export default function SingleExperience() {
                         setShowPhotoViewer(true);
                       }
                     }}
-                    aria-label={experience.photos && experience.photos.length > 0 ? "View photos" : "Add photos"}
+                    aria-label={heroPhotos.length > 0 ? `View ${heroPhotos.length} photo${heroPhotos.length !== 1 ? 's' : ''}` : "Add photos"}
                   >
                     <FaRegImage />
+                    {heroPhotos.length > 0 && (
+                      <span className={styles.photoCount}>{heroPhotos.length}</span>
+                    )}
                   </button>
                 </div>
 
