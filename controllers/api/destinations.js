@@ -8,6 +8,7 @@ const permissions = require("../../utilities/permissions");
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require("../../utilities/backend-logger");
 const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activity-tracker');
+const { broadcastEvent } = require('../../utilities/websocket-server');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -160,7 +161,7 @@ async function createDestination(req, res) {
     }
 
     const destination = await Destination.create(destinationData);
-    
+
     // Track creation (non-blocking)
     trackCreate({
       resource: destination,
@@ -169,7 +170,17 @@ async function createDestination(req, res) {
       req,
       reason: `Destination "${destination.name}" created`
     });
-    
+
+    // Broadcast destination creation via WebSocket (async, non-blocking)
+    try {
+      broadcastEvent('destination', destination._id.toString(), {
+        type: 'destination:created',
+        payload: { destination, userId: req.user._id.toString() }
+      });
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast destination creation', { error: wsErr.message });
+    }
+
     res.json(destination);
   } catch (err) {
     backendLogger.error('Error creating destination', { error: err.message, userId: req.user._id, name: req.body.name, country: req.body.country });
@@ -273,9 +284,25 @@ async function updateDestination(req, res) {
       fieldsToTrack: Object.keys(req.body),
       reason: `Destination "${destination.name}" updated`
     });
-    
+
     // Populate photos field for response (consistent with showDestination)
     await destination.populate('photos');
+
+    // Broadcast destination update via WebSocket
+    try {
+      broadcastEvent('destination', req.params.id.toString(), {
+        type: 'destination:updated',
+        payload: {
+          destination,
+          destinationId: req.params.id.toString(),
+          updatedFields: Object.keys(req.body),
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast destination update', { error: wsErr.message });
+    }
+
     res.status(200).json(destination);
   } catch (err) {
     backendLogger.error('Error updating destination', { error: err.message, userId: req.user._id, destinationId: req.params.id });
@@ -318,8 +345,22 @@ async function deleteDestination(req, res) {
       req,
       reason: `Destination "${destination.name}" deleted`
     });
-    
+
     await destination.deleteOne();
+
+    // Broadcast destination deletion via WebSocket
+    try {
+      broadcastEvent('destination', req.params.id.toString(), {
+        type: 'destination:deleted',
+        payload: {
+          destinationId: req.params.id.toString(),
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast destination deletion', { error: wsErr.message });
+    }
+
     res.status(200).json({ message: 'Destination deleted successfully', destination });
   } catch (err) {
     backendLogger.error('Error deleting destination', { error: err.message, userId: req.user._id, destinationId: req.params.id });

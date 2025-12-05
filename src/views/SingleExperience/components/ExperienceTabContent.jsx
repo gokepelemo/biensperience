@@ -4,7 +4,7 @@
  * This is the "The Plan" tab showing the master plan items defined by the experience owner
  */
 
-import { useState, useRef, useEffect, memo } from 'react';
+import { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { BsPlusCircle, BsPersonPlus, BsThreeDotsVertical, BsListUl, BsCardList } from 'react-icons/bs';
 import {
@@ -353,12 +353,12 @@ const SortableCompactExperiencePlanItem = memo(function SortableCompactExperienc
       {/* Meta info - cost and planning days */}
       <span className="compact-item-meta">
         {Number(planItem.cost_estimate) > 0 && (
-          <span className="compact-meta-cost" title={`Cost: $${planItem.cost_estimate}`}>
+          <span className="compact-meta-cost" title={`Cost estimate: $${planItem.cost_estimate}`}>
             💰
           </span>
         )}
         {Number(planItem.planning_days) > 0 && (
-          <span className="compact-meta-days" title={`${planItem.planning_days} days`}>
+          <span className="compact-meta-days" title={`${planItem.planning_days} ${planItem.planning_days === 1 ? 'day' : 'days'}`}>
             ⏱️
           </span>
         )}
@@ -440,10 +440,22 @@ export default function ExperienceTabContent({
   onReorderExperiencePlanItems,
 
   // Language strings
-  lang
+  lang,
+
+  // Real-time presence
+  presenceConnected = false,
+  experienceMembers = []
 }) {
   // View state for plan items display (card or compact) - default to compact
   const [planItemsView, setPlanItemsView] = useState('compact');
+
+  // Compute online user IDs from presence data
+  const onlineUserIds = useMemo(() => {
+    if (!presenceConnected || !experienceMembers || experienceMembers.length === 0) {
+      return new Set();
+    }
+    return new Set(experienceMembers.map(member => member.userId?.toString()).filter(Boolean));
+  }, [presenceConnected, experienceMembers]);
 
   // Setup sensors for drag and drop
   const sensors = useSensors(
@@ -737,6 +749,8 @@ export default function ExperienceTabContent({
             experienceCollaboratorsLoading
           }
           reserveSpace={true}
+          showPresence={presenceConnected}
+          onlineUserIds={onlineUserIds}
         />
 
         {/* Action Dropdown - Right Side */}

@@ -19,6 +19,8 @@ import PropTypes from "prop-types";
  * @param {string} props.className - Additional CSS classes
  * @param {boolean} props.loading - Whether data is still loading (reserves space)
  * @param {boolean} props.reserveSpace - Whether to reserve space when no users (default: false)
+ * @param {Set|Array} props.onlineUserIds - Set or array of user IDs that are currently online
+ * @param {boolean} props.showPresence - Whether to show presence indicators (default: false)
  */
 const UsersListDisplay = ({
   owner,
@@ -31,8 +33,21 @@ const UsersListDisplay = ({
   size = 'md',
   className = "",
   loading = false,
-  reserveSpace = false
+  reserveSpace = false,
+  onlineUserIds = null,
+  showPresence = false
 }) => {
+  // Helper to check if a user is online
+  const isUserOnline = (userId) => {
+    if (!showPresence || !onlineUserIds || !userId) return false;
+    if (onlineUserIds instanceof Set) {
+      return onlineUserIds.has(userId.toString());
+    }
+    if (Array.isArray(onlineUserIds)) {
+      return onlineUserIds.some(id => id?.toString() === userId?.toString());
+    }
+    return false;
+  };
   // Reserve space if requested and no users (and not loading)
   if (!loading && reserveSpace && !owner && (!users || users.length === 0)) {
     return (
@@ -55,7 +70,12 @@ const UsersListDisplay = ({
         {showHeading && (
           <h6 className="mb-2">{heading || lang.current.heading.collaborators}</h6>
         )}
-        <UserAvatar user={owner} size={size} />
+        <UserAvatar
+          user={owner}
+          size={size}
+          showPresence={showPresence}
+          isOnline={isUserOnline(owner._id)}
+        />
       </div>
     );
   }
@@ -104,6 +124,8 @@ const UsersListDisplay = ({
                 user={owner}
                 size={size}
                 className="stacked-avatar"
+                showPresence={showPresence}
+                isOnline={isUserOnline(owner._id)}
               />
             )}
 
@@ -114,6 +136,8 @@ const UsersListDisplay = ({
                 user={user}
                 size={size}
                 className="stacked-avatar"
+                showPresence={showPresence}
+                isOnline={isUserOnline(user._id)}
               />
             ))}
 
@@ -162,6 +186,11 @@ UsersListDisplay.propTypes = {
   className: PropTypes.string,
   loading: PropTypes.bool,
   reserveSpace: PropTypes.bool,
+  onlineUserIds: PropTypes.oneOfType([
+    PropTypes.instanceOf(Set),
+    PropTypes.arrayOf(PropTypes.string),
+  ]),
+  showPresence: PropTypes.bool,
 };
 
 export default UsersListDisplay;

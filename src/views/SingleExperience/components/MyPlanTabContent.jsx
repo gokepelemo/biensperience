@@ -4,7 +4,7 @@
  * Updated to match The Plan tab design for cost and planning days display
  */
 
-import { useState, useRef, useEffect, memo, useCallback } from 'react';
+import { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsThreeDotsVertical, BsListUl, BsCardList } from 'react-icons/bs';
 import {
@@ -576,17 +576,17 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
       {/* Meta info - cost and planning days */}
       <span className="compact-item-meta">
         {Number(planItem.cost) > 0 && (
-          <span className="compact-meta-cost" title={`Cost: $${planItem.cost}`}>
+          <span className="compact-meta-cost" title={`Cost estimate: $${planItem.cost}`}>
             💰
           </span>
         )}
         {Number(planItem.planning_days) > 0 && (
-          <span className="compact-meta-days" title={`${planItem.planning_days} days`}>
+          <span className="compact-meta-days" title={`${planItem.planning_days} ${planItem.planning_days === 1 ? 'day' : 'days'}`}>
             ⏱️
           </span>
         )}
         {planItem.details?.notes?.length > 0 && (
-          <span className="compact-meta-notes" title={`${planItem.details.notes.length} notes`}>
+          <span className="compact-meta-notes" title={`${planItem.details.notes.length} ${planItem.details.notes.length === 1 ? 'note' : 'notes'}`}>
             📝 {planItem.details.notes.length}
           </span>
         )}
@@ -708,10 +708,23 @@ export default function MyPlanTabContent({
   costsLoading = false,
   onAddCost,
   onUpdateCost,
-  onDeleteCost
+  onDeleteCost,
+
+  // Real-time presence
+  presenceConnected = false,
+  planMembers = [],
+  setTyping
 }) {
   // View state for plan items display (card or compact) - default to compact
   const [planItemsView, setPlanItemsView] = useState('compact');
+
+  // Compute online user IDs from presence data
+  const onlineUserIds = useMemo(() => {
+    if (!presenceConnected || !planMembers || planMembers.length === 0) {
+      return new Set();
+    }
+    return new Set(planMembers.map(member => member.userId?.toString()).filter(Boolean));
+  }, [presenceConnected, planMembers]);
 
   // Setup sensors for drag and drop
   const sensors = useSensors(
@@ -1121,6 +1134,8 @@ export default function MyPlanTabContent({
               planOwnerLoading || planCollaboratorsLoading
             }
             reserveSpace={true}
+            showPresence={presenceConnected}
+            onlineUserIds={onlineUserIds}
           />
           <PlanActionsDropdown
             canEdit={canEdit}
@@ -1185,6 +1200,8 @@ export default function MyPlanTabContent({
             planOwnerLoading || planCollaboratorsLoading
           }
           reserveSpace={true}
+          showPresence={presenceConnected}
+          onlineUserIds={onlineUserIds}
         />
 
         {/* Action Buttons - Right Side */}

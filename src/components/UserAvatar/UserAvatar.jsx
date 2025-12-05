@@ -71,6 +71,8 @@ function sanitizeImageUrl(url) {
  * @param {Function} props.onClick - Optional click handler
  * @param {string} props.title - Optional tooltip text (defaults to user.name)
  * @param {boolean} props.includeSchema - Whether to include schema.org markup (default: false)
+ * @param {boolean} props.isOnline - Whether user is currently online (shows green border)
+ * @param {boolean} props.showPresence - Whether to show presence indicator (default: false)
  */
 const UserAvatar = ({
   user,
@@ -79,7 +81,9 @@ const UserAvatar = ({
   className = "",
   onClick,
   title,
-  includeSchema = false
+  includeSchema = false,
+  isOnline = false,
+  showPresence = false
 }) => {
   if (!user) return null;
 
@@ -148,7 +152,8 @@ const UserAvatar = ({
   );
 
   const sizeClass = styles[`userAvatar${size.charAt(0).toUpperCase() + size.slice(1)}`];
-  const avatarClasses = `${styles.userAvatar} ${sizeClass} ${className}`;
+  const presenceClass = showPresence ? (isOnline ? styles.presenceOnline : styles.presenceOffline) : '';
+  const avatarClasses = `${styles.userAvatar} ${sizeClass} ${presenceClass} ${className}`.trim();
   const avatarTitle = sanitizeText(title || user.name || '');
 
   if (linkToProfile && user._id) {
@@ -199,6 +204,8 @@ UserAvatar.propTypes = {
   onClick: PropTypes.func,
   title: PropTypes.string,
   includeSchema: PropTypes.bool,
+  isOnline: PropTypes.bool,
+  showPresence: PropTypes.bool,
 };
 
 export default UserAvatar;

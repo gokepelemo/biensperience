@@ -9,6 +9,7 @@ const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require('../../utilities/backend-logger');
 const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activity-tracker');
 const { hasFeatureFlag } = require('../../utilities/feature-flags');
+const { broadcastEvent } = require('../../utilities/websocket-server');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -406,7 +407,7 @@ async function createExperience(req, res) {
     }
 
     let experience = await Experience.create(req.body);
-    
+
     trackCreate({
       resource: experience,
       resourceType: 'Experience',
@@ -414,7 +415,17 @@ async function createExperience(req, res) {
       req,
       reason: `Experience "${experience.name}" created`
     });
-    
+
+    // Broadcast experience creation via WebSocket (async, non-blocking)
+    try {
+      broadcastEvent('experience', experience._id.toString(), {
+        type: 'experience:created',
+        payload: { experience, userId: req.user._id.toString() }
+      });
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast experience creation', { error: wsErr.message });
+    }
+
     res.status(201).json(experience);
   } catch (err) {
     backendLogger.error('Error creating experience', { error: err.message, userId: req.user._id, name: req.body.name, destination: req.body.destination });
@@ -857,7 +868,22 @@ async function updateExperience(req, res) {
       fieldsToTrack: Object.keys(updateData),
       reason: `Experience "${experience.name}" updated`
     });
-    
+
+    // Broadcast experience update via WebSocket (async, non-blocking)
+    try {
+      broadcastEvent('experience', experienceId.toString(), {
+        type: 'experience:updated',
+        payload: {
+          experience,
+          experienceId: experienceId.toString(),
+          updatedFields: Object.keys(updateData),
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString()); // Exclude sender from broadcast
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast experience update', { error: wsErr.message });
+    }
+
     res.status(200).json(experience);
   } catch (err) {
     backendLogger.error('Experience save error details', {
@@ -969,25 +995,62 @@ async function deleteExperience(req, res) {
       reason: `Experience "${experience.name}" deleted`
     });
     
+    // Get plan IDs before deletion so frontend can emit events for cascade-deleted plans
+    let deletedPlanIds = [];
+    let deletedPlansCount = 0;
+
     // Delete all plans associated with this experience
     // This prevents orphaned plans showing as "Unnamed Experience" on dashboards
     try {
-      const deletedPlansCount = await Plan.deleteMany({ experience: req.params.id });
-      backendLogger.info('Deleted associated plans', { 
-        experienceId: req.params.id, 
-        plansDeleted: deletedPlansCount.deletedCount 
+      // First, get the plan IDs so we can return them
+      const plansToDelete = await Plan.find({ experience: req.params.id }).select('_id user').lean();
+      deletedPlanIds = plansToDelete.map(p => ({
+        planId: p._id.toString(),
+        userId: p.user ? p.user.toString() : null
+      }));
+
+      // Then delete them
+      const deleteResult = await Plan.deleteMany({ experience: req.params.id });
+      deletedPlansCount = deleteResult.deletedCount;
+
+      backendLogger.info('Deleted associated plans', {
+        experienceId: req.params.id,
+        plansDeleted: deletedPlansCount,
+        planIds: deletedPlanIds.map(p => p.planId)
       });
     } catch (planDeleteErr) {
-      backendLogger.error('Error deleting associated plans', { 
-        error: planDeleteErr.message, 
-        experienceId: req.params.id 
+      backendLogger.error('Error deleting associated plans', {
+        error: planDeleteErr.message,
+        experienceId: req.params.id
       });
       // Don't fail the experience deletion if plan deletion fails
       // The plans will become orphaned but the experience deletion should succeed
     }
-    
+
     await experience.deleteOne();
-    res.status(200).json({ message: 'Experience deleted successfully' });
+
+    // Broadcast experience deletion via WebSocket (async, non-blocking)
+    try {
+      broadcastEvent('experience', req.params.id.toString(), {
+        type: 'experience:deleted',
+        payload: {
+          experienceId: req.params.id.toString(),
+          deletedPlans: deletedPlanIds,
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast experience deletion', { error: wsErr.message });
+    }
+
+    // Return deletion info including cascade-deleted plans for frontend event emission
+    res.status(200).json({
+      message: 'Experience deleted successfully',
+      deletedPlans: {
+        count: deletedPlansCount,
+        plans: deletedPlanIds
+      }
+    });
   } catch (err) {
     backendLogger.error('Error deleting experience', { error: err.message, userId: req.user._id, experienceId: req.params.id });
     res.status(400).json({ error: 'Failed to delete experience' });
@@ -1053,6 +1116,23 @@ async function createPlanItem(req, res) {
 
     experience.plan_items.push(planItemData);
     await experience.save();
+
+    // Get the newly created plan item (last one in array)
+    const newPlanItem = experience.plan_items[experience.plan_items.length - 1];
+
+    // Broadcast plan item creation via WebSocket
+    try {
+      broadcastEvent('experience', req.params.experienceId.toString(), {
+        type: 'experience:item:added',
+        payload: {
+          experienceId: req.params.experienceId.toString(),
+          planItem: newPlanItem,
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast plan item creation', { error: wsErr.message });
+    }
 
     // Re-fetch with populated permissions for consistent response
     experience = await Experience.findById(req.params.experienceId)
@@ -1153,6 +1233,21 @@ async function updatePlanItem(req, res) {
 
     await experience.save();
 
+    // Broadcast plan item update via WebSocket
+    try {
+      broadcastEvent('experience', req.params.experienceId.toString(), {
+        type: 'experience:item:updated',
+        payload: {
+          experienceId: req.params.experienceId.toString(),
+          planItemId: req.params.planItemId.toString(),
+          planItem: plan_item,
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast plan item update', { error: wsErr.message });
+    }
+
     // Re-fetch with populated permissions for consistent response
     experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
@@ -1235,9 +1330,23 @@ async function deletePlanItem(req, res) {
     if (!planItem) {
       return res.status(404).json({ error: 'Plan item not found' });
     }
-    
+
     planItem.deleteOne();
     await experience.save();
+
+    // Broadcast plan item deletion via WebSocket
+    try {
+      broadcastEvent('experience', req.params.experienceId.toString(), {
+        type: 'experience:item:deleted',
+        payload: {
+          experienceId: req.params.experienceId.toString(),
+          planItemId: req.params.planItemId.toString(),
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast plan item deletion', { error: wsErr.message });
+    }
 
     // Re-fetch with populated permissions for consistent response
     experience = await Experience.findById(req.params.experienceId)
@@ -2181,6 +2290,20 @@ async function reorderExperiencePlanItems(req, res) {
       itemCount: reorderedItems.length,
       userId: req.user._id.toString()
     });
+
+    // Broadcast plan items reorder via WebSocket
+    try {
+      broadcastEvent('experience', experienceId.toString(), {
+        type: 'experience:item:reordered',
+        payload: {
+          experienceId: experienceId.toString(),
+          planItems: reorderedItems,
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast plan items reorder', { error: wsErr.message });
+    }
 
     // Re-fetch with populated data for consistent response
     experience = await Experience.findById(experienceId)

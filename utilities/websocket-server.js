@@ -934,9 +934,74 @@ function getStats() {
   };
 }
 
+/**
+ * Broadcast an event to a room from a controller
+ * This is the primary method for controllers to push real-time updates
+ *
+ * @param {string} roomType - 'experience' or 'plan'
+ * @param {string} resourceId - The experience or plan ID
+ * @param {object} event - The event to broadcast
+ * @param {string} event.type - Event type (e.g., 'experience:updated', 'plan:item:added')
+ * @param {object} event.payload - Event payload data
+ * @param {string} [excludeUserId] - Optional user ID to exclude from broadcast (usually the sender)
+ */
+function broadcastEvent(roomType, resourceId, event, excludeUserId = null) {
+  if (!roomType || !resourceId || !event) {
+    backendLogger.warn('[WebSocket] broadcastEvent called with invalid params', {
+      roomType,
+      resourceId,
+      hasEvent: !!event
+    });
+    return;
+  }
+
+  const roomId = `${roomType}:${resourceId}`;
+  const room = rooms.get(roomId);
+
+  if (!room || room.size === 0) {
+    backendLogger.debug('[WebSocket] No clients in room, skipping broadcast', { roomId });
+    return;
+  }
+
+  const message = {
+    type: event.type || 'event:received',
+    payload: {
+      ...event.payload,
+      roomId,
+      timestamp: Date.now(),
+      version: event.version || Date.now()
+    }
+  };
+
+  let sentCount = 0;
+  room.forEach((ws) => {
+    // Skip if we should exclude this user
+    if (excludeUserId) {
+      const client = clients.get(ws);
+      if (client && client.userId === excludeUserId.toString()) {
+        return;
+      }
+    }
+
+    if (ws.readyState === WebSocket.OPEN) {
+      send(ws, message);
+      sentCount++;
+    }
+  });
+
+  backendLogger.debug('[WebSocket] Broadcast event sent', {
+    roomId,
+    eventType: event.type,
+    sentCount,
+    totalInRoom: room.size
+  });
+}
+
 module.exports = {
   createWebSocketServer,
   getStats,
+  broadcastEvent,
+  broadcastToRoom,
   // Expose for testing
   rooms,
   clients

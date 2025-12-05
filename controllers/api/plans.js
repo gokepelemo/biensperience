@@ -12,6 +12,7 @@ const Activity = require('../../models/activity');
 const { sendCollaboratorInviteEmail } = require('../../utilities/email-service');
 const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion, trackCostAdded } = require('../../utilities/activity-tracker');
 const { hasFeatureFlag } = require('../../utilities/feature-flags');
+const { broadcastEvent } = require('../../utilities/websocket-server');
 
 /**
  * Sanitize location data to prevent GeoJSON validation errors
@@ -213,6 +214,21 @@ const createPlan = asyncHandler(async (req, res) => {
 
   // Return immediately for fast response
   res.status(201).json(quickPopulatedPlan);
+
+  // Broadcast plan creation via WebSocket (async, non-blocking)
+  try {
+    // Broadcast to experience room (for other collaborators viewing the experience)
+    broadcastEvent('experience', experienceId.toString(), {
+      type: 'plan:created',
+      payload: {
+        plan: quickPopulatedPlan,
+        experienceId: experienceId.toString(),
+        userId: req.user._id.toString()
+      }
+    }, req.user._id.toString());
+  } catch (wsErr) {
+    backendLogger.warn('[WebSocket] Failed to broadcast plan creation', { error: wsErr.message });
+  }
 
   // Do permission enforcement and tracking asynchronously (don't block response)
   setImmediate(async () => {
@@ -795,6 +811,37 @@ const updatePlan = asyncHandler(async (req, res) => {
     reason: `Plan updated`
   });
 
+  // Broadcast plan update via WebSocket
+  try {
+    // Broadcast to both plan room and experience room
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:updated',
+      payload: {
+        plan: updatedPlan,
+        planId: id.toString(),
+        updatedFields: fieldsToTrack,
+        userId: req.user._id.toString()
+      }
+    }, req.user._id.toString());
+
+    // Also broadcast to experience room if experience ID is available
+    const experienceId = updatedPlan.experience?._id || plan.experience;
+    if (experienceId) {
+      broadcastEvent('experience', experienceId.toString(), {
+        type: 'plan:updated',
+        payload: {
+          plan: updatedPlan,
+          planId: id.toString(),
+          experienceId: experienceId.toString(),
+          updatedFields: fieldsToTrack,
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    }
+  } catch (wsErr) {
+    backendLogger.warn('[WebSocket] Failed to broadcast plan update', { error: wsErr.message });
+  }
+
   res.json(updatedPlan);
 });
 
@@ -885,6 +932,33 @@ const deletePlan = asyncHandler(async (req, res) => {
 
   // OPTIMIZATION 4: Wait for both operations in parallel
   await Promise.all([deletePromise, updateExperiencePromise]);
+
+  // Broadcast plan deletion via WebSocket
+  try {
+    // Broadcast to plan room
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:deleted',
+      payload: {
+        planId: id.toString(),
+        userId: req.user._id.toString()
+      }
+    }, req.user._id.toString());
+
+    // Also broadcast to experience room if experience ID is available
+    const experienceId = plan.experience?._id || plan.experience;
+    if (experienceId) {
+      broadcastEvent('experience', experienceId.toString(), {
+        type: 'plan:deleted',
+        payload: {
+          planId: id.toString(),
+          experienceId: experienceId.toString(),
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    }
+  } catch (wsErr) {
+    backendLogger.warn('[WebSocket] Failed to broadcast plan deletion', { error: wsErr.message });
+  }
 
   res.json({ message: "Plan deleted successfully" });
 });
@@ -1362,6 +1436,22 @@ const updatePlanItem = asyncHandler(async (req, res) => {
       });
     }
 
+    // Broadcast plan item update via WebSocket
+    try {
+      const updatedItem = updatedPlan.plan?.find(i => i._id?.toString() === itemId?.toString());
+      broadcastEvent('plan', id.toString(), {
+        type: 'plan:item:updated',
+        payload: {
+          planId: id.toString(),
+          planItemId: itemId.toString(),
+          planItem: updatedItem,
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast plan item update', { error: wsErr.message });
+    }
+
     // Explicitly convert to JSON to ensure virtuals are included
     return res.json(updatedPlan.toJSON());
   }
@@ -1465,6 +1555,21 @@ const updatePlanItem = asyncHandler(async (req, res) => {
       completed: willBeComplete,
       reason: `Plan item ${willBeComplete ? 'completed' : 'marked incomplete'}`
     });
+  }
+
+  // Broadcast plan item update via WebSocket
+  try {
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:item:updated',
+      payload: {
+        planId: id.toString(),
+        planItemId: itemId.toString(),
+        planItem: planItem,
+        userId: req.user._id.toString()
+      }
+    }, req.user._id.toString());
+  } catch (wsErr) {
+    backendLogger.warn('[WebSocket] Failed to broadcast plan item update', { error: wsErr.message });
   }
 
   // Explicitly convert to JSON to ensure virtuals are included
@@ -1656,6 +1761,20 @@ const deletePlanItem = asyncHandler(async (req, res) => {
 
   await plan.save();
 
+  // Broadcast plan item deletion via WebSocket
+  try {
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:item:deleted',
+      payload: {
+        planId: id.toString(),
+        planItemId: itemId.toString(),
+        userId: req.user._id.toString()
+      }
+    }, req.user._id.toString());
+  } catch (wsErr) {
+    backendLogger.warn('[WebSocket] Failed to broadcast plan item deletion', { error: wsErr.message });
+  }
+
   res.json(plan);
 });
 
@@ -1757,6 +1876,20 @@ const reorderPlanItems = asyncHandler(async (req, res) => {
     itemCount: reorderedItems.length,
     userId: req.user._id.toString()
   });
+
+  // Broadcast plan items reorder via WebSocket
+  try {
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:item:reordered',
+      payload: {
+        planId: id.toString(),
+        planItems: reorderedItems,
+        userId: req.user._id.toString()
+      }
+    }, req.user._id.toString());
+  } catch (wsErr) {
+    backendLogger.warn('[WebSocket] Failed to broadcast plan items reorder', { error: wsErr.message });
+  }
 
   // Populate experience for response
   await plan.populate('experience');

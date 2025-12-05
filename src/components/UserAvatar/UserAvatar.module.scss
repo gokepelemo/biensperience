@@ -76,3 +76,15 @@
     font-size: $font-size-xl;
   }
 }
+
+/* Presence Indicators */
+.presenceOnline {
+  border-color: var(--color-success, #22c55e) !important;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.presenceOffline {
+  border-color: var(--color-text-muted, #9ca3af) !important;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
