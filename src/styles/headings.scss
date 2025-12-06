@@ -177,8 +177,9 @@ h6, .h6 {
    ============================================ */
 
 /* Consistent spacing between headings and content */
-h1 + p, .h1 + p,
-h1 + div, .h1 + div {
+/* Note: Excludes visually-hidden h1 elements to prevent unwanted spacing on page containers */
+h1:not(.visually-hidden) + p, .h1:not(.visually-hidden) + p,
+h1:not(.visually-hidden) + div, .h1:not(.visually-hidden) + div {
   margin-top: var(--space-4);
 }
 

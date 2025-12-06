@@ -2,73 +2,150 @@
 
 /**
  * CostEntry Component Styles
+ *
+ * Mobile-first responsive form design using design system tokens.
+ * Follows the established form patterns for consistent UX.
  */
 
+// ============================================================================
+// FORM CONTAINER
+// ============================================================================
+
 .costEntryForm {
-  display: flex;
-  flex-direction: column;
-  gap: $space-3;
+  @include stack($space-5);
 }
+
+// ============================================================================
+// FORM GROUP - Consistent field wrapper
+// ============================================================================
+
+.formGroup {
+  @include stack($space-2);
+}
+
+.formLabel {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin-bottom: 0;
+}
+
+.formRequired {
+  color: var(--color-danger);
+  margin-left: $space-1;
+}
+
+.formHelp {
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+  margin-top: $space-1;
+}
+
+// ============================================================================
+// AMOUNT INPUT ROW - Currency selector + amount input
+// ============================================================================
 
 .costInputRow {
   display: flex;
-  gap: $space-2;
+  gap: $space-3;
   align-items: stretch;
 
-  @media (max-width: 480px) {
+  // Mobile: Stack vertically
+  @include breakpoint-max(sm) {
     flex-direction: column;
+    gap: $space-3;
   }
 }
 
 .currencySelect {
-  flex: 0 0 100px;
-  min-width: 100px;
+  flex: 0 0 auto;
+  min-width: 110px;
 
-  @media (max-width: 480px) {
-    flex: 1 1 auto;
+  // Mobile: Full width
+  @include breakpoint-max(sm) {
     min-width: 100%;
+    width: 100%;
   }
 
   select {
     height: 100%;
-  }
-}
+    min-height: var(--btn-height-md);
+    padding: $space-2 $space-3;
+    font-size: $font-size-base;
+    font-weight: $font-weight-medium;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-medium);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    @include transition-all($transition-fast);
 
-.categoryDateRow {
-  display: flex;
-  gap: $space-3;
-  align-items: flex-start;
-
-  @media (max-width: 480px) {
-    flex-direction: column;
-    gap: 0;
-
-    > div {
-      width: 100%;
+    &:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+      outline: none;
     }
   }
 }
 
-// Cost list styles (for displaying costs)
-.costList {
+.amountInputWrapper {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: $space-3;
+
+  // Mobile: Full width
+  @include breakpoint-max(sm) {
+    width: 100%;
+  }
+}
+
+// ============================================================================
+// CATEGORY & DATE ROW - Side by side on desktop
+// ============================================================================
+
+.categoryDateRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-4;
+
+  // Mobile: Stack vertically
+  @include breakpoint-max(sm) {
+    grid-template-columns: 1fr;
+    gap: $space-4;
+  }
+}
+
+// ============================================================================
+// COST LIST STYLES (for displaying costs)
+// ============================================================================
+
+.costList {
+  @include stack($space-3);
 }
 
 .costItem {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: $space-3;
+  padding: $space-4;
   background: var(--color-bg-secondary);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-light);
-  transition: var(--transition-fast);
+  @include transition-all($transition-fast);
+  gap: $space-3;
 
   &:hover {
     background: var(--color-bg-hover);
     border-color: var(--color-border-medium);
+
+    .costItemActions {
+      opacity: 1;
+    }
+  }
+
+  // Mobile: Stack content
+  @include breakpoint-max(sm) {
+    flex-direction: column;
+    gap: $space-3;
   }
 }
 
@@ -79,14 +156,17 @@
 
 .costItemTitle {
   font-weight: $font-weight-semibold;
+  font-size: $font-size-base;
   color: var(--color-text-primary);
   margin-bottom: $space-1;
+  @include line-clamp(2);
 }
 
 .costItemDescription {
   font-size: $font-size-sm;
   color: var(--color-text-secondary);
   margin-bottom: $space-2;
+  @include line-clamp(2);
 }
 
 .costItemMeta {
@@ -98,42 +178,66 @@
 }
 
 .costItemAmount {
-  font-size: $font-size-lg;
+  font-size: $font-size-xl;
   font-weight: $font-weight-bold;
   color: var(--color-primary);
   white-space: nowrap;
-  margin-left: $space-3;
+
+  // Mobile: Full width, align left
+  @include breakpoint-max(sm) {
+    font-size: $font-size-lg;
+    order: -1; // Move to top on mobile
+    padding-bottom: $space-2;
+    border-bottom: 1px solid var(--color-border-light);
+    width: 100%;
+  }
 }
 
 .costItemActions {
   display: flex;
-  gap: $space-1;
-  margin-left: $space-2;
+  gap: $space-2;
   opacity: 0;
-  transition: opacity var(--transition-fast);
+  @include transition-all($transition-fast);
 
-  .costItem:hover & {
+  // Mobile: Always visible
+  @include breakpoint-max(sm) {
     opacity: 1;
+    width: 100%;
+    justify-content: flex-end;
+    padding-top: $space-2;
+    border-top: 1px solid var(--color-border-light);
   }
 }
+
+// ============================================================================
+// EMPTY STATE
+// ============================================================================
 
 .emptyState {
   text-align: center;
-  padding: $space-6 $space-4;
+  padding: $space-8 $space-4;
   color: var(--color-text-secondary);
 
   .emptyIcon {
-    font-size: 2.5rem;
-    margin-bottom: $space-3;
+    font-size: 3rem;
+    margin-bottom: $space-4;
     opacity: 0.5;
+    color: var(--color-text-muted);
   }
 
   .emptyText {
-    margin-bottom: $space-4;
+    font-size: $font-size-base;
+    margin-bottom: $space-5;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 
-// Badge for cost assignee
+// ============================================================================
+// COST BADGE - For assignee/category tags
+// ============================================================================
+
 .costBadge {
   display: inline-flex;
   align-items: center;
@@ -142,8 +246,57 @@
   background: var(--color-bg-tertiary);
   border-radius: var(--radius-full);
   font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-secondary);
 
   .costBadgeIcon {
     font-size: 0.7rem;
+    opacity: 0.8;
+  }
+}
+
+// ============================================================================
+// DARK MODE SUPPORT
+// ============================================================================
+
+@media (prefers-color-scheme: dark) {
+  .currencySelect select {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-medium);
+    color: var(--color-text-primary);
+  }
+
+  .costItem {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-medium);
+
+    &:hover {
+      background: var(--color-bg-hover);
+    }
+  }
+
+  .costBadge {
+    background: var(--color-bg-tertiary);
+  }
+}
+
+[data-theme="dark"] {
+  .currencySelect select {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-medium);
+    color: var(--color-text-primary);
+  }
+
+  .costItem {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-medium);
+
+    &:hover {
+      background: var(--color-bg-hover);
+    }
+  }
+
+  .costBadge {
+    background: var(--color-bg-tertiary);
   }
 }

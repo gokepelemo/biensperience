@@ -12,8 +12,26 @@ import {
   formatFileSize,
   isSupportedDocument
 } from '../../utilities/document-viewer';
-import * as FaIcons from 'react-icons/fa';
+import {
+  FaFile,
+  FaFilePdf,
+  FaFileWord,
+  FaFileImage,
+  FaFileAlt,
+  FaChevronLeft,
+  FaChevronRight,
+  FaDownload
+} from 'react-icons/fa';
 import styles from './DocumentViewerModal.module.scss';
+
+// Map icon names to components for dynamic lookup (tree-shakeable)
+const DOCUMENT_ICONS = {
+  FaFile,
+  FaFilePdf,
+  FaFileWord,
+  FaFileImage,
+  FaFileAlt
+};
 
 // Dynamic import for react-pdf to avoid loading it unnecessarily
 let Document = null;
@@ -147,7 +165,7 @@ export default function DocumentViewerModal({
     if (!viewableContent) {
       return (
         <div className={styles.documentViewerPlaceholder}>
-          <FaIcons.FaFile className={styles.documentIcon} />
+          <FaFile className={styles.documentIcon} />
           <p>No document to display</p>
         </div>
       );
@@ -182,7 +200,7 @@ export default function DocumentViewerModal({
                 onClick={goToPrevPage}
                 disabled={pageNumber <= 1}
               >
-                <FaIcons.FaChevronLeft />
+                <FaChevronLeft />
               </Button>
               <span className={styles.pdfPageInfo}>
                 Page {pageNumber} of {numPages || '?'}
@@ -193,7 +211,7 @@ export default function DocumentViewerModal({
                 onClick={goToNextPage}
                 disabled={pageNumber >= numPages}
               >
-                <FaIcons.FaChevronRight />
+                <FaChevronRight />
               </Button>
             </div>
             <div className={styles.pdfContent}>
@@ -210,7 +228,7 @@ export default function DocumentViewerModal({
                 error={
                   <div className={styles.documentViewerError}>
                     <Alert type="danger">
-                      <strong>{lang.current.modal.errorLoadingPage}</strong> {pdfError}
+                      <strong>Error loading page:</strong> {pdfError}
                     </Alert>
                   </div>
                 }
@@ -246,7 +264,7 @@ export default function DocumentViewerModal({
       default:
         return (
           <div className={styles.documentViewerUnsupported}>
-            <FaIcons.FaFile className={styles.documentIcon} />
+            <FaFile className={styles.documentIcon} />
             <p>This document type is not supported for inline viewing.</p>
             <p>Please download the file to view it.</p>
           </div>
@@ -264,7 +282,7 @@ export default function DocumentViewerModal({
     if (!document?.docType) return null;
 
     const iconName = getDocumentIcon(document.docType);
-    const IconComponent = FaIcons[iconName];
+    const IconComponent = DOCUMENT_ICONS[iconName];
 
     return IconComponent ? <IconComponent className={styles.documentTypeIcon} /> : null;
   };
@@ -288,7 +306,7 @@ export default function DocumentViewerModal({
           onClick={handleDownload}
           disabled={loading}
         >
-          <FaIcons.FaDownload className="me-2" />
+          <FaDownload className="me-2" />
           Download
         </Button>
         <Button

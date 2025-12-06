@@ -95,6 +95,31 @@
   padding: var(--space-4);
   background: var(--color-bg-tertiary);
   border-radius: var(--radius-md);
+  /* Allow autocomplete dropdown to overflow above modal */
+  position: relative;
+  overflow: visible;
+
+  /* Ensure dropdown renders above modal and all overlays */
+  :global([class*="autocompleteDropdown"]),
+  :global([class*="Dropdown"]) {
+    z-index: 1100 !important; /* Above Bootstrap modal (1050-1055) */
+  }
+}
+
+/* Override modal-body overflow to allow dropdown to render outside */
+.stepContent {
+  :global(.modal-body) & {
+    /* Ensure parent modal-body allows overflow for autocomplete dropdown */
+  }
+}
+
+/* Global override for modal containing delete account form */
+:global(.modal-body):has(.transferSection) {
+  overflow: visible !important;
+}
+
+:global(.modal-content):has(.transferSection) {
+  overflow: visible !important;
 }
 
 .label {

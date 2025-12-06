@@ -13,6 +13,7 @@ const logger = require("morgan");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const session = require("express-session");
+const MongoStore = require("connect-mongo");
 const backendLogger = require("./utilities/backend-logger");
 const cookieParser = require("cookie-parser");
 const { doubleCsrf } = require("csrf-csrf");
@@ -55,22 +56,43 @@ app.use(cookieParser());
 
 /**
  * Session configuration
- * Uses secure cookies in production and memory store for development
+ * Uses MongoDB store in production to avoid memory leaks and support scaling
+ * Falls back to memory store in development/test environments
  */
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || process.env.SECRET,
-    resave: false,
-    saveUninitialized: true, // Changed to true to create sessions for CSRF tokens
-    cookie: {
-      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-      httpOnly: true, // Prevents client-side JS from accessing the cookie
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-    },
-    name: 'biensperience.sid', // Custom session cookie name
-  })
-);
+const isProduction = process.env.NODE_ENV === 'production';
+const sessionConfig = {
+  secret: process.env.SESSION_SECRET || process.env.SECRET,
+  resave: false,
+  saveUninitialized: true, // Changed to true to create sessions for CSRF tokens
+  cookie: {
+    secure: isProduction, // HTTPS only in production
+    httpOnly: true, // Prevents client-side JS from accessing the cookie
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: isProduction ? 'strict' : 'lax',
+  },
+  name: 'biensperience.sid', // Custom session cookie name
+};
+
+// Use MongoDB session store in production to prevent memory leaks
+if (isProduction && process.env.DATABASE_URL) {
+  sessionConfig.store = MongoStore.create({
+    mongoUrl: process.env.DATABASE_URL,
+    collectionName: 'sessions',
+    ttl: 24 * 60 * 60, // 24 hours in seconds (matches cookie maxAge)
+    autoRemove: 'native', // Use MongoDB TTL index for automatic cleanup
+    touchAfter: 24 * 3600, // Only update session once per 24 hours unless data changes
+    crypto: {
+      secret: process.env.SESSION_SECRET || process.env.SECRET
+    }
+  });
+  backendLogger.info('Session store: MongoDB (production)');
+} else if (isProduction) {
+  backendLogger.warn('Session store: MemoryStore (DATABASE_URL not set) - not recommended for production');
+} else {
+  backendLogger.info('Session store: MemoryStore (development)');
+}
+
+app.use(session(sessionConfig));
 
 /**
  * CSRF protection configuration
@@ -94,7 +116,6 @@ app.use(
  * - The security comes from the cookie-header comparison, not session binding
  * - JWT provides user authentication independently
  */
-const isProduction = process.env.NODE_ENV === 'production';
 const {
   generateCsrfToken, // Used to create a CSRF token pair (correct name from csrf-csrf v4)
   doubleCsrfProtection, // Middleware to validate CSRF tokens

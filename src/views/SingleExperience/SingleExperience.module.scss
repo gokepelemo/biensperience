@@ -161,6 +161,62 @@
   }
 }
 
+/* Stats Bar - Metrics display similar to SingleDestination */
+.statsBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-4;
+  padding: $space-4 $space-6;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  margin-bottom: $space-6;
+  border: 1px solid var(--color-border-light);
+
+  @include breakpoint-max(md) {
+    padding: $space-3 $space-4;
+    gap: $space-3;
+    margin-bottom: $space-4;
+    justify-content: center;
+  }
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding-right: $space-4;
+  border-right: 1px solid var(--color-border-light);
+
+  &:last-child {
+    border-right: none;
+    padding-right: 0;
+  }
+
+  @include breakpoint-max(md) {
+    flex: 1 1 40%;
+    justify-content: center;
+    border-right: none;
+    padding-right: 0;
+  }
+}
+
+.statIcon {
+  color: var(--color-primary);
+  font-size: var(--font-size-lg);
+  flex-shrink: 0;
+}
+
+.statValue {
+  font-weight: $font-weight-semibold;
+  font-size: var(--font-size-lg);
+  color: var(--color-text-primary);
+}
+
+.statLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
 /* Curator Tooltip Content */
 .curatorTooltipContent {
   text-align: left;

@@ -13,7 +13,7 @@ import {
   HashLink,
   EmptyState
 } from '../design-system';
-import { FaCheckCircle, FaCalendar, FaTasks, FaChevronRight, FaChevronDown, FaUsers, FaList, FaUser, FaUserFriends } from 'react-icons/fa';
+import { FaCheckCircle, FaCalendar, FaCalendarAlt, FaTasks, FaChevronRight, FaChevronDown, FaUsers, FaList, FaUser, FaUserFriends, FaThList } from 'react-icons/fa';
 import CostEstimate from '../CostEstimate/CostEstimate';
 import ActualCost from '../ActualCost/ActualCost';
 import Pill from '../Pill/Pill';
@@ -25,7 +25,14 @@ import { formatDateMetricCard } from '../../utilities/date-utils';
 import { eventBus } from '../../utilities/event-bus';
 import { lang } from '../../lang.constants';
 import { getTotalCostTooltip } from '../../utilities/cost-utils';
+import PlanCalendar from './PlanCalendar';
 import styles from './MyPlans.module.scss';
+
+// View mode options
+const VIEW_MODES = {
+  LIST: 'list',
+  CALENDAR: 'calendar'
+};
 
 const PLANS_PER_PAGE = 10;
 
@@ -39,6 +46,7 @@ const PLAN_FILTERS = {
 export default function MyPlans() {
   const [plans, setPlans] = useState([]);
   const [planFilter, setPlanFilter] = useState(PLAN_FILTERS.ALL);
+  const [viewMode, setViewMode] = useState(VIEW_MODES.LIST);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [expandedPlanId, setExpandedPlanId] = useState(null);
@@ -315,19 +323,45 @@ export default function MyPlans() {
         <div className={styles.headerWrapper}>
           <FlexBetween className="mb-2">
             <Heading level={4}>{lang.current.heading.plans}</Heading>
-            {plans.length > 0 && (
-              <div className={styles.planFilterDropdown}>
-                <SearchableSelect
-                  options={filterOptions}
-                  value={planFilter}
-                  onChange={setPlanFilter}
-                  placeholder="Filter plans"
-                  searchable={false}
-                  size="md"
-                  aria-label="Filter plans"
-                />
-              </div>
-            )}
+            <div className={styles.headerControls}>
+              {/* View mode toggle */}
+              {plans.length > 0 && (
+                <div className={styles.viewToggle} role="group" aria-label="View mode">
+                  <button
+                    type="button"
+                    className={`${styles.viewToggleButton} ${viewMode === VIEW_MODES.LIST ? styles.active : ''}`}
+                    onClick={() => setViewMode(VIEW_MODES.LIST)}
+                    aria-pressed={viewMode === VIEW_MODES.LIST}
+                    title="List view"
+                  >
+                    <FaThList size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.viewToggleButton} ${viewMode === VIEW_MODES.CALENDAR ? styles.active : ''}`}
+                    onClick={() => setViewMode(VIEW_MODES.CALENDAR)}
+                    aria-pressed={viewMode === VIEW_MODES.CALENDAR}
+                    title="Calendar view"
+                  >
+                    <FaCalendarAlt size={14} />
+                  </button>
+                </div>
+              )}
+              {/* Filter dropdown */}
+              {plans.length > 0 && (
+                <div className={styles.planFilterDropdown}>
+                  <SearchableSelect
+                    options={filterOptions}
+                    value={planFilter}
+                    onChange={setPlanFilter}
+                    placeholder="Filter plans"
+                    searchable={false}
+                    size="md"
+                    aria-label="Filter plans"
+                  />
+                </div>
+              )}
+            </div>
           </FlexBetween>
         </div>
         <Text size="sm" variant="muted" className="mb-4">
@@ -362,7 +396,13 @@ export default function MyPlans() {
           />
         )}
 
-        {!loading && displayedPlans.length > 0 && (
+        {/* Calendar View */}
+        {!loading && displayedPlans.length > 0 && viewMode === VIEW_MODES.CALENDAR && (
+          <PlanCalendar plans={displayedPlans} />
+        )}
+
+        {/* List View */}
+        {!loading && displayedPlans.length > 0 && viewMode === VIEW_MODES.LIST && (
           <Stack spacing="md">
             {displayedPlans.map((plan) => {
               const isExpanded = expandedPlanId === plan._id;

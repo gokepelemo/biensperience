@@ -70,23 +70,32 @@ export default function UpdateProfile() {
   }, [user, isAdminMode, navigate]);
 
   // Handle hash-based URL for delete account modal
+  // Track if modal was opened via hash (vs direct button click)
+  const [openedViaHash, setOpenedViaHash] = useState(false);
+
   useEffect(() => {
     const hash = location.hash.toLowerCase();
     if (hash === '#delete-account' || hash === '#delete') {
       logger.debug('[UpdateProfile] Opening delete account modal via hash');
       setShowDeleteAccountModal(true);
-    } else if (showDeleteAccountModal && hash === '') {
-      // Close modal if hash is cleared
+      setOpenedViaHash(true);
+    } else if (openedViaHash && hash === '') {
+      // Only close modal if it was opened via hash and hash is now cleared
       setShowDeleteAccountModal(false);
+      setOpenedViaHash(false);
     }
-  }, [location.hash, showDeleteAccountModal]);
+  }, [location.hash, openedViaHash]);
 
   // Clear hash when delete modal is closed
   const handleDeleteModalClose = () => {
     setShowDeleteAccountModal(false);
-    // Remove hash from URL
-    const newUrl = location.pathname + location.search;
-    navigate(newUrl, { replace: true });
+    // Only clear hash if it was opened via hash
+    if (openedViaHash) {
+      setOpenedViaHash(false);
+      // Remove hash from URL
+      const newUrl = location.pathname + location.search;
+      navigate(newUrl, { replace: true });
+    }
   };
 
   // Handle successful account deletion

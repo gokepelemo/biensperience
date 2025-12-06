@@ -7,7 +7,57 @@
 import React, { useMemo, useRef, useState, useEffect, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
-import * as FaIcons from 'react-icons/fa';
+// Import specific icons for tree-shaking (add icons here as needed for dynamic lookup)
+import {
+  FaCalendarAlt,
+  FaCalendar,
+  FaCheckCircle,
+  FaCheck,
+  FaDollarSign,
+  FaClock,
+  FaMapMarkerAlt,
+  FaPlane,
+  FaHotel,
+  FaUtensils,
+  FaCar,
+  FaUsers,
+  FaStar,
+  FaHeart,
+  FaFlag,
+  FaCompass,
+  FaGlobe,
+  FaSuitcase,
+  FaCamera,
+  FaInfoCircle,
+  FaExclamationTriangle,
+  FaTasks
+} from 'react-icons/fa';
+
+// Icon map for dynamic icon lookup by name (tree-shakeable)
+const FA_ICONS = {
+  FaCalendarAlt,
+  FaCalendar,
+  FaCheckCircle,
+  FaCheck,
+  FaDollarSign,
+  FaClock,
+  FaMapMarkerAlt,
+  FaPlane,
+  FaHotel,
+  FaUtensils,
+  FaCar,
+  FaUsers,
+  FaStar,
+  FaHeart,
+  FaFlag,
+  FaCompass,
+  FaGlobe,
+  FaSuitcase,
+  FaCamera,
+  FaInfoCircle,
+  FaExclamationTriangle,
+  FaTasks
+};
 import { formatDateMetricCard } from '../../utilities/date-utils';
 import { formatCostEstimate } from '../../utilities/cost-utils';
 import { formatPlanningTime } from '../../utilities/planning-time-utils';
@@ -38,7 +88,7 @@ function getFaIcon(iconName) {
 
   // If it already starts with Fa, use as-is
   if (normalizedName.startsWith('Fa')) {
-    return FaIcons[normalizedName] || null;
+    return FA_ICONS[normalizedName] || null;
   }
 
   // Convert kebab-case or snake_case to PascalCase
@@ -48,7 +98,7 @@ function getFaIcon(iconName) {
     .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join('');
 
-  return FaIcons[`Fa${pascalCase}`] || null;
+  return FA_ICONS[`Fa${pascalCase}`] || null;
 }
 
 /**

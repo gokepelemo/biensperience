@@ -4,6 +4,8 @@
  * Modal form for adding or editing cost entries in a plan.
  * Costs can be assigned to a specific collaborator (who paid),
  * linked to a specific plan item, or be shared/general costs.
+ *
+ * Designed mobile-first with responsive layout using design system tokens.
  */
 
 import { useState, useEffect, useMemo, useId } from 'react';
@@ -240,10 +242,10 @@ export default function CostEntry({
     >
       <form className={styles.costEntryForm} id={formId}>
         {/* Cost Title */}
-        <div className="mb-3">
-          <FormLabel htmlFor={`${formId}-title`}>
-            {costStrings.costTitle}{' '}
-            <span style={{ color: 'var(--bs-danger)' }}>*</span>
+        <div className={styles.formGroup}>
+          <FormLabel htmlFor={`${formId}-title`} className={styles.formLabel}>
+            {costStrings.costTitle}
+            <span className={styles.formRequired}>*</span>
           </FormLabel>
           <FormControl
             type="text"
@@ -262,8 +264,8 @@ export default function CostEntry({
         </div>
 
         {/* Cost Amount with Currency */}
-        <div className="mb-3">
-          <FormLabel htmlFor={`${formId}-cost`}>
+        <div className={styles.formGroup}>
+          <FormLabel htmlFor={`${formId}-cost`} className={styles.formLabel}>
             {costStrings.costAmount}
           </FormLabel>
           <div className={styles.costInputRow}>
@@ -281,7 +283,7 @@ export default function CostEntry({
                 ))}
               </FormSelect>
             </div>
-            <div className="input-group flex-grow-1">
+            <div className={`input-group ${styles.amountInputWrapper}`}>
               <span className="input-group-text">{currencySymbol}</span>
               <FormControl
                 type="text"
@@ -304,8 +306,8 @@ export default function CostEntry({
         </div>
 
         {/* Description (optional) */}
-        <div className="mb-3">
-          <FormLabel htmlFor={`${formId}-description`}>
+        <div className={styles.formGroup}>
+          <FormLabel htmlFor={`${formId}-description`} className={styles.formLabel}>
             {costStrings.costDescription}
           </FormLabel>
           <FormControl
@@ -321,8 +323,8 @@ export default function CostEntry({
         {/* Category and Date Row */}
         <div className={styles.categoryDateRow}>
           {/* Category */}
-          <div className="mb-3 flex-grow-1">
-            <FormLabel htmlFor={`${formId}-category`}>
+          <div className={styles.formGroup}>
+            <FormLabel htmlFor={`${formId}-category`} className={styles.formLabel}>
               {costStrings.category}
             </FormLabel>
             <FormSelect
@@ -341,8 +343,8 @@ export default function CostEntry({
           </div>
 
           {/* Date */}
-          <div className="mb-3 flex-grow-1">
-            <FormLabel htmlFor={`${formId}-date`}>
+          <div className={styles.formGroup}>
+            <FormLabel htmlFor={`${formId}-date`} className={styles.formLabel}>
               {costStrings.costDate}
             </FormLabel>
             <FormControl
@@ -352,16 +354,16 @@ export default function CostEntry({
               onChange={handleChange('date')}
               aria-label={costStrings.costDate}
             />
-            <Form.Text className="text-muted">
+            <span className={styles.formHelp}>
               {costStrings.costDateHelp}
-            </Form.Text>
+            </span>
           </div>
         </div>
 
         {/* Paid by (Collaborator) */}
         {collaborators.length > 0 && (
-          <div className="mb-3">
-            <FormLabel htmlFor={`${formId}-collaborator`}>
+          <div className={styles.formGroup}>
+            <FormLabel htmlFor={`${formId}-collaborator`} className={styles.formLabel}>
               {costStrings.assignedTo}
             </FormLabel>
             <FormSelect
@@ -376,16 +378,16 @@ export default function CostEntry({
                 </option>
               ))}
             </FormSelect>
-            <Form.Text className="text-muted">
+            <span className={styles.formHelp}>
               {costStrings.sharedCost}
-            </Form.Text>
+            </span>
           </div>
         )}
 
         {/* For Plan Item */}
         {planItems.length > 0 && (
-          <div className="mb-3">
-            <FormLabel htmlFor={`${formId}-planItem`}>
+          <div className={styles.formGroup}>
+            <FormLabel htmlFor={`${formId}-planItem`} className={styles.formLabel}>
               {costStrings.assignedToPlanItem}
             </FormLabel>
             <FormSelect
@@ -400,9 +402,9 @@ export default function CostEntry({
                 </option>
               ))}
             </FormSelect>
-            <Form.Text className="text-muted">
+            <span className={styles.formHelp}>
               {costStrings.generalCost}
-            </Form.Text>
+            </span>
           </div>
         )}
       </form>

@@ -9,6 +9,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { useExperienceWizard } from "../../contexts/ExperienceWizardContext";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
+import DestinationExperienceGrid from "./components/DestinationExperienceGrid";
 import TravelTipsList from "../../components/TravelTipsList/TravelTipsList";
 import { logger } from "../../utilities/logger";
 import { eventBus } from "../../utilities/event-bus";
@@ -44,7 +45,6 @@ export default function SingleDestination() {
   const [visibleExperiencesCount, setVisibleExperiencesCount] = useState(6);
   const [isLoading, setIsLoading] = useState(true);
   const h1Ref = useRef(null);
-  const loadMoreRef = useRef(null);
 
   // Favorite functionality state
   const [favHover, setFavHover] = useState(false);
@@ -410,30 +410,6 @@ export default function SingleDestination() {
   const displayedExperiences = allExperiences.slice(0, visibleExperiencesCount);
   const hasMoreExperiences = allExperiences.length > visibleExperiencesCount;
 
-  // Infinite scroll: load more experiences when sentinel comes into view
-  useEffect(() => {
-    if (!loadMoreRef.current || !hasMoreExperiences) return;
-
-    const currentRef = loadMoreRef.current;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          // Load 6 more experiences
-          setVisibleExperiencesCount((prev) => prev + 6);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(currentRef);
-
-    return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
-    };
-  }, [hasMoreExperiences]);
-
   // Reset visible count when destination changes
   useEffect(() => {
     setVisibleExperiencesCount(6);
@@ -654,67 +630,28 @@ export default function SingleDestination() {
               {/* Popular Experiences Section */}
               <Card className={styles.contentCard}>
                 <Card.Body className={styles.contentCardBody}>
-                  <h3 className={styles.sectionTitle}>
-                    {lang.current.heading.experiencesIn.replace('{destinationName}', destination.name)}
-                  </h3>
-                  {displayedExperiences.length > 0 ? (
-                    <>
-                      <Row className="justify-content-center">
-                        {displayedExperiences.map((experience, index) => (
-                          experience ? (
-                            <Col md={6} key={experience._id || index} className="d-flex justify-content-center" style={{ marginBottom: 'var(--space-4)' }}>
-                              <ExperienceCard
-                                experience={experience}
-                                userPlans={plans}
-                                forcePreload={true}
-                                onOptimisticDelete={(id) => {
-                                  // Remove the experience from directDestinationExperiences immediately
-                                  setDirectDestinationExperiences((prev) => {
-                                    if (!prev) return prev;
-                                    return prev.filter((e) => {
-                                      const eid = e?._id || e;
-                                      return String(eid) !== String(id);
-                                    });
-                                  });
-                                }}
-                              />
-                            </Col>
-                          ) : (
-                            <Col md={6} key={`placeholder-${index}`} className="d-flex justify-content-center" style={{ marginBottom: 'var(--space-4)' }}>
-                              <SkeletonLoader variant="rectangle" width="100%" height="280px" />
-                            </Col>
-                          )
-                        ))}
-                      </Row>
-                      {/* Infinite scroll sentinel - loads more when visible */}
-                      {hasMoreExperiences && (
-                        <div
-                          ref={loadMoreRef}
-                          style={{
-                            height: '20px',
-                            width: '100%',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            padding: '2rem 0'
-                          }}
-                        >
-                          <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-                            Loading more experiences...
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                      <EmptyState
-                      variant="experiences"
-                      title="No experiences in this destination yet"
-                      description="Be the first to add one and help others discover amazing activities here."
-                      primaryAction="Add Experience"
-                      onPrimaryAction={() => openExperienceWizard({ destinationId, destinationName: `${destination?.name}, ${destination?.country}` })}
-                      size="md"
-                    />
-                  )}
+                  <DestinationExperienceGrid
+                    experiences={allExperiences}
+                    destinationName={destination.name}
+                    destinationId={destinationId}
+                    destinationCountry={destination.country}
+                    visibleCount={visibleExperiencesCount}
+                    hasMore={hasMoreExperiences}
+                    onLoadMore={() => setVisibleExperiencesCount((prev) => prev + 6)}
+                    isLoading={isLoading}
+                    userPlans={plans}
+                    onOptimisticDelete={(id) => {
+                      // Remove the experience from directDestinationExperiences immediately
+                      setDirectDestinationExperiences((prev) => {
+                        if (!prev) return prev;
+                        return prev.filter((e) => {
+                          const eid = e?._id || e;
+                          return String(eid) !== String(id);
+                        });
+                      });
+                    }}
+                    onAddExperience={() => openExperienceWizard({ destinationId, destinationName: `${destination?.name}, ${destination?.country}` })}
+                  />
                 </Card.Body>
               </Card>
             </Col>

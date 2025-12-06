@@ -5,6 +5,52 @@
 
 @use '../../styles/scss/abstracts' as *;
 
+/* Header Controls Container */
+.headerControls {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+}
+
+/* View Toggle Buttons */
+.viewToggle {
+  display: flex;
+  background: var(--color-bg-secondary);
+  border-radius: $radius-md;
+  padding: 2px;
+  border: 1px solid var(--color-border-light);
+}
+
+.viewToggleButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: $radius-sm;
+  transition: all $transition-fast;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+
+  &.active {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: var(--shadow-sm);
+  }
+}
+
 /* Plan Filter Dropdown Wrapper */
 .planFilterDropdown {
   width: 225px;
@@ -21,17 +67,39 @@
       gap: $space-3;
     }
 
+    .headerControls {
+      justify-content: center;
+      flex-wrap: wrap;
+      order: 1;
+    }
+
     .planFilterDropdown {
       width: 100%;
       display: flex;
       justify-content: center;
       margin-bottom: $space-2;
-      order: 1; // Move below heading
 
       // Limit width for centered appearance
       > * {
         width: 225px;
       }
+    }
+  }
+
+  @include breakpoint-max(sm) {
+    .headerControls {
+      flex-direction: column;
+      gap: $space-2;
+    }
+
+    .viewToggle {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .viewToggleButton {
+      flex: 1;
+      max-width: 80px;
     }
   }
 }

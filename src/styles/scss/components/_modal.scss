@@ -74,25 +74,51 @@
 }
 
 .modal-header .btn-close {
-  /* Let Bootstrap handle the X character with pseudo-elements */
-  background: none;
+  /* Override Bootstrap's default btn-close for gradient headers */
+  background: transparent !important;
   border: none;
-  /* Ensure proper sizing without interfering with Bootstrap's X */
-  width: auto;
-  height: auto;
-  padding: $space-1 + 0.125rem;
+  /* Larger touch target (WCAG 2.5.5 - min 44x44px) */
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  margin: 0;
   margin-left: auto;
-  opacity: 0.8;
-  transition: opacity $transition-normal;
+  /* Display properties for custom × symbol */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Large, clearly visible × symbol */
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+  color: white;
+  opacity: 0.9;
+  /* Smooth transitions */
+  transition: opacity $transition-normal, background-color $transition-normal, transform $transition-normal;
   /* Ensure the button appears on top of gradient */
   position: relative;
   z-index: 1;
+  border-radius: $radius-md;
+  cursor: pointer;
 }
 
 .modal-header .btn-close:hover {
   opacity: 1;
-  /* Subtle background on hover for better visibility */
-  background-color: var(--color-border-light);
+  /* Semi-transparent white background on hover for better visibility */
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  transform: scale(1.05);
+}
+
+.modal-header .btn-close:focus {
+  opacity: 1;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+.modal-header .btn-close:active {
+  transform: scale(0.95);
 }
 
 /* ============================================

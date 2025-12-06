@@ -575,17 +575,17 @@
 
 /* Navbar search integration */
 .navbarSearch {
-  flex: 1 1 50%;
-  min-width: 300px;
-  max-width: 600px;
-  margin-left: $space-3;
-  transition: flex-basis var(--transition-normal) ease,
-              max-width var(--transition-normal) ease;
+  flex: 0 0 auto; /* Don't grow, don't shrink */
+  width: 300px;
+  min-width: 200px;
+  max-width: 400px;
+  margin-left: auto; /* Push to the right */
+  margin-right: $space-3;
+  transition: width var(--transition-normal) ease;
 
   /* Expand on focus-within for better usability */
   &:focus-within {
-    flex-basis: 60%;
-    max-width: 700px;
+    width: 400px;
   }
 
   @include breakpoint-max(lg) {
@@ -599,8 +599,7 @@
     box-sizing: border-box;
 
     &:focus-within {
-      flex-basis: 100%;
-      max-width: 100%;
+      width: 100%;
     }
   }
 }
