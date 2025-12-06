@@ -97,7 +97,8 @@ Options:
 Description:
   Generates comprehensive sample data for Biensperience including:
   - 1 super admin user (interactive or via flags) with API access and active session
-  - 180 regular users with varied profiles (configurable with --users):
+  - 1 demo user (demo@biensperience.com / demo123) for demo deployments
+  - 178 regular users with varied profiles (configurable with --users):
     * 80% email verified, 20% unverified (email verification flow)
     * 60% with active sessions (session tracking)
     * 30% with invite codes (invite system)
@@ -926,8 +927,39 @@ class DataGenerator {
     this.usedEmails.add(superAdminEmail);
     this.usedNames.add(superAdminName);
 
+    // Create fixed demo user for demo deployments
+    const demoUser = {
+      name: 'Demo User',
+      email: 'demo@biensperience.com',
+      password: 'demo123',
+      role: 'regular_user',
+      isDemoUser: true,
+      emailConfirmed: true, // Demo user always verified
+      apiEnabled: false,
+      visibility: 'public',
+      currentSessionId: this.generateSessionId(),
+      sessionCreatedAt: now,
+      sessionExpiresAt: expiresAt,
+      preferences: {
+        theme: 'system-default',
+        currency: 'USD',
+        timezone: 'America/New_York',
+        profileVisibility: 'public',
+        notifications: {
+          enabled: true,
+          channels: ['email'],
+          types: ['activity', 'reminder']
+        }
+      },
+      credentials: { name: 'Demo User', email: 'demo@biensperience.com', password: 'demo123' }
+    };
+    users.push(demoUser);
+    this.usedEmails.add('demo@biensperience.com');
+    this.usedNames.add('Demo User');
+
     // Generate regular users with unique names and emails
-    for (let i = 0; i < count - 1; i++) {
+    // Subtract 2 from count to account for super admin and demo user
+    for (let i = 0; i < count - 2; i++) {
       const { firstName, lastName, name } = this.generateUniqueName();
       const email = this.generateUniqueEmail(firstName, lastName);
 
@@ -2239,10 +2271,23 @@ async function createSampleData() {
       output.log('The super admin has full access to all features and can manage everything.');
     }
 
+    // Display demo user credentials
+    const demoUser = createdUsers.find(u => u.isDemoUser);
+    if (demoUser && demoUser.credentials) {
+      output.log('\n🎭 DEMO USER CREDENTIALS:');
+      output.log('=====================================');
+      output.log(`Name:     ${demoUser.credentials.name}`);
+      output.log(`Email:    ${demoUser.credentials.email}`);
+      output.log(`Password: ${demoUser.credentials.password}`);
+      output.log('=====================================');
+      output.log('Use these credentials for demo deployments and testing.');
+    }
+
     output.log('\n🎉 Sample data generation complete!');
     output.log('📊 Summary:');
     output.log(`   👑 Super Admin: 1 user (custom credentials, API enabled, active session)`);
-    output.log(`   👥 Regular Users: ${createdUsers.length - 1} users`);
+    output.log(`   🎭 Demo User: 1 user (demo@biensperience.com, verified, active session)`);
+    output.log(`   👥 Regular Users: ${createdUsers.length - 2} users`);
     output.log(`   📍 Destinations: ${createdDestinations.length}`);
     output.log(`   🎯 Experiences: ${createdExperiences.length} (with varied collaborators and plan items)`);
     output.log(`   📸 Photos: ${createdPhotos.length}`);
