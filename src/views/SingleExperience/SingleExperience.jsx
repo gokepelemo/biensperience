@@ -2706,7 +2706,7 @@ export default function SingleExperience() {
             schema={buildExperienceSchema(experience, window?.location?.origin || '')}
           />
         )}
-      {experience && !plansLoading && !experienceOwnerLoading ? (
+      {experience && !plansLoading ? (
         <div className={styles.experienceDetailContainer}>
           <Container>
             {/* Breadcrumb Navigation */}
