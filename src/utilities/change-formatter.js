@@ -36,6 +36,7 @@ export function getFieldIcon(fieldName, entityType = '') {
     bio: '📖',
     avatar: '🖼️',
     location: '📍',
+    links: '🔗',
 
     // Plan fields
     planned_date: '📅',
@@ -159,6 +160,112 @@ export function formatChanges(field, change, entityType = '') {
  */
 
 /**
+ * Format links changes with special handling for curator profile links
+ * Supports both social media links (with type/username) and custom links (with title/url)
+ * @param {Object} change - Change object with from/to arrays
+ * @param {string} icon - Field icon
+ * @returns {string} Formatted links changes
+ */
+function formatLinksChanges(change, icon) {
+  const changes = [];
+
+  // Normalize arrays (handle undefined/null)
+  const fromLinks = change.from || [];
+  const toLinks = change.to || [];
+
+  // Helper to get display name for a link
+  const getLinkDisplayName = (link) => {
+    if (!link) return '';
+    // Social network links use type + username
+    if (link.type && link.username) {
+      const networkName = link.type.charAt(0).toUpperCase() + link.type.slice(1);
+      return `${networkName}: @${link.username}`;
+    }
+    // Custom/website links use title
+    if (link.title) return link.title;
+    // Fallback to URL
+    return link.url || '';
+  };
+
+  // Helper to check if two links are the same
+  const linksMatch = (a, b) => {
+    if (!a || !b) return false;
+    // Social network links: match on type + username
+    if (a.type && b.type && a.type !== 'custom' && a.type !== 'website') {
+      return a.type === b.type && a.username === b.username;
+    }
+    // Custom links: match on URL
+    return a.url === b.url;
+  };
+
+  // Find added links
+  toLinks.forEach((link) => {
+    const isNew = !fromLinks.some(oldLink => linksMatch(link, oldLink));
+
+    if (isNew) {
+      const displayName = getLinkDisplayName(link);
+      if (displayName) {
+        changes.push(`${icon} Added: ${displayName}`);
+      }
+    }
+  });
+
+  // Find removed links
+  fromLinks.forEach((link) => {
+    const isRemoved = !toLinks.some(newLink => linksMatch(link, newLink));
+
+    if (isRemoved) {
+      const displayName = getLinkDisplayName(link);
+      if (displayName) {
+        changes.push(`${icon} Removed: ${displayName}`);
+      }
+    }
+  });
+
+  // Find modified links (same type but different username, or same URL base but different title)
+  toLinks.forEach((link) => {
+    // For social links, check if username changed
+    if (link.type && link.type !== 'custom' && link.type !== 'website') {
+      const matchingOldLink = fromLinks.find(oldLink =>
+        oldLink.type === link.type && oldLink.username !== link.username
+      );
+      if (matchingOldLink && matchingOldLink.username && link.username) {
+        const networkName = link.type.charAt(0).toUpperCase() + link.type.slice(1);
+        changes.push(`${icon} Updated ${networkName}: @${matchingOldLink.username} → @${link.username}`);
+      }
+    } else {
+      // For custom links, check if title or URL changed
+      const matchingOldLink = fromLinks.find(oldLink =>
+        oldLink.url === link.url && oldLink.title !== link.title
+      );
+      if (matchingOldLink) {
+        changes.push(`${icon} Updated title: "${matchingOldLink.title}" → "${link.title}"`);
+      }
+
+      const matchingTitleLink = fromLinks.find(oldLink =>
+        oldLink.title === link.title && oldLink.url !== link.url
+      );
+      if (matchingTitleLink && !matchingOldLink) {
+        changes.push(`${icon} Updated URL for "${link.title}"`);
+      }
+    }
+  });
+
+  // If no specific changes detected but arrays are different lengths
+  if (changes.length === 0) {
+    if (fromLinks.length === 0 && toLinks.length > 0) {
+      changes.push(`${icon} Added ${toLinks.length} link${toLinks.length > 1 ? 's' : ''}`);
+    } else if (fromLinks.length > 0 && toLinks.length === 0) {
+      changes.push(`${icon} Removed all links`);
+    } else if (fromLinks.length !== toLinks.length) {
+      changes.push(`${icon} Links updated: ${fromLinks.length} → ${toLinks.length}`);
+    }
+  }
+
+  return changes.join('\n') || `${icon} Links updated`;
+}
+
+/**
  * Format travel tips changes with special handling for structured tips
  * @param {Object} change - Change object with from/to arrays
  * @param {string} icon - Field icon
@@ -252,6 +359,11 @@ function formatArrayChanges(field, change, icon) {
   // Special handling for travel_tips field
   if (field === 'travel_tips') {
     return formatTravelTipsChanges(change, icon);
+  }
+
+  // Special handling for links field (curator profile links)
+  if (field === 'links') {
+    return formatLinksChanges(change, icon);
   }
 
   // Handle arrays of objects

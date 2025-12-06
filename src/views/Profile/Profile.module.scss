@@ -194,6 +194,98 @@
   }
 }
 
+/* Social link with brand color */
+.profileLinkSocial {
+  composes: profileLink;
+
+  .profileLinkIcon {
+    transition: color 0.15s ease;
+  }
+
+  &:hover .profileLinkIcon {
+    /* Keep brand color on hover for social links */
+  }
+}
+
+.profileLinkIcon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+/* Link editor styles for UpdateProfile */
+.linkEditRow {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  align-items: center;
+
+  @media (max-width: 576px) {
+    flex-wrap: wrap;
+  }
+}
+
+.linkTypeSelect {
+  flex-shrink: 0;
+  width: 140px;
+
+  select {
+    font-size: var(--font-size-sm);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+  }
+
+  @media (max-width: 576px) {
+    width: 100%;
+  }
+}
+
+.linkIconPreview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+
+  @media (max-width: 576px) {
+    display: none;
+  }
+}
+
+.linkInputGroup {
+  display: flex;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+
+  input {
+    font-size: var(--font-size-sm);
+  }
+
+  @media (max-width: 576px) {
+    flex-wrap: wrap;
+    width: 100%;
+
+    input {
+      width: 100% !important;
+      max-width: none !important;
+    }
+  }
+}
+
+.linkRemoveBtn {
+  flex-shrink: 0;
+  padding: var(--space-2) !important;
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Stats row */
 .profileStats {
   display: flex;
@@ -953,4 +1045,149 @@
 .featureFlagAutocomplete {
   margin-bottom: var(--space-2);
   max-width: 300px;
+}
+
+/* ============================================
+   UpdateProfile Section Cards
+   ============================================ */
+
+.sectionCard {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+  overflow: hidden;
+}
+
+.sectionCardHeader {
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-bg-tertiary);
+
+  h3 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+
+    svg {
+      color: var(--color-primary);
+    }
+  }
+}
+
+.sectionCardBody {
+  padding: var(--space-6);
+}
+
+/* Admin section row styling (like in screenshot) */
+.adminSectionRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border-light);
+  gap: var(--space-4);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  &:first-child {
+    padding-top: 0;
+  }
+}
+
+.adminSectionLabel {
+  flex: 1;
+
+  strong {
+    display: block;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-1);
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+}
+
+.adminSectionActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  align-items: stretch;
+  min-width: 160px;
+}
+
+/* Status badge for admin sections */
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+
+  &.confirmed {
+    color: var(--color-success);
+  }
+
+  &.unconfirmed {
+    color: var(--color-warning);
+  }
+
+  svg {
+    font-size: 1em;
+  }
+}
+
+/* Admin action buttons */
+.adminActionBtn {
+  min-width: 140px;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+
+  &.active {
+    background: var(--color-success);
+    border-color: var(--color-success);
+    color: var(--color-white);
+
+    &:hover {
+      background: var(--color-success-dark, #059669);
+    }
+  }
+
+  &.inactive {
+    background: transparent;
+    border: 2px solid var(--color-border-medium);
+    color: var(--color-text-secondary);
+
+    &:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+  }
+
+  &.danger {
+    background: transparent;
+    border: 2px solid var(--color-danger);
+    color: var(--color-danger);
+
+    &:hover {
+      background: var(--color-danger);
+      color: var(--color-white);
+    }
+  }
 }

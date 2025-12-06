@@ -44,8 +44,9 @@ export async function sendEmailInvite(data) {
     });
 
     // Emit event via event bus (handles local + cross-tab dispatch)
+    // Standardized payload: { entity, entityId } for created events
     try {
-      broadcastEvent('invite:created', { invite: result });
+      broadcastEvent('invite:created', { invite: result, inviteId: result._id });
     } catch (e) {
       // ignore
     }
@@ -142,8 +143,9 @@ export async function redeemInviteCode(code) {
     });
 
     // Emit event via event bus (handles local + cross-tab dispatch)
+    // Standardized payload: { entity, entityId } for redeemed events
     try {
-      broadcastEvent('invite:redeemed', { result });
+      broadcastEvent('invite:redeemed', { invite: result, inviteId: result._id || result.inviteId });
     } catch (e) {
       // ignore
     }

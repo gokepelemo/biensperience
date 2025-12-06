@@ -8,9 +8,10 @@ export async function uploadPhoto(request) {
     const result = await uploadFile(`${BASE_URL}`, "POST", request);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
+    // Standardized payload: { entity, entityId } for created events
     try {
         if (result) {
-            broadcastEvent('photo:created', { photo: result });
+            broadcastEvent('photo:created', { photo: result, photoId: result._id });
             logger.debug('[photos-api] Photo created event dispatched', { id: result._id });
         }
     } catch (e) {
@@ -24,9 +25,11 @@ export async function uploadPhotoBatch(request) {
     const result = await uploadFile(`${BASE_URL}batch`, "POST", request);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
+    // Standardized payload: { entities, entityIds } for batch created events
     try {
         if (result) {
-            broadcastEvent('photos:created', { photos: result });
+            const photoIds = Array.isArray(result) ? result.map(p => p._id) : [];
+            broadcastEvent('photos:created', { photos: result, photoIds });
             logger.debug('[photos-api] Photos batch created event dispatched', { count: result?.length });
         }
     } catch (e) {
@@ -40,9 +43,10 @@ export async function uploadPhotoUrl(data) {
     const result = await sendRequest(`${BASE_URL}url`, "POST", data);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
+    // Standardized payload: { entity, entityId } for created events
     try {
         if (result) {
-            broadcastEvent('photo:created', { photo: result });
+            broadcastEvent('photo:created', { photo: result, photoId: result._id });
             logger.debug('[photos-api] Photo URL created event dispatched', { id: result._id });
         }
     } catch (e) {

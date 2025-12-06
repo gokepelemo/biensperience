@@ -44,7 +44,7 @@ export default function DatePickerSection({
 
   // Custom footer with all action buttons
   const modalFooter = (
-    <div className="d-flex gap-2 w-100 justify-content-end flex-wrap">
+    <div className="d-flex gap-2 w-100 justify-content-end flex-nowrap">
       {!isEditingDate && (
         <button
           className="btn btn-outline-secondary"

@@ -186,30 +186,18 @@ export async function sendRequest(url, method = "GET", payload = null) {
                 if (structuredError) {
                     errorMessage = structuredError.userMessage || structuredError.message || errorMessage;
 
-                    // Dispatch structured error event for toast handling
-                    if (typeof window !== 'undefined' && window.dispatchEvent) {
-                        window.dispatchEvent(new CustomEvent('bien:api_error', {
-                            detail: {
-                                error: structuredError,
-                                response: errorData,
-                                url,
-                                method,
-                                status: res.status
-                            }
-                        }));
-
-                        // Broadcast to other tabs
-                        try {
-                            broadcastEvent('bien:api_error', {
-                                error: structuredError,
-                                response: errorData,
-                                url,
-                                method,
-                                status: res.status
-                            });
-                        } catch (e) {
-                            // ignore broadcast errors
-                        }
+                    // Dispatch structured error event for toast handling via eventBus
+                    // broadcastEvent handles both local tab and cross-tab dispatch
+                    try {
+                        broadcastEvent('bien:api_error', {
+                            error: structuredError,
+                            response: errorData,
+                            url,
+                            method,
+                            status: res.status
+                        });
+                    } catch (e) {
+                        // ignore broadcast errors
                     }
                 }
             } else if (errorData && errorData.error) {
@@ -231,18 +219,11 @@ export async function sendRequest(url, method = "GET", payload = null) {
             data: errorData || { error: errorMessage }
         };
 
-        // Legacy event: If the backend indicates email verification is required, emit event
+        // If the backend indicates email verification is required, emit event via eventBus
+        // broadcastEvent handles both local tab and cross-tab dispatch
         try {
             if (res.status === 403 && errorData && errorData.code === 'EMAIL_NOT_VERIFIED') {
-                if (typeof window !== 'undefined' && window.dispatchEvent) {
-                    window.dispatchEvent(new CustomEvent('bien:email_not_verified', { detail: errorData }));
-                    // Broadcast via centralized helper so other tabs receive it
-                    try {
-                        broadcastEvent('bien:email_not_verified', errorData);
-                    } catch (e) {
-                        // ignore
-                    }
-                }
+                broadcastEvent('bien:email_not_verified', errorData);
             }
         } catch (e) {
             // ignore event dispatch errors

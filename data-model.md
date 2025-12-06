@@ -360,10 +360,12 @@ User-specific plan derived from an experience.
 | `title` | String | Cost name |
 | `description` | String | Details |
 | `cost` | Number | Amount |
-| `currency` | String | Currency code |
-| `plan_item` | ObjectId | Linked plan item |
+| `currency` | String | Currency code (default: USD) |
+| `category` | String | Cost category: `accommodation`, `transport`, `food`, `activities`, `equipment`, `other`, or `null` |
+| `date` | Date | Date when the cost was incurred |
+| `plan_item` | ObjectId | Linked plan item (for item-specific costs) |
 | `plan` | ObjectId | Reference to Plan |
-| `collaborator` | ObjectId | Responsible user |
+| `collaborator` | ObjectId | Responsible user (who paid or is responsible) |
 | `created_at` | Date | Creation timestamp |
 
 **Transport Extension:** Contains mode-specific details for flights, trains, cruises, buses, rideshare, metro, bike rentals.

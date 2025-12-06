@@ -2422,7 +2422,7 @@ const unassignPlanItem = asyncHandler(async (req, res) => {
  */
 const addCost = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { title, description, cost, currency, plan_item, collaborator } = req.body;
+  const { title, description, cost, currency, category, date, plan_item, collaborator } = req.body;
 
   if (!title || title.trim() === '') {
     return res.status(400).json({ error: 'Cost title is required' });
@@ -2480,11 +2480,19 @@ const addCost = asyncHandler(async (req, res) => {
     }
   }
 
+  // Validate category if provided
+  const validCategories = ['accommodation', 'transport', 'food', 'activities', 'equipment', 'other'];
+  if (category && !validCategories.includes(category)) {
+    return res.status(400).json({ error: 'Invalid category' });
+  }
+
   const newCost = {
     title: title.trim(),
     description: description?.trim() || '',
     cost: Number(cost),
     currency: currency || 'USD',
+    category: category || null,
+    date: date ? new Date(date) : new Date(),
     plan_item: plan_item || null,
     plan: plan._id,
     collaborator: collaborator || null,
@@ -2621,7 +2629,7 @@ const getCosts = asyncHandler(async (req, res) => {
  */
 const updateCost = asyncHandler(async (req, res) => {
   const { id, costId } = req.params;
-  const { title, description, cost, currency, plan_item, collaborator } = req.body;
+  const { title, description, cost, currency, category, date, plan_item, collaborator } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(costId)) {
     return res.status(400).json({ error: 'Invalid ID' });
@@ -2661,6 +2669,24 @@ const updateCost = asyncHandler(async (req, res) => {
     costEntry.cost = Number(cost);
   }
   if (currency !== undefined) costEntry.currency = currency;
+
+  // Validate and update category if provided
+  if (category !== undefined) {
+    if (category === null || category === '') {
+      costEntry.category = null;
+    } else {
+      const validCategories = ['accommodation', 'transport', 'food', 'activities', 'equipment', 'other'];
+      if (!validCategories.includes(category)) {
+        return res.status(400).json({ error: 'Invalid category' });
+      }
+      costEntry.category = category;
+    }
+  }
+
+  // Update date if provided
+  if (date !== undefined) {
+    costEntry.date = date ? new Date(date) : new Date();
+  }
 
   // Validate and update plan_item if provided
   if (plan_item !== undefined) {
@@ -2894,6 +2920,40 @@ const getCostSummary = asyncHandler(async (req, res) => {
     costs: generalCostsList
   };
 
+  // Costs by category
+  const costsByCategory = [];
+  const categoryCostMap = {};
+  const categoryLabels = {
+    accommodation: 'Accommodation',
+    transport: 'Transport',
+    food: 'Food & Dining',
+    activities: 'Activities',
+    equipment: 'Equipment',
+    other: 'Other',
+    uncategorized: 'Uncategorized'
+  };
+
+  costs.forEach(c => {
+    const category = c.category || 'uncategorized';
+    if (!categoryCostMap[category]) {
+      categoryCostMap[category] = {
+        category,
+        label: categoryLabels[category] || category,
+        total: 0,
+        costs: []
+      };
+    }
+    categoryCostMap[category].total += c.cost || 0;
+    categoryCostMap[category].costs.push(c);
+  });
+
+  // Sort by total (descending) and add to array
+  Object.values(categoryCostMap)
+    .sort((a, b) => b.total - a.total)
+    .forEach(entry => {
+      costsByCategory.push(entry);
+    });
+
   // Per person split calculation
   const numPeople = collaboratorIds.length || 1;
   const sharedPerPerson = sharedCosts.total / numPeople;
@@ -2919,6 +2979,7 @@ const getCostSummary = asyncHandler(async (req, res) => {
     currency: costs[0]?.currency || 'USD',
     costsByCollaborator,
     costsByPlanItem,
+    costsByCategory,
     sharedCosts,
     generalCosts,
     perPersonShare: sharedPerPerson,

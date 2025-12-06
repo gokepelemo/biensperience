@@ -486,6 +486,9 @@ async function updateUser(req, res, next) {
       if (!Array.isArray(updateData.links)) {
         validatedUpdateData.links = [];
       } else {
+        // Valid link types for social networks
+        const validLinkTypes = ['twitter', 'instagram', 'facebook', 'youtube', 'tiktok', 'linkedin', 'pinterest', 'github', 'website', 'custom'];
+
         const validLinks = updateData.links
           .filter(link => {
             if (!link || typeof link !== 'object') return false;
@@ -500,6 +503,8 @@ async function updateUser(req, res, next) {
             }
           })
           .map(link => ({
+            type: validLinkTypes.includes(link.type) ? link.type : 'custom',
+            username: link.username && typeof link.username === 'string' ? link.username.trim() : undefined,
             title: link.title.trim().substring(0, 100),
             url: link.url.trim(),
             meta: link.meta && typeof link.meta === 'object' ? link.meta : {}
@@ -704,10 +709,15 @@ async function updateUserAsAdmin(req, res) {
     // Validate and add links if provided (curator feature)
     if (updateData.links !== undefined) {
       if (Array.isArray(updateData.links)) {
+        // Valid link types for social networks
+        const validLinkTypes = ['twitter', 'instagram', 'facebook', 'youtube', 'tiktok', 'linkedin', 'pinterest', 'github', 'website', 'custom'];
+
         const validatedLinks = updateData.links
           .filter(link => link && typeof link === 'object' && typeof link.url === 'string')
           .slice(0, 10) // Limit to 10 links
           .map(link => ({
+            type: validLinkTypes.includes(link.type) ? link.type : 'custom',
+            username: link.username && typeof link.username === 'string' ? link.username.trim() : undefined,
             title: typeof link.title === 'string' ? link.title.substring(0, 100).trim() : '',
             url: link.url.substring(0, 2048).trim(),
             meta: link.meta || {}

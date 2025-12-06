@@ -34,6 +34,21 @@
   }
 }
 
+.categoryDateRow {
+  display: flex;
+  gap: $space-3;
+  align-items: flex-start;
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    gap: 0;
+
+    > div {
+      width: 100%;
+    }
+  }
+}
+
 // Cost list styles (for displaying costs)
 .costList {
   display: flex;

@@ -184,3 +184,218 @@
   color: var(--color-primary);
   margin-left: auto;
 }
+
+// Export Button
+.exportButton {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-2 $space-3;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: $font-size-sm;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  align-self: flex-start;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+    border-color: var(--color-primary);
+  }
+}
+
+// Expandable Section
+.expandableSection {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: $space-3 $space-4;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+}
+
+.sectionIcon {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.sectionTotal {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.totalAmount {
+  font-size: $font-size-base;
+  font-weight: $font-weight-bold;
+  color: var(--color-primary);
+}
+
+.chevron {
+  color: var(--color-text-tertiary);
+  font-size: 0.75rem;
+  transition: transform var(--transition-fast);
+}
+
+.sectionContent {
+  padding: 0 $space-4 $space-4;
+  border-top: 1px solid var(--color-border-light);
+}
+
+// Category Breakdown
+.categoryBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  padding-top: $space-3;
+}
+
+.categoryRow {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: $space-3;
+  align-items: center;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr auto;
+
+    .categoryBar {
+      display: none;
+    }
+  }
+}
+
+.categoryInfo {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+}
+
+.categoryIcon {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.categoryLabel {
+  font-size: $font-size-sm;
+  color: var(--color-text-primary);
+  @include text-ellipsis;
+}
+
+.categoryCount {
+  font-size: $font-size-xs;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.categoryBar {
+  height: 8px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.categoryProgress {
+  height: 100%;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+  min-width: 4px;
+}
+
+.categoryAmount {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+// Per Person Split Table
+.perPersonSplit {
+  padding-top: $space-3;
+}
+
+.splitTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $font-size-sm;
+
+  th, td {
+    padding: $space-2 $space-3;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  th {
+    font-weight: $font-weight-semibold;
+    color: var(--color-text-secondary);
+    font-size: $font-size-xs;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  td {
+    color: var(--color-text-primary);
+  }
+
+  tbody tr:hover {
+    background: var(--color-bg-hover);
+  }
+
+  @media (max-width: 480px) {
+    font-size: $font-size-xs;
+
+    th, td {
+      padding: $space-2;
+    }
+  }
+}
+
+.personCell {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.grandTotalCell {
+  font-weight: $font-weight-bold;
+  color: var(--color-primary);
+}
+
+.splitNote {
+  margin-top: $space-3;
+  padding: $space-2 $space-3;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+  text-align: center;
+}

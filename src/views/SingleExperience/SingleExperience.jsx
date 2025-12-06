@@ -29,6 +29,7 @@ import { buildExperienceSchema } from '../../utilities/schema-utils';
 import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
+import CostEntry from "../../components/CostEntry";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import InfoCard from "../../components/InfoCard/InfoCard";
 import Alert from "../../components/Alert/Alert";
@@ -74,6 +75,7 @@ import {
   removeExperienceCollaborator,
   reorderExperiencePlanItems,
   updateExperience,
+  transferOwnership,
 } from "../../utilities/experiences-api";
 import {
   getUserPlans,
@@ -130,8 +132,6 @@ export default function SingleExperience() {
   const { removeExperience, fetchExperiences, fetchPlans, experiences: ctxExperiences, updateExperience: updateExperienceInContext, setOptimisticPlanStateForExperience, clearOptimisticPlanStateForExperience } = useData();
   const {
     registerH1,
-    setPageActionButtons,
-    clearActionButtons,
     updateShowH1InNavbar,
   } = useApp();
   const { success, error: showError } = useToast();
@@ -244,6 +244,11 @@ export default function SingleExperience() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedDetailsItem, setSelectedDetailsItem] = useState(null);
   const [detailsModalInitialTab, setDetailsModalInitialTab] = useState('notes');
+
+  // Inline cost entry modal state (for adding costs from plan item details)
+  const [showInlineCostEntry, setShowInlineCostEntry] = useState(false);
+  const [inlineCostPlanItem, setInlineCostPlanItem] = useState(null);
+  const [inlineCostLoading, setInlineCostLoading] = useState(false);
 
   // Photo viewer state for hero overlay button
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
@@ -642,6 +647,57 @@ export default function SingleExperience() {
 
     return collaboratorsList;
   }, [planOwner, planCollaborators]);
+
+  // Compute other users' plans (plans by users other than current user)
+  // Used to block experience deletion when others have planned it
+  const otherUsersPlans = useMemo(() => {
+    if (!sharedPlans || sharedPlans.length === 0 || !user?._id) {
+      return [];
+    }
+    return sharedPlans.filter((plan) => {
+      const planUserId = plan.user?._id?.toString() || plan.user?.toString();
+      return planUserId && planUserId !== user._id?.toString();
+    });
+  }, [sharedPlans, user?._id]);
+
+  // Get unique plan owners who could receive ownership transfer
+  const transferCandidates = useMemo(() => {
+    const candidates = [];
+    const seenIds = new Set();
+
+    // Add experience collaborators first (they have explicit permissions)
+    if (experienceCollaborators && experienceCollaborators.length > 0) {
+      experienceCollaborators.forEach((collab) => {
+        const id = collab._id?.toString() || collab.user?._id?.toString();
+        if (id && !seenIds.has(id)) {
+          seenIds.add(id);
+          candidates.push({
+            _id: id,
+            name: collab.name || collab.user?.name || 'Unknown User',
+            email: collab.email || collab.user?.email,
+            type: 'collaborator'
+          });
+        }
+      });
+    }
+
+    // Add plan owners from other users' plans
+    otherUsersPlans.forEach((plan) => {
+      const planUser = plan.user;
+      const id = planUser?._id?.toString() || planUser?.toString();
+      if (id && !seenIds.has(id)) {
+        seenIds.add(id);
+        candidates.push({
+          _id: id,
+          name: planUser?.name || 'Unknown User',
+          email: planUser?.email,
+          type: 'plan_owner'
+        });
+      }
+    });
+
+    return candidates;
+  }, [experienceCollaborators, otherUsersPlans]);
 
   // Prepare mention entities and data for InteractiveTextArea
   const availableEntities = useMemo(() => {
@@ -1125,15 +1181,28 @@ export default function SingleExperience() {
     setSelectedPlanId(tid);
     setActiveTab('myplan');
 
-    // Scroll to item after tab switch (give React time to render)
+    // Scroll to item and open modal after tab switch (give React time to render)
     if (targetItemId) {
       debug.log('[NavigationIntent] Scheduling scroll to item:', { targetItemId, shouldAnimate });
+
+      // Find the plan item to open in the modal
+      const planItem = targetPlan.plan?.find(item =>
+        (item._id?.toString ? item._id.toString() : item._id) === targetItemId
+      );
+
       // Use requestAnimationFrame + setTimeout to ensure DOM is ready after React renders
       requestAnimationFrame(() => {
         setTimeout(async () => {
           try {
             const result = await scrollToItem(targetItemId, { shouldHighlight: shouldAnimate });
             debug.log('[NavigationIntent] scrollToItem result:', result ? 'found' : 'not found');
+
+            // Open the details modal if we found the plan item
+            if (planItem) {
+              setSelectedDetailsItem(planItem);
+              setDetailsModalInitialTab('notes');
+              setShowDetailsModal(true);
+            }
           } catch (err) {
             debug.log('[NavigationIntent] scrollToItem error:', err);
           }
@@ -1210,68 +1279,53 @@ export default function SingleExperience() {
       setActiveTab('myplan');
     }
 
-    // For direct URL navigation, scroll to item if present
+    // For direct URL navigation, scroll to item and open details modal if present
     // If we switched tabs, wait for React to render the new content first
     if (itemId) {
+      // Find the plan item to open in the modal
+      const planItem = targetPlan.plan?.find(item =>
+        (item._id?.toString ? item._id.toString() : item._id) === itemId
+      );
+
+      const openModalForItem = () => {
+        scrollToItem(itemId, { shouldHighlight: true });
+        // Open the details modal if we found the plan item
+        if (planItem) {
+          setSelectedDetailsItem(planItem);
+          setDetailsModalInitialTab('notes');
+          setShowDetailsModal(true);
+        }
+      };
+
       if (needsTabSwitch) {
         // Wait for React to render the plan items after tab switch
         // Using requestAnimationFrame + setTimeout ensures DOM is ready
         requestAnimationFrame(() => {
-          setTimeout(() => {
-            scrollToItem(itemId, { shouldHighlight: true });
-          }, 100);
+          setTimeout(openModalForItem, 100);
         });
       } else {
         // Already on correct tab, scroll immediately
-        scrollToItem(itemId, { shouldHighlight: true });
+        openModalForItem();
       }
     }
   }, [plansLoading, sharedPlans, selectedPlanId, intent, idEquals, scrollToItem]);
 
-  // Register h1 and action buttons for navbar
+  // Register h1 for navbar (action buttons removed - available in sticky sidebar)
   useEffect(() => {
     if (h1Ref.current) {
       registerH1(h1Ref.current);
 
       // Enable h1 text in navbar for this view
       updateShowH1InNavbar(true);
-
-      // Set up action buttons if user is owner or super admin
-      if (user && experience && isOwner(user, experience)) {
-        setPageActionButtons([
-          {
-            label: "Edit",
-            onClick: () => navigate(`/experiences/${experience._id}/update`),
-            variant: "outline-primary",
-            icon: "✏️",
-            tooltip: "Edit Experience",
-            compact: true,
-          },
-          {
-            label: "Delete",
-            onClick: () => setShowDeleteModal(true),
-            variant: "outline-danger",
-            icon: "🗑️",
-            tooltip: "Delete Experience",
-            compact: true,
-          },
-        ]);
-      }
     }
 
     return () => {
-      clearActionButtons();
       // Disable h1 in navbar when leaving this view
       updateShowH1InNavbar(false);
     };
   }, [
     registerH1,
-    setPageActionButtons,
-    clearActionButtons,
     updateShowH1InNavbar,
-    user,
-    experience,
-    navigate,
   ]);
 
   // Check for divergence when plan or experience changes
@@ -1665,6 +1719,39 @@ export default function SingleExperience() {
     setDetailsModalInitialTab(initialTab);
     setShowDetailsModal(true);
   }, []);
+
+  // Handler to open inline cost entry from plan item details modal
+  const handleAddCostForItem = useCallback((planItem) => {
+    setInlineCostPlanItem(planItem);
+    setShowInlineCostEntry(true);
+  }, []);
+
+  // Handler to save inline cost entry
+  const handleSaveInlineCost = useCallback(async (costData) => {
+    if (!selectedPlanId || !inlineCostPlanItem) return;
+
+    setInlineCostLoading(true);
+    try {
+      // Add cost with the plan item pre-filled
+      const costWithPlanItem = {
+        ...costData,
+        plan_item: inlineCostPlanItem._id || inlineCostPlanItem.plan_item_id
+      };
+      await addCost(selectedPlanId, costWithPlanItem);
+
+      // Close the modal
+      setShowInlineCostEntry(false);
+      setInlineCostPlanItem(null);
+
+      // Show success toast
+      success(lang.current.notification?.cost?.added || 'Cost added successfully');
+    } catch (error) {
+      logger.error('Failed to add inline cost', { error: error.message });
+      showError(error.message || 'Failed to add cost');
+    } finally {
+      setInlineCostLoading(false);
+    }
+  }, [selectedPlanId, inlineCostPlanItem, addCost, success, showError]);
 
   // Note CRUD handlers for Details modal
   const handleAddNoteToItem = useCallback(async (content) => {
@@ -3053,6 +3140,40 @@ export default function SingleExperience() {
         ]}
         confirmText="Delete Permanently"
         confirmVariant="danger"
+        confirmDisabled={otherUsersPlans.length > 0}
+        blockerContent={otherUsersPlans.length > 0 ? (
+          <div style={{ color: 'var(--color-text-secondary)' }}>
+            <Alert type="warning" style={{ marginBottom: 'var(--space-4)' }}>
+              This experience cannot be deleted because {otherUsersPlans.length === 1 ? '1 other user has' : `${otherUsersPlans.length} other users have`} planned it.
+            </Alert>
+            <p style={{ marginBottom: 'var(--space-3)' }}>
+              To delete this experience, you must first transfer ownership to one of the following users:
+            </p>
+            {transferCandidates.length > 0 ? (
+              <ul style={{ paddingLeft: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
+                {transferCandidates.map((candidate) => (
+                  <li key={candidate._id} style={{ marginBottom: 'var(--space-2)' }}>
+                    <strong>{candidate.name}</strong>
+                    {candidate.email && <span style={{ color: 'var(--color-text-muted)' }}> ({candidate.email})</span>}
+                    <Badge
+                      bg={candidate.type === 'collaborator' ? 'primary' : 'secondary'}
+                      style={{ marginLeft: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}
+                    >
+                      {candidate.type === 'collaborator' ? 'Collaborator' : 'Has Plan'}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                No eligible transfer candidates found. Add a collaborator first.
+              </p>
+            )}
+            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>
+              Use the <strong>Edit</strong> button to access experience settings and transfer ownership.
+            </p>
+          </div>
+        ) : null}
       />
       <ConfirmModal
         show={showRemoveModal}
@@ -3427,6 +3548,15 @@ export default function SingleExperience() {
           }
         }}
         canEdit={selectedPlan ? canEditPlan(user, selectedPlan) : false}
+        onToggleComplete={async (planItem) => {
+          if (!selectedPlan || !planItem) return;
+
+          // Call the existing toggle handler
+          await handlePlanItemToggleComplete(planItem);
+
+          // Update the selectedDetailsItem to reflect new completion state
+          setSelectedDetailsItem(prev => prev ? { ...prev, complete: !prev.complete } : prev);
+        }}
         availableEntities={availableEntities}
         entityData={entityData}
         onPlanItemClick={(itemId, entity) => {
@@ -3436,6 +3566,21 @@ export default function SingleExperience() {
           logger.debug('[SingleExperience] Plan item click from notes', { itemId, entity });
           attemptScrollToItem(itemId, { shouldHighlight: true, anticipationDelay: 0 });
         }}
+        onAddCostForItem={handleAddCostForItem}
+      />
+
+      {/* Inline Cost Entry Modal - for adding costs from plan item details */}
+      <CostEntry
+        show={showInlineCostEntry}
+        onHide={() => {
+          setShowInlineCostEntry(false);
+          setInlineCostPlanItem(null);
+        }}
+        editingCost={inlineCostPlanItem ? { plan_item: inlineCostPlanItem._id || inlineCostPlanItem.plan_item_id } : null}
+        collaborators={allPlanCollaborators}
+        planItems={selectedPlan?.plan || []}
+        onSave={handleSaveInlineCost}
+        loading={inlineCostLoading}
       />
 
       {/* Photo Upload Modal - for adding photos when experience has none */}

@@ -9,6 +9,9 @@ import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
 import styles from './PlanItemDetailsModal.module.scss';
 import { createSimpleFilter } from '../../utilities/trie';
 import { logger } from '../../utilities/logger';
+import { formatPlanningTime, getPlanningTimeTooltip } from '../../utilities/planning-time-utils';
+import { formatCostEstimate, formatActualCost, getCostEstimateTooltip } from '../../utilities/cost-utils';
+import { lang } from '../../lang.constants';
 
 export default function PlanItemDetailsModal({
   show,
@@ -23,6 +26,7 @@ export default function PlanItemDetailsModal({
   onAssign,
   onUnassign,
   onUpdateTitle,
+  onToggleComplete,
   canEdit = false,
   // For mentions support
   availableEntities = [],
@@ -30,7 +34,9 @@ export default function PlanItemDetailsModal({
   // Initial tab to display when modal opens
   initialTab = 'notes',
   // Callback for when a plan item mention is clicked (to close modal and scroll)
-  onPlanItemClick
+  onPlanItemClick,
+  // Callback for inline cost addition - called with planItem to add a cost for this item
+  onAddCostForItem
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditingAssignment, setIsEditingAssignment] = useState(false);
@@ -201,10 +207,33 @@ export default function PlanItemDetailsModal({
     }
   }, [onClose, onPlanItemClick]);
 
+  // Calculate actual costs assigned to this plan item from plan.costs
+  // NOTE: These useMemo hooks MUST be before any early returns to maintain hooks order
+  const actualCosts = useMemo(() => {
+    if (!plan?.costs || !planItem?._id) return [];
+    return plan.costs.filter(cost => {
+      const costPlanItemId = cost.plan_item?._id || cost.plan_item;
+      const planItemId = planItem._id;
+      return costPlanItemId && String(costPlanItemId) === String(planItemId);
+    });
+  }, [plan?.costs, planItem?._id]);
+
+  const totalActualCost = useMemo(() => {
+    return actualCosts.reduce((sum, cost) => sum + (cost.cost || 0), 0);
+  }, [actualCosts]);
+
   if (!planItem) return null;
 
   const notes = planItem.details?.notes || [];
   const assignedTo = planItem.assignedTo;
+
+  // Get planning days and cost estimate from plan item
+  const planningDays = planItem.planning_days;
+  const costEstimate = planItem.cost;
+  const currency = plan?.currency || 'USD';
+
+  // Check if we have any cost/planning info to display
+  const hasCostInfo = planningDays > 0 || costEstimate > 0 || actualCosts.length > 0;
 
   const getAssigneeName = () => {
     if (!assignedTo) return 'Unassigned';
@@ -393,7 +422,109 @@ export default function PlanItemDetailsModal({
           ) : (
             <span className={styles.assignmentValue}>{getAssigneeName()}</span>
           )}
+
+          {/* Completion toggle - next to assignment */}
+          {onToggleComplete && (
+            <div className={styles.completionToggle}>
+              <button
+                className={`${styles.completeButton} ${planItem.complete ? styles.completed : ''}`}
+                onClick={() => onToggleComplete(planItem)}
+                disabled={!canEdit}
+                type="button"
+                aria-pressed={!!planItem.complete}
+                title={planItem.complete ? 'Mark as incomplete' : 'Mark as complete'}
+              >
+                <span className={styles.completeIcon}>{planItem.complete ? '✓' : '○'}</span>
+                <span className={styles.completeText}>
+                  {planItem.complete ? 'Completed' : 'Mark Complete'}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Cost & Planning Info Section */}
+        {hasCostInfo && (
+          <div className={styles.costPlanningSection}>
+            {/* Planning Days */}
+            {planningDays > 0 && (
+              <div
+                className={styles.infoCard}
+                title={getPlanningTimeTooltip(planningDays)}
+              >
+                <span className={styles.infoIcon}>📅</span>
+                <div className={styles.infoContent}>
+                  <span className={styles.infoLabel}>{lang.en.planningTime}</span>
+                  <span className={styles.infoValue}>
+                    {formatPlanningTime(planningDays)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Cost Estimate */}
+            {costEstimate > 0 && (
+              <div
+                className={styles.infoCard}
+                title={getCostEstimateTooltip(costEstimate, { currency })}
+              >
+                <span className={styles.infoIcon}>💰</span>
+                <div className={styles.infoContent}>
+                  <span className={styles.infoLabel}>{lang.en.estimatedCost}</span>
+                  <span className={styles.infoValue}>
+                    {formatCostEstimate(costEstimate, { currency })}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Actual Costs */}
+            {actualCosts.length > 0 && (
+              <div
+                className={`${styles.infoCard} ${styles.actualCosts}`}
+                title={`${actualCosts.length} cost${actualCosts.length !== 1 ? 's' : ''} tracked for this item`}
+              >
+                <span className={styles.infoIcon}>💵</span>
+                <div className={styles.infoContent}>
+                  <span className={styles.infoLabel}>
+                    {lang.en.actualCost || 'Actual Cost'} ({actualCosts.length})
+                  </span>
+                  <span className={styles.infoValue}>
+                    {formatActualCost(totalActualCost, { currency, exact: true })}
+                  </span>
+                </div>
+                {/* Expandable list of individual costs */}
+                {actualCosts.length > 0 && (
+                  <div className={styles.costBreakdown}>
+                    {actualCosts.map((cost, index) => (
+                      <div key={cost._id || index} className={styles.costItem}>
+                        <span className={styles.costTitle}>{cost.title}</span>
+                        <span className={styles.costAmount}>
+                          {formatActualCost(cost.cost, { currency, exact: true })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Add Cost Button - inline cost addition for this plan item */}
+            {canEdit && onAddCostForItem && (
+              <button
+                type="button"
+                className={styles.addCostButton}
+                onClick={() => onAddCostForItem(planItem)}
+                title={lang.current?.cost?.addCostToItem || 'Add cost for this item'}
+              >
+                <span className={styles.addCostIcon}>+</span>
+                <span className={styles.addCostText}>
+                  {lang.current?.cost?.addCost || 'Add Cost'}
+                </span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Tabs for different detail types */}
         <div className={styles.detailsTabs}>

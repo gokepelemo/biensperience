@@ -113,7 +113,7 @@ export default function NewDestination() {
       );
 
       if (duplicate) {
-        setError(`A destination named "${newDestination.name}, ${newDestination.country}" already exists. Please choose a different destination.`);
+        setError(lang.current.validation.destinationAlreadyExists.replace('{name}', `${newDestination.name}, ${newDestination.country}`));
         return;
       }
     }
@@ -159,7 +159,7 @@ export default function NewDestination() {
             {error.includes('verify your email') && (
               <div className="mt-2">
                 <a href="/resend-confirmation" className="btn btn-sm btn-outline-primary">
-                  Resend Verification Email
+                  {lang.current.alert.emailNotVerifiedAction}
                 </a>
               </div>
             )}
@@ -172,7 +172,7 @@ export default function NewDestination() {
           <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
               name="name"
-              label="City / Town"
+              label={lang.current.formLabel.cityTown}
               type="text"
               value={newDestination.name || ''}
               onChange={handleChange}
@@ -186,7 +186,7 @@ export default function NewDestination() {
               <div className="col-md-6 mb-3 mb-md-0">
                 <FormField
                   name="state"
-                  label="State / Province"
+                  label={lang.current.formLabel.stateProvince}
                   type="text"
                   value={newDestination.state || ''}
                   onChange={handleChange}
@@ -200,7 +200,7 @@ export default function NewDestination() {
               <div className="col-md-6">
                 <FormField
                   name="country"
-                  label="Country"
+                  label={lang.current.formLabel.country}
                   type="text"
                   value={newDestination.country || ''}
                   onChange={handleChange}
@@ -215,7 +215,7 @@ export default function NewDestination() {
 
             <FormField
               name="overview"
-              label="Overview"
+              label={lang.current.formLabel.overview}
               type="textarea"
               value={newDestination.overview || ''}
               onChange={handleChange}
@@ -242,9 +242,9 @@ export default function NewDestination() {
               onAddTip={handleAddTravelTip}
               onDeleteTip={handleDeleteTravelTip}
               label={lang.current.heading.travelTips}
-              placeholder="Share an insider tip (e.g., 'Best time to visit is spring')"
-              addButtonText="Add Tip"
-              deleteButtonText="Remove"
+              placeholder={lang.current.travelTip.insiderTipPlaceholder}
+              addButtonText={lang.current.button.addTip}
+              deleteButtonText={lang.current.button.remove}
               // Enhanced props for structured tips
               mode={tipMode}
               onModeChange={setTipMode}
@@ -258,9 +258,9 @@ export default function NewDestination() {
               <button
                 type="submit"
                 className="btn btn-primary btn-lg"
-                aria-label="Create destination and continue to experience"
+                aria-label={lang.current.aria.createDestinationContinue}
               >
-                Create Destination
+                {lang.current.button.createDestination}
               </button>
             </div>
           </Form>
@@ -274,9 +274,9 @@ export default function NewDestination() {
           deleteTravelTip(tipToDelete);
           setShowDeleteModal(false);
         }}
-        title="Delete Travel Tip?"
-        message="You are about to permanently delete this travel tip"
-        confirmText="Delete Permanently"
+        title={lang.current.travelTip.deleteTitle}
+        message={lang.current.travelTip.deleteMessage}
+        confirmText={lang.current.travelTip.deleteConfirm}
         confirmVariant="danger"
       />
 
@@ -289,8 +289,8 @@ export default function NewDestination() {
           setTravelTips([]);
           setCreatedDestination(null);
         }}
-        title="Destination Created!"
-        message="Your destination has been created successfully"
+        title={lang.current.creationSuccess.destinationTitle}
+        message={lang.current.creationSuccess.destinationMessage}
         entityName={createdDestination ? `${createdDestination.name}, ${createdDestination.country}` : ''}
         entityType="destination"
         entityId={createdDestination?._id}

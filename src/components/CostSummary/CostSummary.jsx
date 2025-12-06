@@ -1,19 +1,51 @@
 /**
  * CostSummary Component
  *
- * Displays a summary of costs for a plan including:
- * - Total costs
- * - Costs by collaborator (who paid what)
- * - Costs by plan item
- * - Shared costs
- * - Per-person share
+ * Displays a comprehensive cost breakdown with:
+ * - Total cost header
+ * - Breakdown by collaborator (who paid)
+ * - Breakdown by plan item
+ * - Breakdown by category
+ * - Per-person split calculation
+ * - CSV export functionality
+ * - Expandable sections
  */
 
-import { useMemo } from 'react';
-import { FaDollarSign, FaUsers, FaListUl, FaShareAlt, FaUserFriends } from 'react-icons/fa';
+import { useState, useMemo, useCallback } from 'react';
+import {
+  FaDollarSign,
+  FaUsers,
+  FaShareAlt,
+  FaUserFriends,
+  FaChevronDown,
+  FaChevronUp,
+  FaUser,
+  FaListAlt,
+  FaTag,
+  FaFileDownload,
+  FaHome,
+  FaCar,
+  FaUtensils,
+  FaHiking,
+  FaToolbox,
+  FaEllipsisH
+} from 'react-icons/fa';
 import { formatActualCost } from '../../utilities/cost-utils';
+import { getCurrencySymbol } from '../../utilities/currency-utils';
 import { lang } from '../../lang.constants';
+import UserAvatar from '../UserAvatar/UserAvatar';
 import styles from './CostSummary.module.scss';
+
+// Category icons mapping
+const CATEGORY_ICONS = {
+  accommodation: FaHome,
+  transport: FaCar,
+  food: FaUtensils,
+  activities: FaHiking,
+  equipment: FaToolbox,
+  other: FaEllipsisH,
+  uncategorized: FaTag
+};
 
 /**
  * SummaryCard - Individual summary card with icon, label, and value
@@ -34,9 +66,47 @@ function SummaryCard({ icon: Icon, label, value, subValue, variant = 'default' }
 }
 
 /**
- * BreakdownList - List of items with amounts
+ * ExpandableSection - Collapsible section with header and content
  */
-function BreakdownList({ title, items, emptyMessage }) {
+function ExpandableSection({ title, icon: Icon, total, currency, children, defaultExpanded = false }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+
+  return (
+    <div className={styles.expandableSection}>
+      <button
+        className={styles.sectionHeader}
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        type="button"
+      >
+        <div className={styles.sectionTitle}>
+          {Icon && <Icon className={styles.sectionIcon} aria-hidden="true" />}
+          <span>{title}</span>
+        </div>
+        <div className={styles.sectionTotal}>
+          <span className={styles.totalAmount}>
+            {formatActualCost(total, { currency, exact: true })}
+          </span>
+          {expanded ? (
+            <FaChevronUp className={styles.chevron} aria-hidden="true" />
+          ) : (
+            <FaChevronDown className={styles.chevron} aria-hidden="true" />
+          )}
+        </div>
+      </button>
+      {expanded && (
+        <div className={styles.sectionContent}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * BreakdownList - List of items with amounts (non-expandable)
+ */
+function BreakdownList({ title, items }) {
   if (!items || items.length === 0) {
     return null;
   }
@@ -58,6 +128,94 @@ function BreakdownList({ title, items, emptyMessage }) {
   );
 }
 
+/**
+ * CategoryBreakdown - Shows costs by category with progress bars
+ */
+function CategoryBreakdown({ costsByCategory, totalCost, currency }) {
+  if (!costsByCategory || costsByCategory.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={styles.categoryBreakdown}>
+      {costsByCategory.map((cat) => {
+        const Icon = CATEGORY_ICONS[cat.category] || FaTag;
+        const percentage = totalCost > 0 ? (cat.total / totalCost) * 100 : 0;
+
+        return (
+          <div key={cat.category} className={styles.categoryRow}>
+            <div className={styles.categoryInfo}>
+              <Icon className={styles.categoryIcon} aria-hidden="true" />
+              <span className={styles.categoryLabel}>{cat.label}</span>
+              <span className={styles.categoryCount}>({cat.costs?.length || 0})</span>
+            </div>
+            <div className={styles.categoryBar}>
+              <div
+                className={styles.categoryProgress}
+                style={{ width: `${percentage}%` }}
+              />
+            </div>
+            <div className={styles.categoryAmount}>
+              {formatActualCost(cat.total, { currency, exact: true })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * PerPersonSplitTable - Shows per-person cost breakdown
+ */
+function PerPersonSplitTable({ perPersonSplit, sharedCosts, currency, collaboratorCount }) {
+  const costStrings = lang.current.cost;
+  const symbol = getCurrencySymbol(currency);
+
+  if (!perPersonSplit || perPersonSplit.length <= 1) {
+    return null;
+  }
+
+  return (
+    <div className={styles.perPersonSplit}>
+      <table className={styles.splitTable}>
+        <thead>
+          <tr>
+            <th>Person</th>
+            <th>{costStrings.individualCosts}</th>
+            <th>{costStrings.sharedCosts}</th>
+            <th>{costStrings.grandTotal}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {perPersonSplit.map((split) => (
+            <tr key={split.collaborator?._id || split.collaborator}>
+              <td>
+                <div className={styles.personCell}>
+                  {split.collaborator && (
+                    <UserAvatar user={split.collaborator} size="sm" linkToProfile={false} />
+                  )}
+                  <span>{split.collaborator?.name || split.collaborator?.email || 'Unknown'}</span>
+                </div>
+              </td>
+              <td>{symbol}{(split.individualTotal || 0).toFixed(2)}</td>
+              <td>{symbol}{(split.sharedPortion || 0).toFixed(2)}</td>
+              <td className={styles.grandTotalCell}>
+                {symbol}{(split.grandTotal || 0).toFixed(2)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {sharedCosts > 0 && collaboratorCount > 1 && (
+        <div className={styles.splitNote}>
+          {costStrings.splitEvenly.replace('{count}', String(collaboratorCount))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CostSummary({
   // Summary data from API
   summary = null,
@@ -69,11 +227,21 @@ export default function CostSummary({
 
   // Display options
   showBreakdowns = true,
+  showCategoryBreakdown = true,
+  showPerPersonSplit = true,
+  showExport = true,
   compact = false,
   currency = 'USD',
 
+  // Callbacks
+  onCostClick,
+  onExportCsv,
+
   // Loading state
   loading = false,
+
+  // Additional class
+  className = '',
 }) {
   const costStrings = lang.current.cost;
 
@@ -86,11 +254,10 @@ export default function CostSummary({
 
     // Group by collaborator
     const costsByCollaborator = {};
-    const sharedCosts = [];
+    const sharedCostsList = [];
 
     costs.forEach(cost => {
       if (cost.collaborator) {
-        // Handle both populated object and string ID cases
         const collabId = typeof cost.collaborator === 'object'
           ? cost.collaborator?._id
           : cost.collaborator;
@@ -109,17 +276,16 @@ export default function CostSummary({
           costsByCollaborator[collabId].costs.push(cost);
         }
       } else {
-        sharedCosts.push(cost);
+        sharedCostsList.push(cost);
       }
     });
 
     // Group by plan item
     const costsByPlanItem = {};
-    const generalCosts = [];
+    const generalCostsList = [];
 
     costs.forEach(cost => {
       if (cost.plan_item) {
-        // Handle both populated object and string ID cases
         const itemId = typeof cost.plan_item === 'object'
           ? cost.plan_item?._id
           : cost.plan_item;
@@ -128,7 +294,7 @@ export default function CostSummary({
             i._id === itemId || i._id?.toString() === itemId?.toString()
           );
           costsByPlanItem[itemId] = {
-            planItem: item || { _id: itemId, text: 'Unknown item' },
+            item: item || { _id: itemId, text: 'Unknown item' },
             total: 0,
             costs: [],
           };
@@ -138,21 +304,65 @@ export default function CostSummary({
           costsByPlanItem[itemId].costs.push(cost);
         }
       } else {
-        generalCosts.push(cost);
+        generalCostsList.push(cost);
       }
     });
 
-    const sharedCostTotal = sharedCosts.reduce((sum, cost) => sum + (cost.cost || 0), 0);
-    const generalCostTotal = generalCosts.reduce((sum, cost) => sum + (cost.cost || 0), 0);
+    // Group by category
+    const categoryCostMap = {};
+    const categoryLabels = {
+      accommodation: 'Accommodation',
+      transport: 'Transport',
+      food: 'Food & Dining',
+      activities: 'Activities',
+      equipment: 'Equipment',
+      other: 'Other',
+      uncategorized: 'Uncategorized'
+    };
+
+    costs.forEach(cost => {
+      const category = cost.category || 'uncategorized';
+      if (!categoryCostMap[category]) {
+        categoryCostMap[category] = {
+          category,
+          label: categoryLabels[category] || category,
+          total: 0,
+          costs: []
+        };
+      }
+      categoryCostMap[category].total += cost.cost || 0;
+      categoryCostMap[category].costs.push(cost);
+    });
+
+    const costsByCategory = Object.values(categoryCostMap)
+      .sort((a, b) => b.total - a.total);
+
+    const sharedCostTotal = sharedCostsList.reduce((sum, cost) => sum + (cost.cost || 0), 0);
+    const generalCostTotal = generalCostsList.reduce((sum, cost) => sum + (cost.cost || 0), 0);
     const collaboratorCount = Math.max(collaborators.length, 1);
-    const perPersonSplit = sharedCostTotal / collaboratorCount;
+    const perPersonShare = sharedCostTotal / collaboratorCount;
+
+    // Calculate per-person split
+    const perPersonSplit = collaborators.map(collab => {
+      const collabCosts = costsByCollaborator[collab._id];
+      const individualTotal = collabCosts ? collabCosts.total : 0;
+      return {
+        collaborator: collab,
+        individualTotal,
+        sharedPortion: perPersonShare,
+        grandTotal: individualTotal + perPersonShare
+      };
+    });
 
     return {
       totalCost,
+      costCount: costs.length,
       costsByCollaborator: Object.values(costsByCollaborator),
       costsByPlanItem: Object.values(costsByPlanItem),
-      sharedCosts: sharedCostTotal,
-      generalCosts: generalCostTotal,
+      costsByCategory,
+      sharedCosts: { total: sharedCostTotal, costs: sharedCostsList },
+      generalCosts: { total: generalCostTotal, costs: generalCostsList },
+      perPersonShare,
       perPersonSplit,
       collaboratorCount,
     };
@@ -169,30 +379,93 @@ export default function CostSummary({
 
   const byItemItems = useMemo(() => {
     return (calculatedSummary.costsByPlanItem || []).map(item => ({
-      id: item.planItem._id,
-      label: item.planItem.text || 'Unknown item',
+      id: item.item?._id || item.planItem?._id,
+      label: item.item?.text || item.planItem?.text || 'Unknown item',
       amount: item.total,
     }));
   }, [calculatedSummary.costsByPlanItem]);
 
+  // CSV Export handler
+  const handleExportCsv = useCallback(() => {
+    if (onExportCsv) {
+      onExportCsv();
+      return;
+    }
+
+    // Default CSV export implementation
+    const rows = [
+      ['Title', 'Amount', 'Currency', 'Category', 'Date', 'Paid By', 'Plan Item']
+    ];
+
+    // Collect all costs
+    const allCosts = [];
+    (calculatedSummary.costsByCollaborator || []).forEach(c =>
+      c.costs.forEach(cost => allCosts.push({ ...cost, paidBy: c.collaborator?.name }))
+    );
+    const sharedCostsList = calculatedSummary.sharedCosts?.costs || [];
+    sharedCostsList.forEach(cost => {
+      if (!allCosts.find(c => c._id === cost._id)) {
+        allCosts.push({ ...cost, paidBy: 'Shared' });
+      }
+    });
+
+    allCosts.forEach(cost => {
+      rows.push([
+        cost.title || '',
+        cost.cost || 0,
+        cost.currency || currency,
+        cost.category || '',
+        cost.date ? new Date(cost.date).toLocaleDateString() : '',
+        cost.paidBy || '',
+        cost.plan_item ? 'Yes' : ''
+      ]);
+    });
+
+    // Add totals
+    rows.push([]);
+    rows.push(['Total', calculatedSummary.totalCost, currency, '', '', '', '']);
+
+    // Generate CSV
+    const csv = rows.map(row => row.map(cell =>
+      typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell
+    ).join(',')).join('\n');
+
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `cost-summary-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [calculatedSummary, currency, onExportCsv]);
+
   if (loading) {
     return (
-      <div className={styles.costSummary}>
+      <div className={`${styles.costSummary} ${className}`}>
         <div className={styles.loading}>Loading cost summary...</div>
       </div>
     );
   }
 
-  const { totalCost, sharedCosts, perPersonShare, perPersonSplit, collaboratorCount } = calculatedSummary;
+  const {
+    totalCost,
+    costCount,
+    sharedCosts,
+    perPersonShare,
+    perPersonSplit,
+    collaboratorCount,
+    costsByCategory
+  } = calculatedSummary;
 
   // Normalize sharedCosts - API returns object, fallback returns number
   const sharedCostsAmount = typeof sharedCosts === 'object' ? sharedCosts.total : sharedCosts;
-  const perPersonSplitAmount = typeof perPersonShare === 'number' ? perPersonShare : (typeof perPersonSplit === 'number' ? perPersonSplit : 0);
+  const perPersonSplitAmount = typeof perPersonShare === 'number' ? perPersonShare : 0;
 
   // Compact view - just total
   if (compact) {
     return (
-      <div className={`${styles.costSummary} ${styles.compact}`}>
+      <div className={`${styles.costSummary} ${styles.compact} ${className}`}>
         <div className={styles.compactTotal}>
           <FaDollarSign className={styles.compactIcon} />
           <span className={styles.compactLabel}>{costStrings.totalCosts}:</span>
@@ -205,13 +478,14 @@ export default function CostSummary({
   }
 
   return (
-    <div className={styles.costSummary}>
+    <div className={`${styles.costSummary} ${className}`}>
       {/* Summary Cards */}
       <div className={styles.summaryGrid}>
         <SummaryCard
           icon={FaDollarSign}
           label={costStrings.totalCosts}
           value={formatActualCost(totalCost, { exact: true, currency })}
+          subValue={costCount > 0 ? `${costCount} ${costCount === 1 ? 'cost' : 'costs'}` : undefined}
           variant="primary"
         />
 
@@ -228,23 +502,83 @@ export default function CostSummary({
             icon={FaUserFriends}
             label={costStrings.perPersonShare}
             value={formatActualCost(perPersonSplitAmount, { exact: true, currency })}
-            subValue={`${collaboratorCount} ${lang.current.label.people}`}
+            subValue={`${collaboratorCount} people`}
           />
         )}
       </div>
 
+      {/* Export Button */}
+      {showExport && costCount > 0 && (
+        <button
+          className={styles.exportButton}
+          onClick={handleExportCsv}
+          aria-label={costStrings.exportCsv}
+          type="button"
+        >
+          <FaFileDownload aria-hidden="true" />
+          <span>{costStrings.exportCsv}</span>
+        </button>
+      )}
+
+      {/* Per-Person Split Table */}
+      {showPerPersonSplit && perPersonSplit && perPersonSplit.length > 1 && (
+        <ExpandableSection
+          title={costStrings.perPersonShare}
+          icon={FaUsers}
+          total={totalCost}
+          currency={currency}
+          defaultExpanded={true}
+        >
+          <PerPersonSplitTable
+            perPersonSplit={perPersonSplit}
+            sharedCosts={sharedCostsAmount}
+            currency={currency}
+            collaboratorCount={collaboratorCount}
+          />
+        </ExpandableSection>
+      )}
+
+      {/* Category Breakdown */}
+      {showCategoryBreakdown && costsByCategory && costsByCategory.length > 0 && (
+        <ExpandableSection
+          title={costStrings.costsByCategory}
+          icon={FaTag}
+          total={totalCost}
+          currency={currency}
+          defaultExpanded={true}
+        >
+          <CategoryBreakdown
+            costsByCategory={costsByCategory}
+            totalCost={totalCost}
+            currency={currency}
+          />
+        </ExpandableSection>
+      )}
+
       {/* Detailed Breakdowns */}
       {showBreakdowns && (
         <div className={styles.breakdowns}>
-          <BreakdownList
-            title={costStrings.costsByPerson}
-            items={byPersonItems}
-          />
+          {byPersonItems.length > 0 && (
+            <ExpandableSection
+              title={costStrings.costsByPerson}
+              icon={FaUser}
+              total={byPersonItems.reduce((sum, i) => sum + i.amount, 0)}
+              currency={currency}
+            >
+              <BreakdownList items={byPersonItems} />
+            </ExpandableSection>
+          )}
 
-          <BreakdownList
-            title={costStrings.costsByItem}
-            items={byItemItems}
-          />
+          {byItemItems.length > 0 && (
+            <ExpandableSection
+              title={costStrings.costsByItem}
+              icon={FaListAlt}
+              total={byItemItems.reduce((sum, i) => sum + i.amount, 0)}
+              currency={currency}
+            >
+              <BreakdownList items={byItemItems} />
+            </ExpandableSection>
+          )}
         </div>
       )}
     </div>

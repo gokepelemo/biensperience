@@ -214,6 +214,126 @@ export default function SingleDestination() {
     return () => unsubscribe();
   }, [destinationId, mergeDestination]);
 
+  // Listen for experience events to update the destination's experience list
+  useEffect(() => {
+    if (!destinationId) return;
+
+    // Helper to check if experience belongs to this destination
+    const isForThisDestination = (experience) => {
+      if (!experience) return false;
+      const destRef = experience.destination;
+      const destId = typeof destRef === 'object' && destRef !== null ? destRef._id : destRef;
+      return destId && String(destId) === String(destinationId);
+    };
+
+    // Handle experience created - add to list if it's for this destination
+    const handleExperienceCreated = (event) => {
+      const experience = event.experience;
+      if (!isForThisDestination(experience)) return;
+
+      logger.debug('[SingleDestination] Experience created for this destination', { experienceId: experience._id });
+
+      // Update direct experiences list
+      setDirectDestinationExperiences(prev => {
+        if (prev === null) return [experience];
+        // Avoid duplicates
+        if (prev.some(e => e._id === experience._id)) return prev;
+        return [experience, ...prev];
+      });
+
+      // Update derived experiences list
+      setDestinationExperiences(prev => {
+        if (prev.some(e => e._id === experience._id)) return prev;
+        return [experience, ...prev];
+      });
+    };
+
+    // Handle experience updated - update in list if present
+    const handleExperienceUpdated = (event) => {
+      const experience = event.experience;
+      if (!experience) return;
+
+      // Check if experience was previously for this destination or is now
+      const wasForThisDestination = destinationExperiences.some(e => e._id === experience._id) ||
+                                    (directDestinationExperiences && directDestinationExperiences.some(e => e._id === experience._id));
+      const nowForThisDestination = isForThisDestination(experience);
+
+      // Experience moved away from this destination - remove it
+      if (wasForThisDestination && !nowForThisDestination) {
+        logger.debug('[SingleDestination] Experience moved to different destination', { experienceId: experience._id });
+        setDirectDestinationExperiences(prev => prev ? prev.filter(e => e._id !== experience._id) : prev);
+        setDestinationExperiences(prev => prev.filter(e => e._id !== experience._id));
+        return;
+      }
+
+      // Experience moved to this destination - add it
+      if (!wasForThisDestination && nowForThisDestination) {
+        logger.debug('[SingleDestination] Experience moved to this destination', { experienceId: experience._id });
+        setDirectDestinationExperiences(prev => {
+          if (prev === null) return [experience];
+          if (prev.some(e => e._id === experience._id)) return prev;
+          return [experience, ...prev];
+        });
+        setDestinationExperiences(prev => {
+          if (prev.some(e => e._id === experience._id)) return prev;
+          return [experience, ...prev];
+        });
+        return;
+      }
+
+      // Experience updated but still for this destination - update in place
+      if (nowForThisDestination) {
+        logger.debug('[SingleDestination] Experience updated', { experienceId: experience._id });
+        setDirectDestinationExperiences(prev => {
+          if (!prev) return prev;
+          const index = prev.findIndex(e => e._id === experience._id);
+          if (index === -1) return prev;
+          const updated = [...prev];
+          updated[index] = { ...updated[index], ...experience };
+          return updated;
+        });
+        setDestinationExperiences(prev => {
+          const index = prev.findIndex(e => e._id === experience._id);
+          if (index === -1) return prev;
+          const updated = [...prev];
+          updated[index] = { ...updated[index], ...experience };
+          return updated;
+        });
+      }
+    };
+
+    // Handle experience deleted - remove from list
+    const handleExperienceDeleted = (event) => {
+      const experienceId = event.experienceId;
+      if (!experienceId) return;
+
+      logger.debug('[SingleDestination] Experience deleted event', { experienceId });
+
+      setDirectDestinationExperiences(prev => {
+        if (!prev) return prev;
+        const filtered = prev.filter(e => e._id !== experienceId);
+        if (filtered.length === prev.length) return prev; // No change
+        return filtered;
+      });
+
+      setDestinationExperiences(prev => {
+        const filtered = prev.filter(e => e._id !== experienceId);
+        if (filtered.length === prev.length) return prev; // No change
+        return filtered;
+      });
+    };
+
+    const unsubCreate = eventBus.subscribe('experience:created', handleExperienceCreated);
+    const unsubUpdate = eventBus.subscribe('experience:updated', handleExperienceUpdated);
+    const unsubDelete = eventBus.subscribe('experience:deleted', handleExperienceDeleted);
+
+    return () => {
+      unsubCreate();
+      unsubUpdate();
+      unsubDelete();
+    };
+  }, [destinationId, destinationExperiences, directDestinationExperiences]);
+
   useEffect(() => {
     const filteredExperiences = experiences.filter((experience) => {
       // destination may be an ObjectId string or a populated object
@@ -410,8 +530,6 @@ export default function SingleDestination() {
               <h2 className={styles.heroTitle}>{destinationTitle}</h2>
               <div className={styles.heroMeta}>
                 <span><FaMapMarkerAlt /> {destination.country}</span>
-                <span><FaHeart /> {favoriteCount} {favoriteCount === 1 ? 'favorite' : 'favorites'}</span>
-                <span><FaPlane /> {experienceCount} {experienceCount === 1 ? 'experience' : 'experiences'}</span>
               </div>
             </div>
             {/* Hero photo button - opens upload modal when no photos and user can edit */}

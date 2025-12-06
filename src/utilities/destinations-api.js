@@ -58,9 +58,10 @@ export async function createDestination (destinationData) {
     const result = await sendRequest(`${BASE_URL}`, "POST", destinationData);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
+    // Standardized payload: { entity, entityId } for created events
     try {
         if (result) {
-            broadcastEvent('destination:created', { destination: result });
+            broadcastEvent('destination:created', { destination: result, destinationId: result._id });
             logger.debug('[destinations-api] Destination created event dispatched', { id: result._id });
         }
     } catch (e) {
@@ -93,9 +94,10 @@ export async function updateDestination (id, destinationData) {
     const result = await sendRequest(`${BASE_URL}${id}`, "PUT", destinationData);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
+    // Standardized payload: { entity, entityId } for updated events
     try {
         if (result) {
-            broadcastEvent('destination:updated', { destination: result });
+            broadcastEvent('destination:updated', { destination: result, destinationId: result._id });
             logger.debug('[destinations-api] Destination updated event dispatched', { id: result._id });
         }
     } catch (e) {
@@ -138,9 +140,10 @@ export async function toggleUserFavoriteDestination (destinationId, userId) {
     const result = await sendRequest(`${BASE_URL}${destinationId}/user/${userId}`, "POST");
 
     // Emit event via event bus (handles local + cross-tab dispatch)
+    // Standardized payload: { entity, entityId } for updated events
     try {
         if (result) {
-            broadcastEvent('destination:updated', { destination: result });
+            broadcastEvent('destination:updated', { destination: result, destinationId: result._id });
             logger.debug('[destinations-api] Destination favorite toggled event dispatched', { id: result._id });
         }
     } catch (e) {

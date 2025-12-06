@@ -1,4 +1,5 @@
 import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera, FaStar, FaGlobe, FaExternalLinkAlt } from "react-icons/fa";
+import { getSocialNetwork, getLinkIcon, getLinkDisplayText, buildLinkUrl } from "../../utilities/social-links";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
 import styles from "./Profile.module.scss";
@@ -538,6 +539,140 @@ export default function Profile() {
 
     const unsubscribe = eventBus.subscribe('user:updated', handleUserUpdated);
     return () => unsubscribe();
+  }, [userId, mergeProfile]);
+
+  // Listen for experience events to update profile lists
+  useEffect(() => {
+    if (!userId) return;
+
+    // Handle experience created - add to created list if owner matches
+    const handleExperienceCreated = (event) => {
+      const experience = event.experience;
+      if (!experience) return;
+
+      // Check if the current profile user is the owner
+      const ownerPermission = experience.permissions?.find(
+        p => p.entity === 'user' && p.type === 'owner'
+      );
+      const ownerId = ownerPermission?._id?.toString() || ownerPermission?._id;
+
+      if (ownerId === userId) {
+        logger.debug('[Profile] Experience created by profile user', { experienceId: experience._id });
+        setCreatedExperiences(prev => {
+          if (!prev) return [experience];
+          // Avoid duplicates
+          if (prev.some(e => e._id === experience._id)) return prev;
+          return [experience, ...prev];
+        });
+        // Update meta count
+        setCreatedExperiencesMeta(prev => prev ? { ...prev, total: (prev.total || 0) + 1 } : prev);
+      }
+    };
+
+    // Handle experience updated - update in both lists if present
+    const handleExperienceUpdated = (event) => {
+      const experience = event.experience;
+      if (!experience) return;
+
+      logger.debug('[Profile] Experience updated event', { experienceId: experience._id });
+
+      // Update in user experiences (planned)
+      setUserExperiences(prev => {
+        if (!prev) return prev;
+        const index = prev.findIndex(e => e._id === experience._id);
+        if (index === -1) return prev;
+        const updated = [...prev];
+        updated[index] = { ...updated[index], ...experience };
+        return updated;
+      });
+
+      // Update in created experiences
+      setCreatedExperiences(prev => {
+        if (!prev) return prev;
+        const index = prev.findIndex(e => e._id === experience._id);
+        if (index === -1) return prev;
+        const updated = [...prev];
+        updated[index] = { ...updated[index], ...experience };
+        return updated;
+      });
+    };
+
+    // Handle experience deleted - remove from both lists
+    const handleExperienceDeleted = (event) => {
+      const experienceId = event.experienceId;
+      if (!experienceId) return;
+
+      logger.debug('[Profile] Experience deleted event', { experienceId });
+
+      // Remove from user experiences
+      setUserExperiences(prev => {
+        if (!prev) return prev;
+        const filtered = prev.filter(e => e._id !== experienceId);
+        if (filtered.length === prev.length) return prev; // No change
+        return filtered;
+      });
+      setUserExperiencesMeta(prev => {
+        if (!prev) return prev;
+        const newTotal = Math.max(0, (prev.total || 0) - 1);
+        return { ...prev, total: newTotal, totalPages: Math.ceil(newTotal / ITEMS_PER_PAGE) };
+      });
+
+      // Remove from created experiences
+      setCreatedExperiences(prev => {
+        if (!prev) return prev;
+        const filtered = prev.filter(e => e._id !== experienceId);
+        if (filtered.length === prev.length) return prev; // No change
+        return filtered;
+      });
+      setCreatedExperiencesMeta(prev => {
+        if (!prev) return prev;
+        const newTotal = Math.max(0, (prev.total || 0) - 1);
+        return { ...prev, total: newTotal, totalPages: Math.ceil(newTotal / ITEMS_PER_PAGE) };
+      });
+    };
+
+    const unsubCreate = eventBus.subscribe('experience:created', handleExperienceCreated);
+    const unsubUpdate = eventBus.subscribe('experience:updated', handleExperienceUpdated);
+    const unsubDelete = eventBus.subscribe('experience:deleted', handleExperienceDeleted);
+
+    return () => {
+      unsubCreate();
+      unsubUpdate();
+      unsubDelete();
+    };
+  }, [userId]);
+
+  // Listen for destination events to update favorites list
+  useEffect(() => {
+    if (!userId) return;
+
+    // Handle destination updated - could affect favorite status
+    const handleDestinationUpdated = (event) => {
+      const destination = event.destination;
+      if (!destination) return;
+
+      logger.debug('[Profile] Destination updated event', { destinationId: destination._id });
+      // The favoriteDestinations memo will automatically recompute from DataContext destinations
+      // No manual state update needed - just logging for debugging
+    };
+
+    // Handle destination deleted - will be removed from favorites automatically via DataContext
+    const handleDestinationDeleted = (event) => {
+      const destinationId = event.destinationId;
+      if (!destinationId) return;
+
+      logger.debug('[Profile] Destination deleted event', { destinationId });
+      // The favoriteDestinations memo filters from DataContext destinations
+      // which will be updated by DataContext's own event handlers
+    };
+
+    const unsubUpdate = eventBus.subscribe('destination:updated', handleDestinationUpdated);
+    const unsubDelete = eventBus.subscribe('destination:deleted', handleDestinationDeleted);
+
+    return () => {
+      unsubUpdate();
+      unsubDelete();
+    };
   }, [userId]);
 
   // Register h1 for navbar integration - clicking scrolls to top
@@ -811,20 +946,31 @@ export default function Profile() {
                   {/* Curator Links */}
                   {hasFeatureFlag(currentProfile, 'curator') && currentProfile?.links?.length > 0 && (
                     <div className={styles.profileLinks}>
-                      {currentProfile.links.map((link, index) => (
-                        <a
-                          key={link._id || index}
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={styles.profileLink}
-                          title={link.title}
-                        >
-                          <FaGlobe />
-                          <span>{link.title}</span>
-                          <FaExternalLinkAlt size={10} />
-                        </a>
-                      ))}
+                      {currentProfile.links.map((link, index) => {
+                        const network = getSocialNetwork(link.type);
+                        const LinkIcon = getLinkIcon(link);
+                        const displayText = getLinkDisplayText(link);
+                        const linkUrl = buildLinkUrl(link);
+                        const isSocialLink = network && !network.isCustomUrl;
+
+                        return (
+                          <a
+                            key={link._id || index}
+                            href={linkUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={isSocialLink ? styles.profileLinkSocial : styles.profileLink}
+                            title={link.title || network?.name || 'Link'}
+                          >
+                            <LinkIcon
+                              className={styles.profileLinkIcon}
+                              style={isSocialLink ? { color: network.color } : undefined}
+                            />
+                            <span>{displayText || link.title}</span>
+                            {!isSocialLink && <FaExternalLinkAlt size={10} />}
+                          </a>
+                        );
+                      })}
                     </div>
                   )}
 

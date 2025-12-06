@@ -467,6 +467,12 @@ const planSchema = new Schema(
         description: { type: String },
         cost: { type: Number, required: true, default: 0 },
         currency: { type: String, default: 'USD' },
+        category: {
+          type: String,
+          enum: ['accommodation', 'transport', 'food', 'activities', 'equipment', 'other', null],
+          default: null
+        },
+        date: { type: Date, default: Date.now }, // When the cost was incurred
         plan_item: { type: Schema.Types.ObjectId }, // optional link to a plan item snapshot
         plan: { type: Schema.Types.ObjectId, ref: 'Plan' }, // optional link back to this plan
         collaborator: { type: Schema.Types.ObjectId, ref: 'User' }, // optional contributor who paid or is responsible

@@ -586,6 +586,14 @@ components:
         currency:
           type: string
           default: USD
+        category:
+          type: string
+          enum: [accommodation, transport, food, activities, equipment, other, null]
+          description: Cost category for grouping and reporting
+        date:
+          type: string
+          format: date-time
+          description: Date when the cost was incurred
         plan_item:
           type: string
           description: Linked plan item ID
@@ -3431,6 +3439,14 @@ paths:
                 currency:
                   type: string
                   default: USD
+                category:
+                  type: string
+                  enum: [accommodation, transport, food, activities, equipment, other]
+                  description: Cost category for grouping and reporting
+                date:
+                  type: string
+                  format: date-time
+                  description: Date when the cost was incurred
                 plan_item:
                   type: string
                 collaborator:
@@ -3483,6 +3499,14 @@ paths:
                   minimum: 0
                 currency:
                   type: string
+                category:
+                  type: string
+                  enum: [accommodation, transport, food, activities, equipment, other, null]
+                  description: Cost category for grouping and reporting
+                date:
+                  type: string
+                  format: date-time
+                  description: Date when the cost was incurred
                 plan_item:
                   type: string
                 collaborator:

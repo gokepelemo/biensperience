@@ -1509,6 +1509,7 @@ class DataGenerator {
       // Generate costs for this plan (0-3 items). Costs can link to a plan_item,
       // be associated with a collaborator, or be a plan-level cost (e.g., insurance)
       const currencyOptions = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
+      const categoryOptions = ['accommodation', 'transport', 'food', 'activities', 'equipment', 'other'];
       const costs = [];
       const costCount = randomBetween(0, 3);
       for (let ci = 0; ci < costCount; ci++) {
@@ -1516,12 +1517,20 @@ class DataGenerator {
         const linkedItem = isItemLinked ? getRandomElement(planItems) : null;
         const costAmount = Math.max(5, Math.round((linkedItem ? (linkedItem.cost || 50) : randomBetween(10, 300)) * (0.8 + Math.random() * 0.8)));
         const collaboratorForCost = Math.random() < 0.35 ? getRandomElement(collaborators) : null;
+        // 80% of costs have a category assigned
+        const hasCategory = Math.random() < 0.8;
+        // Generate a random date within the past 30 days or future 60 days
+        const randomDays = randomBetween(-30, 60);
+        const costDate = new Date();
+        costDate.setDate(costDate.getDate() + randomDays);
 
         costs.push({
           title: isItemLinked ? `Cost for: ${linkedItem.text}` : getRandomElement(['Travel insurance', 'Group deposit', 'Local transport budget', 'Shared groceries', 'Miscellaneous costs']),
           description: isItemLinked ? `Estimated cost for '${linkedItem.text}'` : `Plan-level expense generated for demo data`,
           cost: costAmount,
           currency: getRandomElement(currencyOptions),
+          category: hasCategory ? getRandomElement(categoryOptions) : null,
+          date: costDate,
           plan_item: isItemLinked ? linkedItem.plan_item_id || linkedItem.plan_item_id : undefined,
           plan: undefined,
           collaborator: collaboratorForCost ? collaboratorForCost._id : undefined,

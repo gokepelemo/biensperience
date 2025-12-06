@@ -46,9 +46,10 @@ export async function createExperience(experienceData) {
   const result = await sendRequest(`${BASE_URL}`, "POST", experienceData);
 
   // Emit event via event bus (handles local + cross-tab dispatch)
+  // Standardized payload: { entity, entityId } for created events
   try {
     if (result) {
-      broadcastEvent('experience:created', { experience: result });
+      broadcastEvent('experience:created', { experience: result, experienceId: result._id });
       logger.debug('[experiences-api] Experience created event dispatched', { id: result._id });
     }
   } catch (e) {
@@ -73,8 +74,26 @@ export async function deleteExperience(id) {
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {
+    // Emit experience:deleted event
     broadcastEvent('experience:deleted', { experienceId: id });
     logger.debug('[experiences-api] Experience deleted event dispatched', { id });
+
+    // Emit plan:deleted events for cascade-deleted plans
+    // This allows Dashboard and other views to update their plan lists
+    if (result?.deletedPlans?.plans?.length > 0) {
+      for (const deletedPlan of result.deletedPlans.plans) {
+        broadcastEvent('plan:deleted', {
+          planId: deletedPlan.planId,
+          experienceId: id,
+          userId: deletedPlan.userId,
+          cascadeDelete: true
+        });
+      }
+      logger.debug('[experiences-api] Cascade plan:deleted events dispatched', {
+        experienceId: id,
+        planCount: result.deletedPlans.count
+      });
+    }
   } catch (e) {
     // ignore
   }
@@ -83,11 +102,23 @@ export async function deleteExperience(id) {
 }
 
 export async function transferOwnership(experienceId, newOwnerId) {
-  return await sendRequest(
+  const result = await sendRequest(
     `${BASE_URL}${experienceId}/transfer-ownership`,
     "PUT",
     { newOwnerId }
   );
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  try {
+    if (result) {
+      broadcastEvent('experience:updated', { experience: result, experienceId });
+      logger.debug('[experiences-api] Experience ownership transferred event dispatched', { experienceId, newOwnerId });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function updateExperience(experienceId, experienceData) {
@@ -98,9 +129,10 @@ export async function updateExperience(experienceId, experienceData) {
   );
 
   // Emit event via event bus (handles local + cross-tab dispatch)
+  // Standardized payload: { entity, entityId } for updated events
   try {
     if (result) {
-      broadcastEvent('experience:updated', { experience: result });
+      broadcastEvent('experience:updated', { experience: result, experienceId: result._id });
       logger.debug('[experiences-api] Experience updated event dispatched', { id: result._id });
     }
   } catch (e) {
@@ -111,18 +143,41 @@ export async function updateExperience(experienceId, experienceData) {
 }
 
 export async function userRemoveExperience(userId, experienceId) {
-  return await sendRequest(
+  const result = await sendRequest(
     `${BASE_URL}${experienceId}/user/${userId}`,
     "DELETE"
   );
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  try {
+    broadcastEvent('plan:deleted', { planId: result?._id, experienceId, userId });
+    logger.debug('[experiences-api] User plan removed event dispatched', { experienceId, userId });
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function userAddExperience(userId, experienceId, data = {}) {
-  return await sendRequest(
+  const result = await sendRequest(
     `${BASE_URL}${experienceId}/user/${userId}`,
     "POST",
     data
   );
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  // Standardized payload: { entity, entityId, ...context } for created events
+  try {
+    if (result) {
+      broadcastEvent('plan:created', { plan: result, planId: result._id, experienceId, userId });
+      logger.debug('[experiences-api] User plan created event dispatched', { experienceId, userId, planId: result._id });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function addPlanItem(experienceId, planItemData) {
@@ -131,12 +186,24 @@ export async function addPlanItem(experienceId, planItemData) {
     ...planItemData,
     url: planItemData.url ? normalizeUrl(planItemData.url) : planItemData.url
   };
-  
-  return await sendRequest(
+
+  const result = await sendRequest(
     `${BASE_URL}${experienceId}/plan-item`,
     "POST",
     normalizedData
   );
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  try {
+    if (result) {
+      broadcastEvent('experience:item:added', { experienceId, planItem: result });
+      logger.debug('[experiences-api] Plan item added event dispatched', { experienceId, planItemId: result._id });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function updatePlanItem(experienceId, planItemData) {
@@ -145,26 +212,60 @@ export async function updatePlanItem(experienceId, planItemData) {
     ...planItemData,
     url: planItemData.url ? normalizeUrl(planItemData.url) : planItemData.url
   };
-  
-  return await sendRequest(
+
+  const result = await sendRequest(
     `${BASE_URL}${experienceId}/plan-item/${planItemData._id}`,
     "PUT",
     normalizedData
   );
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  try {
+    if (result) {
+      broadcastEvent('experience:item:updated', { experienceId, planItem: result, planItemId: planItemData._id });
+      logger.debug('[experiences-api] Plan item updated event dispatched', { experienceId, planItemId: planItemData._id });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function deletePlanItem(experienceId, planItemId) {
-  return await sendRequest(
+  const result = await sendRequest(
     `${BASE_URL}${experienceId}/plan-item/${planItemId}`,
     "DELETE"
   );
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  try {
+    broadcastEvent('experience:item:deleted', { experienceId, planItemId });
+    logger.debug('[experiences-api] Plan item deleted event dispatched', { experienceId, planItemId });
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function userPlanItemDone(experienceId, planItemId) {
-  return await sendRequest(
+  const result = await sendRequest(
     `${BASE_URL}${experienceId}/plan-item/${planItemId}`,
     "POST"
   );
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  try {
+    if (result) {
+      broadcastEvent('experience:item:completed', { experienceId, planItemId, planItem: result });
+      logger.debug('[experiences-api] Plan item completed event dispatched', { experienceId, planItemId });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 /**
@@ -219,21 +320,43 @@ export async function getTagName(tagSlug) {
  * Add a collaborator permission to an experience
  */
 export async function addExperienceCollaborator(experienceId, userId) {
-  return await sendRequest(`${BASE_URL}${experienceId}/permissions`, "POST", {
+  const result = await sendRequest(`${BASE_URL}${experienceId}/permissions`, "POST", {
     _id: userId,
     entity: 'user',
     type: 'collaborator'
   });
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  try {
+    if (result) {
+      broadcastEvent('experience:collaborator:added', { experienceId, userId, experience: result });
+      logger.debug('[experiences-api] Experience collaborator added event dispatched', { experienceId, userId });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 /**
  * Remove a collaborator permission from an experience
  */
 export async function removeExperienceCollaborator(experienceId, userId) {
-  return await sendRequest(
+  const result = await sendRequest(
     `${BASE_URL}${experienceId}/permissions/${userId}/user`,
     "DELETE"
   );
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  try {
+    broadcastEvent('experience:collaborator:removed', { experienceId, userId, experience: result });
+    logger.debug('[experiences-api] Experience collaborator removed event dispatched', { experienceId, userId });
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 /**

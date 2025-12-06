@@ -2443,6 +2443,7 @@
 :global(.compact-meta-notes),
 :global(.compact-meta-assigned) {
   opacity: 0.8;
+  cursor: pointer;
 }
 
 :global(.compact-meta-notes) {

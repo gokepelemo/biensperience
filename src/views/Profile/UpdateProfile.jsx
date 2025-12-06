@@ -1,7 +1,8 @@
 import styles from "./Profile.module.scss";
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFlag } from "react-icons/fa";
+import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFlag, FaLink, FaUser, FaCamera, FaUserShield, FaCheckCircle } from "react-icons/fa";
+import { getSocialNetworkOptions, getSocialNetwork, buildLinkUrl, getLinkIcon } from "../../utilities/social-links";
 import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
 import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
@@ -41,6 +42,7 @@ export default function UpdateProfile() {
     confirmPassword: ''
   });
   const [passwordError, setPasswordError] = useState("");
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [geolocating, setGeolocating] = useState(false);
   const [flagSearchValue, setFlagSearchValue] = useState("");
   const navigate = useNavigate();
@@ -578,356 +580,389 @@ export default function UpdateProfile() {
         <div className="row my-4 animation-fade-in justify-content-center">
           <div className="col-12">
             <Form className="form-unified" autoComplete="off" onSubmit={handleSubmit}>
-            <FormField
-              name="name"
-              label="Name"
-              type="text"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder={lang.current.placeholder.nameField}
-              required
-              autoComplete="name"
-              tooltip={lang.current.helper.profileName}
-              tooltipPlacement="top"
-            />
 
-            <FormField
-              name="email"
-              label="Email Address"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder={lang.current.placeholder.emailField}
-              required
-              autoComplete="email"
-              tooltip={lang.current.helper.profileEmail}
-              tooltipPlacement="top"
-            />
-
-            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-end' }}>
-              <div style={{ flex: 1 }}>
-                <FormField
-                  name="location"
-                  label="Location"
-                  type="text"
-                  value={formData.location?.displayName || formData.locationQuery || ''}
-                  onChange={(e) => {
-                    // Store the query string for geocoding on submit
-                    setFormData(prev => ({
-                      ...prev,
-                      locationQuery: e.target.value
-                    }));
-                    // Track changes
-                    const originalLocation = originalUser?.location?.displayName || '';
-                    const newLocation = e.target.value;
-                    if (originalLocation !== newLocation) {
-                      setChanges(prev => ({
-                        ...prev,
-                        location: { from: originalLocation || 'Not set', to: newLocation || 'Not set' }
-                      }));
-                    } else {
-                      setChanges(prev => {
-                        const newChanges = { ...prev };
-                        delete newChanges.location;
-                        return newChanges;
-                      });
-                    }
-                  }}
-                  placeholder="Enter city, zip code, or address"
-                  autoComplete="address-level2"
-                  tooltip="Enter a city name, zip/postal code, or full address. We'll look up the location to show your city and country on your profile."
-                  tooltipPlacement="top"
-                />
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleUseCurrentLocation}
-                disabled={geolocating}
-                title="Use current location"
-                aria-label="Use current location"
-                style={{
-                  flexShrink: 0,
-                  width: '36px',
-                  height: '36px',
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 'var(--space-4)'
-                }}
-              >
-                {geolocating ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                ) : (
-                  <FaCrosshairs />
-                )}
-              </Button>
-            </div>
-            {formData.location?.city && formData.location?.country && !formData.locationQuery && (
-              <p className="text-muted small mt-n2 mb-3">
-                📍 Current location: {formData.location.city}{formData.location.state ? `, ${formData.location.state}` : ''}, {formData.location.country}
-              </p>
-            )}
-
-            {isSuperAdmin(user) && (
-              <div className="mb-3">
-                <Checkbox
-                  id="emailConfirmed"
-                  checked={formData.emailConfirmed || false}
-                  onChange={(e) => handleChange({ target: { name: 'emailConfirmed', type: 'checkbox', checked: e.target.checked } })}
-                  label={
-                    <>
-                      Email Confirmed <span className="text-warning" title="Super Admin Only">🔐</span>
-                    </>
-                  }
-                />
-                <Form.Text style={{ color: 'var(--bs-gray-600)', display: 'block', marginTop: 'var(--space-2)' }}>
-                  Manually confirm or unconfirm this user's email address.
-                </Form.Text>
-              </div>
-            )}
-
-            {/* Feature Flags Management - Super Admin Only */}
-            {isSuperAdmin(user) && (
-              <div className="mb-4">
-                <h5 className="form-section-header">
-                  <FaFlag className="me-2" style={{ color: 'var(--color-primary)' }} />
-                  Feature Flags
-                  <span className="text-warning ms-2" title="Super Admin Only">🔐</span>
-                  <FormTooltip
-                    content="Add or remove feature flags to control access to premium and experimental features for this user."
-                    placement="top"
+              {/* ============================================
+                  SECTION 1: Basic Information
+                  ============================================ */}
+              <div className={styles.sectionCard}>
+                <div className={styles.sectionCardHeader}>
+                  <h3><FaUser /> Basic Information</h3>
+                </div>
+                <div className={styles.sectionCardBody}>
+                  <FormField
+                    name="name"
+                    label="Name"
+                    type="text"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder={lang.current.placeholder.nameField}
+                    required
+                    autoComplete="name"
+                    tooltip={lang.current.helper.profileName}
+                    tooltipPlacement="top"
                   />
-                </h5>
 
-                {/* Active flags as pills */}
-                {getActiveFlags().length > 0 && (
-                  <div className={styles.featureFlagsPills}>
-                    {getActiveFlags().map((flag) => (
-                      <div
-                        key={flag.flag}
-                        className={styles.featureFlagPillActive}
-                        title={`${flag.description} (${flag.tier})`}
-                      >
-                        <span className={styles.featureFlagName}>{flag.flag}</span>
-                        <span className={styles.featureFlagTier}>{flag.tier}</span>
-                        <button
-                          type="button"
-                          className={styles.featureFlagRemove}
-                          onClick={() => handleRemoveFeatureFlag(flag.flag)}
-                          title="Remove flag"
-                          aria-label={`Remove ${flag.flag} flag`}
-                        >
-                          <FaTimes size={10} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Autocomplete dropdown to add new flags */}
-                {getAvailableFlags().length > 0 && (
-                  <div className={styles.featureFlagAutocomplete}>
-                    <Autocomplete
-                      placeholder="Add a feature flag..."
-                      items={getAvailableFlags().map(f => ({
-                        id: f.key,
-                        name: f.key,
-                        label: f.description,
-                        tier: f.tier
-                      }))}
-                      entityType="category"
-                      value={flagSearchValue}
-                      onChange={(e) => setFlagSearchValue(e.target.value)}
-                      onSelect={(item) => {
-                        if (item && item.id) {
-                          handleAddFeatureFlag(item.id);
-                          setFlagSearchValue(""); // Clear the input after selection
-                        }
-                      }}
-                      showMeta={true}
-                      size="sm"
-                      emptyMessage="All flags have been added"
-                    />
-                  </div>
-                )}
-
-                <Form.Text style={{ color: 'var(--bs-gray-600)' }}>
-                  {getAvailableFlags().length === 0
-                    ? 'All available feature flags have been added.'
-                    : 'Select a flag from the dropdown to add it. Click the × to remove a flag.'}
-                </Form.Text>
-              </div>
-            )}
-
-            <div className="mb-4">
-              <h5 className="form-section-header">Change Password (Optional)</h5>
-              {passwordError && (
-                <Alert
-                  type="danger"
-                  message={passwordError}
-                />
-              )}
-              
-              {isEditingSelf && (
-                <FormField
-                  name="oldPassword"
-                  label="Current Password"
-                  type="password"
-                  value={passwordData.oldPassword}
-                  onChange={handlePasswordChange}
-                  placeholder={lang.current.placeholder.enterCurrentPassword}
-                  autoComplete="current-password"
-                  tooltip={lang.current.helper.currentPassword}
-                  tooltipPlacement="top"
-                  className="mb-3"
-                />
-              )}
-
-              <FormField
-                name="newPassword"
-                label={isEditingSelf ? "New Password" : "Password"}
-                type="password"
-                value={passwordData.newPassword}
-                onChange={handlePasswordChange}
-                placeholder={isEditingSelf ? "Enter your new password" : "Enter password"}
-                autoComplete="new-password"
-                minLength={3}
-                tooltip={isEditingSelf ? lang.current.helper.newPassword : "Set a new password for this user"}
-                tooltipPlacement="top"
-                className="mb-3"
-              />
-
-              <FormField
-                name="confirmPassword"
-                label="Confirm New Password"
-                type="password"
-                value={passwordData.confirmPassword}
-                onChange={handlePasswordChange}
-                placeholder={lang.current.placeholder.confirmNewPassword}
-                autoComplete="new-password"
-                tooltip={lang.current.helper.confirmPassword}
-                tooltipPlacement="top"
-                className="mb-3"
-              />
-            </div>
-
-            {/* Curator Profile Section - Only shown for curators */}
-            {hasFeatureFlag(currentUser, 'curator') && (
-              <div className="mb-4">
-                <h5 className="form-section-header">
-                  <FaStar className="me-2" style={{ color: 'var(--color-primary)' }} />
-                  Curator Profile
-                  <FormTooltip
-                    content="As a curator, you can add a bio and links to your profile that will be displayed on your curated experiences."
-                    placement="top"
+                  <FormField
+                    name="email"
+                    label="Email Address"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder={lang.current.placeholder.emailField}
+                    required
+                    autoComplete="email"
+                    tooltip={lang.current.helper.profileEmail}
+                    tooltipPlacement="top"
                   />
-                </h5>
 
-                <FormField
-                  name="bio"
-                  label="Bio"
-                  as="textarea"
-                  rows={4}
-                  value={formData.bio || ''}
-                  onChange={handleChange}
-                  placeholder="Tell others about yourself, your travel expertise, and what makes your curated experiences special..."
-                  maxLength={500}
-                  tooltip="A short bio that will be displayed on your profile and curated experiences (max 500 characters)"
-                  tooltipPlacement="top"
-                  className="mb-3"
-                />
-
-                <div className="mb-3">
-                  <label className="form-label d-flex align-items-center gap-2">
-                    <FaGlobe />
-                    Links
-                    <FormTooltip
-                      content="Add website, social media, or other links to share on your curator profile"
-                      placement="top"
-                    />
-                  </label>
-
-                  {/* Existing links */}
-                  {(formData.links || []).map((link, index) => (
-                    <div key={link._id || index} className="d-flex gap-2 mb-2 align-items-start">
-                      <div className="flex-grow-1">
-                        <div className="d-flex gap-2">
-                          <input
-                            type="text"
-                            className="form-control"
-                            placeholder="Title (e.g., Website, Instagram)"
-                            value={link.title || ''}
-                            onChange={(e) => {
-                              const newLinks = [...(formData.links || [])];
-                              newLinks[index] = { ...newLinks[index], title: e.target.value };
-                              setFormData(prev => ({ ...prev, links: newLinks }));
-                              // Track changes
-                              const originalLinks = JSON.stringify(originalUser?.links || []);
-                              const newLinksStr = JSON.stringify(newLinks);
-                              if (originalLinks !== newLinksStr) {
-                                setChanges(prev => ({ ...prev, links: { from: 'previous links', to: 'updated links' } }));
-                              } else {
-                                setChanges(prev => {
-                                  const { links, ...rest } = prev;
-                                  return rest;
-                                });
-                              }
-                            }}
-                            style={{ maxWidth: '200px' }}
-                          />
-                          <input
-                            type="url"
-                            className="form-control flex-grow-1"
-                            placeholder="https://example.com"
-                            value={link.url || ''}
-                            onChange={(e) => {
-                              const newLinks = [...(formData.links || [])];
-                              newLinks[index] = { ...newLinks[index], url: e.target.value };
-                              setFormData(prev => ({ ...prev, links: newLinks }));
-                              // Track changes
-                              const originalLinks = JSON.stringify(originalUser?.links || []);
-                              const newLinksStr = JSON.stringify(newLinks);
-                              if (originalLinks !== newLinksStr) {
-                                setChanges(prev => ({ ...prev, links: { from: 'previous links', to: 'updated links' } }));
-                              } else {
-                                setChanges(prev => {
-                                  const { links, ...rest } = prev;
-                                  return rest;
-                                });
-                              }
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newLinks = (formData.links || []).filter((_, i) => i !== index);
-                          setFormData(prev => ({ ...prev, links: newLinks }));
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-end' }}>
+                    <div style={{ flex: 1 }}>
+                      <FormField
+                        name="location"
+                        label="Location"
+                        type="text"
+                        value={formData.location?.displayName || formData.locationQuery || ''}
+                        onChange={(e) => {
+                          // Store the query string for geocoding on submit
+                          setFormData(prev => ({
+                            ...prev,
+                            locationQuery: e.target.value
+                          }));
                           // Track changes
-                          const originalLinks = JSON.stringify(originalUser?.links || []);
-                          const newLinksStr = JSON.stringify(newLinks);
-                          if (originalLinks !== newLinksStr) {
-                            setChanges(prev => ({ ...prev, links: { from: 'previous links', to: 'updated links' } }));
+                          const originalLocation = originalUser?.location?.displayName || '';
+                          const newLocation = e.target.value;
+                          if (originalLocation !== newLocation) {
+                            setChanges(prev => ({
+                              ...prev,
+                              location: { from: originalLocation || 'Not set', to: newLocation || 'Not set' }
+                            }));
                           } else {
                             setChanges(prev => {
-                              const { links, ...rest } = prev;
-                              return rest;
+                              const newChanges = { ...prev };
+                              delete newChanges.location;
+                              return newChanges;
                             });
                           }
                         }}
-                        title="Remove link"
-                        style={{ padding: '0.375rem 0.5rem' }}
-                      >
-                        <FaTimes />
-                      </Button>
+                        placeholder="Enter city, zip code, or address"
+                        autoComplete="address-level2"
+                        tooltip="Enter a city name, zip/postal code, or full address. We'll look up the location to show your city and country on your profile."
+                        tooltipPlacement="top"
+                      />
                     </div>
-                  ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="md"
+                      onClick={handleUseCurrentLocation}
+                      disabled={geolocating}
+                      title="Use current location"
+                      aria-label="Use current location"
+                      style={{
+                        flexShrink: 0,
+                        width: 'clamp(36px, var(--btn-height-md), 44px)',
+                        height: 'clamp(36px, var(--btn-height-md), 44px)',
+                        minHeight: 'var(--btn-height-md)',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: 'var(--space-4)'
+                      }}
+                    >
+                      {geolocating ? (
+                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                      ) : (
+                        <FaCrosshairs />
+                      )}
+                    </Button>
+                  </div>
+                  {formData.location?.city && formData.location?.country && !formData.locationQuery && (
+                    <p className="text-muted small mt-n2 mb-3">
+                      📍 Current location: {formData.location.city}{formData.location.state ? `, ${formData.location.state}` : ''}, {formData.location.country}
+                    </p>
+                  )}
+
+                  {/* Collapsible Change Password Section */}
+                  {showPasswordFields ? (
+                    <>
+                      <h5 className="form-section-header mt-4">Change Password</h5>
+                      {passwordError && (
+                        <Alert
+                          type="danger"
+                          message={passwordError}
+                        />
+                      )}
+
+                      {isEditingSelf && (
+                        <FormField
+                          name="oldPassword"
+                          label="Current Password"
+                          type="password"
+                          value={passwordData.oldPassword}
+                          onChange={handlePasswordChange}
+                          placeholder={lang.current.placeholder.enterCurrentPassword}
+                          autoComplete="current-password"
+                          tooltip={lang.current.helper.currentPassword}
+                          tooltipPlacement="top"
+                          className="mb-3"
+                        />
+                      )}
+
+                      <FormField
+                        name="newPassword"
+                        label={isEditingSelf ? "New Password" : "Password"}
+                        type="password"
+                        value={passwordData.newPassword}
+                        onChange={handlePasswordChange}
+                        placeholder={isEditingSelf ? "Enter your new password" : "Enter password"}
+                        autoComplete="new-password"
+                        minLength={3}
+                        tooltip={isEditingSelf ? lang.current.helper.newPassword : "Set a new password for this user"}
+                        tooltipPlacement="top"
+                        className="mb-3"
+                      />
+
+                      <FormField
+                        name="confirmPassword"
+                        label="Confirm New Password"
+                        type="password"
+                        value={passwordData.confirmPassword}
+                        onChange={handlePasswordChange}
+                        placeholder={lang.current.placeholder.confirmNewPassword}
+                        autoComplete="new-password"
+                        tooltip={lang.current.helper.confirmPassword}
+                        tooltipPlacement="top"
+                        className="mb-3"
+                      />
+                    </>
+                  ) : (
+                    <div className="mt-4">
+                      <button
+                        className="btn btn-link p-0 text-decoration-none"
+                        onClick={() => setShowPasswordFields(true)}
+                        type="button"
+                        aria-expanded={showPasswordFields}
+                      >
+                        + Change Password
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ============================================
+                  SECTION 2: Profile Photo
+                  ============================================ */}
+              <div className={styles.sectionCard}>
+                <div className={styles.sectionCardHeader}>
+                  <h3><FaCamera /> Profile Photo</h3>
+                </div>
+                <div className={styles.sectionCardBody}>
+                  <PhotoUpload data={formData} setData={setFormData} />
+                </div>
+              </div>
+
+              {/* ============================================
+                  SECTION 3: Curator Profile (Only for curators)
+                  ============================================ */}
+              {hasFeatureFlag(currentUser, 'curator') && (
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionCardHeader}>
+                    <h3><FaStar /> Curator Profile</h3>
+                  </div>
+                  <div className={styles.sectionCardBody}>
+                    <FormField
+                      name="bio"
+                      label="Bio"
+                      as="textarea"
+                      rows={4}
+                      value={formData.bio || ''}
+                      onChange={handleChange}
+                      placeholder="Tell others about yourself, your travel expertise, and what makes your curated experiences special..."
+                      maxLength={500}
+                      tooltip="A short bio that will be displayed on your profile and curated experiences (max 500 characters)"
+                      tooltipPlacement="top"
+                      className="mb-3"
+                    />
+
+                    <div className="mb-3">
+                      <label className="form-label d-flex align-items-center gap-2">
+                        <FaLink />
+                        Links
+                        <FormTooltip
+                          content="Add website, social media, or other links to share on your curator profile"
+                          placement="top"
+                        />
+                      </label>
+
+                  {/* Existing links */}
+                  {(formData.links || []).map((link, index) => {
+                    const network = getSocialNetwork(link.type);
+                    const isCustomType = !network || network.isCustomUrl;
+                    const LinkIcon = getLinkIcon(link);
+
+                    return (
+                      <div key={link._id || index} className={styles.linkEditRow}>
+                        {/* Network type dropdown */}
+                        <div className={styles.linkTypeSelect}>
+                          <select
+                            className="form-select"
+                            value={link.type || 'custom'}
+                            onChange={(e) => {
+                              const newType = e.target.value;
+                              const selectedNetwork = getSocialNetwork(newType);
+                              const newLinks = [...(formData.links || [])];
+
+                              // Reset fields when changing type
+                              newLinks[index] = {
+                                ...newLinks[index],
+                                type: newType,
+                                // Clear username/url when switching between custom and social
+                                username: selectedNetwork?.isCustomUrl ? '' : (newLinks[index].username || ''),
+                                url: selectedNetwork?.isCustomUrl ? (newLinks[index].url || '') : '',
+                                title: selectedNetwork?.isCustomUrl ? (newLinks[index].title || '') : selectedNetwork?.name || ''
+                              };
+
+                              setFormData(prev => ({ ...prev, links: newLinks }));
+                              // Track changes
+                              const originalLinks = originalUser?.links || [];
+                              const linksChanged = JSON.stringify(originalLinks) !== JSON.stringify(newLinks);
+                              if (linksChanged) {
+                                setChanges(prev => ({ ...prev, links: { from: originalLinks, to: newLinks } }));
+                              } else {
+                                setChanges(prev => {
+                                  const { links, ...rest } = prev;
+                                  return rest;
+                                });
+                              }
+                            }}
+                          >
+                            {getSocialNetworkOptions().map(opt => {
+                              const OptIcon = opt.icon;
+                              return (
+                                <option key={opt.id} value={opt.id}>
+                                  {opt.name}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+
+                        {/* Icon preview */}
+                        <div className={styles.linkIconPreview} style={{ color: network?.color || '#718096' }}>
+                          <LinkIcon size={18} />
+                        </div>
+
+                        {/* Input field - username for social, title+url for custom */}
+                        <div className={styles.linkInputGroup}>
+                          {isCustomType ? (
+                            // Custom link: title + URL
+                            <>
+                              <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Link title"
+                                value={link.title || ''}
+                                onChange={(e) => {
+                                  const newLinks = [...(formData.links || [])];
+                                  newLinks[index] = { ...newLinks[index], title: e.target.value };
+                                  setFormData(prev => ({ ...prev, links: newLinks }));
+                                  const originalLinks = originalUser?.links || [];
+                                  const linksChanged = JSON.stringify(originalLinks) !== JSON.stringify(newLinks);
+                                  if (linksChanged) {
+                                    setChanges(prev => ({ ...prev, links: { from: originalLinks, to: newLinks } }));
+                                  } else {
+                                    setChanges(prev => {
+                                      const { links, ...rest } = prev;
+                                      return rest;
+                                    });
+                                  }
+                                }}
+                                style={{ maxWidth: '150px' }}
+                              />
+                              <input
+                                type="url"
+                                className="form-control flex-grow-1"
+                                placeholder={network?.placeholder || 'https://example.com'}
+                                value={link.url || ''}
+                                onChange={(e) => {
+                                  const newLinks = [...(formData.links || [])];
+                                  newLinks[index] = { ...newLinks[index], url: e.target.value };
+                                  setFormData(prev => ({ ...prev, links: newLinks }));
+                                  const originalLinks = originalUser?.links || [];
+                                  const linksChanged = JSON.stringify(originalLinks) !== JSON.stringify(newLinks);
+                                  if (linksChanged) {
+                                    setChanges(prev => ({ ...prev, links: { from: originalLinks, to: newLinks } }));
+                                  } else {
+                                    setChanges(prev => {
+                                      const { links, ...rest } = prev;
+                                      return rest;
+                                    });
+                                  }
+                                }}
+                              />
+                            </>
+                          ) : (
+                            // Social network: username only
+                            <input
+                              type="text"
+                              className="form-control flex-grow-1"
+                              placeholder={network?.placeholder || 'username'}
+                              value={link.username || ''}
+                              onChange={(e) => {
+                                const newLinks = [...(formData.links || [])];
+                                const username = e.target.value.replace(/^@/, ''); // Strip @ if user types it
+                                newLinks[index] = {
+                                  ...newLinks[index],
+                                  username,
+                                  // Auto-generate URL from username
+                                  url: username ? network.urlPattern(username) : '',
+                                  title: network.name
+                                };
+                                setFormData(prev => ({ ...prev, links: newLinks }));
+                                const originalLinks = originalUser?.links || [];
+                                const linksChanged = JSON.stringify(originalLinks) !== JSON.stringify(newLinks);
+                                if (linksChanged) {
+                                  setChanges(prev => ({ ...prev, links: { from: originalLinks, to: newLinks } }));
+                                } else {
+                                  setChanges(prev => {
+                                    const { links, ...rest } = prev;
+                                    return rest;
+                                  });
+                                }
+                              }}
+                            />
+                          )}
+                        </div>
+
+                        {/* Remove button */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newLinks = (formData.links || []).filter((_, i) => i !== index);
+                            setFormData(prev => ({ ...prev, links: newLinks }));
+                            const originalLinks = originalUser?.links || [];
+                            const linksChanged = JSON.stringify(originalLinks) !== JSON.stringify(newLinks);
+                            if (linksChanged) {
+                              setChanges(prev => ({ ...prev, links: { from: originalLinks, to: newLinks } }));
+                            } else {
+                              setChanges(prev => {
+                                const { links, ...rest } = prev;
+                                return rest;
+                              });
+                            }
+                          }}
+                          title="Remove link"
+                          className={styles.linkRemoveBtn}
+                        >
+                          <FaTimes />
+                        </Button>
+                      </div>
+                    );
+                  })}
 
                   {/* Add new link button */}
                   <Button
@@ -935,7 +970,7 @@ export default function UpdateProfile() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const newLinks = [...(formData.links || []), { title: '', url: '', meta: {} }];
+                      const newLinks = [...(formData.links || []), { type: 'custom', title: '', url: '', username: '', meta: {} }];
                       setFormData(prev => ({ ...prev, links: newLinks }));
                     }}
                     className="mt-2"
@@ -943,22 +978,194 @@ export default function UpdateProfile() {
                     <FaPlus className="me-2" />
                     Add Link
                   </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <div className="mb-4">
-              <h5 className="form-section-header">
-                Profile Photo
-                <FormTooltip
-                  content={lang.current.helper.profilePhoto}
-                  placement="top"
-                />
-              </h5>
-              <PhotoUpload data={formData} setData={setFormData} />
-            </div>
+              {/* ============================================
+                  SECTION 4: Super Admin Permissions (Super Admin Only)
+                  ============================================ */}
+              {isSuperAdmin(user) && (
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionCardHeader}>
+                    <h3><FaUserShield /> Super Admin Permissions</h3>
+                  </div>
+                  <div className={styles.sectionCardBody}>
+                    {/* User Role Row */}
+                    <div className={styles.adminSectionRow}>
+                      <div className={styles.adminSectionLabel}>
+                        <strong>Current Role: {formData.role === 'super_admin' ? 'Super Admin' : 'Regular User'}</strong>
+                        <p>Change this user's role. Super admins have full access to all resources and user management.</p>
+                      </div>
+                      <div className={styles.adminSectionActions}>
+                        <button
+                          type="button"
+                          className={`${styles.adminActionBtn} ${formData.role === 'super_admin' ? styles.active : styles.inactive}`}
+                          onClick={() => {
+                            if (formData.role !== 'super_admin') {
+                              setFormData(prev => ({ ...prev, role: 'super_admin' }));
+                              if (originalUser?.role !== 'super_admin') {
+                                setChanges(prev => ({ ...prev, role: { from: 'Regular User', to: 'Super Admin' } }));
+                              } else {
+                                setChanges(prev => {
+                                  const { role, ...rest } = prev;
+                                  return rest;
+                                });
+                              }
+                            }
+                          }}
+                        >
+                          Make Super Admin
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.adminActionBtn} ${formData.role === 'regular_user' || !formData.role ? styles.active : styles.inactive}`}
+                          onClick={() => {
+                            if (formData.role !== 'regular_user') {
+                              setFormData(prev => ({ ...prev, role: 'regular_user' }));
+                              if (originalUser?.role !== 'regular_user' && originalUser?.role) {
+                                setChanges(prev => ({ ...prev, role: { from: 'Super Admin', to: 'Regular User' } }));
+                              } else {
+                                setChanges(prev => {
+                                  const { role, ...rest } = prev;
+                                  return rest;
+                                });
+                              }
+                            }
+                          }}
+                        >
+                          Make Regular User
+                        </button>
+                      </div>
+                    </div>
 
-            <div className="d-flex justify-content-between mt-4 gap-3">
+                    {/* Email Status Row */}
+                    <div className={styles.adminSectionRow}>
+                      <div className={styles.adminSectionLabel}>
+                        <strong>
+                          Email Status:{' '}
+                          <span className={`${styles.statusBadge} ${formData.emailConfirmed ? styles.confirmed : styles.unconfirmed}`}>
+                            <FaCheckCircle /> {formData.emailConfirmed ? 'Confirmed' : 'Unconfirmed'}
+                          </span>
+                        </strong>
+                        <p>Manually confirm or unconfirm this user's email address.</p>
+                      </div>
+                      <div className={styles.adminSectionActions}>
+                        <button
+                          type="button"
+                          className={`${styles.adminActionBtn} ${formData.emailConfirmed ? styles.active : styles.inactive}`}
+                          onClick={() => {
+                            if (!formData.emailConfirmed) {
+                              setFormData(prev => ({ ...prev, emailConfirmed: true }));
+                              if (!originalUser?.emailConfirmed) {
+                                setChanges(prev => ({ ...prev, emailConfirmed: { from: 'Unconfirmed', to: 'Confirmed' } }));
+                              } else {
+                                setChanges(prev => {
+                                  const { emailConfirmed, ...rest } = prev;
+                                  return rest;
+                                });
+                              }
+                            }
+                          }}
+                        >
+                          Confirm Email
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.adminActionBtn} ${!formData.emailConfirmed ? styles.danger : styles.inactive}`}
+                          onClick={() => {
+                            if (formData.emailConfirmed) {
+                              setFormData(prev => ({ ...prev, emailConfirmed: false }));
+                              if (originalUser?.emailConfirmed) {
+                                setChanges(prev => ({ ...prev, emailConfirmed: { from: 'Confirmed', to: 'Unconfirmed' } }));
+                              } else {
+                                setChanges(prev => {
+                                  const { emailConfirmed, ...rest } = prev;
+                                  return rest;
+                                });
+                              }
+                            }
+                          }}
+                        >
+                          Unconfirm Email
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Feature Flags Section */}
+                    <div className={styles.adminSectionRow} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                      <div className={styles.adminSectionLabel} style={{ marginBottom: 'var(--space-4)' }}>
+                        <strong style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                          <FaFlag /> Feature Flags
+                        </strong>
+                        <p>Add or remove feature flags to control access to premium and experimental features for this user.</p>
+                      </div>
+
+                      {/* Active flags as pills */}
+                      {getActiveFlags().length > 0 && (
+                        <div className={styles.featureFlagsPills}>
+                          {getActiveFlags().map((flag) => (
+                            <div
+                              key={flag.flag}
+                              className={styles.featureFlagPillActive}
+                              title={`${flag.description} (${flag.tier})`}
+                            >
+                              <span className={styles.featureFlagName}>{flag.flag}</span>
+                              <span className={styles.featureFlagTier}>{flag.tier}</span>
+                              <button
+                                type="button"
+                                className={styles.featureFlagRemove}
+                                onClick={() => handleRemoveFeatureFlag(flag.flag)}
+                                title="Remove flag"
+                                aria-label={`Remove ${flag.flag} flag`}
+                              >
+                                <FaTimes size={10} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Autocomplete dropdown to add new flags */}
+                      {getAvailableFlags().length > 0 && (
+                        <div className={styles.featureFlagAutocomplete}>
+                          <Autocomplete
+                            placeholder="Add a feature flag..."
+                            items={getAvailableFlags().map(f => ({
+                              id: f.key,
+                              name: f.key,
+                              label: f.description,
+                              tier: f.tier
+                            }))}
+                            entityType="category"
+                            value={flagSearchValue}
+                            onChange={(e) => setFlagSearchValue(e.target.value)}
+                            onSelect={(item) => {
+                              if (item && item.id) {
+                                handleAddFeatureFlag(item.id);
+                                setFlagSearchValue(""); // Clear the input after selection
+                              }
+                            }}
+                            showMeta={true}
+                            size="sm"
+                            emptyMessage="All flags have been added"
+                          />
+                        </div>
+                      )}
+
+                      <Form.Text style={{ color: 'var(--bs-gray-600)' }}>
+                        {getAvailableFlags().length === 0
+                          ? 'All available feature flags have been added.'
+                          : 'Select a flag from the dropdown to add it. Click the × to remove a flag.'}
+                      </Form.Text>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Form Actions */}
+              <div className="d-flex justify-content-between mt-4 gap-3">
               <Link
                 to={isAdminMode ? `/profile/${userId}` : "/profile"}
                 className="btn btn-secondary btn-lg"

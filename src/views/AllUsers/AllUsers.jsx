@@ -14,6 +14,7 @@ import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, 
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
 import { logger } from "../../utilities/logger";
+import { eventBus } from "../../utilities/event-bus";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
 import { createFilter } from "../../utilities/trie";
@@ -131,6 +132,50 @@ export default function AllUsers() {
 
     return () => clearActionButtons();
   }, [registerH1, clearActionButtons]);
+
+  // Listen for user events for real-time updates
+  useEffect(() => {
+    if (!isCurrentUserSuperAdmin) return;
+
+    // Handle user created - add new user to the list
+    const handleUserCreated = (event) => {
+      const newUser = event.user;
+      if (!newUser) return;
+
+      logger.debug('[AllUsers] User created event received', { userId: newUser._id });
+      setUsers(prev => {
+        // Avoid duplicates
+        if (prev.some(u => u._id === newUser._id)) return prev;
+        return [newUser, ...prev];
+      });
+    };
+
+    // Handle user updated - update user in the list
+    const handleUserUpdated = (event) => {
+      const updatedUser = event.user;
+      if (!updatedUser) return;
+
+      logger.debug('[AllUsers] User updated event received', { userId: updatedUser._id });
+      setUsers(prev => {
+        const index = prev.findIndex(u => u._id === updatedUser._id);
+        if (index === -1) {
+          // User not in list yet - might be a new user, add them
+          return [updatedUser, ...prev];
+        }
+        const updated = [...prev];
+        updated[index] = { ...updated[index], ...updatedUser };
+        return updated;
+      });
+    };
+
+    const unsubCreate = eventBus.subscribe('user:created', handleUserCreated);
+    const unsubUpdate = eventBus.subscribe('user:updated', handleUserUpdated);
+
+    return () => {
+      unsubCreate();
+      unsubUpdate();
+    };
+  }, [isCurrentUserSuperAdmin]);
 
   const handleSort = (field) => {
     if (sortField === field) {

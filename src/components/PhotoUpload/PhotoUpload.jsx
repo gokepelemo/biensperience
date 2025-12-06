@@ -199,7 +199,7 @@ export default function PhotoUpload({ data, setData }) {
   async function handleAddUrlToQueue() {
     if (!uploadForm.photo_url) {
       setAlertTitle(lang.current.modal.photoUrlRequired);
-      setAlertMessage('Please enter a photo URL');
+      setAlertMessage(lang.current.photo.enterPhotoUrl);
       setShowAlertModal(true);
       return;
     }
@@ -208,14 +208,14 @@ export default function PhotoUpload({ data, setData }) {
       new URL(uploadForm.photo_url);
     } catch (err) {
       setAlertTitle(lang.current.modal.photoUrlRequired);
-      setAlertMessage('Please enter a valid URL');
+      setAlertMessage(lang.current.photo.enterValidUrl);
       setShowAlertModal(true);
       return;
     }
 
     if (!isSafeImageUrl(uploadForm.photo_url)) {
       setAlertTitle(lang.current.modal.photoUrlRequired);
-      setAlertMessage('This URL uses an unsupported protocol or is unsafe');
+      setAlertMessage(lang.current.photo.unsafeUrl);
       setShowAlertModal(true);
       return;
     }
@@ -223,7 +223,7 @@ export default function PhotoUpload({ data, setData }) {
     const isDuplicate = urlQueue.some(item => item.url === uploadForm.photo_url);
     if (isDuplicate) {
       setAlertTitle(lang.current.modal.photoUrlRequired);
-      setAlertMessage('This URL has already been added to the queue');
+      setAlertMessage(lang.current.photo.urlAlreadyAdded);
       setShowAlertModal(true);
       return;
     }
@@ -271,7 +271,7 @@ export default function PhotoUpload({ data, setData }) {
   async function handleUploadAllUrls() {
     if (urlQueue.length === 0) {
       setAlertTitle(lang.current.modal.photoUrlRequired);
-      setAlertMessage('No URLs in queue to upload');
+      setAlertMessage(lang.current.photo.noUrlsInQueue);
       setShowAlertModal(true);
       return;
     }
@@ -304,7 +304,7 @@ export default function PhotoUpload({ data, setData }) {
       setUploadForm({ photo_credit: "", photo_credit_url: "", photo_url: "" });
 
       setAlertTitle(lang.current.modal.photoUploadSuccess);
-      setAlertMessage(`Successfully uploaded ${uploadedPhotos.length} photo(s) from URLs`);
+      setAlertMessage(lang.current.photo.uploadSuccess.replace('{count}', uploadedPhotos.length));
       setShowAlertModal(true);
     } catch (err) {
       handleError(err);
@@ -321,7 +321,7 @@ export default function PhotoUpload({ data, setData }) {
       if (useUrl) {
         if (!uploadForm.photo_url) {
           setAlertTitle(lang.current.modal.photoUrlRequired);
-          setAlertMessage('Please enter a photo URL');
+          setAlertMessage(lang.current.photo.enterPhotoUrl);
           setShowAlertModal(true);
           setUploading(false);
           return;
@@ -329,7 +329,7 @@ export default function PhotoUpload({ data, setData }) {
 
         if (!isSafeImageUrl(uploadForm.photo_url)) {
           setAlertTitle(lang.current.modal.photoUrlRequired);
-          setAlertMessage('This URL uses an unsupported protocol or is unsafe');
+          setAlertMessage(lang.current.photo.unsafeUrl);
           setShowAlertModal(true);
           setUploading(false);
           return;
@@ -485,7 +485,7 @@ export default function PhotoUpload({ data, setData }) {
           <>
             <div className="mb-3">
               <label htmlFor="photo_credit" className="visually-hidden">
-                Photo credit name
+                {lang.current.photo.creditName}
               </label>
               <FormControl
                 type="text"
@@ -500,7 +500,7 @@ export default function PhotoUpload({ data, setData }) {
 
             <div className="mb-3">
               <label htmlFor="photo_credit_url" className="visually-hidden">
-                Photo credit URL
+                {lang.current.photo.creditUrl}
               </label>
               <FormControl
                 type="text"
@@ -529,7 +529,7 @@ export default function PhotoUpload({ data, setData }) {
         {!useUrl ? (
           <>
             <label htmlFor="image" className="visually-hidden">
-              Choose image file
+              {lang.current.photo.chooseFile}
             </label>
             <FormControl
               type="file"
@@ -542,13 +542,13 @@ export default function PhotoUpload({ data, setData }) {
               aria-describedby="image-upload-help"
             />
             <span id="image-upload-help" className="visually-hidden">
-              Accepted formats: JPG, PNG, GIF. Maximum size: 5MB per file. You can select multiple files.
+              {lang.current.photo.acceptedFormats}
             </span>
           </>
         ) : (
           <>
             <label htmlFor="photo_url" className="visually-hidden">
-              Photo URL
+              {lang.current.photo.photoUrl}
             </label>
             <div className="input-group mb-3">
               <input
@@ -558,7 +558,7 @@ export default function PhotoUpload({ data, setData }) {
                 onChange={handleUrlChange}
                 value={uploadForm.photo_url || ''}
                 className="form-control"
-                placeholder="Enter direct image URL (e.g., https://example.com/image.jpg)"
+                placeholder={lang.current.photo.directImageUrl}
                 aria-label={lang.current.aria.photoUrl}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -571,8 +571,8 @@ export default function PhotoUpload({ data, setData }) {
                 className="btn btn-outline-primary"
                 type="button"
                 onClick={handleAddUrlToQueue}
-                title={editingUrlIndex !== null ? "Update URL in queue" : "Add URL to queue"}
-                aria-label={editingUrlIndex !== null ? "Update URL in queue" : "Add URL to queue"}
+                title={editingUrlIndex !== null ? lang.current.photo.updateUrlInQueue : lang.current.photo.addUrlToQueue}
+                aria-label={editingUrlIndex !== null ? lang.current.photo.updateUrlInQueue : lang.current.photo.addUrlToQueue}
               >
                 {editingUrlIndex !== null ? '✓' : '✚'}
               </button>
@@ -582,7 +582,7 @@ export default function PhotoUpload({ data, setData }) {
               <div className="url-queue mb-3">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <small className="text-muted">
-                    URLs in queue ({urlQueue.length})
+                    {lang.current.photo.urlsInQueue.replace('{count}', urlQueue.length)}
                   </small>
                   {urlQueue.length > 0 && (
                     <button
@@ -590,7 +590,7 @@ export default function PhotoUpload({ data, setData }) {
                       onClick={handleUploadAllUrls}
                       disabled={uploading}
                     >
-                      {uploading ? 'Uploading...' : `Upload All (${urlQueue.length})`}
+                      {uploading ? lang.current.button.uploading : lang.current.photo.uploadAllUrls.replace('{count}', urlQueue.length)}
                     </button>
                   )}
                 </div>
@@ -660,7 +660,7 @@ export default function PhotoUpload({ data, setData }) {
             type="button"
             aria-label={useUrl ? lang.current.aria.switchToFileUpload : lang.current.aria.useUrlInstead}
           >
-            {useUrl ? "Upload a file instead" : "Add a URL instead"}
+            {useUrl ? lang.current.photo.uploadFile : lang.current.photo.addUrl}
           </button>
         </div>
       </div>
@@ -668,14 +668,14 @@ export default function PhotoUpload({ data, setData }) {
       {photos.length > 0 && (
         <div className={styles.uploadedPhotosList} role="region" aria-label={lang.current.aria.uploadedPhotos}>
           <h5 className="mt-4 mb-3">
-            Photos ({photos.filter((_, idx) => !disabledPhotos.has(idx)).length} active, {disabledPhotos.size} disabled)
+            {lang.current.photo.photosCount.replace('{active}', photos.filter((_, idx) => !disabledPhotos.has(idx)).length).replace('{disabled}', disabledPhotos.size)}
           </h5>
-          
+
           {disabledPhotos.size > 0 && (
             <Alert type="info" className="mb-3">
               <small>
-                <strong>💡 Tip:</strong> Disabled photos (shown in gray with red border) will be removed when you save. 
-                Click <strong>Enable</strong> to keep them.
+                <strong>{lang.current.photo.tipLabel}</strong> {lang.current.photo.tipDisabledPhotos}{' '}
+                <span dangerouslySetInnerHTML={{ __html: lang.current.photo.tipEnablePhotos }} />
               </small>
             </Alert>
           )}
@@ -710,16 +710,16 @@ export default function PhotoUpload({ data, setData }) {
                       color: 'var(--color-text-muted)',
                       fontSize: 'var(--font-size-sm)'
                     }}>
-                      Invalid image URL
+                      {lang.current.photo.invalidUrl}
                     </div>
                   )}
                   <div className={styles.photoItemInfo}>
                     <small className={styles.photoItemCredit}>{sanitizedCredit}</small>
                     {isDefault && (
-                      <span className="badge pill pill-variant-primary">Default</span>
+                      <span className="badge pill pill-variant-primary">{lang.current.photo.defaultBadge}</span>
                     )}
                     {isDisabled && (
-                      <span className="badge pill pill-variant-danger">Disabled</span>
+                      <span className="badge pill pill-variant-danger">{lang.current.photo.disabledBadge}</span>
                     )}
                   </div>
                   <div className={styles.photoItemActions}>
@@ -727,9 +727,9 @@ export default function PhotoUpload({ data, setData }) {
                       className={`btn btn-sm ${isDisabled ? 'btn-success' : 'btn-warning'}`}
                       onClick={() => togglePhotoAtIndex(index)}
                       aria-label={isDisabled ? `Enable photo ${index + 1}` : `Disable photo ${index + 1}`}
-                      title={isDisabled ? 'Click to enable this photo' : 'Click to disable this photo'}
+                      title={lang.current.photo.clickToToggle}
                     >
-                      {isDisabled ? '✓ Enable' : '✗ Disable'}
+                      {isDisabled ? lang.current.photo.enablePhoto : lang.current.photo.disablePhoto}
                     </button>
                     {!isDisabled && index !== defaultPhotoIndex && (
                       <button
@@ -737,7 +737,7 @@ export default function PhotoUpload({ data, setData }) {
                         onClick={() => setDefaultPhotoIndex(index)}
                         aria-label={`Set photo ${index + 1} as default`}
                       >
-                        Set as Default
+                        {lang.current.photo.setAsDefault}
                       </button>
                     )}
                     <button
@@ -747,9 +747,9 @@ export default function PhotoUpload({ data, setData }) {
                         setShowDeleteConfirm(true);
                       }}
                       aria-label={`Remove photo ${index + 1} permanently`}
-                      title="Permanently delete this photo"
+                      title={lang.current.photo.deletePhotoConfirm}
                     >
-                      🗑️ Delete
+                      {lang.current.photo.deletePhoto}
                     </button>
                   </div>
                 </div>
@@ -780,9 +780,9 @@ export default function PhotoUpload({ data, setData }) {
             setPhotoToDeleteIndex(null);
           }
         }}
-        title="Delete Photo?"
-        message="You are about to permanently delete this photo"
-        confirmText="Delete Permanently"
+        title={lang.current.photo.deletePhotoTitle}
+        message={lang.current.photo.deletePhotoMessage}
+        confirmText={lang.current.photo.deletePhotoConfirm}
         confirmVariant="danger"
       />
     </div>

@@ -721,7 +721,7 @@ export async function getPlanCostSummary(planId) {
 /**
  * Add a cost entry to a plan
  * @param {string} planId - Plan ID
- * @param {Object} costData - { title, description, cost, currency, plan_item, collaborator }
+ * @param {Object} costData - { title, description, cost, currency, category, date, plan_item, collaborator }
  */
 export async function addPlanCost(planId, costData) {
   try {
@@ -754,7 +754,7 @@ export async function addPlanCost(planId, costData) {
  * Update a cost entry
  * @param {string} planId - Plan ID
  * @param {string} costId - Cost entry ID
- * @param {Object} updates - { title, description, cost, currency, plan_item, collaborator }
+ * @param {Object} updates - { title, description, cost, currency, category, date, plan_item, collaborator }
  */
 export async function updatePlanCost(planId, costId, updates) {
   try {

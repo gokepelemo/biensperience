@@ -10,10 +10,11 @@
   align-items: center;
   justify-content: flex-end;
   gap: $space-2;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* Prevent wrapping - keep all buttons on same line */
 
   @include breakpoint-max(md) {
     justify-content: center;
+    gap: $space-1; /* Tighter gap on mobile */
   }
 }
 
@@ -148,5 +149,9 @@
   display: flex;
   gap: $space-2;
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* Keep Edit Date, Edit, Delete on same line */
+
+  @include breakpoint-max(sm) {
+    gap: $space-1; /* Tighter gap on small screens */
+  }
 }

@@ -599,6 +599,132 @@ const en = {
     photoCredit: "Photo Credit:",
   },
 
+  // Photo upload component strings
+  photo: {
+    // Labels
+    creditName: "Photo credit name",
+    creditUrl: "Photo credit URL",
+    chooseFile: "Choose image file",
+    photoUrl: "Photo URL",
+    uploadedPhotos: "Uploaded photos",
+    photosCount: "Photos ({active} active, {disabled} disabled)",
+    urlsInQueue: "URLs in queue ({count})",
+
+    // Placeholders
+    directImageUrl: "Enter direct image URL (e.g., https://example.com/image.jpg)",
+
+    // Button text
+    uploadAllUrls: "Upload All ({count})",
+    uploadFile: "Upload a file instead",
+    addUrl: "Add a URL instead",
+    updateUrlInQueue: "Update URL in queue",
+    addUrlToQueue: "Add URL to queue",
+    setAsDefault: "Set as Default",
+    enablePhoto: "✓ Enable",
+    disablePhoto: "✗ Disable",
+    deletePhoto: "🗑️ Delete",
+
+    // Badges
+    defaultBadge: "Default",
+    disabledBadge: "Disabled",
+    invalidUrl: "Invalid image URL",
+
+    // Help text
+    acceptedFormats: "Accepted formats: JPG, PNG, GIF. Maximum size: 5MB per file. You can select multiple files.",
+    tipDisabledPhotos: "Disabled photos (shown in gray with red border) will be removed when you save.",
+    tipEnablePhotos: "Click <strong>Enable</strong> to keep them.",
+    tipLabel: "💡 Tip:",
+    clickToToggle: "Click to enable/disable this photo",
+
+    // Alerts and errors
+    enterPhotoUrl: "Please enter a photo URL",
+    enterValidUrl: "Please enter a valid URL",
+    unsafeUrl: "This URL uses an unsupported protocol or is unsafe",
+    urlAlreadyAdded: "This URL has already been added to the queue",
+    noUrlsInQueue: "No URLs in queue to upload",
+    uploadSuccess: "Successfully uploaded {count} photo(s) from URLs",
+
+    // Modals
+    deletePhotoTitle: "Delete Photo?",
+    deletePhotoMessage: "You are about to permanently delete this photo",
+    deletePhotoConfirm: "Delete Permanently",
+  },
+
+  // Search component strings
+  search: {
+    defaultPlaceholder: "Search destinations, experiences, users...",
+    noResultsFor: "No results found for \"{query}\"",
+    minCharacters: "Type at least 2 characters to search",
+    searching: "Searching...",
+    globalSearch: "Global search",
+    searchResults: "Search results",
+  },
+
+  // Loading states
+  loading: {
+    default: "Loading...",
+    page: "Loading page...",
+    destinations: "Loading destinations...",
+    moreDestinations: "Loading more destinations...",
+    experience: "Loading experience...",
+    destination: "Loading destination...",
+    profile: "Loading profile...",
+    favoriteDestinations: "Loading favorite destinations...",
+    preferredExperiences: "Loading preferred experience types...",
+    activities: "Loading activities...",
+    inviteCodes: "Loading invite codes...",
+    plan: "Loading plan...",
+    loadMore: "Load More ({remaining} remaining)",
+  },
+
+  // Form validation messages
+  validation: {
+    destinationAlreadyExists: "A destination named \"{name}\" already exists. Please choose a different destination.",
+    experienceAlreadyExists: "An experience named \"{name}\" already exists. Please choose a different name.",
+    titleRequired: "Please enter a title for the experience.",
+    destinationRequired: "Please select a destination from the list or create a new destination first.",
+    checkPermissions: "Please check that you have the correct permissions and try again.",
+  },
+
+  // Form field labels (additional)
+  formLabel: {
+    cityTown: "City / Town",
+    stateProvince: "State / Province",
+    country: "Country",
+    overview: "Overview",
+    photos: "Photos",
+    cityName: "City Name",
+  },
+
+  // Form helper text (additional)
+  formHelper: {
+    uploadPhotosDestination: "Upload photo(s) to this destination (optional)",
+    uploadPhotosExperience: "Upload multiple photos for this experience (optional)",
+    searchDestinations: "Type to search for destinations...",
+  },
+
+  // Travel tips
+  travelTip: {
+    deleteTitle: "Delete Travel Tip?",
+    deleteMessage: "You are about to permanently delete this travel tip",
+    deleteConfirm: "Delete Permanently",
+    insiderTipPlaceholder: "Share an insider tip (e.g., 'Best time to visit is spring')",
+  },
+
+  // Experience/Destination creation success
+  creationSuccess: {
+    experienceTitle: "Experience Created!",
+    experienceMessage: "Your experience has been created successfully",
+    destinationTitle: "Destination Created!",
+    destinationMessage: "Your destination has been created successfully",
+  },
+
+  // Destination autocomplete
+  destinationAutocomplete: {
+    createNew: "✚ Create \"{term}\"",
+    newDestination: "New Destination",
+  },
+
   viewMeta: {
     defaultTitle: "Biensperience",
     defaultDescription:
@@ -894,8 +1020,18 @@ const en = {
     costDescription: "Description (optional)",
     costDescriptionPlaceholder: "Add details about this cost",
     currency: "Currency",
-    assignedTo: "Paid for",
-    assignedToPlaceholder: "Select who incurred the cost (optional)",
+    category: "Category",
+    categoryPlaceholder: "Select a category (optional)",
+    categoryAccommodation: "Accommodation",
+    categoryTransport: "Transport",
+    categoryFood: "Food & Dining",
+    categoryActivities: "Activities",
+    categoryEquipment: "Equipment",
+    categoryOther: "Other",
+    costDate: "Date",
+    costDateHelp: "When was this cost incurred?",
+    assignedTo: "Paid by",
+    assignedToPlaceholder: "Select who paid (optional)",
     assignedToPlanItem: "For Plan Item",
     assignedToPlanItemPlaceholder: "Select plan item (optional)",
     sharedCost: "Shared cost (split among all)",
@@ -908,10 +1044,21 @@ const en = {
     totalCosts: "Total Costs",
     costsByPerson: "Costs by Person",
     costsByItem: "Costs by Item",
+    costsByCategory: "Costs by Category",
     sharedCosts: "Shared Costs",
+    generalCosts: "General Costs",
     perPersonShare: "Per Person Share",
     costSummary: "Cost Summary",
     addFirstCost: "Track your first cost",
+    individualCosts: "Individual Costs",
+    grandTotal: "Grand Total",
+    exportCsv: "Export CSV",
+    viewAll: "View All",
+    collapse: "Collapse",
+    expand: "Expand",
+    costBreakdown: "Cost Breakdown",
+    uncategorized: "Uncategorized",
+    splitEvenly: "split evenly among {count} people",
   },
 
   email: {

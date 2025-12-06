@@ -376,6 +376,23 @@ const userSchema = new Schema(
     links: {
       type: [new Schema({
         /**
+         * Link type - social network identifier or 'custom'/'website'
+         * @type {string}
+         */
+        type: {
+          type: String,
+          enum: ['twitter', 'instagram', 'facebook', 'youtube', 'tiktok', 'linkedin', 'pinterest', 'github', 'website', 'custom'],
+          default: 'custom'
+        },
+        /**
+         * Username for social networks (without URL prefix)
+         * @type {string}
+         */
+        username: {
+          type: String,
+          trim: true
+        },
+        /**
          * Display title for the link
          * @type {string}
          */

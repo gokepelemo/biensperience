@@ -29,6 +29,35 @@ const CURRENCIES = [
   { code: 'BRL', name: 'Brazilian Real' },
 ];
 
+// Cost categories
+const CATEGORIES = [
+  { value: 'accommodation', labelKey: 'categoryAccommodation' },
+  { value: 'transport', labelKey: 'categoryTransport' },
+  { value: 'food', labelKey: 'categoryFood' },
+  { value: 'activities', labelKey: 'categoryActivities' },
+  { value: 'equipment', labelKey: 'categoryEquipment' },
+  { value: 'other', labelKey: 'categoryOther' },
+];
+
+/**
+ * Format date for input[type="date"]
+ * @param {Date|string} date
+ * @returns {string} YYYY-MM-DD format
+ */
+function formatDateForInput(date) {
+  if (!date) return '';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().split('T')[0];
+}
+
+/**
+ * Get today's date in YYYY-MM-DD format
+ */
+function getTodayForInput() {
+  return new Date().toISOString().split('T')[0];
+}
+
 /**
  * Default empty cost entry
  */
@@ -37,6 +66,8 @@ const DEFAULT_COST = {
   description: '',
   cost: '',
   currency: 'USD',
+  category: '',
+  date: getTodayForInput(),
   collaborator: '',
   plan_item: '',
 };
@@ -75,11 +106,16 @@ export default function CostEntry({
           description: editingCost.description || '',
           cost: editingCost.cost || '',
           currency: editingCost.currency || 'USD',
+          category: editingCost.category || '',
+          date: formatDateForInput(editingCost.date || editingCost.created_at) || getTodayForInput(),
           collaborator: editingCost.collaborator?._id || editingCost.collaborator || '',
           plan_item: editingCost.plan_item?._id || editingCost.plan_item || '',
         });
       } else {
-        setCostData(DEFAULT_COST);
+        setCostData({
+          ...DEFAULT_COST,
+          date: getTodayForInput(), // Always reset to today for new costs
+        });
       }
       setErrors({});
     }
@@ -154,6 +190,16 @@ export default function CostEntry({
       currency: costData.currency,
     };
 
+    // Only include category if selected
+    if (costData.category) {
+      submitData.category = costData.category;
+    }
+
+    // Include date (convert to ISO string for API)
+    if (costData.date) {
+      submitData.date = new Date(costData.date).toISOString();
+    }
+
     // Only include collaborator if selected
     if (costData.collaborator) {
       submitData.collaborator = costData.collaborator;
@@ -190,6 +236,7 @@ export default function CostEntry({
       cancelText={lang.current.button.cancel}
       loading={loading}
       disableSubmit={!costData.title.trim()}
+      scrollable
     >
       <form className={styles.costEntryForm} id={formId}>
         {/* Cost Title */}
@@ -269,6 +316,46 @@ export default function CostEntry({
             onChange={handleChange('description')}
             placeholder={costStrings.costDescriptionPlaceholder}
           />
+        </div>
+
+        {/* Category and Date Row */}
+        <div className={styles.categoryDateRow}>
+          {/* Category */}
+          <div className="mb-3 flex-grow-1">
+            <FormLabel htmlFor={`${formId}-category`}>
+              {costStrings.category}
+            </FormLabel>
+            <FormSelect
+              id={`${formId}-category`}
+              value={costData.category}
+              onChange={handleChange('category')}
+              aria-label={costStrings.category}
+            >
+              <option value="">{costStrings.categoryPlaceholder}</option>
+              {CATEGORIES.map(cat => (
+                <option key={cat.value} value={cat.value}>
+                  {costStrings[cat.labelKey]}
+                </option>
+              ))}
+            </FormSelect>
+          </div>
+
+          {/* Date */}
+          <div className="mb-3 flex-grow-1">
+            <FormLabel htmlFor={`${formId}-date`}>
+              {costStrings.costDate}
+            </FormLabel>
+            <FormControl
+              type="date"
+              id={`${formId}-date`}
+              value={costData.date}
+              onChange={handleChange('date')}
+              aria-label={costStrings.costDate}
+            />
+            <Form.Text className="text-muted">
+              {costStrings.costDateHelp}
+            </Form.Text>
+          </div>
         </div>
 
         {/* Paid by (Collaborator) */}

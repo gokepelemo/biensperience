@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { resendConfirmation } from '../utilities/users-api';
 import Toast from '../components/Toast/Toast';
 import { createToastConfig } from '../utilities/error-handler';
+import { eventBus } from '../utilities/event-bus';
 
 const ToastContext = createContext();
 
@@ -147,10 +148,11 @@ export function ToastProvider({ children }) {
     dark,
   };
 
-  // Listen for global email-not-verified events emitted by send-request
+  // Listen for global email-not-verified events emitted by send-request via eventBus
   useEffect(() => {
-    const handler = (e) => {
-      const data = e?.detail || {};
+    const handler = (event) => {
+      // Event payload comes directly from broadcastEvent
+      const data = event || {};
       const message = data.error || 'Please verify your email address before performing this action.';
       const email = data.email || null;
       const actions = [];
@@ -175,22 +177,18 @@ export function ToastProvider({ children }) {
       addToast({ message, type: 'danger', actions, duration: 0 });
     };
 
-    if (typeof window !== 'undefined' && window.addEventListener) {
-      window.addEventListener('bien:email_not_verified', handler);
-    }
+    const unsubscribe = eventBus.subscribe('bien:email_not_verified', handler);
 
     return () => {
-      if (typeof window !== 'undefined' && window.removeEventListener) {
-        window.removeEventListener('bien:email_not_verified', handler);
-      }
+      unsubscribe();
     };
   }, [addToast]);
 
-  // Listen for global API error events emitted by send-request
+  // Listen for global API error events emitted by send-request via eventBus
   useEffect(() => {
-    const handler = (e) => {
-      const detail = e?.detail || {};
-      const error = detail.error;
+    const handler = (event) => {
+      // Event payload comes directly from broadcastEvent
+      const error = event?.error;
 
       if (!error) return;
 
@@ -207,14 +205,10 @@ export function ToastProvider({ children }) {
       });
     };
 
-    if (typeof window !== 'undefined' && window.addEventListener) {
-      window.addEventListener('bien:api_error', handler);
-    }
+    const unsubscribe = eventBus.subscribe('bien:api_error', handler);
 
     return () => {
-      if (typeof window !== 'undefined' && window.removeEventListener) {
-        window.removeEventListener('bien:api_error', handler);
-      }
+      unsubscribe();
     };
   }, [addToast]);
 

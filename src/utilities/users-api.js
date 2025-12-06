@@ -4,8 +4,21 @@ import { broadcastEvent } from "./event-bus.js";
 
 const BASE_URL = `/api/users/`;
 
-export function signUp(userData) {
-  return sendRequest(`${BASE_URL}`, "POST", userData);
+export async function signUp(userData) {
+  const result = await sendRequest(`${BASE_URL}`, "POST", userData);
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  // Standardized payload: { entity, entityId } for created events
+  try {
+    if (result && result.user) {
+      broadcastEvent('user:created', { user: result.user, userId: result.user._id });
+      logger.debug('[users-api] User created event dispatched', { id: result.user._id });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
 }
 
 export async function login(credentials) {
@@ -32,9 +45,10 @@ export async function updateUser(id, userData) {
   const result = await sendRequest(`${BASE_URL}${id}`, "PUT", userData);
 
   // Emit event via event bus (handles local + cross-tab dispatch)
+  // Standardized payload: { entity, entityId } for updated events
   try {
     if (result) {
-      broadcastEvent('user:updated', { user: result });
+      broadcastEvent('user:updated', { user: result, userId: result._id });
       logger.debug('[users-api] User updated event dispatched', { id: result._id });
     }
   } catch (e) {
@@ -48,9 +62,10 @@ export async function updateUserAsAdmin(id, userData) {
   const result = await sendRequest(`${BASE_URL}${id}/admin`, "PUT", userData);
 
   // Emit event via event bus (handles local + cross-tab dispatch)
+  // Standardized payload: { entity, entityId } for updated events
   try {
     if (result) {
-      broadcastEvent('user:updated', { user: result });
+      broadcastEvent('user:updated', { user: result, userId: result._id });
       logger.debug('[users-api] User updated (admin) event dispatched', { id: result._id });
     }
   } catch (e) {
@@ -68,9 +83,10 @@ export async function updateUserRole(userId, roleData) {
   const result = await sendRequest(`${BASE_URL}${userId}/role`, "PUT", roleData);
 
   // Emit event via event bus (handles local + cross-tab dispatch)
+  // Standardized payload: { entity, entityId } for updated events
   try {
     if (result) {
-      broadcastEvent('user:updated', { user: result });
+      broadcastEvent('user:updated', { user: result, userId: result._id });
       logger.debug('[users-api] User role updated event dispatched', { id: result._id });
     }
   } catch (e) {
