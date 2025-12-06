@@ -5,6 +5,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import enUS from 'date-fns/locale/en-US';
 import { useNavigate } from 'react-router-dom';
 import { FaUsers } from 'react-icons/fa';
+import Tooltip from '../../Tooltip/Tooltip';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import styles from './PlanCalendar.module.scss';
 
@@ -59,45 +60,43 @@ export default function PlanCalendar({ plans = [], className = '' }) {
     }
   }, [navigate]);
 
-  // Custom event styling based on plan properties
-  const eventStyleGetter = useCallback((event) => {
-    const baseStyle = {
-      borderRadius: 'var(--radius-sm)',
-      border: 'none',
-      padding: '2px 6px',
-      fontSize: '0.75rem',
-      fontWeight: '500',
-      cursor: 'pointer',
-    };
-
-    if (event.isCollaborative) {
-      return {
-        style: {
-          ...baseStyle,
-          background: 'var(--color-info)',
-          color: 'white',
-        },
-      };
-    }
-
+  // Custom event styling - minimal styling since we render dots
+  const eventStyleGetter = useCallback(() => {
     return {
       style: {
-        ...baseStyle,
-        background: 'var(--gradient-primary)',
-        color: 'white',
+        background: 'transparent',
+        border: 'none',
+        padding: 0,
+        margin: 0,
+        cursor: 'pointer',
       },
     };
   }, []);
 
-  // Custom event component to show collaborative badge
-  const EventComponent = useCallback(({ event }) => (
-    <div className={styles.calendarEvent}>
-      <span className={styles.eventTitle}>{event.title}</span>
-      {event.isCollaborative && (
-        <FaUsers size={10} className={styles.sharedIcon} />
-      )}
-    </div>
-  ), []);
+  // Custom event component - renders purple dot with tooltip
+  const EventComponent = useCallback(({ event }) => {
+    const tooltipContent = (
+      <div className={styles.eventTooltip}>
+        <span className={styles.eventTooltipTitle}>{event.title}</span>
+        {event.isCollaborative && (
+          <span className={styles.eventTooltipBadge}>
+            <FaUsers size={10} /> Shared
+          </span>
+        )}
+      </div>
+    );
+
+    return (
+      <Tooltip content={tooltipContent} placement="top">
+        <div
+          className={`${styles.eventDot} ${event.isCollaborative ? styles.eventDotShared : ''}`}
+          role="button"
+          tabIndex={0}
+          aria-label={event.title}
+        />
+      </Tooltip>
+    );
+  }, []);
 
   // Custom toolbar component with design system styling
   const CustomToolbar = useCallback(({ label, onNavigate, onView, view }) => (
