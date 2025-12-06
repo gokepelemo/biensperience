@@ -34,6 +34,7 @@
     "js-cookie": "^3.0.5",
     "jsonwebtoken": "^9.0.2",
     "mammoth": "^1.11.0",
+    "mongodb": "^7.0.0",
     "mongoose": "^7.6.2",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
