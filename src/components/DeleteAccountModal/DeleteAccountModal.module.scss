@@ -1,0 +1,230 @@
+@use '../../styles/scss/abstracts' as *;
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-danger);
+}
+
+.titleIcon {
+  color: var(--color-danger);
+}
+
+.stepContent {
+  padding: var(--space-2) 0;
+}
+
+.intro {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-6);
+  line-height: var(--line-height-relaxed);
+}
+
+.optionCards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.optionCard {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+
+  &:hover {
+    border-color: var(--color-text-muted);
+    background: var(--color-bg-tertiary);
+  }
+
+  &.selected {
+    border-color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 5%, var(--color-bg-secondary));
+
+    .optionIcon {
+      background: var(--color-danger);
+      color: white;
+    }
+  }
+}
+
+.optionIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xl);
+  transition: all 0.2s ease;
+}
+
+.optionContent {
+  flex: 1;
+
+  h4 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+  }
+}
+
+.transferSection {
+  margin-bottom: var(--space-6);
+  padding: var(--space-4);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.labelIcon {
+  color: var(--color-text-secondary);
+}
+
+.selectedUser {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+
+  strong {
+    color: var(--color-text-primary);
+  }
+
+  .email {
+    color: var(--color-text-muted);
+    margin-left: var(--space-1);
+  }
+}
+
+.warningAlert {
+  margin-bottom: var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.alertIcon {
+  flex-shrink: 0;
+}
+
+.summary {
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-danger);
+
+  p {
+    margin: 0;
+    line-height: var(--line-height-relaxed);
+
+    &:first-child {
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+    }
+  }
+
+  .summaryNote {
+    margin-top: var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+}
+
+.formGroup {
+  margin-bottom: var(--space-4);
+
+  label {
+    display: block;
+    margin-bottom: var(--space-2);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+
+    strong {
+      color: var(--color-danger);
+      font-family: monospace;
+      letter-spacing: 0.05em;
+    }
+  }
+
+  input {
+    &.invalid {
+      border-color: var(--color-danger);
+
+      &:focus {
+        box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--color-danger) 25%, transparent);
+      }
+    }
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.buttonIcon {
+  margin-right: var(--space-2);
+}
+
+// Responsive adjustments
+@media (max-width: 576px) {
+  .optionCard {
+    flex-direction: column;
+    text-align: center;
+    align-items: center;
+  }
+
+  .optionIcon {
+    margin-bottom: var(--space-3);
+  }
+
+  .optionContent {
+    h4 {
+      font-size: var(--font-size-base);
+    }
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+
+    button {
+      width: 100%;
+    }
+  }
+}

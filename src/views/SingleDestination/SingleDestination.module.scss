@@ -1,5 +1,40 @@
 @use '../../styles/scss/abstracts' as *;
 
+/* Breadcrumb Navigation */
+.breadcrumbNav {
+  margin-bottom: $space-4;
+
+  :global(.breadcrumb) {
+    background: transparent;
+    padding: 0;
+    margin-bottom: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  :global(.breadcrumb-item) {
+    color: var(--color-text-muted);
+
+    a {
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      transition: color var(--transition-fast);
+
+      &:hover {
+        color: var(--color-primary);
+      }
+    }
+
+    &.active {
+      color: var(--color-text-primary);
+      font-weight: var(--font-weight-medium);
+    }
+
+    + :global(.breadcrumb-item)::before {
+      color: var(--color-text-muted);
+    }
+  }
+}
+
 /* Hero Image Section */
 .heroSection {
   border-radius: var(--radius-xl);

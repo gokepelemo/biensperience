@@ -115,3 +115,32 @@ export async function confirmEmail(token) {
 export async function resendConfirmation(email) {
   return await sendRequest(`${BASE_URL}resend-confirmation`, "POST", { email });
 }
+
+/**
+ * Delete user account and optionally transfer data to another user
+ * @param {string} id - User ID to delete
+ * @param {Object} options - Deletion options
+ * @param {string} options.password - User's password for verification
+ * @param {string} options.confirmDelete - Must be 'DELETE' to confirm
+ * @param {string} [options.transferToUserId] - Optional user ID to transfer data to
+ * @returns {Promise<Object>} Result with success status and message
+ */
+export async function deleteAccount(id, { password, confirmDelete, transferToUserId }) {
+  const result = await sendRequest(`${BASE_URL}${id}`, "DELETE", {
+    password,
+    confirmDelete,
+    transferToUserId
+  });
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  try {
+    if (result && result.success) {
+      broadcastEvent('user:deleted', { userId: id, dataTransferred: result.dataTransferred, transferredTo: result.transferredTo });
+      logger.debug('[users-api] User deleted event dispatched', { id, dataTransferred: result.dataTransferred });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
+}

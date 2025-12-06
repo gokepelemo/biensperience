@@ -322,12 +322,6 @@
     opacity: 1;
   }
 
-  /* Active state - full opacity to show current section */
-  &.active {
-    opacity: 1;
-    color: white !important;
-  }
-
   &:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
@@ -337,6 +331,13 @@
   &:active {
     background: rgba(255, 255, 255, 0.05);
   }
+}
+
+/* Active state for nav links - full opacity to show current section */
+/* Separate rule for higher specificity with :global(.active) */
+.navbar :global(.nav-link.active) {
+  opacity: 1 !important;
+  color: white !important;
 }
 
 /* Dropdown items */
@@ -574,17 +575,17 @@
 
 /* Navbar search integration */
 .navbarSearch {
-  flex: 0 1 300px;
-  min-width: 180px;
-  max-width: 400px;
+  flex: 1 1 50%;
+  min-width: 300px;
+  max-width: 600px;
   margin-left: $space-3;
   transition: flex-basis var(--transition-normal) ease,
               max-width var(--transition-normal) ease;
 
   /* Expand on focus-within for better usability */
   &:focus-within {
-    flex-basis: 400px;
-    max-width: 500px;
+    flex-basis: 60%;
+    max-width: 700px;
   }
 
   @include breakpoint-max(lg) {

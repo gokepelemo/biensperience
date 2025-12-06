@@ -1191,3 +1191,68 @@
     }
   }
 }
+
+/* ============================================
+   Danger Zone Section (Delete Account)
+   ============================================ */
+
+.dangerZone {
+  border-color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 3%, var(--color-bg-surface));
+
+  .sectionCardHeader {
+    background: color-mix(in srgb, var(--color-danger) 8%, var(--color-bg-tertiary));
+    border-bottom-color: var(--color-danger);
+
+    h3 {
+      color: var(--color-danger);
+
+      svg {
+        color: var(--color-danger);
+      }
+    }
+  }
+}
+
+.dangerItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+
+  @media (max-width: 576px) {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+}
+
+.dangerItemInfo {
+  flex: 1;
+
+  strong {
+    display: block;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-1);
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+  }
+}
+
+/* Demo account warning message */
+.demoAccountWarning {
+  color: var(--color-text-muted) !important;
+  font-style: italic;
+  background: var(--color-bg-tertiary);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-info);
+  margin-top: var(--space-2);
+}

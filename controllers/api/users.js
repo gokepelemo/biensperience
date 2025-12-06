@@ -1161,6 +1161,420 @@ async function resendConfirmation(req, res) {
   }
 }
 
+/**
+ * Delete user account and associated data
+ * Users can only delete their own account (or super admins can delete others)
+ * Requires password confirmation for security
+ *
+ * Options:
+ * - transferToUserId: Optional user ID to transfer all data to instead of deleting
+ */
+async function deleteAccount(req, res) {
+  try {
+    const { id } = req.params;
+    const { password, confirmDelete, transferToUserId } = req.body;
+
+    // Validate confirmation
+    if (confirmDelete !== 'DELETE') {
+      return res.status(400).json({
+        error: 'Please type DELETE to confirm account deletion'
+      });
+    }
+
+    // Check if user is deleting their own account or is super admin
+    const isOwnAccount = req.user._id.toString() === id;
+    const isAdmin = isSuperAdmin(req.user);
+
+    if (!isOwnAccount && !isAdmin) {
+      return res.status(403).json({
+        error: 'You can only delete your own account'
+      });
+    }
+
+    // Find the user to delete
+    const userToDelete = await User.findById(id);
+    if (!userToDelete) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Prevent deleting super admin accounts (extra safety)
+    if (userToDelete.role === 'super_admin' && !isAdmin) {
+      return res.status(403).json({
+        error: 'Super admin accounts cannot be deleted this way'
+      });
+    }
+
+    // Prevent deleting demo user account in demo mode
+    const isDemoMode = process.env.REACT_APP_DEMO_MODE === 'true' || process.env.DEMO_MODE === 'true';
+    const isDemoUser = userToDelete.isDemoUser === true || userToDelete.email === 'demo@biensperience.com';
+    if (isDemoMode && isDemoUser) {
+      backendLogger.warn('Attempted to delete demo user account', {
+        userId: id,
+        attemptedBy: req.user._id
+      });
+      return res.status(403).json({
+        error: 'The demo user account cannot be deleted in demo mode. This account is used for demonstration purposes.'
+      });
+    }
+
+    // For own account deletion, require password verification
+    if (isOwnAccount && userToDelete.password) {
+      if (!password) {
+        return res.status(400).json({
+          error: 'Password is required to delete your account'
+        });
+      }
+
+      const match = await bcrypt.compare(password, userToDelete.password);
+      if (!match) {
+        return res.status(401).json({ error: 'Incorrect password' });
+      }
+    }
+
+    // If transferring data, validate the target user exists
+    let transferTargetUser = null;
+    if (transferToUserId) {
+      if (!mongoose.Types.ObjectId.isValid(transferToUserId)) {
+        return res.status(400).json({ error: 'Invalid transfer target user ID' });
+      }
+
+      // Cannot transfer to self
+      if (transferToUserId === id) {
+        return res.status(400).json({ error: 'Cannot transfer data to yourself' });
+      }
+
+      transferTargetUser = await User.findById(transferToUserId);
+      if (!transferTargetUser) {
+        return res.status(404).json({ error: 'Transfer target user not found' });
+      }
+
+      backendLogger.info('Data transfer requested during account deletion', {
+        fromUserId: id,
+        toUserId: transferToUserId,
+        toUserEmail: transferTargetUser.email
+      });
+    }
+
+    backendLogger.info('Starting account deletion', {
+      userId: id,
+      deletedBy: req.user._id,
+      isOwnAccount,
+      transferToUserId: transferToUserId || null
+    });
+
+    // Import models for cleanup
+    const Experience = require('../../models/experience');
+    const Plan = require('../../models/plan');
+    const Activity = require('../../models/activity');
+    const Follow = require('../../models/follow');
+    const ApiToken = require('../../models/apiToken');
+    const Document = require('../../models/document');
+    const Destination = require('../../models/destination');
+
+    // If transferring, transfer data instead of deleting
+    if (transferTargetUser) {
+      const transferTargetId = mongoose.Types.ObjectId.createFromHexString(transferToUserId);
+      const deletingUserId = mongoose.Types.ObjectId.createFromHexString(id);
+
+      // 1. Transfer user's photos to target user
+      if (userToDelete.photos && userToDelete.photos.length > 0) {
+        await Photo.updateMany(
+          { _id: { $in: userToDelete.photos } },
+          { $set: { user: transferTargetId } }
+        );
+        // Add photos to target user's photos array
+        await User.findByIdAndUpdate(transferToUserId, {
+          $push: { photos: { $each: userToDelete.photos } }
+        });
+        backendLogger.info('Transferred photos to new owner', {
+          count: userToDelete.photos.length,
+          toUserId: transferToUserId
+        });
+      }
+
+      // 2. Transfer user's plans to target user
+      const transferredPlans = await Plan.updateMany(
+        { user: deletingUserId },
+        { $set: { user: transferTargetId } }
+      );
+      backendLogger.info('Transferred plans to new owner', {
+        count: transferredPlans.modifiedCount,
+        toUserId: transferToUserId
+      });
+
+      // 3. Transfer experience ownership permissions
+      // Find all experiences where deleting user is owner
+      const ownedExperiences = await Experience.find({
+        'permissions': {
+          $elemMatch: {
+            _id: deletingUserId,
+            type: 'owner'
+          }
+        }
+      });
+
+      for (const exp of ownedExperiences) {
+        // Check if target user already has permissions on this experience
+        const existingPerm = exp.permissions.find(
+          p => p._id.toString() === transferToUserId
+        );
+
+        if (existingPerm) {
+          // Upgrade existing permission to owner and remove old owner
+          await Experience.findByIdAndUpdate(exp._id, {
+            $set: { 'permissions.$[elem].type': 'owner' },
+            $pull: { permissions: { _id: deletingUserId } }
+          }, {
+            arrayFilters: [{ 'elem._id': transferTargetId }]
+          });
+        } else {
+          // Add target user as owner and remove old owner
+          await Experience.findByIdAndUpdate(exp._id, {
+            $push: {
+              permissions: {
+                _id: transferTargetId,
+                entity: 'user',
+                type: 'owner',
+                granted_at: new Date(),
+                granted_by: deletingUserId
+              }
+            },
+            $pull: { permissions: { _id: deletingUserId } }
+          });
+        }
+      }
+      backendLogger.info('Transferred experience ownership', {
+        count: ownedExperiences.length,
+        toUserId: transferToUserId
+      });
+
+      // 4. Transfer collaborator permissions (upgrade to maintain access)
+      await Experience.updateMany(
+        { 'permissions._id': deletingUserId },
+        {
+          $set: { 'permissions.$[elem]._id': transferTargetId },
+        },
+        {
+          arrayFilters: [{ 'elem._id': deletingUserId }]
+        }
+      );
+
+      // 5. Transfer destination ownership permissions
+      const ownedDestinations = await Destination.find({
+        'permissions': {
+          $elemMatch: {
+            _id: deletingUserId,
+            type: 'owner'
+          }
+        }
+      });
+
+      for (const dest of ownedDestinations) {
+        const existingPerm = dest.permissions.find(
+          p => p._id.toString() === transferToUserId
+        );
+
+        if (existingPerm) {
+          await Destination.findByIdAndUpdate(dest._id, {
+            $set: { 'permissions.$[elem].type': 'owner' },
+            $pull: { permissions: { _id: deletingUserId } }
+          }, {
+            arrayFilters: [{ 'elem._id': transferTargetId }]
+          });
+        } else {
+          await Destination.findByIdAndUpdate(dest._id, {
+            $push: {
+              permissions: {
+                _id: transferTargetId,
+                entity: 'user',
+                type: 'owner',
+                granted_at: new Date(),
+                granted_by: deletingUserId
+              }
+            },
+            $pull: { permissions: { _id: deletingUserId } }
+          });
+        }
+      }
+      backendLogger.info('Transferred destination ownership', {
+        count: ownedDestinations.length,
+        toUserId: transferToUserId
+      });
+
+      // 6. Transfer documents to target user
+      const transferredDocs = await Document.updateMany(
+        { user: deletingUserId },
+        { $set: { user: transferTargetId } }
+      );
+      backendLogger.info('Transferred documents to new owner', {
+        count: transferredDocs.modifiedCount,
+        toUserId: transferToUserId
+      });
+
+      // 7. Transfer activities (update actor reference)
+      await Activity.updateMany(
+        { actor: deletingUserId },
+        { $set: { actor: transferTargetId } }
+      );
+      await Activity.updateMany(
+        { user: deletingUserId },
+        { $set: { user: transferTargetId } }
+      );
+
+      // 8. Transfer follows (people who followed deleting user now follow target)
+      await Follow.updateMany(
+        { following: deletingUserId },
+        { $set: { following: transferTargetId } }
+      );
+      // People deleting user was following - just delete those
+      await Follow.deleteMany({ follower: deletingUserId });
+
+    } else {
+      // No transfer - delete all data
+
+      // 1. Delete user's photos from S3 and database
+      if (userToDelete.photos && userToDelete.photos.length > 0) {
+        try {
+          const { s3Delete } = require('../../uploads/aws-s3');
+          for (const photoId of userToDelete.photos) {
+            const photo = await Photo.findById(photoId);
+            if (photo && photo.url) {
+              try {
+                await s3Delete(photo.url);
+              } catch (s3Err) {
+                backendLogger.warn('Failed to delete photo from S3', {
+                  photoId,
+                  error: s3Err.message
+                });
+              }
+              await Photo.findByIdAndDelete(photoId);
+            }
+          }
+        } catch (photoErr) {
+          backendLogger.error('Error cleaning up photos', { error: photoErr.message });
+        }
+      }
+
+      // 2. Delete user's plans
+      await Plan.deleteMany({ user: id });
+
+      // 3. Remove user from experience permissions (don't delete experiences they collaborate on)
+      await Experience.updateMany(
+        { 'permissions._id': mongoose.Types.ObjectId.createFromHexString(id) },
+        { $pull: { permissions: { _id: mongoose.Types.ObjectId.createFromHexString(id) } } }
+      );
+
+      // 4. Handle experiences owned by user
+      // Transfer ownership to the first collaborator, or delete if no collaborators
+      const ownedExperiences = await Experience.find({
+        'permissions': {
+          $elemMatch: {
+            _id: mongoose.Types.ObjectId.createFromHexString(id),
+            type: 'owner'
+          }
+        }
+      });
+
+      for (const exp of ownedExperiences) {
+        const collaborators = exp.permissions.filter(
+          p => p._id.toString() !== id && p.type !== 'owner'
+        );
+
+        if (collaborators.length > 0) {
+          // Transfer ownership to first collaborator
+          const newOwner = collaborators[0];
+          await Experience.findByIdAndUpdate(exp._id, {
+            $set: { 'permissions.$[elem].type': 'owner' },
+            $pull: { permissions: { _id: mongoose.Types.ObjectId.createFromHexString(id) } }
+          }, {
+            arrayFilters: [{ 'elem._id': newOwner._id }]
+          });
+          backendLogger.info('Transferred experience ownership', {
+            experienceId: exp._id,
+            newOwnerId: newOwner._id
+          });
+        } else {
+          // No collaborators - delete the experience and its photos
+          if (exp.photos && exp.photos.length > 0) {
+            for (const photoId of exp.photos) {
+              try {
+                const photo = await Photo.findById(photoId);
+                if (photo && photo.url) {
+                  const { s3Delete } = require('../../uploads/aws-s3');
+                  await s3Delete(photo.url);
+                }
+                await Photo.findByIdAndDelete(photoId);
+              } catch (err) {
+                backendLogger.warn('Failed to delete experience photo', { photoId, error: err.message });
+              }
+            }
+          }
+          await Experience.findByIdAndDelete(exp._id);
+        }
+      }
+
+      // 5. Delete user's documents
+      const userDocs = await Document.find({ user: id });
+      for (const doc of userDocs) {
+        if (doc.s3Key) {
+          try {
+            const { s3Delete } = require('../../uploads/aws-s3');
+            await s3Delete(doc.s3Key, { protected: doc.isProtected });
+          } catch (s3Err) {
+            backendLogger.warn('Failed to delete document from S3', {
+              docId: doc._id,
+              error: s3Err.message
+            });
+          }
+        }
+      }
+      await Document.deleteMany({ user: id });
+
+      // 6. Delete user's activities
+      await Activity.deleteMany({ user: id });
+      await Activity.deleteMany({ actor: id });
+
+      // 7. Delete user's follows
+      await Follow.deleteMany({ $or: [{ follower: id }, { following: id }] });
+    }
+
+    // Always delete API tokens (security - don't transfer)
+    await ApiToken.deleteMany({ user: id });
+
+    // Finally, delete the user
+    await User.findByIdAndDelete(id);
+
+    backendLogger.info('Account deleted successfully', {
+      userId: id,
+      deletedBy: req.user._id,
+      dataTransferred: !!transferTargetUser,
+      transferredTo: transferToUserId || null
+    });
+
+    const message = transferTargetUser
+      ? `Your account has been deleted. All your data has been transferred to ${transferTargetUser.name}.`
+      : 'Your account and all associated data have been permanently deleted';
+
+    res.json({
+      success: true,
+      message,
+      dataTransferred: !!transferTargetUser,
+      transferredTo: transferTargetUser ? {
+        _id: transferTargetUser._id,
+        name: transferTargetUser.name,
+        email: transferTargetUser.email
+      } : null
+    });
+
+  } catch (err) {
+    backendLogger.error('Error deleting account', {
+      error: err.message,
+      userId: req.params.id
+    });
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+}
+
 module.exports = {
   create,
   login,
@@ -1180,4 +1594,5 @@ module.exports = {
   resetPassword,
   confirmEmail,
   resendConfirmation,
+  deleteAccount,
 };

@@ -1714,11 +1714,22 @@ export default function SingleExperience() {
   }, []);
 
   // Handler to open Details modal for a plan item
+  // Updates URL hash to enable direct linking: #plan-{planId}-item-{itemId}
   const handleViewPlanItemDetails = useCallback((planItem, initialTab = 'notes') => {
     setSelectedDetailsItem(planItem);
     setDetailsModalInitialTab(initialTab);
     setShowDetailsModal(true);
-  }, []);
+
+    // Update URL hash for direct linking to this plan item
+    if (selectedPlanId && planItem?._id) {
+      const itemId = planItem._id?.toString ? planItem._id.toString() : planItem._id;
+      const hash = `#plan-${selectedPlanId}-item-${itemId}`;
+      const newUrl = `${window.location.pathname}${window.location.search || ''}${hash}`;
+      if (window.location.href !== newUrl) {
+        window.history.pushState(null, '', newUrl);
+      }
+    }
+  }, [selectedPlanId]);
 
   // Handler to open inline cost entry from plan item details modal
   const handleAddCostForItem = useCallback((planItem) => {
@@ -3286,6 +3297,14 @@ export default function SingleExperience() {
           setShowDetailsModal(false);
           setSelectedDetailsItem(null);
           setDetailsModalInitialTab('notes');
+
+          // Remove item portion from URL hash, keeping only the plan hash
+          const currentHash = window.location.hash || '';
+          if (currentHash.includes('-item-')) {
+            const planHash = currentHash.split('-item-')[0]; // Keep #plan-{planId}
+            const newUrl = `${window.location.pathname}${window.location.search || ''}${planHash}`;
+            window.history.pushState(null, '', newUrl);
+          }
         }}
         planItem={selectedDetailsItem}
         plan={selectedPlan}

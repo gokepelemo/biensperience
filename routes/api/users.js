@@ -31,4 +31,7 @@ router.put('/:id/photos/default', ensureLoggedIn, modificationLimiter, usersCtrl
 // Role management routes (super admin only)
 router.put('/:id/role', ensureLoggedIn, modificationLimiter, usersCtrl.updateUserRole);
 
+// Account deletion route
+router.delete('/:id', ensureLoggedIn, modificationLimiter, usersCtrl.deleteAccount);
+
 module.exports = router;

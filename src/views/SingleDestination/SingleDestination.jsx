@@ -23,8 +23,8 @@ import { Container, Button, SkeletonLoader, EntityNotFound, EmptyState } from ".
 import Loading from "../../components/Loading/Loading";
 import { toggleUserFavoriteDestination, deleteDestination } from "../../utilities/destinations-api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
-import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage, FaLightbulb, FaCamera } from "react-icons/fa";
-import { Row, Col, Card } from "react-bootstrap";
+import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage, FaLightbulb, FaCamera, FaHome } from "react-icons/fa";
+import { Row, Col, Card, Breadcrumb } from "react-bootstrap";
 import { getDefaultPhoto } from "../../utilities/photo-utils";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
@@ -519,6 +519,22 @@ export default function SingleDestination() {
 
       <div className={styles.destinationContainer}>
         <Container>
+          {/* Breadcrumb Navigation */}
+          <nav className={styles.breadcrumbNav} aria-label="breadcrumb">
+            <Breadcrumb>
+              <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
+                <FaHome size={12} style={{ marginRight: '4px' }} />
+                Home
+              </Breadcrumb.Item>
+              <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/destinations" }}>
+                Destinations
+              </Breadcrumb.Item>
+              <Breadcrumb.Item active>
+                {destination.name}
+              </Breadcrumb.Item>
+            </Breadcrumb>
+          </nav>
+
           {/* Hero Image Section */}
           <div className={styles.heroSection}>
             <img

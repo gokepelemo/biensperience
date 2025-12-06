@@ -1,13 +1,13 @@
 import styles from "./Profile.module.scss";
 import { useState, useEffect } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFlag, FaLink, FaUser, FaCamera, FaUserShield, FaCheckCircle } from "react-icons/fa";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
+import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFlag, FaLink, FaUser, FaCamera, FaUserShield, FaCheckCircle, FaTrash } from "react-icons/fa";
 import { getSocialNetworkOptions, getSocialNetwork, buildLinkUrl, getLinkIcon } from "../../utilities/social-links";
 import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
 import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
 import { updateUser as updateUserAPI, updateUserAsAdmin, getUserData } from "../../utilities/users-api";
-import { updateToken } from "../../utilities/users-service";
+import { updateToken, logout } from "../../utilities/users-service";
 import { useUser } from "../../contexts/UserContext";
 import { useToast } from "../../contexts/ToastContext";
 import { lang } from "../../lang.constants";
@@ -23,6 +23,12 @@ import { Button } from "../../components/design-system";
 import { hasFeatureFlag, FEATURE_FLAGS } from "../../utilities/feature-flags";
 import Autocomplete from "../../components/Autocomplete/Autocomplete";
 import Checkbox from "../../components/Checkbox/Checkbox";
+import DeleteAccountModal from "../../components/DeleteAccountModal/DeleteAccountModal";
+import { logger } from "../../utilities/logger";
+
+// Demo mode detection
+const isDemoMode = process.env.REACT_APP_DEMO_MODE === 'true';
+const DEMO_USER_EMAIL = 'demo@biensperience.com';
 
 export default function UpdateProfile() {
   const { user, profile, updateUser: updateUserContext, fetchProfile } = useUser();
@@ -45,7 +51,9 @@ export default function UpdateProfile() {
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [geolocating, setGeolocating] = useState(false);
   const [flagSearchValue, setFlagSearchValue] = useState("");
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { userId } = useParams();
 
   // Determine if this is admin mode (editing another user)
@@ -60,6 +68,37 @@ export default function UpdateProfile() {
       return;
     }
   }, [user, isAdminMode, navigate]);
+
+  // Handle hash-based URL for delete account modal
+  useEffect(() => {
+    const hash = location.hash.toLowerCase();
+    if (hash === '#delete-account' || hash === '#delete') {
+      logger.debug('[UpdateProfile] Opening delete account modal via hash');
+      setShowDeleteAccountModal(true);
+    } else if (showDeleteAccountModal && hash === '') {
+      // Close modal if hash is cleared
+      setShowDeleteAccountModal(false);
+    }
+  }, [location.hash, showDeleteAccountModal]);
+
+  // Clear hash when delete modal is closed
+  const handleDeleteModalClose = () => {
+    setShowDeleteAccountModal(false);
+    // Remove hash from URL
+    const newUrl = location.pathname + location.search;
+    navigate(newUrl, { replace: true });
+  };
+
+  // Handle successful account deletion
+  const handleDeleteSuccess = async (result) => {
+    logger.info('[UpdateProfile] Account deleted successfully', {
+      dataTransferred: result.dataTransferred,
+      transferredTo: result.transferredTo?.name
+    });
+    // Log the user out and redirect to login
+    await logout();
+    navigate('/');
+  };
 
   // Helper to check if a flag is explicitly enabled (bypasses super admin override)
   const hasExplicitFlag = (flagKey) => {
@@ -1164,6 +1203,54 @@ export default function UpdateProfile() {
                 </div>
               )}
 
+              {/* ============================================
+                  SECTION 5: Danger Zone (Delete Account - Self only)
+                  ============================================ */}
+              {isEditingSelf && (
+                <div className={`${styles.sectionCard} ${styles.dangerZone}`}>
+                  <div className={styles.sectionCardHeader}>
+                    <h3><FaTrash /> Danger Zone</h3>
+                  </div>
+                  <div className={styles.sectionCardBody}>
+                    <div className={styles.dangerItem}>
+                      <div className={styles.dangerItemInfo}>
+                        <strong>Delete Account</strong>
+                        {isDemoMode && user?.email === DEMO_USER_EMAIL ? (
+                          <p className={styles.demoAccountWarning}>
+                            This is a demo account and cannot be deleted. It is used for demonstration purposes.
+                            You can still explore all other features of the application.
+                          </p>
+                        ) : (
+                          <p>Permanently delete your account and all associated data. This action cannot be undone.</p>
+                        )}
+                      </div>
+                      {isDemoMode && user?.email === DEMO_USER_EMAIL ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="md"
+                          disabled
+                          title="Demo account cannot be deleted"
+                        >
+                          <FaTrash className="me-2" />
+                          Delete Account
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="md"
+                          onClick={() => setShowDeleteAccountModal(true)}
+                        >
+                          <FaTrash className="me-2" />
+                          Delete Account
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Form Actions */}
               <div className="d-flex justify-content-between mt-4 gap-3">
               <Link
@@ -1238,6 +1325,14 @@ export default function UpdateProfile() {
           </div>
         </div>
       )}
+
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        show={showDeleteAccountModal}
+        onClose={handleDeleteModalClose}
+        user={user}
+        onSuccess={handleDeleteSuccess}
+      />
     </>
   );
 }
