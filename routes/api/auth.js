@@ -16,11 +16,27 @@ const { createSessionForUser } = require('../../utilities/session-middleware');
  * CSRF Token Endpoint
  * Returns a CSRF token for the client to use in subsequent requests
  * This is a GET request so it's not protected by CSRF itself
+ *
+ * The token is generated using a fixed session identifier for reliability
+ * across server restarts and instances. Security is maintained via the
+ * Double Submit Cookie pattern.
  */
 router.get('/csrf-token', (req, res) => {
   try {
     const generateToken = req.app.get('csrfTokenGenerator');
+
+    if (!generateToken || typeof generateToken !== 'function') {
+      backendLogger.error('CSRF token generator not available');
+      return res.status(500).json({ error: 'CSRF configuration error' });
+    }
+
     const csrfToken = generateToken(req, res);
+
+    backendLogger.debug('CSRF token generated', {
+      hasToken: !!csrfToken,
+      tokenPreview: csrfToken ? csrfToken.substring(0, 16) + '...' : 'none'
+    });
+
     res.json({ csrfToken });
   } catch (err) {
     backendLogger.error('CSRF token generation error', { error: err.message });

@@ -75,10 +75,12 @@ async function getCsrfToken(forceRefresh = false) {
  * @param {string} url - The URL to send the request to
  * @param {string} [method="GET"] - HTTP method (GET, POST, PUT, DELETE, etc.)
  * @param {Object} [payload=null] - Request payload to be JSON stringified
+ * @param {Object} [options={}] - Additional options
+ * @param {boolean} [options._isRetry=false] - Internal flag to prevent infinite retries
  * @returns {Promise<Object>} Response data as JSON
  * @throws {Error} Throws 'Bad Request' if response is not ok
  */
-export async function sendRequest(url, method = "GET", payload = null) {
+export async function sendRequest(url, method = "GET", payload = null, requestOptions = {}) {
     logger.trace('[send-request] Starting request', { method, url, hasPayload: !!payload });
 
     // Default timeout for fetch requests (ms)
@@ -86,46 +88,46 @@ export async function sendRequest(url, method = "GET", payload = null) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
 
-    const options = { method, signal: controller.signal };
+    const fetchOptions = { method, signal: controller.signal };
     
     // Add CSRF token for state-changing requests
     const isStateChanging = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
     
     if (payload) {
-        options.headers = { 'Content-Type': 'application/json' };
-        options.body = JSON.stringify(payload);
+        fetchOptions.headers = { 'Content-Type': 'application/json' };
+        fetchOptions.body = JSON.stringify(payload);
     }
-    
+
     if (isStateChanging) {
         try {
             logger.trace('[send-request] Fetching CSRF token for state-changing request');
             const token = await getCsrfToken();
             logger.trace('[send-request] CSRF token received', { hasToken: !!token });
-            options.headers = options.headers || {};
-            options.headers['x-csrf-token'] = token;
+            fetchOptions.headers = fetchOptions.headers || {};
+            fetchOptions.headers['x-csrf-token'] = token;
         } catch (error) {
             logger.error('[send-request] Failed to get CSRF token', { error: error.message }, error);
         }
     }
-    
+
     const token = getToken();
     if (token) {
         logger.trace('[send-request] JWT token found, adding to headers');
-        options.headers = options.headers || {};
-        options.headers.Authorization = `Bearer ${token}`;
+        fetchOptions.headers = fetchOptions.headers || {};
+        fetchOptions.headers.Authorization = `Bearer ${token}`;
 
         // Add session ID for authenticated requests
         try {
             // Get user from token payload
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const userId = payload.user?._id;
+            const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+            const userId = tokenPayload.user?._id;
 
             if (userId) {
                 // Refresh session if needed
                 const { sessionId } = await refreshSessionIfNeeded(userId);
 
                 if (sessionId) {
-                    options.headers['bien-session-id'] = sessionId;
+                    fetchOptions.headers['bien-session-id'] = sessionId;
                     logger.trace('[send-request] Session ID attached');
                 }
             }
@@ -136,19 +138,19 @@ export async function sendRequest(url, method = "GET", payload = null) {
     } else {
         logger.debug('[send-request] No JWT token found - user may not be authenticated');
     }
-    
+
     // Always add trace ID for request tracking
     const traceId = generateTraceId();
-    options.headers = options.headers || {};
-    options.headers['bien-trace-id'] = traceId;
+    fetchOptions.headers = fetchOptions.headers || {};
+    fetchOptions.headers['bien-trace-id'] = traceId;
 
     try {
         logger.trace('[send-request] Making fetch request', {
             url,
             method,
-            headers: Object.keys(options.headers || {})
+            headers: Object.keys(fetchOptions.headers || {})
         });
-        const res = await fetch(url, options);
+        const res = await fetch(url, fetchOptions);
         clearTimeout(timeoutId);
         logger.trace('[send-request] Response received', {
             status: res.status,
@@ -184,11 +186,10 @@ export async function sendRequest(url, method = "GET", payload = null) {
         if (res.status === 403) {
             const errorBody = await res.clone().text().catch(() => '');
             const isCsrfError = errorBody.toLowerCase().includes('csrf') ||
-                               errorBody.toLowerCase().includes('invalid token') ||
-                               errorBody.toLowerCase().includes('forbidden');
+                               errorBody.toLowerCase().includes('invalid token');
 
-            if (isCsrfError && isStateChanging) {
-                logger.warn('CSRF token validation failed, clearing cache and retrying', {
+            if (isCsrfError && isStateChanging && !requestOptions._isRetry) {
+                logger.warn('CSRF token validation failed, clearing cache and retrying once', {
                     url,
                     method
                 });
@@ -196,8 +197,8 @@ export async function sendRequest(url, method = "GET", payload = null) {
                 // Clear the cached CSRF token
                 clearCsrfToken();
 
-                // Note: We don't auto-retry here to avoid infinite loops
-                // The next request will fetch a fresh token
+                // Retry once with a fresh token
+                return sendRequest(url, method, payload, { ...requestOptions, _isRetry: true });
             }
         }
 

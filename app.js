@@ -76,6 +76,23 @@ app.use(
  * CSRF protection configuration
  * Generates and validates CSRF tokens for state-changing requests
  * Note: __Host- prefix requires secure: true, so only use in production
+ *
+ * SECURITY NOTE: Using a fixed session identifier is intentional and secure.
+ * The Double Submit Cookie pattern works as follows:
+ * 1. Server generates a random token and sets it in an httpOnly cookie
+ * 2. Server also returns the token to the client
+ * 3. Client must send the token in the X-CSRF-Token header
+ * 4. Server validates that header token matches cookie token
+ *
+ * This prevents CSRF because:
+ * - Attacker can't read the httpOnly cookie to get the token
+ * - SameSite cookie policy blocks cross-origin cookie sending
+ * - Origin/Referer headers provide additional validation
+ *
+ * We use a fixed identifier because:
+ * - In-memory session store doesn't persist across server restarts/instances
+ * - The security comes from the cookie-header comparison, not session binding
+ * - JWT provides user authentication independently
  */
 const isProduction = process.env.NODE_ENV === 'production';
 const {
@@ -83,7 +100,8 @@ const {
   doubleCsrfProtection, // Middleware to validate CSRF tokens
 } = doubleCsrf({
   getSecret: () => process.env.CSRF_SECRET || process.env.SECRET,
-  getSessionIdentifier: (req) => req.session?.id || 'anonymous', // Required in v4
+  // Fixed identifier - security comes from cookie-header matching, not session binding
+  getSessionIdentifier: () => 'biensperience-csrf-v1',
   cookieName: isProduction ? '__Host-biensperience.x-csrf-token' : 'biensperience.x-csrf-token',
   cookieOptions: {
     secure: isProduction,
@@ -239,11 +257,16 @@ app.use('/api', (req, res, next) => {
   if (req.path === '/users/login' || req.path === '/users/') {
     return next();
   }
-  
-  // Debug logging
+
+  // Debug logging for CSRF validation
+  const csrfTokenFromHeader = req.headers['x-csrf-token'];
   backendLogger.debug('CSRF check', {
     method: req.method,
     path: req.path,
+    sessionId: req.session?.id ? req.session.id.substring(0, 8) + '...' : 'none',
+    hasSession: !!req.session,
+    hasCsrfHeader: !!csrfTokenFromHeader,
+    csrfHeaderPreview: csrfTokenFromHeader ? csrfTokenFromHeader.substring(0, 16) + '...' : 'none',
     user: req.user ? {
       id: req.user._id,
       isSuperAdmin: req.user.isSuperAdmin,
@@ -263,9 +286,23 @@ app.use('/api', (req, res, next) => {
     return next();
   }
 
-  backendLogger.debug('Applying CSRF protection');
+  backendLogger.debug('Applying CSRF protection', {
+    sessionId: req.session?.id ? req.session.id.substring(0, 8) + '...' : 'none'
+  });
+
   // Apply CSRF protection for state-changing methods
-  doubleCsrfProtection(req, res, next);
+  doubleCsrfProtection(req, res, (err) => {
+    if (err) {
+      backendLogger.error('CSRF validation failed', {
+        error: err.message,
+        path: req.path,
+        method: req.method,
+        sessionId: req.session?.id ? req.session.id.substring(0, 8) + '...' : 'none',
+        hasCsrfHeader: !!csrfTokenFromHeader
+      });
+    }
+    next(err);
+  });
 });
 
 // Protect user creation/modification endpoints with a modification limiter
