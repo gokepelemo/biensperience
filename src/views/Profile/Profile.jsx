@@ -13,6 +13,7 @@ import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import Pagination from '../../components/Pagination/Pagination';
 import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
+import { ProfileSkeleton, ProfileHeaderSkeleton, ProfileContentGridSkeleton } from "./components";
 import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
 import ActivityMonitor from "../../components/ActivityMonitor/ActivityMonitor";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
@@ -829,6 +830,11 @@ export default function Profile() {
   const uniqueCreatedExperiencesCount = uniqueCreatedExperiences ? uniqueCreatedExperiences.length : 0;
   const favoriteDestinationsCount = favoriteDestinations ? favoriteDestinations.length : 0;
 
+  // Show full-page skeleton during initial load (before profile data arrives)
+  if (isLoadingProfile && !currentProfile) {
+    return <ProfileSkeleton />;
+  }
+
   return (
     <div style={{ backgroundColor: 'var(--color-bg-primary)', minHeight: '100vh', padding: 'var(--space-8) 0' }}>
       {currentProfile && (
@@ -849,11 +855,6 @@ export default function Profile() {
           <div className={styles.profileCover} />
 
           <Card.Body className={styles.profileHeaderBody}>
-            {isLoadingProfile ? (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-                <Loading size="lg" message={lang.current.alert.loadingProfile} />
-              </div>
-            ) : (
               <div className={styles.profileHeaderFlex}>
                 {/* Avatar - Clickable to open photo modal */}
                 <div
@@ -1103,7 +1104,6 @@ export default function Profile() {
                   )}
                 </div>
               </div>
-            )}
           </Card.Body>
         </Card>
 
