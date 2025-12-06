@@ -74,8 +74,8 @@ export default function ResetPassword() {
         keywords="reset password, password recovery, account security"
       />
 
-      <div className="container">
-        <div className="row justify-content-center mt-5">
+      <div className={`${styles.resetPasswordWrapper} container`}>
+        <div className="row justify-content-center">
           <div className="col-md-6 col-lg-5">
             <div className={`${styles.resetPasswordCard} card`}>
               <div className="card-body p-4 p-md-5">

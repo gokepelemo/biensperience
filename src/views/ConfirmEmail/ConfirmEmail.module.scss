@@ -34,6 +34,7 @@
   justify-content: center;
   min-height: 100vh; /* full viewport height to center vertically */
   padding: $space-8 $space-4; /* spacing on small screens */
+  background-color: var(--color-bg-primary); /* Match auth container background */
 
   /* Ensure inner column doesn't inherit extra margins that break centering */
   :global(.col-md-6),
