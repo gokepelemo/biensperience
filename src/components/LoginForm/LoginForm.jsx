@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Form, InputGroup, Button, Card } from "react-bootstrap";
-import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowRight } from "react-icons/fa";
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowRight, FaInfoCircle, FaCopy, FaCheck } from "react-icons/fa";
 import * as usersService from "../../utilities/users-service";
 import { lang } from "../../lang.constants";
 import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
@@ -10,6 +10,15 @@ import BiensperienceLogo from "../BiensperienceLogo/BiensperienceLogo";
 import Checkbox from "../Checkbox/Checkbox";
 import Divider from "../Divider/Divider";
 import styles from "./LoginForm.module.scss";
+
+// Check if we're in demo mode
+const isDemoMode = process.env.REACT_APP_DEMO_MODE === 'true';
+
+// Demo user credentials
+const DEMO_USER = {
+    email: 'demo@biensperience.com',
+    password: 'demo123'
+};
 
 /**
  * Login form component for user authentication.
@@ -37,9 +46,42 @@ export default function LoginForm({ setUser }) {
     const [showForgotPasswordLink, setShowForgotPasswordLink] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
+    const [copiedField, setCopiedField] = useState(null);
     const navigate = useNavigate();
     const passwordTimerRef = useRef(null);
     const emailInputRef = useRef(null);
+
+    /**
+     * Fill demo credentials into the form
+     */
+    function fillDemoCredentials() {
+        setCredentials({
+            email: DEMO_USER.email,
+            password: DEMO_USER.password
+        });
+        setError("");
+    }
+
+    /**
+     * Copy text to clipboard and show feedback
+     */
+    async function copyToClipboard(text, field) {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedField(field);
+            setTimeout(() => setCopiedField(null), 2000);
+        } catch (err) {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            setCopiedField(field);
+            setTimeout(() => setCopiedField(null), 2000);
+        }
+    }
 
     /**
      * Auto-focus email field on mount for reduced friction
@@ -147,6 +189,52 @@ export default function LoginForm({ setUser }) {
                             {lang.current.heading.signInToAccount}
                         </h1>
                     </div>
+
+                    {/* Demo Mode Info Box */}
+                    {isDemoMode && (
+                        <div className={styles.demoInfoBox}>
+                            <div className={styles.demoInfoHeader}>
+                                <FaInfoCircle className={styles.demoInfoIcon} />
+                                <span>Demo Mode</span>
+                            </div>
+                            <p className={styles.demoInfoText}>
+                                This is a demo environment. Use these credentials to explore:
+                            </p>
+                            <div className={styles.demoCredentials}>
+                                <div className={styles.demoCredentialRow}>
+                                    <span className={styles.demoLabel}>Email:</span>
+                                    <code className={styles.demoValue}>{DEMO_USER.email}</code>
+                                    <button
+                                        type="button"
+                                        className={styles.demoCopyBtn}
+                                        onClick={() => copyToClipboard(DEMO_USER.email, 'email')}
+                                        aria-label="Copy email"
+                                    >
+                                        {copiedField === 'email' ? <FaCheck /> : <FaCopy />}
+                                    </button>
+                                </div>
+                                <div className={styles.demoCredentialRow}>
+                                    <span className={styles.demoLabel}>Password:</span>
+                                    <code className={styles.demoValue}>{DEMO_USER.password}</code>
+                                    <button
+                                        type="button"
+                                        className={styles.demoCopyBtn}
+                                        onClick={() => copyToClipboard(DEMO_USER.password, 'password')}
+                                        aria-label="Copy password"
+                                    >
+                                        {copiedField === 'password' ? <FaCheck /> : <FaCopy />}
+                                    </button>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                className={styles.demoFillBtn}
+                                onClick={fillDemoCredentials}
+                            >
+                                Fill Demo Credentials
+                            </button>
+                        </div>
+                    )}
 
                     {/* Form with ARIA labelling */}
                     <Form
