@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import MultiStepPlanModal from "../../components/MultiStepPlanModal/MultiStepPlanModal";
+import LegalModalsHandler from "../../components/LegalModalsHandler/LegalModalsHandler";
 import { Helmet } from 'react-helmet-async';
 import { Container } from "../../components/design-system";
 import styles from './App.module.scss';
@@ -365,6 +366,8 @@ function AppContent() {
         )}
         <div className={styles.app}>
           <CookieConsent />
+          {/* Legal modals accessible via hash links (#terms, #privacy) */}
+          <LegalModalsHandler />
           {/* Multi-step Plan Experience Modal - globally accessible */}
           {isAuthenticated && <MultiStepPlanModal />}
           {isAuthenticated ? (
