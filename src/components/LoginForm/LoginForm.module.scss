@@ -1,8 +1,8 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Auth Container - Full page gray background */
+/* Auth Container - Full page background matching card */
 .authContainer {
-  background-color: var(--color-bg-tertiary);
+  background-color: var(--color-bg-primary);
   min-height: 100vh;
   display: flex;
   align-items: center;
