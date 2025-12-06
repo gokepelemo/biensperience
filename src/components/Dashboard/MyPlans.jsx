@@ -25,10 +25,11 @@ import { formatDateMetricCard } from '../../utilities/date-utils';
 import { eventBus } from '../../utilities/event-bus';
 import { lang } from '../../lang.constants';
 import { getTotalCostTooltip } from '../../utilities/cost-utils';
+import { useViewModePreference } from '../../hooks/useUIPreference';
 import PlanCalendar from './PlanCalendar';
 import styles from './MyPlans.module.scss';
 
-// View mode options
+// View mode options (kept for local use, matches VIEW_MODES from preferences)
 const VIEW_MODES = {
   LIST: 'list',
   CALENDAR: 'calendar'
@@ -46,7 +47,8 @@ const PLAN_FILTERS = {
 export default function MyPlans() {
   const [plans, setPlans] = useState([]);
   const [planFilter, setPlanFilter] = useState(PLAN_FILTERS.ALL);
-  const [viewMode, setViewMode] = useState(VIEW_MODES.LIST);
+  // Use persisted view mode preference
+  const { viewMode, setViewMode } = useViewModePreference('myPlans', VIEW_MODES.LIST);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [expandedPlanId, setExpandedPlanId] = useState(null);

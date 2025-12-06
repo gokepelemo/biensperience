@@ -205,8 +205,19 @@ Authentication and profile data for platform users.
 | `apiEnabled` | Boolean | API access enabled |
 | `location` | Object | GeoJSON location with city, state, country, coordinates |
 | `feature_flags` | [FeatureFlag] | Array of feature flags controlling access to features |
+| `bio` | String | Curator bio/about text (max 500 chars, requires curator flag) |
+| `links` | [Link] | Curator external links (requires curator flag) |
 | `createdAt` | Date | Document creation timestamp |
 | `updatedAt` | Date | Last update timestamp |
+
+**Link Sub-schema (Curator Profile):**
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | String | Link type: `twitter`, `instagram`, `facebook`, `youtube`, `tiktok`, `linkedin`, `pinterest`, `github`, `website`, `custom` |
+| `username` | String | Username for social networks (without URL prefix) |
+| `title` | String | Display title (required, max 100 chars) |
+| `url` | String | Full URL (required, validated) |
+| `meta` | Mixed | Optional metadata object |
 
 **FeatureFlag Sub-schema:**
 | Field | Type | Description |
@@ -225,11 +236,12 @@ Authentication and profile data for platform users.
 | `ai_features` | Access to AI-powered features (autocomplete, improve, translate, summarize) |
 | `beta_ui` | Access to beta UI features |
 | `advanced_analytics` | Access to advanced analytics features |
-| `premium_features` | Access to premium tier features |
-| `document_processing` | Access to AI document processing |
-| `collaboration_plus` | Enhanced collaboration features |
+| `real_time_collaboration` | Real-time collaboration via WebSocket |
+| `document_ai_parsing` | AI-powered document parsing and extraction |
+| `bulk_export` | Bulk export of plans and experiences |
+| `curator` | Curator designation for creating curated experiences with bio and links |
 
-**Indexes:** `email`, `role`, `provider`, `resetPasswordToken`, `emailConfirmationToken`, `currentSessionId`, `sessionExpiresAt`, `createdAt`, `photos`, `default_photo_id`, `location.coordinates` (2dsphere), `location.city`, `location.country`, `feature_flags.flag`, `feature_flags.enabled+flag`
+**Indexes:** `email`, `role`, `provider`, `resetPasswordToken`, `emailConfirmationToken`, `currentSessionId`, `sessionExpiresAt`, `createdAt`, `photos`, `default_photo_id`, `location.coordinates` (2dsphere), `location.city`, `location.country`, `feature_flags.flag`, `feature_flags.enabled+flag`, `links.type`
 
 ---
 

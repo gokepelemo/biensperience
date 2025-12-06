@@ -268,6 +268,7 @@ const userSchema = new Schema(
       default: {}
     },
 
+
     /**
      * Invite code used to sign up (optional)
      * @type {string}

@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
@@ -6,6 +6,7 @@ import enUS from 'date-fns/locale/en-US';
 import { useNavigate } from 'react-router-dom';
 import { FaUsers } from 'react-icons/fa';
 import Tooltip from '../../Tooltip/Tooltip';
+import { useUIPreference } from '../../../hooks/useUIPreference';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import styles from './PlanCalendar.module.scss';
 
@@ -32,6 +33,23 @@ const localizer = dateFnsLocalizer({
  */
 export default function PlanCalendar({ plans = [], className = '' }) {
   const navigate = useNavigate();
+
+  // Store calendar view preference (month/week/day)
+  const [calendarView, setCalendarView] = useUIPreference('viewMode.calendarView', 'month');
+  const [currentView, setCurrentView] = useState('month');
+
+  // Sync preference to state on load
+  useEffect(() => {
+    if (calendarView && calendarView !== currentView) {
+      setCurrentView(calendarView);
+    }
+  }, [calendarView]);
+
+  // Handle view change - persist to preferences
+  const handleViewChange = useCallback((newView) => {
+    setCurrentView(newView);
+    setCalendarView(newView);
+  }, [setCalendarView]);
 
   // Transform plans into calendar events
   const events = useMemo(() => {
@@ -131,27 +149,36 @@ export default function PlanCalendar({ plans = [], className = '' }) {
         <button
           type="button"
           className={`${styles.toolbarViewButton} ${view === 'month' ? styles.active : ''}`}
-          onClick={() => onView('month')}
+          onClick={() => {
+            onView('month');
+            handleViewChange('month');
+          }}
         >
           Month
         </button>
         <button
           type="button"
           className={`${styles.toolbarViewButton} ${view === 'week' ? styles.active : ''}`}
-          onClick={() => onView('week')}
+          onClick={() => {
+            onView('week');
+            handleViewChange('week');
+          }}
         >
           Week
         </button>
         <button
           type="button"
           className={`${styles.toolbarViewButton} ${view === 'day' ? styles.active : ''}`}
-          onClick={() => onView('day')}
+          onClick={() => {
+            onView('day');
+            handleViewChange('day');
+          }}
         >
           Day
         </button>
       </div>
     </div>
-  ), []);
+  ), [handleViewChange]);
 
   return (
     <div className={`${styles.calendarContainer} ${className}`}>
@@ -160,11 +187,12 @@ export default function PlanCalendar({ plans = [], className = '' }) {
         events={events}
         startAccessor="start"
         endAccessor="end"
-        style={{ height: 500 }}
+        style={{ height: 600 }}
         onSelectEvent={handleSelectEvent}
         eventPropGetter={eventStyleGetter}
         views={['month', 'week', 'day']}
-        defaultView="month"
+        view={currentView}
+        onView={handleViewChange}
         components={{
           event: EventComponent,
           toolbar: CustomToolbar,

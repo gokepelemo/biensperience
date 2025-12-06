@@ -288,6 +288,15 @@ components:
           items:
             $ref: '#/components/schemas/FeatureFlag'
           description: Feature flags controlling access to platform features
+        bio:
+          type: string
+          maxLength: 500
+          description: Curator bio/about text (requires curator feature flag)
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserLink'
+          description: Curator external links (requires curator feature flag)
         createdAt:
           type: string
           format: date-time
@@ -1142,7 +1151,7 @@ components:
         flag:
           type: string
           description: Unique feature flag identifier
-          enum: [ai_features, beta_ui, advanced_analytics, premium_features, document_processing, collaboration_plus]
+          enum: [ai_features, beta_ui, advanced_analytics, real_time_collaboration, document_ai_parsing, bulk_export, curator]
         enabled:
           type: boolean
           default: true
@@ -1166,6 +1175,33 @@ components:
           description: Optional reason for granting the flag
       required:
         - flag
+
+    UserLink:
+      type: object
+      description: External link for curator profiles
+      properties:
+        type:
+          type: string
+          enum: [twitter, instagram, facebook, youtube, tiktok, linkedin, pinterest, github, website, custom]
+          default: custom
+          description: Link type (social network or custom)
+        username:
+          type: string
+          description: Username for social networks (without URL prefix)
+        title:
+          type: string
+          maxLength: 100
+          description: Display title for the link
+        url:
+          type: string
+          format: uri
+          description: Full URL
+        meta:
+          type: object
+          description: Optional metadata
+      required:
+        - title
+        - url
 
     AICompletionRequest:
       type: object
