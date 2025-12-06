@@ -435,18 +435,103 @@ export default function SingleDestination() {
     return (
       <div className={styles.destinationContainer}>
         <Container>
-          <SkeletonLoader variant="rectangle" width="100%" height="400px" className={styles.skeletonHero} />
+          {/* Breadcrumb skeleton */}
+          <div style={{ marginBottom: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+            <SkeletonLoader variant="text" width="50px" height="16px" />
+            <span style={{ color: 'var(--color-text-muted)' }}>/</span>
+            <SkeletonLoader variant="text" width="90px" height="16px" />
+            <span style={{ color: 'var(--color-text-muted)' }}>/</span>
+            <SkeletonLoader variant="text" width="120px" height="16px" />
+          </div>
+
+          {/* Hero section skeleton */}
+          <SkeletonLoader variant="rectangle" width="100%" height="450px" className={styles.skeletonHero} />
+
+          {/* Stats bar skeleton */}
+          <div style={{
+            display: 'flex',
+            gap: 'var(--space-6)',
+            padding: 'var(--space-4) var(--space-6)',
+            background: 'var(--color-bg-secondary)',
+            borderRadius: 'var(--radius-lg)',
+            marginBottom: 'var(--space-6)',
+            flexWrap: 'wrap'
+          }}>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <SkeletonLoader variant="circle" width="24px" height="24px" />
+                <SkeletonLoader variant="text" width="30px" height="24px" />
+                <SkeletonLoader variant="text" width="70px" height="16px" />
+              </div>
+            ))}
+          </div>
+
           <Row>
+            {/* Main content column */}
             <Col lg={8}>
-              <SkeletonLoader variant="rectangle" width="100%" height="200px" style={{ marginBottom: 'var(--space-6)' }} />
-              <SkeletonLoader variant="text" width="40%" height="32px" style={{ marginBottom: 'var(--space-4)' }} />
-              <Row>
-                <Col md={6}><SkeletonLoader variant="rectangle" width="100%" height="280px" /></Col>
-                <Col md={6}><SkeletonLoader variant="rectangle" width="100%" height="280px" /></Col>
-              </Row>
+              {/* Overview card skeleton */}
+              <Card className={styles.contentCard}>
+                <Card.Body className={styles.contentCardBody}>
+                  <SkeletonLoader variant="text" width="120px" height="28px" style={{ marginBottom: 'var(--space-4)' }} />
+                  <SkeletonLoader variant="text" width="100%" height="16px" style={{ marginBottom: 'var(--space-2)' }} />
+                  <SkeletonLoader variant="text" width="95%" height="16px" style={{ marginBottom: 'var(--space-2)' }} />
+                  <SkeletonLoader variant="text" width="80%" height="16px" />
+                </Card.Body>
+              </Card>
+
+              {/* Map card skeleton */}
+              <Card className={styles.contentCard}>
+                <Card.Body className={styles.contentCardBody}>
+                  <SkeletonLoader variant="text" width="100px" height="28px" style={{ marginBottom: 'var(--space-4)' }} />
+                  <SkeletonLoader variant="rectangle" width="100%" height="350px" style={{ borderRadius: 'var(--radius-lg)' }} />
+                </Card.Body>
+              </Card>
+
+              {/* Travel tips card skeleton */}
+              <Card className={styles.contentCard}>
+                <Card.Body className={styles.contentCardBody}>
+                  <SkeletonLoader variant="text" width="200px" height="28px" style={{ marginBottom: 'var(--space-4)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+                        <SkeletonLoader variant="circle" width="32px" height="32px" />
+                        <div style={{ flex: 1 }}>
+                          <SkeletonLoader variant="text" width="80px" height="14px" style={{ marginBottom: 'var(--space-1)' }} />
+                          <SkeletonLoader variant="text" width="90%" height="16px" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card.Body>
+              </Card>
+
+              {/* Experiences card skeleton */}
+              <Card className={styles.contentCard}>
+                <Card.Body className={styles.contentCardBody}>
+                  <SkeletonLoader variant="text" width="180px" height="28px" style={{ marginBottom: 'var(--space-4)' }} />
+                  <Row>
+                    {[1, 2, 3, 4].map((i) => (
+                      <Col md={6} key={i} style={{ marginBottom: 'var(--space-4)' }}>
+                        <SkeletonLoader variant="rectangle" width="100%" height="200px" style={{ borderRadius: 'var(--radius-lg)', marginBottom: 'var(--space-3)' }} />
+                        <SkeletonLoader variant="text" width="85%" height="20px" style={{ marginBottom: 'var(--space-2)' }} />
+                        <SkeletonLoader variant="text" width="60%" height="14px" />
+                      </Col>
+                    ))}
+                  </Row>
+                </Card.Body>
+              </Card>
             </Col>
+
+            {/* Sidebar column */}
             <Col lg={4}>
-              <SkeletonLoader variant="rectangle" width="100%" height="200px" />
+              <div className={styles.sidebar}>
+                <SkeletonLoader variant="text" width="120px" height="22px" style={{ marginBottom: 'var(--space-4)' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                  <SkeletonLoader variant="rectangle" width="100%" height="44px" style={{ borderRadius: 'var(--radius-full)' }} />
+                  <SkeletonLoader variant="rectangle" width="100%" height="44px" style={{ borderRadius: 'var(--radius-full)' }} />
+                  <SkeletonLoader variant="rectangle" width="100%" height="44px" style={{ borderRadius: 'var(--radius-full)' }} />
+                </div>
+              </div>
             </Col>
           </Row>
         </Container>
