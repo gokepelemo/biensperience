@@ -14,9 +14,24 @@ let csrfToken = null;
 let csrfTokenPromise = null;
 
 /**
- * Get CSRF token for state-changing requests
+ * Clear cached CSRF token (e.g., after CSRF validation failure)
  */
-async function getCsrfToken() {
+function clearCsrfToken() {
+  csrfToken = null;
+  csrfTokenPromise = null;
+  logger.debug('[send-request] CSRF token cache cleared');
+}
+
+/**
+ * Get CSRF token for state-changing requests
+ * @param {boolean} forceRefresh - Force fetching a new token
+ */
+async function getCsrfToken(forceRefresh = false) {
+  // Clear cache if force refresh requested
+  if (forceRefresh) {
+    clearCsrfToken();
+  }
+
   // Return cached token if available
   if (csrfToken) {
     return csrfToken;
@@ -41,6 +56,7 @@ async function getCsrfToken() {
   .then(data => {
     csrfToken = data.csrfToken;
     csrfTokenPromise = null;
+    logger.debug('[send-request] CSRF token fetched successfully');
     return csrfToken;
   })
   .catch(error => {
@@ -162,6 +178,27 @@ export async function sendRequest(url, method = "GET", payload = null) {
 
             // Throw error to prevent further processing
             throw new Error('Session expired. Please log in again.');
+        }
+
+        // Handle 403 Forbidden - could be CSRF token issue
+        if (res.status === 403) {
+            const errorBody = await res.clone().text().catch(() => '');
+            const isCsrfError = errorBody.toLowerCase().includes('csrf') ||
+                               errorBody.toLowerCase().includes('invalid token') ||
+                               errorBody.toLowerCase().includes('forbidden');
+
+            if (isCsrfError && isStateChanging) {
+                logger.warn('CSRF token validation failed, clearing cache and retrying', {
+                    url,
+                    method
+                });
+
+                // Clear the cached CSRF token
+                clearCsrfToken();
+
+                // Note: We don't auto-retry here to avoid infinite loops
+                // The next request will fetch a fresh token
+            }
         }
 
         // Log detailed error information for debugging
