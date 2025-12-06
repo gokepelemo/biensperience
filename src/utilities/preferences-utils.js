@@ -857,6 +857,20 @@ export function setUIPreferences(preferences) {
 }
 
 /**
+ * Dangerous prototype keys that must be blocked to prevent prototype pollution
+ */
+const DANGEROUS_KEYS = ['__proto__', 'constructor', 'prototype'];
+
+/**
+ * Check if a key is safe (not a prototype pollution vector)
+ * @param {string} key - Key to check
+ * @returns {boolean} True if safe
+ */
+function isSafeKey(key) {
+  return !DANGEROUS_KEYS.includes(key);
+}
+
+/**
  * Get a specific UI preference value (synchronous)
  * For encrypted preferences, use retrievePreference instead
  *
@@ -870,9 +884,15 @@ export function getUIPreference(key, defaultValue = null) {
   // Handle nested keys with dot notation (e.g., 'sortPreferences.experiences')
   if (key.includes('.')) {
     const parts = key.split('.');
+
+    // Validate all parts against prototype pollution
+    if (!parts.every(isSafeKey)) {
+      return defaultValue; // Return default for dangerous keys
+    }
+
     let value = prefs;
     for (const part of parts) {
-      if (value && typeof value === 'object' && part in value) {
+      if (value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, part)) {
         value = value[part];
       } else {
         return defaultValue ?? getNestedDefault(DEFAULT_UI_PREFERENCES, parts);
@@ -881,7 +901,12 @@ export function getUIPreference(key, defaultValue = null) {
     return value;
   }
 
-  if (key in prefs) {
+  // Validate single key against prototype pollution
+  if (!isSafeKey(key)) {
+    return defaultValue; // Return default for dangerous keys
+  }
+
+  if (Object.prototype.hasOwnProperty.call(prefs, key)) {
     return prefs[key];
   }
 
@@ -901,16 +926,26 @@ export function setUIPreference(key, value) {
   // Handle nested keys with dot notation
   if (key.includes('.')) {
     const parts = key.split('.');
+
+    // Validate all parts against prototype pollution
+    if (!parts.every(isSafeKey)) {
+      return; // Silently reject dangerous keys
+    }
+
     let current = prefs;
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i];
-      if (!(part in current) || typeof current[part] !== 'object') {
+      if (!Object.prototype.hasOwnProperty.call(current, part) || typeof current[part] !== 'object') {
         current[part] = {};
       }
       current = current[part];
     }
     current[parts[parts.length - 1]] = value;
   } else {
+    // Validate single key against prototype pollution
+    if (!isSafeKey(key)) {
+      return; // Silently reject dangerous keys
+    }
     prefs[key] = value;
   }
 
