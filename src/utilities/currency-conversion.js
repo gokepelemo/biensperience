@@ -14,17 +14,20 @@ let _rates = null; // { base: 'USD', rates: { EUR: 0.92, GBP: 0.78, ... }, fetch
 
 // Cache TTL from env var (in milliseconds) or default to 1 hour
 const DEFAULT_TTL = 1000 * 60 * 60; // 1 hour
-let _ttl = parseInt(import.meta.env.EXCHANGE_RATE_CACHE_TTL, 10) || DEFAULT_TTL;
+// Support both VITE_ prefixed (for client-side Vite) and non-prefixed (for testing/Node)
+let _ttl = parseInt(import.meta.env.VITE_EXCHANGE_RATE_CACHE_TTL || import.meta.env.EXCHANGE_RATE_CACHE_TTL, 10) || DEFAULT_TTL;
 
 // API endpoints from env vars with defaults
-const PRIMARY_API_URL = import.meta.env.EXCHANGE_RATE_API_URL ||
+// Vite requires VITE_ prefix for client-side env vars
+const PRIMARY_API_URL = import.meta.env.VITE_EXCHANGE_RATE_API_URL || import.meta.env.EXCHANGE_RATE_API_URL ||
   'https://v6.exchangerate-api.com/v6/{apikey}/latest/{base}';
 
-const FALLBACK_API_URL = import.meta.env.EXCHANGE_RATE_FALLBACK_URL ||
-  'https://api.exchangerate.host/latest?base={base}';
+// frankfurter.app is a free, open API that doesn't require an API key
+const FALLBACK_API_URL = import.meta.env.VITE_EXCHANGE_RATE_FALLBACK_URL || import.meta.env.EXCHANGE_RATE_FALLBACK_URL ||
+  'https://api.frankfurter.app/latest?from={base}';
 
 // API key for authenticated access (optional)
-const EXCHANGE_RATE_API_KEY = import.meta.env.EXCHANGE_RATE_API_KEY || '';
+const EXCHANGE_RATE_API_KEY = import.meta.env.VITE_EXCHANGE_RATE_API_KEY || import.meta.env.EXCHANGE_RATE_API_KEY || '';
 
 /**
  * Build API URL from template, replacing {base} with the currency code

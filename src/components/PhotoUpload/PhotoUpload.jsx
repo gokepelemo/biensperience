@@ -11,6 +11,9 @@ import AlertModal from "../AlertModal/AlertModal";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import { logger } from "../../utilities/logger";
 import { FormControl } from "../../components/design-system";
+import Slider from 'react-slick';
+import 'slick-carousel/slick/slick.css';
+import 'slick-carousel/slick/slick-theme.css';
 
 function sanitizeText(text) {
   return text ? String(text).trim() : '';
@@ -679,82 +682,100 @@ export default function PhotoUpload({ data, setData }) {
               </small>
             </Alert>
           )}
-          
-          <div className={styles.photosGrid}>
-            {photos.map((photo, index) => {
-              const isDisabled = disabledPhotos.has(index);
-              const isDefault = index === defaultPhotoIndex && !isDisabled;
-              const sanitizedCredit = sanitizeText(photo.photo_credit);
-              const safeUrl = sanitizeImageUrl(photo.url);
 
-              return (
-                <div
-                  key={index}
-                  className={`photo-item ${isDisabled ? 'photo-item-disabled' : ''}`}
-                  style={{ opacity: isDisabled ? 0.5 : 1 }}
-                >
-                  {safeUrl ? (
-                    <img
-                      src={safeUrl}
-                      alt={sanitizedCredit || `Photo ${index + 1}`}
-                      className={styles.photoItemPreview}
-                      loading="lazy"
-                      style={{ filter: isDisabled ? 'grayscale(100%)' : 'none' }}
-                    />
-                  ) : (
-                    <div className={styles.photoItemPreview} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'var(--color-bg-tertiary)',
-                      color: 'var(--color-text-muted)',
-                      fontSize: 'var(--font-size-sm)'
-                    }}>
-                      {lang.current.photo.invalidUrl}
+          <div className={styles.photosCarousel}>
+            <Slider
+              dots={true}
+              infinite={false}
+              speed={500}
+              slidesToShow={1}
+              slidesToScroll={1}
+              swipeToSlide={true}
+              arrows={true}
+              responsive={[
+                {
+                  breakpoint: 768,
+                  settings: {
+                    arrows: false
+                  }
+                }
+              ]}
+            >
+              {photos.map((photo, index) => {
+                const isDisabled = disabledPhotos.has(index);
+                const isDefault = index === defaultPhotoIndex && !isDisabled;
+                const sanitizedCredit = sanitizeText(photo.photo_credit);
+                const safeUrl = sanitizeImageUrl(photo.url);
+
+                return (
+                  <div key={index} className={styles.photoSlide}>
+                    <div
+                      className={`${styles.photoItem} ${isDisabled ? styles.photoItemDisabled : ''}`}
+                    >
+                      {safeUrl ? (
+                        <img
+                          src={safeUrl}
+                          alt={sanitizedCredit || `Photo ${index + 1}`}
+                          className={styles.photoItemPreview}
+                          loading="lazy"
+                          style={{ filter: isDisabled ? 'grayscale(100%)' : 'none' }}
+                        />
+                      ) : (
+                        <div className={styles.photoItemPreview} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'var(--color-bg-tertiary)',
+                          color: 'var(--color-text-muted)',
+                          fontSize: 'var(--font-size-sm)'
+                        }}>
+                          {lang.current.photo.invalidUrl}
+                        </div>
+                      )}
+                      <div className={styles.photoItemInfo}>
+                        <small className={styles.photoItemCredit}>{sanitizedCredit}</small>
+                        {isDefault && (
+                          <span className="badge pill pill-variant-primary">{lang.current.photo.defaultBadge}</span>
+                        )}
+                        {isDisabled && (
+                          <span className="badge pill pill-variant-danger">{lang.current.photo.disabledBadge}</span>
+                        )}
+                      </div>
+                      <div className={styles.photoItemActions}>
+                        <button
+                          className={`btn btn-sm ${isDisabled ? 'btn-success' : 'btn-warning'}`}
+                          onClick={() => togglePhotoAtIndex(index)}
+                          aria-label={isDisabled ? `Enable photo ${index + 1}` : `Disable photo ${index + 1}`}
+                          title={lang.current.photo.clickToToggle}
+                        >
+                          {isDisabled ? lang.current.photo.enablePhoto : lang.current.photo.disablePhoto}
+                        </button>
+                        {!isDisabled && index !== defaultPhotoIndex && (
+                          <button
+                            className="btn btn-sm btn-outline-primary"
+                            onClick={() => setDefaultPhotoIndex(index)}
+                            aria-label={`Set photo ${index + 1} as default`}
+                          >
+                            {lang.current.photo.setAsDefault}
+                          </button>
+                        )}
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => {
+                            setPhotoToDeleteIndex(index);
+                            setShowDeleteConfirm(true);
+                          }}
+                          aria-label={`Remove photo ${index + 1} permanently`}
+                          title={lang.current.photo.deletePhotoConfirm}
+                        >
+                          {lang.current.photo.deletePhoto}
+                        </button>
+                      </div>
                     </div>
-                  )}
-                  <div className={styles.photoItemInfo}>
-                    <small className={styles.photoItemCredit}>{sanitizedCredit}</small>
-                    {isDefault && (
-                      <span className="badge pill pill-variant-primary">{lang.current.photo.defaultBadge}</span>
-                    )}
-                    {isDisabled && (
-                      <span className="badge pill pill-variant-danger">{lang.current.photo.disabledBadge}</span>
-                    )}
                   </div>
-                  <div className={styles.photoItemActions}>
-                    <button
-                      className={`btn btn-sm ${isDisabled ? 'btn-success' : 'btn-warning'}`}
-                      onClick={() => togglePhotoAtIndex(index)}
-                      aria-label={isDisabled ? `Enable photo ${index + 1}` : `Disable photo ${index + 1}`}
-                      title={lang.current.photo.clickToToggle}
-                    >
-                      {isDisabled ? lang.current.photo.enablePhoto : lang.current.photo.disablePhoto}
-                    </button>
-                    {!isDisabled && index !== defaultPhotoIndex && (
-                      <button
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() => setDefaultPhotoIndex(index)}
-                        aria-label={`Set photo ${index + 1} as default`}
-                      >
-                        {lang.current.photo.setAsDefault}
-                      </button>
-                    )}
-                    <button
-                      className="btn btn-sm btn-outline-danger"
-                      onClick={() => {
-                        setPhotoToDeleteIndex(index);
-                        setShowDeleteConfirm(true);
-                      }}
-                      aria-label={`Remove photo ${index + 1} permanently`}
-                      title={lang.current.photo.deletePhotoConfirm}
-                    >
-                      {lang.current.photo.deletePhoto}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </Slider>
           </div>
         </div>
       )}

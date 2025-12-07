@@ -133,13 +133,14 @@
 .travelTipSlide {
   padding: $space-2 0;
   box-sizing: border-box;
-  height: 280px; /* Fixed height using design token scale */
+  min-height: 200px; /* Minimum height for visual consistency */
+  height: auto; /* Allow card to expand to fit content */
 
-  /* Ensure the TravelTip component fills the slide */
+  /* Ensure the TravelTip component fills the slide width but expands vertically */
   > * {
-    height: 100%;
+    min-height: 200px;
+    height: auto; /* Allow expansion */
     max-width: 100%;
-    overflow: hidden;
   }
 }
 

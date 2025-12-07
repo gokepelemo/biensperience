@@ -1074,6 +1074,243 @@ const en = {
     splitEvenly: "split evenly among {count} people",
   },
 
+  // Profile update view strings
+  profile: {
+    // Page titles
+    editUserProfile: "Edit User Profile: {name} ({email})",
+    updateYourProfile: "Update Your Profile",
+    editUserTitle: "Edit User - {name}",
+    editProfileTitle: "Edit Profile - {name}",
+    adminDescription: "Admin: Update user profile settings, change name, email, and account settings.",
+    selfDescription: "Update your Biensperience profile settings, change your name, email, and profile photo. Manage your travel planning account.",
+    adminOgDescription: "Admin: Update user profile and account settings",
+    selfOgDescription: "Update your Biensperience profile and account settings",
+    keywords: "edit profile, update profile, account settings, profile photo, user settings",
+
+    // Section headers
+    basicInfo: "Basic Information",
+    changePassword: "Change Password",
+    profilePhoto: "Profile Photo",
+    curatorProfile: "Curator Profile",
+    superAdminPermissions: "Super Admin Permissions",
+    dangerZone: "Danger Zone",
+
+    // Form labels
+    name: "Name",
+    emailAddress: "Email Address",
+    location: "Location",
+    currentPassword: "Current Password",
+    newPassword: "New Password",
+    password: "Password",
+    confirmNewPassword: "Confirm New Password",
+    curatorBio: "Bio",
+
+    // Curator fields
+    curatorBioPlaceholder: "Tell others about yourself, your travel expertise, and what makes your curated experiences special...",
+    curatorBioTooltip: "A short bio that will be displayed on your profile and curated experiences (max 500 characters)",
+    curatorLinks: "Links",
+    curatorLinksTooltip: "Add website, social media, or other links to share on your curator profile",
+    linkTitle: "Link title",
+    linkUrl: "https://example.com",
+    linkUsername: "username",
+    removeLink: "Remove link",
+    addLink: "Add Link",
+
+    // Admin section - Role
+    currentRole: "Current Role: {role}",
+    superAdmin: "Super Admin",
+    regularUser: "Regular User",
+    roleDescription: "Change this user's role. Super admins have full access to all resources and user management.",
+    makeSuperAdmin: "Make Super Admin",
+    makeRegularUser: "Make Regular User",
+
+    // Admin section - Email status
+    emailStatus: "Email Status",
+    emailConfirmed: "Confirmed",
+    emailUnconfirmed: "Unconfirmed",
+    emailStatusDescription: "Manually confirm or unconfirm this user's email address.",
+    confirmEmail: "Confirm Email",
+    unconfirmEmail: "Unconfirm Email",
+
+    // Admin section - Feature flags
+    featureFlags: "Feature Flags",
+    featureFlagsDescription: "Add or remove feature flags to control access to premium and experimental features for this user.",
+    addFeatureFlag: "Add a feature flag...",
+    allFlagsAdded: "All flags have been added",
+    allFlagsAddedHelp: "All available feature flags have been added.",
+    flagSelectHelp: "Select a flag from the dropdown to add it. Click the × to remove a flag.",
+    removeFlagAriaLabel: "Remove {flag} flag",
+
+    // Danger zone
+    deleteAccount: "Delete Account",
+    deleteAccountDescription: "Permanently delete your account and all associated data. This action cannot be undone.",
+    demoAccountWarning: "This is a demo account and cannot be deleted. It is used for demonstration purposes. You can still explore all other features of the application.",
+    demoCannotDelete: "Demo account cannot be deleted",
+
+    // Change tracking
+    changesDetected: "Changes detected:",
+    currentLocation: "📍 Current location: {location}",
+
+    // Location field
+    locationPlaceholder: "Enter city, zip code, or address",
+    locationTooltip: "Enter a city name, zip/postal code, or full address. We'll look up the location to show your city and country on your profile.",
+    useCurrentLocation: "Use current location",
+    locationNotSet: "Not set",
+
+    // Password validation messages
+    oldPasswordRequired: "Old password is required to change password",
+    newPasswordRequired: "New password is required",
+    passwordRequired: "Password is required",
+    confirmNewPasswordPrompt: "Please confirm your new password",
+    confirmPasswordPrompt: "Please confirm the password",
+    newPasswordsDoNotMatch: "New passwords do not match",
+    passwordsDoNotMatch: "Passwords do not match",
+    passwordMinLength: "Password must be at least 3 characters",
+
+    // Tooltips for password fields
+    setPasswordTooltip: "Set a new password for this user",
+    enterNewPasswordPlaceholder: "Enter your new password",
+    enterPasswordPlaceholder: "Enter password",
+
+    // Geolocation error messages
+    geolocationNotSupported: "Geolocation is not supported by your browser",
+    locationAccessDenied: "Location access denied. Please enable location permissions in your browser.",
+    locationUnavailable: "Could not determine your location. Please try again or enter manually.",
+    locationTimeout: "Location request timed out. Please try again.",
+    locationFailed: "Failed to get your location. Please enter it manually.",
+    locationLookupFailed: "Could not determine your location. Please enter it manually.",
+    locationSet: "Location set to {location}",
+
+    // Photo change tracking
+    noPhotos: "No photos",
+    photosCount: "{count} photo",
+    photosCountPlural: "{count} photos",
+    photoIndex: "Photo {index}",
+    none: "None",
+
+    // Modal strings
+    confirmProfileUpdate: "Confirm Profile Update",
+    confirmUpdateReview: "Please review your changes before updating:",
+    updateProfile: "Update Profile",
+    close: "Close",
+
+    // Error messages
+    failedToUpdateProfile: "Failed to update profile. Please try again.",
+  },
+
+  // Invite tracking view strings
+  inviteTracking: {
+    inactive: "Inactive",
+    expired: "Expired",
+    fullyUsed: "Fully Used",
+    inUse: "In Use",
+    available: "Available",
+    never: "Never",
+    any: "Any",
+    totalInvites: "Total Invites",
+    active: "Active",
+    redemptions: "Redemptions",
+    inviteCodeDetails: "Invite Code Details",
+    code: "Code",
+    status: "Status",
+    usage: "Usage",
+    restrictedTo: "Restricted to",
+    created: "Created",
+    expires: "Expires",
+    preConfiguredResources: "Pre-configured Resources",
+    experiencesCount: "Experiences ({count})",
+    destinationsCount: "Destinations ({count})",
+    redeemedBy: "Redeemed By ({count})",
+    noRedemptionsYet: "No Redemptions Yet",
+    user: "User",
+    joined: "Joined",
+    inviteAnalytics: "Invite Analytics",
+    totalInvitesCreated: "Total Invites Created",
+    totalRedemptions: "Total Redemptions",
+    redemptionRate: "Redemption Rate",
+    avgRedemptionsPerInvite: "Avg Redemptions/Invite",
+    activeInvites: "Active Invites",
+    unusedInvites: "Unused Invites",
+    recentActivity: "Recent Activity",
+    last7Days: "Last 7 Days",
+    last30Days: "Last 30 Days",
+    inviteStatusBreakdown: "Invite Status Breakdown",
+    emailRestricted: "Email Restricted",
+  },
+
+  // Table header strings
+  tableHeaders: {
+    code: "Code",
+    status: "Status",
+    email: "Email",
+    used: "Used",
+    created: "Created",
+    expires: "Expires",
+    actions: "Actions",
+    user: "User",
+    joined: "Joined",
+    name: "Name",
+    role: "Role",
+  },
+
+  // Pagination strings
+  pagination: {
+    first: "First",
+    last: "Last",
+    previous: "Previous page",
+    next: "Next page",
+    moreOptions: "More options",
+    pageNavigation: "Pagination",
+  },
+
+  // Dashboard strings
+  dashboardView: {
+    unavailable: "Dashboard Unavailable",
+    unableToLoad: "We were unable to load your dashboard data.",
+    listView: "List view",
+    calendarView: "Calendar view",
+    viewMode: "View mode",
+    filterPlans: "Filter plans",
+  },
+
+  // Experiences by tag view strings
+  experiencesByTag: {
+    loadingExperiences: "Loading {tagName} experiences...",
+    noExperiencesFound: "No experiences found with tag \"{tagName}\"",
+    tryBrowsingAll: "Try browsing all experiences or search for a different tag.",
+    browseAll: "Browse All Experiences",
+  },
+
+  // Auth page strings
+  authPage: {
+    signUpTitle: "Sign Up for Biensperience",
+    signUpDescription: "Create your Biensperience account to start planning amazing travel adventures. Share experiences with friends and discover new destinations.",
+    loginDescription: "Login to your Biensperience account to access your travel plans, saved destinations, and continue planning your next adventure.",
+  },
+
+  // Confirm email page strings
+  confirmEmailPage: {
+    heading: "Email Confirmation",
+    success: "Email Confirmed!",
+  },
+
+  // Reset password page strings
+  resetPasswordPage: {
+    heading: "Reset Password",
+    success: "Password Reset Successful!",
+    newPassword: "New Password",
+    confirmPassword: "Confirm Password",
+    passwordsDoNotMatch: "Passwords do not match",
+    passwordTooShort: "Password must be at least 3 characters long",
+  },
+
+  // Destinations view strings
+  destinationsView: {
+    loading: "Loading destinations...",
+    noDestinationsFound: "No Destinations Found",
+    noDestinationsDescription: "No destinations match your current filters. Try adjusting your search criteria or browse all destinations.",
+  },
+
   email: {
     passwordReset: {
       subject: "{appName} - Reset Your Password",

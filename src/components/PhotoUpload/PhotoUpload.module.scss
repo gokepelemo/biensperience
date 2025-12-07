@@ -165,6 +165,103 @@
   }
 }
 
+/* Carousel Container for Photos */
+.photosCarousel {
+  position: relative;
+  margin: 0;
+  padding: $space-2 0 $space-8 0;
+  overflow: visible;
+
+  :global(.slick-list) {
+    overflow: hidden;
+    margin: 0 $space-2;
+  }
+
+  :global(.slick-track) {
+    display: flex;
+  }
+
+  :global(.slick-slide) {
+    padding: 0 $space-2;
+    box-sizing: border-box;
+  }
+
+  /* Arrow customization */
+  :global(.slick-prev),
+  :global(.slick-next) {
+    width: var(--btn-height-sm);
+    height: var(--btn-height-sm);
+    z-index: 10;
+    background: var(--color-primary);
+    border-radius: $radius-full;
+    transition: var(--btn-transition);
+
+    &:before {
+      font-size: 20px;
+      opacity: 1;
+    }
+
+    &:hover {
+      background: var(--color-primary-dark);
+    }
+  }
+
+  :global(.slick-prev) {
+    left: $space-2;
+  }
+
+  :global(.slick-next) {
+    right: $space-2;
+  }
+
+  :global(.slick-disabled) {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Dots styling */
+  :global(.slick-dots) {
+    position: relative;
+    bottom: 0;
+    margin-top: $space-4;
+
+    li {
+      margin: 0 $space-1;
+
+      button {
+        width: var(--btn-height-md);
+        height: var(--btn-height-md);
+        padding: 0;
+
+        &:before {
+          font-size: 12px;
+          color: var(--color-text-muted);
+          opacity: 0.5;
+          line-height: var(--btn-height-md);
+          width: var(--btn-height-md);
+          height: var(--btn-height-md);
+        }
+      }
+
+      &:global(.slick-active) button:before {
+        color: var(--color-primary);
+        opacity: 1;
+      }
+    }
+  }
+}
+
+/* Individual slide wrapper */
+.photoSlide {
+  padding: $space-2 0;
+  box-sizing: border-box;
+
+  > * {
+    max-width: 100%;
+  }
+}
+
+/* Legacy grid - keeping for backwards compatibility or optional grid view */
 .photosGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

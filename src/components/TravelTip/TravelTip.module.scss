@@ -13,19 +13,19 @@
   animation: slideIn var(--transition-slow) ease-out;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 
-  // Fixed dimensions - contained within parent
-  height: 100%;
+  // Allow card to expand to fit content - no overflow hidden
+  min-height: 200px;
+  height: auto;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
 
-  // Smooth transition for box-shadow only (no height animation to prevent overflow)
+  // Smooth transition for box-shadow only
   transition: box-shadow var(--transition-normal),
               transform var(--transition-normal);
 
-  // Hover effect - subtle lift without overflow
+  // Hover effect - subtle lift
   &:hover {
     box-shadow: var(--shadow-md);
     transform: translateY(-2px);
@@ -35,7 +35,6 @@
   @media (max-width: 768px) {
     touch-action: manipulation;
 
-    // On mobile, tap to see overflow content via scrolling
     &:active {
       transform: scale(0.98);
     }
@@ -70,9 +69,9 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  height: 100%;
+  min-height: 200px;
+  height: auto;
   text-align: center;
-  overflow: hidden;
 
   .travelTipIcon {
     font-size: var(--font-size-3xl);
@@ -93,8 +92,6 @@
     hyphens: auto;
     text-align: center;
     padding: var(--space-2);
-    overflow: hidden;
-    max-height: 100%;
 
     @media (prefers-color-scheme: dark) {
       color: rgba(255, 255, 255, 0.95);
@@ -115,8 +112,6 @@
   justify-content: center;
   gap: var(--space-2);
   flex: 1;
-  overflow: hidden;
-  max-height: 100%;
   width: 100%;
 }
 
@@ -125,8 +120,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  height: 100%; /* Fill parent container (280px from slider) */
-  overflow: hidden; /* Prevent overflow */
+  min-height: 200px;
+  height: auto; /* Allow card to expand to fit content */
 
   .travelTipIcon {
     font-size: var(--font-size-lg);
@@ -258,27 +253,6 @@
 .travelTipContent {
   padding-left: calc(var(--space-10) + var(--space-3));
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  max-height: 100%;
-
-  /* Touch-friendly scrolling on mobile */
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-medium) transparent;
-
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--color-border-medium);
-    border-radius: var(--radius-full);
-  }
 
   @media (max-width: 576px) {
     padding-left: 0;

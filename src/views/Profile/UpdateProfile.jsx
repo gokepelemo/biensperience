@@ -289,7 +289,7 @@ export default function UpdateProfile() {
     if (name === 'confirmPassword' || name === 'newPassword') {
       if (updatedPasswordData.newPassword && updatedPasswordData.confirmPassword) {
         if (updatedPasswordData.newPassword !== updatedPasswordData.confirmPassword) {
-          setPasswordError("New passwords do not match");
+          setPasswordError(lang.current.profile.newPasswordsDoNotMatch);
         }
       }
     }
@@ -311,7 +311,7 @@ export default function UpdateProfile() {
   // Handle "Use Current Location" button
   async function handleUseCurrentLocation() {
     if (!navigator.geolocation) {
-      showError('Geolocation is not supported by your browser');
+      showError(lang.current.profile.geolocationNotSupported);
       return;
     }
 
@@ -357,23 +357,23 @@ export default function UpdateProfile() {
         if (originalLocation !== newLocation) {
           setChanges(prev => ({
             ...prev,
-            location: { from: originalLocation || 'Not set', to: newLocation }
+            location: { from: originalLocation || lang.current.profile.locationNotSet, to: newLocation }
           }));
         }
 
-        success(`Location set to ${city || geocoded.formattedAddress}`);
+        success(lang.current.profile.locationSet.replace('{location}', city || geocoded.formattedAddress));
       } else {
-        showError('Could not determine your location. Please enter it manually.');
+        showError(lang.current.profile.locationLookupFailed);
       }
     } catch (err) {
       if (err.code === 1) {
-        showError('Location access denied. Please enable location permissions in your browser.');
+        showError(lang.current.profile.locationAccessDenied);
       } else if (err.code === 2) {
-        showError('Could not determine your location. Please try again or enter manually.');
+        showError(lang.current.profile.locationUnavailable);
       } else if (err.code === 3) {
-        showError('Location request timed out. Please try again.');
+        showError(lang.current.profile.locationTimeout);
       } else {
-        showError('Failed to get your location. Please enter it manually.');
+        showError(lang.current.profile.locationFailed);
       }
     } finally {
       setGeolocating(false);
@@ -385,11 +385,11 @@ export default function UpdateProfile() {
     if (!formData || !originalUser || isInitialLoad) return;
 
     const newChanges = { ...changes };
-    
+
     // Check if photos array changed
     const originalPhotos = originalUser.photos || [];
     const currentPhotos = formData.photos || [];
-    
+
     // Normalize for comparison: extract _ids from objects, keep ObjectIds as strings
     const normalizePhotos = (photos) => {
       return photos.map(photo => {
@@ -398,16 +398,16 @@ export default function UpdateProfile() {
         return photo.toString();
       }).sort();
     };
-    
+
     const originalPhotoIds = normalizePhotos(originalPhotos);
     const currentPhotoIds = normalizePhotos(currentPhotos);
-    
+
     const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
-    
+
     if (photosChanged) {
-      const fromText = originalPhotos.length === 0 ? 'No photos' : `${originalPhotos.length} photo${originalPhotos.length > 1 ? 's' : ''}`;
-      const toText = currentPhotos.length === 0 ? 'No photos' : `${currentPhotos.length} photo${currentPhotos.length > 1 ? 's' : ''}`;
-      
+      const fromText = originalPhotos.length === 0 ? lang.current.profile.noPhotos : (originalPhotos.length > 1 ? lang.current.profile.photosCountPlural.replace('{count}', originalPhotos.length) : lang.current.profile.photosCount.replace('{count}', originalPhotos.length));
+      const toText = currentPhotos.length === 0 ? lang.current.profile.noPhotos : (currentPhotos.length > 1 ? lang.current.profile.photosCountPlural.replace('{count}', currentPhotos.length) : lang.current.profile.photosCount.replace('{count}', currentPhotos.length));
+
       newChanges.photos = {
         from: fromText,
         to: toText
@@ -415,11 +415,11 @@ export default function UpdateProfile() {
     } else {
       delete newChanges.photos;
     }
-    
+
     // Check if default photo changed
     const originalDefaultId = originalUser.default_photo_id;
     const currentDefaultId = formData.default_photo_id;
-    
+
     // Normalize default photo IDs for comparison
     const normalizeId = (id) => {
       if (!id) return null;
@@ -427,13 +427,13 @@ export default function UpdateProfile() {
       if (id._id) return id._id.toString();
       return id.toString();
     };
-    
+
     // If original had no default_photo_id but had photos, treat first photo as the implicit default
     let normalizedOriginalDefault = normalizeId(originalDefaultId);
     if (!normalizedOriginalDefault && originalPhotos.length > 0) {
       normalizedOriginalDefault = normalizeId(originalPhotos[0]);
     }
-    
+
     let normalizedCurrentDefault = normalizeId(currentDefaultId);
     // Treat first photo as implicit default when current default is not set but photos exist
     if (!normalizedCurrentDefault && currentPhotos.length > 0) {
@@ -447,18 +447,18 @@ export default function UpdateProfile() {
         const normalizedId = normalizeId(photoId);
         return photoArray.findIndex(p => normalizeId(p) === normalizedId);
       };
-      
+
       const originalIndex = getPhotoIndex(originalDefaultId, originalPhotos);
       const currentIndex = getPhotoIndex(currentDefaultId, currentPhotos);
-      
+
       newChanges.default_photo = {
-        from: originalIndex >= 0 ? `Photo ${originalIndex + 1}` : 'None',
-        to: currentIndex >= 0 ? `Photo ${currentIndex + 1}` : 'None'
+        from: originalIndex >= 0 ? lang.current.profile.photoIndex.replace('{index}', originalIndex + 1) : lang.current.profile.none,
+        to: currentIndex >= 0 ? lang.current.profile.photoIndex.replace('{index}', currentIndex + 1) : lang.current.profile.none
       };
     } else {
       delete newChanges.default_photo;
     }
-    
+
     // Only update if changes actually differ
     if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
       setChanges(newChanges);
@@ -479,23 +479,23 @@ export default function UpdateProfile() {
     // Validate password fields if any password field is filled
     if (passwordData.oldPassword || passwordData.newPassword || passwordData.confirmPassword) {
       if (isEditingSelf && !passwordData.oldPassword) {
-        setPasswordError("Old password is required to change password");
+        setPasswordError(lang.current.profile.oldPasswordRequired);
         return;
       }
       if (!passwordData.newPassword) {
-        setPasswordError(isEditingSelf ? "New password is required" : "Password is required");
+        setPasswordError(isEditingSelf ? lang.current.profile.newPasswordRequired : lang.current.profile.passwordRequired);
         return;
       }
       if (!passwordData.confirmPassword) {
-        setPasswordError(isEditingSelf ? "Please confirm your new password" : "Please confirm the password");
+        setPasswordError(isEditingSelf ? lang.current.profile.confirmNewPasswordPrompt : lang.current.profile.confirmPasswordPrompt);
         return;
       }
       if (passwordData.newPassword !== passwordData.confirmPassword) {
-        setPasswordError(isEditingSelf ? "New passwords do not match" : "Passwords do not match");
+        setPasswordError(isEditingSelf ? lang.current.profile.newPasswordsDoNotMatch : lang.current.profile.passwordsDoNotMatch);
         return;
       }
       if (passwordData.newPassword.length < 3) {
-        setPasswordError("Password must be at least 3 characters");
+        setPasswordError(lang.current.profile.passwordMinLength);
         return;
       }
     }
@@ -553,7 +553,7 @@ export default function UpdateProfile() {
       }
     } catch (err) {
       const errorMsg = handleError(err, { context: isAdminMode ? 'Update user profile' : 'Update profile' });
-      setError(errorMsg || 'Failed to update profile. Please try again.');
+      setError(errorMsg || lang.current.profile.failedToUpdateProfile);
       showError(errorMsg);
     }
   }
@@ -570,25 +570,19 @@ export default function UpdateProfile() {
   return (
     <>
       <PageOpenGraph
-        title={isAdminMode ? `Edit User - ${currentUser?.name}` : `Edit Profile - ${user.name}`}
-        description={isAdminMode ? 
-          `Admin: Update user profile settings, change name, email, and account settings.` :
-          `Update your Biensperience profile settings, change your name, email, and profile photo. Manage your travel planning account.`
-        }
-        keywords="edit profile, update profile, account settings, profile photo, user settings"
-        ogTitle={isAdminMode ? `Edit User - ${currentUser?.name}` : `Edit Profile - ${user.name}`}
-        ogDescription={isAdminMode ? 
-          "Admin: Update user profile and account settings" :
-          "Update your Biensperience profile and account settings"
-        }
+        title={isAdminMode ? lang.current.profile.editUserTitle.replace('{name}', currentUser?.name) : lang.current.profile.editProfileTitle.replace('{name}', user.name)}
+        description={isAdminMode ? lang.current.profile.adminDescription : lang.current.profile.selfDescription}
+        keywords={lang.current.profile.keywords}
+        ogTitle={isAdminMode ? lang.current.profile.editUserTitle.replace('{name}', currentUser?.name) : lang.current.profile.editProfileTitle.replace('{name}', user.name)}
+        ogDescription={isAdminMode ? lang.current.profile.adminOgDescription : lang.current.profile.selfOgDescription}
       />
 
       <div className="row animation-fade-in">
         <div className="col-12">
           <h1 className="form-title">
             {isAdminMode ?
-              `Edit User Profile: ${currentUser?.name} (${currentUser?.email})` :
-              "Update Your Profile"
+              lang.current.profile.editUserProfile.replace('{name}', currentUser?.name).replace('{email}', currentUser?.email) :
+              lang.current.profile.updateYourProfile
             }
           </h1>
         </div>
@@ -607,7 +601,7 @@ export default function UpdateProfile() {
           type="info"
           className="mb-4"
         >
-          <strong>Changes detected:</strong>
+          <strong>{lang.current.profile.changesDetected}</strong>
           <ul className="mb-0 mt-2">
             {Object.keys(changes).map((field, idx) => (
               <li key={idx} className="whitespace-pre-line">
@@ -634,12 +628,12 @@ export default function UpdateProfile() {
                   ============================================ */}
               <div className={styles.sectionCard}>
                 <div className={styles.sectionCardHeader}>
-                  <h3><FaUser /> Basic Information</h3>
+                  <h3><FaUser /> {lang.current.profile.basicInfo}</h3>
                 </div>
                 <div className={styles.sectionCardBody}>
                   <FormField
                     name="name"
-                    label="Name"
+                    label={lang.current.profile.name}
                     type="text"
                     value={formData.name}
                     onChange={handleChange}
@@ -652,7 +646,7 @@ export default function UpdateProfile() {
 
                   <FormField
                     name="email"
-                    label="Email Address"
+                    label={lang.current.profile.emailAddress}
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
@@ -667,7 +661,7 @@ export default function UpdateProfile() {
                     <div style={{ flex: 1 }}>
                       <FormField
                         name="location"
-                        label="Location"
+                        label={lang.current.profile.location}
                         type="text"
                         value={formData.location?.displayName || formData.locationQuery || ''}
                         onChange={(e) => {
@@ -682,7 +676,7 @@ export default function UpdateProfile() {
                           if (originalLocation !== newLocation) {
                             setChanges(prev => ({
                               ...prev,
-                              location: { from: originalLocation || 'Not set', to: newLocation || 'Not set' }
+                              location: { from: originalLocation || lang.current.profile.locationNotSet, to: newLocation || lang.current.profile.locationNotSet }
                             }));
                           } else {
                             setChanges(prev => {
@@ -692,9 +686,9 @@ export default function UpdateProfile() {
                             });
                           }
                         }}
-                        placeholder="Enter city, zip code, or address"
+                        placeholder={lang.current.profile.locationPlaceholder}
                         autoComplete="address-level2"
-                        tooltip="Enter a city name, zip/postal code, or full address. We'll look up the location to show your city and country on your profile."
+                        tooltip={lang.current.profile.locationTooltip}
                         tooltipPlacement="top"
                       />
                     </div>
@@ -704,8 +698,8 @@ export default function UpdateProfile() {
                       size="md"
                       onClick={handleUseCurrentLocation}
                       disabled={geolocating}
-                      title="Use current location"
-                      aria-label="Use current location"
+                      title={lang.current.profile.useCurrentLocation}
+                      aria-label={lang.current.profile.useCurrentLocation}
                       style={{
                         flexShrink: 0,
                         width: 'clamp(36px, var(--btn-height-md), 44px)',
@@ -727,14 +721,14 @@ export default function UpdateProfile() {
                   </div>
                   {formData.location?.city && formData.location?.country && !formData.locationQuery && (
                     <p className="text-muted small mt-n2 mb-3">
-                      📍 Current location: {formData.location.city}{formData.location.state ? `, ${formData.location.state}` : ''}, {formData.location.country}
+                      {lang.current.profile.currentLocation.replace('{location}', `${formData.location.city}${formData.location.state ? `, ${formData.location.state}` : ''}, ${formData.location.country}`)}
                     </p>
                   )}
 
                   {/* Collapsible Change Password Section */}
                   {showPasswordFields ? (
                     <>
-                      <h5 className="form-section-header mt-4">Change Password</h5>
+                      <h5 className="form-section-header mt-4">{lang.current.profile.changePassword}</h5>
                       {passwordError && (
                         <Alert
                           type="danger"
@@ -745,7 +739,7 @@ export default function UpdateProfile() {
                       {isEditingSelf && (
                         <FormField
                           name="oldPassword"
-                          label="Current Password"
+                          label={lang.current.profile.currentPassword}
                           type="password"
                           value={passwordData.oldPassword}
                           onChange={handlePasswordChange}
@@ -759,21 +753,21 @@ export default function UpdateProfile() {
 
                       <FormField
                         name="newPassword"
-                        label={isEditingSelf ? "New Password" : "Password"}
+                        label={isEditingSelf ? lang.current.profile.newPassword : lang.current.profile.password}
                         type="password"
                         value={passwordData.newPassword}
                         onChange={handlePasswordChange}
-                        placeholder={isEditingSelf ? "Enter your new password" : "Enter password"}
+                        placeholder={isEditingSelf ? lang.current.profile.enterNewPasswordPlaceholder : lang.current.profile.enterPasswordPlaceholder}
                         autoComplete="new-password"
                         minLength={3}
-                        tooltip={isEditingSelf ? lang.current.helper.newPassword : "Set a new password for this user"}
+                        tooltip={isEditingSelf ? lang.current.helper.newPassword : lang.current.profile.setPasswordTooltip}
                         tooltipPlacement="top"
                         className="mb-3"
                       />
 
                       <FormField
                         name="confirmPassword"
-                        label="Confirm New Password"
+                        label={lang.current.profile.confirmNewPassword}
                         type="password"
                         value={passwordData.confirmPassword}
                         onChange={handlePasswordChange}
@@ -792,7 +786,7 @@ export default function UpdateProfile() {
                         type="button"
                         aria-expanded={showPasswordFields}
                       >
-                        + Change Password
+                        + {lang.current.profile.changePassword}
                       </button>
                     </div>
                   )}
@@ -804,7 +798,7 @@ export default function UpdateProfile() {
                   ============================================ */}
               <div className={styles.sectionCard}>
                 <div className={styles.sectionCardHeader}>
-                  <h3><FaCamera /> Profile Photo</h3>
+                  <h3><FaCamera /> {lang.current.profile.profilePhoto}</h3>
                 </div>
                 <div className={styles.sectionCardBody}>
                   <PhotoUpload data={formData} setData={setFormData} />
@@ -817,19 +811,19 @@ export default function UpdateProfile() {
               {hasFeatureFlag(currentUser, 'curator') && (
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionCardHeader}>
-                    <h3><FaStar /> Curator Profile</h3>
+                    <h3><FaStar /> {lang.current.profile.curatorProfile}</h3>
                   </div>
                   <div className={styles.sectionCardBody}>
                     <FormField
                       name="bio"
-                      label="Bio"
+                      label={lang.current.profile.curatorBio}
                       as="textarea"
                       rows={4}
                       value={formData.bio || ''}
                       onChange={handleChange}
-                      placeholder="Tell others about yourself, your travel expertise, and what makes your curated experiences special..."
+                      placeholder={lang.current.profile.curatorBioPlaceholder}
                       maxLength={500}
-                      tooltip="A short bio that will be displayed on your profile and curated experiences (max 500 characters)"
+                      tooltip={lang.current.profile.curatorBioTooltip}
                       tooltipPlacement="top"
                       className="mb-3"
                     />
@@ -837,9 +831,9 @@ export default function UpdateProfile() {
                     <div className="mb-3">
                       <label className="form-label d-flex align-items-center gap-2">
                         <FaLink />
-                        Links
+                        {lang.current.profile.curatorLinks}
                         <FormTooltip
-                          content="Add website, social media, or other links to share on your curator profile"
+                          content={lang.current.profile.curatorLinksTooltip}
                           placement="top"
                         />
                       </label>
@@ -910,7 +904,7 @@ export default function UpdateProfile() {
                               <input
                                 type="text"
                                 className="form-control"
-                                placeholder="Link title"
+                                placeholder={lang.current.profile.linkTitle}
                                 value={link.title || ''}
                                 onChange={(e) => {
                                   const newLinks = [...(formData.links || [])];
@@ -932,7 +926,7 @@ export default function UpdateProfile() {
                               <input
                                 type="url"
                                 className="form-control flex-grow-1"
-                                placeholder={network?.placeholder || 'https://example.com'}
+                                placeholder={network?.placeholder || lang.current.profile.linkUrl}
                                 value={link.url || ''}
                                 onChange={(e) => {
                                   const newLinks = [...(formData.links || [])];
@@ -956,7 +950,7 @@ export default function UpdateProfile() {
                             <input
                               type="text"
                               className="form-control flex-grow-1"
-                              placeholder={network?.placeholder || 'username'}
+                              placeholder={network?.placeholder || lang.current.profile.linkUsername}
                               value={link.username || ''}
                               onChange={(e) => {
                                 const newLinks = [...(formData.links || [])];
@@ -1003,7 +997,7 @@ export default function UpdateProfile() {
                               });
                             }
                           }}
-                          title="Remove link"
+                          title={lang.current.profile.removeLink}
                           className={styles.linkRemoveBtn}
                         >
                           <FaTimes />
@@ -1024,7 +1018,7 @@ export default function UpdateProfile() {
                     className="mt-2"
                   >
                     <FaPlus className="me-2" />
-                    Add Link
+                    {lang.current.profile.addLink}
                   </Button>
                     </div>
                   </div>
@@ -1037,14 +1031,14 @@ export default function UpdateProfile() {
               {isSuperAdmin(user) && (
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionCardHeader}>
-                    <h3><FaUserShield /> Super Admin Permissions</h3>
+                    <h3><FaUserShield /> {lang.current.profile.superAdminPermissions}</h3>
                   </div>
                   <div className={styles.sectionCardBody}>
                     {/* User Role Row */}
                     <div className={styles.adminSectionRow}>
                       <div className={styles.adminSectionLabel}>
-                        <strong>Current Role: {formData.role === 'super_admin' ? 'Super Admin' : 'Regular User'}</strong>
-                        <p>Change this user's role. Super admins have full access to all resources and user management.</p>
+                        <strong>{lang.current.profile.currentRole.replace('{role}', formData.role === 'super_admin' ? lang.current.profile.superAdmin : lang.current.profile.regularUser)}</strong>
+                        <p>{lang.current.profile.roleDescription}</p>
                       </div>
                       <div className={styles.adminSectionActions}>
                         <button
@@ -1054,7 +1048,7 @@ export default function UpdateProfile() {
                             if (formData.role !== 'super_admin') {
                               setFormData(prev => ({ ...prev, role: 'super_admin' }));
                               if (originalUser?.role !== 'super_admin') {
-                                setChanges(prev => ({ ...prev, role: { from: 'Regular User', to: 'Super Admin' } }));
+                                setChanges(prev => ({ ...prev, role: { from: lang.current.profile.regularUser, to: lang.current.profile.superAdmin } }));
                               } else {
                                 setChanges(prev => {
                                   const { role, ...rest } = prev;
@@ -1064,7 +1058,7 @@ export default function UpdateProfile() {
                             }
                           }}
                         >
-                          Make Super Admin
+                          {lang.current.profile.makeSuperAdmin}
                         </button>
                         <button
                           type="button"
@@ -1073,7 +1067,7 @@ export default function UpdateProfile() {
                             if (formData.role !== 'regular_user') {
                               setFormData(prev => ({ ...prev, role: 'regular_user' }));
                               if (originalUser?.role !== 'regular_user' && originalUser?.role) {
-                                setChanges(prev => ({ ...prev, role: { from: 'Super Admin', to: 'Regular User' } }));
+                                setChanges(prev => ({ ...prev, role: { from: lang.current.profile.superAdmin, to: lang.current.profile.regularUser } }));
                               } else {
                                 setChanges(prev => {
                                   const { role, ...rest } = prev;
@@ -1083,7 +1077,7 @@ export default function UpdateProfile() {
                             }
                           }}
                         >
-                          Make Regular User
+                          {lang.current.profile.makeRegularUser}
                         </button>
                       </div>
                     </div>
@@ -1092,12 +1086,12 @@ export default function UpdateProfile() {
                     <div className={styles.adminSectionRow}>
                       <div className={styles.adminSectionLabel}>
                         <strong>
-                          Email Status:{' '}
+                          {lang.current.profile.emailStatus}:{' '}
                           <span className={`${styles.statusBadge} ${formData.emailConfirmed ? styles.confirmed : styles.unconfirmed}`}>
-                            <FaCheckCircle /> {formData.emailConfirmed ? 'Confirmed' : 'Unconfirmed'}
+                            <FaCheckCircle /> {formData.emailConfirmed ? lang.current.profile.emailConfirmed : lang.current.profile.emailUnconfirmed}
                           </span>
                         </strong>
-                        <p>Manually confirm or unconfirm this user's email address.</p>
+                        <p>{lang.current.profile.emailStatusDescription}</p>
                       </div>
                       <div className={styles.adminSectionActions}>
                         <button
@@ -1107,7 +1101,7 @@ export default function UpdateProfile() {
                             if (!formData.emailConfirmed) {
                               setFormData(prev => ({ ...prev, emailConfirmed: true }));
                               if (!originalUser?.emailConfirmed) {
-                                setChanges(prev => ({ ...prev, emailConfirmed: { from: 'Unconfirmed', to: 'Confirmed' } }));
+                                setChanges(prev => ({ ...prev, emailConfirmed: { from: lang.current.profile.emailUnconfirmed, to: lang.current.profile.emailConfirmed } }));
                               } else {
                                 setChanges(prev => {
                                   const { emailConfirmed, ...rest } = prev;
@@ -1117,7 +1111,7 @@ export default function UpdateProfile() {
                             }
                           }}
                         >
-                          Confirm Email
+                          {lang.current.profile.confirmEmail}
                         </button>
                         <button
                           type="button"
@@ -1126,7 +1120,7 @@ export default function UpdateProfile() {
                             if (formData.emailConfirmed) {
                               setFormData(prev => ({ ...prev, emailConfirmed: false }));
                               if (originalUser?.emailConfirmed) {
-                                setChanges(prev => ({ ...prev, emailConfirmed: { from: 'Confirmed', to: 'Unconfirmed' } }));
+                                setChanges(prev => ({ ...prev, emailConfirmed: { from: lang.current.profile.emailConfirmed, to: lang.current.profile.emailUnconfirmed } }));
                               } else {
                                 setChanges(prev => {
                                   const { emailConfirmed, ...rest } = prev;
@@ -1136,7 +1130,7 @@ export default function UpdateProfile() {
                             }
                           }}
                         >
-                          Unconfirm Email
+                          {lang.current.profile.unconfirmEmail}
                         </button>
                       </div>
                     </div>
@@ -1145,9 +1139,9 @@ export default function UpdateProfile() {
                     <div className={styles.adminSectionRow} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                       <div className={styles.adminSectionLabel} style={{ marginBottom: 'var(--space-4)' }}>
                         <strong style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                          <FaFlag /> Feature Flags
+                          <FaFlag /> {lang.current.profile.featureFlags}
                         </strong>
-                        <p>Add or remove feature flags to control access to premium and experimental features for this user.</p>
+                        <p>{lang.current.profile.featureFlagsDescription}</p>
                       </div>
 
                       {/* Active flags as pills */}
@@ -1165,8 +1159,8 @@ export default function UpdateProfile() {
                                 type="button"
                                 className={styles.featureFlagRemove}
                                 onClick={() => handleRemoveFeatureFlag(flag.flag)}
-                                title="Remove flag"
-                                aria-label={`Remove ${flag.flag} flag`}
+                                title={lang.current.profile.removeLink}
+                                aria-label={lang.current.profile.removeFlagAriaLabel.replace('{flag}', flag.flag)}
                               >
                                 <FaTimes size={10} />
                               </button>
@@ -1179,7 +1173,7 @@ export default function UpdateProfile() {
                       {getAvailableFlags().length > 0 && (
                         <div className={styles.featureFlagAutocomplete}>
                           <Autocomplete
-                            placeholder="Add a feature flag..."
+                            placeholder={lang.current.profile.addFeatureFlag}
                             items={getAvailableFlags().map(f => ({
                               id: f.key,
                               name: f.key,
@@ -1197,15 +1191,15 @@ export default function UpdateProfile() {
                             }}
                             showMeta={true}
                             size="sm"
-                            emptyMessage="All flags have been added"
+                            emptyMessage={lang.current.profile.allFlagsAdded}
                           />
                         </div>
                       )}
 
                       <Form.Text style={{ color: 'var(--bs-gray-600)' }}>
                         {getAvailableFlags().length === 0
-                          ? 'All available feature flags have been added.'
-                          : 'Select a flag from the dropdown to add it. Click the × to remove a flag.'}
+                          ? lang.current.profile.allFlagsAddedHelp
+                          : lang.current.profile.flagSelectHelp}
                       </Form.Text>
                     </div>
                   </div>
@@ -1218,19 +1212,18 @@ export default function UpdateProfile() {
               {isEditingSelf && (
                 <div className={`${styles.sectionCard} ${styles.dangerZone}`}>
                   <div className={styles.sectionCardHeader}>
-                    <h3><FaTrash /> Danger Zone</h3>
+                    <h3><FaTrash /> {lang.current.profile.dangerZone}</h3>
                   </div>
                   <div className={styles.sectionCardBody}>
                     <div className={styles.dangerItem}>
                       <div className={styles.dangerItemInfo}>
-                        <strong>Delete Account</strong>
+                        <strong>{lang.current.profile.deleteAccount}</strong>
                         {isDemoMode && user?.email === DEMO_USER_EMAIL ? (
                           <p className={styles.demoAccountWarning}>
-                            This is a demo account and cannot be deleted. It is used for demonstration purposes.
-                            You can still explore all other features of the application.
+                            {lang.current.profile.demoAccountWarning}
                           </p>
                         ) : (
-                          <p>Permanently delete your account and all associated data. This action cannot be undone.</p>
+                          <p>{lang.current.profile.deleteAccountDescription}</p>
                         )}
                       </div>
                       {isDemoMode && user?.email === DEMO_USER_EMAIL ? (
@@ -1239,10 +1232,10 @@ export default function UpdateProfile() {
                           variant="secondary"
                           size="md"
                           disabled
-                          title="Demo account cannot be deleted"
+                          title={lang.current.profile.demoCannotDelete}
                         >
                           <FaTrash className="me-2" />
-                          Delete Account
+                          {lang.current.profile.deleteAccount}
                         </Button>
                       ) : (
                         <Button
@@ -1252,7 +1245,7 @@ export default function UpdateProfile() {
                           onClick={() => setShowDeleteAccountModal(true)}
                         >
                           <FaTrash className="me-2" />
-                          Delete Account
+                          {lang.current.profile.deleteAccount}
                         </Button>
                       )}
                     </div>
@@ -1290,18 +1283,18 @@ export default function UpdateProfile() {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">{lang.current.modal.confirmProfileUpdate || 'Confirm Profile Update'}</h5>
+                <h5 className="modal-title">{lang.current.profile.confirmProfileUpdate}</h5>
                 <button
                   type="button"
                   className="btn-close"
                   onClick={() => setShowConfirmModal(false)}
-                  aria-label="Close"
+                  aria-label={lang.current.profile.close}
                 >
                   <span aria-hidden="true">&times;</span>
                 </button>
               </div>
               <div className="modal-body">
-                <p>{lang.current.modal.confirmUpdateReview || 'Please review your changes before updating:'}</p>
+                <p>{lang.current.profile.confirmUpdateReview}</p>
                 <ul className="list-group">
                   {Object.entries(changes).map(([field, change]) => (
                     <li key={field} className="list-group-item">
@@ -1325,9 +1318,9 @@ export default function UpdateProfile() {
                   type="button"
                   className="btn btn-primary"
                   onClick={confirmUpdate}
-                  aria-label={lang.current.button.update || 'Update Profile'}
+                  aria-label={lang.current.profile.updateProfile}
                 >
-                  {lang.current.button.update || 'Update Profile'}
+                  {lang.current.profile.updateProfile}
                 </button>
               </div>
             </div>
