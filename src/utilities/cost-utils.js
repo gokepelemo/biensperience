@@ -198,48 +198,12 @@ export function getTrackedCostTooltip(totalCost, costCount = 0, options = {}) {
 }
 
 /**
- * Get the actual cost tooltip text (alias for getTrackedCostTooltip for backward compatibility)
- * @deprecated Use getTrackedCostTooltip instead
- */
-export function getActualCostTooltip(totalCost, costCount = 0, options = {}) {
-  return getTrackedCostTooltip(totalCost, costCount, options);
-}
-
-/**
  * Get the cost estimate label.
  *
  * @returns {string} Label for cost estimate field
  */
 export function getCostEstimateLabel() {
   return 'Est. Cost';
-}
-
-/**
- * Format cost estimate with a label prefix.
- *
- * @param {number|null|undefined} cost - Cost value
- * @param {Object} options - Formatting options
- * @param {boolean} options.includeLabel - Include label prefix
- * @param {string} options.currency - Currency code
- * @returns {string|null} Formatted string with optional label, or null if invalid
- *
- * @example
- * formatCostEstimateWithLabel(1500, { includeLabel: true })
- * // 'Est. Cost: ~$1.5K'
- */
-export function formatCostEstimateWithLabel(cost, options = {}) {
-  const { includeLabel = false, ...formatOptions } = options;
-  const formatted = formatCostEstimate(cost, formatOptions);
-
-  if (!formatted) {
-    return null;
-  }
-
-  if (includeLabel) {
-    return `${getCostEstimateLabel()}: ${formatted}`;
-  }
-
-  return formatted;
 }
 
 /**
@@ -331,57 +295,6 @@ export function getDollarSigns(cost, options = {}) {
 }
 
 /**
- * Get enhanced tooltip for individual cost entries showing shared cost or plan item/collaborator details.
- *
- * @param {Object} costEntry - The cost entry object
- * @param {Object} options - Options
- * @param {string} options.currency - Currency code (default: 'USD')
- * @param {Array} options.planItems - Array of plan items for lookup
- * @param {Array} options.collaborators - Array of collaborators for lookup
- * @returns {string} Enhanced tooltip text
- */
-export function getIndividualCostTooltip(costEntry, options = {}) {
-  const { currency = 'USD', planItems = [], collaborators = [] } = options;
-  const symbol = getCurrencySymbol(currency);
-
-  if (!costEntry || !costEntry.cost || costEntry.cost <= 0) {
-    return 'Cost entry details';
-  }
-
-  const formatted = costEntry.cost.toLocaleString('en-US', {
-    minimumFractionDigits: costEntry.cost % 1 !== 0 ? 2 : 0,
-    maximumFractionDigits: 2
-  });
-
-  // Priority: Show collaborator info first if available
-  if (costEntry.collaborator) {
-    const collaborator = collaborators.find(c =>
-      c._id === costEntry.collaborator
-    );
-    if (collaborator && collaborator.name) {
-      return `Paid for ${collaborator.name}: ${symbol}${formatted}`;
-    }
-    // If collaborator not found in provided array, show generic message
-    return `Paid for collaborator: ${symbol}${formatted}`;
-  }
-
-  // If cost is linked to a plan item, show "Plan item: [Item Text]"
-  if (costEntry.plan_item) {
-    const planItem = planItems.find(item =>
-      (item._id || item.plan_item_id) === costEntry.plan_item
-    );
-    if (planItem && planItem.text) {
-      return `Plan item: ${planItem.text} - ${symbol}${formatted}`;
-    }
-    // If plan item not found, show generic message
-    return `Plan item: ${symbol}${formatted}`;
-  }
-
-  // If no specific linkage, it's a shared cost
-  return `Shared cost: ${symbol}${formatted}`;
-}
-
-/**
  * Get enhanced tooltip for total cost showing breakdown.
  *
  * @param {number} totalCost - Total cost amount
@@ -433,13 +346,10 @@ export function getTotalCostTooltip(totalCost, costEntries = [], options = {}) {
 
 export default {
   formatCostEstimate,
-  formatCostEstimateWithLabel,
   formatActualCost,
   getCostEstimateTooltip,
   getTrackedCostTooltip,
-  getActualCostTooltip, // deprecated alias
   getCostEstimateLabel,
-  getIndividualCostTooltip,
   getTotalCostTooltip,
   roundCostFriendly,
   getCostLevel,

@@ -1,6 +1,6 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Dashboard view styles */
+/* Dashboard view styles - CSS Grid Layout */
 
 /* Main container */
 .dashboardContainer {
@@ -22,7 +22,7 @@
 
 /* Error state container */
 .errorContainer {
-  padding: 0; // Removed top padding
+  padding: 0;
 }
 
 .errorCard {
@@ -46,12 +46,30 @@
   margin-bottom: $space-4;
 }
 
+/* ===== CSS GRID LAYOUT ===== */
+
+/* Main layout grid - sidebar + content */
+.dashboardLayout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  min-height: 100vh;
+  width: 100%;
+
+  @media (max-width: 991px) {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Sidebar */
 .dashboardSidebar {
   background-color: var(--color-bg-secondary);
   min-height: 100vh;
   padding: $space-6;
   border-right: 1px solid var(--color-border-light);
+
+  @media (max-width: 991px) {
+    display: none;
+  }
 }
 
 .sidebarTitle {
@@ -87,11 +105,19 @@
   flex-direction: column;
   min-height: 100vh;
   overflow: hidden;
+
+  @media (max-width: 991px) {
+    padding: $space-4;
+  }
 }
 
 /* Welcome section */
 .welcomeSection {
   margin-bottom: $space-8;
+
+  @media (max-width: 991px) {
+    text-align: center;
+  }
 }
 
 .welcomeTitle {
@@ -99,43 +125,71 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin-bottom: $space-2;
+
+  @media (max-width: 991px) {
+    text-align: center;
+  }
 }
 
 .welcomeSubtitle {
   font-size: var(--font-size-lg);
   color: var(--color-text-secondary);
+
+  @media (max-width: 991px) {
+    text-align: center;
+  }
 }
 
-/* Stats row */
-.statsRow {
+/* Stats Grid - 4 columns on desktop, 2 on tablet, 1 on mobile */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: $space-4;
   margin-bottom: $space-8;
+
+  @media (max-width: 1199px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 575px) {
+    grid-template-columns: 1fr;
+  }
 }
 
-/* Main content row */
-.mainContentRow {
+/* Main content grid - Activity (2/3) + Side column (1/3) */
+.mainContentGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: $space-6;
   flex: 1;
   overflow: hidden;
+
+  @media (max-width: 991px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .activityColumn {
-  margin-bottom: $space-6;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sideColumn {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  gap: $space-6;
+  min-height: 0;
 }
 
 .quickActionsWrapper {
-  margin-bottom: $space-6;
+  flex-shrink: 0;
 }
 
 .upcomingPlansWrapper {
   flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -145,11 +199,18 @@
   overflow: auto;
 }
 
-/* Skeleton loader */
-.skeletonContainer {
-  background-color: var(--color-bg-primary);
+/* ===== SKELETON LOADERS - Pixel Perfect ===== */
+
+/* Skeleton main layout grid */
+.skeletonLayout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
   min-height: 100vh;
-  padding: 0; // Removed top padding
+  width: 100%;
+
+  @media (max-width: 991px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .skeletonSidebar {
@@ -157,6 +218,10 @@
   min-height: 100vh;
   padding: $space-6;
   border-right: 1px solid var(--color-border-light);
+
+  @media (max-width: 991px) {
+    display: none;
+  }
 }
 
 .skeletonSidebarTitle {
@@ -171,14 +236,231 @@
 
 .skeletonMain {
   padding: $space-8;
+  display: flex;
+  flex-direction: column;
+
+  @media (max-width: 991px) {
+    padding: $space-4;
+  }
+}
+
+/* Welcome skeleton - matches actual welcome section */
+.skeletonWelcome {
+  margin-bottom: $space-8;
+}
+
+.skeletonWelcomeTitle {
+  margin-bottom: $space-2;
+}
+
+.skeletonWelcomeSubtitle {
+  /* matches font-size-lg spacing */
+}
+
+/* Stats skeleton grid - matches .statsGrid */
+.skeletonStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: $space-4;
+  margin-bottom: $space-8;
+
+  @media (max-width: 1199px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 575px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Individual stat card skeleton - matches StatsCard dimensions */
+.skeletonStatCard {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: $space-6;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  min-height: 120px; // Matches StatsCard height
+}
+
+.skeletonStatContent {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+}
+
+.skeletonStatIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+
+/* Main content skeleton grid - matches .mainContentGrid */
+.skeletonContentGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: $space-6;
+  flex: 1;
+  min-height: 0;
+
+  @media (max-width: 991px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Activity card skeleton - matches ActivityList card */
+.skeletonActivityCard {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: $space-6;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeletonActivityTitle {
+  margin-bottom: $space-6;
+}
+
+.skeletonActivityList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  flex: 1;
+}
+
+/* Activity item skeleton - matches activity item dimensions */
+.skeletonActivityItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $space-4;
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  min-height: 72px; // Matches activity item height
+}
+
+.skeletonActivityItemContent {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  flex: 1;
+}
+
+/* Side column skeleton */
+.skeletonSideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: $space-6;
+}
+
+/* Quick actions card skeleton - matches QuickActions */
+.skeletonQuickActionsCard {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: $space-6;
+}
+
+.skeletonQuickActionsTitle {
+  margin-bottom: $space-6;
+}
+
+.skeletonQuickActionsList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+/* Quick action button skeleton - matches Button height */
+.skeletonQuickActionBtn {
+  height: 38px; // Bootstrap btn default height
+  border-radius: var(--radius-md);
+}
+
+/* Upcoming plans card skeleton - matches UpcomingPlans */
+.skeletonUpcomingCard {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: $space-6;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeletonUpcomingTitle {
+  margin-bottom: $space-6;
+}
+
+.skeletonUpcomingList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  flex: 1;
+}
+
+/* Upcoming plan item skeleton - matches plan item dimensions */
+.skeletonUpcomingItem {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  padding: $space-3;
+  border-bottom: 1px solid var(--color-border-light);
+  min-height: 56px; // Matches plan item height
+}
+
+/* ActivePlansCard skeleton - matches detailed card */
+.skeletonActivePlansCard {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: $space-6;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  min-height: 160px; // ActivePlansCard is taller due to breakdown
+}
+
+.skeletonActivePlansContent {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.skeletonActivePlansBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  margin-top: $space-3;
+}
+
+/* Legacy class support for backwards compatibility */
+.dashboardSidebarMobileHidden {
+  @media (max-width: 991px) {
+    display: none;
+  }
+}
+
+.dashboardMainMobilePadding {
+  @media (max-width: 991px) {
+    padding: $space-4 !important;
+  }
+}
+
+/* Legacy skeleton classes (kept for any external references) */
+.skeletonContainer {
+  background-color: var(--color-bg-primary);
+  min-height: 100vh;
+  padding: 0;
 }
 
 .skeletonWelcomeRow {
   margin-bottom: $space-6;
-}
-
-.skeletonWelcomeTitle {
-  margin-top: $space-2;
 }
 
 .skeletonCard {
@@ -190,45 +472,18 @@
   margin-bottom: $space-6;
 }
 
-.skeletonStatsGrid {
-  display: flex;
-  gap: $space-4;
-}
-
 .skeletonNavList {
   display: flex;
   flex-direction: column;
   gap: $space-3;
 }
 
-.skeletonUpcomingList {
-  display: flex;
-  flex-direction: column;
-  gap: $space-4;
+/* Legacy statsRow kept for any Row usage */
+.statsRow {
+  margin-bottom: $space-8;
 }
 
-/* Responsive adjustments */
-@media (max-width: 991px) {
-  /* Hide sidebar on mobile/tablet for better UX */
-  .dashboardSidebarMobileHidden {
-    display: none;
-  }
-
-  /* Reduce main content padding on mobile */
-  .dashboardMainMobilePadding {
-    padding: $space-4 !important;
-  }
-
-  /* Center welcome section content on mobile/tablet */
-  .welcomeSection {
-    text-align: center;
-  }
-
-  .welcomeTitle {
-    text-align: center;
-  }
-
-  .welcomeSubtitle {
-    text-align: center;
-  }
+.mainContentRow {
+  flex: 1;
+  overflow: hidden;
 }

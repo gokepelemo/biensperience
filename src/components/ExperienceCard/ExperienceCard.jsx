@@ -1,6 +1,7 @@
 import styles from "./ExperienceCard.module.scss";
 import { Link } from "react-router-dom";
 import { useState, useCallback, useMemo, memo, useEffect, useRef } from "react";
+import { FaEdit, FaTimes, FaPlus, FaMinus, FaCheck } from "react-icons/fa";
 import SkeletonLoader from "../SkeletonLoader/SkeletonLoader";
 import TagPill from '../Pill/TagPill';
 import { lang } from "../../lang.constants";
@@ -505,7 +506,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
             >
-              {experienceAdded ? (isHovered ? "-" : "✅") : "✚"}
+              {experienceAdded ? (isHovered ? <FaMinus /> : <FaCheck />) : <FaPlus />}
             </button>
             {userIsOwner && (
               <>
@@ -515,7 +516,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
                   aria-label={lang.current.button.updateExperience}
                   title={lang.current.button.updateExperience}
                 >
-                  ✏️
+                  <FaEdit />
                 </Link>
                 <button
                   className="btn btn-light btn-icon ms-2"
@@ -523,7 +524,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
                   aria-label={lang.current.button.delete}
                   title={lang.current.button.delete}
                 >
-                  ❌
+                  <FaTimes />
                 </button>
               </>
             )}

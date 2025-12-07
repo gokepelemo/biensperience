@@ -56,6 +56,15 @@
   padding: var(--space-4);
   border-radius: var(--radius-md);
   margin-top: var(--space-3);
+
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
 }
 
 .footerContent {

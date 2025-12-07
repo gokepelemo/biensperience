@@ -4,13 +4,21 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck } from 'react-icons/fa';
 import Modal from '../Modal/Modal';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
+import AddPlanItemDetailModal, { DETAIL_TYPES, DETAIL_TYPE_CONFIG, DETAIL_CATEGORIES } from '../AddPlanItemDetailModal';
+import AddLocationModal from '../AddLocationModal';
+import GoogleMap from '../GoogleMap/GoogleMap';
+import EmptyState from '../EmptyState/EmptyState';
 import styles from './PlanItemDetailsModal.module.scss';
 import { createSimpleFilter } from '../../utilities/trie';
 import { logger } from '../../utilities/logger';
 import { formatPlanningTime, getPlanningTimeTooltip } from '../../utilities/planning-time-utils';
 import { formatCostEstimate, formatActualCost, getCostEstimateTooltip, getTrackedCostTooltip } from '../../utilities/cost-utils';
+import { convertCostToTarget, fetchRates } from '../../utilities/currency-conversion';
+import { updatePlanItem } from '../../utilities/plans-api';
+import { broadcastEvent } from '../../utilities/event-bus';
 import { lang } from '../../lang.constants';
 import Tooltip from '../Tooltip/Tooltip';
 
@@ -37,7 +45,13 @@ export default function PlanItemDetailsModal({
   // Callback for when a plan item mention is clicked (to close modal and scroll)
   onPlanItemClick,
   // Callback for inline cost addition - called with planItem to add a cost for this item
-  onAddCostForItem
+  onAddCostForItem,
+  // Callback for adding any detail type - called with { type, planItemId, data, document }
+  onAddDetail,
+  // Display currency - if different from plan currency, amounts will be converted for display
+  displayCurrency,
+  // Callback for sharing a plan item - called with planItem
+  onShare
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditingAssignment, setIsEditingAssignment] = useState(false);
@@ -46,9 +60,27 @@ export default function PlanItemDetailsModal({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleText, setTitleText] = useState('');
+  const [ratesLoaded, setRatesLoaded] = useState(false);
+  // Add dropdown state
+  const [showAddDropdown, setShowAddDropdown] = useState(false);
+  const [showAddDetailModal, setShowAddDetailModal] = useState(false);
+  const [selectedDetailType, setSelectedDetailType] = useState(null);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationSaving, setLocationSaving] = useState(false);
+  const [addressCopied, setAddressCopied] = useState(false);
   const assignmentInputRef = useRef(null);
   const dropdownRef = useRef(null);
   const titleInputRef = useRef(null);
+  const addDropdownRef = useRef(null);
+
+  // Fetch exchange rates for currency conversion
+  // Use displayCurrency if provided, otherwise plan currency
+  const targetCurrencyForRates = displayCurrency || plan?.currency || 'USD';
+  useEffect(() => {
+    fetchRates(targetCurrencyForRates)
+      .then(() => setRatesLoaded(true))
+      .catch(() => setRatesLoaded(true)); // Still render even if rates fail
+  }, [targetCurrencyForRates]);
 
   // Reset to specified initial tab when modal opens or plan item changes
   useEffect(() => {
@@ -58,8 +90,27 @@ export default function PlanItemDetailsModal({
       setAssignmentSearch('');
       setIsEditingTitle(false);
       setTitleText(planItem?.text || '');
+      setShowAddDropdown(false);
+      setShowLocationModal(false);
     }
   }, [show, planItem?._id, initialTab, planItem?.text]);
+
+  // Handle click outside for add dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        addDropdownRef.current &&
+        !addDropdownRef.current.contains(event.target)
+      ) {
+        setShowAddDropdown(false);
+      }
+    };
+
+    if (showAddDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showAddDropdown]);
 
   // Focus title input when editing starts
   useEffect(() => {
@@ -219,9 +270,302 @@ export default function PlanItemDetailsModal({
     });
   }, [plan?.costs, planItem?._id]);
 
+  // Get plan currency for conversion
+  const planCurrency = plan?.currency || 'USD';
+
+  // Target currency for display - use displayCurrency if provided, otherwise plan currency
+  const targetCurrency = displayCurrency || planCurrency;
+
+  /**
+   * Get converted cost amount for a single cost item
+   * NOTE: ratesLoaded dependency ensures recalculation when rates become available
+   * Converts from cost's tracked currency to the target display currency
+   */
+  const getConvertedAmount = useMemo(() => {
+    return (cost) => convertCostToTarget(cost, targetCurrency);
+  }, [targetCurrency, ratesLoaded]);
+
   const totalActualCost = useMemo(() => {
-    return actualCosts.reduce((sum, cost) => sum + (cost.cost || 0), 0);
-  }, [actualCosts]);
+    return actualCosts.reduce((sum, cost) => sum + getConvertedAmount(cost), 0);
+  }, [actualCosts, getConvertedAmount]);
+
+  // Handle add dropdown toggle
+  // NOTE: These callbacks MUST be before early return to maintain hooks order
+  const handleToggleAddDropdown = useCallback(() => {
+    setShowAddDropdown(prev => !prev);
+  }, []);
+
+  // Handle selecting a detail type from dropdown
+  const handleSelectDetailType = useCallback((type) => {
+    setSelectedDetailType(type);
+    setShowAddDropdown(false);
+
+    // For cost type, use legacy handler if available (backwards compatible)
+    if (type === DETAIL_TYPES.COST && onAddCostForItem && !onAddDetail) {
+      onAddCostForItem(planItem);
+      return;
+    }
+
+    // Open the multi-step modal
+    setShowAddDetailModal(true);
+  }, [onAddCostForItem, onAddDetail, planItem]);
+
+  // Handle saving detail from modal
+  const handleSaveDetail = useCallback(async (payload) => {
+    logger.info('[PlanItemDetailsModal] Saving detail', payload);
+
+    if (onAddDetail) {
+      await onAddDetail(payload);
+    } else if (payload.type === DETAIL_TYPES.COST && onAddCostForItem) {
+      // Fallback for cost type using legacy handler
+      await onAddCostForItem(planItem, payload.data);
+    }
+
+    setShowAddDetailModal(false);
+    setSelectedDetailType(null);
+  }, [onAddDetail, onAddCostForItem, planItem]);
+
+  // Close add detail modal
+  const handleCloseAddDetailModal = useCallback(() => {
+    setShowAddDetailModal(false);
+    setSelectedDetailType(null);
+  }, []);
+
+  /**
+   * Group all details (flights, hotels, parking, discounts, costs, etc.) by category
+   * Returns an object with category keys and arrays of details
+   */
+  const groupedDetails = useMemo(() => {
+    if (!planItem?.details) return {};
+
+    const groups = {};
+
+    // Process each detail type that exists on the plan item
+    Object.entries(DETAIL_TYPE_CONFIG).forEach(([type, config]) => {
+      const detailsArray = planItem.details[type] || [];
+      if (detailsArray.length > 0) {
+        const category = config.category;
+        if (!groups[category]) {
+          groups[category] = {
+            ...DETAIL_CATEGORIES[category],
+            items: []
+          };
+        }
+        detailsArray.forEach(detail => {
+          groups[category].items.push({
+            ...detail,
+            type,
+            typeConfig: config
+          });
+        });
+      }
+    });
+
+    // Also include tracked costs in the expense category
+    if (actualCosts.length > 0) {
+      const category = 'expense';
+      if (!groups[category]) {
+        groups[category] = {
+          ...DETAIL_CATEGORIES[category],
+          items: []
+        };
+      }
+      actualCosts.forEach(cost => {
+        groups[category].items.push({
+          ...cost,
+          type: DETAIL_TYPES.COST,
+          typeConfig: DETAIL_TYPE_CONFIG[DETAIL_TYPES.COST]
+        });
+      });
+    }
+
+    // Sort groups by category order
+    const sortedGroups = {};
+    Object.entries(groups)
+      .sort((a, b) => (a[1].order || 99) - (b[1].order || 99))
+      .forEach(([key, value]) => {
+        sortedGroups[key] = value;
+      });
+
+    return sortedGroups;
+  }, [planItem?.details, actualCosts]);
+
+  // Count total details for the tab badge
+  const totalDetailsCount = useMemo(() => {
+    return Object.values(groupedDetails).reduce((sum, group) => sum + group.items.length, 0);
+  }, [groupedDetails]);
+
+  /**
+   * Export details to PDF
+   * Uses browser print functionality with a styled print view
+   */
+  const handleExportPDF = useCallback(() => {
+    // Create a printable view of the details
+    const printContent = document.createElement('div');
+    printContent.innerHTML = `
+      <style>
+        @media print {
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+          .print-header { margin-bottom: 24px; border-bottom: 2px solid #333; padding-bottom: 16px; }
+          .print-title { font-size: 24px; font-weight: bold; margin: 0 0 8px 0; }
+          .print-subtitle { font-size: 14px; color: #666; margin: 0; }
+          .print-category { margin-bottom: 24px; }
+          .print-category-title { font-size: 18px; font-weight: 600; margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ddd; }
+          .print-item { padding: 12px; margin-bottom: 8px; background: #f5f5f5; border-radius: 8px; }
+          .print-item-type { font-size: 12px; color: #666; margin-bottom: 4px; }
+          .print-item-title { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+          .print-item-meta { font-size: 12px; color: #666; }
+          .print-item-meta dt { font-weight: 500; display: inline; }
+          .print-item-meta dd { display: inline; margin: 0 16px 0 4px; }
+        }
+      </style>
+      <div class="print-header">
+        <h1 class="print-title">${planItem?.text || 'Plan Item'} - Details</h1>
+        <p class="print-subtitle">Exported on ${new Date().toLocaleDateString()}</p>
+      </div>
+      ${Object.entries(groupedDetails).map(([categoryKey, category]) => `
+        <div class="print-category">
+          <h2 class="print-category-title">${category.icon} ${category.label}</h2>
+          ${category.items.map(item => `
+            <div class="print-item">
+              <div class="print-item-type">${item.typeConfig.icon} ${item.typeConfig.label}</div>
+              <div class="print-item-title">${item.title || item.name || item.confirmation_number || 'Detail'}</div>
+              <dl class="print-item-meta">
+                ${Object.entries(item).filter(([key]) =>
+                  !['type', 'typeConfig', '_id', 'createdAt', 'updatedAt'].includes(key) && item[key]
+                ).map(([key, value]) =>
+                  `<dt>${key.replace(/_/g, ' ')}:</dt><dd>${value}</dd>`
+                ).join('')}
+              </dl>
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
+    `;
+
+    // Open print dialog
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent.innerHTML);
+      printWindow.document.close();
+      printWindow.print();
+      printWindow.close();
+    }
+  }, [planItem?.text, groupedDetails]);
+
+  /**
+   * Handle saving location from AddLocationModal
+   * Updates the plan item via PATCH and emits event
+   */
+  const handleSaveLocation = useCallback(async (locationData) => {
+    if (!plan?._id || !planItem?._id) {
+      throw new Error('Missing plan or plan item ID');
+    }
+
+    setLocationSaving(true);
+
+    try {
+      // Update plan item with new location via PATCH
+      const result = await updatePlanItem(plan._id, planItem._id, {
+        location: locationData
+      });
+
+      logger.info('[PlanItemDetailsModal] Location saved successfully', {
+        planId: plan._id,
+        itemId: planItem._id,
+        location: locationData.address
+      });
+
+      // Emit event to update UI
+      broadcastEvent('plan:item:updated', {
+        planId: plan._id,
+        planItemId: planItem._id,
+        planItem: result,
+        updatedFields: ['location']
+      });
+
+      setShowLocationModal(false);
+    } catch (err) {
+      logger.error('[PlanItemDetailsModal] Failed to save location', { error: err.message });
+      throw err; // Let AddLocationModal handle the error display
+    } finally {
+      setLocationSaving(false);
+    }
+  }, [plan?._id, planItem?._id]);
+
+  /**
+   * Get location string for Google Map
+   */
+  const getLocationForMap = useCallback(() => {
+    const location = planItem?.location;
+    if (!location) return null;
+
+    // If we have coordinates, use them
+    if (location.geo?.coordinates?.length === 2) {
+      const [lng, lat] = location.geo.coordinates;
+      return `${lat},${lng}`;
+    }
+
+    // Fall back to address
+    return location.address || null;
+  }, [planItem?.location]);
+
+  /**
+   * Get full formatted address for copying
+   * Combines address with city, state, country for a complete copyable string
+   */
+  const getFullCopyableAddress = useCallback(() => {
+    const location = planItem?.location;
+    if (!location?.address) return '';
+
+    // Build full address string
+    const parts = [location.address];
+    const locationParts = [location.city, location.state, location.country].filter(Boolean);
+    if (locationParts.length > 0) {
+      parts.push(locationParts.join(', '));
+    }
+    if (location.postalCode) {
+      parts.push(location.postalCode);
+    }
+
+    return parts.join(', ');
+  }, [planItem?.location]);
+
+  /**
+   * Handle copying address to clipboard
+   */
+  const handleCopyAddress = useCallback(async () => {
+    const address = getFullCopyableAddress();
+    if (!address) return;
+
+    try {
+      await navigator.clipboard.writeText(address);
+      setAddressCopied(true);
+      logger.debug('[PlanItemDetailsModal] Address copied to clipboard', { address });
+
+      // Reset the copied state after 2 seconds
+      setTimeout(() => {
+        setAddressCopied(false);
+      }, 2000);
+    } catch (err) {
+      logger.error('[PlanItemDetailsModal] Failed to copy address', { error: err.message });
+      // Fallback for browsers without clipboard API
+      const textArea = document.createElement('textarea');
+      textArea.value = address;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setAddressCopied(true);
+        setTimeout(() => setAddressCopied(false), 2000);
+      } catch (fallbackErr) {
+        logger.error('[PlanItemDetailsModal] Fallback copy also failed', { error: fallbackErr.message });
+      }
+      document.body.removeChild(textArea);
+    }
+  }, [getFullCopyableAddress]);
 
   if (!planItem) return null;
 
@@ -231,7 +575,8 @@ export default function PlanItemDetailsModal({
   // Get planning days and cost estimate from plan item
   const planningDays = planItem.planning_days;
   const costEstimate = planItem.cost;
-  const currency = plan?.currency || 'USD';
+  // Use targetCurrency for display (user preference or plan currency)
+  const currency = targetCurrency;
 
   // Check if we have any cost/planning info to display
   const hasCostInfo = planningDays > 0 || costEstimate > 0 || actualCosts.length > 0;
@@ -497,7 +842,7 @@ export default function PlanItemDetailsModal({
                         <div key={cost._id || index} className={styles.costItem}>
                           <span className={styles.costTitle}>{cost.title}</span>
                           <span className={styles.costAmount}>
-                            {formatActualCost(cost.cost, { currency, exact: true })}
+                            {formatActualCost(getConvertedAmount(cost), { currency, exact: true })}
                           </span>
                         </div>
                       ))}
@@ -507,26 +852,72 @@ export default function PlanItemDetailsModal({
               </Tooltip>
             )}
 
-            {/* Track Cost Button - inline cost tracking for this plan item */}
-            {canEdit && onAddCostForItem && (
-              <Tooltip content={lang.en.helper?.trackedCostTooltip || 'Track your expenses for this item'} placement="top">
-                <button
-                  type="button"
-                  className={styles.addCostButton}
-                  onClick={() => onAddCostForItem(planItem)}
-                >
-                  <span className={styles.addCostIcon}>+</span>
-                  <span className={styles.addCostText}>
-                    {lang.en.cost?.addCost || 'Track Cost'}
-                  </span>
-                </button>
-              </Tooltip>
-            )}
+            {/* Action buttons: Add and Share - stacked vertically */}
+            {(canEdit && (onAddCostForItem || onAddDetail)) || onShare ? (
+              <div className={styles.actionButtonsStack}>
+                {/* + Add Button with Dropdown - add costs, transport details, etc. */}
+                {canEdit && (onAddCostForItem || onAddDetail) && (
+                  <div className={styles.addDropdownWrapper} ref={addDropdownRef}>
+                    <Tooltip content="Add costs, reservations, or other details" placement="top">
+                      <button
+                        type="button"
+                        className={styles.addButton}
+                        onClick={handleToggleAddDropdown}
+                        aria-expanded={showAddDropdown}
+                        aria-haspopup="menu"
+                      >
+                        <FaPlus className={styles.addButtonIcon} />
+                        <span className={styles.addButtonText}>Add</span>
+                        <span className={styles.addButtonCaret}>▾</span>
+                      </button>
+                    </Tooltip>
+
+                    {showAddDropdown && (
+                      <div className={styles.addDropdownMenu} role="menu">
+                        {Object.entries(DETAIL_TYPE_CONFIG).map(([type, config]) => (
+                          <button
+                            key={type}
+                            type="button"
+                            className={styles.addDropdownItem}
+                            onClick={() => handleSelectDetailType(type)}
+                            role="menuitem"
+                          >
+                            <span className={styles.addDropdownIcon}>{config.icon}</span>
+                            <span className={styles.addDropdownLabel}>{config.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Share Button */}
+                {onShare && (
+                  <Tooltip content="Share this plan item" placement="top">
+                    <button
+                      type="button"
+                      className={styles.shareButton}
+                      onClick={() => onShare(planItem)}
+                    >
+                      <FaShareAlt className={styles.shareButtonIcon} />
+                      <span className={styles.shareButtonText}>Share</span>
+                    </button>
+                  </Tooltip>
+                )}
+              </div>
+            ) : null}
           </div>
         )}
 
         {/* Tabs for different detail types */}
         <div className={styles.detailsTabs}>
+          <button
+            className={`${styles.detailsTab} ${activeTab === 'details' ? styles.active : ''}`}
+            onClick={() => setActiveTab('details')}
+            type="button"
+          >
+            📋 Details {totalDetailsCount > 0 && `(${totalDetailsCount})`}
+          </button>
           <button
             className={`${styles.detailsTab} ${activeTab === 'notes' ? styles.active : ''}`}
             onClick={() => setActiveTab('notes')}
@@ -535,11 +926,11 @@ export default function PlanItemDetailsModal({
             📝 Notes {notes.length > 0 && `(${notes.length})`}
           </button>
           <button
-            className={`${styles.detailsTab} ${styles.disabled}`}
-            disabled
+            className={`${styles.detailsTab} ${activeTab === 'location' ? styles.active : ''}`}
+            onClick={() => setActiveTab('location')}
             type="button"
           >
-            📍 Location
+            📍 Location {planItem?.location?.address && '✓'}
           </button>
           <button
             className={`${styles.detailsTab} ${styles.disabled}`}
@@ -566,6 +957,230 @@ export default function PlanItemDetailsModal({
 
         {/* Tab content */}
         <div className={styles.detailsContent}>
+          {activeTab === 'details' && (
+            <div className={styles.detailsTabContent}>
+              {/* Export PDF button */}
+              {totalDetailsCount > 0 && (
+                <div className={styles.detailsExportBar}>
+                  <Tooltip content="Export all details to PDF" placement="left">
+                    <button
+                      type="button"
+                      className={styles.exportPdfButton}
+                      onClick={handleExportPDF}
+                    >
+                      <FaFilePdf className={styles.exportPdfIcon} />
+                      <span>Export PDF</span>
+                    </button>
+                  </Tooltip>
+                </div>
+              )}
+
+              {/* Grouped details list */}
+              {totalDetailsCount > 0 ? (
+                <div className={styles.detailsGroupedList}>
+                  {Object.entries(groupedDetails).map(([categoryKey, category]) => (
+                    <div key={categoryKey} className={styles.detailsCategory}>
+                      <h3 className={styles.detailsCategoryTitle}>
+                        <span className={styles.detailsCategoryIcon}>{category.icon}</span>
+                        <span>{category.label}</span>
+                        <span className={styles.detailsCategoryCount}>({category.items.length})</span>
+                      </h3>
+                      <div className={styles.detailsCategoryItems}>
+                        {category.items.map((item, index) => (
+                          <div key={item._id || index} className={styles.detailItem}>
+                            <div className={styles.detailItemHeader}>
+                              <span className={styles.detailItemIcon}>{item.typeConfig.icon}</span>
+                              <span className={styles.detailItemType}>{item.typeConfig.label}</span>
+                            </div>
+                            <div className={styles.detailItemContent}>
+                              <div className={styles.detailItemTitle}>
+                                {item.title || item.name || item.confirmation_number || item.airline || item.hotel_name || 'Detail'}
+                              </div>
+                              <dl className={styles.detailItemMeta}>
+                                {/* Render relevant fields based on detail type */}
+                                {item.type === DETAIL_TYPES.COST && (
+                                  <>
+                                    {item.amount && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Amount:</dt>
+                                        <dd>{formatActualCost(getConvertedAmount(item), { currency: targetCurrency, exact: true })}</dd>
+                                      </div>
+                                    )}
+                                    {item.category && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Category:</dt>
+                                        <dd>{item.category}</dd>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                                {item.type === DETAIL_TYPES.FLIGHT && (
+                                  <>
+                                    {item.airline && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Airline:</dt>
+                                        <dd>{item.airline}</dd>
+                                      </div>
+                                    )}
+                                    {item.flight_number && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Flight:</dt>
+                                        <dd>{item.flight_number}</dd>
+                                      </div>
+                                    )}
+                                    {item.departure_date && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Departure:</dt>
+                                        <dd>{item.departure_date} {item.departure_time || ''}</dd>
+                                      </div>
+                                    )}
+                                    {item.confirmation_number && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Confirmation:</dt>
+                                        <dd>{item.confirmation_number}</dd>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                                {item.type === DETAIL_TYPES.HOTEL && (
+                                  <>
+                                    {item.hotel_name && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Hotel:</dt>
+                                        <dd>{item.hotel_name}</dd>
+                                      </div>
+                                    )}
+                                    {item.check_in && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Check-in:</dt>
+                                        <dd>{item.check_in}</dd>
+                                      </div>
+                                    )}
+                                    {item.check_out && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Check-out:</dt>
+                                        <dd>{item.check_out}</dd>
+                                      </div>
+                                    )}
+                                    {item.confirmation_number && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Confirmation:</dt>
+                                        <dd>{item.confirmation_number}</dd>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                                {(item.type === DETAIL_TYPES.TRAIN || item.type === DETAIL_TYPES.BUS || item.type === DETAIL_TYPES.FERRY || item.type === DETAIL_TYPES.CRUISE) && (
+                                  <>
+                                    {item.departure_station && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>From:</dt>
+                                        <dd>{item.departure_station}</dd>
+                                      </div>
+                                    )}
+                                    {item.arrival_station && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>To:</dt>
+                                        <dd>{item.arrival_station}</dd>
+                                      </div>
+                                    )}
+                                    {item.departure_date && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Date:</dt>
+                                        <dd>{item.departure_date} {item.departure_time || ''}</dd>
+                                      </div>
+                                    )}
+                                    {item.confirmation_number && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Confirmation:</dt>
+                                        <dd>{item.confirmation_number}</dd>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                                {item.type === DETAIL_TYPES.PARKING && (
+                                  <>
+                                    {item.location && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Location:</dt>
+                                        <dd>{item.location}</dd>
+                                      </div>
+                                    )}
+                                    {item.start_date && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Start:</dt>
+                                        <dd>{item.start_date}</dd>
+                                      </div>
+                                    )}
+                                    {item.end_date && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>End:</dt>
+                                        <dd>{item.end_date}</dd>
+                                      </div>
+                                    )}
+                                    {item.confirmation_number && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Confirmation:</dt>
+                                        <dd>{item.confirmation_number}</dd>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                                {item.type === DETAIL_TYPES.DISCOUNT && (
+                                  <>
+                                    {item.code && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Code:</dt>
+                                        <dd className={styles.discountCode}>{item.code}</dd>
+                                      </div>
+                                    )}
+                                    {item.discount_amount && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Discount:</dt>
+                                        <dd>{item.discount_amount}{item.discount_type === 'percentage' ? '%' : ''}</dd>
+                                      </div>
+                                    )}
+                                    {item.expiry_date && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Expires:</dt>
+                                        <dd>{item.expiry_date}</dd>
+                                      </div>
+                                    )}
+                                    {item.terms && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Terms:</dt>
+                                        <dd>{item.terms}</dd>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                                {/* Notes field for any type */}
+                                {item.notes && (
+                                  <div className={styles.detailMetaRow}>
+                                    <dt>Notes:</dt>
+                                    <dd>{item.notes}</dd>
+                                  </div>
+                                )}
+                              </dl>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  variant="generic"
+                  icon="📋"
+                  title="No Details Added Yet"
+                  description="Use the + Add button above to add flight itineraries, hotel reservations, parking details, discount codes, and more."
+                  size="md"
+                />
+              )}
+            </div>
+          )}
+
           {activeTab === 'notes' && (
             <PlanItemNotes
               notes={notes}
@@ -581,8 +1196,75 @@ export default function PlanItemDetailsModal({
           )}
 
           {activeTab === 'location' && (
-            <div className={styles.comingSoonMessage}>
-              Location details will be available soon.
+            <div className={styles.locationTabContent}>
+              {getLocationForMap() ? (
+                <>
+                  {/* Location details */}
+                  <div className={styles.locationHeader}>
+                    <div className={styles.locationIcon}>
+                      <FaMapMarkerAlt />
+                    </div>
+                    <div className={styles.locationInfo}>
+                      <div className={styles.locationAddress}>
+                        {planItem.location.address}
+                      </div>
+                      {(planItem.location.city || planItem.location.state || planItem.location.country) && (
+                        <div className={styles.locationMeta}>
+                          {[planItem.location.city, planItem.location.state, planItem.location.country]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </div>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        className={styles.changeLocationButton}
+                        onClick={() => setShowLocationModal(true)}
+                      >
+                        Change
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Copyable address bar */}
+                  <Tooltip content={addressCopied ? "Copied!" : "Click to copy address for use in other apps"} placement="top">
+                    <button
+                      type="button"
+                      className={`${styles.copyableAddressBar} ${addressCopied ? styles.copied : ''}`}
+                      onClick={handleCopyAddress}
+                      aria-label="Copy address to clipboard"
+                    >
+                      <span className={styles.copyableAddressText}>
+                        {getFullCopyableAddress()}
+                      </span>
+                      <span className={styles.copyAddressIcon}>
+                        {addressCopied ? <FaCheck /> : <FaCopy />}
+                      </span>
+                    </button>
+                  </Tooltip>
+
+                  {/* Google Map with Get Directions button */}
+                  <div className={styles.locationMapWrapper}>
+                    <GoogleMap
+                      location={getLocationForMap()}
+                      height={400}
+                      showDirections={true}
+                      title={`Map of ${planItem.location.address}`}
+                    />
+                  </div>
+                </>
+              ) : (
+                <EmptyState
+                  variant="generic"
+                  icon="📍"
+                  title="No Location Set"
+                  description="Add a location to this plan item to see it on the map and get directions."
+                  primaryAction={canEdit ? "Add a Location" : null}
+                  onPrimaryAction={canEdit ? () => setShowLocationModal(true) : null}
+                  size="md"
+                />
+              )}
             </div>
           )}
 
@@ -605,6 +1287,26 @@ export default function PlanItemDetailsModal({
           )}
         </div>
       </div>
+
+      {/* Add Plan Item Detail Modal */}
+      <AddPlanItemDetailModal
+        show={showAddDetailModal}
+        onClose={handleCloseAddDetailModal}
+        planItem={planItem}
+        plan={plan}
+        onSave={handleSaveDetail}
+        defaultDetailType={selectedDetailType}
+        defaultCurrency={plan?.currency || 'USD'}
+      />
+
+      {/* Add Location Modal */}
+      <AddLocationModal
+        show={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onSave={handleSaveLocation}
+        initialAddress={planItem?.location?.address || ''}
+        initialLocation={planItem?.location || null}
+      />
     </Modal>
   );
 }

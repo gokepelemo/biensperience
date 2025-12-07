@@ -119,6 +119,22 @@
   }
 }
 
+/* Share button - info color scheme */
+.shareButton {
+  composes: actionButton;
+  background: var(--color-bg-primary);
+  color: var(--color-info);
+  border-color: var(--color-info);
+  min-width: 44px;
+  padding: $space-2 $space-3;
+
+  &:hover:not(:disabled) {
+    background: var(--color-info);
+    color: white;
+    border-color: var(--color-info);
+  }
+}
+
 /* Sidebar variant - buttons centered, not full width */
 .sidebarContainer {
   display: flex;

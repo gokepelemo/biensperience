@@ -5,6 +5,9 @@ import { FaArrowLeft, FaFileContract } from 'react-icons/fa';
 import { Button } from 'react-bootstrap';
 import styles from './TermsOfServiceModal.module.scss';
 
+// Get legal email from env var with fallback
+const LEGAL_EMAIL = process.env.LEGAL_EMAIL_CONTACT || 'legal@biensperience.com';
+
 /**
  * Terms of Service Modal Component
  *
@@ -220,8 +223,7 @@ export default function TermsOfServiceModal({
             If you have any questions about these Terms, please contact us at:
           </p>
           <p className={styles.contactInfo}>
-            <strong>Email:</strong> legal@biensperience.com<br />
-            <strong>Address:</strong> Biensperience Inc., 123 Travel Lane, Adventure City, AC 12345
+            <strong>Email:</strong> <a href={`mailto:${LEGAL_EMAIL}`}>{LEGAL_EMAIL}</a>
           </p>
         </section>
       </div>

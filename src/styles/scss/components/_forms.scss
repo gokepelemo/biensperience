@@ -267,12 +267,37 @@ small.form-text {
     padding: $space-3;
   }
 
-  .input-group {
+  /* Auth forms: keep input groups inline on mobile */
+  .login-form .input-group,
+  .signup-form .input-group,
+  [class*="authCard"] .input-group {
+    flex-direction: row;
+    flex-wrap: nowrap;
+
+    .form-control {
+      width: auto;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .input-group-text {
+      width: auto;
+      min-width: auto;
+    }
+
+    .btn {
+      width: auto;
+      min-width: auto;
+    }
+  }
+
+  /* Non-auth input groups: stack on mobile */
+  .input-group:not(.login-form .input-group):not(.signup-form .input-group):not([class*="authCard"] .input-group) {
     flex-direction: column;
   }
 
-  .input-group .form-control,
-  .input-group .btn {
+  .input-group:not(.login-form .input-group):not(.signup-form .input-group):not([class*="authCard"] .input-group) .form-control,
+  .input-group:not(.login-form .input-group):not(.signup-form .input-group):not([class*="authCard"] .input-group) .btn {
     width: 100%;
     min-width: 100%;
   }

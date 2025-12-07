@@ -334,6 +334,11 @@
   font-weight: var(--font-weight-normal);
 }
 
+.profileMetricSecondary {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-normal);
+}
+
 /* Action buttons */
 .profileActions {
   display: flex;
@@ -1056,13 +1061,14 @@
   border: 1px solid var(--color-border-medium);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-6);
-  overflow: hidden;
+  overflow: visible; /* Allow dropdowns/autocomplete to escape card boundaries */
 }
 
 .sectionCardHeader {
   padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--color-border-light);
   background: var(--color-bg-tertiary);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; /* Match parent border-radius for top corners */
 
   h3 {
     margin: 0;
@@ -1081,6 +1087,8 @@
 
 .sectionCardBody {
   padding: var(--space-6);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg); /* Match parent border-radius for bottom corners */
+  background: var(--color-bg-surface); /* Ensure background fills rounded corners */
 }
 
 /* Admin section row styling (like in screenshot) */

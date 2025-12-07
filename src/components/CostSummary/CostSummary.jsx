@@ -11,7 +11,7 @@
  * - Expandable sections
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   FaDollarSign,
   FaUsers,
@@ -32,6 +32,7 @@ import {
 } from 'react-icons/fa';
 import { formatActualCost } from '../../utilities/cost-utils';
 import { getCurrencySymbol } from '../../utilities/currency-utils';
+import { convertCostToTarget, fetchRates } from '../../utilities/currency-conversion';
 import { lang } from '../../lang.constants';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import styles from './CostSummary.module.scss';
@@ -244,19 +245,36 @@ export default function CostSummary({
   className = '',
 }) {
   const costStrings = lang.current.cost;
+  const [ratesLoaded, setRatesLoaded] = useState(false);
+
+  // Fetch exchange rates on mount
+  useEffect(() => {
+    fetchRates(currency)
+      .then(() => setRatesLoaded(true))
+      .catch(() => setRatesLoaded(true)); // Still render even if rates fail
+  }, [currency]);
+
+  /**
+   * Get converted cost amount for a single cost item
+   * NOTE: ratesLoaded is in dependency array to trigger re-render when rates become available
+   */
+  const getConvertedAmount = useCallback((cost) => {
+    return convertCostToTarget(cost, currency);
+  }, [currency, ratesLoaded]);
 
   // Calculate summary from costs array if summary not provided
   const calculatedSummary = useMemo(() => {
     if (summary) return summary;
 
-    // Calculate from costs array
-    const totalCost = costs.reduce((sum, cost) => sum + (cost.cost || 0), 0);
+    // Calculate from costs array, converting each cost to target currency
+    const totalCost = costs.reduce((sum, cost) => sum + getConvertedAmount(cost), 0);
 
     // Group by collaborator
     const costsByCollaborator = {};
     const sharedCostsList = [];
 
     costs.forEach(cost => {
+      const convertedAmount = getConvertedAmount(cost);
       if (cost.collaborator) {
         const collabId = typeof cost.collaborator === 'object'
           ? cost.collaborator?._id
@@ -272,7 +290,7 @@ export default function CostSummary({
           };
         }
         if (collabId) {
-          costsByCollaborator[collabId].total += cost.cost || 0;
+          costsByCollaborator[collabId].total += convertedAmount;
           costsByCollaborator[collabId].costs.push(cost);
         }
       } else {
@@ -285,6 +303,7 @@ export default function CostSummary({
     const generalCostsList = [];
 
     costs.forEach(cost => {
+      const convertedAmount = getConvertedAmount(cost);
       if (cost.plan_item) {
         const itemId = typeof cost.plan_item === 'object'
           ? cost.plan_item?._id
@@ -300,7 +319,7 @@ export default function CostSummary({
           };
         }
         if (itemId) {
-          costsByPlanItem[itemId].total += cost.cost || 0;
+          costsByPlanItem[itemId].total += convertedAmount;
           costsByPlanItem[itemId].costs.push(cost);
         }
       } else {
@@ -321,6 +340,7 @@ export default function CostSummary({
     };
 
     costs.forEach(cost => {
+      const convertedAmount = getConvertedAmount(cost);
       const category = cost.category || 'uncategorized';
       if (!categoryCostMap[category]) {
         categoryCostMap[category] = {
@@ -330,15 +350,15 @@ export default function CostSummary({
           costs: []
         };
       }
-      categoryCostMap[category].total += cost.cost || 0;
+      categoryCostMap[category].total += convertedAmount;
       categoryCostMap[category].costs.push(cost);
     });
 
     const costsByCategory = Object.values(categoryCostMap)
       .sort((a, b) => b.total - a.total);
 
-    const sharedCostTotal = sharedCostsList.reduce((sum, cost) => sum + (cost.cost || 0), 0);
-    const generalCostTotal = generalCostsList.reduce((sum, cost) => sum + (cost.cost || 0), 0);
+    const sharedCostTotal = sharedCostsList.reduce((sum, cost) => sum + getConvertedAmount(cost), 0);
+    const generalCostTotal = generalCostsList.reduce((sum, cost) => sum + getConvertedAmount(cost), 0);
     const collaboratorCount = Math.max(collaborators.length, 1);
     const perPersonShare = sharedCostTotal / collaboratorCount;
 
@@ -366,7 +386,7 @@ export default function CostSummary({
       perPersonSplit,
       collaboratorCount,
     };
-  }, [summary, costs, collaborators, planItems]);
+  }, [summary, costs, collaborators, planItems, getConvertedAmount, ratesLoaded]);
 
   // Transform for display
   const byPersonItems = useMemo(() => {

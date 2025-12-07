@@ -7,20 +7,22 @@
   min-height: 100dvh; /* Dynamic viewport height for mobile */
   width: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Start from top on mobile to avoid excessive centering */
   justify-content: center;
-  padding: var(--space-4);
-  padding-top: max(var(--space-4), env(safe-area-inset-top));
+  padding: var(--space-2) var(--space-3);
+  padding-top: max(var(--space-2), env(safe-area-inset-top));
   padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
-  padding-left: max(var(--space-4), env(safe-area-inset-left));
-  padding-right: max(var(--space-4), env(safe-area-inset-right));
+  padding-left: max(var(--space-3), env(safe-area-inset-left));
+  padding-right: max(var(--space-3), env(safe-area-inset-right));
   box-sizing: border-box;
   overflow-x: hidden;
+  overflow-y: auto;
 
   @media (min-width: $breakpoint-sm) {
-    padding: var(--space-6);
-    padding-top: max(var(--space-6), env(safe-area-inset-top));
-    padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
+    align-items: center; /* Center on larger screens */
+    padding: var(--space-4);
+    padding-top: max(var(--space-4), env(safe-area-inset-top));
+    padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
   }
 }
 
@@ -46,10 +48,12 @@
 /* Logo Container */
 .logoContainer {
   text-align: center;
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-4);
+  margin-top: var(--space-2);
 
-  @media (max-width: #{$breakpoint-sm - 1px}) {
+  @media (min-width: $breakpoint-sm) {
     margin-bottom: var(--space-6);
+    margin-top: 0;
   }
 }
 
@@ -72,7 +76,11 @@
 /* Auth Header */
 .authHeader {
   text-align: center;
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-4);
+
+  @media (min-width: $breakpoint-sm) {
+    margin-bottom: var(--space-5);
+  }
 }
 
 .authTitle {
@@ -117,6 +125,7 @@
   @media (max-width: #{$breakpoint-sm - 1px}) {
     min-height: var(--auth-input-height-mobile);
   }
+
 }
 
 /* Input Icon */
@@ -128,6 +137,7 @@
   min-height: var(--auth-input-height);
   display: flex;
   align-items: center;
+  flex-shrink: 0; /* Prevent icon from shrinking on mobile */
 
   @media (max-width: #{$breakpoint-sm - 1px}) {
     min-height: var(--auth-input-height-mobile);
@@ -144,6 +154,8 @@
   padding: var(--space-3) var(--space-4);
   min-height: var(--auth-input-height);
   transition: background-color var(--transition-fast);
+  flex: 1; /* Take remaining space */
+  min-width: 0; /* Allow shrinking below content size */
 
   &:focus {
     outline: none;
@@ -173,7 +185,7 @@
   font-family: var(--font-family-mono);
 }
 
-/* Password Toggle Button */
+/* Password Toggle Button - Override Bootstrap _forms.scss mobile stacking */
 .passwordToggle {
   background-color: var(--color-bg-secondary);
   border: none;
@@ -182,6 +194,12 @@
   min-height: var(--auth-input-height);
   text-decoration: none;
   transition: color var(--transition-fast);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  /* Override Bootstrap .input-group .btn width */
+  width: auto;
+  min-width: auto;
 
   &:hover:not(:disabled) {
     color: var(--color-text-primary);
@@ -199,6 +217,7 @@
 
   @media (max-width: #{$breakpoint-sm - 1px}) {
     min-height: var(--auth-input-height-mobile);
+    padding: var(--space-2) var(--space-3);
   }
 }
 

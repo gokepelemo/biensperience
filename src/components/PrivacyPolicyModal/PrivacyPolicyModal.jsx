@@ -5,6 +5,9 @@ import { FaArrowLeft, FaShieldAlt } from 'react-icons/fa';
 import { Button } from 'react-bootstrap';
 import styles from './PrivacyPolicyModal.module.scss';
 
+// Get legal email from env var with fallback
+const LEGAL_EMAIL = process.env.LEGAL_EMAIL_CONTACT || 'privacy@biensperience.com';
+
 /**
  * Privacy Policy Modal Component
  *
@@ -178,8 +181,7 @@ export default function PrivacyPolicyModal({
             If you have questions about this privacy policy or your data, please contact us at:
           </p>
           <p className={styles.contactInfo}>
-            <strong>Email:</strong> privacy@biensperience.com<br />
-            <strong>Address:</strong> Biensperience Inc., 123 Travel Lane, Adventure City, AC 12345
+            <strong>Email:</strong> <a href={`mailto:${LEGAL_EMAIL}`}>{LEGAL_EMAIL}</a>
           </p>
         </section>
       </div>

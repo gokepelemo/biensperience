@@ -38,11 +38,23 @@ function buildApiUrl(template, base) {
   return url;
 }
 
+/**
+ * Check if a URL template requires an API key (contains {apikey} placeholder)
+ */
+function requiresApiKey(template) {
+  return template.includes('{apikey}');
+}
+
 // Exchange rate API endpoints (in order of preference)
+// Skip primary endpoint if it requires an API key and none is configured
 const API_ENDPOINTS = [
-  (base) => buildApiUrl(PRIMARY_API_URL, base),
+  // Only include primary API if it doesn't require API key OR if API key is configured
+  ...((!requiresApiKey(PRIMARY_API_URL) || EXCHANGE_RATE_API_KEY)
+    ? [(base) => buildApiUrl(PRIMARY_API_URL, base)]
+    : []),
+  // Fallback API (exchangerate.host doesn't require API key)
   (base) => buildApiUrl(FALLBACK_API_URL, base),
-].filter((_, i) => i === 0 || FALLBACK_API_URL); // Only include fallback if configured
+];
 
 export function setRatesObject(ratesObj) {
   // ratesObj: { base: 'USD', rates: { EUR: 0.9, GBP: 0.78 }, fetchedAt?: timestamp }
@@ -70,10 +82,13 @@ async function tryFetchFromEndpoint(url) {
     throw new Error(`Failed to fetch rates: ${res.status}`);
   }
   const data = await res.json();
-  if (!data || !data.rates) {
+  // Handle both API response formats: 'rates' (exchangerate.host) and 'conversion_rates' (exchangerate-api.com)
+  const rates = data.rates || data.conversion_rates;
+  if (!data || !rates) {
     throw new Error('Invalid rates response');
   }
-  return data;
+  // Normalize the response to always use 'rates' field
+  return { ...data, rates };
 }
 
 export async function fetchRates(base = 'USD', symbols = []) {
@@ -172,9 +187,110 @@ export async function convert(amount, from = 'USD', to = 'USD') {
   throw new Error('Conversion failed');
 }
 
+/**
+ * Synchronously convert an amount using cached rates.
+ * Returns original amount if rates not available or conversion not possible.
+ * This is useful for UI rendering where async isn't practical.
+ *
+ * @param {number} amount - Amount to convert
+ * @param {string} fromCurrency - Source currency code
+ * @param {string} toCurrency - Target currency code
+ * @returns {number} Converted amount or original if conversion fails
+ */
+export function convertSync(amount, fromCurrency = 'USD', toCurrency = 'USD') {
+  const num = parseFloat(amount);
+  if (isNaN(num)) return 0;
+  if (!fromCurrency || !toCurrency || fromCurrency === toCurrency) return num;
+
+  if (!_rates || !_rates.rates) {
+    // Rates not loaded, return original
+    return num;
+  }
+
+  try {
+    // Case 1: Direct conversion if base matches source currency
+    // e.g., base='USD', from='USD', to='EUR' -> multiply by rates['EUR']
+    if (_rates.base === fromCurrency && _rates.rates[toCurrency] !== undefined) {
+      return num * _rates.rates[toCurrency];
+    }
+
+    // Case 2: Converting TO the base currency
+    // e.g., base='EUR', from='JPY', to='EUR' -> divide by rates['JPY']
+    if (_rates.base === toCurrency && _rates.rates[fromCurrency] !== undefined) {
+      return num / _rates.rates[fromCurrency];
+    }
+
+    // Case 3: Cross-rate conversion via base (neither currency is the base)
+    // e.g., base='EUR', from='JPY', to='USD' -> (amount / rates['JPY']) * rates['USD']
+    if (_rates.rates[fromCurrency] !== undefined && _rates.rates[toCurrency] !== undefined) {
+      const amountInBase = num / _rates.rates[fromCurrency];
+      return amountInBase * _rates.rates[toCurrency];
+    }
+
+    // Conversion not possible with cached rates
+    return num;
+  } catch {
+    return num;
+  }
+}
+
+/**
+ * Convert a cost object's amount to a target currency.
+ * Uses the cost's currency field, defaulting to USD if not set.
+ * Uses the plan's currency as the target, defaulting to USD if not set.
+ *
+ * @param {Object} cost - Cost object with { cost: number, currency?: string }
+ * @param {string} targetCurrency - Target currency to convert to (plan's currency)
+ * @returns {number} Converted cost amount
+ *
+ * @example
+ * // Cost tracked in EUR, plan uses USD
+ * const cost = { cost: 100, currency: 'EUR' };
+ * const converted = convertCostToTarget(cost, 'USD'); // ~109 (depending on rates)
+ *
+ * // Cost tracked in same currency as plan
+ * const cost2 = { cost: 50, currency: 'USD' };
+ * const converted2 = convertCostToTarget(cost2, 'USD'); // 50 (no conversion)
+ */
+export function convertCostToTarget(cost, targetCurrency = 'USD') {
+  const costAmount = cost?.cost || 0;
+  const costCurrency = cost?.currency || 'USD';
+  return convertSync(costAmount, costCurrency, targetCurrency);
+}
+
+/**
+ * Convert an array of costs to a target currency and calculate totals.
+ * Returns the costs with converted amounts and the total.
+ *
+ * @param {Array} costs - Array of cost objects with { cost, currency, ... }
+ * @param {string} targetCurrency - Target currency (plan's currency)
+ * @returns {{ convertedCosts: Array, total: number }}
+ */
+export function convertCostsToTarget(costs, targetCurrency = 'USD') {
+  if (!Array.isArray(costs)) return { convertedCosts: [], total: 0 };
+
+  let total = 0;
+  const convertedCosts = costs.map(cost => {
+    const converted = convertCostToTarget(cost, targetCurrency);
+    total += converted;
+    return {
+      ...cost,
+      originalCost: cost.cost,
+      originalCurrency: cost.currency || 'USD',
+      cost: converted,
+      currency: targetCurrency
+    };
+  });
+
+  return { convertedCosts, total };
+}
+
 export default {
   fetchRates,
   convert,
+  convertSync,
+  convertCostToTarget,
+  convertCostsToTarget,
   setRatesObject,
   getRatesObject,
   setCacheTTL,

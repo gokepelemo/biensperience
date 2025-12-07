@@ -935,18 +935,45 @@ export function setUIPreference(key, value) {
     let current = prefs;
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i];
+      // Double-check each part is safe before using as property key
+      if (!isSafeKey(part)) {
+        return; // Silently reject dangerous keys
+      }
       if (!Object.prototype.hasOwnProperty.call(current, part) || typeof current[part] !== 'object') {
-        current[part] = {};
+        // Use Object.defineProperty to avoid prototype pollution
+        Object.defineProperty(current, part, {
+          value: {},
+          writable: true,
+          enumerable: true,
+          configurable: true
+        });
       }
       current = current[part];
     }
-    current[parts[parts.length - 1]] = value;
+    const lastPart = parts[parts.length - 1];
+    // Double-check the final key is safe before assignment
+    if (!isSafeKey(lastPart)) {
+      return; // Silently reject dangerous keys
+    }
+    // Use Object.defineProperty to safely set the value
+    Object.defineProperty(current, lastPart, {
+      value: value,
+      writable: true,
+      enumerable: true,
+      configurable: true
+    });
   } else {
     // Validate single key against prototype pollution
     if (!isSafeKey(key)) {
       return; // Silently reject dangerous keys
     }
-    prefs[key] = value;
+    // Use Object.defineProperty to safely set the value
+    Object.defineProperty(prefs, key, {
+      value: value,
+      writable: true,
+      enumerable: true,
+      configurable: true
+    });
   }
 
   setUIPreferences(prefs);

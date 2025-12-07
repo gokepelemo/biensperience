@@ -95,6 +95,7 @@ export function useCurrencyConversion(options = {}) {
   /**
    * Synchronously convert an amount using cached rates
    * Returns original amount if rates not available
+   * NOTE: ratesLoaded is in dependency array to trigger re-render when rates become available
    * @param {number} amount - Amount to convert
    * @param {string} fromCurrency - Source currency code
    * @param {string} toCurrency - Target currency code (default: user's preference)
@@ -111,26 +112,37 @@ export function useCurrencyConversion(options = {}) {
     }
 
     try {
-      // Direct conversion if base matches
+      const num = parseFloat(amount);
+
+      // Case 1: Direct conversion if base matches source currency
+      // e.g., base='USD', from='USD', to='EUR' -> multiply by rates['EUR']
       if (rates.base === fromCurrency && rates.rates[toCurrency] !== undefined) {
-        return parseFloat(amount) * rates.rates[toCurrency];
+        return num * rates.rates[toCurrency];
       }
 
-      // Cross-rate conversion
+      // Case 2: Converting TO the base currency
+      // e.g., base='EUR', from='JPY', to='EUR' -> divide by rates['JPY']
+      if (rates.base === toCurrency && rates.rates[fromCurrency] !== undefined) {
+        return num / rates.rates[fromCurrency];
+      }
+
+      // Case 3: Cross-rate conversion via base (neither currency is the base)
+      // e.g., base='EUR', from='JPY', to='USD' -> (amount / rates['JPY']) * rates['USD']
       if (rates.rates[fromCurrency] !== undefined && rates.rates[toCurrency] !== undefined) {
-        const amountInBase = parseFloat(amount) / rates.rates[fromCurrency];
+        const amountInBase = num / rates.rates[fromCurrency];
         return amountInBase * rates.rates[toCurrency];
       }
 
       // Conversion not possible with cached rates
-      return parseFloat(amount);
+      return num;
     } catch {
       return parseFloat(amount);
     }
-  }, [userCurrency]);
+  }, [userCurrency, ratesLoaded]);
 
   /**
    * Get the exchange rate between two currencies
+   * NOTE: ratesLoaded is in dependency array to trigger re-render when rates become available
    * @param {string} fromCurrency - Source currency
    * @param {string} toCurrency - Target currency (default: user's preference)
    * @returns {number|null} Exchange rate or null if not available
@@ -141,17 +153,23 @@ export function useCurrencyConversion(options = {}) {
     const rates = getRatesObject();
     if (!rates || !rates.rates) return null;
 
+    // Case 1: Direct rate if base matches source currency
     if (rates.base === fromCurrency && rates.rates[toCurrency] !== undefined) {
       return rates.rates[toCurrency];
     }
 
-    // Cross-rate
+    // Case 2: Converting TO the base currency (inverse of rate)
+    if (rates.base === toCurrency && rates.rates[fromCurrency] !== undefined) {
+      return 1 / rates.rates[fromCurrency];
+    }
+
+    // Case 3: Cross-rate via base
     if (rates.rates[fromCurrency] !== undefined && rates.rates[toCurrency] !== undefined) {
       return rates.rates[toCurrency] / rates.rates[fromCurrency];
     }
 
     return null;
-  }, [userCurrency]);
+  }, [userCurrency, ratesLoaded]);
 
   /**
    * Format a converted amount with currency symbol

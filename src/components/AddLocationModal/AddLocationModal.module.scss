@@ -1,0 +1,263 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* AddLocationModal - Multi-step location entry */
+
+.addLocationModal {
+  display: flex;
+  flex-direction: column;
+  gap: $space-5;
+  padding: $space-4;
+}
+
+/* Step indicator */
+.stepIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-3;
+  padding: $space-3 0;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-1;
+  opacity: 0.5;
+  @include transition-all($transition-fast);
+
+  &.active {
+    opacity: 1;
+  }
+
+  &.completed {
+    opacity: 1;
+
+    .stepNumber {
+      background: var(--color-success);
+      color: white;
+    }
+  }
+}
+
+.stepNumber {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  @include transition-all($transition-fast);
+
+  .active & {
+    background: var(--gradient-primary);
+    color: white;
+  }
+}
+
+.stepLabel {
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+  font-weight: $font-weight-medium;
+
+  .active & {
+    color: var(--color-text-primary);
+  }
+}
+
+.stepConnector {
+  width: 60px;
+  height: 2px;
+  background: var(--color-border-light);
+
+  @media (max-width: 480px) {
+    width: 40px;
+  }
+}
+
+/* Error message */
+.errorMessage {
+  padding: $space-3 $space-4;
+  background: rgba(var(--color-danger-rgb, 239, 68, 68), 0.1);
+  border: 1px solid var(--color-danger, #ef4444);
+  border-radius: var(--radius-md);
+  color: var(--color-danger, #ef4444);
+  font-size: $font-size-sm;
+  text-align: center;
+}
+
+/* Step content */
+.stepContent {
+  min-height: 200px;
+}
+
+/* Address step */
+.addressStep {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.addressInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-3 $space-4;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  @include transition-all($transition-fast);
+
+  &:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.15);
+  }
+}
+
+.addressIcon {
+  color: var(--color-primary);
+  font-size: $font-size-lg;
+  flex-shrink: 0;
+}
+
+.addressInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: $font-size-base;
+  color: var(--color-text-primary);
+  outline: none;
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+.searchButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--gradient-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+  @include transition-all($transition-fast);
+
+  &:hover:not(:disabled) {
+    @include hover-lift;
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.addressHint {
+  font-size: $font-size-sm;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: 0;
+}
+
+/* Confirm step */
+.confirmStep {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.locationDetails {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  padding: $space-4;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+}
+
+.locationIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: rgba(var(--color-primary-rgb), 0.15);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-xl;
+  flex-shrink: 0;
+}
+
+.locationInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.locationAddress {
+  font-size: $font-size-base;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  margin-bottom: $space-1;
+}
+
+.locationMeta {
+  font-size: $font-size-sm;
+  color: var(--color-text-muted);
+}
+
+.mapPreview {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border-light);
+}
+
+.confirmHint {
+  font-size: $font-size-sm;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: 0;
+}
+
+/* Footer buttons */
+.footerButtons {
+  display: flex;
+  justify-content: flex-end;
+  gap: $space-3;
+  padding-top: $space-4;
+  border-top: 1px solid var(--color-border-light);
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+  }
+}
+
+.buttonSpinner {
+  animation: spin 1s linear infinite;
+}

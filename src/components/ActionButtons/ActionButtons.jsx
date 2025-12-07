@@ -1,6 +1,17 @@
 import React from 'react';
 import styles from './ActionButtons.module.scss';
 import { lang } from '../../lang.constants';
+import {
+  FaEdit,
+  FaTrash,
+  FaPlus,
+  FaSave,
+  FaArrowLeft,
+  FaStar,
+  FaRegStar,
+  FaMinus,
+  FaShareAlt
+} from 'react-icons/fa';
 
 /**
  * ActionButtons Component
@@ -71,20 +82,20 @@ export default function ActionButtons({
  */
 export const ButtonPresets = {
   edit: (onClick, options = {}) => ({
-    label: 'Edit',
+    label: lang.current.button.edit,
     onClick,
     variant: 'outline-primary',
-    icon: '✏️',
-    tooltip: 'Edit this item',
+    icon: <FaEdit />,
+    tooltip: lang.current.button.editTooltip,
     ...options,
   }),
 
   delete: (onClick, options = {}) => ({
-    label: 'Delete',
+    label: lang.current.button.delete,
     onClick,
     variant: 'outline-danger',
-    icon: '🗑️',
-    tooltip: 'Delete this item',
+    icon: <FaTrash />,
+    tooltip: lang.current.button.deleteTooltip,
     ...options,
   }),
 
@@ -92,7 +103,7 @@ export const ButtonPresets = {
     label: lang.current.button.add,
     onClick,
     variant: 'primary',
-    icon: '✚',
+    icon: <FaPlus />,
     tooltip: lang.current.button.addNewItemTooltip,
     ...options,
   }),
@@ -101,7 +112,7 @@ export const ButtonPresets = {
     label: lang.current.button.save,
     onClick,
     variant: 'success',
-    icon: '💾',
+    icon: <FaSave />,
     tooltip: lang.current.button.saveChangesTooltip,
     ...options,
   }),
@@ -118,7 +129,7 @@ export const ButtonPresets = {
     label: lang.current.button.back,
     onClick,
     variant: 'outline-secondary',
-    icon: '←',
+    icon: <FaArrowLeft />,
     tooltip: lang.current.button.backTooltip,
     ...options,
   }),
@@ -127,7 +138,7 @@ export const ButtonPresets = {
     label: isFavorited ? lang.current.button.unfavorite : lang.current.button.favorite,
     onClick,
     variant: isFavorited ? 'warning' : 'outline-warning',
-    icon: isFavorited ? '⭐' : '☆',
+    icon: isFavorited ? <FaStar /> : <FaRegStar />,
     tooltip: isFavorited ? lang.current.button.unfavoriteTooltip : lang.current.button.favoriteTooltip,
     ...options,
   }),
@@ -136,7 +147,7 @@ export const ButtonPresets = {
     label: isPlanned ? lang.current.button.removeFromPlan : lang.current.button.addToPlan,
     onClick,
     variant: isPlanned ? 'danger' : 'success',
-    icon: isPlanned ? '−' : '✚',
+    icon: isPlanned ? <FaMinus /> : <FaPlus />,
     tooltip: isPlanned ? lang.current.button.removeFromPlanTooltip : lang.current.button.planTooltip,
     ...options,
   }),
@@ -145,7 +156,7 @@ export const ButtonPresets = {
     label: lang.current.button.share,
     onClick,
     variant: 'outline-info',
-    icon: '↗',
+    icon: <FaShareAlt />,
     tooltip: lang.current.button.shareTooltip,
     ...options,
   }),

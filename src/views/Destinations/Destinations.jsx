@@ -5,7 +5,6 @@ import { useData } from "../../contexts/DataContext";
 import DestinationCard from "../../components/DestinationCard/DestinationCard";
 import SortFilter from "../../components/SortFilter/SortFilter";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
-import Alert from "../../components/Alert/Alert";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";

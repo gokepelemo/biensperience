@@ -152,8 +152,9 @@
 }
 
 .experienceCard :global(.btn-card-remove) {
-  background: transparent;
-  border: 2px solid var(--color-bg-primary);
+  background: var(--color-success);
+  border: 2px solid var(--color-success);
+  color: white;
   font-size: $font-size-xl;
   /* Smooth transitions for remove state */
   transition: all 0.3s $easing-ease-in-out;
@@ -164,7 +165,7 @@
   transform: scale(1.1) translateY(-2px);
   color: white;
   box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-  border-color: transparent;
+  border-color: var(--color-danger);
 }
 
 /* Loading pulse animation */

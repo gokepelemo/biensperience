@@ -26,7 +26,7 @@ import { handleError } from "../../utilities/error-handler";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { deduplicateById } from "../../utilities/deduplication";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
-import { isSuperAdmin } from "../../utilities/permissions";
+import { isSuperAdmin, isOwner as isResourceOwner } from "../../utilities/permissions";
 import { Button, EmptyState, Container, EntityNotFound } from "../../components/design-system";
 import { Card, Row, Col } from "react-bootstrap";
 import { useToast } from '../../contexts/ToastContext';
@@ -830,6 +830,15 @@ export default function Profile() {
   const uniqueCreatedExperiencesCount = uniqueCreatedExperiences ? uniqueCreatedExperiences.length : 0;
   const favoriteDestinationsCount = favoriteDestinations ? favoriteDestinations.length : 0;
 
+  // Calculate owned vs shared plans
+  const planCounts = useMemo(() => {
+    if (!plans || !currentProfile) return { total: 0, owned: 0, shared: 0 };
+    const total = plans.length;
+    const owned = plans.filter(plan => isResourceOwner(currentProfile, plan)).length;
+    const shared = total - owned;
+    return { total, owned, shared };
+  }, [plans, currentProfile]);
+
   // Show full-page skeleton during initial load (before profile data arrives)
   if (isLoadingProfile && !currentProfile) {
     return <ProfileSkeleton />;
@@ -978,7 +987,10 @@ export default function Profile() {
                   {/* Compact Metrics Bar */}
                   <div className={styles.profileMetricsBar}>
                     <span className={styles.profileMetric}>
-                      <strong>{plans?.length || 0}</strong> {(plans?.length || 0) === 1 ? 'Plan' : 'Plans'}
+                      <strong>{planCounts.total}</strong> {planCounts.total === 1 ? 'Plan' : 'Plans'}
+                      {planCounts.shared > 0 && (
+                        <span className={styles.profileMetricSecondary}> ({planCounts.shared} collaborative)</span>
+                      )}
                     </span>
                     <span className={styles.profileMetricDivider}>·</span>
                     <span className={styles.profileMetric}>

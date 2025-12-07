@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Row, Col, Card, Button } from 'react-bootstrap';
+import { Card, Button } from 'react-bootstrap';
 import { FaCalendar, FaStar, FaMapMarkerAlt, FaDollarSign } from 'react-icons/fa';
 import { getDashboardData } from '../../utilities/dashboard-api';
 import { getUser } from '../../utilities/users-service';
@@ -176,82 +176,85 @@ export default function Dashboard() {
         />
       </div>
 
-      <Container fluid>
-        <Row>
-          {/* Desktop sidebar navigation */}
-          <Col
-            lg={2}
-            className={`${styles.dashboardSidebar} ${styles.dashboardSidebarMobileHidden}`}
-          >
-            <ViewNav
-              items={navItems}
-              activeKey={activeTab}
-              onSelect={setActiveTab}
-            />
-          </Col>
+      {/* CSS Grid Layout - Sidebar + Main Content */}
+      <div className={styles.dashboardLayout}>
+        {/* Desktop sidebar navigation */}
+        <aside className={styles.dashboardSidebar}>
+          <ViewNav
+            items={navItems}
+            activeKey={activeTab}
+            onSelect={setActiveTab}
+          />
+        </aside>
 
-          <Col
-            lg={10}
-            className={`${styles.dashboardMain} ${styles.dashboardMainMobilePadding}`}
-          >
-            {activeTab === 'overview' && (
-              <>
-                <div className={styles.welcomeSection}>
-                  <Heading level={1} className={styles.welcomeTitle}>
-                    Welcome back, {user?.name?.split(' ')[0] || 'Traveler'}! 👋
-                  </Heading>
-                  <Text className={styles.welcomeSubtitle}>
-                    Here's what's happening with your travel plans
-                  </Text>
+        {/* Main content area */}
+        <main className={styles.dashboardMain}>
+          {activeTab === 'overview' && (
+            <>
+              <div className={styles.welcomeSection}>
+                <Heading level={1} className={styles.welcomeTitle}>
+                  Welcome back, {user?.name?.split(' ')[0] || 'Traveler'}!
+                </Heading>
+                <Text className={styles.welcomeSubtitle}>
+                  Here's what's happening with your travel plans
+                </Text>
+              </div>
+
+              {/* Stats Grid - 4 equal columns */}
+              <div className={styles.statsGrid}>
+                <ActivePlansCard stats={dashboardData.stats} loading={loading} />
+                <StatsCard
+                  label={experiencesValue === 1 ? 'Experience' : 'Experiences'}
+                  value={experiencesValue}
+                  color="var(--color-success)"
+                  icon={<FaStar />}
+                />
+                <StatsCard
+                  label={destinationsValue === 1 ? 'Destination' : 'Destinations'}
+                  value={destinationsValue}
+                  color="var(--color-warning)"
+                  icon={<FaMapMarkerAlt />}
+                />
+                <StatsCard
+                  label="Estimated Cost"
+                  value={`$${Number(totalSpentValue).toLocaleString()}`}
+                  color="var(--color-info)"
+                  icon={<FaDollarSign />}
+                />
+              </div>
+
+              {/* Main content grid - Activity + Side column */}
+              <div className={styles.mainContentGrid}>
+                <div className={styles.activityColumn}>
+                  <ActivityList initialActivities={recentActivity} />
                 </div>
 
-                <Row className={styles.statsRow}>
-                  <ActivePlansCard stats={dashboardData.stats} loading={loading} />
-                  {[
-                    { label: 'Experiences', value: experiencesValue, color: 'var(--color-success)', icon: <FaStar /> },
-                    { label: 'Destinations', value: destinationsValue, color: 'var(--color-warning)', icon: <FaMapMarkerAlt /> },
-                    { label: 'Estimated Cost', value: `$${Number(totalSpentValue).toLocaleString()}`, color: 'var(--color-info)', icon: <FaDollarSign /> },
-                  ].map((stat) => (
-                    <StatsCard key={stat.label} label={stat.label} value={stat.value} color={stat.color} icon={stat.icon} />
-                  ))}
-                </Row>
+                <div className={styles.sideColumn}>
+                  <div className={styles.quickActionsWrapper} ref={quickActionsRef}>
+                    <QuickActions />
+                  </div>
 
-                <Row className={styles.mainContentRow}>
-                  <Col lg={8} className={styles.activityColumn}>
-                    <ActivityList initialActivities={recentActivity} />
-                  </Col>
-
-                  <Col lg={4} className={styles.sideColumn}>
-                    <div className={styles.quickActionsWrapper} ref={quickActionsRef}>
-                      <QuickActions />
-                    </div>
-
-                    <div className={styles.upcomingPlansWrapper} ref={upcomingPlansRef}>
-                      <UpcomingPlans plans={upcomingPlans} />
-                    </div>
-                  </Col>
-                </Row>
-              </>
-            )}
-
-            {/* My Experiences removed from dashboard per request */}
-
-            {activeTab === 'plans' && (
-              <div className={styles.tabContentFlex}>
-                <MyPlans />
+                  <div className={styles.upcomingPlansWrapper} ref={upcomingPlansRef}>
+                    <UpcomingPlans plans={upcomingPlans} />
+                  </div>
+                </div>
               </div>
-            )}
+            </>
+          )}
 
-            {/* Favorites tab removed per design — no rendering block */}
+          {activeTab === 'plans' && (
+            <div className={styles.tabContentFlex}>
+              <MyPlans />
+            </div>
+          )}
 
-            {activeTab === 'preferences' && (
-              <div className={styles.tabContentFlex}>
-                <Preferences />
-              </div>
-            )}
-          </Col>
-        </Row>
-      </Container>
+          {activeTab === 'preferences' && (
+            <div className={styles.tabContentFlex}>
+              <Preferences />
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
@@ -259,60 +262,101 @@ export default function Dashboard() {
 function DashboardSkeleton() {
   return (
     <div className={styles.dashboardContainer}>
-      <Container fluid>
-        <Row>
-          <Col lg={2} className={styles.skeletonSidebar}>
-            <SkeletonLoader variant="text" width="120px" className={styles.skeletonSidebarTitle} />
-            <div className={styles.skeletonNavItems}>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <SkeletonLoader key={i} variant="text" width="100%" height="20px" />
-              ))}
+      {/* CSS Grid Layout - matches real dashboard */}
+      <div className={styles.skeletonLayout}>
+        {/* Sidebar skeleton */}
+        <aside className={styles.skeletonSidebar}>
+          <SkeletonLoader variant="text" width="120px" height={24} className={styles.skeletonSidebarTitle} />
+          <div className={styles.skeletonNavItems}>
+            {/* 3 nav items to match actual navigation */}
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SkeletonLoader key={i} variant="rectangle" width="100%" height={40} />
+            ))}
+          </div>
+        </aside>
+
+        {/* Main content skeleton */}
+        <main className={styles.skeletonMain}>
+          {/* Welcome section skeleton */}
+          <div className={styles.skeletonWelcome}>
+            <SkeletonLoader variant="text" width="320px" height={36} className={styles.skeletonWelcomeTitle} />
+            <SkeletonLoader variant="text" width="280px" height={20} className={styles.skeletonWelcomeSubtitle} />
+          </div>
+
+          {/* Stats grid skeleton - 4 cards matching actual layout */}
+          <div className={styles.skeletonStatsGrid}>
+            {/* ActivePlansCard skeleton - taller due to breakdown */}
+            <div className={styles.skeletonActivePlansCard}>
+              <div className={styles.skeletonActivePlansContent}>
+                <SkeletonLoader variant="text" width="48px" height={36} />
+                <SkeletonLoader variant="text" width="100px" height={16} />
+                <div className={styles.skeletonActivePlansBreakdown}>
+                  <SkeletonLoader variant="text" width="80px" height={14} />
+                  <SkeletonLoader variant="text" width="70px" height={14} />
+                </div>
+              </div>
+              <SkeletonLoader variant="rectangle" className={styles.skeletonStatIcon} />
             </div>
-          </Col>
 
-          <Col lg={10} className={styles.skeletonMain}>
-            <Row className={styles.skeletonWelcomeRow}>
-              <Col lg={8}>
-                <SkeletonLoader variant="text" width="60%" height={36} />
-                <SkeletonLoader variant="text" width="40%" height={20} className={styles.skeletonWelcomeTitle} />
-              </Col>
-            </Row>
+            {/* 3 StatsCard skeletons */}
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className={styles.skeletonStatCard}>
+                <div className={styles.skeletonStatContent}>
+                  <SkeletonLoader variant="text" width="48px" height={36} />
+                  <SkeletonLoader variant="text" width="90px" height={16} />
+                </div>
+                <SkeletonLoader variant="rectangle" className={styles.skeletonStatIcon} />
+              </div>
+            ))}
+          </div>
 
-            <Row>
-              <Col lg={8}>
-                <Card className={styles.skeletonCard}>
-                  <SkeletonLoader variant="text" width="150px" height={24} className={styles.skeletonCardTitle} />
-                  <div className={styles.skeletonStatsGrid}>
-                    <SkeletonLoader variant="rectangle" height={80} width="100%" />
-                    <SkeletonLoader variant="rectangle" height={80} width="100%" />
-                    <SkeletonLoader variant="rectangle" height={80} width="100%" />
+          {/* Main content grid skeleton */}
+          <div className={styles.skeletonContentGrid}>
+            {/* Activity card skeleton */}
+            <div className={styles.skeletonActivityCard}>
+              <SkeletonLoader variant="text" width="140px" height={24} className={styles.skeletonActivityTitle} />
+              <div className={styles.skeletonActivityList}>
+                {/* 4 activity items to match typical list */}
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className={styles.skeletonActivityItem}>
+                    <div className={styles.skeletonActivityItemContent}>
+                      <SkeletonLoader variant="text" width="70%" height={16} />
+                      <SkeletonLoader variant="text" width="100px" height={14} />
+                    </div>
+                    <SkeletonLoader variant="rectangle" width={60} height={32} />
                   </div>
-                </Card>
-              </Col>
+                ))}
+              </div>
+            </div>
 
-              <Col lg={4}>
-                <Card className={styles.skeletonCard}>
-                  <SkeletonLoader variant="text" width="120px" height={24} className={styles.skeletonCardTitle} />
-                  <div className={styles.skeletonNavList}>
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <SkeletonLoader key={i} variant="rectangle" height="40px" />
-                    ))}
-                  </div>
-                </Card>
+            {/* Side column skeleton */}
+            <div className={styles.skeletonSideColumn}>
+              {/* Quick actions skeleton */}
+              <div className={styles.skeletonQuickActionsCard}>
+                <SkeletonLoader variant="text" width="120px" height={24} className={styles.skeletonQuickActionsTitle} />
+                <div className={styles.skeletonQuickActionsList}>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <SkeletonLoader key={i} variant="rectangle" width="100%" className={styles.skeletonQuickActionBtn} />
+                  ))}
+                </div>
+              </div>
 
-                <Card className={styles.skeletonCard}>
-                  <SkeletonLoader variant="text" width="130px" height={24} className={styles.skeletonCardTitle} />
-                  <div className={styles.skeletonUpcomingList}>
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <SkeletonLoader key={i} variant="rectangle" height="50px" />
-                    ))}
-                  </div>
-                </Card>
-              </Col>
-            </Row>
-          </Col>
-        </Row>
-      </Container>
+              {/* Upcoming plans skeleton */}
+              <div className={styles.skeletonUpcomingCard}>
+                <SkeletonLoader variant="text" width="130px" height={24} className={styles.skeletonUpcomingTitle} />
+                <div className={styles.skeletonUpcomingList}>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className={styles.skeletonUpcomingItem}>
+                      <SkeletonLoader variant="text" width="80%" height={16} />
+                      <SkeletonLoader variant="text" width="100px" height={14} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

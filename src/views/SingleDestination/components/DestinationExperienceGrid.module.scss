@@ -14,11 +14,11 @@
 .sectionTitle {
   display: flex;
   align-items: center;
-  gap: $space-3;
-  font-size: clamp(var(--font-size-lg), 3vw, var(--font-size-xl));
-  font-weight: var(--font-weight-semibold);
+  gap: var(--space-3);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  margin-bottom: $space-5;
+  margin-bottom: var(--space-4);
 
   @include breakpoint-max(md) {
     justify-content: center;

@@ -5,7 +5,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useRef } from 'react';
-import { FaCalendarAlt } from 'react-icons/fa';
+import { FaCalendarAlt, FaPencilAlt, FaTrash, FaShareAlt } from 'react-icons/fa';
 import { FadeIn } from '../../../components/design-system';
 import Loading from '../../../components/Loading/Loading';
 import { isOwner } from '../../../utilities/permissions';
@@ -48,7 +48,13 @@ export default function ActionButtonsRow({
   lang,
 
   // Layout variant: "default" | "sidebar"
-  variant = "default"
+  variant = "default",
+
+  // Active tab: "experience" | "myplan" - when "myplan", hide planned date in sidebar
+  activeTab = "experience",
+
+  // Share handler
+  onShare
 }) {
   const navigate = useNavigate();
 
@@ -101,8 +107,8 @@ export default function ActionButtonsRow({
           </button>
         </FadeIn>
 
-        {/* Planned Date Badge */}
-        {selectedPlan?.planned_date && (
+        {/* Planned Date Badge - Only shown when My Plan tab is active (hidden on The Plan/experience tab) */}
+        {selectedPlan?.planned_date && activeTab === "myplan" && (
           <FadeIn>
             <div className="d-flex justify-content-center">
               <div
@@ -131,8 +137,8 @@ export default function ActionButtonsRow({
 
         {/* Secondary Actions Row */}
         <div className={styles.sidebarSecondaryRow}>
-          {/* Edit Date Button - Only shown if user owns the selected plan */}
-          {userOwnsSelectedPlan && (
+          {/* Edit Date Button - Only shown if user owns the selected plan and on My Plan tab */}
+          {userOwnsSelectedPlan && activeTab === "myplan" && (
             <FadeIn>
               <button
                 className={styles.secondaryButton}
@@ -157,7 +163,21 @@ export default function ActionButtonsRow({
                       : "Click to add planned date")
                 }
               >
-                📅 Edit Date
+                <FaCalendarAlt /> Edit Date
+              </button>
+            </FadeIn>
+          )}
+
+          {/* Share Button */}
+          {onShare && (
+            <FadeIn>
+              <button
+                className={styles.shareButton}
+                onClick={onShare}
+                aria-label={lang.current.button.share}
+                title={lang.current.button.share}
+              >
+                <FaShareAlt />
               </button>
             </FadeIn>
           )}
@@ -172,7 +192,7 @@ export default function ActionButtonsRow({
                   aria-label={lang.current.button.updateExperience}
                   title={lang.current.button.updateExperience}
                 >
-                  ✏️
+                  <FaPencilAlt />
                 </button>
               </FadeIn>
               <FadeIn>
@@ -182,7 +202,7 @@ export default function ActionButtonsRow({
                   aria-label={lang.current.button.delete}
                   title={lang.current.button.delete}
                 >
-                  🗑️
+                  <FaTrash />
                 </button>
               </FadeIn>
             </>
@@ -224,8 +244,8 @@ export default function ActionButtonsRow({
         </button>
       </FadeIn>
 
-      {/* Planned Date Badge - Between Plan It and action buttons */}
-      {selectedPlan?.planned_date && (
+      {/* Planned Date Badge - Between Plan It and action buttons - Only shown on My Plan tab */}
+      {selectedPlan?.planned_date && activeTab === "myplan" && (
         <FadeIn>
           <div
             className={`${styles.datePickerBadge} ${!userOwnsSelectedPlan ? styles.viewOnly : ''}`}
@@ -250,8 +270,8 @@ export default function ActionButtonsRow({
         </FadeIn>
       )}
 
-      {/* Edit Date Button - Only shown if user owns the selected plan */}
-      {userOwnsSelectedPlan && (
+      {/* Edit Date Button - Only shown if user owns the selected plan and on My Plan tab */}
+      {userOwnsSelectedPlan && activeTab === "myplan" && (
         <FadeIn>
           <button
             className={styles.secondaryButton}
@@ -276,7 +296,21 @@ export default function ActionButtonsRow({
                   : "Click to add planned date")
             }
           >
-            📅
+            <FaCalendarAlt />
+          </button>
+        </FadeIn>
+      )}
+
+      {/* Share Button */}
+      {onShare && (
+        <FadeIn>
+          <button
+            className={styles.shareButton}
+            onClick={onShare}
+            aria-label={lang.current.button.share}
+            title={lang.current.button.share}
+          >
+            <FaShareAlt />
           </button>
         </FadeIn>
       )}
@@ -291,7 +325,7 @@ export default function ActionButtonsRow({
               aria-label={lang.current.button.updateExperience}
               title={lang.current.button.updateExperience}
             >
-              ✏️
+              <FaPencilAlt />
             </button>
           </FadeIn>
           <FadeIn>
@@ -301,7 +335,7 @@ export default function ActionButtonsRow({
               aria-label={lang.current.button.delete}
               title={lang.current.button.delete}
             >
-              🗑️
+              <FaTrash />
             </button>
           </FadeIn>
         </>

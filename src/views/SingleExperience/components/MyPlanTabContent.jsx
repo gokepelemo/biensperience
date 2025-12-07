@@ -8,6 +8,18 @@ import { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsThreeDotsVertical, BsListUl, BsCardList } from 'react-icons/bs';
 import {
+  FaEdit,
+  FaTrash,
+  FaPlus,
+  FaStickyNote,
+  FaClipboardList,
+  FaCalendarAlt,
+  FaDollarSign,
+  FaCheckCircle,
+  FaClock,
+  FaUser
+} from 'react-icons/fa';
+import {
   DndContext,
   closestCenter,
   KeyboardSensor,
@@ -301,7 +313,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                       aria-label={`${lang.current.button.edit} ${planItem.text}`}
                       title={lang.current.tooltip.edit}
                     >
-                      ✏️
+                      <FaEdit />
                     </button>
                     <button
                       className="btn btn-outline-danger btn-sm"
@@ -316,7 +328,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                       aria-label={`${lang.current.button.delete} ${planItem.text}`}
                       title={lang.current.tooltip.delete}
                     >
-                      🗑️
+                      <FaTrash />
                     </button>
                   </>
                 )}
@@ -427,7 +439,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                   handleViewPlanItemDetails(planItem, 'notes');
                 }}
               >
-                📝 {planItem.details.notes.length}
+                <FaStickyNote /> {planItem.details.notes.length}
               </span>
             )}
 
@@ -441,7 +453,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
             type="button"
             title="View notes, assignments, and other details"
           >
-            📋 Details
+            <FaClipboardList /> {lang.current.label.details}
           </button>
         </div>
       </div>
@@ -579,22 +591,22 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
       <span className="compact-item-meta">
         {Number(planItem.cost) > 0 && (
           <span className="compact-meta-cost" title={`Cost estimate: $${planItem.cost}`}>
-            💰
+            <FaDollarSign />
           </span>
         )}
         {Number(planItem.planning_days) > 0 && (
           <span className="compact-meta-days" title={`${planItem.planning_days} ${planItem.planning_days === 1 ? 'day' : 'days'}`}>
-            ⏱️
+            <FaClock />
           </span>
         )}
         {planItem.details?.notes?.length > 0 && (
           <span className="compact-meta-notes" title={`${planItem.details.notes.length} ${planItem.details.notes.length === 1 ? 'note' : 'notes'}`}>
-            📝 {planItem.details.notes.length}
+            <FaStickyNote /> {planItem.details.notes.length}
           </span>
         )}
         {planItem.assignedTo && (
           <span className="compact-meta-assigned" title="Assigned">
-            👤
+            <FaUser />
           </span>
         )}
       </span>
@@ -621,7 +633,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
                   setShowActionsMenu(false);
                 }}
               >
-                ✏️ {lang.current.tooltip.edit}
+                <FaEdit /> {lang.current.tooltip.edit}
               </button>
               <button
                 className="compact-actions-item"
@@ -630,7 +642,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
                   setShowActionsMenu(false);
                 }}
               >
-                ➕ {lang.current.button?.addChildItem || 'Add Child Item'}
+                <FaPlus /> {lang.current.button?.addChildItem || 'Add Child Item'}
               </button>
               <button
                 className="compact-actions-item compact-actions-item-danger"
@@ -640,7 +652,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
                   setShowActionsMenu(false);
                 }}
               >
-                🗑️ {lang.current.tooltip.delete}
+                <FaTrash /> {lang.current.tooltip.delete}
               </button>
             </div>
           )}
@@ -1026,7 +1038,7 @@ export default function MyPlanTabContent({
       title: lang.current.label.plannedDate,
       type: 'date',
       value: currentPlan.planned_date,
-      icon: '📅',
+      icon: <FaCalendarAlt />,
       // Tooltip shows full date when truncated
       tooltip: currentPlan.planned_date ? formatDateMetricCard(currentPlan.planned_date) : null,
       onClick: !currentPlan.planned_date ? () => {
@@ -1044,16 +1056,16 @@ export default function MyPlanTabContent({
       title: (lang?.current?.label?.estimatedCost || 'Estimated Cost').replace(':', ''),
       type: 'cost',
       value: currentPlan.total_cost || 0,
-      icon: '💰',
+      icon: <FaDollarSign />,
       // Tooltip always shows the actual cost estimate value with prefix
-      tooltip: `${lang.current.label.actualCostEstimate} $${(currentPlan.total_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      tooltip: `${lang.current.label.estimatedCost}: $${(currentPlan.total_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     },
     {
       id: 'completion',
       title: lang.current.label.completion,
       type: 'completion',
       value: currentPlan.completion_percentage || 0,
-      icon: '✅',
+      icon: <FaCheckCircle />,
       color: (currentPlan.completion_percentage || 0) >= 100 ? 'success' :
              (currentPlan.completion_percentage || 0) >= 50 ? 'primary' : 'default'
     },
@@ -1062,7 +1074,7 @@ export default function MyPlanTabContent({
       title: lang.current.label.planningTime,
       type: 'days',
       value: currentPlan.max_planning_days > 0 ? currentPlan.max_planning_days : null,
-      icon: '⏱️',
+      icon: <FaClock />,
       // Tooltip shows full planning time when truncated
       tooltip: currentPlan.max_planning_days > 0 ? formatPlanningTime(currentPlan.max_planning_days) : null
     }
@@ -1320,6 +1332,8 @@ export default function MyPlanTabContent({
         costSummary={costSummary}
         collaborators={planOwner ? [planOwner, ...(planCollaborators || [])] : planCollaborators || []}
         planItems={currentPlan.plan || []}
+        currency={currentPlan?.currency || 'USD'}
+        displayCurrency={user?.preferences?.currency}
         canEdit={canEdit}
         onAddCost={onAddCost}
         onUpdateCost={onUpdateCost}

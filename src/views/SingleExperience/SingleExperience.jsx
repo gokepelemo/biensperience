@@ -91,6 +91,7 @@ import {
   deletePlanItemNote,
   assignPlanItem,
   unassignPlanItem,
+  addPlanItemDetail,
 } from "../../utilities/plans-api";
 import { reconcileState, generateOptimisticId } from "../../utilities/event-bus";
 import { searchUsers } from "../../utilities/search-api";
@@ -1764,6 +1765,76 @@ export default function SingleExperience() {
     }
   }, [selectedPlanId, inlineCostPlanItem, addCost, success, showError]);
 
+  // Handler to add any type of detail to a plan item (from AddPlanItemDetailModal)
+  const handleAddDetail = useCallback(async (payload) => {
+    const { type, planItemId, planId: payloadPlanId, data, document } = payload;
+    const planIdToUse = payloadPlanId || selectedPlanId;
+
+    if (!planIdToUse || !planItemId) {
+      showError('Missing plan or item information');
+      return;
+    }
+
+    logger.info('[SingleExperience] Adding plan item detail', { type, planItemId, planId: planIdToUse });
+
+    try {
+      // For cost type, use the existing cost handler for backward compatibility
+      if (type === 'cost') {
+        const costData = {
+          ...data,
+          plan_item: planItemId
+        };
+        await addCost(planIdToUse, costData);
+        success(lang.current.notification?.cost?.added || 'Cost added successfully');
+        return;
+      }
+
+      // For other detail types, use the new addPlanItemDetail API
+      const detailData = {
+        type,
+        data,
+        document
+      };
+
+      const result = await addPlanItemDetail(planIdToUse, planItemId, detailData);
+
+      // Update the shared plans state if result includes updated plan
+      if (result?.plan) {
+        setSharedPlans(prevPlans =>
+          prevPlans.map(p => idEquals(p._id, planIdToUse) ? result.plan : p)
+        );
+      }
+
+      // Update selected details item to reflect the new detail
+      if (selectedDetailsItem && idEquals(selectedDetailsItem._id, planItemId) && result?.item) {
+        setSelectedDetailsItem(result.item);
+      }
+
+      // Show success message based on type
+      const typeLabels = {
+        flight: 'Flight details',
+        train: 'Train reservation',
+        cruise: 'Cruise reservation',
+        ferry: 'Ferry reservation',
+        bus: 'Bus reservation',
+        hotel: 'Hotel reservation',
+        parking: 'Parking details',
+        discount: 'Discount'
+      };
+      const label = typeLabels[type] || 'Detail';
+      success(`${label} added successfully`);
+
+    } catch (error) {
+      logger.error('[SingleExperience] Failed to add plan item detail', {
+        type,
+        planItemId,
+        error: error.message
+      });
+      showError(error.message || 'Failed to add detail');
+      throw error; // Re-throw to let modal handle error state
+    }
+  }, [selectedPlanId, addCost, idEquals, selectedDetailsItem, setSharedPlans, success, showError]);
+
   // Note CRUD handlers for Details modal
   const handleAddNoteToItem = useCallback(async (content) => {
     if (!selectedPlanId || !selectedDetailsItem?._id || !content.trim()) return;
@@ -2095,6 +2166,8 @@ export default function SingleExperience() {
   );
 
   // Auto-select first plan when plans load (if no hash navigation)
+  // NOTE: This only pre-selects a plan for the dropdown, it does NOT switch tabs.
+  // The experience tab ("The Plan") remains the default. Only hash navigation switches to "myplan" tab.
   useEffect(() => {
     // Only auto-select if:
     // 1. Plans have loaded
@@ -2111,16 +2184,18 @@ export default function SingleExperience() {
       }
 
       // Auto-select the first plan (user's own plan is always first due to sorting)
+      // This pre-selects a plan for the dropdown but does NOT switch to the My Plan tab
       const firstPlan = sharedPlans[0];
       const firstPlanId = firstPlan._id && firstPlan._id.toString ? firstPlan._id.toString() : firstPlan._id;
 
-      debug.log('[Auto-select] Auto-selecting first plan and switching to My Plan tab:', {
+      debug.log('[Auto-select] Auto-selecting first plan (staying on Experience tab):', {
         planId: firstPlanId,
         isOwnPlan: idEquals(firstPlan.user?._id || firstPlan.user, user._id)
       });
 
       setSelectedPlanId(firstPlanId);
-      setActiveTab('myplan'); // Switch to My Plan tab when auto-selecting
+      // Do NOT switch to myplan tab - stay on experience tab
+      // Only hash navigation (#plan-xxx) should trigger tab switch
       handlePlanChange(firstPlanId);
     }
   }, [plansLoading, sharedPlans, selectedPlanId, intent, user._id, idEquals, handlePlanChange]);
@@ -2144,6 +2219,54 @@ export default function SingleExperience() {
     // Don't hide badge yet - wait for user to confirm deletion
     setShowRemoveModal(true);
   }, [experience, user, userHasExperience]);
+
+  // Share experience handler - uses Web Share API with clipboard fallback
+  const handleShareExperience = useCallback(() => {
+    if (!experience) return;
+    const shareUrl = window.location.href;
+    const shareTitle = experience.name || 'Experience';
+
+    if (navigator.share) {
+      navigator.share({
+        title: shareTitle,
+        url: shareUrl
+      }).catch(() => {
+        // User cancelled or share failed - silently ignore
+      });
+    } else {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        success(lang.current.notification?.share?.copied || 'Link copied to clipboard');
+      }).catch(() => {
+        showError(lang.current.notification?.share?.failed || 'Failed to copy link');
+      });
+    }
+  }, [experience, success, showError]);
+
+  // Share plan item handler - creates deep link to specific plan item
+  const handleSharePlanItem = useCallback((planItem) => {
+    if (!planItem || !selectedPlan || !experienceId) return;
+
+    // Build deep link URL: /experiences/:id#plan-{planId}-item-{itemId}
+    const baseUrl = `${window.location.origin}/experiences/${experienceId}`;
+    const hash = `#plan-${selectedPlan._id}-item-${planItem._id}`;
+    const shareUrl = baseUrl + hash;
+    const shareTitle = planItem.text || 'Plan Item';
+
+    if (navigator.share) {
+      navigator.share({
+        title: shareTitle,
+        url: shareUrl
+      }).catch(() => {
+        // User cancelled or share failed - silently ignore
+      });
+    } else {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        success(lang.current.notification?.share?.copied || 'Link copied to clipboard');
+      }).catch(() => {
+        showError(lang.current.notification?.share?.failed || 'Failed to copy link');
+      });
+    }
+  }, [selectedPlan, experienceId, success, showError]);
 
   // Measure the maximum width needed for the plan/unplan button based on the longest label
   useEffect(() => {
@@ -3114,6 +3237,8 @@ export default function SingleExperience() {
                           setPlannedDate={setPlannedDate}
                           lang={lang}
                           variant="sidebar"
+                          activeTab={activeTab}
+                          onShare={handleShareExperience}
                         />
                       </div>
                   </div>
@@ -3567,6 +3692,7 @@ export default function SingleExperience() {
           }
         }}
         canEdit={selectedPlan ? canEditPlan(user, selectedPlan) : false}
+        displayCurrency={user?.preferences?.currency}
         onToggleComplete={async (planItem) => {
           if (!selectedPlan || !planItem) return;
 
@@ -3586,6 +3712,8 @@ export default function SingleExperience() {
           attemptScrollToItem(itemId, { shouldHighlight: true, anticipationDelay: 0 });
         }}
         onAddCostForItem={handleAddCostForItem}
+        onAddDetail={handleAddDetail}
+        onShare={handleSharePlanItem}
       />
 
       {/* Inline Cost Entry Modal - for adding costs from plan item details */}

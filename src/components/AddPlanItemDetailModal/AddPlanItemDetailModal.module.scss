@@ -1,0 +1,782 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* AddPlanItemDetailModal - Multi-step modal for adding plan item details */
+
+.addDetailModal {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  padding: $space-4 0;
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* Custom scrollbar styling */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-sm);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border-medium);
+    border-radius: var(--radius-sm);
+
+    &:hover {
+      background: var(--color-border-dark);
+    }
+  }
+
+  /* Firefox scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-medium) var(--color-bg-secondary);
+
+  @media (max-width: 768px) {
+    max-height: 65vh;
+  }
+}
+
+/* Step Indicator */
+.stepIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: $space-2 $space-4;
+  margin-bottom: $space-4;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-1;
+  opacity: 0.5;
+  @include transition-all($transition-fast);
+
+  &.active {
+    opacity: 1;
+  }
+
+  &.completed {
+    opacity: 1;
+
+    .stepNumber {
+      background: var(--color-success, #22c55e);
+      color: white;
+    }
+  }
+}
+
+.stepNumber {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-muted);
+  @include transition-all($transition-fast);
+
+  .active & {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: white;
+  }
+}
+
+.stepLabel {
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+
+  .active & {
+    color: var(--color-text-primary);
+    font-weight: $font-weight-medium;
+  }
+}
+
+.stepConnector {
+  width: 60px;
+  height: 2px;
+  background: var(--color-border-light);
+  margin: 0 $space-2;
+
+  @media (max-width: 768px) {
+    width: 30px;
+  }
+}
+
+/* Step Content */
+.stepContent {
+  padding: 0 $space-4;
+
+  @media (max-width: 768px) {
+    padding: 0 $space-2;
+  }
+}
+
+/* Error Message */
+.errorMessage {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  padding: $space-3;
+  border-radius: var(--radius-md);
+  margin: 0 $space-4;
+  font-size: $font-size-sm;
+  border: 1px solid var(--color-danger);
+}
+
+/* Footer Buttons */
+.footerButtons {
+  display: flex;
+  justify-content: space-between;
+  gap: $space-3;
+  width: 100%;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+}
+
+.backButton {
+  @include button-base;
+  padding: $space-2 $space-4;
+  background: transparent;
+  border: 1px solid var(--color-border-medium);
+  color: var(--color-text-secondary);
+  font-size: $font-size-sm;
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-dark);
+  }
+}
+
+.skipButton {
+  @include button-base;
+  padding: $space-2 $space-4;
+  background: transparent;
+  border: 1px solid var(--color-border-medium);
+  color: var(--color-text-secondary);
+  font-size: $font-size-sm;
+  margin-left: auto;
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-hover);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  @media (max-width: 768px) {
+    margin-left: 0;
+  }
+}
+
+.nextButton,
+.saveButton {
+  @include button-base;
+  padding: $space-2 $space-5;
+  background: var(--gradient-primary);
+  border: none;
+  color: white;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+
+  &:hover:not(:disabled) {
+    @include hover-lift;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* ============================================
+   DETAIL TYPE SELECTOR (Step 1)
+   ============================================ */
+
+.typeSelector {
+  padding: $space-2;
+}
+
+.typeSelectorHint {
+  text-align: center;
+  color: var(--color-text-secondary);
+  margin-bottom: $space-5;
+  font-size: $font-size-base;
+}
+
+.typeCategory {
+  margin-bottom: $space-5;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.categoryLabel {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: $space-3;
+  padding-left: $space-2;
+}
+
+.typeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: $space-3;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.typeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: $space-4;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  @include transition-all($transition-fast);
+  text-align: center;
+
+  &:hover {
+    border-color: var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.05);
+    transform: translateY(-2px);
+  }
+
+  &.selected {
+    border-color: var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.1);
+    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.2);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.typeIcon {
+  font-size: 2rem;
+  margin-bottom: $space-2;
+  line-height: 1;
+}
+
+.typeLabel {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin-bottom: $space-1;
+}
+
+.typeDescription {
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+/* ============================================
+   DETAIL ENTRY FORM (Step 2)
+   ============================================ */
+
+.detailEntryForm {
+  padding: $space-2;
+}
+
+.planItemContext {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-3;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  margin-bottom: $space-4;
+  border: 1px solid var(--color-border-light);
+}
+
+.contextLabel {
+  font-size: $font-size-sm;
+  color: var(--color-text-muted);
+}
+
+.contextValue {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+}
+
+.formFields {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+}
+
+.formLabel {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+}
+
+.requiredMark {
+  color: var(--color-danger);
+  margin-left: $space-1;
+}
+
+.formInput,
+.formSelect,
+.formTextarea {
+  @include form-control;
+  width: 100%;
+  padding: $space-2 $space-3;
+  font-size: $font-size-base;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  &:focus {
+    @include focus-ring;
+    border-color: var(--color-primary);
+  }
+}
+
+.formTextarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.formCheckbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  cursor: pointer;
+}
+
+.checkboxText {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+}
+
+/* Currency Input Group */
+.currencyInputGroup {
+  display: flex;
+  gap: $space-2;
+  align-items: stretch;
+}
+
+.currencySelect {
+  @include form-control;
+  width: auto;
+  min-width: 100px;
+  padding: $space-2 $space-3;
+  font-size: $font-size-sm;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+
+  &:focus {
+    @include focus-ring;
+  }
+}
+
+/* Custom Fields Section */
+.customFieldsSection {
+  margin-top: $space-5;
+  padding-top: $space-4;
+  border-top: 1px dashed var(--color-border-light);
+}
+
+.customFieldsHeader {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-3;
+}
+
+.customFieldsLabel {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-secondary);
+}
+
+.infoIcon {
+  color: var(--color-text-muted);
+  cursor: help;
+  font-size: $font-size-sm;
+}
+
+.customFieldRow {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-2;
+}
+
+.customFieldKey {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-secondary);
+  min-width: 100px;
+}
+
+.removeCustomButton {
+  @include button-base;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-border-medium);
+  color: var(--color-text-muted);
+  font-size: $font-size-lg;
+  line-height: 1;
+
+  &:hover {
+    background: var(--color-danger-light);
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+  }
+}
+
+.addCustomFieldForm {
+  display: flex;
+  gap: $space-2;
+  margin-top: $space-2;
+}
+
+.addCustomConfirmButton,
+.addCustomCancelButton {
+  @include button-base;
+  padding: $space-2 $space-3;
+  font-size: $font-size-sm;
+}
+
+.addCustomConfirmButton {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.addCustomCancelButton {
+  background: transparent;
+  border: 1px solid var(--color-border-medium);
+  color: var(--color-text-secondary);
+}
+
+.addCustomFieldButton {
+  @include button-base;
+  width: 100%;
+  padding: $space-2 $space-3;
+  background: transparent;
+  border: 1px dashed var(--color-border-medium);
+  color: var(--color-text-muted);
+  font-size: $font-size-sm;
+  margin-top: $space-2;
+
+  &:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.05);
+  }
+}
+
+/* ============================================
+   DOCUMENT UPLOAD STEP (Step 3)
+   ============================================ */
+
+.documentUploadStep {
+  padding: $space-2;
+}
+
+.aiInfoBox {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  padding: $space-4;
+  margin-bottom: $space-4;
+}
+
+.aiInfoHeader {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-2;
+}
+
+.aiInfoIcon {
+  font-size: $font-size-lg;
+}
+
+.aiInfoTitle {
+  font-weight: $font-weight-semibold;
+  color: var(--color-primary);
+}
+
+.aiInfoHelp {
+  color: var(--color-text-muted);
+  cursor: help;
+  margin-left: auto;
+}
+
+.aiInfoText {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Drop Zone */
+.dropZone {
+  border: 2px dashed var(--color-border-medium);
+  border-radius: var(--radius-xl);
+  padding: $space-8;
+  text-align: center;
+  background: var(--color-bg-secondary);
+  @include transition-all($transition-fast);
+  cursor: pointer;
+
+  &:hover,
+  &.dragActive {
+    border-color: var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.05);
+  }
+
+  &.hasFile {
+    border-style: solid;
+    padding: $space-4;
+  }
+}
+
+.dropZoneIcon {
+  font-size: 3rem;
+  margin-bottom: $space-3;
+}
+
+.dropZoneText {
+  font-size: $font-size-base;
+  color: var(--color-text-secondary);
+  margin-bottom: $space-2;
+}
+
+.browseButton {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-weight: $font-weight-semibold;
+  cursor: pointer;
+  text-decoration: underline;
+
+  &:hover {
+    text-decoration: none;
+  }
+}
+
+.dropZoneHint {
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Selected File */
+.selectedFile {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-2;
+}
+
+.filePreview {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+}
+
+.fileIconLarge {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.fileInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  text-align: left;
+}
+
+.fileName {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+  @include text-ellipsis;
+}
+
+.fileSize {
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+}
+
+.removeFileButton {
+  @include button-base;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-border-medium);
+  color: var(--color-text-muted);
+  font-size: $font-size-xl;
+  line-height: 1;
+  border-radius: 50%;
+
+  &:hover {
+    background: var(--color-danger-light);
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+  }
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.uploadError {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  padding: $space-3;
+  border-radius: var(--radius-md);
+  margin-top: $space-3;
+  font-size: $font-size-sm;
+  border: 1px solid var(--color-danger);
+}
+
+/* Supported Formats */
+.supportedFormats {
+  margin-top: $space-4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-2;
+}
+
+.formatsLabel {
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+}
+
+.formatsList {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: $space-2;
+}
+
+.formatBadge {
+  font-size: $font-size-xs;
+  padding: $space-1 $space-2;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+}
+
+.skipHint {
+  text-align: center;
+  font-size: $font-size-sm;
+  color: var(--color-text-muted);
+  margin-top: $space-4;
+  font-style: italic;
+}
+
+/* ============================================
+   DARK MODE SUPPORT
+   ============================================ */
+@media (prefers-color-scheme: dark) {
+  .typeCard {
+    background: var(--color-bg-tertiary);
+
+    &:hover {
+      background: rgba(var(--color-primary-rgb), 0.15);
+    }
+
+    &.selected {
+      background: rgba(var(--color-primary-rgb), 0.2);
+    }
+  }
+
+  .dropZone {
+    background: var(--color-bg-tertiary);
+
+    &:hover,
+    &.dragActive {
+      background: rgba(var(--color-primary-rgb), 0.1);
+    }
+  }
+
+  .aiInfoBox {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+  }
+}
+
+/* ============================================
+   REDUCED MOTION SUPPORT
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .typeCard,
+  .stepNumber,
+  .dropZone {
+    transition: none;
+  }
+
+  .typeCard:hover {
+    transform: none;
+  }
+}

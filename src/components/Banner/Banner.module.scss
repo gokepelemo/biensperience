@@ -451,16 +451,39 @@
     padding: $space-4 $space-6;
   }
 
+  .bannerContent {
+    flex-wrap: wrap;
+    gap: $space-2;
+  }
+
+  .bannerIcon {
+    flex-shrink: 0;
+  }
+
   .bannerText {
-    flex: 1;
+    // Take full width minus icon, forcing button to wrap below
+    flex: 1 1 calc(100% - 3rem);
+    min-width: 0;
   }
 
   .bannerActions {
-    flex-shrink: 1;
+    // Button goes to new row, centered
+    flex: 0 0 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: $space-1;
   }
 
   .bannerButton {
     font-size: $font-size-xs;
     padding: $space-1 $space-3;
+  }
+
+  // When there's a dismiss button, adjust layout
+  .bannerClose {
+    // Position dismiss button at top right
+    position: absolute;
+    top: $space-2;
+    right: $space-2;
   }
 }

@@ -300,33 +300,6 @@
   }
 }
 
-/* Curator Badge */
-.curatorBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: $space-2;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%);
-  color: white;
-  padding: $space-2 $space-3;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: $font-weight-semibold;
-  margin-bottom: $space-3;
-  text-decoration: none;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-    color: white;
-    text-decoration: none;
-  }
-
-  svg {
-    flex-shrink: 0;
-  }
-}
-
 /* Content Card - For Overview and Plan Items */
 .contentCard {
   background: var(--color-bg-primary);
@@ -492,39 +465,6 @@
     align-items: center;
     justify-content: center;
     gap: $space-2;
-  }
-}
-
-/* Plan Items List - Checklist Style */
-.planItemsList {
-  display: flex;
-  flex-direction: column;
-  gap: $space-4;
-}
-
-.planItemChecklist {
-  display: flex;
-  gap: $space-3;
-  padding: $space-4;
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-md);
-  @include transition-all($transition-fast);
-
-  &:hover {
-    background: var(--color-bg-tertiary);
-    transform: translateY(-2px);
-  }
-
-  .checkIcon {
-    color: var(--color-success);
-    margin-top: 2px;
-    flex-shrink: 0;
-    font-size: var(--font-size-lg);
-  }
-
-  .itemText {
-    color: var(--color-text-primary);
-    flex: 1;
   }
 }
 
@@ -694,30 +634,6 @@
 
 :global(.grey) {
   color: var(--color-single-experience-secondary);
-}
-
-/* Cost estimate dollar signs - CSS Module versions */
-.green {
-  color: var(--color-success);
-  font-weight: $font-weight-bold;
-}
-
-.grey {
-  color: var(--color-text-muted);
-  font-weight: $font-weight-bold;
-}
-
-/* Experience header grid for cost estimate and planning time */
-.experienceHeaderGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $space-4;
-  align-items: center;
-  justify-content: center;
-
-  @include breakpoint(md) {
-    justify-content: flex-start;
-  }
 }
 
 /* Smooth collapse animation for child plan items */

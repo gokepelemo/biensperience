@@ -25,6 +25,7 @@ import Loading from "../../components/Loading/Loading";
 import { toggleUserFavoriteDestination, deleteDestination } from "../../utilities/destinations-api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage, FaLightbulb, FaCamera, FaHome } from "react-icons/fa";
+import MetricsBar from "../../components/MetricsBar/MetricsBar";
 import { Row, Col, Card, Breadcrumb } from "react-bootstrap";
 import { getDefaultPhoto } from "../../utilities/photo-utils";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
@@ -641,57 +642,50 @@ export default function SingleDestination() {
             </button>
           </div>
 
-          {/* Stats Bar */}
-          <div className={styles.statsBar}>
-            <button
-              type="button"
-              className={`${styles.statItem} ${styles.statItemClickable}`}
-              onClick={() => {
-                const el = document.getElementById('experiences-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
-              aria-label={`View ${experienceCount} ${experienceCount === 1 ? 'experience' : 'experiences'}`}
-            >
-              <FaPlane className={styles.statIcon} />
-              <span className={styles.statValue}>{experienceCount}</span>
-              <span className={styles.statLabel}>{experienceCount === 1 ? 'Experience' : 'Experiences'}</span>
-            </button>
-            <div className={styles.statItem}>
-              <FaHeart className={styles.statIcon} />
-              <span className={styles.statValue}>{favoriteCount}</span>
-              <span className={styles.statLabel}>{favoriteCount === 1 ? 'Favorite' : 'Favorites'}</span>
-            </div>
-            {destination.travel_tips?.length > 0 && (
-              <button
-                type="button"
-                className={`${styles.statItem} ${styles.statItemClickable}`}
-                onClick={() => {
+          {/* Stats Bar - Using MetricsBar compact for mobile alignment */}
+          <MetricsBar
+            compact
+            bordered={false}
+            className={styles.statsBar}
+            metrics={[
+              {
+                id: 'experiences',
+                title: experienceCount === 1 ? 'Experience' : 'Experiences',
+                value: experienceCount,
+                icon: <FaPlane />,
+                onClick: () => {
+                  const el = document.getElementById('experiences-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              },
+              {
+                id: 'favorites',
+                title: favoriteCount === 1 ? 'Favorite' : 'Favorites',
+                value: favoriteCount,
+                icon: <FaHeart />
+              },
+              ...(destination.travel_tips?.length > 0 ? [{
+                id: 'travel-tips',
+                title: destination.travel_tips.length === 1 ? 'Travel Tip' : 'Travel Tips',
+                value: destination.travel_tips.length,
+                icon: <FaLightbulb />,
+                onClick: () => {
                   const el = document.getElementById('travel-tips-section');
                   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
-                aria-label={`View ${destination.travel_tips.length} ${destination.travel_tips.length === 1 ? 'travel tip' : 'travel tips'}`}
-              >
-                <FaLightbulb className={styles.statIcon} />
-                <span className={styles.statValue}>{destination.travel_tips.length}</span>
-                <span className={styles.statLabel}>{destination.travel_tips.length === 1 ? 'Travel Tip' : 'Travel Tips'}</span>
-              </button>
-            )}
-            {heroPhotos.length > 0 && (
-              <button
-                type="button"
-                className={`${styles.statItem} ${styles.statItemClickable}`}
-                onClick={() => {
+                }
+              }] : []),
+              ...(heroPhotos.length > 0 ? [{
+                id: 'photos',
+                title: heroPhotos.length === 1 ? 'Photo' : 'Photos',
+                value: heroPhotos.length,
+                icon: <FaCamera />,
+                onClick: () => {
                   setPhotoViewerIndex(0);
                   setShowPhotoViewer(true);
-                }}
-                aria-label={`View ${heroPhotos.length} ${heroPhotos.length === 1 ? 'photo' : 'photos'}`}
-              >
-                <FaCamera className={styles.statIcon} />
-                <span className={styles.statValue}>{heroPhotos.length}</span>
-                <span className={styles.statLabel}>{heroPhotos.length === 1 ? 'Photo' : 'Photos'}</span>
-              </button>
-            )}
-          </div>
+                }
+              }] : [])
+            ]}
+          />
 
           {/* Content Grid */}
           <Row>

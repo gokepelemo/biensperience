@@ -4,7 +4,7 @@ import {
   FaLanguage, FaMoneyBillWave, FaBus, FaShieldAlt,
   FaCloudSun, FaHandshake, FaUtensils, FaHotel,
   FaExclamationTriangle, FaThumbtack, FaLightbulb,
-  FaExternalLinkAlt, FaTimes
+  FaExternalLinkAlt, FaTimes, FaComment
 } from 'react-icons/fa';
 import { Button, Pill } from '../design-system';
 import EntitySchema from "../OpenGraph/EntitySchema";
@@ -191,7 +191,7 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
 
           {note && (
             <div className={styles.travelTipNote} itemProp="description">
-              💬 {note}
+              <FaComment style={{ marginRight: 'var(--space-1)' }} /> {note}
             </div>
           )}
 

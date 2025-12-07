@@ -342,6 +342,7 @@ app.use("/api/activities", require("./routes/api/activities"));
 app.use("/api/dashboard", require("./routes/api/dashboard"));
 app.use("/api/follows", require("./routes/api/follows"));
 app.use("/api/ai", require("./routes/api/ai"));
+app.use("/api/geocode", require("./routes/api/geocode"));
 app.use("/health-check", (req, res) => {
   res.send("OK");
 });

@@ -1,4 +1,3 @@
-import styles from "./AuthPage.module.scss"
 import SignUpForm from "../../components/SignUpForm/SignUpForm"
 import LoginForm from "../../components/LoginForm/LoginForm"
 import { useState, useEffect } from "react"
@@ -23,21 +22,18 @@ export default function AuthPage() {
         <>
             <PageOpenGraph
                 title={signup ? "Sign Up for Biensperience" : "Login to Biensperience"}
-                description={signup 
+                description={signup
                     ? "Create your Biensperience account to start planning amazing travel adventures and sharing experiences with fellow travelers."
                     : "Login to your Biensperience account to access your travel plans, experiences, and connect with other adventurers."
                 }
                 keywords="travel, login, signup, account, authentication, travel planning"
                 noIndex={true}
             />
-            <main className={styles.authPage}>
-                <h1>Biensperience</h1>
-                {signup ?
-                    <SignUpForm setUser={updateUser} setSignup={setSignup} />
-                    :
-                    <LoginForm setUser={updateUser} />
-                }
-            </main>
+            {signup ?
+                <SignUpForm setUser={updateUser} setSignup={setSignup} />
+                :
+                <LoginForm setUser={updateUser} />
+            }
         </>
     )
 }

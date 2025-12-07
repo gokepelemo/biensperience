@@ -58,8 +58,8 @@ const en = {
     syncNow: "Sync Now",
     syncing: "Syncing...",
     edit: "Edit",
-    quickTip: "💡 Quick Tip",
-    details: "📋 Detailed Tip",
+    quickTip: "Quick Tip",
+    details: "Detailed Tip",
     addTip: "Add Tip",
     saveChanges: "Save Changes",
     saving: "Saving...",
@@ -71,6 +71,8 @@ const en = {
     addNewItemTooltip: "Add new item",
     cancelTooltip: "Cancel action",
     backTooltip: "Go back",
+    editTooltip: "Edit this item",
+    deleteTooltip: "Delete this item",
     favoriteTooltip: "Add to favorites",
     unfavoriteTooltip: "Remove from favorites",
     planTooltip: "Add to your plan",
@@ -228,6 +230,10 @@ const en = {
       deleted: "Photo removed",
       setDefault: "Default photo updated",
     },
+    share: {
+      copied: "Link copied to clipboard",
+      failed: "Failed to copy link",
+    },
     favorite: {
       added: "{name} added to your favorites",
       removed: "{name} removed from your favorites",
@@ -362,9 +368,10 @@ const en = {
     actualLabel: "Actual:",
     activityType: "Activity Type",
     selectAll: "Select All",
-    addedItems: "✚ Added Items ({count})",
-    removedItems: "✖ Removed Items ({count})",
-    modifiedItems: "✎ Modified Items ({count})",
+    addedItems: "Added Items ({count})",
+    removedItems: "Removed Items ({count})",
+    modifiedItems: "Modified Items ({count})",
+    details: "Details",
     travelTipsType: "Type",
     travelTipsDescription: "Details",
     travelTipsAdditionalNote: "Additional Notes",
@@ -759,9 +766,10 @@ const en = {
   },
 
   cookieConsent: {
-    message: "We use essential cookies to make our site work. With your consent, we may also use non-essential cookies to improve user experience and analyze website traffic. By clicking \"Accept,\" you agree to our website's cookie use as described in our Cookie Policy.",
+    message: "We use cookies to enhance your experience.",
     accept: "Accept",
     decline: "Decline",
+    learnMore: "Learn More",
   },
 
   admin: {

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styles from './GoogleMap.module.scss';
 import Modal from '../Modal/Modal';
-import { FaDirections } from 'react-icons/fa';
+import { FaDirections, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
 
 /**
  * GoogleMap - Reusable Google Maps Embed component
@@ -28,6 +28,50 @@ export default function GoogleMap({
   showDirections = true
 }) {
   const [showDirectionsModal, setShowDirectionsModal] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationError, setLocationError] = useState(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+
+  // Get user's location when modal opens
+  const getUserLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setIsGettingLocation(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+        setIsGettingLocation(false);
+      },
+      (error) => {
+        let errorMessage = 'Unable to get your location';
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMessage = 'Location access denied. Please enable location services.';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMessage = 'Location information unavailable';
+        } else if (error.code === error.TIMEOUT) {
+          errorMessage = 'Location request timed out';
+        }
+        setLocationError(errorMessage);
+        setIsGettingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  }, []);
+
+  // Request location when modal opens
+  useEffect(() => {
+    if (showDirectionsModal && !userLocation && !locationError) {
+      getUserLocation();
+    }
+  }, [showDirectionsModal, userLocation, locationError, getUserLocation]);
 
   if (!location) {
     return (
@@ -41,7 +85,11 @@ export default function GoogleMap({
   }
 
   const mapUrl = `https://www.google.com/maps/embed/v1/place?q=${encodeURIComponent(location)}&key=${apiKey}`;
-  const directionsUrl = `https://www.google.com/maps/embed/v1/directions?destination=${encodeURIComponent(location)}&key=${apiKey}&mode=driving`;
+
+  // Build directions URL with origin if user location is available
+  const directionsUrl = userLocation
+    ? `https://www.google.com/maps/embed/v1/directions?origin=${userLocation.lat},${userLocation.lng}&destination=${encodeURIComponent(location)}&key=${apiKey}&mode=driving`
+    : null;
 
   return (
     <>
@@ -84,15 +132,38 @@ export default function GoogleMap({
         bodyClassName={styles.directionsModalBody}
       >
         <div className={styles.directionsModalContent}>
-          <iframe
-            width="100%"
-            height="100%"
-            title={`Directions to ${location}`}
-            className={styles.directionsMap}
-            src={directionsUrl}
-            allowFullScreen
-            referrerPolicy="no-referrer-when-downgrade"
-          />
+          {/* Loading state while getting user location */}
+          {isGettingLocation && (
+            <div className={styles.directionsLoading}>
+              <FaSpinner className={styles.spinner} />
+              <p>Getting your location...</p>
+            </div>
+          )}
+
+          {/* Error state - show fallback with link to Google Maps */}
+          {locationError && !isGettingLocation && (
+            <div className={styles.directionsError}>
+              <FaExclamationTriangle className={styles.errorIcon} />
+              <p>{locationError}</p>
+              <p className={styles.errorHint}>
+                You can still get directions by opening Google Maps directly.
+              </p>
+            </div>
+          )}
+
+          {/* Show map with directions when location is available */}
+          {directionsUrl && !isGettingLocation && (
+            <iframe
+              width="100%"
+              height="100%"
+              title={`Directions to ${location}`}
+              className={styles.directionsMap}
+              src={directionsUrl}
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          )}
+
           <div className={styles.directionsActions}>
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(location)}`}

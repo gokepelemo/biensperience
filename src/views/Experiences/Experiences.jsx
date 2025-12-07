@@ -6,7 +6,6 @@ import { useData } from "../../contexts/DataContext";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import SortFilter from "../../components/SortFilter/SortFilter";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
-import Alert from "../../components/Alert/Alert";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
 import { Container, Mobile, Desktop, FadeIn, EmptyState } from "../../components/design-system";

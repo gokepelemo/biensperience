@@ -826,3 +826,183 @@ export async function deletePlanCost(planId, costId) {
     throw error;
   }
 }
+
+// ============================================
+// PLAN ITEM DETAIL MANAGEMENT API FUNCTIONS
+// ============================================
+
+/**
+ * Add a detail to a plan item (transport, parking, discount, cost, etc.)
+ * @param {string} planId - Plan ID
+ * @param {string} itemId - Plan item ID
+ * @param {Object} detailData - { type, data, document }
+ *   - type: 'cost' | 'flight' | 'train' | 'cruise' | 'ferry' | 'bus' | 'hotel' | 'parking' | 'discount'
+ *   - data: Object with type-specific fields
+ *   - document: Optional document upload data
+ */
+export async function addPlanItemDetail(planId, itemId, detailData) {
+  try {
+    logger.debug('[plans-api] Adding plan item detail', {
+      planId,
+      itemId,
+      type: detailData.type
+    });
+
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/details`, "POST", detailData);
+
+    logger.info('[plans-api] Plan item detail added successfully', {
+      planId,
+      itemId,
+      type: detailData.type
+    });
+
+    // Emit events via event bus (handles local + cross-tab dispatch)
+    try {
+      const version = Date.now();
+      const eventPayload = {
+        planId,
+        itemId,
+        detailType: detailData.type,
+        data: result,
+        version,
+        action: 'detail_added'
+      };
+
+      // Standardized event for DataContext and usePlanManagement
+      broadcastEvent('plan:updated', eventPayload);
+
+      // Granular detail event for real-time updates
+      broadcastEvent('plan:item:detail:added', eventPayload);
+
+      logger.debug('[plans-api] Plan item detail events dispatched', { version });
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch detail added events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to add plan item detail', {
+      planId,
+      itemId,
+      type: detailData.type,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Update a detail on a plan item
+ * @param {string} planId - Plan ID
+ * @param {string} itemId - Plan item ID
+ * @param {string} detailId - Detail ID
+ * @param {Object} updates - Updated fields
+ */
+export async function updatePlanItemDetail(planId, itemId, detailId, updates) {
+  try {
+    logger.debug('[plans-api] Updating plan item detail', {
+      planId,
+      itemId,
+      detailId
+    });
+
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/details/${detailId}`, "PATCH", updates);
+
+    logger.info('[plans-api] Plan item detail updated successfully', {
+      planId,
+      itemId,
+      detailId
+    });
+
+    // Emit events via event bus (handles local + cross-tab dispatch)
+    try {
+      const version = Date.now();
+      const eventPayload = {
+        planId,
+        itemId,
+        detailId,
+        data: result,
+        updates,
+        version,
+        action: 'detail_updated'
+      };
+
+      // Standardized event for DataContext and usePlanManagement
+      broadcastEvent('plan:updated', eventPayload);
+
+      // Granular detail event for real-time updates
+      broadcastEvent('plan:item:detail:updated', eventPayload);
+
+      logger.debug('[plans-api] Plan item detail update events dispatched', { version });
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch detail updated events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to update plan item detail', {
+      planId,
+      itemId,
+      detailId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a detail from a plan item
+ * @param {string} planId - Plan ID
+ * @param {string} itemId - Plan item ID
+ * @param {string} detailId - Detail ID
+ */
+export async function deletePlanItemDetail(planId, itemId, detailId) {
+  try {
+    logger.debug('[plans-api] Deleting plan item detail', {
+      planId,
+      itemId,
+      detailId
+    });
+
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/details/${detailId}`, "DELETE");
+
+    logger.info('[plans-api] Plan item detail deleted successfully', {
+      planId,
+      itemId,
+      detailId
+    });
+
+    // Emit events via event bus (handles local + cross-tab dispatch)
+    try {
+      const version = Date.now();
+      const eventPayload = {
+        planId,
+        itemId,
+        detailId,
+        data: result,
+        version,
+        action: 'detail_deleted'
+      };
+
+      // Standardized event for DataContext and usePlanManagement
+      broadcastEvent('plan:updated', eventPayload);
+
+      // Granular detail event for real-time updates
+      broadcastEvent('plan:item:detail:deleted', eventPayload);
+
+      logger.debug('[plans-api] Plan item detail delete events dispatched', { version });
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch detail deleted events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to delete plan item detail', {
+      planId,
+      itemId,
+      detailId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}

@@ -5,7 +5,7 @@
  * Works with: utilities/ai-document-utils.js (backend)
  */
 
-import { sendRequest } from './users-service';
+import { sendRequest } from './send-request';
 import { logger } from './logger';
 
 // Supported document types (must match backend)
