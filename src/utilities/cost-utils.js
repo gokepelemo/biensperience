@@ -147,19 +147,19 @@ export function formatCostEstimate(cost, options = {}) {
 
 /**
  * Get the cost estimate tooltip text showing the exact amount.
+ * Cost estimates are forecasts from the experience creator/curator.
  *
  * @param {number} exactCost - The exact cost value for display in tooltip
  * @param {Object} options - Formatting options
  * @param {string} options.currency - Currency code (default: 'USD')
- * @param {boolean} options.isActual - Whether this is an actual cost vs estimate (default: false)
- * @returns {string} Tooltip text with exact amount
+ * @returns {string} Tooltip text with exact amount and explanation
  */
 export function getCostEstimateTooltip(exactCost, options = {}) {
-  const { currency = 'USD', isActual = false } = options;
+  const { currency = 'USD' } = options;
   const symbol = getCurrencySymbol(currency);
 
   if (!exactCost || exactCost <= 0) {
-    return isActual ? 'Actual cost for this item' : 'Actual estimated cost for this experience';
+    return 'Forecasted budget from the experience creator. Your costs may vary.';
   }
 
   const formatted = exactCost.toLocaleString('en-US', {
@@ -167,7 +167,42 @@ export function getCostEstimateTooltip(exactCost, options = {}) {
     maximumFractionDigits: 2
   });
 
-  return isActual ? `Actual cost: ${symbol}${formatted}` : `Actual estimated cost: ${symbol}${formatted}`;
+  return `Estimated: ${symbol}${formatted} — Forecasted budget from the experience creator.`;
+}
+
+/**
+ * Get the tracked cost tooltip text showing expenses you've tracked.
+ * Tracked costs are real expenses incurred by the user.
+ *
+ * @param {number} totalCost - The total tracked cost value
+ * @param {number} costCount - Number of cost entries tracked
+ * @param {Object} options - Formatting options
+ * @param {string} options.currency - Currency code (default: 'USD')
+ * @returns {string} Tooltip text with total and explanation
+ */
+export function getTrackedCostTooltip(totalCost, costCount = 0, options = {}) {
+  const { currency = 'USD' } = options;
+  const symbol = getCurrencySymbol(currency);
+
+  if (!totalCost || totalCost <= 0) {
+    return 'Track your expenses here. Add receipts, bookings, and payments as you incur them.';
+  }
+
+  const formatted = totalCost.toLocaleString('en-US', {
+    minimumFractionDigits: totalCost % 1 !== 0 ? 2 : 0,
+    maximumFractionDigits: 2
+  });
+
+  const entryText = costCount === 1 ? '1 expense' : `${costCount} expenses`;
+  return `Total: ${symbol}${formatted} (${entryText})`;
+}
+
+/**
+ * Get the actual cost tooltip text (alias for getTrackedCostTooltip for backward compatibility)
+ * @deprecated Use getTrackedCostTooltip instead
+ */
+export function getActualCostTooltip(totalCost, costCount = 0, options = {}) {
+  return getTrackedCostTooltip(totalCost, costCount, options);
 }
 
 /**
@@ -401,6 +436,8 @@ export default {
   formatCostEstimateWithLabel,
   formatActualCost,
   getCostEstimateTooltip,
+  getTrackedCostTooltip,
+  getActualCostTooltip, // deprecated alias
   getCostEstimateLabel,
   getIndividualCostTooltip,
   getTotalCostTooltip,

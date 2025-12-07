@@ -35,6 +35,7 @@ import MetricsBar from '../../../components/MetricsBar/MetricsBar';
 import CostsList from '../../../components/CostsList';
 import Checkbox from '../../../components/Checkbox/Checkbox';
 import SearchableSelect from '../../../components/FormField/SearchableSelect';
+import { useUIPreference } from '../../../hooks/useUIPreference';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatDateMetricCard, formatDateForInput } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
@@ -473,6 +474,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
   canEdit,
   handlePlanItemToggleComplete,
   handleViewPlanItemDetails,
+  handleAddPlanInstanceItem,
   handleEditPlanInstanceItem,
   setPlanInstanceItemToDelete,
   setShowPlanInstanceDeleteModal,
@@ -622,6 +624,15 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
                 ✏️ {lang.current.tooltip.edit}
               </button>
               <button
+                className="compact-actions-item"
+                onClick={() => {
+                  handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id);
+                  setShowActionsMenu(false);
+                }}
+              >
+                ➕ {lang.current.button?.addChildItem || 'Add Child Item'}
+              </button>
+              <button
                 className="compact-actions-item compact-actions-item-danger"
                 onClick={() => {
                   setPlanInstanceItemToDelete(planItem);
@@ -715,8 +726,9 @@ export default function MyPlanTabContent({
   planMembers = [],
   setTyping
 }) {
-  // View state for plan items display (card or compact) - default to compact
-  const [planItemsView, setPlanItemsView] = useState('compact');
+  // View state for plan items display (card or compact) - persisted in user preferences
+  // Uses shared key 'viewMode.planItems' so preference syncs between Experience and Plan views
+  const [planItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
 
   // Compute online user IDs from presence data
   const onlineUserIds = useMemo(() => {
@@ -1289,6 +1301,7 @@ export default function MyPlanTabContent({
                   canEdit={canEdit}
                   handlePlanItemToggleComplete={handlePlanItemToggleComplete}
                   handleViewPlanItemDetails={handleViewPlanItemDetails}
+                  handleAddPlanInstanceItem={handleAddPlanInstanceItem}
                   handleEditPlanInstanceItem={handleEditPlanInstanceItem}
                   setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
                   setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}

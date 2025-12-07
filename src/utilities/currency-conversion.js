@@ -1,14 +1,48 @@
 /**
  * Currency conversion utility
- * - Fetches exchange rates from exchangerate.host (free) by default
- * - Caches rates for a configurable TTL (default 1 hour)
+ * - Fetches exchange rates from configurable API endpoints (via env vars)
+ * - Primary: EXCHANGE_RATE_API_URL (default: v6.exchangerate-api.com)
+ * - Fallback: EXCHANGE_RATE_FALLBACK_URL (default: exchangerate.host)
+ * - API key: EXCHANGE_RATE_API_KEY (required for exchangerate-api.com)
+ * - Caches rates for a configurable TTL (default 1 hour, configurable via EXCHANGE_RATE_CACHE_TTL)
  * - Allows manual injection of rates for offline/testing
  */
 
 import { logger } from './logger';
 
 let _rates = null; // { base: 'USD', rates: { EUR: 0.92, GBP: 0.78, ... }, fetchedAt: 0 }
-let _ttl = 1000 * 60 * 60; // 1 hour
+
+// Cache TTL from env var (in milliseconds) or default to 1 hour
+const DEFAULT_TTL = 1000 * 60 * 60; // 1 hour
+let _ttl = parseInt(import.meta.env.EXCHANGE_RATE_CACHE_TTL, 10) || DEFAULT_TTL;
+
+// API endpoints from env vars with defaults
+const PRIMARY_API_URL = import.meta.env.EXCHANGE_RATE_API_URL ||
+  'https://v6.exchangerate-api.com/v6/{apikey}/latest/{base}';
+
+const FALLBACK_API_URL = import.meta.env.EXCHANGE_RATE_FALLBACK_URL ||
+  'https://api.exchangerate.host/latest?base={base}';
+
+// API key for authenticated access (optional)
+const EXCHANGE_RATE_API_KEY = import.meta.env.EXCHANGE_RATE_API_KEY || '';
+
+/**
+ * Build API URL from template, replacing {base} with the currency code
+ * and {apikey} with the API key if configured
+ */
+function buildApiUrl(template, base) {
+  let url = template.replace('{base}', encodeURIComponent(base));
+  if (EXCHANGE_RATE_API_KEY) {
+    url = url.replace('{apikey}', encodeURIComponent(EXCHANGE_RATE_API_KEY));
+  }
+  return url;
+}
+
+// Exchange rate API endpoints (in order of preference)
+const API_ENDPOINTS = [
+  (base) => buildApiUrl(PRIMARY_API_URL, base),
+  (base) => buildApiUrl(FALLBACK_API_URL, base),
+].filter((_, i) => i === 0 || FALLBACK_API_URL); // Only include fallback if configured
 
 export function setRatesObject(ratesObj) {
   // ratesObj: { base: 'USD', rates: { EUR: 0.9, GBP: 0.78 }, fetchedAt?: timestamp }
@@ -24,6 +58,24 @@ export function setCacheTTL(ms) {
   _ttl = ms;
 }
 
+/**
+ * Attempt to fetch rates from multiple API endpoints
+ */
+async function tryFetchFromEndpoint(url) {
+  const res = await fetch(url, {
+    headers: { 'Accept': 'application/json' },
+    mode: 'cors'
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch rates: ${res.status}`);
+  }
+  const data = await res.json();
+  if (!data || !data.rates) {
+    throw new Error('Invalid rates response');
+  }
+  return data;
+}
+
 export async function fetchRates(base = 'USD', symbols = []) {
   try {
     // Use cached if fresh
@@ -31,17 +83,32 @@ export async function fetchRates(base = 'USD', symbols = []) {
       return _rates;
     }
 
-    const symbolParam = symbols.length ? `&symbols=${symbols.join(',')}` : '';
-    const url = `https://api.exchangerate.host/latest?base=${encodeURIComponent(base)}${symbolParam}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Failed to fetch rates: ${res.status}`);
+    let data = null;
+    let lastError = null;
+
+    // Try each endpoint until one succeeds
+    for (const getUrl of API_ENDPOINTS) {
+      try {
+        const url = getUrl(base);
+        data = await tryFetchFromEndpoint(url);
+        if (data && data.rates) {
+          logger.debug('currency-conversion: Successfully fetched rates', {
+            base,
+            rateCount: Object.keys(data.rates).length
+          });
+          break;
+        }
+      } catch (err) {
+        lastError = err;
+        logger.debug('currency-conversion: Endpoint failed, trying next', { error: err.message });
+      }
     }
-    const data = await res.json();
+
     if (!data || !data.rates) {
-      throw new Error('Invalid rates response');
+      throw lastError || new Error('All exchange rate APIs failed');
     }
-    _rates = { base: data.base || base, rates: data.rates, fetchedAt: Date.now() };
+
+    _rates = { base: data.base_code || data.base || base, rates: data.rates, fetchedAt: Date.now() };
     return _rates;
   } catch (err) {
     logger.error('currency-conversion: fetchRates failed', { error: err.message }, err);

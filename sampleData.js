@@ -1538,27 +1538,45 @@ class DataGenerator {
         }
       });
 
-      // Generate costs for this plan (0-3 items). Costs can link to a plan_item,
-      // be associated with a collaborator, or be a plan-level cost (e.g., insurance)
-      const currencyOptions = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
+      // Generate costs for this plan (1-6 items). Costs can link to a plan_item,
+      // be associated with a collaborator, or be a shared plan-level cost (e.g., insurance)
+      const currencyOptions = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'JPY', 'MXN'];
       const categoryOptions = ['accommodation', 'transport', 'food', 'activities', 'equipment', 'other'];
+      const sharedCostTitles = [
+        'Travel insurance',
+        'Group deposit',
+        'Local transport budget',
+        'Shared groceries',
+        'Miscellaneous costs',
+        'Airport transfers',
+        'Accommodation deposit',
+        'Tour guide tips',
+        'Emergency fund',
+        'Communication/SIM cards',
+        'Parking fees',
+        'Baggage fees',
+        'Currency exchange fees'
+      ];
       const costs = [];
-      const costCount = randomBetween(0, 3);
+      const costCount = randomBetween(1, 6); // Increased from 0-3 to 1-6
       for (let ci = 0; ci < costCount; ci++) {
-        const isItemLinked = planItems.length > 0 && Math.random() < 0.7;
+        const isItemLinked = planItems.length > 0 && Math.random() < 0.6;
         const linkedItem = isItemLinked ? getRandomElement(planItems) : null;
-        const costAmount = Math.max(5, Math.round((linkedItem ? (linkedItem.cost || 50) : randomBetween(10, 300)) * (0.8 + Math.random() * 0.8)));
-        const collaboratorForCost = Math.random() < 0.35 ? getRandomElement(collaborators) : null;
-        // 80% of costs have a category assigned
-        const hasCategory = Math.random() < 0.8;
+        const costAmount = Math.max(5, Math.round((linkedItem ? (linkedItem.cost || 50) : randomBetween(10, 500)) * (0.8 + Math.random() * 1.2)));
+        // 50% of costs are associated with a specific collaborator (who paid)
+        const collaboratorForCost = Math.random() < 0.5 ? getRandomElement(collaborators) : null;
+        // 85% of costs have a category assigned
+        const hasCategory = Math.random() < 0.85;
         // Generate a random date within the past 30 days or future 60 days
         const randomDays = randomBetween(-30, 60);
         const costDate = new Date();
         costDate.setDate(costDate.getDate() + randomDays);
 
         costs.push({
-          title: isItemLinked ? `Cost for: ${linkedItem.text}` : getRandomElement(['Travel insurance', 'Group deposit', 'Local transport budget', 'Shared groceries', 'Miscellaneous costs']),
-          description: isItemLinked ? `Estimated cost for '${linkedItem.text}'` : `Plan-level expense generated for demo data`,
+          title: isItemLinked ? `Cost for: ${linkedItem.text}` : getRandomElement(sharedCostTitles),
+          description: isItemLinked
+            ? `Tracked expense for '${linkedItem.text}'`
+            : `Shared plan expense - ${collaboratorForCost ? 'paid by collaborator' : 'split among all'}`,
           cost: costAmount,
           currency: getRandomElement(currencyOptions),
           category: hasCategory ? getRandomElement(categoryOptions) : null,
@@ -1580,10 +1598,15 @@ class DataGenerator {
       ];
       const planLevelNote = Math.random() < 0.45 ? getRandomElement(planNotesPool) : null;
 
+      // Select a plan currency - 80% USD, 20% other currencies
+      const planCurrencyOptions = ['USD', 'USD', 'USD', 'USD', 'EUR', 'GBP', 'AUD', 'CAD'];
+      const planCurrency = getRandomElement(planCurrencyOptions);
+
       plans.push({
         experience: experience._id,
         user: user._id,
         planned_date: Math.random() < 0.7 ? randomFutureDate() : null, // 70% have planned dates
+        currency: planCurrency, // Plan's default currency for cost tracking
         plan: planItems,
         costs,
         permissions,

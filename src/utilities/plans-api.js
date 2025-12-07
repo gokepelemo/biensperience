@@ -65,17 +65,31 @@ export function getPlanById(planId) {
 
 /**
  * Create a new plan for an experience
+ * @param {string} experienceId - Experience ID
+ * @param {Date|string|null} plannedDate - Planned date for the experience
+ * @param {Object} options - Optional parameters
+ * @param {string} options.currency - Currency code (default: USD)
  */
-export async function createPlan(experienceId, plannedDate) {
+export async function createPlan(experienceId, plannedDate, options = {}) {
+  const { currency } = options;
+
   try {
     logger.debug('[plans-api] Calling createPlan API', {
       timestamp: Date.now(),
-      experienceId
+      experienceId,
+      currency
     });
 
-    const result = await sendRequest(`${BASE_URL}/experience/${experienceId}`, "POST", {
+    const requestBody = {
       planned_date: plannedDate,
-    });
+    };
+
+    // Only include currency if provided
+    if (currency) {
+      requestBody.currency = currency;
+    }
+
+    const result = await sendRequest(`${BASE_URL}/experience/${experienceId}`, "POST", requestBody);
 
     logger.info('[plans-api] Plan created - API response received', {
       timestamp: Date.now(),

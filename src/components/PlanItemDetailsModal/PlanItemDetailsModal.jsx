@@ -10,8 +10,9 @@ import styles from './PlanItemDetailsModal.module.scss';
 import { createSimpleFilter } from '../../utilities/trie';
 import { logger } from '../../utilities/logger';
 import { formatPlanningTime, getPlanningTimeTooltip } from '../../utilities/planning-time-utils';
-import { formatCostEstimate, formatActualCost, getCostEstimateTooltip } from '../../utilities/cost-utils';
+import { formatCostEstimate, formatActualCost, getCostEstimateTooltip, getTrackedCostTooltip } from '../../utilities/cost-utils';
 import { lang } from '../../lang.constants';
+import Tooltip from '../Tooltip/Tooltip';
 
 export default function PlanItemDetailsModal({
   show,
@@ -448,80 +449,78 @@ export default function PlanItemDetailsModal({
           <div className={styles.costPlanningSection}>
             {/* Planning Days */}
             {planningDays > 0 && (
-              <div
-                className={styles.infoCard}
-                title={getPlanningTimeTooltip(planningDays)}
-              >
-                <span className={styles.infoIcon}>📅</span>
-                <div className={styles.infoContent}>
-                  <span className={styles.infoLabel}>{lang.en.planningTime}</span>
-                  <span className={styles.infoValue}>
-                    {formatPlanningTime(planningDays)}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Cost Estimate */}
-            {costEstimate > 0 && (
-              <div
-                className={styles.infoCard}
-                title={getCostEstimateTooltip(costEstimate, { currency })}
-              >
-                <span className={styles.infoIcon}>💰</span>
-                <div className={styles.infoContent}>
-                  <span className={styles.infoLabel}>{lang.en.estimatedCost}</span>
-                  <span className={styles.infoValue}>
-                    {formatCostEstimate(costEstimate, { currency })}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Actual Costs */}
-            {actualCosts.length > 0 && (
-              <div
-                className={`${styles.infoCard} ${styles.actualCosts}`}
-                title={`${actualCosts.length} cost${actualCosts.length !== 1 ? 's' : ''} tracked for this item`}
-              >
-                <span className={styles.infoIcon}>💵</span>
-                <div className={styles.infoContent}>
-                  <span className={styles.infoLabel}>
-                    {lang.en.actualCost || 'Actual Cost'} ({actualCosts.length})
-                  </span>
-                  <span className={styles.infoValue}>
-                    {formatActualCost(totalActualCost, { currency, exact: true })}
-                  </span>
-                </div>
-                {/* Expandable list of individual costs */}
-                {actualCosts.length > 0 && (
-                  <div className={styles.costBreakdown}>
-                    {actualCosts.map((cost, index) => (
-                      <div key={cost._id || index} className={styles.costItem}>
-                        <span className={styles.costTitle}>{cost.title}</span>
-                        <span className={styles.costAmount}>
-                          {formatActualCost(cost.cost, { currency, exact: true })}
-                        </span>
-                      </div>
-                    ))}
+              <Tooltip content={getPlanningTimeTooltip()} placement="top">
+                <div className={styles.infoCard}>
+                  <span className={styles.infoIcon}>📅</span>
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>{lang.en.label.planningTime}</span>
+                    <span className={styles.infoValue}>
+                      {formatPlanningTime(planningDays)}
+                    </span>
                   </div>
-                )}
-              </div>
+                </div>
+              </Tooltip>
             )}
 
-            {/* Add Cost Button - inline cost addition for this plan item */}
+            {/* Cost Estimate - forecasted by experience creator */}
+            {costEstimate > 0 && (
+              <Tooltip content={getCostEstimateTooltip(costEstimate, { currency })} placement="top">
+                <div className={styles.infoCard}>
+                  <span className={styles.infoIcon}>💰</span>
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>{lang.en.heading.estimatedCost}</span>
+                    <span className={styles.infoValue}>
+                      {formatCostEstimate(costEstimate, { currency })}
+                    </span>
+                  </div>
+                </div>
+              </Tooltip>
+            )}
+
+            {/* Tracked Costs - real expenses incurred */}
+            {actualCosts.length > 0 && (
+              <Tooltip content={getTrackedCostTooltip(totalActualCost, actualCosts.length, { currency })} placement="top">
+                <div className={`${styles.infoCard} ${styles.trackedCosts}`}>
+                  <span className={styles.infoIcon}>💵</span>
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>
+                      {lang.en.heading.trackedCosts || 'Tracked Costs'} ({actualCosts.length})
+                    </span>
+                    <span className={styles.infoValue}>
+                      {formatActualCost(totalActualCost, { currency, exact: true })}
+                    </span>
+                  </div>
+                  {/* Expandable list of individual costs */}
+                  {actualCosts.length > 0 && (
+                    <div className={styles.costBreakdown}>
+                      {actualCosts.map((cost, index) => (
+                        <div key={cost._id || index} className={styles.costItem}>
+                          <span className={styles.costTitle}>{cost.title}</span>
+                          <span className={styles.costAmount}>
+                            {formatActualCost(cost.cost, { currency, exact: true })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Tooltip>
+            )}
+
+            {/* Track Cost Button - inline cost tracking for this plan item */}
             {canEdit && onAddCostForItem && (
-              <button
-                type="button"
-                className={styles.addCostButton}
-                onClick={() => onAddCostForItem(planItem)}
-                title={lang.current?.cost?.addCostToItem || 'Add cost for this item'}
-              >
-                <span className={styles.addCostIcon}>+</span>
-                <span className={styles.addCostText}>
-                  {lang.current?.cost?.addCost || 'Add Cost'}
-                </span>
-              </button>
+              <Tooltip content={lang.en.helper?.trackedCostTooltip || 'Track your expenses for this item'} placement="top">
+                <button
+                  type="button"
+                  className={styles.addCostButton}
+                  onClick={() => onAddCostForItem(planItem)}
+                >
+                  <span className={styles.addCostIcon}>+</span>
+                  <span className={styles.addCostText}>
+                    {lang.en.cost?.addCost || 'Track Cost'}
+                  </span>
+                </button>
+              </Tooltip>
             )}
           </div>
         )}

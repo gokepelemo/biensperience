@@ -55,16 +55,57 @@ function sanitizeLocation(location) {
 }
 
 /**
+ * Check if a user is a valid member of a plan (owner or has permissions)
+ * Uses permission inheritance to resolve all valid members including those from experience
+ * @param {Object} plan - The plan document
+ * @param {string} userId - User ID to check
+ * @returns {Promise<boolean>} True if user is a plan member
+ */
+async function isPlanMember(plan, userId) {
+  if (!plan || !userId) return false;
+
+  const userIdStr = userId.toString();
+
+  // Check if user is the plan owner
+  if (plan.user && plan.user.toString() === userIdStr) {
+    return true;
+  }
+
+  // Check direct user permissions on the plan
+  const hasDirectPermission = plan.permissions?.some(
+    p => p.entity === 'user' && p._id.toString() === userIdStr
+  );
+  if (hasDirectPermission) {
+    return true;
+  }
+
+  // Check inherited permissions from experience
+  const models = { Plan, Experience, Destination, User };
+  try {
+    const resolvedPermissions = await permissions.resolvePermissionsWithInheritance(plan, models);
+    return resolvedPermissions.has(userIdStr);
+  } catch (err) {
+    backendLogger.warn('Error resolving plan permissions for member check', {
+      planId: plan._id.toString(),
+      userId: userIdStr,
+      error: err.message
+    });
+    return false;
+  }
+}
+
+/**
  * Create a new plan for an experience
  * Initializes plan with snapshot of current experience plan items
  */
 const createPlan = asyncHandler(async (req, res) => {
   const { experienceId } = req.params;
-  const { planned_date } = req.body;
+  const { planned_date, currency } = req.body;
 
   backendLogger.debug('Plan creation request received', {
     experienceId,
     planned_date,
+    currency,
     userId: req.user?._id?.toString(),
     hasUser: !!req.user,
     requestMethod: req.method,
@@ -164,10 +205,16 @@ const createPlan = asyncHandler(async (req, res) => {
     normalizedPlannedDate = null;
   }
 
+  // Normalize currency: accept valid 3-letter currency code or default to USD
+  const normalizedCurrency = (typeof currency === 'string' && currency.trim().length === 3)
+    ? currency.trim().toUpperCase()
+    : 'USD';
+
   const plan = await Plan.create({
     experience: experienceId,
     user: req.user._id,
     planned_date: normalizedPlannedDate,
+    currency: normalizedCurrency,
     plan: planSnapshot,
     permissions: [
       {
@@ -686,6 +733,9 @@ const updatePlan = asyncHandler(async (req, res) => {
         return Array.isArray(value);
       case 'notes':
         return typeof value === 'string' || value === null;
+      case 'currency':
+        // Accept valid 3-letter currency code
+        return typeof value === 'string' && value.trim().length === 3;
       default:
         return false;
     }
@@ -696,7 +746,7 @@ const updatePlan = asyncHandler(async (req, res) => {
   // when optional nested fields are absent. This lets clients PATCH/PUT just the
   // planned_date without causing unrelated validation errors.
   const requestedKeys = Object.keys(updates || {}).filter(k => k);
-  const allowedForRequest = ['planned_date', 'plan', 'notes'];
+  const allowedForRequest = ['planned_date', 'plan', 'notes', 'currency'];
   const requestedAllowed = requestedKeys.filter(k => allowedForRequest.includes(k));
   if (requestedAllowed.length === 1 && requestedAllowed[0] === 'planned_date') {
     // Validate the planned_date value
@@ -750,7 +800,7 @@ const updatePlan = asyncHandler(async (req, res) => {
   const previousState = plan.toObject();
 
   // Update allowed fields with validation
-  const allowedUpdates = ['planned_date', 'plan', 'notes'];
+  const allowedUpdates = ['planned_date', 'plan', 'notes', 'currency'];
   const fieldsToTrack = [];
   for (const field of allowedUpdates) {
     if (updates[field] !== undefined) {
@@ -780,6 +830,9 @@ const updatePlan = asyncHandler(async (req, res) => {
           // Fallback: set to null to be safe
           plan[field] = null;
         }
+      } else if (field === 'currency') {
+        // Normalize currency to uppercase
+        plan[field] = updates[field].trim().toUpperCase();
       } else {
         plan[field] = updates[field];
       }
@@ -2466,16 +2519,13 @@ const addCost = asyncHandler(async (req, res) => {
     }
   }
 
-  // Validate collaborator is a member of the plan if provided
+  // Validate collaborator is a member of the plan if provided (using inherited permissions)
   if (collaborator) {
     if (!mongoose.Types.ObjectId.isValid(collaborator)) {
       return res.status(400).json({ error: 'Invalid collaborator ID' });
     }
-    const isOwner = plan.user.toString() === collaborator.toString();
-    const isCollaborator = plan.permissions.some(
-      p => p.entity === 'user' && p._id.toString() === collaborator.toString()
-    );
-    if (!isOwner && !isCollaborator) {
+    const isMember = await isPlanMember(plan, collaborator);
+    if (!isMember) {
       return res.status(400).json({ error: 'Collaborator must be a member of this plan' });
     }
   }
@@ -2704,7 +2754,7 @@ const updateCost = asyncHandler(async (req, res) => {
     }
   }
 
-  // Validate and update collaborator if provided
+  // Validate and update collaborator if provided (using inherited permissions)
   if (collaborator !== undefined) {
     if (collaborator === null) {
       costEntry.collaborator = null;
@@ -2712,11 +2762,8 @@ const updateCost = asyncHandler(async (req, res) => {
       if (!mongoose.Types.ObjectId.isValid(collaborator)) {
         return res.status(400).json({ error: 'Invalid collaborator ID' });
       }
-      const isOwner = plan.user.toString() === collaborator.toString();
-      const isCollaborator = plan.permissions.some(
-        p => p.entity === 'user' && p._id.toString() === collaborator.toString()
-      );
-      if (!isOwner && !isCollaborator) {
+      const isMember = await isPlanMember(plan, collaborator);
+      if (!isMember) {
         return res.status(400).json({ error: 'Collaborator must be a member of this plan' });
       }
       costEntry.collaborator = collaborator;

@@ -360,11 +360,11 @@ export default function CostEntry({
           </div>
         </div>
 
-        {/* Paid by (Collaborator) */}
+        {/* Paid by / Paid for (Collaborator) */}
         {collaborators.length > 0 && (
           <div className={styles.formGroup}>
             <FormLabel htmlFor={`${formId}-collaborator`} className={styles.formLabel}>
-              {costStrings.assignedTo}
+              {costData.collaborator ? costStrings.paidFor || 'Paid for' : costStrings.assignedTo}
             </FormLabel>
             <FormSelect
               id={`${formId}-collaborator`}
@@ -378,9 +378,12 @@ export default function CostEntry({
                 </option>
               ))}
             </FormSelect>
-            <span className={styles.formHelp}>
-              {costStrings.sharedCost}
-            </span>
+            {/* Only show "Shared cost" helper when no collaborator is selected */}
+            {!costData.collaborator && (
+              <span className={styles.formHelp}>
+                {costStrings.sharedCost}
+              </span>
+            )}
           </div>
         )}
 

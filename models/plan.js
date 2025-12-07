@@ -455,6 +455,15 @@ const planSchema = new Schema(
     planned_date: {
       type: Date
     },
+    // Default currency for the plan (used for cost tracking and CSV export)
+    // Individual costs can override this with their own currency
+    currency: {
+      type: String,
+      default: 'USD',
+      maxlength: 3,
+      uppercase: true,
+      trim: true
+    },
     plan: {
       type: [planItemSnapshotSchema],
       default: []

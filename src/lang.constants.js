@@ -3,6 +3,7 @@ const en = {
   button: {
     add: "Add",
     addChild: "Add Child",
+    addChildItem: "Add Child Item",
     addPlanItem: "Add Plan Item",
     addCollaborator: "Collaborators",
     addCollaborators: "Collaborators",
@@ -300,9 +301,9 @@ const en = {
     updateExperience: "Update Experience",
     newDestination: "New Destination",
     createDestination: "Create a Destination",
-    estimatedCost: "Estimated Cost:",
-    actualCostEstimate: "Actual cost estimate:",
-    planningTime: "Planning Time:",
+    estimatedCost: "Estimated Cost",
+    trackedCosts: "Tracked Costs",
+    planningTime: "Planning Time",
     planYourExperience: "Plan Your Experience",
     editPlannedDate: "Update Planned Date",
     travelTips: "Travel Tips",
@@ -319,7 +320,6 @@ const en = {
     myPlans: "My Plans",
     plans: "Plans",
     collaborators: "Collaborators",
-    actualCosts: "Actual Costs",
     experiencesIn: "Experiences in {destinationName}"
   },
 
@@ -347,7 +347,6 @@ const en = {
     totalCost: "Total Cost",
     completion: "Completion",
     planningTime: "Planning Time",
-    actualCostEstimate: "Actual cost estimate:",
     notSet: "Not set",
     setOneNow: "Set One Now",
     day: "day",
@@ -523,6 +522,10 @@ const en = {
       "How many days should travelers plan ahead? (Optional).",
     planningTimeTooltip:
       "Recommended time to plan and prepare for this experience before your trip. Does not include travel time to the destination.",
+    costEstimateTooltip:
+      "Forecasted budget from the experience creator. Your costs may vary based on your choices and circumstances.",
+    trackedCostTooltip:
+      "Real expenses you've incurred. Track receipts, bookings, and payments to compare against the estimate.",
     costEstimateOptional:
       "Give future travelers a ballpark budget (completely optional).",
     profileName: "This is how you'll appear to other travelers.",
@@ -1009,9 +1012,10 @@ const en = {
     bulkInvitePartial: "{sent} invite{plural} sent, {failed} failed",
   },
   cost: {
-    addCost: "Add Cost",
+    addCost: "Track Cost",
+    addCostToItem: "Track cost for this item",
     editCost: "Edit Cost",
-    costs: "Costs",
+    costs: "Tracked Costs",
     costTitle: "Cost Title",
     costTitlePlaceholder: "e.g., Flight tickets, Hotel booking",
     costTitleRequired: "Please enter a title for this cost",
@@ -1031,6 +1035,7 @@ const en = {
     costDate: "Date",
     costDateHelp: "When was this cost incurred?",
     assignedTo: "Paid by",
+    paidFor: "Paid for",
     assignedToPlaceholder: "Select who paid (optional)",
     assignedToPlanItem: "For Plan Item",
     assignedToPlanItemPlaceholder: "Select plan item (optional)",
@@ -1041,7 +1046,7 @@ const en = {
     costDeleted: "Cost deleted",
     confirmDeleteCost: "Are you sure you want to delete this cost?",
     noCostsYet: "No costs tracked yet.",
-    totalCosts: "Total Costs",
+    totalCosts: "Total Tracked Costs",
     costsByPerson: "Costs by Person",
     costsByItem: "Costs by Item",
     costsByCategory: "Costs by Category",

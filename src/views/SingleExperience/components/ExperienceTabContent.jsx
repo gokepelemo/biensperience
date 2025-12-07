@@ -29,6 +29,7 @@ import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import PlanningTime from '../../../components/PlanningTime/PlanningTime';
 import SearchableSelect from '../../../components/FormField/SearchableSelect';
 import { Text } from '../../../components/design-system';
+import { useUIPreference } from '../../../hooks/useUIPreference';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { isOwner } from '../../../utilities/permissions';
@@ -446,8 +447,9 @@ export default function ExperienceTabContent({
   presenceConnected = false,
   experienceMembers = []
 }) {
-  // View state for plan items display (card or compact) - default to compact
-  const [planItemsView, setPlanItemsView] = useState('compact');
+  // View state for plan items display (card or compact) - persisted in user preferences
+  // Uses shared key 'viewMode.planItems' so preference syncs between Experience and Plan views
+  const [planItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
 
   // Compute online user IDs from presence data
   const onlineUserIds = useMemo(() => {
