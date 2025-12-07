@@ -162,6 +162,30 @@
   }
 }
 
+.statItemClickable {
+  cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast), transform var(--transition-fast);
+  background: transparent;
+  border: none;
+  font-family: inherit;
+
+  &:hover {
+    background: var(--color-bg-tertiary, rgba(0, 0, 0, 0.05));
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
 .statIcon {
   color: var(--color-primary);
   font-size: var(--font-size-lg);

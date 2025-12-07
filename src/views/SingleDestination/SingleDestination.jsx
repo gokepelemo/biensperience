@@ -643,29 +643,53 @@ export default function SingleDestination() {
 
           {/* Stats Bar */}
           <div className={styles.statsBar}>
-            <div className={styles.statItem}>
+            <button
+              type="button"
+              className={`${styles.statItem} ${styles.statItemClickable}`}
+              onClick={() => {
+                const el = document.getElementById('experiences-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              aria-label={`View ${experienceCount} ${experienceCount === 1 ? 'experience' : 'experiences'}`}
+            >
               <FaPlane className={styles.statIcon} />
               <span className={styles.statValue}>{experienceCount}</span>
               <span className={styles.statLabel}>{experienceCount === 1 ? 'Experience' : 'Experiences'}</span>
-            </div>
+            </button>
             <div className={styles.statItem}>
               <FaHeart className={styles.statIcon} />
               <span className={styles.statValue}>{favoriteCount}</span>
               <span className={styles.statLabel}>{favoriteCount === 1 ? 'Favorite' : 'Favorites'}</span>
             </div>
             {destination.travel_tips?.length > 0 && (
-              <div className={styles.statItem}>
+              <button
+                type="button"
+                className={`${styles.statItem} ${styles.statItemClickable}`}
+                onClick={() => {
+                  const el = document.getElementById('travel-tips-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                aria-label={`View ${destination.travel_tips.length} ${destination.travel_tips.length === 1 ? 'travel tip' : 'travel tips'}`}
+              >
                 <FaLightbulb className={styles.statIcon} />
                 <span className={styles.statValue}>{destination.travel_tips.length}</span>
                 <span className={styles.statLabel}>{destination.travel_tips.length === 1 ? 'Travel Tip' : 'Travel Tips'}</span>
-              </div>
+              </button>
             )}
             {heroPhotos.length > 0 && (
-              <div className={styles.statItem}>
+              <button
+                type="button"
+                className={`${styles.statItem} ${styles.statItemClickable}`}
+                onClick={() => {
+                  setPhotoViewerIndex(0);
+                  setShowPhotoViewer(true);
+                }}
+                aria-label={`View ${heroPhotos.length} ${heroPhotos.length === 1 ? 'photo' : 'photos'}`}
+              >
                 <FaCamera className={styles.statIcon} />
                 <span className={styles.statValue}>{heroPhotos.length}</span>
                 <span className={styles.statLabel}>{heroPhotos.length === 1 ? 'Photo' : 'Photos'}</span>
-              </div>
+              </button>
             )}
           </div>
 
@@ -703,9 +727,9 @@ export default function SingleDestination() {
               {destination.travel_tips?.length > 0 && (
                 <Card className={styles.contentCard}>
                   <Card.Body className={styles.contentCardBody}>
-                    <h3 className={styles.sectionTitle}>
+                    <h3 id="travel-tips-section" className={styles.sectionTitle}>
                       <span className={styles.sectionIcon} aria-hidden="true">💡</span>
-                      Travel Tips & Information
+                      Travel Tips
                     </h3>
                     <TravelTipsList tips={destination.travel_tips} hideHeading />
                   </Card.Body>

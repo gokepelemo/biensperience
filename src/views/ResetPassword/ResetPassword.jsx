@@ -74,11 +74,9 @@ export default function ResetPassword() {
         keywords="reset password, password recovery, account security"
       />
 
-      <div className={`${styles.resetPasswordWrapper} container`}>
-        <div className="row justify-content-center">
-          <div className="col-md-6 col-lg-5">
-            <div className={`${styles.resetPasswordCard} card`}>
-              <div className="card-body p-4 p-md-5">
+      <div className={styles.resetPasswordWrapper}>
+        <div className={`${styles.resetPasswordCard} card`}>
+          <div className="card-body">
                 <h1 className="mb-4" style={{ textAlign: 'center' }}>Reset Password</h1>
 
                 {success ? (
@@ -141,8 +139,6 @@ export default function ResetPassword() {
                     </div>
                   </form>
                 )}
-              </div>
-            </div>
           </div>
         </div>
       </div>

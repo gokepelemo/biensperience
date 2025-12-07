@@ -1,5 +1,10 @@
 @use '../../styles/scss/abstracts' as *;
 
+.googleMapContainer {
+  position: relative;
+  width: 100%;
+}
+
 .googleMap {
   display: block;
   width: 100%;
@@ -28,9 +33,113 @@
   text-align: center;
 }
 
+/* Get Directions Button */
+.directionsButton {
+  position: absolute;
+  bottom: $space-3;
+  right: $space-3;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-2 $space-3;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: $radius-full;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-standard);
+
+  &:hover {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    font-size: 1rem;
+  }
+}
+
+/* Directions Modal */
+.directionsModalBody {
+  padding: 0 !important;
+  height: calc(100vh - 120px);
+  overflow: hidden;
+}
+
+.directionsModalContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.directionsMap {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.directionsActions {
+  display: flex;
+  justify-content: center;
+  padding: $space-3;
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.openInGoogleMaps {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-2 $space-4;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark, var(--color-primary)));
+  color: white;
+  border-radius: $radius-full;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: all var(--transition-standard);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    color: white;
+    text-decoration: none;
+  }
+
+  svg {
+    font-size: 1rem;
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .googleMap {
     border-radius: $radius-sm;
+  }
+
+  .directionsButton {
+    bottom: $space-2;
+    right: $space-2;
+    padding: $space-2;
+
+    span {
+      display: none;
+    }
+  }
+
+  .directionsModalBody {
+    height: calc(100vh - 100px);
   }
 }

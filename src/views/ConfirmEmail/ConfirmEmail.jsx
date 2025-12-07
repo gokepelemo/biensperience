@@ -6,7 +6,7 @@ import { handleError } from '../../utilities/error-handler';
 import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
-import { Button, Container } from '../../components/design-system';
+import { Button } from '../../components/design-system';
 import styles from './ConfirmEmail.module.scss';
 import { lang } from '../../lang.constants';
 
@@ -70,40 +70,36 @@ export default function ConfirmEmail() {
         keywords="confirm email, email verification, account activation"
       />
 
-      <div className={`${styles.confirmEmailWrapper} container`}>
-        <Container className="justify-content-center">
-          <div className="col-md-6 col-lg-5">
-            <div className={`${styles.confirmEmailCard} card`}>
-              <div className="card-body p-4 p-md-5">
-                <h1 className="text-center mb-4">Email Confirmation</h1>
+      <div className={styles.confirmEmailWrapper}>
+        <div className={`${styles.confirmEmailCard} card`}>
+          <div className="card-body">
+            <h1 className="text-center mb-4">Email Confirmation</h1>
 
-                {loading ? (
-                  <Loading variant="centered" size="lg" message={lang.current.alert.confirmingEmail} />
-                ) : success ? (
-                  <Alert type="success">
-                    <h5 className="alert-heading">Email Confirmed!</h5>
-                    <p className="mb-0">
-                      Your email address has been successfully verified. {redirectMessage}
-                    </p>
-                  </Alert>
-                ) : (
-                  <>
-                    <Alert type="danger" message={error} className="mb-4" />
+            {loading ? (
+              <Loading variant="centered" size="lg" message={lang.current.alert.confirmingEmail} />
+            ) : success ? (
+              <Alert type="success">
+                <h5 className="alert-heading">Email Confirmed!</h5>
+                <p className="mb-0">
+                  Your email address has been successfully verified. {redirectMessage}
+                </p>
+              </Alert>
+            ) : (
+              <>
+                <Alert type="danger" message={error} className="mb-4" />
 
-                    <div className="text-center mt-4">
-                      <p style={{ color: 'var(--bs-gray-600)' }} className="mb-3">
-                        The confirmation link may have expired or is invalid.
-                      </p>
-                      <Button as={Link} to="/login" variant="primary">
-                        Go to Login
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+                <div className="text-center mt-4">
+                  <p style={{ color: 'var(--color-text-muted)' }} className="mb-3">
+                    The confirmation link may have expired or is invalid.
+                  </p>
+                  <Button as={Link} to="/login" variant="primary">
+                    Go to Login
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
-        </Container>
+        </div>
       </div>
     </>
   );

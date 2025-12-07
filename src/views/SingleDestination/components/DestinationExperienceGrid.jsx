@@ -94,7 +94,7 @@ export default function DestinationExperienceGrid({
       className={styles.grid}
       aria-label={`Experiences in ${destinationName}`}
     >
-      <h3 className={styles.sectionTitle}>
+      <h3 id="experiences-section" className={styles.sectionTitle}>
         {lang.current.heading.experiencesIn.replace('{destinationName}', destinationName)}
       </h3>
 
