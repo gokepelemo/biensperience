@@ -57,16 +57,25 @@ const currencyConfig = {
 };
 
 /**
- * Validate that a currency code is in our allowed list
- * Prevents SSRF by ensuring only known currency codes are used in API requests
- * @param {string} currency - Currency code to validate
- * @returns {boolean} True if valid
+ * Allowlist of valid currency codes for API requests
+ * This list is used to prevent SSRF by only allowing known currency codes
  */
-function isValidCurrency(currency) {
-  if (typeof currency !== 'string') return false;
-  // Only allow currencies defined in currencyConfig (uppercase 3-letter codes)
-  const normalizedCurrency = currency.toUpperCase().trim();
-  return Object.prototype.hasOwnProperty.call(currencyConfig, normalizedCurrency);
+const ALLOWED_CURRENCIES = Object.keys(currencyConfig);
+
+/**
+ * Get a safe currency code from the allowlist
+ * Returns the matching currency from ALLOWED_CURRENCIES or null if not found
+ * This breaks the taint chain by returning a value from a static allowlist
+ * @param {string} currency - Currency code to look up
+ * @returns {string|null} Safe currency code from allowlist, or null if invalid
+ */
+function getSafeCurrency(currency) {
+  if (typeof currency !== 'string') return null;
+  const normalized = currency.toUpperCase().trim();
+  // Find and return the exact match from our static allowlist
+  // This returns a string literal from ALLOWED_CURRENCIES, not the user input
+  const found = ALLOWED_CURRENCIES.find(code => code === normalized);
+  return found || null;
 }
 
 /**
@@ -75,48 +84,50 @@ function isValidCurrency(currency) {
  * @returns {Promise<Object>} Exchange rates object with base and rates
  */
 async function fetchRates(baseCurrency = 'USD') {
-  // Validate currency to prevent SSRF attacks
-  const normalizedCurrency = (baseCurrency || 'USD').toUpperCase().trim();
-  if (!isValidCurrency(normalizedCurrency)) {
-    logger.warn('[currency-utils] Invalid currency code rejected', { baseCurrency });
-    throw new Error(`Invalid currency code: ${baseCurrency}`);
+  // Get safe currency from allowlist to prevent SSRF attacks
+  // safeCurrency is guaranteed to be from ALLOWED_CURRENCIES, not user input
+  const safeCurrency = getSafeCurrency(baseCurrency) || getSafeCurrency('USD');
+  if (!safeCurrency) {
+    // This should never happen since 'USD' is always in the allowlist
+    logger.error('[currency-utils] No valid currency available');
+    throw new Error('Currency configuration error');
   }
 
   // Check cache
   if (_rates && _ratesFetchedAt && (Date.now() - _ratesFetchedAt < _cacheValidMs)) {
-    if (_rates.base === normalizedCurrency) {
+    if (_rates.base === safeCurrency) {
       return _rates;
     }
     // Convert cached rates to new base if possible
-    if (_rates.rates && _rates.rates[normalizedCurrency] !== undefined) {
-      const baseRate = _rates.rates[normalizedCurrency];
+    if (_rates.rates && _rates.rates[safeCurrency] !== undefined) {
+      const baseRate = _rates.rates[safeCurrency];
       const convertedRates = {};
       for (const [currency, rate] of Object.entries(_rates.rates)) {
         convertedRates[currency] = rate / baseRate;
       }
       convertedRates[_rates.base] = 1 / baseRate;
-      return { base: normalizedCurrency, rates: convertedRates };
+      return { base: safeCurrency, rates: convertedRates };
     }
   }
 
   try {
-    // Use validated/normalized currency code to prevent SSRF
-    const response = await fetch(`${EXCHANGE_RATE_API}/${normalizedCurrency}`);
+    // Use safe currency from allowlist - guaranteed to be a valid code
+    const response = await fetch(`${EXCHANGE_RATE_API}/${safeCurrency}`);
     if (!response.ok) {
       throw new Error(`Exchange rate API error: ${response.status}`);
     }
 
     const data = await response.json();
     if (data.result === 'success' && data.rates) {
-      _rates = { base: normalizedCurrency, rates: data.rates };
+      _rates = { base: safeCurrency, rates: data.rates };
       _ratesFetchedAt = Date.now();
-      logger.debug('[currency-utils] Exchange rates fetched', { base: normalizedCurrency, rateCount: Object.keys(data.rates).length });
+      logger.debug('[currency-utils] Exchange rates fetched', { base: safeCurrency, rateCount: Object.keys(data.rates).length });
       return _rates;
     }
 
     throw new Error('Invalid response from exchange rate API');
   } catch (error) {
-    logger.warn('[currency-utils] Failed to fetch exchange rates', { error: error.message, baseCurrency });
+    logger.warn('[currency-utils] Failed to fetch exchange rates', { error: error.message, currency: safeCurrency });
     // Return cached rates if available, even if expired
     if (_rates) {
       return _rates;
