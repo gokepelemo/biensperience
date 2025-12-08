@@ -71,27 +71,8 @@ export default function TransferOwnershipModal({
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
 
-  // Check for plans when modal opens
-  useEffect(() => {
-    if (show && experience?._id) {
-      checkPlans();
-    }
-  }, [show, experience?._id]);
-
-  // Reset state when modal closes
-  useEffect(() => {
-    if (!show) {
-      setCurrentStep(STEPS.LOADING);
-      setSelectedAction(null);
-      setPlanCheckData(null);
-      setError('');
-      setSelectedUser(null);
-      setUserSearchTerm('');
-      setSearchResults([]);
-    }
-  }, [show]);
-
-  const checkPlans = async () => {
+  // Check for plans - wrapped in useCallback for dependency tracking
+  const checkPlans = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -117,7 +98,27 @@ export default function TransferOwnershipModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [experience?._id]);
+
+  // Check for plans when modal opens
+  useEffect(() => {
+    if (show && experience?._id) {
+      checkPlans();
+    }
+  }, [show, experience?._id, checkPlans]);
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!show) {
+      setCurrentStep(STEPS.LOADING);
+      setSelectedAction(null);
+      setPlanCheckData(null);
+      setError('');
+      setSelectedUser(null);
+      setUserSearchTerm('');
+      setSearchResults([]);
+    }
+  }, [show]);
 
   // Search for users to transfer to
   const handleUserSearch = useCallback(async (query) => {

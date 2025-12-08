@@ -1706,6 +1706,12 @@ export default function MyPlanTabContent({
       (item.isChild && animatingCollapse === item.parent)
   );
 
+  // Memoize timeline grouping to avoid recalculation on every render
+  const timelineGroups = useMemo(() => {
+    if (planItemsView !== 'timeline') return null;
+    return groupPlanItemsByDate(itemsToRender);
+  }, [planItemsView, itemsToRender]);
+
   return (
     <div className="my-plan-view mt-4">
       {/* Show loading indicator when we detected a hash deep-link and plans are still loading */}
@@ -1846,12 +1852,10 @@ export default function MyPlanTabContent({
       )}
 
       {/* Plan Items List - Timeline View (grouped by date and time of day) */}
-      {planItemsView === 'timeline' && (() => {
-        const { groups, unscheduled } = groupPlanItemsByDate(itemsToRender);
-        return (
+      {planItemsView === 'timeline' && timelineGroups && (
           <div className="timeline-plan-items-list">
             {/* Scheduled items grouped by date */}
-            {groups.map((group) => (
+            {timelineGroups.groups.map((group) => (
               <TimelineDateGroup
                 key={group.dateKey}
                 group={group}
@@ -1868,14 +1872,14 @@ export default function MyPlanTabContent({
             ))}
 
             {/* Unscheduled items section */}
-            {unscheduled.length > 0 && (
+            {timelineGroups.unscheduled.length > 0 && (
               <div className="timeline-date-group timeline-unscheduled">
                 <div className="timeline-date-header">
                   Unscheduled
                 </div>
                 <div className="timeline-date-content">
                   <div className="timeline-time-items">
-                    {unscheduled.map(item => (
+                    {timelineGroups.unscheduled.map(item => (
                       <TimelinePlanItem
                         key={item.plan_item_id || item._id}
                         planItem={item}
@@ -1896,14 +1900,13 @@ export default function MyPlanTabContent({
             )}
 
             {/* Empty state when no items */}
-            {groups.length === 0 && unscheduled.length === 0 && (
+            {timelineGroups.groups.length === 0 && timelineGroups.unscheduled.length === 0 && (
               <div className="timeline-empty-state">
                 <p>No plan items yet. Add items to see them in your timeline.</p>
               </div>
             )}
           </div>
-        );
-      })()}
+      )}
 
       {/* Schedule Date Modal */}
       <AddDateModal

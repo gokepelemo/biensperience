@@ -10,6 +10,7 @@ import { FaCalendarAlt, FaClock } from 'react-icons/fa';
 import Modal from '../Modal/Modal';
 import styles from './AddDateModal.module.scss';
 import { logger } from '../../utilities/logger';
+import { lang } from '../../lang.constants';
 import { useUser } from '../../contexts/UserContext';
 import {
   formatForDateInput,
@@ -67,10 +68,13 @@ export default function AddDateModal({
     }
   }, [show, initialDate, initialTime, user]);
 
+  // Get modal strings
+  const modalStrings = lang.current.modal.addDateModal;
+
   // Handle save
   const handleSave = useCallback(async () => {
     if (!selectedDate) {
-      setError('Please select a date');
+      setError(modalStrings.selectDate);
       return;
     }
 
@@ -165,7 +169,7 @@ export default function AddDateModal({
           onClick={handleClear}
           disabled={loading}
         >
-          Clear Date
+          {modalStrings.clearDate}
         </button>
       )}
       <button
@@ -174,7 +178,7 @@ export default function AddDateModal({
         onClick={handleSave}
         disabled={loading || !selectedDate}
       >
-        {loading ? 'Saving...' : 'Save'}
+        {loading ? modalStrings.saving : modalStrings.save}
       </button>
     </>
   );
@@ -183,7 +187,7 @@ export default function AddDateModal({
     <Modal
       show={show}
       onClose={onClose}
-      title="Schedule Date"
+      title={modalStrings.title}
       size="sm"
       footer={modalFooter}
       loading={loading}
@@ -191,7 +195,7 @@ export default function AddDateModal({
       <div className={styles.addDateModal}>
         {/* Plan item name */}
         <div className={styles.planItemInfo}>
-          <span className={styles.planItemLabel}>For:</span>
+          <span className={styles.planItemLabel}>{modalStrings.forLabel}</span>
           <span className={styles.planItemText}>{planItemText}</span>
         </div>
 
@@ -206,7 +210,7 @@ export default function AddDateModal({
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
             <FaCalendarAlt className={styles.inputIcon} />
-            Date
+            {modalStrings.dateLabel}
           </label>
           <input
             type="date"
@@ -221,7 +225,7 @@ export default function AddDateModal({
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
             <FaClock className={styles.inputIcon} />
-            Time <span className={styles.optional}>(optional)</span>
+            {modalStrings.timeLabel} <span className={styles.optional}>{modalStrings.timeOptional}</span>
           </label>
           <input
             type="time"
@@ -234,7 +238,7 @@ export default function AddDateModal({
 
         {/* Timezone indicator */}
         <div className={styles.timezoneInfo}>
-          Times are in your timezone: <strong>{userTimezone}</strong>
+          {modalStrings.timezoneInfo} <strong>{userTimezone}</strong>
         </div>
 
         {/* Preview */}

@@ -298,6 +298,20 @@ const en = {
     removeExperienceConfirm: "Are you sure you want to remove this experience from your plans?",
     unsavedChangesMessage: "You have unsaved changes. Are you sure you want to leave?",
 
+    // Add Date Modal
+    addDateModal: {
+      title: "Schedule Date",
+      forLabel: "For:",
+      dateLabel: "Date",
+      timeLabel: "Time",
+      timeOptional: "(optional)",
+      timezoneInfo: "Times are in your timezone:",
+      selectDate: "Please select a date",
+      clearDate: "Clear Date",
+      save: "Save",
+      saving: "Saving...",
+    },
+
     // Transfer Ownership Modal
     transferOwnership: {
       titleChecking: "Checking...",
