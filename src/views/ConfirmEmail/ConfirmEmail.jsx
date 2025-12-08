@@ -18,19 +18,22 @@ export default function ConfirmEmail() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  // Get page strings
+  const pageStrings = lang.current.confirmEmailPage;
+
   // Determine redirect destination based on auth state
   const redirectPath = user ? '/dashboard' : '/login';
   const redirectMessage = user
-    ? 'Redirecting you to your dashboard...'
-    : 'Redirecting you to the login page...';
+    ? pageStrings.redirectToDashboard
+    : pageStrings.redirectToLogin;
 
   useEffect(() => {
-    document.title = 'Confirm Email - Biensperience';
+    document.title = pageStrings.pageTitle;
 
     const confirmEmailAddress = async () => {
       // Validate token before making request
       if (!token) {
-        setError('No confirmation token provided. Please check your email link.');
+        setError(pageStrings.noToken);
         setLoading(false);
         return;
       }
@@ -52,7 +55,7 @@ export default function ConfirmEmail() {
         // Extract error message from response
         const errorMsg = err?.response?.data?.error
           || handleError(err, { context: 'Confirm email', silent: true })
-          || 'Failed to confirm email. The link may be invalid or expired.';
+          || pageStrings.failedDefault;
         setError(errorMsg);
       } finally {
         setLoading(false);
@@ -60,28 +63,28 @@ export default function ConfirmEmail() {
     };
 
     confirmEmailAddress();
-  }, [token, navigate, redirectPath, user, updateUser]);
+  }, [token, navigate, redirectPath, user, updateUser, pageStrings.pageTitle, pageStrings.noToken, pageStrings.failedDefault]);
 
   return (
     <>
       <PageOpenGraph
-        title="Confirm Email - Biensperience"
-        description="Confirm your email address for your Biensperience account"
-        keywords="confirm email, email verification, account activation"
+        title={pageStrings.pageTitle}
+        description={pageStrings.pageDescription}
+        keywords={pageStrings.pageKeywords}
       />
 
       <div className={styles.confirmEmailWrapper}>
         <div className={`${styles.confirmEmailCard} card`}>
           <div className="card-body">
-            <h1 className="text-center mb-4">Email Confirmation</h1>
+            <h1 className="text-center mb-4">{pageStrings.heading}</h1>
 
             {loading ? (
               <Loading variant="centered" size="lg" message={lang.current.alert.confirmingEmail} />
             ) : success ? (
               <Alert type="success">
-                <h5 className="alert-heading">Email Confirmed!</h5>
+                <h5 className="alert-heading">{pageStrings.success}</h5>
                 <p className="mb-0">
-                  Your email address has been successfully verified. {redirectMessage}
+                  {pageStrings.successMessage} {redirectMessage}
                 </p>
               </Alert>
             ) : (
@@ -90,10 +93,10 @@ export default function ConfirmEmail() {
 
                 <div className="text-center mt-4">
                   <p style={{ color: 'var(--color-text-muted)' }} className="mb-3">
-                    The confirmation link may have expired or is invalid.
+                    {pageStrings.linkExpired}
                   </p>
                   <Button as={Link} to="/login" variant="primary">
-                    Go to Login
+                    {pageStrings.goToLogin}
                   </Button>
                 </div>
               </>

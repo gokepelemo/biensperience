@@ -1398,17 +1398,34 @@ const en = {
   // Confirm email page strings
   confirmEmailPage: {
     heading: "Email Confirmation",
+    pageTitle: "Confirm Email - Biensperience",
+    pageDescription: "Confirm your email address for your Biensperience account",
+    pageKeywords: "confirm email, email verification, account activation",
     success: "Email Confirmed!",
+    successMessage: "Your email address has been successfully verified.",
+    redirectToDashboard: "Redirecting you to your dashboard...",
+    redirectToLogin: "Redirecting you to the login page...",
+    noToken: "No confirmation token provided. Please check your email link.",
+    linkExpired: "The confirmation link may have expired or is invalid.",
+    failedDefault: "Failed to confirm email. The link may be invalid or expired.",
+    goToLogin: "Go to Login",
   },
 
   // Reset password page strings
   resetPasswordPage: {
     heading: "Reset Password",
+    pageTitle: "Reset Password - Biensperience",
+    pageDescription: "Create a new password for your Biensperience account",
+    pageKeywords: "reset password, password recovery, account security",
     success: "Password Reset Successful!",
+    successMessage: "Your password has been changed. Redirecting you to the login page...",
+    instruction: "Please enter your new password below.",
     newPassword: "New Password",
     confirmPassword: "Confirm Password",
     passwordsDoNotMatch: "Passwords do not match",
     passwordTooShort: "Password must be at least 3 characters long",
+    minimumCharacters: "Minimum 3 characters",
+    failedDefault: "Failed to reset password. The link may be invalid or expired.",
   },
 
   // Destinations view strings

@@ -6,7 +6,7 @@ import { lang } from '../../lang.constants';
 import FormField from '../../components/FormField/FormField';
 import Alert from '../../components/Alert/Alert';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
-import { Button, Container } from '../../components/design-system';
+import { Button } from '../../components/design-system';
 import styles from './ResetPassword.module.scss';
 
 export default function ResetPassword() {
@@ -20,9 +20,12 @@ export default function ResetPassword() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  // Get page strings
+  const pageStrings = lang.current.resetPasswordPage;
+
   useEffect(() => {
-    document.title = 'Reset Password - Biensperience';
-  }, []);
+    document.title = pageStrings.pageTitle;
+  }, [pageStrings.pageTitle]);
 
   const handleChange = (e) => {
     setFormData({
@@ -38,13 +41,13 @@ export default function ResetPassword() {
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError(pageStrings.passwordsDoNotMatch);
       return;
     }
 
     // Validate password strength
     if (formData.password.length < 3) {
-      setError('Password must be at least 3 characters long');
+      setError(pageStrings.passwordTooShort);
       return;
     }
 
@@ -60,7 +63,7 @@ export default function ResetPassword() {
       }, 3000);
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Reset password' });
-      setError(errorMsg || 'Failed to reset password. The link may be invalid or expired.');
+      setError(errorMsg || pageStrings.failedDefault);
     } finally {
       setLoading(false);
     }
@@ -69,21 +72,21 @@ export default function ResetPassword() {
   return (
     <>
       <PageOpenGraph
-        title="Reset Password - Biensperience"
-        description="Create a new password for your Biensperience account"
-        keywords="reset password, password recovery, account security"
+        title={pageStrings.pageTitle}
+        description={pageStrings.pageDescription}
+        keywords={pageStrings.pageKeywords}
       />
 
       <div className={styles.resetPasswordWrapper}>
         <div className={`${styles.resetPasswordCard} card`}>
           <div className="card-body">
-                <h1 className="mb-4" style={{ textAlign: 'center' }}>Reset Password</h1>
+                <h1 className="mb-4" style={{ textAlign: 'center' }}>{pageStrings.heading}</h1>
 
                 {success ? (
                   <Alert type="success">
-                    <h5 className="alert-heading">Password Reset Successful!</h5>
+                    <h5 className="alert-heading">{pageStrings.success}</h5>
                     <p className="mb-0">
-                      Your password has been changed. Redirecting you to the login page...
+                      {pageStrings.successMessage}
                     </p>
                   </Alert>
                 ) : (
@@ -93,12 +96,12 @@ export default function ResetPassword() {
                     )}
 
                     <p className="text-muted mb-4">
-                      Please enter your new password below.
+                      {pageStrings.instruction}
                     </p>
 
                     <FormField
                       name="password"
-                      label="New Password"
+                      label={pageStrings.newPassword}
                       type="password"
                       value={formData.password}
                       onChange={handleChange}
@@ -107,12 +110,12 @@ export default function ResetPassword() {
                       autoComplete="new-password"
                       autoFocus
                       minLength={3}
-                      helpText="Minimum 3 characters"
+                      helpText={pageStrings.minimumCharacters}
                     />
 
                     <FormField
                       name="confirmPassword"
-                      label="Confirm Password"
+                      label={pageStrings.confirmPassword}
                       type="password"
                       value={formData.confirmPassword}
                       onChange={handleChange}
@@ -129,7 +132,7 @@ export default function ResetPassword() {
                       className="w-100 mt-4"
                       disabled={loading || !formData.password || !formData.confirmPassword}
                     >
-                      {loading ? lang.current.alert.resettingPassword : lang.current.button.resetPassword || 'Reset Password'}
+                      {loading ? lang.current.alert.resettingPassword : lang.current.button.resetPassword}
                     </Button>
 
                     <div className="mt-4" style={{ textAlign: 'center' }}>
