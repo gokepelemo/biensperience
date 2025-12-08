@@ -37,7 +37,6 @@ export default function UpdateExperience() {
   const [originalExperience, setOriginalExperience] = useState(null);
   const [changes, setChanges] = useState({});
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isMediaSettled, setIsMediaSettled] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showDestinationModal, setShowDestinationModal] = useState(false);
   const [error, setError] = useState("");
@@ -135,34 +134,6 @@ export default function UpdateExperience() {
       fetchData();
     }
   }, [experienceId, user, navigate, destData]);
-
-  // Determine when photos/default are fully normalized and aligned with original
-  useEffect(() => {
-    if (!experience || !originalExperience) return;
-
-    const getId = (p) => {
-      if (!p) return null;
-      if (typeof p === 'string') return p;
-      if (p._id) return String(p._id);
-      return String(p);
-    };
-    const normalizePhotos = (arr = []) => arr.map(getId).filter(Boolean).sort();
-
-    const originalPhotoIds = normalizePhotos(originalExperience.photos || []);
-    const currentPhotoIds = normalizePhotos(experience.photos || []);
-
-    const originalDefault = originalExperience.default_photo_id
-      ? String(getId(originalExperience.default_photo_id))
-      : (originalPhotoIds[0] || null);
-    let currentDefault = experience.default_photo_id
-      ? String(getId(experience.default_photo_id))
-      : (currentPhotoIds[0] || null);
-    if (currentPhotoIds.length === 0) currentDefault = null;
-
-    const photosEqual = JSON.stringify(originalPhotoIds) === JSON.stringify(currentPhotoIds);
-    const defaultsEqual = originalDefault === currentDefault;
-    setIsMediaSettled(photosEqual && defaultsEqual);
-  }, [experience, originalExperience]);
 
   // Track photo changes (robust: compare by stable IDs, ignore order)
   useEffect(() => {
@@ -435,7 +406,7 @@ export default function UpdateExperience() {
         </div>
       </div>
 
-      {!isInitialLoad && isMediaSettled && Object.keys(changes).length > 0 && (
+      {!isInitialLoad && Object.keys(changes).length > 0 && (
         <Alert
           type="info"
           className="mb-4 animation-fade-in"

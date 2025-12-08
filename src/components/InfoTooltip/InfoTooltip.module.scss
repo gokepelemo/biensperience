@@ -44,6 +44,21 @@
   }
 }
 
+// Light variant for dark backgrounds (e.g., gradient cards)
+.infoButtonLight {
+  color: rgba(255, 255, 255, 0.9);
+
+  &:hover,
+  &:focus {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+
+  &:focus-visible {
+    outline-color: white;
+  }
+}
+
 // Tooltip popup - rendered via Portal at document.body
 .tooltipPopup {
   position: fixed;

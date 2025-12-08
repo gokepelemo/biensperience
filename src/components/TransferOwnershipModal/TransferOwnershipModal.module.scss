@@ -1,0 +1,303 @@
+@use '../../styles/scss/abstracts' as *;
+
+// Wrapper class for Modal content customization
+.modalContentWrapper {
+  // Any additional styles for the modal content wrapper
+}
+
+.stepIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3) var(--space-4);
+  margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) var(--space-4) calc(-1 * var(--space-4));
+  background: var(--color-bg-muted);
+  border-bottom: 1px solid var(--color-border-light);
+  gap: var(--space-2);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+
+  &.active {
+    opacity: 1;
+  }
+
+  &.completed {
+    opacity: 1;
+  }
+}
+
+.stepNumber {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  transition: all 0.2s ease;
+
+  .active & {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .completed & {
+    background: var(--color-success);
+    color: white;
+  }
+}
+
+.stepLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+
+  .active & {
+    color: var(--color-text-primary);
+  }
+}
+
+.stepConnector {
+  width: 40px;
+  height: 2px;
+  background: var(--color-border);
+  transition: background 0.2s ease;
+
+  &.active {
+    background: var(--color-primary);
+  }
+}
+
+// Footer is now rendered inside Modal's custom footer prop
+.modalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.footerLeft {
+  display: flex;
+  align-items: center;
+}
+
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: var(--space-2);
+  font-size: var(--font-size-sm);
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// Step content styles
+.stepContent {
+  min-height: 200px;
+}
+
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.warningBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: rgba(var(--color-warning-rgb), 0.1);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.warningIcon {
+  color: var(--color-warning);
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+// Action cards
+.actionCards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.actionCard {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-bg-surface);
+  border: 2px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  width: 100%;
+
+  &:hover {
+    border-color: var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.05);
+  }
+}
+
+.actionIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  color: var(--color-primary);
+}
+
+.actionContent {
+  flex: 1;
+}
+
+// Delete confirmation (when no plans exist)
+.deleteConfirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-6);
+}
+
+.deleteIcon {
+  font-size: 3rem;
+  color: var(--color-danger);
+  margin-bottom: var(--space-4);
+}
+
+// User selection
+.suggestedUsers {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.userList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.userCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  background: var(--color-bg-surface);
+  border: 2px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  width: 100%;
+
+  &:hover {
+    border-color: var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.05);
+  }
+
+  &.selected {
+    border-color: var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.1);
+  }
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.searchSection {
+  margin-bottom: var(--space-4);
+}
+
+.selectedUserPreview {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-light);
+}
+
+// Confirm step
+.confirmContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-4);
+}
+
+.confirmIcon {
+  font-size: 3rem;
+  margin-bottom: var(--space-4);
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .stepIndicator {
+    padding: var(--space-3);
+    gap: var(--space-1);
+  }
+
+  .stepLabel {
+    display: none;
+  }
+
+  .stepConnector {
+    width: 24px;
+  }
+
+  .modalBody {
+    padding: var(--space-4);
+  }
+
+  .actionCard {
+    padding: var(--space-3);
+    gap: var(--space-3);
+  }
+
+  .actionIcon {
+    width: 40px;
+    height: 40px;
+  }
+}

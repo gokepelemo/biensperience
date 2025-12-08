@@ -152,6 +152,23 @@ async function getUser(req, res) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check if profile is private (from preferences.profileVisibility)
+    // Allow access if: user is viewing their own profile, or user is super admin
+    const requestingUserId = req.user?._id?.toString();
+    const isOwnProfile = requestingUserId === userId.toString();
+    const isAdmin = req.user && isSuperAdmin(req.user);
+    const profileVisibility = user.preferences?.profileVisibility || 'public';
+
+    if (profileVisibility === 'private' && !isOwnProfile && !isAdmin) {
+      // Return limited profile data for private profiles
+      return res.status(200).json({
+        _id: user._id,
+        name: user.name,
+        visibility: 'private',
+        isPrivate: true
+      });
+    }
+
     res.status(200).json(user);
   } catch (err) {
     backendLogger.error('Error fetching user', { error: err.message, userId: req.params.id });

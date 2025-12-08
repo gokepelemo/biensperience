@@ -407,10 +407,15 @@
   align-items: center;
 }
 
+.totalCostLabel {
+  color: var(--color-text-inverse);
+}
+
 .totalCostValue {
   display: flex;
   align-items: center;
   gap: $space-2;
+  color: var(--color-text-inverse);
 }
 
 /* Costs Accordion Body */
@@ -512,6 +517,13 @@
   margin-top: $space-5;
   padding-top: $space-5;
   border-top: 1px dashed var(--color-border-light);
+}
+
+/* Subheading Description */
+.subheading {
+  @include breakpoint-max(md) {
+    text-align: center;
+  }
 }
 
 /* Responsive Design */

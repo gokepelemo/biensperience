@@ -19,6 +19,7 @@ import { handleError } from '../../utilities/error-handler';
 import themeManager from '../../utilities/theme-manager';
 import { getLanguageOptions } from '../../lang.constants';
 import { getTimezoneOptions, detectUserTimezone } from '../../utilities/preferences-utils';
+import { getCurrencyDropdownOptions } from '../../utilities/currency-utils';
 
 export default function Preferences() {
   const { user, profile, fetchProfile } = useUser();
@@ -129,8 +130,8 @@ export default function Preferences() {
           boxShadow: 'var(--shadow-sm)'
         }}
       >
-        <Heading level={4} className="mb-2">Preferences</Heading>
-        <Text size="sm" variant="muted" className="mb-4">
+        <Heading level={4} className="mb-2 text-md-start text-center">Preferences</Heading>
+        <Text size="sm" variant="muted" className="mb-4 text-md-start text-center">
           Platform preferences and notification settings
         </Text>
 
@@ -179,14 +180,17 @@ export default function Preferences() {
             </FormGroup>
 
             <FormGroup>
-              <FormLabel htmlFor="currency-input">Currency</FormLabel>
+              <FormLabel htmlFor="currency-select">Currency</FormLabel>
               <FormControl
-                id="currency-input"
-                type="text"
+                as="select"
+                id="currency-select"
                 value={form.currency}
                 onChange={e => handleChange('currency', e.target.value)}
-                placeholder="USD"
-              />
+              >
+                {getCurrencyDropdownOptions({ format: 'full' }).map(curr => (
+                  <option key={curr.value} value={curr.value}>{curr.label}</option>
+                ))}
+              </FormControl>
             </FormGroup>
 
             <FormGroup>

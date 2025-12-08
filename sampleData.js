@@ -22,6 +22,7 @@ function parseArgs() {
   const parsed = {
     clear: args.includes('--clear') || args.includes('-c'),
     help: args.includes('--help') || args.includes('-h'),
+    production: args.includes('--production') || args.includes('-p'),
     adminName: null,
     adminEmail: null,
     users: null,
@@ -81,6 +82,7 @@ Usage: node sampleData.js [options]
 
 Options:
   --clear, -c                     Clear all existing data before generating new sample data
+  --production, -p                Production mode: only create super admin and archive user (no sample data)
   --admin-name "Full Name"        Set the super admin's full name
   --admin-email "email@domain"    Set the super admin's email address
   --users <number>                Number of regular users to create (default: 180)
@@ -131,6 +133,9 @@ Description:
 Examples:
   node sampleData.js
     # Generate sample data with default counts (3x original)
+
+  node sampleData.js --production --admin-name "Admin" --admin-email "admin@example.com"
+    # Production mode: only create super admin and archive user (no sample data)
 
   node sampleData.js --clear
     # Clear database and generate fresh sample data
@@ -927,6 +932,36 @@ class DataGenerator {
     this.usedEmails.add(superAdminEmail);
     this.usedNames.add(superAdminName);
 
+    // Create Archive User - system user for archiving experiences when owner deletes
+    // Uses fixed ObjectId for consistent reference across environments
+    const archiveUser = {
+      _id: new mongoose.Types.ObjectId('000000000000000000000001'),
+      name: 'Archived User',
+      email: 'archived@biensperience.system',
+      password: generateRandomString(32), // Random unguessable password - this user cannot login
+      role: 'regular_user',
+      isSystemUser: true,
+      isArchiveUser: true,
+      emailConfirmed: true,
+      apiEnabled: false,
+      visibility: 'private', // Blackhole profile should not be publicly accessible
+      preferences: {
+        theme: 'system-default',
+        currency: 'USD',
+        timezone: 'UTC',
+        profileVisibility: 'private',
+        notifications: {
+          enabled: false,
+          channels: [],
+          types: []
+        }
+      },
+      credentials: null // No credentials - system user cannot login
+    };
+    users.push(archiveUser);
+    this.usedEmails.add('archived@biensperience.system');
+    this.usedNames.add('Archived User');
+
     // Create fixed demo user for demo deployments
     const demoUser = {
       name: 'Demo User',
@@ -958,8 +993,8 @@ class DataGenerator {
     this.usedNames.add('Demo User');
 
     // Generate regular users with unique names and emails
-    // Subtract 2 from count to account for super admin and demo user
-    for (let i = 0; i < count - 2; i++) {
+    // Subtract 3 from count to account for super admin, archive user, and demo user
+    for (let i = 0; i < count - 3; i++) {
       const { firstName, lastName, name } = this.generateUniqueName();
       const email = this.generateUniqueEmail(firstName, lastName);
 
@@ -2110,6 +2145,91 @@ async function createSampleData() {
 
     const generator = new DataGenerator();
 
+    // Production mode: only create essential system users
+    if (args.production) {
+      output.log('🚀 PRODUCTION MODE: Creating essential system users only');
+      output.log('');
+
+      const createdUsers = [];
+
+      // Create super admin
+      output.log('👤 Creating super admin...');
+      const superAdminPassword = generateRandomString(12);
+      const sessionId = `sess_${generateRandomString(32)}`;
+      const now = Date.now();
+      const expiresAt = now + (24 * 60 * 60 * 1000);
+
+      const superAdmin = new User({
+        name: adminName,
+        email: adminEmail,
+        password: superAdminPassword,
+        role: 'super_admin',
+        isSuperAdmin: true,
+        emailConfirmed: true,
+        apiEnabled: true,
+        visibility: 'public',
+        currentSessionId: sessionId,
+        sessionCreatedAt: now,
+        sessionExpiresAt: expiresAt
+      });
+      await superAdmin.save();
+      createdUsers.push({
+        ...superAdmin.toObject(),
+        credentials: { name: adminName, email: adminEmail, password: superAdminPassword }
+      });
+      output.log(`✅ Created super admin: ${adminEmail}`);
+
+      // Create Archive User with fixed ObjectId
+      output.log('📦 Creating Archive User (system user for archived experiences)...');
+      const archiveUser = new User({
+        _id: new mongoose.Types.ObjectId('000000000000000000000001'),
+        name: 'Archived User',
+        email: 'archived@biensperience.system',
+        password: generateRandomString(32),
+        role: 'regular_user',
+        isSystemUser: true,
+        emailConfirmed: true,
+        apiEnabled: false,
+        visibility: 'private',
+        preferences: {
+          theme: 'system-default',
+          currency: 'USD',
+          timezone: 'UTC',
+          profileVisibility: 'private',
+          notifications: { enabled: false, channels: [], types: [] }
+        }
+      });
+      await archiveUser.save();
+      createdUsers.push({ ...archiveUser.toObject(), credentials: null });
+      output.log('✅ Created Archive User (ID: 000000000000000000000001)');
+
+      // Summary for production mode
+      output.log('');
+      output.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      output.log('🎉 PRODUCTION SEED COMPLETE');
+      output.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      output.log('');
+      output.log('👤 Super Admin Credentials:');
+      output.log(`   Email: ${adminEmail}`);
+      output.log(`   Password: ${superAdminPassword}`);
+      output.log('');
+      output.log('📦 System Users Created:');
+      output.log('   - Archive User (for archived experiences)');
+      output.log('');
+      output.log('⚠️  IMPORTANT: Save these credentials securely!');
+      output.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+      // Save to file
+      output.save();
+
+      // Disconnect and exit
+      await mongoose.disconnect();
+      output.log('');
+      output.log('👋 Database connection closed. Production seed complete!');
+      process.exit(0);
+    }
+
+    // Full sample data mode (non-production)
     // Set resource counts from args or defaults (3x original counts)
     const resourceCounts = {
       users: args.users || 180,
@@ -2124,7 +2244,7 @@ async function createSampleData() {
     };
 
     output.log('📊 Resource Counts:');
-    output.log(`   👥 Users: ${resourceCounts.users} (1 super admin + ${resourceCounts.users - 1} regular)`);
+    output.log(`   👥 Users: ${resourceCounts.users} (1 super admin + 1 archive user + 1 demo + ${resourceCounts.users - 3} regular)`);
     output.log(`   📍 Destinations: ${resourceCounts.destinations}`);
     output.log(`   🎯 Experiences: ${resourceCounts.experiences}`);
     output.log(`   📋 Plans: ${resourceCounts.plans}`);
@@ -2141,12 +2261,13 @@ async function createSampleData() {
     const createdUsers = [];
 
     for (const userInfo of userData) {
-      const user = new User({
+      const userDoc = {
         name: userInfo.name,
         email: userInfo.email,
         password: userInfo.password,
         role: userInfo.role,
         isSuperAdmin: userInfo.isSuperAdmin || false,
+        isSystemUser: userInfo.isSystemUser || false,
         emailConfirmed: userInfo.emailConfirmed,
         apiEnabled: userInfo.apiEnabled,
         visibility: userInfo.visibility,
@@ -2155,11 +2276,18 @@ async function createSampleData() {
         currentSessionId: userInfo.currentSessionId,
         sessionCreatedAt: userInfo.sessionCreatedAt,
         sessionExpiresAt: userInfo.sessionExpiresAt
-      });
+      };
+
+      // Include fixed _id for Archive User
+      if (userInfo._id) {
+        userDoc._id = userInfo._id;
+      }
+
+      const user = new User(userDoc);
       await user.save();
       createdUsers.push({ ...user.toObject(), credentials: userInfo.credentials });
     }
-    output.log(`✅ Created ${createdUsers.length} users (${createdUsers.filter(u => u.isSuperAdmin).length} super admin, ${createdUsers.filter(u => !u.isSuperAdmin).length} regular users)`);
+    output.log(`✅ Created ${createdUsers.length} users (${createdUsers.filter(u => u.isSuperAdmin).length} super admin, ${createdUsers.filter(u => u.isSystemUser).length} system, ${createdUsers.filter(u => !u.isSuperAdmin && !u.isSystemUser).length} regular)`);
 
     // Generate and create destinations
     output.log('📍 Generating destinations...');

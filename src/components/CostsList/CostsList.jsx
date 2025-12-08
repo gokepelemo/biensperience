@@ -221,6 +221,7 @@ export default function CostsList({
           planItems={planItems}
           onSave={handleSaveCost}
           loading={modalLoading}
+          defaultCurrency={currency}
         />
       </div>
     );
@@ -340,6 +341,7 @@ export default function CostsList({
         planItems={planItems}
         onSave={handleSaveCost}
         loading={modalLoading}
+        defaultCurrency={currency}
       />
 
       {/* Delete Confirmation Modal */}

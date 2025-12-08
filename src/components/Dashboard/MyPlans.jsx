@@ -26,6 +26,7 @@ import { eventBus } from '../../utilities/event-bus';
 import { lang } from '../../lang.constants';
 import { getTotalCostTooltip } from '../../utilities/cost-utils';
 import { useViewModePreference } from '../../hooks/useUIPreference';
+import { useCurrencyConversion } from '../../hooks/useCurrencyConversion';
 import PlanCalendar from './PlanCalendar';
 import styles from './MyPlans.module.scss';
 
@@ -57,6 +58,9 @@ export default function MyPlans() {
   const [pagination, setPagination] = useState({ page: 1, hasMore: false, totalCount: 0 });
   const navigate = useNavigate();
   const { openPlanExperienceModal } = usePlanExperience();
+
+  // Currency conversion hook for proper cost rollups
+  const { calculateTotal, formatTotal, userCurrency } = useCurrencyConversion();
 
   // Filter plans based on dropdown selection
   const ownedPlans = plans.filter(plan => !plan.isCollaborative);
@@ -366,7 +370,7 @@ export default function MyPlans() {
             </div>
           </FlexBetween>
         </div>
-        <Text size="sm" variant="muted" className="mb-4">
+        <Text size="sm" variant="muted" className={`mb-4 ${styles.subheading}`}>
           {lang.current.dashboard.myPlansDescription}
         </Text>
 
@@ -417,8 +421,8 @@ export default function MyPlans() {
                 ? plan.completion_percentage
                 : (itemCount > 0 ? Math.round((completedCount / itemCount) * 100) : 0);
 
-              // Calculate actual total cost from plan costs
-              const actualTotalCost = (plan.costs || []).reduce((sum, cost) => sum + (cost.cost || 0), 0);
+              // Calculate actual total cost from plan costs (with currency conversion)
+              const actualTotalCost = calculateTotal(plan.costs || []);
               const hasActualCosts = plan.costs && plan.costs.length > 0;
               const experienceEstimate = plan.experience?.cost_estimate || 0;
               const planEstimate = plan.total_cost || 0;
@@ -495,6 +499,7 @@ export default function MyPlans() {
                                 <Text weight="bold" size="lg">
                                   <CostEstimate
                                     cost={actualTotalCost}
+                                    currency={userCurrency}
                                     showTooltip={true}
                                     compact={true}
                                     isActual={true}
@@ -617,16 +622,17 @@ export default function MyPlans() {
                               }}
                             >
                               <div className={styles.totalCostHeader}>
-                                <Text weight="semibold" size="md">{lang.current.label.totalSpent}</Text>
+                                <Text weight="semibold" size="md" className={styles.totalCostLabel}>{lang.current.label.totalSpent}</Text>
                                 <div className={styles.totalCostValue}>
                                   <CostEstimate
                                     cost={actualTotalCost}
-                                    currency="USD"
+                                    currency={userCurrency}
                                     showTooltip={true}
                                     compact={true}
                                     isActual={true}
                                     exact={true}
-                                    tooltipContent={getTotalCostTooltip(actualTotalCost, plan.costs, { currency: 'USD' })}
+                                    tooltipContent={`${lang.current.label.trackedCosts}: ${getTotalCostTooltip(actualTotalCost, plan.costs, { currency: userCurrency })}`}
+                                    tooltipVariant="light"
                                   />
                                   <div className={`${styles.expandIcon} ${expandedCostAccordions.has(plan._id) ? styles.rotated : ''}`}>
                                     <FaChevronRight size={14} />
@@ -643,7 +649,7 @@ export default function MyPlans() {
                                   collaborators={collaborators.get(plan._id) || []}
                                   planItems={plan.plan || []}
                                   plan={plan}
-                                  currency="USD"
+                                  currency={userCurrency}
                                 />
                               </div>
                             )}

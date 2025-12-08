@@ -3,6 +3,8 @@ import { Card, Button } from 'react-bootstrap';
 import { FaCalendar, FaStar, FaMapMarkerAlt, FaDollarSign } from 'react-icons/fa';
 import { getDashboardData } from '../../utilities/dashboard-api';
 import { getUser } from '../../utilities/users-service';
+import { formatCostEstimate } from '../../utilities/cost-utils';
+import { formatCurrency } from '../../utilities/currency-utils';
 import { logger } from '../../utilities/logger';
 import { useToast } from '../../contexts/ToastContext';
 import { SkeletonLoader, Heading, Text } from '../../components/design-system';
@@ -217,9 +219,10 @@ export default function Dashboard() {
                 />
                 <StatsCard
                   label="Estimated Cost"
-                  value={`$${Number(totalSpentValue).toLocaleString()}`}
+                  value={formatCostEstimate(totalSpentValue)}
                   color="var(--color-info)"
                   icon={<FaDollarSign />}
+                  tooltip={`Cost estimate: ${formatCurrency(totalSpentValue)}`}
                 />
               </div>
 

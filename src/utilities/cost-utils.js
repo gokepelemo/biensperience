@@ -296,11 +296,13 @@ export function getDollarSigns(cost, options = {}) {
 
 /**
  * Get enhanced tooltip for total cost showing breakdown.
+ * Note: totalCost should already be converted to user's preferred currency
+ * Individual cost entries are shown in their original currencies
  *
- * @param {number} totalCost - Total cost amount
- * @param {Array} costEntries - Array of individual cost entries
+ * @param {number} totalCost - Total cost amount (already converted to display currency)
+ * @param {Array} costEntries - Array of individual cost entries with their original currencies
  * @param {Object} options - Options
- * @param {string} options.currency - Currency code (default: 'USD')
+ * @param {string} options.currency - Display currency code for the total (default: 'USD')
  * @returns {string} Enhanced total cost tooltip
  */
 export function getTotalCostTooltip(totalCost, costEntries = [], options = {}) {
@@ -316,29 +318,38 @@ export function getTotalCostTooltip(totalCost, costEntries = [], options = {}) {
     maximumFractionDigits: 2
   });
 
-  let tooltip = `Total cost: ${symbol}${formatted}`;
+  // Show total in user's preferred currency
+  let tooltip = `Total (${currency}): ${symbol}${formatted}`;
 
-  // Calculate shared vs assigned costs
-  const sharedCosts = costEntries.filter(c => !c.plan_item && !c.collaborator);
-  const assignedCosts = costEntries.filter(c => c.plan_item || c.collaborator);
+  // Show individual cost entries in their original currencies
+  if (costEntries && costEntries.length > 0) {
+    const entryCount = costEntries.length;
+    tooltip += `\n${entryCount} expense${entryCount === 1 ? '' : 's'} tracked`;
 
-  const sharedTotal = sharedCosts.reduce((sum, c) => sum + (c.cost || 0), 0);
-  const assignedTotal = assignedCosts.reduce((sum, c) => sum + (c.cost || 0), 0);
+    // Group by currency for summary
+    const byCurrency = costEntries.reduce((acc, c) => {
+      const costCurrency = c.currency || 'USD';
+      if (!acc[costCurrency]) {
+        acc[costCurrency] = 0;
+      }
+      acc[costCurrency] += c.cost || 0;
+      return acc;
+    }, {});
 
-  if (sharedTotal > 0) {
-    const sharedFormatted = sharedTotal.toLocaleString('en-US', {
-      minimumFractionDigits: sharedTotal % 1 !== 0 ? 2 : 0,
-      maximumFractionDigits: 2
-    });
-    tooltip += `\nShared cost: ${symbol}${sharedFormatted}`;
-  }
-
-  if (assignedTotal > 0) {
-    const assignedFormatted = assignedTotal.toLocaleString('en-US', {
-      minimumFractionDigits: assignedTotal % 1 !== 0 ? 2 : 0,
-      maximumFractionDigits: 2
-    });
-    tooltip += `\nAssigned cost: ${symbol}${assignedFormatted}`;
+    // If there are multiple currencies, show breakdown
+    const currencies = Object.keys(byCurrency);
+    if (currencies.length > 1) {
+      tooltip += '\nBy currency:';
+      currencies.forEach(cur => {
+        const curSymbol = getCurrencySymbol(cur);
+        const curTotal = byCurrency[cur];
+        const curFormatted = curTotal.toLocaleString('en-US', {
+          minimumFractionDigits: curTotal % 1 !== 0 ? 2 : 0,
+          maximumFractionDigits: 2
+        });
+        tooltip += `\n  ${cur}: ${curSymbol}${curFormatted}`;
+      });
+    }
   }
 
   return tooltip;

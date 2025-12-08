@@ -258,11 +258,26 @@ async function getAllActivities(req, res) {
       startDate,
       endDate,
       page = 1,
-      limit = 50
+      limit = 50,
+      includePrivateProfiles = 'false' // By default, exclude private profile users
     } = req.query;
 
     // Build query with input validation to prevent NoSQL injection
     const query = {};
+
+    // Get user IDs with private profiles to exclude from activity feeds
+    // Super admins can include private profiles by passing includePrivateProfiles=true
+    if (includePrivateProfiles !== 'true') {
+      const privateProfileUsers = await User.find({
+        'preferences.profileVisibility': 'private'
+      }).select('_id').lean();
+
+      const privateUserIds = privateProfileUsers.map(u => u._id);
+
+      if (privateUserIds.length > 0) {
+        query['actor._id'] = { $nin: privateUserIds };
+      }
+    }
 
     // Validate and sanitize string inputs - only allow alphanumeric, dash, underscore
     const SAFE_STRING_PATTERN = /^[a-zA-Z0-9_-]+$/;
@@ -380,7 +395,7 @@ async function getActivityStats(req, res) {
       return sendErrorResponse(res, errorResponse);
     }
 
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, includePrivateProfiles = 'false' } = req.query;
 
     // Build date filter
     const dateFilter = {};
@@ -388,6 +403,19 @@ async function getActivityStats(req, res) {
       dateFilter.timestamp = {};
       if (startDate) dateFilter.timestamp.$gte = new Date(startDate);
       if (endDate) dateFilter.timestamp.$lte = new Date(endDate);
+    }
+
+    // Exclude activities from users with private profiles
+    if (includePrivateProfiles !== 'true') {
+      const privateProfileUsers = await User.find({
+        'preferences.profileVisibility': 'private'
+      }).select('_id').lean();
+
+      const privateUserIds = privateProfileUsers.map(u => u._id);
+
+      if (privateUserIds.length > 0) {
+        dateFilter['actor._id'] = { $nin: privateUserIds };
+      }
     }
 
     // Run aggregation queries in parallel

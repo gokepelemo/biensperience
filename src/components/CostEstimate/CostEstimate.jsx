@@ -44,6 +44,7 @@ export default function CostEstimate({
   isActual = false, // New prop to distinguish actual vs estimated costs
   exact = false, // New prop to show exact amounts without rounding
   tooltipContent, // Custom tooltip content (overrides default)
+  tooltipVariant = 'default', // 'default' | 'light' - for dark backgrounds
   className = ''
 }) {
   // Format the cost using the utility
@@ -76,6 +77,7 @@ export default function CostEstimate({
           <InfoTooltip
             content={tooltipText}
             ariaLabel={tooltipText}
+            variant={tooltipVariant}
           />
         )}
       </span>
@@ -106,6 +108,7 @@ export default function CostEstimate({
         <InfoTooltip
           content={tooltipText}
           ariaLabel="Show actual cost estimate"
+          variant={tooltipVariant}
         />
       )}
     </span>

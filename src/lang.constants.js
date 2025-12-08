@@ -297,6 +297,49 @@ const en = {
     deletePhotoConfirm: "Are you sure you want to permanently delete this photo? This action cannot be undone.",
     removeExperienceConfirm: "Are you sure you want to remove this experience from your plans?",
     unsavedChangesMessage: "You have unsaved changes. Are you sure you want to leave?",
+
+    // Transfer Ownership Modal
+    transferOwnership: {
+      titleChecking: "Checking...",
+      titleDeleteExperience: "Delete Experience",
+      titleTransferOwnership: "Transfer Ownership",
+      titleConfirmAction: "Confirm Action",
+      checkingStatus: "Checking experience status...",
+      hasActivePlanSingular: "This experience has an active plan",
+      hasActivePlansPlural: "This experience has active plans",
+      otherUserHasPlanSingular: "{count} other user has created a plan for this experience.",
+      otherUsersHavePlansPlural: "{count} other users have created plans for this experience.",
+      cannotDeleteDirectly: "Since other users are planning this experience, you cannot delete it directly. Choose how you'd like to proceed:",
+      transferOwnershipAction: "Transfer Ownership",
+      transferOwnershipDescription: "Give ownership to another user who can continue managing the experience.",
+      archiveExperienceAction: "Archive Experience",
+      archiveExperienceDescription: "Move to archive. The experience remains accessible to users with plans, but will no longer appear in public listings.",
+      noPlansExist: "No users have created plans for this experience. You can safely delete it.",
+      searchUserPrompt: "Search for a user to transfer ownership of \"{name}\" to:",
+      searchPlaceholder: "Search by name or email...",
+      searchingUsers: "Searching...",
+      typeToSearch: "Type to search users...",
+      selectedUser: "Selected user:",
+      confirmDelete: "Delete \"{name}\"?",
+      confirmDeleteWarning: "This action cannot be undone. The experience and all its data will be permanently removed.",
+      confirmTransfer: "Transfer to {name}?",
+      confirmTransferWarning: "{name} will become the new owner of \"{experienceName}\" and will have full control over it. You will lose ownership access.",
+      confirmArchive: "Archive \"{name}\"?",
+      confirmArchiveWarning: "The experience will be moved to archive. Users with existing plans can still access it, but it won't appear in public listings or search results.",
+      buttonDeletePermanently: "Delete Permanently",
+      buttonTransferOwnership: "Transfer Ownership",
+      buttonArchiveExperience: "Archive Experience",
+      buttonBack: "Back",
+      buttonCancel: "Cancel",
+      buttonProcessing: "Processing...",
+      successDeleted: "\"{name}\" has been deleted.",
+      successTransferred: "Ownership of \"{name}\" has been transferred to {newOwner}.",
+      successArchived: "\"{name}\" has been archived.",
+      errorMissingExperienceId: "Experience ID is missing",
+      errorMissingUser: "Please select a user to transfer ownership to.",
+      errorCheckFailed: "Failed to check experience status",
+      errorProcessFailed: "Failed to process request",
+    },
   },
 
   heading: {
@@ -384,6 +427,8 @@ const en = {
     emailAndNameRequired: "Email and name are required",
     sharedPlan: "Shared",
     sharedPlanTooltip: "This plan was shared with you by {ownerName}. As a collaborator, you can view progress, add notes, and track costs, but you cannot delete the plan or remove other collaborators.",
+    totalSpent: "Tracked Costs",
+    trackedCosts: "Tracked Costs",
   },
 
   aria: {
@@ -1196,20 +1241,54 @@ const en = {
 
     // Error messages
     failedToUpdateProfile: "Failed to update profile. Please try again.",
+
+    // Private profile
+    privateProfileTitle: "Private Profile",
+    privateProfileDescription: "This user has set their profile to private.",
   },
 
   // Invite tracking view strings
   inviteTracking: {
+    // Page meta
+    pageTitle: "Invite Tracking - Biensperience",
+    pageDescription: "Track your invite codes and see detailed analytics about who has joined Biensperience using your invitations. Monitor usage statistics and redemption data.",
+    pageKeywords: "invite tracking, invite codes, analytics, user referrals, Biensperience",
+    ogTitle: "Invite Tracking Dashboard - Biensperience",
+    ogDescription: "Monitor your invite code performance and see who has joined the platform through your referrals.",
+
+    // Page header
+    heading: "Invite Tracking",
+    headerDescription: "Track your invite codes and see who has joined using them",
+
+    // Tab titles
+    tabOverview: "Overview",
+    tabDetails: "Invite Details",
+    tabAnalytics: "Analytics",
+
+    // Status badges
     inactive: "Inactive",
     expired: "Expired",
     fullyUsed: "Fully Used",
     inUse: "In Use",
     available: "Available",
+
+    // Date formatting
     never: "Never",
     any: "Any",
+
+    // Statistics cards
     totalInvites: "Total Invites",
     active: "Active",
     redemptions: "Redemptions",
+
+    // Card headers
+    myInviteCodes: "My Invite Codes",
+
+    // Empty states
+    noInviteCodesDescription: "Create invite codes to share Biensperience with friends and family.",
+    shareToGetStarted: "No one has used this invite code yet. Share it to get started!",
+
+    // Invite details section
     inviteCodeDetails: "Invite Code Details",
     code: "Code",
     status: "Status",
@@ -1223,7 +1302,10 @@ const en = {
     redeemedBy: "Redeemed By ({count})",
     noRedemptionsYet: "No Redemptions Yet",
     user: "User",
+    email: "Email",
     joined: "Joined",
+
+    // Analytics section
     inviteAnalytics: "Invite Analytics",
     totalInvitesCreated: "Total Invites Created",
     totalRedemptions: "Total Redemptions",
@@ -1231,11 +1313,21 @@ const en = {
     avgRedemptionsPerInvite: "Avg Redemptions/Invite",
     activeInvites: "Active Invites",
     unusedInvites: "Unused Invites",
+
+    // Activity section
     recentActivity: "Recent Activity",
     last7Days: "Last 7 Days",
     last30Days: "Last 30 Days",
+    redemptionsSuffix: "redemptions",
+    createdSuffix: "created",
+
+    // Status breakdown
     inviteStatusBreakdown: "Invite Status Breakdown",
     emailRestricted: "Email Restricted",
+
+    // Pre-configured resources analytics
+    withExperiences: "With Experiences",
+    withDestinations: "With Destinations",
   },
 
   // Table header strings

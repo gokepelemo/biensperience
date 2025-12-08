@@ -5,6 +5,7 @@ const Destination = require('../../models/destination');
 const Activity = require('../../models/activity');
 const { successResponse, errorResponse } = require('../../utilities/controller-helpers');
 const backendLogger = require('../../utilities/backend-logger');
+const { fetchRates, calculateTotal, convertCostsToTarget } = require('../../utilities/currency-utils');
 
 /**
  * Get dashboard data for the authenticated user
@@ -13,7 +14,17 @@ const backendLogger = require('../../utilities/backend-logger');
 async function getDashboard(req, res) {
   try {
     const userId = req.user._id;
-    backendLogger.info('Fetching dashboard data', { userId: userId.toString() });
+    // Get user's preferred currency from preferences, query param, or default to USD
+    const targetCurrency = req.query.currency || req.user?.preferences?.currency || 'USD';
+    backendLogger.info('Fetching dashboard data', { userId: userId.toString(), targetCurrency });
+
+    // Pre-fetch exchange rates for currency conversion
+    try {
+      await fetchRates(targetCurrency);
+    } catch (rateErr) {
+      backendLogger.warn('Failed to fetch exchange rates for dashboard', { error: rateErr.message });
+      // Continue with default rates (will return unconverted amounts if rates unavailable)
+    }
 
     // Execute all dashboard queries in parallel for optimal performance
     const [
@@ -21,7 +32,7 @@ async function getDashboard(req, res) {
       recentActivityResult,
       upcomingPlansResult
     ] = await Promise.all([
-      getDashboardStats(userId),
+      getDashboardStats(userId, targetCurrency),
       getRecentActivity(userId),
       getUpcomingPlans(userId)
     ]);
@@ -51,10 +62,12 @@ async function getDashboard(req, res) {
 
 /**
  * Get dashboard statistics using optimized aggregation queries
+ * @param {ObjectId} userId - User ID
+ * @param {string} targetCurrency - Target currency for cost totals (default: USD)
  */
-async function getDashboardStats(userId) {
+async function getDashboardStats(userId, targetCurrency = 'USD') {
   try {
-    backendLogger.info('Calculating dashboard stats for user', { userId: userId.toString() });
+    backendLogger.info('Calculating dashboard stats for user', { userId: userId.toString(), targetCurrency });
 
     // Fetch plans the user owns or has permissions on
     const plans = await Plan.find({
@@ -81,9 +94,21 @@ async function getDashboardStats(userId) {
     let completedPlans = 0;
 
     plans.forEach(plan => {
-      // Sum costs
+      // Sum costs from plan.costs array with currency conversion
+      // Each cost entry has { cost, currency } fields
+      if (plan.costs && plan.costs.length > 0) {
+        totalSpent += calculateTotal(plan.costs, targetCurrency);
+      }
+
+      // Also sum costs from plan items (legacy support)
+      // Plan items have cost but no currency field - assume plan's currency or USD
+      const planCurrency = plan.currency || 'USD';
       (plan.plan || []).forEach(item => {
-        totalSpent += item.cost || 0;
+        if (item.cost && item.cost > 0) {
+          // Convert plan item cost from plan currency to target currency
+          const costObj = { cost: item.cost, currency: planCurrency };
+          totalSpent += calculateTotal([costObj], targetCurrency);
+        }
       });
 
       // Determine user's permission on the plan
@@ -117,7 +142,8 @@ async function getDashboardStats(userId) {
       ownedPlans,
       sharedPlans,
       completedPlans,
-      totalSpent
+      totalSpent,
+      targetCurrency
     });
 
     // Efficient counts for experiences and destinations related to the user
@@ -146,7 +172,8 @@ async function getDashboardStats(userId) {
       },
       experiences: experienceCount || 0,
       destinations: destinationCount || 0,
-      totalSpent: totalSpent || 0
+      totalSpent: totalSpent || 0,
+      currency: targetCurrency
     };
   } catch (error) {
     backendLogger.error('Error in getDashboardStats', { userId: userId.toString(), error: error.message });
@@ -161,118 +188,8 @@ async function getDashboardStats(userId) {
       },
       experiences: 0,
       destinations: 0,
-      totalSpent: 0
-    };
-  }
-}
-
-/**
- * Get recent activity for the user
-    if (plans.length === 0) {
-      const allPlans = await Plan.find({}).populate('experience', 'name').limit(10).lean();
-      backendLogger.info('No plans found with user query, checking all plans', {
-        userId: userId.toString(),
-        totalPlansInDb: allPlans.length,
-        samplePlanUsers: allPlans.slice(0, 3).map(p => ({
-          planId: p._id.toString(),
-          user: p.user?.toString(),
-          permissions: p.permissions
-        }))
-      });
-    }
-
-    // Calculate detailed plan metrics
-    let totalSpent = 0;
-    let ownedPlans = 0;
-    let sharedPlans = 0;
-    let completedPlans = 0;
-
-    plans.forEach(plan => {
-      // Calculate total spent
-      plan.plan.forEach(item => {
-        totalSpent += item.cost || 0;
-      });
-
-      // Check user's permission level for this plan
-      const userPermission = plan.permissions?.find(p =>
-        p._id?.toString() === userId.toString() && p.entity === 'user'
-      );
-
-      backendLogger.info('Processing plan', {
-        planId: plan._id.toString(),
-        planUser: plan.user?.toString(),
-        userPermission: userPermission,
-        permissions: plan.permissions
-      });
-
-      // Determine if this is an owned or shared plan
-      if (userPermission) {
-        if (userPermission.type === 'owner') {
-          ownedPlans++;
-        } else if (userPermission.type === 'collaborator') {
-          sharedPlans++;
-        }
-        // Skip contributor permissions - they don't count as active plans
-      } else if (plan.user?.toString() === userId.toString()) {
-        // Fallback: if no permissions but user is the direct owner, count as owned
-        ownedPlans++;
-      }
-
-      // Count completed plans (all items completed)
-      const totalItems = plan.plan.length;
-      const completedItems = plan.plan.filter(item => item.complete).length;
-      if (totalItems > 0 && completedItems === totalItems) {
-        completedPlans++;
-      }
-    });
-
-    const totalPlans = ownedPlans + sharedPlans;
-
-    backendLogger.info('Dashboard stats calculated', {
-      userId: userId.toString(),
-      totalPlans,
-      ownedPlans,
-      sharedPlans,
-      completedPlans,
-      totalSpent
-    });
-
-    // Get experience and destination counts using efficient queries
-    const [experienceCount, destinationCount] = await Promise.all([
-      Experience.countDocuments({
-        $or: [
-          { user: userId },
-          { 'permissions._id': userId, 'permissions.entity': 'user' }
-        ]
-      }),
-      Destination.countDocuments({
-        $or: [
-          { user: userId },
-          { 'permissions._id': userId, 'permissions.entity': 'user' }
-        ]
-      })
-    ]);
-
-    return {
-      activePlans: totalPlans || 0,
-      activePlansDetails: {
-        totalPlans: totalPlans || 0,
-        ownedPlans: ownedPlans || 0,
-        sharedPlans: sharedPlans || 0,
-        completedPlans: completedPlans || 0,
-      },
-      experiences: experienceCount || 0,
-      destinations: destinationCount || 0,
-      totalSpent: totalSpent || 0
-    };
-  } catch (error) {
-    backendLogger.error('Error in getDashboardStats', { userId: userId.toString(), error: error.message });
-    // Return default values on error
-    return {
-      activePlans: 0,
-      experiences: 0,
-      destinations: 0,
-      totalSpent: 0
+      totalSpent: 0,
+      currency: targetCurrency
     };
   }
 }

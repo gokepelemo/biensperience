@@ -82,7 +82,10 @@ const planItemSchema = new Schema({
   location: {
     type: planItemLocationSchema,
     default: null
-  }
+  },
+  // Scheduled date and time for timeline organization
+  scheduled_date: { type: Date, default: null },
+  scheduled_time: { type: String, default: null } // HH:MM format
 });
 
 const experienceSchema = new Schema(
@@ -100,8 +103,23 @@ const experienceSchema = new Schema(
       ref: "Destination",
       required: true,
     },
+    /**
+     * Original owner's ID when experience is archived/transferred
+     * Set when ownership is transferred to Archive User
+     * Used to track who originally created the experience
+     */
+    archived_owner: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
     map_location: {
       type: String,
+    },
+    // Location for the experience (address and GeoJSON coordinates)
+    location: {
+      type: planItemLocationSchema,
+      default: null
     },
     experience_type: [String],
     // Array of slugified experience type values for fast, indexed lookup
@@ -225,6 +243,8 @@ experienceSchema.index({ createdAt: -1 });
 experienceSchema.index({ 'permissions._id': 1, 'permissions.type': 1, name: 1 });
 experienceSchema.index({ photos: 1 });
 experienceSchema.index({ default_photo_id: 1 });
+// Spatial index for experience location (GeoJSON Point)
+experienceSchema.index({ 'location.geo': '2dsphere' });
 
 /**
  * Pre-save hook: ensure `experience_type_slugs` is populated from `experience_type`.

@@ -11,22 +11,10 @@ import { DETAIL_TYPES } from './constants';
 import Tooltip from '../Tooltip/Tooltip';
 import Checkbox from '../Checkbox/Checkbox';
 import { lang } from '../../lang.constants';
+import { getCurrencyDropdownOptions } from '../../utilities/currency-utils';
 
-/**
- * Available currencies for cost fields
- */
-const CURRENCIES = [
-  { value: 'USD', label: 'USD ($)', symbol: '$' },
-  { value: 'EUR', label: 'EUR (€)', symbol: '€' },
-  { value: 'GBP', label: 'GBP (£)', symbol: '£' },
-  { value: 'JPY', label: 'JPY (¥)', symbol: '¥' },
-  { value: 'CAD', label: 'CAD ($)', symbol: 'C$' },
-  { value: 'AUD', label: 'AUD ($)', symbol: 'A$' },
-  { value: 'CHF', label: 'CHF', symbol: 'CHF' },
-  { value: 'CNY', label: 'CNY (¥)', symbol: '¥' },
-  { value: 'MXN', label: 'MXN ($)', symbol: 'MX$' },
-  { value: 'BRL', label: 'BRL (R$)', symbol: 'R$' }
-];
+// Get currency options from centralized utility (format: USD ($))
+const CURRENCIES = getCurrencyDropdownOptions({ format: 'symbol' });
 
 /**
  * Cost categories

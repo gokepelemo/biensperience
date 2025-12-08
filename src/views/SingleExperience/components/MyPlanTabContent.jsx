@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsThreeDotsVertical, BsListUl, BsCardList } from 'react-icons/bs';
+import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsThreeDotsVertical, BsListUl, BsCardList, BsCalendarWeek } from 'react-icons/bs';
 import {
   FaEdit,
   FaTrash,
@@ -47,7 +47,9 @@ import MetricsBar from '../../../components/MetricsBar/MetricsBar';
 import CostsList from '../../../components/CostsList';
 import Checkbox from '../../../components/Checkbox/Checkbox';
 import SearchableSelect from '../../../components/FormField/SearchableSelect';
+import AddDateModal from '../../../components/AddDateModal';
 import { useUIPreference } from '../../../hooks/useUIPreference';
+import { updatePlanItem } from '../../../utilities/plans-api';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatDateMetricCard, formatDateForInput } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
@@ -58,7 +60,8 @@ import debug from '../../../utilities/debug';
 // View options for plan items display
 const VIEW_OPTIONS = [
   { value: 'card', label: 'Card View', icon: BsCardList },
-  { value: 'compact', label: 'Compact View', icon: BsListUl }
+  { value: 'compact', label: 'Compact View', icon: BsListUl },
+  { value: 'timeline', label: 'Timeline View', icon: BsCalendarWeek }
 ];
 
 /**
@@ -490,6 +493,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
   handleEditPlanInstanceItem,
   setPlanInstanceItemToDelete,
   setShowPlanInstanceDeleteModal,
+  onScheduleDate,
   lang
 }) {
   const itemId = planItem.plan_item_id || planItem._id;
@@ -645,6 +649,15 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
                 <FaPlus /> {lang.current.button?.addChildItem || 'Add Child Item'}
               </button>
               <button
+                className="compact-actions-item"
+                onClick={() => {
+                  onScheduleDate(planItem);
+                  setShowActionsMenu(false);
+                }}
+              >
+                <FaCalendarAlt /> Schedule Date
+              </button>
+              <button
                 className="compact-actions-item compact-actions-item-danger"
                 onClick={() => {
                   setPlanInstanceItemToDelete(planItem);
@@ -671,6 +684,466 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
     prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
     prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
     prevProps.canEdit === nextProps.canEdit
+  );
+});
+
+/**
+ * Get time of day category based on hour
+ */
+function getTimeOfDay(timeString) {
+  if (!timeString) return null;
+  const match = timeString.match(/^(\d{1,2}):/);
+  if (!match) return null;
+  const hour = parseInt(match[1], 10);
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'afternoon';
+  return 'evening';
+}
+
+/**
+ * Format time for display (12-hour format)
+ */
+function formatTimeForDisplay(timeString) {
+  if (!timeString) return null;
+  const match = timeString.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return timeString;
+  const hour = parseInt(match[1], 10);
+  const minutes = match[2];
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minutes} ${period}`;
+}
+
+/**
+ * Group plan items by date and time of day for Timeline view
+ * Child items inherit scheduled_date/time from their parent if not set
+ */
+function groupPlanItemsByDate(items) {
+  const groups = {};
+  const unscheduled = [];
+
+  // Create a map of items by ID for parent lookups
+  const itemsById = new Map();
+  items.forEach(item => {
+    const itemId = (item.plan_item_id || item._id)?.toString();
+    if (itemId) {
+      itemsById.set(itemId, item);
+    }
+  });
+
+  // Helper to get effective scheduled date/time (inherit from parent if needed)
+  const getEffectiveSchedule = (item) => {
+    // If item has its own scheduled_date, use it
+    if (item.scheduled_date) {
+      return {
+        scheduled_date: item.scheduled_date,
+        scheduled_time: item.scheduled_time,
+        inherited: false
+      };
+    }
+
+    // If item is a child, try to inherit from parent
+    if (item.parent) {
+      const parentId = item.parent.toString();
+      const parent = itemsById.get(parentId);
+      if (parent?.scheduled_date) {
+        return {
+          scheduled_date: parent.scheduled_date,
+          scheduled_time: parent.scheduled_time,
+          inherited: true
+        };
+      }
+    }
+
+    // No scheduled date
+    return { scheduled_date: null, scheduled_time: null, inherited: false };
+  };
+
+  // Process items - parents first, then children grouped with parents
+  const parentItems = items.filter(item => !item.parent);
+  const childItems = items.filter(item => !!item.parent);
+
+  // Group children by parent ID
+  const childrenByParent = new Map();
+  childItems.forEach(child => {
+    const parentId = child.parent.toString();
+    if (!childrenByParent.has(parentId)) {
+      childrenByParent.set(parentId, []);
+    }
+    childrenByParent.get(parentId).push(child);
+  });
+
+  // Helper to add item and its children to appropriate group
+  const addItemToGroup = (item, effectiveSchedule) => {
+    const { scheduled_date, scheduled_time, inherited } = effectiveSchedule;
+
+    if (!scheduled_date) {
+      unscheduled.push({ ...item, inheritedSchedule: false });
+      // Also add children to unscheduled
+      const itemId = (item.plan_item_id || item._id)?.toString();
+      const children = childrenByParent.get(itemId) || [];
+      children.forEach(child => {
+        const childSchedule = getEffectiveSchedule(child);
+        if (!childSchedule.scheduled_date) {
+          unscheduled.push({ ...child, isChild: true, inheritedSchedule: false });
+        }
+        // Note: Children with their own schedule are handled separately
+      });
+      return;
+    }
+
+    const date = new Date(scheduled_date);
+    if (isNaN(date.getTime())) {
+      unscheduled.push({ ...item, inheritedSchedule: false });
+      return;
+    }
+
+    const dateKey = date.toISOString().split('T')[0];
+    if (!groups[dateKey]) {
+      groups[dateKey] = {
+        date,
+        dateKey,
+        morning: [],
+        afternoon: [],
+        evening: [],
+        unspecified: []
+      };
+    }
+
+    const timeOfDay = getTimeOfDay(scheduled_time);
+    const itemWithMeta = { ...item, inheritedSchedule: inherited };
+
+    if (timeOfDay) {
+      groups[dateKey][timeOfDay].push(itemWithMeta);
+    } else {
+      groups[dateKey].unspecified.push(itemWithMeta);
+    }
+
+    // Add children that inherit from this parent
+    const itemId = (item.plan_item_id || item._id)?.toString();
+    const children = childrenByParent.get(itemId) || [];
+    children.forEach(child => {
+      const childSchedule = getEffectiveSchedule(child);
+      // Only add children that inherit (don't have their own schedule)
+      // Children with their own schedule will be added when processing all items
+      if (childSchedule.inherited) {
+        const childWithMeta = { ...child, isChild: true, inheritedSchedule: true };
+        if (timeOfDay) {
+          groups[dateKey][timeOfDay].push(childWithMeta);
+        } else {
+          groups[dateKey].unspecified.push(childWithMeta);
+        }
+      }
+    });
+  };
+
+  // Process parent items first (they bring their children along)
+  parentItems.forEach(item => {
+    const effectiveSchedule = getEffectiveSchedule(item);
+    addItemToGroup(item, effectiveSchedule);
+  });
+
+  // Process children that have their own scheduled_date (not inherited)
+  childItems.forEach(child => {
+    if (child.scheduled_date) {
+      const date = new Date(child.scheduled_date);
+      if (isNaN(date.getTime())) {
+        unscheduled.push({ ...child, isChild: true, inheritedSchedule: false });
+        return;
+      }
+
+      const dateKey = date.toISOString().split('T')[0];
+      if (!groups[dateKey]) {
+        groups[dateKey] = {
+          date,
+          dateKey,
+          morning: [],
+          afternoon: [],
+          evening: [],
+          unspecified: []
+        };
+      }
+
+      const timeOfDay = getTimeOfDay(child.scheduled_time);
+      const childWithMeta = { ...child, isChild: true, inheritedSchedule: false };
+
+      if (timeOfDay) {
+        groups[dateKey][timeOfDay].push(childWithMeta);
+      } else {
+        groups[dateKey].unspecified.push(childWithMeta);
+      }
+    }
+  });
+
+  // Sort groups by date
+  const sortedGroups = Object.values(groups).sort((a, b) => a.date - b.date);
+
+  return { groups: sortedGroups, unscheduled };
+}
+
+/**
+ * TimelinePlanItem - Similar to compact item but with time display for Timeline view
+ */
+const TimelinePlanItem = memo(function TimelinePlanItem({
+  planItem,
+  canEdit,
+  handlePlanItemToggleComplete,
+  handleViewPlanItemDetails,
+  handleAddPlanInstanceItem,
+  handleEditPlanInstanceItem,
+  setPlanInstanceItemToDelete,
+  setShowPlanInstanceDeleteModal,
+  onScheduleDate,
+  lang
+}) {
+  const itemId = planItem.plan_item_id || planItem._id;
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const actionsMenuRef = useRef(null);
+  const formattedTime = formatTimeForDisplay(planItem.scheduled_time);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!showActionsMenu) return;
+
+    function handleClickOutside(event) {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
+        setShowActionsMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showActionsMenu]);
+
+  return (
+    <div
+      data-plan-item-id={planItem._id}
+      className={`timeline-plan-item ${planItem.complete ? 'completed' : ''} ${planItem.isChild ? 'is-child' : ''}`}
+    >
+      {/* Hierarchy indicator */}
+      <span className="timeline-item-indent">
+        {planItem.isChild ? '↳' : '•'}
+      </span>
+
+      {/* Checkbox for completion */}
+      <Checkbox
+        id={`timeline-item-${itemId}`}
+        checked={!!planItem.complete}
+        onChange={() => handlePlanItemToggleComplete(planItem)}
+        disabled={!canEdit}
+        size="sm"
+        className="timeline-item-checkbox"
+      />
+
+      {/* Item text - clickable to view details */}
+      <span
+        className={`timeline-item-text ${planItem.complete ? 'text-decoration-line-through text-muted' : ''}`}
+        onClick={() => handleViewPlanItemDetails(planItem)}
+        title="Click to view details"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleViewPlanItemDetails(planItem);
+          }
+        }}
+      >
+        {planItem.url ? (
+          <a
+            href={planItem.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {planItem.text}
+          </a>
+        ) : (
+          planItem.text
+        )}
+      </span>
+
+      {/* Time display for timeline view */}
+      {formattedTime && (
+        <span
+          className={`timeline-item-time ${planItem.inheritedSchedule ? 'inherited' : ''}`}
+          title={planItem.inheritedSchedule
+            ? `Inherited from parent - ${formattedTime}`
+            : `Scheduled at ${formattedTime}`
+          }
+        >
+          🕐 {formattedTime}
+          {planItem.inheritedSchedule && <span className="inherited-indicator">*</span>}
+        </span>
+      )}
+
+      {/* Meta info - cost and planning days */}
+      <span className="timeline-item-meta">
+        {Number(planItem.cost) > 0 && (
+          <span className="timeline-meta-cost" title={`Cost estimate: $${planItem.cost}`}>
+            <FaDollarSign />
+          </span>
+        )}
+        {Number(planItem.planning_days) > 0 && (
+          <span className="timeline-meta-days" title={`${planItem.planning_days} ${planItem.planning_days === 1 ? 'day' : 'days'}`}>
+            <FaClock />
+          </span>
+        )}
+        {planItem.details?.notes?.length > 0 && (
+          <span className="timeline-meta-notes" title={`${planItem.details.notes.length} ${planItem.details.notes.length === 1 ? 'note' : 'notes'}`}>
+            <FaStickyNote /> {planItem.details.notes.length}
+          </span>
+        )}
+        {planItem.assignedTo && (
+          <span className="timeline-meta-assigned" title="Assigned">
+            <FaUser />
+          </span>
+        )}
+      </span>
+
+      {/* Actions menu (overflow button with dropdown) */}
+      {canEdit && (
+        <div className="timeline-item-actions-wrapper" ref={actionsMenuRef}>
+          <button
+            className="timeline-actions-toggle"
+            onClick={() => setShowActionsMenu(!showActionsMenu)}
+            aria-expanded={showActionsMenu}
+            aria-haspopup="true"
+            aria-label="Item actions"
+            title="Actions"
+          >
+            <BsThreeDotsVertical />
+          </button>
+          {showActionsMenu && (
+            <div className="timeline-actions-menu">
+              <button
+                className="timeline-actions-item"
+                onClick={() => {
+                  handleEditPlanInstanceItem(planItem);
+                  setShowActionsMenu(false);
+                }}
+              >
+                <FaEdit /> {lang.current.tooltip.edit}
+              </button>
+              <button
+                className="timeline-actions-item"
+                onClick={() => {
+                  handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id);
+                  setShowActionsMenu(false);
+                }}
+              >
+                <FaPlus /> {lang.current.button?.addChildItem || 'Add Child Item'}
+              </button>
+              <button
+                className="timeline-actions-item"
+                onClick={() => {
+                  onScheduleDate(planItem);
+                  setShowActionsMenu(false);
+                }}
+              >
+                <FaCalendarAlt /> Schedule Date
+              </button>
+              <button
+                className="timeline-actions-item timeline-actions-item-danger"
+                onClick={() => {
+                  setPlanInstanceItemToDelete(planItem);
+                  setShowPlanInstanceDeleteModal(true);
+                  setShowActionsMenu(false);
+                }}
+              >
+                <FaTrash /> {lang.current.tooltip.delete}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.planItem._id === nextProps.planItem._id &&
+    prevProps.planItem.complete === nextProps.planItem.complete &&
+    prevProps.planItem.text === nextProps.planItem.text &&
+    prevProps.planItem.isChild === nextProps.planItem.isChild &&
+    prevProps.planItem.cost === nextProps.planItem.cost &&
+    prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
+    prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
+    prevProps.planItem.scheduled_date === nextProps.planItem.scheduled_date &&
+    prevProps.planItem.scheduled_time === nextProps.planItem.scheduled_time &&
+    prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
+    prevProps.canEdit === nextProps.canEdit
+  );
+});
+
+/**
+ * TimelineDateGroup - Renders a group of plan items for a specific date
+ */
+const TimelineDateGroup = memo(function TimelineDateGroup({
+  group,
+  canEdit,
+  handlePlanItemToggleComplete,
+  handleViewPlanItemDetails,
+  handleAddPlanInstanceItem,
+  handleEditPlanInstanceItem,
+  setPlanInstanceItemToDelete,
+  setShowPlanInstanceDeleteModal,
+  onScheduleDate,
+  lang
+}) {
+  const formatDateHeader = (date) => {
+    const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
+    return date.toLocaleDateString(undefined, options);
+  };
+
+  const timeOfDayLabels = {
+    morning: 'Morning',
+    afternoon: 'Afternoon',
+    evening: 'Evening',
+    unspecified: ''
+  };
+
+  const renderTimeSection = (items, timeOfDay) => {
+    if (items.length === 0) return null;
+
+    return (
+      <div className="timeline-time-section" key={timeOfDay}>
+        {timeOfDay !== 'unspecified' && (
+          <div className="timeline-time-header">
+            {timeOfDayLabels[timeOfDay]}
+          </div>
+        )}
+        <div className="timeline-time-items">
+          {items.map(item => (
+            <TimelinePlanItem
+              key={item.plan_item_id || item._id}
+              planItem={item}
+              canEdit={canEdit}
+              handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+              handleViewPlanItemDetails={handleViewPlanItemDetails}
+              handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+              handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+              setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+              setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+              onScheduleDate={onScheduleDate}
+              lang={lang}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="timeline-date-group">
+      <div className="timeline-date-header">
+        {formatDateHeader(group.date)}
+      </div>
+      <div className="timeline-date-content">
+        {renderTimeSection(group.morning, 'morning')}
+        {renderTimeSection(group.afternoon, 'afternoon')}
+        {renderTimeSection(group.evening, 'evening')}
+        {renderTimeSection(group.unspecified, 'unspecified')}
+      </div>
+    </div>
   );
 });
 
@@ -741,6 +1214,33 @@ export default function MyPlanTabContent({
   // View state for plan items display (card or compact) - persisted in user preferences
   // Uses shared key 'viewMode.planItems' so preference syncs between Experience and Plan views
   const [planItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
+
+  // State for scheduling date modal (Timeline view)
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [dateModalPlanItem, setDateModalPlanItem] = useState(null);
+
+  // Handle opening the schedule date modal
+  const handleScheduleDate = useCallback((planItem) => {
+    setDateModalPlanItem(planItem);
+    setShowDateModal(true);
+  }, []);
+
+  // Handle saving the scheduled date
+  const handleSaveDate = useCallback(async (dateData) => {
+    if (!dateModalPlanItem || !selectedPlanId) return;
+
+    try {
+      await updatePlanItem(selectedPlanId, dateModalPlanItem._id || dateModalPlanItem.plan_item_id, {
+        scheduled_date: dateData.scheduled_date,
+        scheduled_time: dateData.scheduled_time
+      });
+      setShowDateModal(false);
+      setDateModalPlanItem(null);
+    } catch (error) {
+      debug.error('[MyPlanTabContent] Failed to save date', error);
+      throw error;
+    }
+  }, [dateModalPlanItem, selectedPlanId]);
 
   // Compute online user IDs from presence data
   const onlineUserIds = useMemo(() => {
@@ -1031,16 +1531,35 @@ export default function MyPlanTabContent({
   // Plan exists but metrics might not be fully computed yet
   const metricsLoading = plansLoading || loading;
 
+  // Compute earliest scheduled date from plan items as fallback
+  const earliestScheduledDate = useMemo(() => {
+    if (!currentPlan?.plan || currentPlan.plan.length === 0) return null;
+
+    const scheduledDates = currentPlan.plan
+      .filter(item => item.scheduled_date)
+      .map(item => new Date(item.scheduled_date))
+      .filter(date => !isNaN(date.getTime()))
+      .sort((a, b) => a - b);
+
+    return scheduledDates.length > 0 ? scheduledDates[0].toISOString() : null;
+  }, [currentPlan?.plan]);
+
+  // Display date: use planned_date if set, otherwise fallback to earliest scheduled date
+  const displayDate = currentPlan.planned_date || earliestScheduledDate;
+  const isUsingFallbackDate = !currentPlan.planned_date && earliestScheduledDate;
+
   // Build metrics array for MetricsBar
   const planMetrics = metricsLoading ? [] : [
     {
       id: 'planned-date',
       title: lang.current.label.plannedDate,
       type: 'date',
-      value: currentPlan.planned_date,
+      value: displayDate,
       icon: <FaCalendarAlt />,
-      // Tooltip shows full date when truncated
-      tooltip: currentPlan.planned_date ? formatDateMetricCard(currentPlan.planned_date) : null,
+      // Tooltip shows full date when truncated, with note if using fallback
+      tooltip: displayDate
+        ? `${formatDateMetricCard(displayDate)}${isUsingFallbackDate ? ' (earliest)' : ''}`
+        : null,
       onClick: !currentPlan.planned_date ? () => {
         setIsEditingDate(true);
         setPlannedDate(
@@ -1053,12 +1572,12 @@ export default function MyPlanTabContent({
     },
     {
       id: 'total-cost',
-      title: (lang?.current?.label?.estimatedCost || 'Estimated Cost').replace(':', ''),
+      title: (lang?.current?.label?.costEstimate || 'Estimated Cost').replace(':', '').replace(' ($)', ''),
       type: 'cost',
       value: currentPlan.total_cost || 0,
       icon: <FaDollarSign />,
       // Tooltip always shows the actual cost estimate value with prefix
-      tooltip: `${lang.current.label.estimatedCost}: $${(currentPlan.total_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      tooltip: `${(lang.current.label.costEstimate || 'Cost Estimate').replace(' ($)', '')}: ${formatCurrency(currentPlan.total_cost || 0)}`
     },
     {
       id: 'completion',
@@ -1317,6 +1836,7 @@ export default function MyPlanTabContent({
                   handleEditPlanInstanceItem={handleEditPlanInstanceItem}
                   setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
                   setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                  onScheduleDate={handleScheduleDate}
                   lang={lang}
                 />
               ))}
@@ -1324,6 +1844,79 @@ export default function MyPlanTabContent({
           </SortableContext>
         </DndContext>
       )}
+
+      {/* Plan Items List - Timeline View (grouped by date and time of day) */}
+      {planItemsView === 'timeline' && (() => {
+        const { groups, unscheduled } = groupPlanItemsByDate(itemsToRender);
+        return (
+          <div className="timeline-plan-items-list">
+            {/* Scheduled items grouped by date */}
+            {groups.map((group) => (
+              <TimelineDateGroup
+                key={group.dateKey}
+                group={group}
+                canEdit={canEdit}
+                handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                handleViewPlanItemDetails={handleViewPlanItemDetails}
+                handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                onScheduleDate={handleScheduleDate}
+                lang={lang}
+              />
+            ))}
+
+            {/* Unscheduled items section */}
+            {unscheduled.length > 0 && (
+              <div className="timeline-date-group timeline-unscheduled">
+                <div className="timeline-date-header">
+                  Unscheduled
+                </div>
+                <div className="timeline-date-content">
+                  <div className="timeline-time-items">
+                    {unscheduled.map(item => (
+                      <TimelinePlanItem
+                        key={item.plan_item_id || item._id}
+                        planItem={item}
+                        canEdit={canEdit}
+                        handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                        handleViewPlanItemDetails={handleViewPlanItemDetails}
+                        handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                        handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                        setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                        setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                        onScheduleDate={handleScheduleDate}
+                        lang={lang}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Empty state when no items */}
+            {groups.length === 0 && unscheduled.length === 0 && (
+              <div className="timeline-empty-state">
+                <p>No plan items yet. Add items to see them in your timeline.</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Schedule Date Modal */}
+      <AddDateModal
+        show={showDateModal}
+        onClose={() => {
+          setShowDateModal(false);
+          setDateModalPlanItem(null);
+        }}
+        onSave={handleSaveDate}
+        initialDate={dateModalPlanItem?.scheduled_date || null}
+        initialTime={dateModalPlanItem?.scheduled_time || null}
+        planItemText={dateModalPlanItem?.text || 'Plan Item'}
+      />
 
       {/* Costs Section */}
       <CostsList

@@ -10,6 +10,7 @@ const backendLogger = require('../../utilities/backend-logger');
 const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activity-tracker');
 const { hasFeatureFlag } = require('../../utilities/feature-flags');
 const { broadcastEvent } = require('../../utilities/websocket-server');
+const { ARCHIVE_USER, isArchiveUser } = require('../../utilities/system-users');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -2338,6 +2339,184 @@ async function reorderExperiencePlanItems(req, res) {
   }
 }
 
+/**
+ * GET /api/experiences/:id/check-plans
+ * Check if an experience has plans before deletion
+ * Returns only non-identifying information about plan existence
+ * Open to all authenticated users for UI flow purposes
+ */
+async function checkExperiencePlans(req, res) {
+  try {
+    const experienceId = req.params.id;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(experienceId)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
+    }
+
+    const experience = await Experience.findById(experienceId);
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    // Count plans for this experience (no user details)
+    const totalPlans = await Plan.countDocuments({ experience: experienceId });
+
+    // Check if requesting user has a plan for this experience
+    const userHasPlan = await Plan.exists({
+      experience: experienceId,
+      user: req.user._id
+    });
+
+    // Count plans by other users (excluding current user)
+    const otherUserPlansCount = await Plan.countDocuments({
+      experience: experienceId,
+      user: { $ne: req.user._id }
+    });
+
+    // Determine if user is owner (for canDelete logic)
+    const isOwner = permissions.isOwner(req.user._id, experience);
+
+    res.json({
+      experienceId,
+      experienceName: experience.name,
+      totalPlans,
+      hasUserPlan: !!userHasPlan,
+      otherUserPlansCount,
+      // User can delete only if they are owner AND no other users have plans
+      canDelete: isOwner && otherUserPlansCount === 0,
+      // Transfer required only if owner and other users have plans
+      requiresTransfer: isOwner && otherUserPlansCount > 0,
+      isOwner
+    });
+
+  } catch (err) {
+    backendLogger.error('Error checking experience plans', {
+      error: err.message,
+      userId: req.user._id,
+      experienceId: req.params.id
+    });
+    res.status(500).json({ error: 'Failed to check experience plans' });
+  }
+}
+
+/**
+ * POST /api/experiences/:experienceId/archive
+ * Archive an experience by transferring ownership to Archive User
+ * Stores original owner in archived_owner field
+ * Used when owner wants to delete but plans exist
+ */
+async function archiveExperience(req, res) {
+  try {
+    const { experienceId } = req.params;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(experienceId)) {
+      return res.status(400).json({ error: 'Invalid experience ID format' });
+    }
+
+    const experience = await Experience.findById(experienceId);
+    if (!experience) {
+      return res.status(404).json({ error: 'Experience not found' });
+    }
+
+    // Verify current user is the owner
+    if (!permissions.isOwner(req.user._id, experience)) {
+      return res.status(403).json({
+        error: 'Unauthorized',
+        message: 'Only the experience owner can archive it.'
+      });
+    }
+
+    // Store original owner before transfer
+    experience.archived_owner = req.user._id;
+
+    // Ensure Archive User exists in database
+    let archiveUser = await User.findById(ARCHIVE_USER._id);
+    if (!archiveUser) {
+      // Create Archive User if not exists (should have been seeded)
+      archiveUser = new User({
+        _id: ARCHIVE_USER._id,
+        name: ARCHIVE_USER.name,
+        email: ARCHIVE_USER.email,
+        provider: ARCHIVE_USER.provider,
+        role: ARCHIVE_USER.role,
+        emailConfirmed: ARCHIVE_USER.emailConfirmed,
+        visibility: ARCHIVE_USER.visibility,
+        password: require('crypto').randomBytes(64).toString('hex')
+      });
+      await archiveUser.save();
+      backendLogger.info('Created Archive User on-demand', { userId: ARCHIVE_USER._id.toString() });
+    }
+
+    // Update permissions - remove current owner, add Archive User as owner
+    const oldOwnerPermIdx = experience.permissions.findIndex(
+      p => p.entity === 'user' && p.type === 'owner' && p._id.toString() === req.user._id.toString()
+    );
+
+    if (oldOwnerPermIdx !== -1) {
+      experience.permissions.splice(oldOwnerPermIdx, 1);
+    }
+
+    // Add Archive User as owner
+    experience.permissions.push({
+      _id: ARCHIVE_USER._id,
+      entity: 'user',
+      type: 'owner'
+    });
+
+    await experience.save();
+
+    // Track the archive action
+    trackUpdate({
+      resource: experience,
+      resourceType: 'Experience',
+      actor: req.user,
+      req,
+      changes: {
+        archived_owner: req.user._id,
+        owner: ARCHIVE_USER._id
+      },
+      reason: `Experience "${experience.name}" archived by original owner`
+    });
+
+    // Broadcast event
+    try {
+      broadcastEvent('experience', experienceId.toString(), {
+        type: 'experience:archived',
+        payload: {
+          experienceId: experienceId.toString(),
+          archivedBy: req.user._id.toString(),
+          archivedOwner: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast experience archive', { error: wsErr.message });
+    }
+
+    res.json({
+      message: 'Experience archived successfully',
+      experience: {
+        _id: experience._id,
+        name: experience.name,
+        archived_owner: experience.archived_owner
+      },
+      previousOwner: {
+        id: req.user._id,
+        name: req.user.name
+      }
+    });
+
+  } catch (err) {
+    backendLogger.error('Error archiving experience', {
+      error: err.message,
+      userId: req.user._id,
+      experienceId: req.params.experienceId
+    });
+    res.status(500).json({ error: 'Failed to archive experience' });
+  }
+}
+
 module.exports = {
   create: createExperience,
   show: showExperience,
@@ -2345,6 +2524,8 @@ module.exports = {
   update: updateExperience,
   delete: deleteExperience,
   transferOwnership,
+  checkExperiencePlans,
+  archiveExperience,
   index,
   createPlanItem,
   updatePlanItem,

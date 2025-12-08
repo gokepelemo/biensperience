@@ -9,6 +9,7 @@ import Modal from '../Modal/Modal';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
 import AddPlanItemDetailModal, { DETAIL_TYPES, DETAIL_TYPE_CONFIG, DETAIL_CATEGORIES } from '../AddPlanItemDetailModal';
 import AddLocationModal from '../AddLocationModal';
+import AddDateModal from '../AddDateModal';
 import GoogleMap from '../GoogleMap/GoogleMap';
 import EmptyState from '../EmptyState/EmptyState';
 import styles from './PlanItemDetailsModal.module.scss';
@@ -66,6 +67,7 @@ export default function PlanItemDetailsModal({
   const [showAddDetailModal, setShowAddDetailModal] = useState(false);
   const [selectedDetailType, setSelectedDetailType] = useState(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showDateModal, setShowDateModal] = useState(false);
   const [locationSaving, setLocationSaving] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
   const assignmentInputRef = useRef(null);
@@ -92,6 +94,7 @@ export default function PlanItemDetailsModal({
       setTitleText(planItem?.text || '');
       setShowAddDropdown(false);
       setShowLocationModal(false);
+      setShowDateModal(false);
     }
   }, [show, planItem?._id, initialTab, planItem?.text]);
 
@@ -300,6 +303,12 @@ export default function PlanItemDetailsModal({
     setSelectedDetailType(type);
     setShowAddDropdown(false);
 
+    // Handle DATE type specially - open simple date modal
+    if (type === DETAIL_TYPES.DATE) {
+      setShowDateModal(true);
+      return;
+    }
+
     // For cost type, use legacy handler if available (backwards compatible)
     if (type === DETAIL_TYPES.COST && onAddCostForItem && !onAddDetail) {
       onAddCostForItem(planItem);
@@ -494,6 +503,37 @@ export default function PlanItemDetailsModal({
   }, [plan?._id, planItem?._id]);
 
   /**
+   * Handle saving date from AddDateModal
+   * Updates the plan item via PATCH and emits event
+   */
+  const handleSaveDate = useCallback(async (dateData) => {
+    if (!plan?._id || !planItem?._id) {
+      throw new Error('Missing plan or plan item ID');
+    }
+
+    try {
+      // Update plan item with new scheduled date/time via PATCH
+      await updatePlanItem(plan._id, planItem._id, {
+        scheduled_date: dateData.scheduled_date,
+        scheduled_time: dateData.scheduled_time
+      });
+
+      logger.info('[PlanItemDetailsModal] Date saved successfully', {
+        planId: plan._id,
+        itemId: planItem._id,
+        scheduledDate: dateData.scheduled_date,
+        scheduledTime: dateData.scheduled_time
+      });
+
+      // The updatePlanItem utility already broadcasts events, so no need to emit again
+      setShowDateModal(false);
+    } catch (err) {
+      logger.error('[PlanItemDetailsModal] Failed to save date', { error: err.message });
+      throw err; // Let AddDateModal handle the error display
+    }
+  }, [plan?._id, planItem?._id]);
+
+  /**
    * Get location string for Google Map
    */
   const getLocationForMap = useCallback(() => {
@@ -578,8 +618,44 @@ export default function PlanItemDetailsModal({
   // Use targetCurrency for display (user preference or plan currency)
   const currency = targetCurrency;
 
-  // Check if we have any cost/planning info to display
-  const hasCostInfo = planningDays > 0 || costEstimate > 0 || actualCosts.length > 0;
+  // Get scheduled date/time from plan item (only if valid)
+  const scheduledDate = planItem.scheduled_date && new Date(planItem.scheduled_date).getTime() ? planItem.scheduled_date : null;
+  const scheduledTime = planItem.scheduled_time || null;
+
+  // Format scheduled date for display (short format without year)
+  const getFormattedScheduledDate = () => {
+    if (!scheduledDate) return null;
+    const d = new Date(scheduledDate);
+    if (isNaN(d.getTime())) return null;
+    const options = { weekday: 'short', month: 'short', day: 'numeric' };
+    return d.toLocaleDateString(undefined, options);
+  };
+
+  // Format scheduled date for tooltip (full format with year)
+  const getFullScheduledDate = () => {
+    if (!scheduledDate) return null;
+    const d = new Date(scheduledDate);
+    if (isNaN(d.getTime())) return null;
+    const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
+    return d.toLocaleDateString(undefined, options);
+  };
+
+  // Format scheduled time for display (12-hour format)
+  const getFormattedScheduledTime = () => {
+    if (!scheduledTime) return null;
+    // Handle HH:MM format
+    if (/^\d{2}:\d{2}$/.test(scheduledTime)) {
+      const [hours, minutes] = scheduledTime.split(':');
+      const h = parseInt(hours, 10);
+      const period = h >= 12 ? 'PM' : 'AM';
+      const displayHour = h % 12 || 12;
+      return `${displayHour}:${minutes} ${period}`;
+    }
+    return scheduledTime;
+  };
+
+  // Check if we have any info to display in the info section
+  const hasInfoToDisplay = scheduledDate || planningDays > 0 || costEstimate > 0 || actualCosts.length > 0;
 
   const getAssigneeName = () => {
     if (!assignedTo) return 'Unassigned';
@@ -790,13 +866,34 @@ export default function PlanItemDetailsModal({
         </div>
 
         {/* Cost & Planning Info Section */}
-        {hasCostInfo && (
+        {hasInfoToDisplay && (
           <div className={styles.costPlanningSection}>
+            {/* Scheduled Date/Time */}
+            {scheduledDate && (
+              <div
+                className={`${styles.infoCard} ${styles.scheduledDateCard}`}
+                onClick={() => setShowDateModal(true)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowDateModal(true); }}
+                title="Click to edit scheduled date"
+              >
+                <span className={styles.infoIcon}>📅</span>
+                <div className={styles.infoContent}>
+                  <span className={styles.infoLabel}>Scheduled</span>
+                  <span className={styles.scheduledDateValue}>
+                    {getFormattedScheduledDate()}
+                    {scheduledTime && <span className={styles.scheduledTime}> at {getFormattedScheduledTime()}</span>}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Planning Days */}
             {planningDays > 0 && (
               <Tooltip content={getPlanningTimeTooltip()} placement="top">
                 <div className={styles.infoCard}>
-                  <span className={styles.infoIcon}>📅</span>
+                  <span className={styles.infoIcon}>⏱️</span>
                   <div className={styles.infoContent}>
                     <span className={styles.infoLabel}>{lang.en.label.planningTime}</span>
                     <span className={styles.infoValue}>
@@ -1306,6 +1403,16 @@ export default function PlanItemDetailsModal({
         onSave={handleSaveLocation}
         initialAddress={planItem?.location?.address || ''}
         initialLocation={planItem?.location || null}
+      />
+
+      {/* Add Date Modal */}
+      <AddDateModal
+        show={showDateModal}
+        onClose={() => setShowDateModal(false)}
+        onSave={handleSaveDate}
+        initialDate={planItem?.scheduled_date || null}
+        initialTime={planItem?.scheduled_time || null}
+        planItemText={planItem?.text || 'Plan Item'}
       />
     </Modal>
   );

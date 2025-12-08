@@ -5,8 +5,7 @@ import { FaEdit, FaTimes, FaPlus, FaMinus, FaCheck } from "react-icons/fa";
 import SkeletonLoader from "../SkeletonLoader/SkeletonLoader";
 import TagPill from '../Pill/TagPill';
 import { lang } from "../../lang.constants";
-import ConfirmModal from "../ConfirmModal/ConfirmModal";
-import { deleteExperience } from "../../utilities/experiences-api";
+import TransferOwnershipModal from "../TransferOwnershipModal/TransferOwnershipModal";
 import { checkUserPlanForExperience, createPlan, deletePlan } from "../../utilities/plans-api";
 import { handleError } from "../../utilities/error-handler";
 import { isOwner } from "../../utilities/permissions";
@@ -15,7 +14,6 @@ import { eventBus } from '../../utilities/event-bus';
 import { useData } from "../../contexts/DataContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useUser } from "../../contexts/UserContext";
-import useOptimisticAction from "../../hooks/useOptimisticAction";
 import EntitySchema from "../OpenGraph/EntitySchema";
 import imagePreloader from '../../utilities/image-preloader';
 
@@ -419,42 +417,6 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     }
   }, [isLoading, experienceAdded, experience._id, experience.name, updateData, userPlans, user, setLocalPlanStateWithCache, fetchPlans, showError]);
 
-  const runDelete = useOptimisticAction({
-    context: 'Delete experience',
-    apply: () => {
-      setIsDeleted(true); // hide card immediately
-      setShowDeleteModal(false);
-      try {
-        // Inform parent immediately so it can update its local list (e.g., show EmptyState)
-        if (typeof onOptimisticDelete === 'function') onOptimisticDelete(experience?._id);
-      } catch (e) {
-        // ignore
-      }
-    },
-    apiCall: async () => {
-      await deleteExperience(experience._id);
-    },
-    rollback: () => {
-      setIsDeleted(false);
-    },
-    onSuccess: () => {
-      // Ask parent to refresh list (non-blocking)
-      if (updateData) {
-        Promise.resolve(updateData()).catch((err) =>
-          logger.warn('[ExperienceCard] Parent refresh failed', { error: err?.message })
-        );
-      }
-    },
-    onError: (err, defaultMsg) => {
-      const msg = handleError(err, { context: 'Delete experience' }) || defaultMsg;
-      showError(msg);
-    }
-  });
-
-  const handleDelete = useCallback(async () => {
-    runDelete();
-  }, [runDelete]);
-
   // Toggle expansion on mobile (tap to expand/collapse)
   const handleCardClick = useCallback((e) => {
     // Only handle on mobile
@@ -534,20 +496,21 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
       {includeSchema && experience && (
         <EntitySchema entity={experience} entityType="experience" />
       )}
-      <ConfirmModal
+      <TransferOwnershipModal
         show={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        onConfirm={handleDelete}
-        title="Delete Experience?"
-        message="You are about to permanently delete"
-        itemName={experience?.name}
-        additionalInfo={[
-          "All plan items",
-          "Associated photos",
-          "User plans (if any)"
-        ]}
-        confirmText="Delete Permanently"
-        confirmVariant="danger"
+        experience={experience}
+        onSuccess={() => {
+          setIsDeleted(true);
+          if (typeof onOptimisticDelete === 'function') {
+            onOptimisticDelete(experience?._id);
+          }
+          if (updateData) {
+            Promise.resolve(updateData()).catch((err) =>
+              logger.warn('[ExperienceCard] Parent refresh failed', { error: err?.message })
+            );
+          }
+        }}
       />
     </div>
   );

@@ -7,6 +7,7 @@
  * Detail types available for plan items
  */
 export const DETAIL_TYPES = {
+  DATE: 'date',
   COST: 'cost',
   FLIGHT: 'flight',
   TRAIN: 'train',
@@ -28,6 +29,13 @@ export const DETAIL_TYPES = {
  * - expense: tracked costs
  */
 export const DETAIL_TYPE_CONFIG = {
+  [DETAIL_TYPES.DATE]: {
+    label: 'Date',
+    icon: '📅',
+    description: 'Schedule this item for a specific date and time',
+    category: 'scheduling',
+    isSpecialHandler: true // Uses custom modal instead of multi-step flow
+  },
   [DETAIL_TYPES.COST]: {
     label: 'Cost',
     icon: '💰',
@@ -88,6 +96,11 @@ export const DETAIL_TYPE_CONFIG = {
  * Category definitions for grouping details in the Details tab
  */
 export const DETAIL_CATEGORIES = {
+  scheduling: {
+    label: 'Scheduling',
+    icon: '📅',
+    order: 0
+  },
   transportation: {
     label: 'Transportation',
     icon: '🚗',

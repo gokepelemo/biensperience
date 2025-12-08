@@ -13,6 +13,8 @@ router.get('/user/:userId/created', ensureLoggedIn, experiencesCtrl.showUserCrea
 router.get('/user/:userId', ensureLoggedIn, experiencesCtrl.showUserExperiences);
 router.delete('/:id', ensureLoggedIn, modificationLimiter, experiencesCtrl.delete);
 router.put('/:id/transfer-ownership', ensureLoggedIn, collaboratorLimiter, experiencesCtrl.transferOwnership);
+router.get('/:id/check-plans', ensureLoggedIn, experiencesCtrl.checkExperiencePlans);
+router.post('/:id/archive', ensureLoggedIn, modificationLimiter, experiencesCtrl.archiveExperience);
 router.put('/:id', ensureLoggedIn, requireEmailVerification, modificationLimiter, experiencesCtrl.update);
 // OPTIMIZATION: Combined endpoint for SingleExperience page - must come before /:id to avoid route conflict
 router.get('/:id/with-context', ensureLoggedIn, experiencesCtrl.showWithContext);

@@ -85,22 +85,22 @@ export default function InviteTracking() {
     const isFullyUsed = invite.maxUses && invite.usedCount >= invite.maxUses;
 
     if (!invite.isActive) {
-      return <Pill variant="secondary"><FaTimesCircle /> Inactive</Pill>;
+      return <Pill variant="secondary"><FaTimesCircle /> {lang.current.inviteTracking.inactive}</Pill>;
     }
     if (isExpired) {
-      return <Pill variant="danger"><FaClock /> Expired</Pill>;
+      return <Pill variant="danger"><FaClock /> {lang.current.inviteTracking.expired}</Pill>;
     }
     if (isFullyUsed) {
-      return <Pill variant="warning"><FaCheckCircle /> Fully Used</Pill>;
+      return <Pill variant="warning"><FaCheckCircle /> {lang.current.inviteTracking.fullyUsed}</Pill>;
     }
     if (invite.usedCount > 0) {
-      return <Pill variant="info"><FaUsers /> In Use</Pill>;
+      return <Pill variant="info"><FaUsers /> {lang.current.inviteTracking.inUse}</Pill>;
     }
-    return <Pill variant="success"><FaCheckCircle /> Available</Pill>;
+    return <Pill variant="success"><FaCheckCircle /> {lang.current.inviteTracking.available}</Pill>;
   };
 
   const formatDate = (date) => {
-    if (!date) return 'Never';
+    if (!date) return lang.current.inviteTracking.never;
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -119,7 +119,7 @@ export default function InviteTracking() {
                 <FaQrcode />
               </div>
               <h2 className={styles.statValue}>{stats.totalInvites}</h2>
-              <p style={{ color: 'var(--bs-gray-600)' }}>Total Invites</p>
+              <p style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.totalInvites}</p>
             </Card.Body>
           </Card>
           <Card className={styles.statCard}>
@@ -128,7 +128,7 @@ export default function InviteTracking() {
                 <FaCheckCircle />
               </div>
               <h2 className={styles.statValue}>{stats.activeInvites}</h2>
-              <p className="text-muted">Active</p>
+              <p className="text-muted">{lang.current.inviteTracking.active}</p>
             </Card.Body>
           </Card>
           <Card className={styles.statCard}>
@@ -137,7 +137,7 @@ export default function InviteTracking() {
                 <FaUsers />
               </div>
               <h2 className={styles.statValue}>{stats.totalRedemptions}</h2>
-              <p style={{ color: 'var(--bs-gray-600)' }}>Redemptions</p>
+              <p style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.redemptions}</p>
             </Card.Body>
           </Card>
           <Card className={styles.statCard}>
@@ -146,7 +146,7 @@ export default function InviteTracking() {
                 <FaClock />
               </div>
               <h2 className={styles.statValue}>{stats.expiredInvites}</h2>
-              <p style={{ color: 'var(--bs-gray-600)' }}>Expired</p>
+              <p style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.expired}</p>
             </Card.Body>
           </Card>
         </div>
@@ -155,14 +155,14 @@ export default function InviteTracking() {
       {/* Invites Table */}
       <Card>
         <Card.Header>
-          <h2><FaQrcode /> My Invite Codes</h2>
+          <h2><FaQrcode /> {lang.current.inviteTracking.myInviteCodes}</h2>
         </Card.Header>
         <Card.Body className="p-0">
           {invites.length === 0 ? (
             <EmptyState
               variant="invites"
-              title={lang.current.message.noInviteCodes || "No Invite Codes Yet"}
-              description="Create invite codes to share Biensperience with friends and family."
+              title={lang.current.message.noInviteCodes}
+              description={lang.current.inviteTracking.noInviteCodesDescription}
               size="md"
               compact
             />
@@ -170,13 +170,13 @@ export default function InviteTracking() {
             <Table hover striped responsive>
               <TableHead>
                 <TableRow>
-                  <th>Code</th>
-                  <th>Status</th>
-                  <th>Email</th>
-                  <th>Used</th>
-                  <th>Created</th>
-                  <th>Expires</th>
-                  <th>Actions</th>
+                  <th>{lang.current.tableHeaders.code}</th>
+                  <th>{lang.current.tableHeaders.status}</th>
+                  <th>{lang.current.tableHeaders.email}</th>
+                  <th>{lang.current.tableHeaders.used}</th>
+                  <th>{lang.current.tableHeaders.created}</th>
+                  <th>{lang.current.tableHeaders.expires}</th>
+                  <th>{lang.current.tableHeaders.actions}</th>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -193,7 +193,7 @@ export default function InviteTracking() {
                           {invite.email}
                         </span>
                       ) : (
-                        <span style={{ color: 'var(--bs-gray-600)' }}>Any</span>
+                        <span style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.any}</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -206,7 +206,7 @@ export default function InviteTracking() {
                       {invite.expiresAt ? (
                         formatDate(invite.expiresAt)
                       ) : (
-                        <span style={{ color: 'var(--bs-gray-600)' }}>Never</span>
+                        <span style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.never}</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -245,19 +245,19 @@ export default function InviteTracking() {
           <div className={styles.inviteDetailsSidebar}>
             <Card className="mb-3">
               <Card.Header>
-                <h6><FaQrcode /> Invite Code Details</h6>
+                <h6><FaQrcode /> {lang.current.inviteTracking.inviteCodeDetails}</h6>
               </Card.Header>
               <Card.Body>
                 <div className={styles.inviteDetailItem}>
-                  <strong>Code:</strong>
+                  <strong>{lang.current.inviteTracking.code}:</strong>
                   <code className={styles.inviteCodeLarge}>{selectedInvite.code}</code>
                 </div>
                 <div className={styles.inviteDetailItem}>
-                  <strong>Status:</strong>
+                  <strong>{lang.current.inviteTracking.status}:</strong>
                   {getStatusBadge(selectedInvite)}
                 </div>
                 <div className={styles.inviteDetailItem}>
-                  <strong>Usage:</strong>
+                  <strong>{lang.current.inviteTracking.usage}:</strong>
                   <div>
                     <Pill variant="secondary">
                       {selectedInvite.usedCount}/{selectedInvite.maxUses || '∞'}
@@ -271,7 +271,7 @@ export default function InviteTracking() {
                 </div>
                 {selectedInvite.email && (
                   <div className={styles.inviteDetailItem}>
-                    <strong>Restricted to:</strong>
+                    <strong>{lang.current.inviteTracking.restrictedTo}:</strong>
                     <div>
                       <FaEnvelope className="me-1" />
                       {selectedInvite.email}
@@ -279,7 +279,7 @@ export default function InviteTracking() {
                   </div>
                 )}
                 <div className={styles.inviteDetailItem}>
-                  <strong>Created:</strong>
+                  <strong>{lang.current.inviteTracking.created}:</strong>
                   <div>
                     <FaCalendar className="me-1" />
                     {formatDate(selectedInvite.createdAt)}
@@ -287,7 +287,7 @@ export default function InviteTracking() {
                 </div>
                 {selectedInvite.expiresAt && (
                   <div className={styles.inviteDetailItem}>
-                    <strong>Expires:</strong>
+                    <strong>{lang.current.inviteTracking.expires}:</strong>
                     <div>
                       <FaClock className="me-1" />
                       {formatDate(selectedInvite.expiresAt)}
@@ -301,12 +301,12 @@ export default function InviteTracking() {
             {(selectedInvite.experiences?.length > 0 || selectedInvite.destinations?.length > 0) && (
               <Card>
                 <Card.Header>
-                  <h6><FaMapMarkerAlt /> Pre-configured Resources</h6>
+                  <h6><FaMapMarkerAlt /> {lang.current.inviteTracking.preConfiguredResources}</h6>
                 </Card.Header>
                 <Card.Body>
                   {selectedInvite.experiences?.length > 0 && (
                     <div className="mb-3">
-                      <strong>Experiences ({selectedInvite.experiences.length}):</strong>
+                      <strong>{lang.current.inviteTracking.experiencesCount.replace('{count}', selectedInvite.experiences.length)}:</strong>
                       <ul className={styles.resourceList}>
                         {selectedInvite.experiences.map((exp) => (
                           <li key={exp._id}>
@@ -318,7 +318,7 @@ export default function InviteTracking() {
                   )}
                   {selectedInvite.destinations?.length > 0 && (
                     <div>
-                      <strong>Destinations ({selectedInvite.destinations.length}):</strong>
+                      <strong>{lang.current.inviteTracking.destinationsCount.replace('{count}', selectedInvite.destinations.length)}:</strong>
                       <ul className={styles.resourceList}>
                         {selectedInvite.destinations.map((dest) => (
                           <li key={dest._id}>
@@ -338,15 +338,15 @@ export default function InviteTracking() {
           <div className={styles.inviteDetailsMain}>
             <Card>
               <Card.Header>
-                <h6><FaUsers /> Redeemed By ({selectedInvite.redeemedBy?.length || 0})</h6>
+                <h6><FaUsers /> {lang.current.inviteTracking.redeemedBy.replace('{count}', selectedInvite.redeemedBy?.length || 0)}</h6>
               </Card.Header>
               <Card.Body className="p-0">
                 {!selectedInvite.redeemedBy || selectedInvite.redeemedBy.length === 0 ? (
                   <EmptyState
                     variant="users"
                     icon="👥"
-                    title={lang.current.message.noInviteRedemptions || "No Redemptions Yet"}
-                    description="No one has used this invite code yet. Share it to get started!"
+                    title={lang.current.inviteTracking.noRedemptionsYet}
+                    description={lang.current.inviteTracking.shareToGetStarted}
                     size="sm"
                     compact
                   />
@@ -354,9 +354,9 @@ export default function InviteTracking() {
                   <Table hover striped responsive>
                     <TableHead>
                       <TableRow>
-                        <th>User</th>
-                        <th>Email</th>
-                        <th>Joined</th>
+                        <th>{lang.current.tableHeaders.user}</th>
+                        <th>{lang.current.tableHeaders.email}</th>
+                        <th>{lang.current.tableHeaders.joined}</th>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -403,68 +403,69 @@ export default function InviteTracking() {
       <div>
         <Row className="mb-4">
           <Col md={12}>
-            <h2><FaChartLine /> Invite Analytics</h2>
+            <h2><FaChartLine /> {lang.current.inviteTracking.inviteAnalytics}</h2>
           </Col>
         </Row>
 
         <div className={`${styles.analyticsGrid} mb-4`}>
           <Card className={styles.analyticsCard}>
             <Card.Body>
-              <h6>Total Invites Created</h6>
+              <h6>{lang.current.inviteTracking.totalInvitesCreated}</h6>
               <div className={styles.analyticsValue}>{analytics.totalInvites}</div>
             </Card.Body>
           </Card>
           <Card className={styles.analyticsCard}>
             <Card.Body>
-              <h6>Total Redemptions</h6>
+              <h6>{lang.current.inviteTracking.totalRedemptions}</h6>
               <div className={styles.analyticsValue}>{analytics.totalRedemptions}</div>
             </Card.Body>
           </Card>
           <Card className={styles.analyticsCard}>
             <Card.Body>
-              <h6>Redemption Rate</h6>
+              <h6>{lang.current.inviteTracking.redemptionRate}</h6>
               <div className={styles.analyticsValue}>{analytics.redemptionRate}%</div>
             </Card.Body>
           </Card>
           <Card className={styles.analyticsCard}>
             <Card.Body>
-              <h6>Avg Redemptions/Invite</h6>
+              <h6>{lang.current.inviteTracking.avgRedemptionsPerInvite}</h6>
               <div className={styles.analyticsValue}>{analytics.averageRedemptionsPerInvite}</div>
             </Card.Body>
           </Card>
           <Card className={styles.analyticsCard}>
             <Card.Body>
-              <h6>Active Invites</h6>
+              <h6>{lang.current.inviteTracking.activeInvites}</h6>
               <div className={styles.analyticsValue}>{analytics.activeInvites}</div>
             </Card.Body>
           </Card>
           <Card className={styles.analyticsCard}>
             <Card.Body>
-              <h6>Unused Invites</h6>
+              <h6>{lang.current.inviteTracking.unusedInvites}</h6>
               <div className={styles.analyticsValue}>{analytics.unusedInvites}</div>
             </Card.Body>
           </Card>
-        </div>        <div className={`${styles.activityGrid} mt-4`}>
+        </div>
+        <div className={`${styles.activityGrid} mt-4`}>
           <Card>
             <Card.Header>
-              <h6>Recent Activity</h6>
+              <h6>{lang.current.inviteTracking.recentActivity}</h6>
             </Card.Header>
             <Card.Body>
               <div className={styles.analyticsItem}>
-                <strong>Last 7 Days:</strong>
+                <strong>{lang.current.inviteTracking.last7Days}:</strong>
                 <span className="float-end">
-                  <Pill variant="info">{analytics.redemptionsLast7Days} redemptions</Pill>
+                  <Pill variant="info">{analytics.redemptionsLast7Days} {lang.current.inviteTracking.redemptionsSuffix}</Pill>
                   <Pill variant="secondary" className="ms-2">
-                    {analytics.invitesCreatedLast7Days} created
+                    {analytics.invitesCreatedLast7Days} {lang.current.inviteTracking.createdSuffix}
                   </Pill>
                 </span>
               </div>
               <div className={styles.analyticsItem}>
-                <strong>Last 30 Days:</strong>
+                <strong>{lang.current.inviteTracking.last30Days}:</strong>
                 <span className="float-end">
-                  <Pill variant="info">{analytics.redemptionsLast30Days} redemptions</Pill>
+                  <Pill variant="info">{analytics.redemptionsLast30Days} {lang.current.inviteTracking.redemptionsSuffix}</Pill>
                   <Pill variant="secondary" className="ms-2">
-                    {analytics.invitesCreatedLast30Days} created
+                    {analytics.invitesCreatedLast30Days} {lang.current.inviteTracking.createdSuffix}
                   </Pill>
                 </span>
               </div>
@@ -472,19 +473,19 @@ export default function InviteTracking() {
           </Card>
           <Card>
             <Card.Header>
-              <h6>Invite Status Breakdown</h6>
+              <h6>{lang.current.inviteTracking.inviteStatusBreakdown}</h6>
             </Card.Header>
             <Card.Body>
               <div className={styles.analyticsItem}>
-                <strong>Expired:</strong>
+                <strong>{lang.current.inviteTracking.expired}:</strong>
                 <Pill variant="danger" className="float-end">{analytics.expiredInvites}</Pill>
               </div>
               <div className={styles.analyticsItem}>
-                <strong>Fully Used:</strong>
+                <strong>{lang.current.inviteTracking.fullyUsed}:</strong>
                 <Pill variant="warning" className="float-end">{analytics.fullyUsedInvites}</Pill>
               </div>
               <div className={styles.analyticsItem}>
-                <strong>Email Restricted:</strong>
+                <strong>{lang.current.inviteTracking.emailRestricted}:</strong>
                 <Pill variant="secondary" className="float-end">
                   {analytics.emailRestrictedInvites}
                 </Pill>
@@ -493,17 +494,17 @@ export default function InviteTracking() {
           </Card>
           <Card>
             <Card.Header>
-              <h6>Pre-configured Resources</h6>
+              <h6>{lang.current.inviteTracking.preConfiguredResources}</h6>
             </Card.Header>
             <Card.Body>
               <div className={styles.analyticsItem}>
-                <strong>With Experiences:</strong>
+                <strong>{lang.current.inviteTracking.withExperiences}:</strong>
                 <Pill variant="info" className="float-end">
                   {analytics.invitesWithExperiences}
                 </Pill>
               </div>
               <div className={styles.analyticsItem}>
-                <strong>With Destinations:</strong>
+                <strong>{lang.current.inviteTracking.withDestinations}:</strong>
                 <Pill variant="success" className="float-end">
                   {analytics.invitesWithDestinations}
                 </Pill>
@@ -518,20 +519,20 @@ export default function InviteTracking() {
   return (
     <>
       <PageOpenGraph
-        title="Invite Tracking - Biensperience"
-        description="Track your invite codes and see detailed analytics about who has joined Biensperience using your invitations. Monitor usage statistics and redemption data."
-        keywords="invite tracking, invite codes, analytics, user referrals, Biensperience"
-        ogTitle="Invite Tracking Dashboard - Biensperience"
-        ogDescription="Monitor your invite code performance and see who has joined the platform through your referrals."
+        title={lang.current.inviteTracking.pageTitle}
+        description={lang.current.inviteTracking.pageDescription}
+        keywords={lang.current.inviteTracking.pageKeywords}
+        ogTitle={lang.current.inviteTracking.ogTitle}
+        ogDescription={lang.current.inviteTracking.ogDescription}
       />
       <div className="profile-dropdown-view">
         <div className="container-fluid">
           <div className="view-header">
             <div className="row">
               <div className="col-12">
-                <h1><FaQrcode /> Invite Tracking</h1>
+                <h1><FaQrcode /> {lang.current.inviteTracking.heading}</h1>
                 <p className="header-description">
-                  Track your invite codes and see who has joined using them
+                  {lang.current.inviteTracking.headerDescription}
                 </p>
               </div>
             </div>
@@ -547,13 +548,13 @@ export default function InviteTracking() {
             onSelect={(k) => setActiveTab(k)}
             className="mb-3"
           >
-            <Tab eventKey="overview" title="Overview">
+            <Tab eventKey="overview" title={lang.current.inviteTracking.tabOverview}>
               {renderOverview()}
             </Tab>
-            <Tab eventKey="details" title="Invite Details">
+            <Tab eventKey="details" title={lang.current.inviteTracking.tabDetails}>
               {renderDetails()}
             </Tab>
-            <Tab eventKey="analytics" title="Analytics">
+            <Tab eventKey="analytics" title={lang.current.inviteTracking.tabAnalytics}>
               {renderAnalytics()}
             </Tab>
           </Tabs>

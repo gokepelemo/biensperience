@@ -92,8 +92,10 @@
 }
 
 .experienceCard :global(.btn-icon) {
-  background-color: var(--color-bg-primary);
-  opacity: 0.9;
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  opacity: 0.95;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px); /* Safari support */
   font-weight: var(--btn-font-weight);
@@ -104,14 +106,38 @@
   @include flex-center;
   padding: 0;
   @include transition-all(var(--btn-transition));
+
+  &:hover,
+  &:focus {
+    background-color: var(--color-bg-muted);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-light);
+    transform: scale(1.05);
+  }
+}
+
+/* Dark mode specific adjustments for icon buttons */
+:global([data-theme="dark"]) .experienceCard :global(.btn-icon),
+:global(.dark-mode) .experienceCard :global(.btn-icon) {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--color-text-inverse, #ffffff);
+
+  &:hover,
+  &:focus {
+    background-color: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: var(--color-text-inverse, #ffffff);
+  }
 }
 
 /* Custom button classes for experience cards - extend Bootstrap */
+/* These buttons should look identical in light and dark mode */
 .experienceCard :global(.btn-card-add),
 .experienceCard :global(.btn-card-remove) {
-  background: var(--gradient-primary);
-  border-color: transparent;
-  color: white;
+  background: var(--gradient-primary) !important;
+  border-color: transparent !important;
+  color: #ffffff !important; /* Always white text/icon - same in light and dark */
   font-size: $font-size-2xl;
   font-weight: $font-weight-normal; /* Lighter weight for better centering */
   line-height: 1;
@@ -145,27 +171,29 @@
 }
 
 .experienceCard :global(.btn-card-add:hover) {
-  background: var(--gradient-primary);
+  background: var(--gradient-primary) !important;
   transform: scale(1.1) translateY(-2px);
-  color: white;
+  color: #ffffff !important;
   box-shadow: var(--shadow-md);
 }
 
+/* Checked/planned state - always green with white icon, same in light and dark mode */
 .experienceCard :global(.btn-card-remove) {
-  background: var(--color-success);
-  border: 2px solid var(--color-success);
-  color: white;
+  background: var(--color-success) !important;
+  border: 2px solid var(--color-success) !important;
+  color: #ffffff !important;
   font-size: $font-size-xl;
   /* Smooth transitions for remove state */
   transition: all 0.3s $easing-ease-in-out;
 }
 
+/* Destructive hover state - always red with white icon, same in light and dark mode */
 .experienceCard :global(.btn-card-remove:hover) {
-  background: var(--color-danger);
+  background: var(--color-danger) !important;
   transform: scale(1.1) translateY(-2px);
-  color: white;
+  color: #ffffff !important;
   box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-  border-color: var(--color-danger);
+  border-color: var(--color-danger) !important;
 }
 
 /* Loading pulse animation */

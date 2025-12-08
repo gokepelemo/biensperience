@@ -12,24 +12,13 @@ import { useState, useEffect, useMemo, useId } from 'react';
 import { Form } from 'react-bootstrap';
 import Modal from '../Modal/Modal';
 import { lang } from '../../lang.constants';
-import { getCurrencySymbol } from '../../utilities/currency-utils';
+import { getCurrencySymbol, getCurrencyDropdownOptions } from '../../utilities/currency-utils';
 import styles from './CostEntry.module.scss';
 
 const { Label: FormLabel, Control: FormControl, Select: FormSelect } = Form;
 
-// Common currencies
-const CURRENCIES = [
-  { code: 'USD', name: 'US Dollar' },
-  { code: 'EUR', name: 'Euro' },
-  { code: 'GBP', name: 'British Pound' },
-  { code: 'JPY', name: 'Japanese Yen' },
-  { code: 'CAD', name: 'Canadian Dollar' },
-  { code: 'AUD', name: 'Australian Dollar' },
-  { code: 'CHF', name: 'Swiss Franc' },
-  { code: 'CNY', name: 'Chinese Yuan' },
-  { code: 'MXN', name: 'Mexican Peso' },
-  { code: 'BRL', name: 'Brazilian Real' },
-];
+// Get currency options from centralized utility (sorted by popularity)
+const CURRENCIES = getCurrencyDropdownOptions({ format: 'codeAndName' });
 
 // Cost categories
 const CATEGORIES = [
@@ -61,18 +50,19 @@ function getTodayForInput() {
 }
 
 /**
- * Default empty cost entry
+ * Get default empty cost entry
+ * @param {string} defaultCurrency - Default currency to use
  */
-const DEFAULT_COST = {
+const getDefaultCost = (defaultCurrency = 'USD') => ({
   title: '',
   description: '',
   cost: '',
-  currency: 'USD',
+  currency: defaultCurrency,
   category: '',
   date: getTodayForInput(),
   collaborator: '',
   plan_item: '',
-};
+});
 
 export default function CostEntry({
   // Modal state
@@ -86,6 +76,9 @@ export default function CostEntry({
   collaborators = [], // Array of { _id, name } for "paid by" dropdown
   planItems = [], // Array of { _id, text } for plan item dropdown
 
+  // Currency defaults
+  defaultCurrency = 'USD', // Default currency (should be user preference)
+
   // Callbacks
   onSave, // Called with cost data when saving
 
@@ -93,7 +86,7 @@ export default function CostEntry({
   loading = false,
 }) {
   const formId = useId();
-  const [costData, setCostData] = useState(DEFAULT_COST);
+  const [costData, setCostData] = useState(() => getDefaultCost(defaultCurrency));
   const [errors, setErrors] = useState({});
 
   const isEditing = !!editingCost;
@@ -107,7 +100,7 @@ export default function CostEntry({
           title: editingCost.title || '',
           description: editingCost.description || '',
           cost: editingCost.cost || '',
-          currency: editingCost.currency || 'USD',
+          currency: editingCost.currency || defaultCurrency,
           category: editingCost.category || '',
           date: formatDateForInput(editingCost.date || editingCost.created_at) || getTodayForInput(),
           collaborator: editingCost.collaborator?._id || editingCost.collaborator || '',
@@ -115,13 +108,13 @@ export default function CostEntry({
         });
       } else {
         setCostData({
-          ...DEFAULT_COST,
+          ...getDefaultCost(defaultCurrency),
           date: getTodayForInput(), // Always reset to today for new costs
         });
       }
       setErrors({});
     }
-  }, [show, editingCost]);
+  }, [show, editingCost, defaultCurrency]);
 
   // Get currency symbol for display
   const currencySymbol = useMemo(() => {
@@ -277,8 +270,8 @@ export default function CostEntry({
                 aria-label={costStrings.currency}
               >
                 {CURRENCIES.map(curr => (
-                  <option key={curr.code} value={curr.code}>
-                    {curr.code}
+                  <option key={curr.value} value={curr.value}>
+                    {curr.label}
                   </option>
                 ))}
               </FormSelect>

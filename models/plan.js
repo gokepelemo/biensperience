@@ -30,6 +30,13 @@ const permissionSchema = new Schema({
 }, { _id: false });
 
 /**
+ * Note visibility options:
+ * - 'private': Only viewable by the note creator
+ * - 'contributors': Viewable by all collaborators on the plan (All Contributors)
+ */
+const NOTE_VISIBILITY = ['private', 'contributors'];
+
+/**
  * Note schema for plan item details
  */
 const noteSchema = new Schema({
@@ -41,6 +48,11 @@ const noteSchema = new Schema({
   content: {
     type: String,
     required: true
+  },
+  visibility: {
+    type: String,
+    enum: NOTE_VISIBILITY,
+    default: 'contributors' // Default: visible to all plan collaborators
   }
 }, { timestamps: true }); // createdAt and updatedAt
 

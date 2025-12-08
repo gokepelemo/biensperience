@@ -23,6 +23,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { useCollaboratorUsers } from "../../hooks/useCollaboratorUsers";
 import useCollaboratorManager from "../../hooks/useCollaboratorManager";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
+import TransferOwnershipModal from "../../components/TransferOwnershipModal/TransferOwnershipModal";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageSchema from '../../components/PageSchema/PageSchema';
 import { buildExperienceSchema } from '../../utilities/schema-utils';
@@ -61,13 +62,13 @@ import { createExpirableStorage, getCookieValue, setCookieValue } from "../../ut
 import { formatCurrency } from "../../utilities/currency-utils";
 import { isOwner, canEditPlan } from "../../utilities/permissions";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
+import { isArchiveUser, isExperienceArchived, getDisplayName as getSystemUserDisplayName } from "../../utilities/system-users";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import usePlanManagement from "../../hooks/usePlanManagement";
 import usePlanCosts from "../../hooks/usePlanCosts";
 import { usePresence } from "../../hooks/usePresence";
 import {
   showExperienceWithContext,
-  deleteExperience,
   deletePlanItem,
   addPlanItem as addExperiencePlanItem,
   updatePlanItem as updateExperiencePlanItem,
@@ -75,7 +76,6 @@ import {
   removeExperienceCollaborator,
   reorderExperiencePlanItems,
   updateExperience,
-  transferOwnership,
 } from "../../utilities/experiences-api";
 import {
   getUserPlans,
@@ -648,57 +648,6 @@ export default function SingleExperience() {
 
     return collaboratorsList;
   }, [planOwner, planCollaborators]);
-
-  // Compute other users' plans (plans by users other than current user)
-  // Used to block experience deletion when others have planned it
-  const otherUsersPlans = useMemo(() => {
-    if (!sharedPlans || sharedPlans.length === 0 || !user?._id) {
-      return [];
-    }
-    return sharedPlans.filter((plan) => {
-      const planUserId = plan.user?._id?.toString() || plan.user?.toString();
-      return planUserId && planUserId !== user._id?.toString();
-    });
-  }, [sharedPlans, user?._id]);
-
-  // Get unique plan owners who could receive ownership transfer
-  const transferCandidates = useMemo(() => {
-    const candidates = [];
-    const seenIds = new Set();
-
-    // Add experience collaborators first (they have explicit permissions)
-    if (experienceCollaborators && experienceCollaborators.length > 0) {
-      experienceCollaborators.forEach((collab) => {
-        const id = collab._id?.toString() || collab.user?._id?.toString();
-        if (id && !seenIds.has(id)) {
-          seenIds.add(id);
-          candidates.push({
-            _id: id,
-            name: collab.name || collab.user?.name || 'Unknown User',
-            email: collab.email || collab.user?.email,
-            type: 'collaborator'
-          });
-        }
-      });
-    }
-
-    // Add plan owners from other users' plans
-    otherUsersPlans.forEach((plan) => {
-      const planUser = plan.user;
-      const id = planUser?._id?.toString() || planUser?.toString();
-      if (id && !seenIds.has(id)) {
-        seenIds.add(id);
-        candidates.push({
-          _id: id,
-          name: planUser?.name || 'Unknown User',
-          email: planUser?.email,
-          type: 'plan_owner'
-        });
-      }
-    });
-
-    return candidates;
-  }, [experienceCollaborators, otherUsersPlans]);
 
   // Prepare mention entities and data for InteractiveTextArea
   const availableEntities = useMemo(() => {
@@ -2531,30 +2480,6 @@ export default function SingleExperience() {
     fetchAllData,
   ]);
 
-  const handleDeleteExperience = useCallback(async () => {
-    if (!experience || !isOwner(user, experience)) return;
-    try {
-      removeExperience(experience._id); // Instant UI update!
-      await deleteExperience(experience._id);
-      const message = lang.current.notification?.experience?.deleted?.replace('{name}', experience.name) || `${experience.name} has been deleted. This action cannot be undone.`;
-      success(message);
-      navigate("/experiences");
-    } catch (err) {
-      const errorMsg = handleError(err, { context: "Delete experience" });
-      showError(errorMsg);
-      // Rollback on error
-      await fetchExperiences();
-    }
-  }, [
-    experience,
-    user,
-    navigate,
-    removeExperience,
-    success,
-    showError,
-    fetchExperiences,
-  ]);
-
   const handlePlanDelete = useCallback(
     async (planItemId) => {
       if (!experience || !planItemId) return;
@@ -2906,10 +2831,10 @@ export default function SingleExperience() {
                 </div>
 
                 {/* Tags Section */}
-                {(experience.experience_type || experience.destination || (experienceOwner && hasFeatureFlag(experienceOwner, 'curator'))) && (
+                {(experience.experience_type || experience.destination || isExperienceArchived(experience) || (experienceOwner && !isArchiveUser(experienceOwner) && hasFeatureFlag(experienceOwner, 'curator'))) && (
                   <div className={styles.tagsSection}>
-                    {/* Curated Experience Tag with tooltip - shown when owner has curator flag */}
-                    {experienceOwner && hasFeatureFlag(experienceOwner, 'curator') && (
+                    {/* Curated Experience Tag with tooltip - shown when owner has curator flag and is not archived */}
+                    {experienceOwner && !isArchiveUser(experienceOwner) && hasFeatureFlag(experienceOwner, 'curator') && (
                       <Tooltip
                         content={
                           <div className={styles.curatorTooltipContent}>
@@ -2963,6 +2888,19 @@ export default function SingleExperience() {
                           </Badge>
                         </span>
                       </Tooltip>
+                    )}
+                    {/* Archived badge - shown when experience is owned by Archive User */}
+                    {isExperienceArchived(experience) && (
+                      <Badge
+                        bg="secondary"
+                        className={styles.tag}
+                        style={{
+                          background: 'var(--color-text-muted)',
+                          color: 'white'
+                        }}
+                      >
+                        Archived
+                      </Badge>
                     )}
                     {experience.experience_type && (
                       Array.isArray(experience.experience_type)
@@ -3262,54 +3200,13 @@ export default function SingleExperience() {
           onClose={() => setShowPhotoViewer(false)}
         />
       )}
-      <ConfirmModal
+      <TransferOwnershipModal
         show={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        onConfirm={handleDeleteExperience}
-        title="Delete Experience?"
-        message="You are about to permanently delete"
-        itemName={experience?.name}
-        additionalInfo={[
-          "All plan items",
-          "Associated photos",
-          "User plans (if any)"
-        ]}
-        confirmText="Delete Permanently"
-        confirmVariant="danger"
-        confirmDisabled={otherUsersPlans.length > 0}
-        blockerContent={otherUsersPlans.length > 0 ? (
-          <div style={{ color: 'var(--color-text-secondary)' }}>
-            <Alert type="warning" style={{ marginBottom: 'var(--space-4)' }}>
-              This experience cannot be deleted because {otherUsersPlans.length === 1 ? '1 other user has' : `${otherUsersPlans.length} other users have`} planned it.
-            </Alert>
-            <p style={{ marginBottom: 'var(--space-3)' }}>
-              To delete this experience, you must first transfer ownership to one of the following users:
-            </p>
-            {transferCandidates.length > 0 ? (
-              <ul style={{ paddingLeft: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
-                {transferCandidates.map((candidate) => (
-                  <li key={candidate._id} style={{ marginBottom: 'var(--space-2)' }}>
-                    <strong>{candidate.name}</strong>
-                    {candidate.email && <span style={{ color: 'var(--color-text-muted)' }}> ({candidate.email})</span>}
-                    <Badge
-                      bg={candidate.type === 'collaborator' ? 'primary' : 'secondary'}
-                      style={{ marginLeft: 'var(--space-2)', fontSize: 'var(--font-size-xs)' }}
-                    >
-                      {candidate.type === 'collaborator' ? 'Collaborator' : 'Has Plan'}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-                No eligible transfer candidates found. Add a collaborator first.
-              </p>
-            )}
-            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>
-              Use the <strong>Edit</strong> button to access experience settings and transfer ownership.
-            </p>
-          </div>
-        ) : null}
+        experience={experience}
+        onSuccess={() => {
+          navigate('/experiences');
+        }}
       />
       <ConfirmModal
         show={showRemoveModal}

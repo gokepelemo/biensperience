@@ -796,7 +796,7 @@ export default function Profile() {
       </div>
     );
   }
-  
+
   // Show general error state
   if (profileError) {
     return (
@@ -815,6 +815,26 @@ export default function Profile() {
             </Alert>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Show private profile state
+  // Profile is private if: isPrivate flag is set, and user is not owner/admin
+  if (currentProfile?.isPrivate && !isOwner) {
+    return (
+      <div style={{ padding: 'var(--space-20) 0' }}>
+        <Container>
+          <EmptyState
+            variant="users"
+            icon="🔒"
+            title={lang.current.profile.privateProfileTitle}
+            description={lang.current.profile.privateProfileDescription}
+            primaryAction={lang.current.button.goBack}
+            onPrimaryAction={() => navigate(-1)}
+            size="lg"
+          />
+        </Container>
       </div>
     );
   }

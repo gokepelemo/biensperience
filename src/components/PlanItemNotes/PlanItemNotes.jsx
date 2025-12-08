@@ -11,7 +11,7 @@ import { FaPaperPlane, FaSearch, FaPlus, FaTimes } from 'react-icons/fa';
 import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
-import FormField from '../FormField/FormField';
+import EmptyState from '../EmptyState/EmptyState';
 import { renderTextWithMentionsAndUrls, extractUrls, mentionsToPlainText } from '../../utilities/mentions';
 import { LinkPreviewList } from '../LinkPreview/LinkPreview';
 import useEntityResolver from '../../hooks/useEntityResolver';
@@ -120,17 +120,18 @@ export default function PlanItemNotes({
   onEntityClick
 }) {
   // Visibility options for notes
+  // - 'contributors': Visible to all plan collaborators (All Contributors)
+  // - 'private': Only visible to the note creator
   const visibilityOptions = [
-    { value: 'public', label: 'Public', icon: '🌐' },
-    { value: 'contributors', label: 'Contributors Only', icon: '👥' },
+    { value: 'contributors', label: 'All Contributors', icon: '👥' },
     { value: 'private', label: 'Private', icon: '🔒' }
   ];
 
   const [newNoteContent, setNewNoteContent] = useState('');
-  const [newNoteVisibility, setNewNoteVisibility] = useState('public');
+  const [newNoteVisibility, setNewNoteVisibility] = useState('contributors');
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editContent, setEditContent] = useState('');
-  const [editVisibility, setEditVisibility] = useState('public');
+  const [editVisibility, setEditVisibility] = useState('contributors');
   const [isAdding, setIsAdding] = useState(false);
   const [showAddNoteForm, setShowAddNoteForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -194,7 +195,7 @@ export default function PlanItemNotes({
       // newNoteContent is already in storage format {entity/id} from InteractiveTextArea
       await onAddNote(newNoteContent.trim(), newNoteVisibility);
       setNewNoteContent('');
-      setNewNoteVisibility('public');
+      setNewNoteVisibility('contributors');
       setShowAddNoteForm(false);
     } catch (error) {
       console.error('[PlanItemNotes] Failed to add note:', error);
@@ -206,13 +207,13 @@ export default function PlanItemNotes({
   const handleStartEdit = useCallback((note) => {
     setEditingNoteId(note._id);
     setEditContent(note.content);
-    setEditVisibility(note.visibility || 'public');
+    setEditVisibility(note.visibility || 'contributors');
   }, []);
 
   const handleCancelEdit = useCallback(() => {
     setEditingNoteId(null);
     setEditContent('');
-    setEditVisibility('public');
+    setEditVisibility('contributors');
   }, []);
 
   const handleSaveEdit = useCallback(async (noteId) => {
@@ -223,7 +224,7 @@ export default function PlanItemNotes({
       await onUpdateNote(noteId, editContent.trim(), editVisibility);
       setEditingNoteId(null);
       setEditContent('');
-      setEditVisibility('public');
+      setEditVisibility('contributors');
     } catch (error) {
       console.error('[PlanItemNotes] Failed to update note:', error);
     }
@@ -313,7 +314,7 @@ export default function PlanItemNotes({
               onClick={() => {
                 setShowAddNoteForm(false);
                 setNewNoteContent('');
-                setNewNoteVisibility('public');
+                setNewNoteVisibility('contributors');
               }}
               className={styles.closeFormButton}
             >
@@ -340,7 +341,7 @@ export default function PlanItemNotes({
               onClick={() => {
                 setShowAddNoteForm(false);
                 setNewNoteContent('');
-                setNewNoteVisibility('public');
+                setNewNoteVisibility('contributors');
               }}
               disabled={isAdding}
             >
@@ -360,13 +361,21 @@ export default function PlanItemNotes({
       {/* Chat messages area */}
       <div className={styles.chatMessages}>
         {filteredNotes.length === 0 ? (
-          <div className={styles.emptyState}>
-            {searchQuery ? (
-              <p>No notes match your search.</p>
-            ) : (
-              <p>No notes yet. Click "Add Note" above to get started.</p>
-            )}
-          </div>
+          searchQuery ? (
+            <EmptyState
+              variant="search"
+              title="No Notes Found"
+              description="No notes match your search. Try a different search term."
+              size="sm"
+            />
+          ) : (
+            <EmptyState
+              variant="notes"
+              primaryAction={!disabled ? "Add a Note" : null}
+              onPrimaryAction={!disabled ? () => setShowAddNoteForm(true) : null}
+              size="sm"
+            />
+          )
         ) : (
           paginatedNotes.map((note) => {
             const isAuthor = isNoteAuthor(note);

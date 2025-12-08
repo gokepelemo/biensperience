@@ -148,13 +148,11 @@ export default function PhotoUpload({ data, setData }) {
       prevPhotosRef.current = activePhotos;
       prevDefaultIndexRef.current = newDefaultIndex;
 
-      try {
-        logger.debug('[PhotoUpload] setData called', { activeCount: activePhotos.length, newDefaultIndex });
-      } catch (e) {}
+      const photoIds = activePhotos.map(photo => photo._id || photo);
 
       setData((prevData) => ({
         ...prevData,
-        photos: activePhotos.map(photo => photo._id || photo),
+        photos: photoIds,
         photos_full: activePhotos,
         default_photo_id: activePhotos.length > 0 ? (activePhotos[newDefaultIndex]?._id || activePhotos[newDefaultIndex]) : null
       }));
@@ -434,7 +432,6 @@ export default function PhotoUpload({ data, setData }) {
     if (photoToRemove._id) {
       try {
         await deletePhoto(photoToRemove._id);
-        logger.info('Successfully deleted photo from server', { photoId: photoToRemove._id });
       } catch (err) {
         logger.error('Failed to delete photo from server', { photoId: photoToRemove._id, error: err.message });
         handleError(err);
@@ -743,8 +740,13 @@ export default function PhotoUpload({ data, setData }) {
                       </div>
                       <div className={styles.photoItemActions}>
                         <button
+                          type="button"
                           className={`btn btn-sm ${isDisabled ? 'btn-success' : 'btn-warning'}`}
-                          onClick={() => togglePhotoAtIndex(index)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            togglePhotoAtIndex(index);
+                          }}
                           aria-label={isDisabled ? `Enable photo ${index + 1}` : `Disable photo ${index + 1}`}
                           title={lang.current.photo.clickToToggle}
                         >
@@ -752,16 +754,24 @@ export default function PhotoUpload({ data, setData }) {
                         </button>
                         {!isDisabled && index !== defaultPhotoIndex && (
                           <button
+                            type="button"
                             className="btn btn-sm btn-outline-primary"
-                            onClick={() => setDefaultPhotoIndex(index)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDefaultPhotoIndex(index);
+                            }}
                             aria-label={`Set photo ${index + 1} as default`}
                           >
                             {lang.current.photo.setAsDefault}
                           </button>
                         )}
                         <button
+                          type="button"
                           className="btn btn-sm btn-outline-danger"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             setPhotoToDeleteIndex(index);
                             setShowDeleteConfirm(true);
                           }}

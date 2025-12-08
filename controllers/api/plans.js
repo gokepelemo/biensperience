@@ -55,6 +55,42 @@ function sanitizeLocation(location) {
 }
 
 /**
+ * Filter plan notes based on visibility permissions
+ * - 'contributors': Visible to all plan collaborators
+ * - 'private': Only visible to the note creator
+ *
+ * @param {Object} plan - The plan document (will be modified in place)
+ * @param {ObjectId|string} userId - Current user's ID
+ * @returns {Object} The plan with filtered notes
+ */
+function filterNotesByVisibility(plan, userId) {
+  if (!plan || !plan.plan || !Array.isArray(plan.plan)) return plan;
+
+  const userIdStr = userId?.toString();
+
+  plan.plan.forEach(planItem => {
+    if (planItem.details && planItem.details.notes && Array.isArray(planItem.details.notes)) {
+      // Filter out private notes that don't belong to the current user
+      planItem.details.notes = planItem.details.notes.filter(note => {
+        // 'contributors' visibility (default) - visible to all plan members
+        if (!note.visibility || note.visibility === 'contributors') {
+          return true;
+        }
+        // 'private' visibility - only visible to the note creator
+        if (note.visibility === 'private') {
+          const noteUserId = note.user?._id?.toString() || note.user?.toString();
+          return noteUserId === userIdStr;
+        }
+        // Unknown visibility - default to visible (backwards compatibility)
+        return true;
+      });
+    }
+  });
+
+  return plan;
+}
+
+/**
  * Check if a user is a valid member of a plan (owner or has permissions)
  * Uses permission inheritance to resolve all valid members including those from experience
  * @param {Object} plan - The plan document
@@ -432,9 +468,11 @@ const getUserPlans = asyncHandler(async (req, res) => {
 
     // Convert to JSON to ensure virtuals are included
     // Add isCollaborative flag to indicate if this is a shared plan
+    // Filter notes based on visibility permissions
     const plansWithVirtuals = plans.map(plan => {
       const planJson = plan.toJSON();
       planJson.isCollaborative = plan.user._id.toString() !== req.user._id.toString();
+      filterNotesByVisibility(planJson, req.user._id);
       return planJson;
     });
 
@@ -455,6 +493,7 @@ const getUserPlans = asyncHandler(async (req, res) => {
   const plansWithVirtuals = plans.map(plan => {
     const planJson = plan.toJSON();
     planJson.isCollaborative = plan.user._id.toString() !== req.user._id.toString();
+    filterNotesByVisibility(planJson, req.user._id);
     return planJson;
   });
   res.json(plansWithVirtuals);
@@ -513,6 +552,9 @@ const getPlanById = asyncHandler(async (req, res) => {
       message: permCheck.reason
     });
   }
+
+  // Filter notes based on visibility permissions
+  filterNotesByVisibility(plan, req.user._id);
 
   res.json(plan);
 });
@@ -615,6 +657,8 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
         return p;
       });
     }
+    // Filter notes based on visibility permissions
+    filterNotesByVisibility(planObj, req.user._id);
     return planObj;
   });
 
@@ -1953,13 +1997,20 @@ const reorderPlanItems = asyncHandler(async (req, res) => {
 /**
  * Add a note to a plan item
  * Only owner, collaborators, and super admins can add notes
+ * @param {string} visibility - 'private' (creator only) or 'contributors' (all collaborators)
  */
 const addPlanItemNote = asyncHandler(async (req, res) => {
   const { id, itemId } = req.params;
-  const { content } = req.body;
+  const { content, visibility = 'contributors' } = req.body;
 
   if (!content || !content.trim()) {
     return res.status(400).json({ error: 'Note content is required' });
+  }
+
+  // Validate visibility
+  const validVisibility = ['private', 'contributors'];
+  if (!validVisibility.includes(visibility)) {
+    return res.status(400).json({ error: 'Invalid visibility value. Must be "private" or "contributors"' });
   }
 
   const plan = await Plan.findById(id);
@@ -1998,10 +2049,11 @@ const addPlanItemNote = asyncHandler(async (req, res) => {
     };
   }
 
-  // Add note
+  // Add note with visibility
   planItem.details.notes.push({
     user: req.user._id,
-    content: content.trim()
+    content: content.trim(),
+    visibility
   });
 
   await plan.save();
@@ -2078,19 +2130,31 @@ const addPlanItemNote = asyncHandler(async (req, res) => {
     }
   });
 
+  // Filter notes based on visibility before returning
+  filterNotesByVisibility(plan, req.user._id);
+
   res.json(plan);
 });
 
 /**
  * Update a note on a plan item
  * Only the note author can update their own note
+ * @param {string} visibility - 'private' (creator only) or 'contributors' (all collaborators)
  */
 const updatePlanItemNote = asyncHandler(async (req, res) => {
   const { id, itemId, noteId } = req.params;
-  const { content } = req.body;
+  const { content, visibility } = req.body;
 
   if (!content || !content.trim()) {
     return res.status(400).json({ error: 'Note content is required' });
+  }
+
+  // Validate visibility if provided
+  if (visibility !== undefined) {
+    const validVisibility = ['private', 'contributors'];
+    if (!validVisibility.includes(visibility)) {
+      return res.status(400).json({ error: 'Invalid visibility value. Must be "private" or "contributors"' });
+    }
   }
 
   const plan = await Plan.findById(id);
@@ -2121,6 +2185,9 @@ const updatePlanItemNote = asyncHandler(async (req, res) => {
   }
 
   note.content = content.trim();
+  if (visibility !== undefined) {
+    note.visibility = visibility;
+  }
   await plan.save();
 
   // Populate user data for response (include photo fields for avatar display)
@@ -2190,6 +2257,9 @@ const updatePlanItemNote = asyncHandler(async (req, res) => {
       content: note.content.substring(0, 100) // Store first 100 chars for preview
     }
   });
+
+  // Filter notes based on visibility before returning
+  filterNotesByVisibility(plan, req.user._id);
 
   res.json(plan);
 });
@@ -2301,6 +2371,9 @@ const deletePlanItemNote = asyncHandler(async (req, res) => {
       content: deletedNoteContent.substring(0, 100) // Store first 100 chars for preview
     }
   });
+
+  // Filter notes based on visibility before returning
+  filterNotesByVisibility(plan, req.user._id);
 
   res.json(plan);
 });

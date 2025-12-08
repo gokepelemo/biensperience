@@ -492,11 +492,14 @@
 }
 
 .infoLabel {
+  display: flex;
+  align-items: center;
   font-size: $font-size-xs;
   font-weight: $font-weight-medium;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  line-height: 1;
 }
 
 .infoValue {
@@ -504,6 +507,43 @@
   font-weight: $font-weight-semibold;
   color: var(--color-text-primary);
   @include text-ellipsis;
+}
+
+/* Scheduled date card - clickable to edit date/time */
+.scheduledDateCard {
+  max-width: 280px;
+  cursor: pointer;
+  @include transition-all($transition-fast);
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 768px) {
+    max-width: none;
+  }
+}
+
+/* Scheduled date value - dotted underline to indicate editable */
+.scheduledDateValue {
+  font-size: $font-size-base;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+  text-decoration: underline dotted var(--color-text-muted);
+  text-underline-offset: 3px;
+}
+
+/* Scheduled time within info value */
+.scheduledTime {
+  font-weight: $font-weight-normal;
+  color: var(--color-text-secondary);
+  font-size: $font-size-sm;
 }
 
 /* Cost breakdown list */

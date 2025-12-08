@@ -449,7 +449,13 @@ export default function ExperienceTabContent({
 }) {
   // View state for plan items display (card or compact) - persisted in user preferences
   // Uses shared key 'viewMode.planItems' so preference syncs between Experience and Plan views
-  const [planItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
+  const [rawPlanItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
+
+  // ExperienceTabContent only supports 'card' and 'compact' views
+  // Fallback 'timeline' to 'compact' since Timeline is only available in MyPlanTabContent
+  const planItemsView = useMemo(() => {
+    return rawPlanItemsView === 'timeline' ? 'compact' : rawPlanItemsView;
+  }, [rawPlanItemsView]);
 
   // Compute online user IDs from presence data
   const onlineUserIds = useMemo(() => {

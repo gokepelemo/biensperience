@@ -262,6 +262,15 @@ export function updatePlanItem(planId, itemId, updates) {
           : 'plan:item:updated';
         broadcastEvent(itemEvent, eventPayload);
 
+        // Specific event for schedule date/time changes (for Timeline view refresh)
+        if ('scheduled_date' in normalizedUpdates || 'scheduled_time' in normalizedUpdates) {
+          broadcastEvent('plan:item:scheduled', {
+            ...eventPayload,
+            scheduledDate: normalizedUpdates.scheduled_date,
+            scheduledTime: normalizedUpdates.scheduled_time
+          });
+        }
+
         // Operation-based event for CRDT sync
         if (normalizedUpdates.completed !== undefined) {
           const opType = normalizedUpdates.completed ? OperationType.COMPLETE_ITEM : OperationType.UNCOMPLETE_ITEM;

@@ -21,7 +21,8 @@ export default function InfoTooltip({
   content,
   ariaLabel = 'Show more information',
   children,
-  className = ''
+  className = '',
+  variant = 'default' // 'default' | 'light' (for dark backgrounds)
 }) {
   const generatedId = useId();
   const tooltipId = providedId || generatedId;
@@ -170,12 +171,14 @@ export default function InfoTooltip({
     return () => window.removeEventListener('resize', handleResize);
   }, [isOpen, calculatePosition]);
 
+  const variantClass = variant === 'light' ? styles.infoButtonLight : '';
+
   return (
     <>
       <button
         ref={buttonRef}
         type="button"
-        className={`${styles.infoButton} ${className}`}
+        className={`${styles.infoButton} ${variantClass} ${className}`}
         onClick={handleToggle}
         aria-label={ariaLabel}
         aria-expanded={isOpen}

@@ -73,7 +73,17 @@ export default function ActualCosts({
       return 'Cost entry details';
     }
 
-    const symbol = currency === 'USD' ? '$' : currency;
+    // Use the cost's own currency for the tooltip (itemized display)
+    const costCurrency = cost.currency || currency;
+    const currencySymbols = {
+      USD: '$', EUR: '€', GBP: '£', JPY: '¥', AUD: '$', CAD: '$',
+      CHF: 'Fr.', CNY: '¥', INR: '₹', KRW: '₩', MXN: '$', NZD: '$',
+      SGD: '$', THB: '฿', BRL: 'R$', ZAR: 'R', HKD: '$', TWD: '$',
+      PHP: '₱', IDR: 'Rp', MYR: 'RM', VND: '₫', AED: 'د.إ', SAR: '﷼',
+      ILS: '₪', TRY: '₺', RUB: '₽', PLN: 'zł', CZK: 'Kč', HUF: 'Ft',
+      SEK: 'kr', NOK: 'kr', DKK: 'kr'
+    };
+    const symbol = currencySymbols[costCurrency] || costCurrency;
     const formatted = cost.cost.toLocaleString('en-US', {
       minimumFractionDigits: cost.cost % 1 !== 0 ? 2 : 0,
       maximumFractionDigits: 2
@@ -83,24 +93,24 @@ export default function ActualCosts({
     if (cost.collaborator) {
       const collaboratorName = getCollaboratorName(cost.collaborator);
       if (collaboratorName) {
-        return `Paid for ${collaboratorName}: ${symbol}${formatted}`;
+        return `Paid for ${collaboratorName}: ${costCurrency}${symbol}${formatted}`;
       }
       // If collaborator not found, show generic message
-      return `Paid for collaborator: ${symbol}${formatted}`;
+      return `Paid for collaborator: ${costCurrency}${symbol}${formatted}`;
     }
 
     // If cost is linked to a plan item, show plan item info
     if (cost.plan_item) {
       const planItemName = getPlanItemName(cost.plan_item);
       if (planItemName) {
-        return `Plan item: ${planItemName} - ${symbol}${formatted}`;
+        return `Plan item: ${planItemName} - ${costCurrency}${symbol}${formatted}`;
       }
       // If plan item not found, show generic message
-      return `Plan item: ${symbol}${formatted}`;
+      return `Plan item: ${costCurrency}${symbol}${formatted}`;
     }
 
     // If no specific linkage, it's a shared cost
-    return `Shared cost: ${symbol}${formatted}`;
+    return `Shared cost: ${costCurrency}${symbol}${formatted}`;
   };
 
   if (!costs || costs.length === 0) {

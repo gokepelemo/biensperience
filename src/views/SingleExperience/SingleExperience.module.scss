@@ -2338,7 +2338,7 @@
 
   &.completed {
     background: var(--color-bg-tertiary);
-    opacity: 0.7;
+    opacity: 0.85; /* WCAG: maintain sufficient contrast for completed items */
   }
 
   &.is-child {
@@ -2480,13 +2480,14 @@
   top: 100%;
   right: 0;
   z-index: 100;
-  min-width: 120px;
+  min-width: 160px;
   margin-top: var(--space-1);
   padding: var(--space-1) 0;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-primary);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
+  white-space: nowrap;
 }
 
 /* Individual action item in dropdown */
@@ -2542,6 +2543,334 @@
 
     :global(.compact-meta-notes) {
       display: none; /* Hide notes count on mobile */
+    }
+  }
+}
+
+/* ========================================
+   TIMELINE VIEW STYLES
+   Displays plan items grouped by date and time of day
+   ======================================== */
+
+/* Timeline container */
+:global(.timeline-plan-items-list) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Date group container */
+:global(.timeline-date-group) {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-primary);
+  overflow: visible; /* Allow dropdown menus to overflow */
+}
+
+/* Date header - styled similar to storybook screenshots */
+:global(.timeline-date-header) {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-tertiary);
+  border-left: 4px solid var(--color-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+/* Unscheduled section styling */
+:global(.timeline-unscheduled) {
+  :global(.timeline-date-header) {
+    border-left-color: var(--color-text-muted);
+    color: var(--color-text-secondary);
+  }
+}
+
+/* Date content container */
+:global(.timeline-date-content) {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Time of day section (Morning, Afternoon, Evening) */
+:global(.timeline-time-section) {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-light);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+/* Time of day header */
+:global(.timeline-time-header) {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  margin-bottom: var(--space-2);
+  text-transform: capitalize;
+}
+
+/* Container for items within a time section */
+:global(.timeline-time-items) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Individual timeline plan item - similar to compact but with time display */
+:global(.timeline-plan-item) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  position: relative; /* Enable z-index context for dropdown */
+
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-secondary);
+  }
+
+  &.completed {
+    background: var(--color-bg-tertiary);
+    opacity: 0.85; /* WCAG: maintain sufficient contrast for completed items */
+  }
+
+  &.is-child {
+    margin-left: var(--space-6);
+  }
+}
+
+/* Hierarchy indicator for timeline */
+:global(.timeline-item-indent) {
+  width: 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+/* Checkbox spacing in timeline view */
+:global(.timeline-item-checkbox) {
+  margin-right: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Item text - clickable area */
+:global(.timeline-item-text) {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: var(--color-primary);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+/* Time display badge - shows clock emoji and time */
+:global(.timeline-item-time) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  /* Inherited schedule indicator - dimmed styling */
+  &.inherited {
+    background: rgba(var(--color-text-muted-rgb, 108, 117, 125), 0.1);
+    color: var(--color-text-secondary);
+    font-style: italic;
+  }
+
+  :global(.inherited-indicator) {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin-left: var(--space-1);
+  }
+}
+
+/* Meta info icons for timeline */
+:global(.timeline-item-meta) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+
+  > span {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+}
+
+:global(.timeline-meta-cost),
+:global(.timeline-meta-days),
+:global(.timeline-meta-notes),
+:global(.timeline-meta-assigned) {
+  opacity: 0.8;
+  cursor: pointer;
+}
+
+:global(.timeline-meta-notes) {
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+/* Actions wrapper with overflow menu */
+:global(.timeline-item-actions-wrapper) {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Overflow toggle button (three dots) */
+:global(.timeline-actions-toggle) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-primary-alpha-20);
+  }
+
+  svg {
+    font-size: 1rem;
+  }
+}
+
+/* Actions dropdown menu */
+:global(.timeline-actions-menu) {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1050; /* Higher z-index to overlay all other elements */
+  min-width: 160px;
+  margin-top: var(--space-1);
+  padding: var(--space-1) 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  white-space: nowrap;
+}
+
+/* Individual action item in dropdown */
+:global(.timeline-actions-item) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  &.timeline-actions-item-danger {
+    color: var(--color-danger);
+
+    &:hover {
+      background: rgba(var(--color-danger-rgb, 220, 53, 69), 0.1);
+    }
+  }
+}
+
+/* Empty state for timeline */
+:global(.timeline-empty-state) {
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Mobile responsive adjustments for timeline */
+@include breakpoint-max(sm) {
+  :global(.timeline-plan-items-list) {
+    gap: var(--space-4);
+  }
+
+  :global(.timeline-date-header) {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+
+  :global(.timeline-time-section) {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  :global(.timeline-plan-item) {
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-1);
+
+    &.is-child {
+      margin-left: var(--space-4);
+    }
+  }
+
+  :global(.timeline-item-indent) {
+    width: 16px;
+  }
+
+  :global(.timeline-item-time) {
+    padding: var(--space-1);
+    font-size: var(--font-size-xs);
+  }
+
+  /* Hide notes count on mobile */
+  :global(.timeline-item-meta) {
+    gap: var(--space-1);
+
+    :global(.timeline-meta-notes) {
+      display: none;
     }
   }
 }

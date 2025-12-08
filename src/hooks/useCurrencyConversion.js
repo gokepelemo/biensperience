@@ -10,6 +10,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useUser } from '../contexts/UserContext';
 import { convert, fetchRates, getRatesObject } from '../utilities/currency-conversion';
+import { formatCurrency } from '../utilities/currency-utils';
 import { logger } from '../utilities/logger';
 
 /**
@@ -172,27 +173,20 @@ export function useCurrencyConversion(options = {}) {
   }, [userCurrency, ratesLoaded]);
 
   /**
-   * Format a converted amount with currency symbol
+   * Format a converted amount with currency code and symbol
+   * Uses the standard format: {code}{symbol}{amount} (e.g., USD$100, AUD$50, JPY¥1,000)
    * @param {number} amount - Amount to convert and format
    * @param {string} fromCurrency - Source currency
-   * @param {Object} formatOptions - Intl.NumberFormat options
-   * @returns {string} Formatted string with currency symbol
+   * @param {Object} options - Format options
+   * @param {boolean} options.showCode - Whether to show currency code (default: true)
+   * @param {boolean} options.showSymbol - Whether to show currency symbol (default: true)
+   * @returns {string} Formatted string with currency code and symbol
    */
-  const formatConverted = useCallback((amount, fromCurrency = 'USD', formatOptions = {}) => {
+  const formatConverted = useCallback((amount, fromCurrency = 'USD', options = {}) => {
+    const { showCode = true, showSymbol = true } = options;
     const converted = convertSync(amount, fromCurrency, userCurrency);
 
-    try {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: userCurrency,
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
-        ...formatOptions
-      }).format(converted);
-    } catch {
-      // Fallback formatting
-      return `${userCurrency} ${converted.toFixed(2)}`;
-    }
+    return formatCurrency(converted, userCurrency, showSymbol, showCode);
   }, [convertSync, userCurrency]);
 
   /**
@@ -226,6 +220,21 @@ export function useCurrencyConversion(options = {}) {
     }, 0);
   }, [convertSync, userCurrency]);
 
+  /**
+   * Format total from an array of costs, converting to user's currency
+   * Uses the standard format: {code}{symbol}{amount} (e.g., USD$100, AUD$50, JPY¥1,000)
+   * @param {Array} costs - Array of cost objects with { cost, currency } fields
+   * @param {Object} options - Format options
+   * @param {boolean} options.showCode - Whether to show currency code (default: true)
+   * @param {boolean} options.showSymbol - Whether to show currency symbol (default: true)
+   * @returns {string} Formatted total in user's currency
+   */
+  const formatTotal = useCallback((costs, options = {}) => {
+    const { showCode = true, showSymbol = true } = options;
+    const total = calculateTotal(costs);
+    return formatCurrency(total, userCurrency, showSymbol, showCode);
+  }, [calculateTotal, userCurrency]);
+
   return {
     // State
     loading,
@@ -239,9 +248,12 @@ export function useCurrencyConversion(options = {}) {
     convertCosts,
     calculateTotal,
 
+    // Formatting functions
+    formatConverted,
+    formatTotal,
+
     // Utility functions
     getRate,
-    formatConverted,
 
     // Refresh rates
     refreshRates: useCallback(async () => {

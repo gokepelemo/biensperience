@@ -121,6 +121,39 @@ export async function transferOwnership(experienceId, newOwnerId) {
   return result;
 }
 
+/**
+ * Check if an experience has plans before deletion
+ * Returns plan count and users with plans for ownership transfer UI
+ * @param {string} experienceId - Experience ID to check
+ * @returns {Promise<Object>} Object with plan info and users with plans
+ */
+export async function checkExperiencePlans(experienceId) {
+  return sendRequest(`${BASE_URL}${experienceId}/check-plans`, "GET");
+}
+
+/**
+ * Archive an experience by transferring ownership to Archive User
+ * Stores original owner in archived_owner field
+ * Used when owner wants to delete but plans exist
+ * @param {string} experienceId - Experience ID to archive
+ * @returns {Promise<Object>} Archive result with previous owner info
+ */
+export async function archiveExperience(experienceId) {
+  const result = await sendRequest(`${BASE_URL}${experienceId}/archive`, "POST");
+
+  // Emit event via event bus (handles local + cross-tab dispatch)
+  try {
+    if (result) {
+      broadcastEvent('experience:archived', { experience: result.experience, experienceId });
+      logger.debug('[experiences-api] Experience archived event dispatched', { experienceId });
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return result;
+}
+
 export async function updateExperience(experienceId, experienceData) {
   const result = await sendRequest(
     `${BASE_URL}${experienceId}`,
