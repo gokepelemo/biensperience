@@ -48,7 +48,8 @@ export default function AddDateModal({
   onSave,
   initialDate = null,
   initialTime = null,
-  planItemText = 'Plan Item'
+  planItemText = 'Plan Item',
+  minDate = null // Minimum allowed date (e.g., plan's planned_date)
 }) {
   const { user } = useUser();
   const [selectedDate, setSelectedDate] = useState('');
@@ -58,6 +59,9 @@ export default function AddDateModal({
 
   // Get user's timezone for display
   const userTimezone = getEffectiveTimezone(user);
+
+  // Compute minimum date for the input (formatted in user's timezone)
+  const minDateForInput = minDate ? formatDateForInputTz(minDate, user) : '';
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -75,6 +79,12 @@ export default function AddDateModal({
   const handleSave = useCallback(async () => {
     if (!selectedDate) {
       setError(modalStrings.selectDate);
+      return;
+    }
+
+    // Validate that selected date is not before minDate
+    if (minDateForInput && selectedDate < minDateForInput) {
+      setError(modalStrings.dateBeforeMinDate || 'Scheduled date cannot be before the planned date');
       return;
     }
 
@@ -112,7 +122,7 @@ export default function AddDateModal({
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, selectedTime, onSave, onClose, user, userTimezone]);
+  }, [selectedDate, selectedTime, onSave, onClose, user, userTimezone, minDateForInput, modalStrings.dateBeforeMinDate]);
 
   // Handle clear date
   const handleClear = useCallback(async () => {
@@ -218,6 +228,7 @@ export default function AddDateModal({
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
             disabled={loading}
+            min={minDateForInput || undefined}
           />
         </div>
 
@@ -266,5 +277,6 @@ AddDateModal.propTypes = {
   onSave: PropTypes.func.isRequired,
   initialDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
   initialTime: PropTypes.string,
-  planItemText: PropTypes.string
+  planItemText: PropTypes.string,
+  minDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)])
 };

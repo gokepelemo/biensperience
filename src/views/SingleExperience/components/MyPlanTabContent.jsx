@@ -1919,6 +1919,7 @@ export default function MyPlanTabContent({
         initialDate={dateModalPlanItem?.scheduled_date || null}
         initialTime={dateModalPlanItem?.scheduled_time || null}
         planItemText={dateModalPlanItem?.text || 'Plan Item'}
+        minDate={currentPlan?.planned_date || null}
       />
 
       {/* Costs Section */}

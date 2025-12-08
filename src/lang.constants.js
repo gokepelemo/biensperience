@@ -307,6 +307,7 @@ const en = {
       timeOptional: "(optional)",
       timezoneInfo: "Times are in your timezone:",
       selectDate: "Please select a date",
+      dateBeforeMinDate: "Scheduled date cannot be before the planned date",
       clearDate: "Clear Date",
       save: "Save",
       saving: "Saving...",
