@@ -57,39 +57,60 @@ const currencyConfig = {
 };
 
 /**
+ * Validate that a currency code is in our allowed list
+ * Prevents SSRF by ensuring only known currency codes are used in API requests
+ * @param {string} currency - Currency code to validate
+ * @returns {boolean} True if valid
+ */
+function isValidCurrency(currency) {
+  if (typeof currency !== 'string') return false;
+  // Only allow currencies defined in currencyConfig (uppercase 3-letter codes)
+  const normalizedCurrency = currency.toUpperCase().trim();
+  return Object.prototype.hasOwnProperty.call(currencyConfig, normalizedCurrency);
+}
+
+/**
  * Fetch exchange rates from API
  * @param {string} baseCurrency - Base currency for rates (default: USD)
  * @returns {Promise<Object>} Exchange rates object with base and rates
  */
 async function fetchRates(baseCurrency = 'USD') {
+  // Validate currency to prevent SSRF attacks
+  const normalizedCurrency = (baseCurrency || 'USD').toUpperCase().trim();
+  if (!isValidCurrency(normalizedCurrency)) {
+    logger.warn('[currency-utils] Invalid currency code rejected', { baseCurrency });
+    throw new Error(`Invalid currency code: ${baseCurrency}`);
+  }
+
   // Check cache
   if (_rates && _ratesFetchedAt && (Date.now() - _ratesFetchedAt < _cacheValidMs)) {
-    if (_rates.base === baseCurrency) {
+    if (_rates.base === normalizedCurrency) {
       return _rates;
     }
     // Convert cached rates to new base if possible
-    if (_rates.rates && _rates.rates[baseCurrency] !== undefined) {
-      const baseRate = _rates.rates[baseCurrency];
+    if (_rates.rates && _rates.rates[normalizedCurrency] !== undefined) {
+      const baseRate = _rates.rates[normalizedCurrency];
       const convertedRates = {};
       for (const [currency, rate] of Object.entries(_rates.rates)) {
         convertedRates[currency] = rate / baseRate;
       }
       convertedRates[_rates.base] = 1 / baseRate;
-      return { base: baseCurrency, rates: convertedRates };
+      return { base: normalizedCurrency, rates: convertedRates };
     }
   }
 
   try {
-    const response = await fetch(`${EXCHANGE_RATE_API}/${baseCurrency}`);
+    // Use validated/normalized currency code to prevent SSRF
+    const response = await fetch(`${EXCHANGE_RATE_API}/${normalizedCurrency}`);
     if (!response.ok) {
       throw new Error(`Exchange rate API error: ${response.status}`);
     }
 
     const data = await response.json();
     if (data.result === 'success' && data.rates) {
-      _rates = { base: baseCurrency, rates: data.rates };
+      _rates = { base: normalizedCurrency, rates: data.rates };
       _ratesFetchedAt = Date.now();
-      logger.debug('[currency-utils] Exchange rates fetched', { base: baseCurrency, rateCount: Object.keys(data.rates).length });
+      logger.debug('[currency-utils] Exchange rates fetched', { base: normalizedCurrency, rateCount: Object.keys(data.rates).length });
       return _rates;
     }
 

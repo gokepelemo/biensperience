@@ -407,55 +407,76 @@ export default function PlanItemDetailsModal({
   /**
    * Export details to PDF
    * Uses browser print functionality with a styled print view
+   * Uses safe DOM APIs (createElement, textContent) to prevent XSS
    */
   const handleExportPDF = useCallback(() => {
-    // Create a printable view of the details
-    const printContent = document.createElement('div');
-    printContent.innerHTML = `
-      <style>
-        @media print {
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-          .print-header { margin-bottom: 24px; border-bottom: 2px solid #333; padding-bottom: 16px; }
-          .print-title { font-size: 24px; font-weight: bold; margin: 0 0 8px 0; }
-          .print-subtitle { font-size: 14px; color: #666; margin: 0; }
-          .print-category { margin-bottom: 24px; }
-          .print-category-title { font-size: 18px; font-weight: 600; margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ddd; }
-          .print-item { padding: 12px; margin-bottom: 8px; background: #f5f5f5; border-radius: 8px; }
-          .print-item-type { font-size: 12px; color: #666; margin-bottom: 4px; }
-          .print-item-title { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
-          .print-item-meta { font-size: 12px; color: #666; }
-          .print-item-meta dt { font-weight: 500; display: inline; }
-          .print-item-meta dd { display: inline; margin: 0 16px 0 4px; }
-        }
-      </style>
-      <div class="print-header">
-        <h1 class="print-title">${planItem?.text || 'Plan Item'} - Details</h1>
-        <p class="print-subtitle">Exported on ${new Date().toLocaleDateString()}</p>
-      </div>
-      ${Object.entries(groupedDetails).map(([categoryKey, category]) => `
-        <div class="print-category">
-          <h2 class="print-category-title">${category.icon} ${category.label}</h2>
-          ${category.items.map(item => `
-            <div class="print-item">
-              <div class="print-item-type">${item.typeConfig.icon} ${item.typeConfig.label}</div>
-              <div class="print-item-title">${item.title || item.name || item.confirmation_number || 'Detail'}</div>
-              <dl class="print-item-meta">
-                ${Object.entries(item).filter(([key]) =>
-                  !['type', 'typeConfig', '_id', 'createdAt', 'updatedAt'].includes(key) && item[key]
-                ).map(([key, value]) =>
-                  `<dt>${key.replace(/_/g, ' ')}:</dt><dd>${value}</dd>`
-                ).join('')}
-              </dl>
-            </div>
-          `).join('')}
-        </div>
-      `).join('')}
-    `;
+    // Helper to create element with text content (XSS-safe)
+    const createEl = (tag, className, text) => {
+      const el = document.createElement(tag);
+      if (className) el.className = className;
+      if (text !== undefined) el.textContent = String(text);
+      return el;
+    };
 
-    // Open print dialog
+    // Create printable document structure using safe DOM APIs
+    const printContent = document.createElement('div');
+
+    // Add print styles (static content, no user data)
+    const style = document.createElement('style');
+    style.textContent = `
+      @media print {
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .print-header { margin-bottom: 24px; border-bottom: 2px solid #333; padding-bottom: 16px; }
+        .print-title { font-size: 24px; font-weight: bold; margin: 0 0 8px 0; }
+        .print-subtitle { font-size: 14px; color: #666; margin: 0; }
+        .print-category { margin-bottom: 24px; }
+        .print-category-title { font-size: 18px; font-weight: 600; margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ddd; }
+        .print-item { padding: 12px; margin-bottom: 8px; background: #f5f5f5; border-radius: 8px; }
+        .print-item-type { font-size: 12px; color: #666; margin-bottom: 4px; }
+        .print-item-title { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+        .print-item-meta { font-size: 12px; color: #666; }
+        .print-item-meta dt { font-weight: 500; display: inline; }
+        .print-item-meta dd { display: inline; margin: 0 16px 0 4px; }
+      }
+    `;
+    printContent.appendChild(style);
+
+    // Header (user data via textContent)
+    const header = createEl('div', 'print-header');
+    header.appendChild(createEl('h1', 'print-title', `${planItem?.text || 'Plan Item'} - Details`));
+    header.appendChild(createEl('p', 'print-subtitle', `Exported on ${new Date().toLocaleDateString()}`));
+    printContent.appendChild(header);
+
+    // Categories and items (all user data via textContent)
+    Object.entries(groupedDetails).forEach(([, category]) => {
+      const categoryDiv = createEl('div', 'print-category');
+      categoryDiv.appendChild(createEl('h2', 'print-category-title', `${category.icon} ${category.label}`));
+
+      category.items.forEach(item => {
+        const itemDiv = createEl('div', 'print-item');
+        itemDiv.appendChild(createEl('div', 'print-item-type', `${item.typeConfig.icon} ${item.typeConfig.label}`));
+        itemDiv.appendChild(createEl('div', 'print-item-title', item.title || item.name || item.confirmation_number || 'Detail'));
+
+        const dl = document.createElement('dl');
+        dl.className = 'print-item-meta';
+        Object.entries(item).forEach(([key, value]) => {
+          if (!['type', 'typeConfig', '_id', 'createdAt', 'updatedAt'].includes(key) && value) {
+            dl.appendChild(createEl('dt', null, `${key.replace(/_/g, ' ')}:`));
+            dl.appendChild(createEl('dd', null, String(value)));
+          }
+        });
+        itemDiv.appendChild(dl);
+        categoryDiv.appendChild(itemDiv);
+      });
+
+      printContent.appendChild(categoryDiv);
+    });
+
+    // Open print dialog using safe DOM serialization
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(printContent.innerHTML);
+      // Use DOM methods instead of document.write for safety
+      printWindow.document.body.appendChild(printContent.cloneNode(true));
       printWindow.document.close();
       printWindow.print();
       printWindow.close();

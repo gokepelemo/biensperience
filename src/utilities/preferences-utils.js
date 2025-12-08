@@ -867,7 +867,21 @@ const DANGEROUS_KEYS = ['__proto__', 'constructor', 'prototype'];
  * @returns {boolean} True if safe
  */
 function isSafeKey(key) {
-  return !DANGEROUS_KEYS.includes(key);
+  // Must be a string
+  if (typeof key !== 'string') return false;
+  // Block dangerous keys
+  if (DANGEROUS_KEYS.includes(key)) return false;
+  // Additional validation: only allow alphanumeric, underscore, hyphen
+  if (!/^[a-zA-Z0-9_-]+$/.test(key)) return false;
+  return true;
+}
+
+/**
+ * Create a clean object with no prototype for safe property assignment
+ * @returns {Object} Clean object with null prototype
+ */
+function createCleanObject() {
+  return Object.create(null);
 }
 
 /**
@@ -921,59 +935,56 @@ export function getUIPreference(key, defaultValue = null) {
  * @param {*} value - Value to set
  */
 export function setUIPreference(key, value) {
+  // Early validation of key type
+  if (typeof key !== 'string' || !key) {
+    return; // Silently reject invalid keys
+  }
+
   const prefs = getUIPreferences();
 
   // Handle nested keys with dot notation
   if (key.includes('.')) {
     const parts = key.split('.');
 
-    // Validate all parts against prototype pollution
-    if (!parts.every(isSafeKey)) {
-      return; // Silently reject dangerous keys
-    }
-
-    let current = prefs;
-    for (let i = 0; i < parts.length - 1; i++) {
-      const part = parts[i];
-      // Double-check each part is safe before using as property key
+    // Validate all parts against prototype pollution BEFORE any operations
+    for (const part of parts) {
       if (!isSafeKey(part)) {
         return; // Silently reject dangerous keys
       }
-      if (!Object.prototype.hasOwnProperty.call(current, part) || typeof current[part] !== 'object') {
-        // Use Object.defineProperty to avoid prototype pollution
-        Object.defineProperty(current, part, {
-          value: {},
-          writable: true,
-          enumerable: true,
-          configurable: true
-        });
+    }
+
+    // Build nested structure safely using bracket notation on plain objects only
+    let current = prefs;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      // Ensure we're working with an own property, not inherited
+      const hasOwn = Object.prototype.hasOwnProperty.call(current, part);
+      const isPlainObject = hasOwn && current[part] !== null && typeof current[part] === 'object' && !Array.isArray(current[part]);
+
+      if (!isPlainObject) {
+        // Create a clean object with null prototype to prevent pollution
+        const newObj = createCleanObject();
+        // Use direct assignment since we validated the key is safe
+        current[part] = newObj;
       }
       current = current[part];
+
+      // Safety check: ensure current is still a plain object
+      if (current === null || typeof current !== 'object') {
+        return; // Abort if structure is corrupted
+      }
     }
+
+    // Set final value using direct assignment (key already validated)
     const lastPart = parts[parts.length - 1];
-    // Double-check the final key is safe before assignment
-    if (!isSafeKey(lastPart)) {
-      return; // Silently reject dangerous keys
-    }
-    // Use Object.defineProperty to safely set the value
-    Object.defineProperty(current, lastPart, {
-      value: value,
-      writable: true,
-      enumerable: true,
-      configurable: true
-    });
+    current[lastPart] = value;
   } else {
     // Validate single key against prototype pollution
     if (!isSafeKey(key)) {
       return; // Silently reject dangerous keys
     }
-    // Use Object.defineProperty to safely set the value
-    Object.defineProperty(prefs, key, {
-      value: value,
-      writable: true,
-      enumerable: true,
-      configurable: true
-    });
+    // Direct assignment is safe since key is validated
+    prefs[key] = value;
   }
 
   setUIPreferences(prefs);
