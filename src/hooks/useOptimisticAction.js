@@ -21,12 +21,25 @@ import { logger } from '../utilities/logger';
  * This is intentionally NOT a React hook so callers may create the run
  * function inline (e.g., inside event handlers or callbacks) without
  * violating the Rules of Hooks.
+ *
+ * The apply() function is wrapped in queueMicrotask to prevent React error #300
+ * ("Cannot update a component while rendering a different component") which
+ * can occur if apply() triggers a state update during the render phase of
+ * another component.
  */
 export default function useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context = 'Action' }) {
   return async function run() {
     try {
-      // Apply optimistic change immediately
-      apply?.();
+      // Apply optimistic change in a microtask to avoid React error #300
+      // This ensures state updates don't happen during another component's render
+      if (apply) {
+        await new Promise(resolve => {
+          queueMicrotask(() => {
+            apply();
+            resolve();
+          });
+        });
+      }
       await apiCall?.();
       onSuccess?.();
     } catch (err) {
