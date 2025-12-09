@@ -106,24 +106,21 @@ function ExpandableSection({ title, icon: Icon, total, currency, children, defau
 /**
  * BreakdownList - List of items with amounts (non-expandable)
  */
-function BreakdownList({ title, items }) {
+function BreakdownList({ items, currency }) {
   if (!items || items.length === 0) {
     return null;
   }
 
   return (
-    <div className={styles.breakdownSection}>
-      <h4 className={styles.breakdownTitle}>{title}</h4>
-      <div className={styles.breakdownList}>
-        {items.map((item, index) => (
-          <div key={item.id || index} className={styles.breakdownItem}>
-            <span className={styles.breakdownLabel}>{item.label}</span>
-            <span className={styles.breakdownValue}>
-              {formatActualCost(item.amount, { exact: true })}
-            </span>
-          </div>
-        ))}
-      </div>
+    <div className={styles.breakdownList}>
+      {items.map((item, index) => (
+        <div key={item.id || index} className={styles.breakdownItem}>
+          <span className={styles.breakdownLabel}>{item.label}</span>
+          <span className={styles.breakdownValue}>
+            {formatActualCost(item.amount, { exact: true, currency })}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -583,7 +580,7 @@ export default function CostSummary({
               total={byPersonItems.reduce((sum, i) => sum + i.amount, 0)}
               currency={currency}
             >
-              <BreakdownList items={byPersonItems} />
+              <BreakdownList items={byPersonItems} currency={currency} />
             </ExpandableSection>
           )}
 
@@ -594,7 +591,7 @@ export default function CostSummary({
               total={byItemItems.reduce((sum, i) => sum + i.amount, 0)}
               currency={currency}
             >
-              <BreakdownList items={byItemItems} />
+              <BreakdownList items={byItemItems} currency={currency} />
             </ExpandableSection>
           )}
         </div>

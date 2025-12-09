@@ -12,7 +12,7 @@
  * @module cost-utils
  */
 
-import { getCurrencySymbol } from './currency-utils';
+import { formatCurrency, getCurrencySymbol } from './currency-utils';
 
 /**
  * Round cost to a friendly number based on magnitude.
@@ -109,40 +109,39 @@ export function formatCostEstimate(cost, options = {}) {
     return null;
   }
 
-  const symbol = getCurrencySymbol(currency);
   const prefix = showApprox ? '~' : '';
 
-  // Exact mode - no rounding, show precise amount
+  // Exact mode - no rounding, use formatCurrency for proper locale handling
   if (exact) {
-    const formatted = numCost.toLocaleString('en-US', {
-      minimumFractionDigits: numCost % 1 !== 0 ? 2 : 0,
-      maximumFractionDigits: 2
-    });
-    return `${symbol}${formatted}`;
+    // formatCurrency handles symbol position, locale separators, and decimal places
+    // showCode=false to not show currency code prefix (e.g., "USD")
+    const formatted = formatCurrency(numCost, currency, true, false);
+    return prefix ? `${prefix}${formatted}` : formatted;
   }
 
   // Round to friendly amount
   const rounded = roundCostFriendly(numCost, 'up');
+  const symbol = getCurrencySymbol(currency);
 
-  // Compact notation for large numbers
+  // Compact notation for large numbers (K, M suffixes)
+  // Note: We use symbol directly here since K/M notation is non-standard
+  // and formatCurrency doesn't support compact notation
   if (compact && rounded >= 1000) {
     if (rounded >= 1000000) {
       const millions = rounded / 1000000;
-      // Show one decimal if not a whole number
       const formatted = millions % 1 === 0 ? millions.toFixed(0) : millions.toFixed(1);
       return `${prefix}${symbol}${formatted}M`;
     }
     if (rounded >= 1000) {
       const thousands = rounded / 1000;
-      // Show one decimal if not a whole number (e.g., 1.4K for $1,400)
       const formatted = thousands % 1 === 0 ? thousands.toFixed(0) : thousands.toFixed(1);
       return `${prefix}${symbol}${formatted}K`;
     }
   }
 
-  // Standard formatting with thousands separators
-  const formatted = rounded.toLocaleString('en-US');
-  return `${prefix}${symbol}${formatted}`;
+  // Standard formatting - use formatCurrency for proper locale handling
+  const formatted = formatCurrency(rounded, currency, true, false);
+  return prefix ? `${prefix}${formatted}` : formatted;
 }
 
 /**
