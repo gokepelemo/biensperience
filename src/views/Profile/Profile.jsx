@@ -1007,10 +1007,10 @@ export default function Profile() {
                   {/* Compact Metrics Bar */}
                   <div className={styles.profileMetricsBar}>
                     <span className={styles.profileMetric}>
-                      <strong>{planCounts.owned}</strong> {planCounts.owned === 1 ? 'Plan' : 'Plans'}
+                      <strong>{planCounts.total}</strong> {planCounts.total === 1 ? 'Plan' : 'Plans'}
                       {planCounts.shared > 0 && (
                         <span className={styles.profileMetricSecondary}>
-                          , <strong>{planCounts.shared}</strong> collaborative
+                          {' '}({planCounts.shared} {planCounts.shared === 1 ? 'shared' : 'shared'})
                         </span>
                       )}
                     </span>
