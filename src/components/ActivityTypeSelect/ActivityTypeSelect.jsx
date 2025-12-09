@@ -63,8 +63,8 @@ export default function ActivityTypeSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
-  // Get the selected type object
-  const selectedType = getActivityType(value);
+  // Get the selected type object (memoized to prevent re-computation on every render)
+  const selectedType = useMemo(() => getActivityType(value), [value]);
 
   // Filter results based on input
   const filteredResults = useMemo(() => {
@@ -211,7 +211,7 @@ export default function ActivityTypeSelect({
     if (highlighted) {
       highlighted.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
-  }, [highlightedIndex]);
+  }, [highlightedIndex, isOpen]); // Include isOpen to prevent running when closed
 
   // Close dropdown on outside click
   useEffect(() => {
