@@ -2,6 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Button } from '../design-system';
 import styles from './EntityNotFound.module.scss';
+import { addEasterEgg } from '../../utilities/paquette-utils';
 
 /**
  * EntityNotFound - Component displayed when an entity (experience, destination, etc.) is not found (404)
@@ -82,9 +83,16 @@ export default function EntityNotFound({
   const displaySecondaryAction = secondaryAction ?? config.secondaryAction;
 
   // Customize description if entity name is provided
-  const finalDescription = entityName
+  const baseDescription = entityName
     ? `${entityName} may have been deleted or you may not have permission to view it.`
     : displayDescription;
+  
+  // Apply Easter egg utility (40% chance for 404s - classic Easter egg location)
+  const finalDescription = addEasterEgg(baseDescription, { 
+    probability: 0.4, 
+    category: 'subtle',
+    asNewSentence: true 
+  });
 
   const containerClasses = [
     styles.entityNotFound,

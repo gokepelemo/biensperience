@@ -10,8 +10,8 @@
      aria-labelledby="engine-icon-title engine-icon-desc"
      focusable="false">
   
-  <title id="engine-icon-title">Loading</title>
-  <desc id="engine-icon-desc">Animated loading indicator showing a plus icon transforming into an airplane engine with spinning fan blades</desc>
+  <title id="engine-icon-title">Biensperience</title>
+  <desc id="engine-icon-desc">Biensperience logo - animated icon showing a plus transforming into an airplane engine</desc>
   
   <defs>
     <!-- Gradient for background -->

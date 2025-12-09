@@ -14,6 +14,7 @@ import CostEntry from '../CostEntry';
 import CostSummary from '../CostSummary';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import Pagination from '../Pagination/Pagination';
+import { EmptyState, Pill } from '../design-system';
 import styles from './CostsList.module.scss';
 
 const COSTS_PER_PAGE = 10;
@@ -185,77 +186,10 @@ export default function CostsList({
     return item?.text || 'Unknown item';
   };
 
-  // Empty state
-  if (costs.length === 0 && !loading) {
-    return (
-      <div className={styles.costsSection}>
-        <div className={styles.sectionHeader}>
-          <h4 className={styles.sectionTitle}>
-            <FaDollarSign className={styles.sectionIcon} />
-            {costStrings.costs}
-          </h4>
-          {canEdit && (
-            <button
-              className="btn btn-outline-primary btn-sm"
-              onClick={handleAddCost}
-              type="button"
-            >
-              <FaPlus className="me-1" />
-              {costStrings.addCost}
-            </button>
-          )}
-        </div>
-
-        <div className={styles.emptyState}>
-          <div className={styles.emptyIcon}>💰</div>
-          <p className={styles.emptyText}>{costStrings.noCostsYet}</p>
-          {canEdit && (
-            <button
-              className="btn btn-primary"
-              onClick={handleAddCost}
-              type="button"
-            >
-              <FaPlus className="me-2" />
-              {costStrings.addFirstCost}
-            </button>
-          )}
-        </div>
-
-        {/* Add Cost Modal */}
-        <CostEntry
-          show={showCostModal}
-          onHide={handleCloseModal}
-          editingCost={editingCost}
-          collaborators={collaborators}
-          planItems={planItems}
-          onSave={handleSaveCost}
-          loading={modalLoading}
-          defaultCurrency={currency}
-        />
-      </div>
-    );
-  }
+  // No early return - always show collapsible Tracked Costs section
 
   return (
     <div className={styles.costsSection}>
-      {/* Header with Add Button */}
-      <div className={styles.sectionHeader}>
-        <h4 className={styles.sectionTitle}>
-          <FaDollarSign className={styles.sectionIcon} />
-          {costStrings.costs}
-        </h4>
-        {canEdit && (
-          <button
-            className="btn btn-outline-primary btn-sm"
-            onClick={handleAddCost}
-            type="button"
-          >
-            <FaPlus className="me-1" />
-            {costStrings.addCost}
-          </button>
-        )}
-      </div>
-
       {/* Cost Summary */}
       {showSummary && costs.length > 0 && (
         <div className={styles.summaryWrapper}>
@@ -281,14 +215,44 @@ export default function CostsList({
       >
         <Accordion.Item eventKey={accordionId}>
           <Accordion.Header className={styles.accordionHeader}>
-            <FaChevronDown className={`${styles.accordionIcon} ${isAccordionOpen ? styles.accordionIconOpen : ''}`} />
-            <span>{costStrings.individualCosts || 'Individual Costs'}</span>
-            <span className={styles.costCount}>({costs.length})</span>
+            <div className={styles.accordionHeaderLeft}>
+              <FaChevronDown className={`${styles.accordionIcon} ${isAccordionOpen ? styles.accordionIconOpen : ''}`} />
+              <FaDollarSign className={styles.sectionIcon} />
+              <span className={styles.accordionTitle}>{costStrings.trackedCosts || 'Tracked Costs'}</span>
+              <Pill variant="secondary" size="sm">{costs.length}</Pill>
+            </div>
+            {canEdit && (
+              <button
+                className="btn btn-outline-primary btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddCost();
+                }}
+                type="button"
+              >
+                <FaPlus className="me-1" />
+                {costStrings.addCost}
+              </button>
+            )}
           </Accordion.Header>
           <Accordion.Body className={styles.accordionBody}>
-            {/* Costs List */}
-            <div className={styles.costsList} id={listId}>
-              {paginatedCosts.map((cost) => {
+            {costs.length === 0 ? (
+              /* Empty State */
+              <EmptyState
+                variant="generic"
+                icon="💰"
+                title={costStrings.noCostsYet}
+                description={null}
+                primaryAction={canEdit ? costStrings.addFirstCost : null}
+                onPrimaryAction={canEdit ? handleAddCost : null}
+                size="sm"
+                compact={true}
+              />
+            ) : (
+              /* Costs List */
+              <>
+                <div className={styles.costsList} id={listId}>
+                  {paginatedCosts.map((cost) => {
                 const collaboratorName = getCollaboratorName(cost.collaborator);
                 const planItemText = getPlanItemText(cost.plan_item);
 
@@ -350,21 +314,23 @@ export default function CostsList({
                       )}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+                </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                totalResults={costs.length}
-                resultsPerPage={COSTS_PER_PAGE}
-                variant="compact"
-                showResultsInfo={true}
-              />
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalResults={costs.length}
+                    resultsPerPage={COSTS_PER_PAGE}
+                    variant="compact"
+                    showResultsInfo={true}
+                  />
+                )}
+              </>
             )}
           </Accordion.Body>
         </Accordion.Item>

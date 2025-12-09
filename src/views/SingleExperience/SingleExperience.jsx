@@ -973,8 +973,11 @@ export default function SingleExperience() {
       return true;
     }
 
-    // Helper to normalize null/undefined to null for comparison
-    const normalize = (val) => (val === undefined || val === null ? null : val);
+    // Helper functions to normalize values consistently with handleSyncPlan
+    // This prevents false positives where checkPlanDivergence thinks there's a change
+    // but handleSyncPlan finds no actual differences
+    const normalizeString = (val) => val || ''; // null/undefined/"" all become ""
+    const normalizeNumber = (val) => val || 0;  // null/undefined/0 all become 0
 
     // Check if any plan item has changed
     for (let i = 0; i < (plan.plan || []).length; i++) {
@@ -987,13 +990,13 @@ export default function SingleExperience() {
         return true; // Item was deleted from experience
       }
 
-      // Check if key fields have changed
-      // Use normalize() to treat null and undefined as equivalent
+      // Check if key fields have changed using same normalization as handleSyncPlan
+      // This ensures sync banner only shows when there are ACTUAL changes to sync
       if (
-        normalize(experienceItem.text) !== normalize(planItem.text) ||
-        normalize(experienceItem.url) !== normalize(planItem.url) ||
-        normalize(experienceItem.cost_estimate) !== normalize(planItem.cost) ||
-        normalize(experienceItem.planning_days) !== normalize(planItem.planning_days)
+        normalizeString(experienceItem.text) !== normalizeString(planItem.text) ||
+        normalizeString(experienceItem.url) !== normalizeString(planItem.url) ||
+        normalizeNumber(experienceItem.cost_estimate) !== normalizeNumber(planItem.cost) ||
+        normalizeNumber(experienceItem.planning_days) !== normalizeNumber(planItem.planning_days)
       ) {
         return true;
       }
@@ -1276,6 +1279,7 @@ export default function SingleExperience() {
   }, [
     registerH1,
     updateShowH1InNavbar,
+    experience, // Re-register when experience loads (ensures h1Ref.current is populated)
   ]);
 
   // Check for divergence when plan or experience changes

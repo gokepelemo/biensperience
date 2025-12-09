@@ -6,10 +6,6 @@
 
 .costsSection {
   margin-top: $space-4;
-  padding: $space-4;
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border-light);
 }
 
 .sectionHeader {
@@ -179,27 +175,35 @@
 // Tracked Costs Accordion - collapsed by default
 .trackedCostsAccordion {
   margin-top: $space-4;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  border-left: 4px solid var(--color-success);
+  overflow: hidden;
 
   :global(.accordion-item) {
-    border: 1px solid var(--color-border-light);
-    border-radius: var(--radius-md) !important;
-    background: var(--color-bg-primary);
+    border: none;
+    border-radius: 0 !important;
+    background: transparent;
   }
 
   :global(.accordion-button) {
-    background: var(--color-bg-primary);
-    border-radius: var(--radius-md) !important;
+    background: transparent;
+    border-radius: 0 !important;
     font-weight: $font-weight-semibold;
-    padding: $space-3 $space-4;
+    padding: $space-4;
     gap: $space-2;
+    border: none;
 
     &:not(.collapsed) {
-      background: var(--color-bg-tertiary);
+      background: var(--color-bg-secondary);
       box-shadow: none;
+      border-bottom: 1px solid var(--color-border-light);
     }
 
     &:focus {
       box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.25);
+      z-index: 1;
     }
 
     // Hide default Bootstrap arrow
@@ -228,7 +232,26 @@
 .accordionHeader {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  width: 100%;
+  
+  // Ensure the Track Cost button stays on the right
+  > button:last-child {
+    margin-left: auto;
+  }
+}
+
+.accordionHeaderLeft {
+  display: flex;
+  align-items: center;
   gap: $space-2;
+  flex: 0 1 auto;
+}
+
+.accordionTitle {
+  font-weight: $font-weight-semibold;
+  font-size: $font-size-lg;
 }
 
 .accordionIcon {
@@ -249,4 +272,5 @@
 
 .accordionBody {
   padding: $space-4;
+  background: var(--color-bg-primary);
 }

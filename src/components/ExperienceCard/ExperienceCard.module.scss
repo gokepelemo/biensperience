@@ -16,6 +16,14 @@
   border-radius: $radius-md;
   @include transition-all($transition-slow);
   will-change: min-height, transform;
+  
+  /* Subtle hover lift for desktop */
+  @media (hover: hover) {
+    &:hover:not(.mobile) {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+  }
 }
 
 /* Mobile-specific styles */
@@ -113,6 +121,7 @@
     color: var(--color-text-primary);
     border-color: var(--color-border-light);
     transform: scale(1.05);
+    box-shadow: var(--shadow-sm);
   }
 }
 

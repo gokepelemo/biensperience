@@ -2,6 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Button } from '../design-system';
 import styles from './EmptyState.module.scss';
+import { addEasterEgg } from '../../utilities/paquette-utils';
 
 /**
  * EmptyState - Reusable empty state component for displaying when no data is available
@@ -124,7 +125,11 @@ export default function EmptyState({
 
   const displayIcon = icon ?? config.icon;
   const displayTitle = title ?? config.title;
-  const displayDescription = description ?? config.description;
+  const baseDescription = description ?? config.description;
+  // Apply Easter egg utility intermittently (30% chance for key variants)
+  const displayDescription = ['plans', 'experiences', 'destinations'].includes(variant)
+    ? addEasterEgg(baseDescription, { probability: 0.3, category: 'tagline' })
+    : baseDescription;
   const displayPrimaryAction = primaryAction ?? config.primaryAction;
   const displaySecondaryAction = secondaryAction ?? config.secondaryAction;
 

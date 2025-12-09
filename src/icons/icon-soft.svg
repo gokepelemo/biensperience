@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Rounded purple square with white plus sign">
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="soft-icon-title">
+  <title id="soft-icon-title">Biensperience</title>
   <defs>
     <linearGradient id="grad" x1="0" x2="1" y1="0" y2="1">
       <stop offset="0" stop-color="#7d88f2"/>

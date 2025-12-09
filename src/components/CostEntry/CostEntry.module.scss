@@ -12,7 +12,7 @@
 // ============================================================================
 
 .costEntryForm {
-  @include stack($space-5);
+  @include stack($space-4);
 }
 
 // ============================================================================
@@ -20,7 +20,7 @@
 // ============================================================================
 
 .formGroup {
-  @include stack($space-2);
+  @include stack($space-1-5);
 }
 
 .formLabel {
@@ -28,6 +28,7 @@
   font-weight: $font-weight-semibold;
   color: var(--color-text-primary);
   margin-bottom: 0;
+  letter-spacing: 0.01em;
 }
 
 .formRequired {
@@ -96,6 +97,26 @@
   @include breakpoint-max(sm) {
     width: 100%;
   }
+  
+  .input-group-text {
+    background: var(--color-bg-secondary);
+    border-right: none;
+    font-weight: $font-weight-semibold;
+    color: var(--color-primary);
+  }
+  
+  input {
+    border-left: none;
+    
+    &:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+      
+      + .input-group-text {
+        border-color: var(--color-primary);
+      }
+    }
+  }
 }
 
 // ============================================================================
@@ -105,12 +126,12 @@
 .categoryDateRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: $space-4;
+  gap: $space-3;
 
   // Mobile: Stack vertically
   @include breakpoint-max(sm) {
     grid-template-columns: 1fr;
-    gap: $space-4;
+    gap: $space-3;
   }
 }
 

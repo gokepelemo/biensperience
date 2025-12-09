@@ -64,7 +64,7 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
 
     // lazy preload with fallback to immediate load if requested
     const cleanup = imagePreloader(containerRef, imageSrc, () => {
-      setTimeout(() => setImageLoaded(true), 60);
+      setTimeout(() => setImageLoaded(true), 30);
     }, { forcePreload: forcePreload, rootMargin: '400px' });
 
     return () => {
@@ -121,8 +121,9 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
             style={{
               zIndex: 5,
               pointerEvents: 'none',
-              transition: 'opacity 260ms ease',
-              opacity: imageLoaded ? 0 : 1
+              transition: 'opacity 180ms ease-out',
+              opacity: imageLoaded ? 0 : 1,
+              willChange: 'opacity'
             }}
           >
             <SkeletonLoader variant="rectangle" width="100%" height="100%" />
@@ -145,8 +146,9 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
             style={{
               zIndex: 5,
               pointerEvents: 'none',
-              transition: 'opacity 260ms ease',
-              opacity: imageLoaded ? 0 : 1
+              transition: 'opacity 180ms ease-out',
+              opacity: imageLoaded ? 0 : 1,
+              willChange: 'opacity'
             }}
           >
             <SkeletonLoader variant="rectangle" width="100%" height="100%" />

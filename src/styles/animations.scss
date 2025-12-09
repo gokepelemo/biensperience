@@ -86,6 +86,79 @@
   75% { transform: translateX(10px); }
 }
 
+@keyframes gentleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes gentleBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes subtlePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+@keyframes gentleWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-1deg); }
+  75% { transform: rotate(1deg); }
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  10%, 30% { transform: scale(1.03); }
+  20%, 40% { transform: scale(1); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* ============================================
    UTILITY ANIMATION CLASSES
    ============================================ */
@@ -95,8 +168,111 @@
 .fade-in-down { animation: fadeInDown 0.4s ease-out; }
 .fade-in-scale { animation: fadeInScale 0.3s ease-out; }
 .slide-in { animation: slideIn 0.3s ease-out; }
+.slide-in-right { animation: slideInRight 0.4s ease-out; }
+.slide-in-left { animation: slideInLeft 0.4s ease-out; }
+.pop-in { animation: popIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
 .pulse { animation: pulse 1.5s ease-in-out infinite; }
+.subtle-pulse { animation: subtlePulse 2s ease-in-out infinite; }
+.gentle-float { animation: gentleFloat 3s ease-in-out infinite; }
+.gentle-bounce { animation: gentleBounce 2.5s ease-in-out infinite; }
+.gentle-wiggle { animation: gentleWiggle 1s ease-in-out; }
+.heartbeat { animation: heartbeat 1.5s ease-in-out; }
+.breathe { animation: breathe 3s ease-in-out infinite; }
 .spinner { animation: spin 1s linear infinite; }
+.shimmer { animation: shimmer 2s linear infinite; }
+
+/* ============================================
+   HOVER INTERACTION ANIMATIONS
+   ============================================ */
+
+// Subtle hover lift (cards, buttons, links)
+.hover-lift {
+  transition: transform $transition-normal, box-shadow $transition-normal;
+  
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+// Gentle scale on hover (icons, avatars, badges)
+.hover-scale {
+  transition: transform $transition-fast;
+  
+  &:hover:not(:disabled) {
+    transform: scale(1.03);
+  }
+}
+
+// Subtle glow effect on hover
+.hover-glow {
+  transition: box-shadow $transition-normal, transform $transition-fast;
+  
+  &:hover:not(:disabled) {
+    box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.2);
+    transform: scale(1.01);
+  }
+}
+
+// Gentle wiggle on hover (playful icons)
+.hover-wiggle {
+  transition: transform $transition-fast;
+  
+  &:hover:not(:disabled) {
+    animation: gentleWiggle 0.5s ease-in-out;
+  }
+}
+
+// Floating lift on hover (cards with content)
+.hover-float {
+  transition: transform $transition-normal, box-shadow $transition-normal;
+  
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+// Heartbeat on hover (favorite buttons, likes)
+.hover-heartbeat {
+  &:hover:not(:disabled) {
+    animation: heartbeat 0.8s ease-in-out;
+  }
+}
+
+// Bounce on hover (CTA buttons, important actions)
+.hover-bounce {
+  &:hover:not(:disabled) {
+    animation: gentleBounce 0.8s ease-in-out;
+  }
+}
+
+// Shine effect on hover (premium features, highlighted items)
+.hover-shine {
+  position: relative;
+  overflow: hidden;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.2) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    transition: transform $transition-slow;
+  }
+  
+  &:hover:not(:disabled)::after {
+    transform: translateX(100%);
+  }
+}
 
 /* ============================================
    GRADIENT ANIMATIONS

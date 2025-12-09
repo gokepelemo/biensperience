@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { FaCheck, FaArrowLeft, FaGripVertical, FaPlus, FaTrash } from 'react-icons/fa';
@@ -20,6 +20,8 @@ import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import NewDestinationModal from '../NewDestinationModal/NewDestinationModal';
 import Alert from '../Alert/Alert';
 import { Form } from 'react-bootstrap';
+import { saveFormData, loadFormData, clearFormData } from '../../utilities/form-persistence';
+import { logger } from '../../utilities/logger';
 import {
   DndContext,
   closestCenter,
@@ -46,12 +48,16 @@ const STEPS = {
   SELECT_DATE: 3,
 };
 
+const FORM_ID = 'multiStepPlanModal';
+
 /**
  * MultiStepPlanModal - A multi-step modal for creating an experience and planning it
  *
  * Step 1: Create Experience (with optional destination creation)
  * Step 2: Add Plan Items (with hierarchical support and drag & drop)
  * Step 3: Select planned date and create the plan
+ *
+ * Features form persistence to prevent data loss on accidental close/reload
  */
 export default function MultiStepPlanModal() {
   const navigate = useNavigate();
@@ -59,6 +65,10 @@ export default function MultiStepPlanModal() {
   const { user } = useUser();
   const { success, error: showError } = useToast();
   const { isModalOpen, initialStep, prefilledData, closePlanExperienceModal } = usePlanExperience();
+
+  // Refs for tracking persistence state
+  const isLoadingPersistedData = useRef(false);
+  const saveTimeoutRef = useRef(null);
 
   // Step management
   const [currentStep, setCurrentStep] = useState(initialStep);
@@ -119,6 +129,92 @@ export default function MultiStepPlanModal() {
   useEffect(() => {
     if (destData) setDestinations(destData);
   }, [destData]);
+
+  // Load persisted form data on mount (only when modal opens)
+  useEffect(() => {
+    if (!isModalOpen || !user?._id) return;
+
+    const loadPersistedData = async () => {
+      try {
+        isLoadingPersistedData.current = true;
+        const persistedData = await loadFormData(FORM_ID, true, user._id);
+
+        if (persistedData && !prefilledData?.experience) {
+          // Only restore if we don't have prefilled data from context
+          logger.debug('[MultiStepPlanModal] Restoring persisted form data', { persistedData });
+
+          if (persistedData.currentStep) setCurrentStep(persistedData.currentStep);
+          if (persistedData.newExperience) setNewExperience(persistedData.newExperience);
+          if (persistedData.tags) setTags(persistedData.tags);
+          if (persistedData.destinationSearchTerm) setDestinationSearchTerm(persistedData.destinationSearchTerm);
+          if (persistedData.destinationInput) setDestinationInput(persistedData.destinationInput);
+          if (persistedData.createdExperience) setCreatedExperience(persistedData.createdExperience);
+          if (persistedData.plannedDate) setPlannedDate(persistedData.plannedDate);
+          if (persistedData.planItems) setPlanItems(persistedData.planItems);
+
+          success('Restored your in-progress experience');
+        }
+      } catch (err) {
+        // Silently fail - don't break the modal if persistence fails
+        logger.error('[MultiStepPlanModal] Failed to load persisted data', err);
+      } finally {
+        // Small delay to ensure state is settled before allowing saves
+        setTimeout(() => {
+          isLoadingPersistedData.current = false;
+        }, 100);
+      }
+    };
+
+    loadPersistedData();
+  }, [isModalOpen, user, prefilledData, success]);
+
+  // Save form data on changes (debounced)
+  useEffect(() => {
+    // Don't save if:
+    // - Modal is closed
+    // - User not logged in
+    // - Currently loading persisted data
+    // - No experience data to save
+    if (!isModalOpen || !user?._id || isLoadingPersistedData.current || !newExperience.name) {
+      return;
+    }
+
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce saves to avoid excessive writes
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const dataToSave = {
+          currentStep,
+          newExperience,
+          tags,
+          destinationSearchTerm,
+          destinationInput,
+          createdExperience,
+          plannedDate,
+          planItems,
+          savedAt: new Date().toISOString()
+        };
+
+        await saveFormData(FORM_ID, dataToSave, 24 * 60 * 60 * 1000, user._id); // 24 hour TTL
+        logger.debug('[MultiStepPlanModal] Form data persisted', { step: currentStep });
+      } catch (err) {
+        // Silently fail - don't break the user flow
+        logger.error('[MultiStepPlanModal] Failed to persist form data', err);
+      }
+    }, 500); // 500ms debounce
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [isModalOpen, user, currentStep, newExperience, tags, destinationSearchTerm, 
+      destinationInput, createdExperience, plannedDate, planItems]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -271,6 +367,16 @@ export default function MultiStepPlanModal() {
 
       // Create the plan (which will snapshot the experience's plan_items)
       await createPlan(createdExperience._id, plannedDate || null);
+
+      // Clear persisted form data on successful completion
+      if (user?._id) {
+        try {
+          clearFormData(FORM_ID, user._id);
+          logger.debug('[MultiStepPlanModal] Cleared persisted form data after successful plan creation');
+        } catch (err) {
+          logger.error('[MultiStepPlanModal] Failed to clear form data', err);
+        }
+      }
 
       success(`You're now planning "${createdExperience.name}"!`);
       closePlanExperienceModal();

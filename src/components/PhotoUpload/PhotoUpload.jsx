@@ -10,7 +10,7 @@ import Alert from "../Alert/Alert";
 import AlertModal from "../AlertModal/AlertModal";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import { logger } from "../../utilities/logger";
-import { FormControl } from "../../components/design-system";
+import { FormControl, Pill } from "../../components/design-system";
 import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
@@ -667,9 +667,19 @@ export default function PhotoUpload({ data, setData }) {
 
       {photos.length > 0 && (
         <div className={styles.uploadedPhotosList} role="region" aria-label={lang.current.aria.uploadedPhotos}>
-          <h5 className="mt-4 mb-3">
-            {lang.current.photo.photosCount.replace('{active}', photos.filter((_, idx) => !disabledPhotos.has(idx)).length).replace('{disabled}', disabledPhotos.size)}
-          </h5>
+          <div className={styles.photosHeader}>
+            <h5>{lang.current.photo.photos}</h5>
+            <div className={styles.photosBadges}>
+              <Pill variant="success" size="sm">
+                {photos.filter((_, idx) => !disabledPhotos.has(idx)).length} Active
+              </Pill>
+              {disabledPhotos.size > 0 && (
+                <Pill variant="danger" size="sm">
+                  {disabledPhotos.size} Disabled
+                </Pill>
+              )}
+            </div>
+          </div>
 
           {disabledPhotos.size > 0 && (
             <Alert type="info" className="mb-3">
@@ -682,22 +692,32 @@ export default function PhotoUpload({ data, setData }) {
 
           <div className={styles.photosCarousel}>
             <Slider
-              dots={true}
+              dots={false}
               infinite={false}
-              speed={500}
-              slidesToShow={1}
+              speed={300}
+              slidesToShow={photos.length >= 3 ? 3 : photos.length}
               slidesToScroll={1}
               swipeToSlide={true}
-              arrows={true}
+              arrows={photos.length > 3}
+              variableWidth={false}
               responsive={[
+                {
+                  breakpoint: 1200,
+                  settings: {
+                    slidesToShow: photos.length >= 2 ? 2 : photos.length,
+                    arrows: photos.length > 2
+                  }
+                },
                 {
                   breakpoint: 768,
                   settings: {
-                    arrows: false
+                    slidesToShow: 1,
+                    arrows: false,
+                    dots: photos.length > 1
                   }
                 }
-              ]}
-            >
+              ]
+            }>
               {photos.map((photo, index) => {
                 const isDisabled = disabledPhotos.has(index);
                 const isDefault = index === defaultPhotoIndex && !isDisabled;
@@ -707,79 +727,88 @@ export default function PhotoUpload({ data, setData }) {
                 return (
                   <div key={index} className={styles.photoSlide}>
                     <div
-                      className={`${styles.photoItem} ${isDisabled ? styles.photoItemDisabled : ''}`}
+                      className={`${styles.photoCard} ${isDisabled ? styles.photoCardDisabled : ''}`}
                     >
-                      {safeUrl ? (
-                        <img
-                          src={safeUrl}
-                          alt={sanitizedCredit || `Photo ${index + 1}`}
-                          className={styles.photoItemPreview}
-                          loading="lazy"
-                          style={{ filter: isDisabled ? 'grayscale(100%)' : 'none' }}
-                        />
-                      ) : (
-                        <div className={styles.photoItemPreview} style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: 'var(--color-bg-tertiary)',
-                          color: 'var(--color-text-muted)',
-                          fontSize: 'var(--font-size-sm)'
-                        }}>
-                          {lang.current.photo.invalidUrl}
-                        </div>
-                      )}
-                      <div className={styles.photoItemInfo}>
-                        <small className={styles.photoItemCredit}>{sanitizedCredit}</small>
+                      <div className={styles.photoCardImageWrapper}>
+                        {safeUrl ? (
+                          <img
+                            src={safeUrl}
+                            alt={sanitizedCredit || `Photo ${index + 1}`}
+                            className={styles.photoCardImage}
+                            loading="lazy"
+                            style={{ filter: isDisabled ? 'grayscale(100%)' : 'none' }}
+                          />
+                        ) : (
+                          <div className={styles.photoCardImage} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'var(--color-bg-tertiary)',
+                            color: 'var(--color-text-muted)',
+                            fontSize: 'var(--font-size-sm)'
+                          }}>
+                            {lang.current.photo.invalidUrl}
+                          </div>
+                        )}
                         {isDefault && (
-                          <span className="badge pill pill-variant-primary">{lang.current.photo.defaultBadge}</span>
+                          <div className={styles.photoCardBadge}>
+                            <Pill variant="primary" size="sm">{lang.current.photo.defaultBadge}</Pill>
+                          </div>
                         )}
                         {isDisabled && (
-                          <span className="badge pill pill-variant-danger">{lang.current.photo.disabledBadge}</span>
+                          <div className={styles.photoCardBadge}>
+                            <Pill variant="danger" size="sm">{lang.current.photo.disabledBadge}</Pill>
+                          </div>
                         )}
                       </div>
-                      <div className={styles.photoItemActions}>
-                        <button
-                          type="button"
-                          className={`btn btn-sm ${isDisabled ? 'btn-success' : 'btn-warning'}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            togglePhotoAtIndex(index);
-                          }}
-                          aria-label={isDisabled ? `Enable photo ${index + 1}` : `Disable photo ${index + 1}`}
-                          title={lang.current.photo.clickToToggle}
-                        >
-                          {isDisabled ? lang.current.photo.enablePhoto : lang.current.photo.disablePhoto}
-                        </button>
-                        {!isDisabled && index !== defaultPhotoIndex && (
+                      <div className={styles.photoCardContent}>
+                        <small className={styles.photoCardCredit} title={sanitizedCredit}>
+                          {sanitizedCredit}
+                        </small>
+                        <div className={styles.photoCardActions}>
                           <button
                             type="button"
-                            className="btn btn-sm btn-outline-primary"
+                            className={`btn btn-sm ${isDisabled ? 'btn-success' : 'btn-warning'}`}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              setDefaultPhotoIndex(index);
+                              togglePhotoAtIndex(index);
                             }}
-                            aria-label={`Set photo ${index + 1} as default`}
+                            aria-label={isDisabled ? `Enable photo ${index + 1}` : `Disable photo ${index + 1}`}
+                            title={lang.current.photo.clickToToggle}
                           >
-                            {lang.current.photo.setAsDefault}
+                            {isDisabled ? '✓' : '✕'}
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setPhotoToDeleteIndex(index);
-                            setShowDeleteConfirm(true);
-                          }}
-                          aria-label={`Remove photo ${index + 1} permanently`}
-                          title={lang.current.photo.deletePhotoConfirm}
-                        >
-                          {lang.current.photo.deletePhoto}
-                        </button>
+                          {!isDisabled && index !== defaultPhotoIndex && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDefaultPhotoIndex(index);
+                              }}
+                              aria-label={`Set photo ${index + 1} as default`}
+                              title={lang.current.photo.setAsDefault}
+                            >
+                              ⭐
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setPhotoToDeleteIndex(index);
+                              setShowDeleteConfirm(true);
+                            }}
+                            aria-label={`Remove photo ${index + 1} permanently`}
+                            title={lang.current.photo.deletePhotoConfirm}
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -15,6 +15,15 @@
   display: flex;
   flex-direction: column;
   gap: $space-3;
+  padding: $space-4;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 0.125rem solid var(--color-border-light);
+  
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-medium);
+  }
 }
 
 /* Text Inputs - Design System Compliant */
@@ -24,16 +33,23 @@
     font-size: var(--font-size-base);
     padding: $space-3;
     border-radius: var(--radius-md);
-    border: 0.125rem solid var(--color-border-medium); /* $space-0-5 hardcoded */
+    border: 0.125rem solid var(--color-border-medium);
     background: var(--color-bg-input);
     color: var(--color-text-primary);
     width: 100%;
-    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base), background-color var(--transition-base);
+    box-shadow: var(--shadow-xs);
+
+    &:hover {
+      border-color: var(--color-primary);
+      background: var(--color-bg-primary);
+    }
 
     &:focus {
       border-color: var(--color-primary);
-      box-shadow: 0 0 0 0.125rem var(--color-primary-alpha);
+      box-shadow: 0 0 0 3px var(--color-primary-alpha), var(--shadow-sm);
       outline: none;
+      background: var(--color-bg-primary);
     }
 
     &::placeholder {
@@ -45,27 +61,34 @@
   input[type="file"] {
     font-size: var(--btn-file-input-font-size);
     padding: 0;
-    border: var(--input-file-border);
-    border-radius: var(--input-file-border-radius);
-    background: var(--input-file-bg);
-    color: var(--input-file-color);
+    border: 0.125rem solid var(--color-border-medium);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-input);
+    color: var(--color-text-primary);
     width: 100%;
     overflow: hidden;
     cursor: pointer;
-    transition: border-color var(--transition-base);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base), background-color var(--transition-base);
     contain: layout;
     display: flex;
     align-items: center;
-    min-height: var(--input-file-min-height);
+    min-height: 48px;
+    box-shadow: var(--shadow-xs);
+
+    &:hover {
+      border-color: var(--color-primary);
+      background: var(--color-bg-primary);
+    }
 
     &:focus {
-      border-color: var(--input-file-focus-border);
+      border-color: var(--color-primary);
       outline: none;
-      background: var(--input-file-bg);
+      background: var(--color-bg-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-alpha), var(--shadow-sm);
     }
 
     &::after {
-      color: var(--input-file-color);
+      color: var(--color-text-primary);
     }
 
     /* File Selector Button - Design System Gradient */
@@ -73,25 +96,27 @@
       background: var(--btn-file-input-bg);
       color: var(--btn-file-input-color);
       border: none;
-      padding: var(--btn-file-input-padding-y) var(--btn-file-input-padding-x);
+      padding: $space-3 $space-4;
       font-size: var(--btn-file-input-font-size);
       font-weight: var(--btn-file-input-font-weight);
       cursor: pointer;
-      margin-right: var(--btn-file-input-margin-right);
-      border-radius: var(--btn-file-input-border-radius-left) 0 0 var(--btn-file-input-border-radius-left);
+      margin-right: $space-3;
+      border-radius: var(--radius-md) 0 0 var(--radius-md);
       @include transition-all($transition-fast);
       transform: none !important;
       height: 100%;
       display: inline-flex;
       align-items: center;
-      margin: -2px var(--btn-file-input-margin-right) -2px -2px;
+      margin: -2px $space-3 -2px -2px;
+      box-shadow: var(--shadow-sm);
 
       &:hover {
-        filter: brightness(var(--btn-file-input-hover-brightness));
+        filter: brightness(1.1);
+        box-shadow: var(--shadow-md);
       }
 
       &:active {
-        filter: brightness(var(--btn-file-input-active-brightness));
+        filter: brightness(0.95);
       }
     }
   }
@@ -100,17 +125,28 @@
 /* Upload Buttons - Design System Compliant */
 .uploadBtn,
 .uploadToggleBtn {
-  padding: var(--btn-gradient-padding-y) var(--btn-gradient-padding-x);
-  font-size: var(--btn-gradient-font-size);
-  font-weight: var(--btn-gradient-font-weight);
-  border-radius: var(--btn-gradient-border-radius);
-  border: 0.125rem solid transparent; /* $space-0-5 hardcoded */
+  padding: $space-3 $space-4;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-md);
+  border: 0.125rem solid transparent;
   cursor: pointer;
   @include transition-all($transition-fast);
-  min-height: var(--btn-gradient-min-height);
+  min-height: 48px;
   @include flex-center;
   transform: none !important;
   contain: layout;
+  box-shadow: var(--shadow-sm);
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px) !important;
+  }
+
+  &:active {
+    transform: translateY(0) !important;
+    box-shadow: var(--shadow-xs);
+  }
 }
 
 .uploadBtn {
@@ -119,31 +155,29 @@
   border-color: var(--color-primary);
 
   &:hover:not(:disabled) {
-    filter: brightness(var(--btn-gradient-hover-brightness));
+    filter: brightness(1.1);
   }
 
   &:active:not(:disabled) {
-    filter: brightness(var(--btn-gradient-active-brightness));
+    filter: brightness(0.95);
   }
 
   &:disabled {
     opacity: var(--opacity-disabled);
     cursor: not-allowed;
+    box-shadow: none;
+    transform: none !important;
   }
 }
 
 .uploadToggleBtn {
-  background: var(--btn-secondary-bg);
-  color: var(--btn-secondary-color);
-  border: var(--btn-secondary-border);
-  padding: var(--btn-secondary-padding-y) var(--btn-secondary-padding-x);
-  font-size: var(--btn-secondary-font-size);
-  font-weight: var(--btn-secondary-font-weight);
-  border-radius: var(--btn-secondary-border-radius);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border: 0.125rem solid var(--color-border-medium);
 
   &:hover {
-    background: var(--btn-secondary-hover-bg);
-    border: var(--btn-secondary-hover-border);
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-primary);
   }
 
   &:active {
@@ -156,70 +190,114 @@
   margin-top: $space-6;
   padding-top: $space-6;
   border-top: 0.125rem solid var(--color-border-medium); /* $space-0-5 hardcoded */
+}
+
+/* Photos Header with Badges */
+.photosHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-4;
+  gap: $space-3;
+  flex-wrap: wrap;
 
   h5 {
     color: var(--color-text-primary);
     font-size: var(--font-size-lg);
     font-weight: var(--font-weight-semibold);
-    margin-bottom: $space-4;
+    margin: 0;
   }
+
+  @include breakpoint-max(sm) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.photosBadges {
+  display: flex;
+  gap: $space-2;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 /* Carousel Container for Photos */
 .photosCarousel {
   position: relative;
   margin: 0;
-  padding: $space-2 0 $space-8 0;
+  padding: 0;
   overflow: visible;
+  max-width: 100%;
 
   :global(.slick-list) {
-    overflow: hidden;
-    margin: 0 $space-2;
+    overflow: visible;
+    margin: 0 -#{$space-2};
+    padding: $space-2 0;
   }
 
   :global(.slick-track) {
     display: flex;
+    gap: $space-3;
   }
 
   :global(.slick-slide) {
     padding: 0 $space-2;
     box-sizing: border-box;
+    height: auto;
+    max-width: $card-width-sm;
+    
+    > div {
+      height: 100%;
+      max-width: $card-width-sm;
+    }
   }
 
   /* Arrow customization */
   :global(.slick-prev),
   :global(.slick-next) {
-    width: var(--btn-height-sm);
-    height: var(--btn-height-sm);
+    width: $space-10;
+    height: $space-10;
     z-index: 10;
     background: var(--color-primary);
     border-radius: $radius-full;
     transition: var(--btn-transition);
+    box-shadow: var(--shadow-md);
 
     &:before {
-      font-size: 20px;
+      font-size: 18px;
       opacity: 1;
+      color: var(--color-white);
     }
 
     &:hover {
       background: var(--color-primary-dark);
+      box-shadow: var(--shadow-lg);
     }
   }
 
   :global(.slick-prev) {
-    left: $space-2;
+    left: -#{$space-4};
+    
+    @include breakpoint-max(lg) {
+      left: -#{$space-2};
+    }
   }
 
   :global(.slick-next) {
-    right: $space-2;
+    right: -#{$space-4};
+    
+    @include breakpoint-max(lg) {
+      right: -#{$space-2};
+    }
   }
 
   :global(.slick-disabled) {
     opacity: 0.3;
     cursor: not-allowed;
+    pointer-events: none;
   }
 
-  /* Dots styling */
+  /* Dots styling for mobile */
   :global(.slick-dots) {
     position: relative;
     bottom: 0;
@@ -229,17 +307,17 @@
       margin: 0 $space-1;
 
       button {
-        width: var(--btn-height-md);
-        height: var(--btn-height-md);
+        width: $space-3;
+        height: $space-3;
         padding: 0;
 
         &:before {
-          font-size: 12px;
+          font-size: 8px;
           color: var(--color-text-muted);
           opacity: 0.5;
-          line-height: var(--btn-height-md);
-          width: var(--btn-height-md);
-          height: var(--btn-height-md);
+          line-height: $space-3;
+          width: $space-3;
+          height: $space-3;
         }
       }
 
@@ -253,11 +331,150 @@
 
 /* Individual slide wrapper */
 .photoSlide {
-  padding: $space-2 0;
+  padding: 0;
   box-sizing: border-box;
+  height: 100%;
+  display: flex;
 
   > * {
-    max-width: 100%;
+    width: 100%;
+  }
+}
+
+/* Photo Card - Compact horizontal layout */
+.photoCard {
+  position: relative;
+  border: 0.125rem solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  background: var(--color-bg-secondary);
+  @include transition-all($transition-fast);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  contain: layout;
+  transform: none !important;
+  overflow: hidden;
+  height: 100%;
+  box-shadow: var(--shadow-sm);
+  max-width: $card-width-sm;
+  width: 100%;
+
+  &:hover {
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-primary);
+    transform: translateY(-2px) !important;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-tertiary);
+
+    &:hover {
+      background: var(--color-bg-secondary);
+    }
+  }
+}
+
+.photoCardDisabled {
+  border-color: var(--color-error);
+  background: var(--color-bg-tertiary);
+  opacity: var(--opacity-disabled);
+}
+
+.photoCardImageWrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 aspect ratio for more compact cards */
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  max-height: 180px;
+}
+
+.photoCardImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-normal);
+
+  .photoCard:hover & {
+    transform: scale(1.05);
+  }
+}
+
+.photoCardBadge {
+  position: absolute;
+  top: $space-1-5;
+  right: $space-1-5;
+  z-index: 2;
+  
+  :global(.pill) {
+    font-size: var(--font-size-2xs);
+    padding: $space-1 $space-1-5;
+  }
+}
+
+.photoCardContent {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1-5;
+  padding: $space-2;
+
+  @include breakpoint-max(sm) {
+    padding: $space-2;
+    gap: $space-1;
+  }
+}
+
+.photoCardCredit {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  width: 100%;
+  line-height: 1.2;
+}
+
+.photoCardActions {
+  display: flex;
+  gap: $space-1;
+  width: 100%;
+
+  @include breakpoint-max(sm) {
+    gap: $space-1;
+  }
+
+  .btn {
+    flex: 1;
+    font-size: 16px;
+    padding: $space-1 $space-1-5;
+    border-radius: var(--radius-md);
+    font-weight: var(--font-weight-semibold);
+    border-width: 0.125rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    white-space: nowrap;
+    line-height: 1;
+
+    @include breakpoint-max(sm) {
+      padding: $space-1 $space-1;
+      font-size: 14px;
+    }
+
+    &.btn-outline-primary,
+    &.btn-outline-danger {
+      padding: $space-1 $space-1;
+      
+      @include breakpoint-max(sm) {
+        padding: $space-1 $space-1;
+      }
+    }
   }
 }
 

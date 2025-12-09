@@ -839,11 +839,11 @@
   background: var(--color-bg-primary);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  @include transition-all($transition-normal);
+  @include transition-all($transition-fast);
   border: 1px solid var(--color-border-light);
   border-left: 3px solid transparent;
-  padding: clamp(var(--space-3), 2.5vw, var(--space-6));
-  margin-bottom: $space-3;
+  padding: clamp(var(--space-2), 2vw, var(--space-4));
+  margin-bottom: $space-2;
   position: relative;
 
   &:hover {
@@ -851,6 +851,7 @@
     border-color: var(--color-border-medium);
     border-left-color: var(--color-primary);
     background: var(--color-bg-hover, rgba(var(--color-primary-rgb, 99, 102, 241), 0.02));
+    transform: translateY(-1px) scale(1.005);
   }
 
   &:last-child {
@@ -859,10 +860,11 @@
 
   // Dragging state - visual feedback when item is being dragged
   &:global(.dragging) {
-    opacity: 0.8;
-    box-shadow: var(--shadow-lg);
+    opacity: 0.85;
+    box-shadow: var(--shadow-xl), 0 0 0 2px var(--color-primary-alpha-20);
     border-color: var(--color-primary);
-    transform: scale(1.02);
+    transform: scale(1.03) rotate(1deg);
+    transition: transform $transition-fast ease-out, opacity $transition-fast;
     z-index: 1000;
     cursor: grabbing;
   }
@@ -929,8 +931,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: clamp(var(--space-3), 2vw, var(--space-5));
-  padding-bottom: clamp(var(--space-3), 2vw, var(--space-5));
+  gap: clamp(var(--space-2), 1.5vw, var(--space-3));
+  padding-bottom: clamp(var(--space-2), 1.5vw, var(--space-3));
   /* border-bottom removed - using border-top on plan-item-details instead to avoid double border */
   flex-wrap: wrap;
 }
@@ -957,7 +959,7 @@
 
 :global(.plan-item-actions) {
   display: flex;
-  gap: clamp(var(--space-1-5), 1.5vw, var(--space-3));
+  gap: var(--space-1);
   flex-shrink: 0;
   flex-wrap: wrap;
   align-items: center;
@@ -994,6 +996,7 @@
 
   &:hover {
     background-color: var(--color-bg-hover, rgba(102, 126, 234, 0.1));
+    transform: scale(1.1);
   }
 
   &:active {
@@ -1004,7 +1007,7 @@
 
 :global(.plan-item-meta) {
   display: flex;
-  gap: clamp(var(--space-2), 2vw, var(--space-4));
+  gap: var(--space-2);
   font-size: var(--btn-font-size-md);
   color: var(--color-single-experience-text-grey);
   align-items: center;
@@ -1049,7 +1052,7 @@
 }
 
 :global(.btn-view-details) {
-  padding: clamp(var(--space-1-5), 1.5vw, var(--space-2)) clamp(var(--space-3), 2.5vw, var(--space-5));
+  padding: var(--space-1-5) var(--space-3);
   font-size: var(--font-size-sm);
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
@@ -1218,8 +1221,8 @@
 }
 
 :global(.plan-item-details) {
-  padding-top: clamp(var(--space-3), 2.5vw, var(--space-5));
-  margin-top: clamp(var(--space-3), 2.5vw, var(--space-5));
+  padding-top: var(--space-2);
+  margin-top: var(--space-2);
   background: var(--color-bg-primary);
 }
 

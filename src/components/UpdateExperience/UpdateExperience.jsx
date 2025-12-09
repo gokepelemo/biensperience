@@ -11,6 +11,7 @@ import { lang } from "../../lang.constants";
 import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
 import TagInput from "../../components/TagInput/TagInput";
 import Autocomplete from "../../components/Autocomplete/Autocomplete";
+import Banner from "../Banner/Banner";
 import Alert from "../Alert/Alert";
 import Loading from "../Loading/Loading";
 import { handleError } from "../../utilities/error-handler";
@@ -37,6 +38,7 @@ export default function UpdateExperience() {
   const [originalExperience, setOriginalExperience] = useState(null);
   const [changes, setChanges] = useState({});
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [hasCalculatedChanges, setHasCalculatedChanges] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showDestinationModal, setShowDestinationModal] = useState(false);
   const [error, setError] = useState("");
@@ -121,8 +123,14 @@ export default function UpdateExperience() {
         }
 
         setLoading(false);
-        // Mark initial load complete after a short delay to ensure all state is set
-        setTimeout(() => setIsInitialLoad(false), 100);
+        // Delay marking as loaded to prevent change detection during hydration
+        // Use requestAnimationFrame to sync with browser render cycle
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            setIsInitialLoad(false);
+            setHasCalculatedChanges(true);
+          }, 150);
+        });
       } catch (err) {
         const errorMessage = handleError(err, { context: 'Loading experience for update' });
         setError(errorMessage || lang.current.alert.failedToLoadResource);
@@ -139,100 +147,110 @@ export default function UpdateExperience() {
   useEffect(() => {
     if (!experience || !originalExperience || isInitialLoad) return;
 
-    // Normalize photos by ID and ignore order
-    const getId = (p) => {
-      if (!p) return null;
-      if (typeof p === 'string') return p;
-      if (p._id) return String(p._id);
-      return String(p);
-    };
-    const normalizePhotos = (arr = []) => arr.map(getId).filter(Boolean).sort();
+    // Debounce change detection to prevent flashing during rapid updates
+    const timeoutId = setTimeout(() => {
+      // Normalize photos by ID and ignore order
+      const getId = (p) => {
+        if (!p) return null;
+        if (typeof p === 'string') return p;
+        if (p._id) return String(p._id);
+        return String(p);
+      };
+      const normalizePhotos = (arr = []) => arr.map(getId).filter(Boolean).sort();
 
-    const originalPhotos = originalExperience.photos || [];
-    const currentPhotos = experience.photos || [];
+      const originalPhotos = originalExperience.photos || [];
+      const currentPhotos = experience.photos || [];
 
-    const originalPhotoIds = normalizePhotos(originalPhotos);
-    const currentPhotoIds = normalizePhotos(currentPhotos);
+      const originalPhotoIds = normalizePhotos(originalPhotos);
+      const currentPhotoIds = normalizePhotos(currentPhotos);
 
-    const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
+      const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
 
-    // Check if default photo changed by ID (fallback to first photo when unset)
-    const originalDefaultId = originalExperience.default_photo_id;
-    const currentDefaultId = experience.default_photo_id;
+      // Check if default photo changed by ID (fallback to first photo when unset)
+      const originalDefaultId = originalExperience.default_photo_id;
+      const currentDefaultId = experience.default_photo_id;
 
-    const normalizedOriginalDefault = originalDefaultId
-      ? String(getId(originalDefaultId))
-      : (originalPhotoIds[0] || null);
-    let normalizedCurrentDefault = currentDefaultId
-      ? String(getId(currentDefaultId))
-      : (currentPhotoIds[0] || null);
+      const normalizedOriginalDefault = originalDefaultId
+        ? String(getId(originalDefaultId))
+        : (originalPhotoIds[0] || null);
+      let normalizedCurrentDefault = currentDefaultId
+        ? String(getId(currentDefaultId))
+        : (currentPhotoIds[0] || null);
 
-    // If there are no current photos, treat default as null
-    if (currentPhotoIds.length === 0) normalizedCurrentDefault = null;
+      // If there are no current photos, treat default as null
+      if (currentPhotoIds.length === 0) normalizedCurrentDefault = null;
 
-    const defaultPhotoChanged = normalizedOriginalDefault !== normalizedCurrentDefault && currentPhotoIds.length > 0;
+      const defaultPhotoChanged = normalizedOriginalDefault !== normalizedCurrentDefault && currentPhotoIds.length > 0;
 
-    // Use functional update to avoid stale closure issues with changes
-    setChanges(prevChanges => {
-      const newChanges = { ...prevChanges };
+      // Use functional update to avoid stale closure issues with changes
+      setChanges(prevChanges => {
+        const newChanges = { ...prevChanges };
 
-      if (photosChanged) {
-        const fromText = originalPhotoIds.length === 0 ? 'No photos' : `${originalPhotoIds.length} photo${originalPhotoIds.length > 1 ? 's' : ''}`;
-        const toText = currentPhotoIds.length === 0 ? 'No photos' : `${currentPhotoIds.length} photo${currentPhotoIds.length > 1 ? 's' : ''}`;
-        newChanges.photos = { from: fromText, to: toText };
-      } else {
-        delete newChanges.photos;
-      }
+        if (photosChanged) {
+          const fromText = originalPhotoIds.length === 0 ? 'No photos' : `${originalPhotoIds.length} photo${originalPhotoIds.length > 1 ? 's' : ''}`;
+          const toText = currentPhotoIds.length === 0 ? 'No photos' : `${currentPhotoIds.length} photo${currentPhotoIds.length > 1 ? 's' : ''}`;
+          newChanges.photos = { from: fromText, to: toText };
+        } else {
+          delete newChanges.photos;
+        }
 
-      if (defaultPhotoChanged) {
-        const originalIndex = normalizedOriginalDefault
-          ? originalPhotoIds.indexOf(normalizedOriginalDefault)
-          : -1;
-        const currentIndex = normalizedCurrentDefault
-          ? currentPhotoIds.indexOf(normalizedCurrentDefault)
-          : -1;
+        if (defaultPhotoChanged) {
+          const originalIndex = normalizedOriginalDefault
+            ? originalPhotoIds.indexOf(normalizedOriginalDefault)
+            : -1;
+          const currentIndex = normalizedCurrentDefault
+            ? currentPhotoIds.indexOf(normalizedCurrentDefault)
+            : -1;
 
-        newChanges.default_photo = {
-          from: originalIndex >= 0 ? `Photo #${originalIndex + 1}` : 'None',
-          to: currentIndex >= 0 ? `Photo #${currentIndex + 1}` : 'None'
-        };
-      } else {
-        delete newChanges.default_photo;
-      }
+          newChanges.default_photo = {
+            from: originalIndex >= 0 ? `Photo #${originalIndex + 1}` : 'None',
+            to: currentIndex >= 0 ? `Photo #${currentIndex + 1}` : 'None'
+          };
+        } else {
+          delete newChanges.default_photo;
+        }
 
-      // Only return new object if changes actually differ
-      if (JSON.stringify(newChanges) !== JSON.stringify(prevChanges)) {
-        return newChanges;
-      }
-      return prevChanges;
-    });
+        // Only return new object if changes actually differ
+        if (JSON.stringify(newChanges) !== JSON.stringify(prevChanges)) {
+          return newChanges;
+        }
+        return prevChanges;
+      });
+    }, 100); // 100ms debounce
+
+    return () => clearTimeout(timeoutId);
   }, [experience, originalExperience, isInitialLoad]);
 
   // Track tags changes
   useEffect(() => {
     if (!experience || !originalExperience || isInitialLoad) return;
 
-    const originalTags = Array.isArray(originalExperience?.experience_type)
-      ? originalExperience.experience_type
-      : [];
-    const tagsChanged = JSON.stringify(originalTags.sort()) !== JSON.stringify([...tags].sort());
+    // Debounce change detection to prevent flashing
+    const timeoutId = setTimeout(() => {
+      const originalTags = Array.isArray(originalExperience?.experience_type)
+        ? originalExperience.experience_type
+        : [];
+      const tagsChanged = JSON.stringify(originalTags.sort()) !== JSON.stringify([...tags].sort());
 
-    // Use functional update to avoid stale closure issues with changes
-    setChanges(prevChanges => {
-      const newChanges = { ...prevChanges };
+      // Use functional update to avoid stale closure issues with changes
+      setChanges(prevChanges => {
+        const newChanges = { ...prevChanges };
 
-      if (tagsChanged) {
-        newChanges.experience_type = { from: originalTags.join(', '), to: tags.join(', ') };
-      } else {
-        delete newChanges.experience_type;
-      }
+        if (tagsChanged) {
+          newChanges.experience_type = { from: originalTags.join(', '), to: tags.join(', ') };
+        } else {
+          delete newChanges.experience_type;
+        }
 
-      // Only return new object if changes actually differ
-      if (JSON.stringify(newChanges) !== JSON.stringify(prevChanges)) {
-        return newChanges;
-      }
-      return prevChanges;
-    });
+        // Only return new object if changes actually differ
+        if (JSON.stringify(newChanges) !== JSON.stringify(prevChanges)) {
+          return newChanges;
+        }
+        return prevChanges;
+      });
+    }, 100); // 100ms debounce
+
+    return () => clearTimeout(timeoutId);
   }, [tags, originalExperience, isInitialLoad]);
 
   function handleTagsChange(newTags) {
@@ -406,20 +424,22 @@ export default function UpdateExperience() {
         </div>
       </div>
 
-      {!isInitialLoad && Object.keys(changes).length > 0 && (
-        <Alert
+      {hasCalculatedChanges && !isInitialLoad && Object.keys(changes).length > 0 && (
+        <Banner
           type="info"
-          className="mb-4 animation-fade-in"
+          variant="bordered"
+          title={lang.current.form.changesDetected}
+          className="mb-4"
+          showIcon={true}
         >
-          <strong>Changes detected:</strong>
-          <ul className="mb-0 mt-2">
+          <ul className="mb-0 mt-2" style={{ paddingLeft: '1.5rem' }}>
             {Object.keys(changes).map((field, idx) => (
               <li key={idx} style={{ whiteSpace: 'pre-line' }}>
                 {formatChanges(field, changes[field], 'experience')}
               </li>
             ))}
           </ul>
-        </Alert>
+        </Banner>
       )}
 
       <div className="row my-4 animation-fade-in">

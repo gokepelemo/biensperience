@@ -1,12 +1,13 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import styles from "./NavBar.module.scss";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
 import { useExperienceWizard } from "../../contexts/ExperienceWizardContext";
 import SearchBar from "../SearchBar/SearchBar";
 import ActionButtons from "../ActionButtons/ActionButtons";
+import BiensperienceLogo from "../BiensperienceLogo/BiensperienceLogo";
 import { lang } from "../../lang.constants";
 import { FaUser, FaTicketAlt, FaUsers, FaMapMarkerAlt, FaStar, FaSignOutAlt } from "react-icons/fa";
 
@@ -20,6 +21,7 @@ export default function NavBar() {
   const { logoutUser, getDisplayName, isSuperAdmin: isSuper, user } = useUser();
   const { getExperience, getDestination } = useData();
   const { openExperienceWizard } = useExperienceWizard();
+  const [logoHovered, setLogoHovered] = useState(false);
 
   const {
     isScrolled,
@@ -311,9 +313,18 @@ export default function NavBar() {
           <NavLink
             className={styles.logoLink}
             to="/"
-            aria-label={lang.current.aria.biensperienceHome}
+            role="button"
+            aria-label="Biensperience home"
+            title="Biensperience"
+            onMouseEnter={() => setLogoHovered(true)}
+            onMouseLeave={() => setLogoHovered(false)}
           >
-            <button className={`btn btn-light btn-sm ${styles.logo}`} aria-hidden="true">✚</button>
+            <BiensperienceLogo 
+              type={logoHovered ? "engine" : "clean"} 
+              size="lg" 
+              className={styles.logo}
+              aria-hidden="true"
+            />
           </NavLink>
           {/* Brand text - scrolls to top when showing h1, navigates home otherwise */}
           <button

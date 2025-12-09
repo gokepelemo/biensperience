@@ -310,6 +310,7 @@ export default function CostEntry({
             value={costData.description}
             onChange={handleChange('description')}
             placeholder={costStrings.costDescriptionPlaceholder}
+            style={{ resize: 'vertical', minHeight: '60px' }}
           />
         </div>
 

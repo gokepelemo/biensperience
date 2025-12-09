@@ -79,6 +79,22 @@
 
   /* Animation */
   transition: var(--btn-transition);
+  
+  /* Heartbeat animation on favorite button hover */
+  &:global(.btn-warning),
+  &:global(.btn-outline-warning) {
+    &:hover:not(:disabled) svg {
+      animation: heartbeat 1s ease-in-out;
+    }
+  }
+  
+  /* Gentle bounce on CTA buttons */
+  &:global(.btn-success),
+  &:global(.btn-primary) {
+    &:hover:not(:disabled) {
+      animation: gentleBounce 1s ease-in-out;
+    }
+  }
 
   /* Icon styling */
   :global(.button-icon) {

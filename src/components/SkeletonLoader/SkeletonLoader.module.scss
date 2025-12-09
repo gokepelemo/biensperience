@@ -12,6 +12,7 @@
   position: relative;
   overflow: hidden;
   contain: layout style; // Prevent layout shifts
+  animation: gentleFloat 3s ease-in-out infinite;
 }
 
 /* Animation */

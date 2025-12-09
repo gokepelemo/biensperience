@@ -75,6 +75,7 @@
   &:hover {
     opacity: 1;
     transform: scale(1.2);
+    animation: gentleWiggle 0.5s ease-in-out;
   }
 }
 
