@@ -47,9 +47,20 @@ export default function ActivityTypeSelect({
   const inputId = useId();
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
+  const blurTimeoutRef = useRef(null);
+  const isSelectingRef = useRef(false);
   const [inputValue, setInputValue] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  // Cleanup blur timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Get the selected type object - safe null handling
   const selectedType = useMemo(() => {
@@ -140,10 +151,29 @@ export default function ActivityTypeSelect({
 
   // Handle option selection
   const handleSelect = useCallback((type) => {
-    onChange(type.value);
-    setInputValue('');
+    // Mark that we're selecting to prevent blur handler interference
+    isSelectingRef.current = true;
+
+    // Clear any pending blur timeout
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+
+    // Close dropdown and clear input first to prevent re-render issues
     setIsOpen(false);
+    setInputValue('');
+
+    // Then notify parent of the selection
+    onChange(type.value);
+
+    // Blur the input without triggering handleBlur logic
     inputRef.current?.blur();
+
+    // Reset selection flag after a tick
+    requestAnimationFrame(() => {
+      isSelectingRef.current = false;
+    });
   }, [onChange]);
 
   // Handle clear selection
@@ -203,13 +233,29 @@ export default function ActivityTypeSelect({
   }, []);
 
   // Handle blur (close dropdown after a delay to allow clicks)
-  const handleBlur = useCallback((e) => {
+  const handleBlur = useCallback(() => {
+    // Skip if we're in the middle of a selection
+    if (isSelectingRef.current) {
+      return;
+    }
+
+    // Clear any existing timeout
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+    }
+
     // Delay to allow click on dropdown item
-    setTimeout(() => {
+    blurTimeoutRef.current = setTimeout(() => {
+      // Double-check selection flag hasn't been set
+      if (isSelectingRef.current) {
+        return;
+      }
+
       if (!dropdownRef.current?.contains(document.activeElement)) {
         setIsOpen(false);
         setInputValue('');
       }
+      blurTimeoutRef.current = null;
     }, 150);
   }, []);
 
@@ -330,6 +376,7 @@ export default function ActivityTypeSelect({
                           key={type.value}
                           data-index={itemIndex}
                           className={`${styles.option} ${isHighlighted ? styles.highlighted : ''} ${type.value === value ? styles.selected : ''}`}
+                          onMouseDown={(e) => e.preventDefault()}
                           onClick={() => handleSelect(type)}
                           role="option"
                           aria-selected={type.value === value}
@@ -353,6 +400,7 @@ export default function ActivityTypeSelect({
                 key={type.value}
                 data-index={index}
                 className={`${styles.option} ${index === highlightedIndex ? styles.highlighted : ''} ${type.value === value ? styles.selected : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(type)}
                 role="option"
                 aria-selected={type.value === value}
