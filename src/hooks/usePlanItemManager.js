@@ -67,6 +67,7 @@ export default function usePlanItemManager({
       url: planItem.url || "",
       cost: planItem.cost || 0,
       planning_days: planItem.planning_days || 0,
+      activity_type: planItem.activity_type || null,
       parent: planItem.parent || null,
     });
     setFormState(0); // Edit mode
@@ -83,6 +84,7 @@ export default function usePlanItemManager({
       url: planItem.url || "",
       cost: planItem.cost_estimate || 0,
       planning_days: planItem.planning_days || 0,
+      activity_type: planItem.activity_type || null,
       parent: planItem.parent || null,
     });
     setFormState(0); // Edit mode
@@ -116,6 +118,7 @@ export default function usePlanItemManager({
             url: editingItem.url || "",
             cost: editingItem.cost || 0,
             planning_days: editingItem.planning_days || 0,
+              activity_type: editingItem.activity_type || null,
             parent: editingItem.parent || null,
             complete: false,
           });
@@ -128,6 +131,7 @@ export default function usePlanItemManager({
               url: editingItem.url || "",
               cost: editingItem.cost || 0,
               planning_days: editingItem.planning_days || 0,
+              activity_type: editingItem.activity_type || null,
               parent: editingItem.parent || null,
             };
           }
@@ -191,6 +195,7 @@ export default function usePlanItemManager({
             url: editingItem.url || "",
             cost_estimate: editingItem.cost || 0,
             planning_days: editingItem.planning_days || 0,
+            activity_type: editingItem.activity_type || null,
             parent: editingItem.parent || null,
           });
         } else {
@@ -202,6 +207,7 @@ export default function usePlanItemManager({
               url: editingItem.url || "",
               cost_estimate: editingItem.cost || 0,
               planning_days: editingItem.planning_days || 0,
+              activity_type: editingItem.activity_type || null,
               parent: editingItem.parent || null,
             };
           }
@@ -218,6 +224,7 @@ export default function usePlanItemManager({
             url: editingItem.url,
             cost_estimate: editingItem.cost || 0,
             planning_days: editingItem.planning_days || 0,
+            activity_type: editingItem.activity_type || null,
             parent: editingItem.parent || null,
           });
         } else {
@@ -227,6 +234,7 @@ export default function usePlanItemManager({
             url: editingItem.url,
             cost_estimate: editingItem.cost || 0,
             planning_days: editingItem.planning_days || 0,
+            activity_type: editingItem.activity_type || null,
             parent: editingItem.parent || null,
           });
         }

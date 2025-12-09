@@ -175,3 +175,78 @@
   color: var(--color-text-secondary);
   margin-bottom: $space-4;
 }
+
+// Tracked Costs Accordion - collapsed by default
+.trackedCostsAccordion {
+  margin-top: $space-4;
+
+  :global(.accordion-item) {
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-md) !important;
+    background: var(--color-bg-primary);
+  }
+
+  :global(.accordion-button) {
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-md) !important;
+    font-weight: $font-weight-semibold;
+    padding: $space-3 $space-4;
+    gap: $space-2;
+
+    &:not(.collapsed) {
+      background: var(--color-bg-tertiary);
+      box-shadow: none;
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.25);
+    }
+
+    // Hide default Bootstrap arrow
+    &::after {
+      display: none;
+    }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(.accordion-item) {
+      border-color: var(--color-border-dark);
+      background: var(--color-bg-secondary);
+    }
+
+    :global(.accordion-button) {
+      background: var(--color-bg-secondary);
+      color: var(--color-text-primary);
+
+      &:not(.collapsed) {
+        background: var(--color-bg-tertiary);
+      }
+    }
+  }
+}
+
+.accordionHeader {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.accordionIcon {
+  transition: transform var(--transition-fast);
+  color: var(--color-text-muted);
+  font-size: $font-size-sm;
+}
+
+.accordionIconOpen {
+  transform: rotate(180deg);
+}
+
+.costCount {
+  font-size: $font-size-sm;
+  color: var(--color-text-muted);
+  font-weight: $font-weight-normal;
+}
+
+.accordionBody {
+  padding: $space-4;
+}

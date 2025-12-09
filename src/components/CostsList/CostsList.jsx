@@ -6,13 +6,17 @@
  */
 
 import { useState, useMemo, useId } from 'react';
-import { FaDollarSign, FaPlus, FaEdit, FaTrash, FaUser, FaListUl } from 'react-icons/fa';
+import { Accordion } from 'react-bootstrap';
+import { FaDollarSign, FaPlus, FaEdit, FaTrash, FaUser, FaListUl, FaChevronDown } from 'react-icons/fa';
 import { formatTrackedCost } from '../../utilities/cost-utils';
 import { lang } from '../../lang.constants';
 import CostEntry from '../CostEntry';
 import CostSummary from '../CostSummary';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
+import Pagination from '../Pagination/Pagination';
 import styles from './CostsList.module.scss';
+
+const COSTS_PER_PAGE = 10;
 
 export default function CostsList({
   // Plan data
@@ -43,8 +47,13 @@ export default function CostsList({
   // Display options
   showSummary = true,
   compact = false,
+
+  // Real-time presence for online indicators
+  presenceConnected = false,
+  onlineUserIds = new Set()
 }) {
   const listId = useId();
+  const accordionId = useId();
   const costStrings = lang.current.cost;
 
   // Determine the target currency for rollup display (CostSummary)
@@ -57,6 +66,26 @@ export default function CostsList({
   const [costToDelete, setCostToDelete] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+
+  // Accordion state - collapsed by default
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.ceil(costs.length / COSTS_PER_PAGE);
+
+  // Get paginated costs
+  const paginatedCosts = useMemo(() => {
+    const startIndex = (currentPage - 1) * COSTS_PER_PAGE;
+    return costs.slice(startIndex, startIndex + COSTS_PER_PAGE);
+  }, [costs, currentPage]);
+
+  // Reset to page 1 when costs change significantly
+  useMemo(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
 
   // Lookup maps for display
   const collaboratorMap = useMemo(() => {
@@ -238,77 +267,108 @@ export default function CostsList({
             currency={targetCurrency}
             compact={compact}
             showBreakdowns={!compact}
+            presenceConnected={presenceConnected}
+            onlineUserIds={onlineUserIds}
           />
         </div>
       )}
 
-      {/* Costs List */}
-      <div className={styles.costsList} id={listId}>
-        {costs.map((cost) => {
-          const collaboratorName = getCollaboratorName(cost.collaborator);
-          const planItemText = getPlanItemText(cost.plan_item);
+      {/* Tracked Costs Accordion - collapsed by default */}
+      <Accordion
+        activeKey={isAccordionOpen ? accordionId : null}
+        onSelect={(key) => setIsAccordionOpen(key === accordionId)}
+        className={styles.trackedCostsAccordion}
+      >
+        <Accordion.Item eventKey={accordionId}>
+          <Accordion.Header className={styles.accordionHeader}>
+            <FaChevronDown className={`${styles.accordionIcon} ${isAccordionOpen ? styles.accordionIconOpen : ''}`} />
+            <span>{costStrings.individualCosts || 'Individual Costs'}</span>
+            <span className={styles.costCount}>({costs.length})</span>
+          </Accordion.Header>
+          <Accordion.Body className={styles.accordionBody}>
+            {/* Costs List */}
+            <div className={styles.costsList} id={listId}>
+              {paginatedCosts.map((cost) => {
+                const collaboratorName = getCollaboratorName(cost.collaborator);
+                const planItemText = getPlanItemText(cost.plan_item);
 
-          return (
-            <div key={cost._id} className={styles.costItem}>
-              <div className={styles.costItemContent}>
-                <div className={styles.costItemTitle}>{cost.title}</div>
-                {cost.description && (
-                  <div className={styles.costItemDescription}>
-                    {cost.description}
+                return (
+                  <div key={cost._id} className={styles.costItem}>
+                    <div className={styles.costItemContent}>
+                      <div className={styles.costItemTitle}>{cost.title}</div>
+                      {cost.description && (
+                        <div className={styles.costItemDescription}>
+                          {cost.description}
+                        </div>
+                      )}
+                      <div className={styles.costItemMeta}>
+                        {collaboratorName && (
+                          <span className={styles.metaBadge}>
+                            <FaUser className={styles.metaIcon} />
+                            {collaboratorName}
+                          </span>
+                        )}
+                        {planItemText && (
+                          <span className={styles.metaBadge}>
+                            <FaListUl className={styles.metaIcon} />
+                            {planItemText}
+                          </span>
+                        )}
+                        {!collaboratorName && (
+                          <span className={styles.sharedBadge}>
+                            {costStrings.sharedCost}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={styles.costItemRight}>
+                      <div className={styles.costItemAmount}>
+                        {/* Display individual costs in their original tracked currency with disambiguated symbol */}
+                        {formatTrackedCost(cost.cost, { currency: cost.currency || 'USD' })}
+                      </div>
+
+                      {canEdit && (
+                        <div className={styles.costItemActions}>
+                          <button
+                            className="btn btn-outline-secondary btn-sm"
+                            onClick={() => handleEditCost(cost)}
+                            type="button"
+                            title={lang.current.tooltip.edit}
+                          >
+                            <FaEdit />
+                          </button>
+                          <button
+                            className="btn btn-outline-danger btn-sm"
+                            onClick={() => handleDeleteClick(cost)}
+                            type="button"
+                            title={lang.current.tooltip.delete}
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-                <div className={styles.costItemMeta}>
-                  {collaboratorName && (
-                    <span className={styles.metaBadge}>
-                      <FaUser className={styles.metaIcon} />
-                      {collaboratorName}
-                    </span>
-                  )}
-                  {planItemText && (
-                    <span className={styles.metaBadge}>
-                      <FaListUl className={styles.metaIcon} />
-                      {planItemText}
-                    </span>
-                  )}
-                  {!collaboratorName && (
-                    <span className={styles.sharedBadge}>
-                      {costStrings.sharedCost}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className={styles.costItemRight}>
-                <div className={styles.costItemAmount}>
-                  {/* Display individual costs in their original tracked currency with disambiguated symbol */}
-                  {formatTrackedCost(cost.cost, { currency: cost.currency || 'USD' })}
-                </div>
-
-                {canEdit && (
-                  <div className={styles.costItemActions}>
-                    <button
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={() => handleEditCost(cost)}
-                      type="button"
-                      title={lang.current.tooltip.edit}
-                    >
-                      <FaEdit />
-                    </button>
-                    <button
-                      className="btn btn-outline-danger btn-sm"
-                      onClick={() => handleDeleteClick(cost)}
-                      type="button"
-                      title={lang.current.tooltip.delete}
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                )}
-              </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalResults={costs.length}
+                resultsPerPage={COSTS_PER_PAGE}
+                variant="compact"
+                showResultsInfo={true}
+              />
+            )}
+          </Accordion.Body>
+        </Accordion.Item>
+      </Accordion>
 
       {/* Add/Edit Cost Modal */}
       <CostEntry

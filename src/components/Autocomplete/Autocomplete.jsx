@@ -85,17 +85,33 @@ export default function Autocomplete({
   // shows the selected label but remains editable.
   useEffect(() => {
     if (displayValue !== undefined && !isControlled) {
-      // Only seed when searchTerm is empty or matches previous displayValue
-      if (!searchTerm || searchTerm === displayValue) {
-        setSearchTerm(displayValue || '');
+      const next = displayValue || '';
+      setSearchTerm(next);
+    }
+  }, [displayValue, isControlled]);
+
+  // Sync selected items from parent prop in multi-select mode
+  // Separate effect to avoid circular dependencies
+  useEffect(() => {
+    if (multi) {
+      const nextSelected = Array.isArray(selected) ? selected : [];
+      const lengthsEqual = nextSelected.length === selectedItems.length;
+      const idsEqual =
+        lengthsEqual &&
+        nextSelected.every((item, index) => {
+          const current = selectedItems[index];
+          if (!current && !item) return true;
+          if (!current || !item) return false;
+          const currentId = current._id || current.id || current.name;
+          const nextId = item._id || item.id || item.name;
+          return currentId === nextId;
+        });
+
+      if (!lengthsEqual || !idsEqual) {
+        setSelectedItems(nextSelected);
       }
     }
-    // initialize selected items from prop changes
-    if (multi) {
-      setSelectedItems(Array.isArray(selected) ? selected : []);
-    }
-    // include selected and multi in deps so parent-driven selection updates are reflected
-  }, [displayValue, selected, multi]);
+  }, [selected, multi]);
 
   // Build trie index from items for fast O(m) filtering
   const trieFilter = useMemo(() => {
@@ -356,7 +372,7 @@ export default function Autocomplete({
     ) {
       setIsOpen(true);
     }
-  }, [items, currentValue, isOpen]);
+  }, [items.length, currentValue]);
 
   // Size class mapping
   const sizeClass = {

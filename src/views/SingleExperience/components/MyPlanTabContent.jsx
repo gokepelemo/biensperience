@@ -56,13 +56,83 @@ import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { formatCostEstimate } from '../../../utilities/cost-utils';
 import { lang } from '../../../lang.constants';
 import debug from '../../../utilities/debug';
+import {
+  getActivityType,
+  getActivityTypeIcon,
+  getActivityTypeLabel,
+  getActivityTypeDisplay,
+  ACTIVITY_CATEGORIES
+} from '../../../constants/activity-types';
 
 // View options for plan items display
 const VIEW_OPTIONS = [
   { value: 'card', label: 'Card View', icon: BsCardList },
   { value: 'compact', label: 'Compact View', icon: BsListUl },
+  { value: 'activity', label: 'Activity View', icon: BsListUl },
   { value: 'timeline', label: 'Timeline View', icon: BsCalendarWeek }
 ];
+
+/**
+ * Group plan items by activity type
+ * @param {Array} items - Plan items to group
+ * @param {Array} allItems - All plan items (for parent lookup)
+ * @returns {Object} { groups: Array<{type, label, icon, items}>, ungrouped: Array }
+ */
+function groupItemsByActivityType(items, allItems = []) {
+  const groups = {};
+  const ungrouped = [];
+
+  // Build parent lookup
+  const parentMap = new Map();
+  for (const item of allItems) {
+    parentMap.set(item._id?.toString() || item.plan_item_id?.toString(), item);
+  }
+
+  for (const item of items) {
+    // Skip child items - they'll be grouped with their parent
+    if (item.isChild || item.parent) {
+      continue;
+    }
+
+    const activityType = item.activity_type;
+
+    if (!activityType) {
+      ungrouped.push(item);
+      continue;
+    }
+
+    if (!groups[activityType]) {
+      const typeInfo = getActivityType(activityType);
+      groups[activityType] = {
+        type: activityType,
+        label: typeInfo?.label || activityType,
+        icon: typeInfo?.icon || '📌',
+        category: typeInfo?.category || 'other',
+        items: []
+      };
+    }
+    groups[activityType].items.push(item);
+
+    // Add children under the same group
+    const children = items.filter(child =>
+      child.parent?.toString() === (item._id?.toString() || item.plan_item_id?.toString())
+    );
+    for (const child of children) {
+      groups[activityType].items.push(child);
+    }
+  }
+
+  // Sort groups by category order, then alphabetically
+  const categoryOrder = { essentials: 1, experiences: 2, services: 3, other: 4 };
+  const sortedGroups = Object.values(groups).sort((a, b) => {
+    const orderA = categoryOrder[a.category] || 4;
+    const orderB = categoryOrder[b.category] || 4;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.label.localeCompare(b.label);
+  });
+
+  return { groups: sortedGroups, ungrouped };
+}
 
 /**
  * PlanActionsDropdown - Unified dropdown for Add, Manage Collaborators, and Sync actions
@@ -494,7 +564,9 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
   setPlanInstanceItemToDelete,
   setShowPlanInstanceDeleteModal,
   onScheduleDate,
-  lang
+  lang,
+  parentItem = null,
+  showActivityBadge = false
 }) {
   const itemId = planItem.plan_item_id || planItem._id;
   const [showActionsMenu, setShowActionsMenu] = useState(false);
@@ -589,6 +661,29 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
         ) : (
           planItem.text
         )}
+        {/* Activity type badge for child items with different type than parent */}
+        {(() => {
+          const { badge } = getActivityTypeDisplay(planItem, parentItem);
+          if (badge) {
+            return (
+              <span className="compact-activity-badge" title={badge.label}>
+                ({badge.icon} {badge.label})
+              </span>
+            );
+          }
+          // Show activity badge when explicitly requested (in grouped view)
+          if (showActivityBadge && planItem.activity_type && !planItem.isChild) {
+            const typeInfo = getActivityType(planItem.activity_type);
+            if (typeInfo) {
+              return (
+                <span className="compact-activity-badge-inline" title={typeInfo.label}>
+                  {typeInfo.icon}
+                </span>
+              );
+            }
+          }
+          return null;
+        })()}
       </span>
 
       {/* Meta info - cost and planning days */}
@@ -682,8 +777,11 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
     prevProps.planItem.cost === nextProps.planItem.cost &&
     prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
     prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
+    prevProps.planItem.activity_type === nextProps.planItem.activity_type &&
     prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
-    prevProps.canEdit === nextProps.canEdit
+    prevProps.canEdit === nextProps.canEdit &&
+    prevProps.parentItem?.activity_type === nextProps.parentItem?.activity_type &&
+    prevProps.showActivityBadge === nextProps.showActivityBadge
   );
 });
 
@@ -715,8 +813,53 @@ function formatTimeForDisplay(timeString) {
 }
 
 /**
+ * Group items within a time section by activity type
+ * @param {Array} items - Items in a time section
+ * @returns {Array} Items grouped by activity type with ungrouped at the end
+ */
+function groupTimeItemsByActivityType(items) {
+  if (!items || items.length === 0) return [];
+
+  const groups = {};
+  const ungrouped = [];
+
+  for (const item of items) {
+    const activityType = item.activity_type;
+
+    if (!activityType) {
+      ungrouped.push(item);
+      continue;
+    }
+
+    if (!groups[activityType]) {
+      const typeInfo = getActivityType(activityType);
+      groups[activityType] = {
+        type: activityType,
+        label: typeInfo?.label || activityType,
+        icon: typeInfo?.icon || '📌',
+        category: typeInfo?.category || 'other',
+        items: []
+      };
+    }
+    groups[activityType].items.push(item);
+  }
+
+  // Sort groups by category order, then alphabetically
+  const categoryOrder = { essentials: 1, experiences: 2, services: 3, other: 4 };
+  const sortedGroups = Object.values(groups).sort((a, b) => {
+    const orderA = categoryOrder[a.category] || 4;
+    const orderB = categoryOrder[b.category] || 4;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.label.localeCompare(b.label);
+  });
+
+  return { groups: sortedGroups, ungrouped };
+}
+
+/**
  * Group plan items by date and time of day for Timeline view
  * Child items inherit scheduled_date/time from their parent if not set
+ * Within each time section, items are further grouped by activity type
  */
 function groupPlanItemsByDate(items) {
   const groups = {};
@@ -875,10 +1018,21 @@ function groupPlanItemsByDate(items) {
     }
   });
 
+  // Group items by activity type within each time section
+  for (const dateKey of Object.keys(groups)) {
+    groups[dateKey].morningByActivity = groupTimeItemsByActivityType(groups[dateKey].morning);
+    groups[dateKey].afternoonByActivity = groupTimeItemsByActivityType(groups[dateKey].afternoon);
+    groups[dateKey].eveningByActivity = groupTimeItemsByActivityType(groups[dateKey].evening);
+    groups[dateKey].unspecifiedByActivity = groupTimeItemsByActivityType(groups[dateKey].unspecified);
+  }
+
   // Sort groups by date
   const sortedGroups = Object.values(groups).sort((a, b) => a.date - b.date);
 
-  return { groups: sortedGroups, unscheduled };
+  // Group unscheduled items by activity type
+  const unscheduledByActivity = groupTimeItemsByActivityType(unscheduled);
+
+  return { groups: sortedGroups, unscheduled, unscheduledByActivity };
 }
 
 /**
@@ -894,7 +1048,8 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
   setPlanInstanceItemToDelete,
   setShowPlanInstanceDeleteModal,
   onScheduleDate,
-  lang
+  lang,
+  parentItem = null
 }) {
   const itemId = planItem.plan_item_id || planItem._id;
   const [showActionsMenu, setShowActionsMenu] = useState(false);
@@ -960,6 +1115,18 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
         ) : (
           planItem.text
         )}
+        {/* Activity type badge for child items with different type than parent */}
+        {(() => {
+          const { badge } = getActivityTypeDisplay(planItem, parentItem);
+          if (badge) {
+            return (
+              <span className="timeline-activity-badge" title={badge.label}>
+                ({badge.icon} {badge.label})
+              </span>
+            );
+          }
+          return null;
+        })()}
       </span>
 
       {/* Time display for timeline view */}
@@ -1067,15 +1234,18 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
     prevProps.planItem.cost === nextProps.planItem.cost &&
     prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
     prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
+    prevProps.planItem.activity_type === nextProps.planItem.activity_type &&
     prevProps.planItem.scheduled_date === nextProps.planItem.scheduled_date &&
     prevProps.planItem.scheduled_time === nextProps.planItem.scheduled_time &&
     prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
-    prevProps.canEdit === nextProps.canEdit
+    prevProps.canEdit === nextProps.canEdit &&
+    prevProps.parentItem?.activity_type === nextProps.parentItem?.activity_type
   );
 });
 
 /**
  * TimelineDateGroup - Renders a group of plan items for a specific date
+ * Items are grouped first by time of day, then by activity type within each time section
  */
 const TimelineDateGroup = memo(function TimelineDateGroup({
   group,
@@ -1087,7 +1257,8 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
   setPlanInstanceItemToDelete,
   setShowPlanInstanceDeleteModal,
   onScheduleDate,
-  lang
+  lang,
+  parentItemMap
 }) {
   const formatDateHeader = (date) => {
     const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
@@ -1101,8 +1272,89 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
     unspecified: ''
   };
 
-  const renderTimeSection = (items, timeOfDay) => {
-    if (items.length === 0) return null;
+  // Render activity type groups within a time section
+  const renderActivityGroups = (activityData) => {
+    if (!activityData || (activityData.groups?.length === 0 && activityData.ungrouped?.length === 0)) {
+      return null;
+    }
+
+    return (
+      <>
+        {/* Grouped items by activity type */}
+        {activityData.groups?.map(activityGroup => (
+          <div key={activityGroup.type} className="timeline-activity-group">
+            <div className="timeline-activity-header">
+              <span className="timeline-activity-icon">{activityGroup.icon}</span>
+              <span className="timeline-activity-label">{activityGroup.label}</span>
+            </div>
+            <div className="timeline-activity-items">
+              {activityGroup.items.map(item => {
+                const parentItem = item.parent && parentItemMap
+                  ? parentItemMap.get(item.parent.toString())
+                  : null;
+                return (
+                  <TimelinePlanItem
+                    key={item.plan_item_id || item._id}
+                    planItem={item}
+                    canEdit={canEdit}
+                    handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                    handleViewPlanItemDetails={handleViewPlanItemDetails}
+                    handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                    handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                    setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                    setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                    onScheduleDate={onScheduleDate}
+                    lang={lang}
+                    parentItem={parentItem}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {/* Ungrouped items (no activity type) */}
+        {activityData.ungrouped?.length > 0 && (
+          <div className="timeline-activity-group timeline-activity-ungrouped">
+            {activityData.groups?.length > 0 && (
+              <div className="timeline-activity-header">
+                <span className="timeline-activity-icon">📌</span>
+                <span className="timeline-activity-label">Other</span>
+              </div>
+            )}
+            <div className="timeline-activity-items">
+              {activityData.ungrouped.map(item => {
+                const parentItem = item.parent && parentItemMap
+                  ? parentItemMap.get(item.parent.toString())
+                  : null;
+                return (
+                  <TimelinePlanItem
+                    key={item.plan_item_id || item._id}
+                    planItem={item}
+                    canEdit={canEdit}
+                    handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                    handleViewPlanItemDetails={handleViewPlanItemDetails}
+                    handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                    handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                    setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                    setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                    onScheduleDate={onScheduleDate}
+                    lang={lang}
+                    parentItem={parentItem}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
+
+  const renderTimeSection = (activityData, timeOfDay) => {
+    if (!activityData || (activityData.groups?.length === 0 && activityData.ungrouped?.length === 0)) {
+      return null;
+    }
 
     return (
       <div className="timeline-time-section" key={timeOfDay}>
@@ -1112,21 +1364,7 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
           </div>
         )}
         <div className="timeline-time-items">
-          {items.map(item => (
-            <TimelinePlanItem
-              key={item.plan_item_id || item._id}
-              planItem={item}
-              canEdit={canEdit}
-              handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-              handleViewPlanItemDetails={handleViewPlanItemDetails}
-              handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-              handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-              setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-              setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-              onScheduleDate={onScheduleDate}
-              lang={lang}
-            />
-          ))}
+          {renderActivityGroups(activityData)}
         </div>
       </div>
     );
@@ -1138,10 +1376,10 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
         {formatDateHeader(group.date)}
       </div>
       <div className="timeline-date-content">
-        {renderTimeSection(group.morning, 'morning')}
-        {renderTimeSection(group.afternoon, 'afternoon')}
-        {renderTimeSection(group.evening, 'evening')}
-        {renderTimeSection(group.unspecified, 'unspecified')}
+        {renderTimeSection(group.morningByActivity, 'morning')}
+        {renderTimeSection(group.afternoonByActivity, 'afternoon')}
+        {renderTimeSection(group.eveningByActivity, 'evening')}
+        {renderTimeSection(group.unspecifiedByActivity, 'unspecified')}
       </div>
     </div>
   );
@@ -1712,6 +1950,23 @@ export default function MyPlanTabContent({
     return groupPlanItemsByDate(itemsToRender);
   }, [planItemsView, itemsToRender]);
 
+  // Memoize activity type grouping for activity view
+  const activityGroups = useMemo(() => {
+    if (planItemsView !== 'activity') return null;
+    return groupItemsByActivityType(itemsToRender, currentPlan?.plan || []);
+  }, [planItemsView, itemsToRender, currentPlan?.plan]);
+
+  // Create parent item lookup for child activity badge display
+  const parentItemMap = useMemo(() => {
+    const map = new Map();
+    if (currentPlan?.plan) {
+      for (const item of currentPlan.plan) {
+        map.set((item.plan_item_id || item._id)?.toString(), item);
+      }
+    }
+    return map;
+  }, [currentPlan?.plan]);
+
   return (
     <div className="my-plan-view mt-4">
       {/* Show loading indicator when we detected a hash deep-link and plans are still loading */}
@@ -1831,27 +2086,130 @@ export default function MyPlanTabContent({
             strategy={verticalListSortingStrategy}
           >
             <div className="compact-plan-items-list">
-              {itemsToRender.map((planItem) => (
-                <SortableCompactPlanItem
-                  key={planItem.plan_item_id || planItem._id}
-                  planItem={planItem}
-                  canEdit={canEdit}
-                  handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                  handleViewPlanItemDetails={handleViewPlanItemDetails}
-                  handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                  handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                  setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                  setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                  onScheduleDate={handleScheduleDate}
-                  lang={lang}
-                />
-              ))}
+              {itemsToRender.map((planItem) => {
+                const parentItem = planItem.parent
+                  ? parentItemMap.get(planItem.parent.toString())
+                  : null;
+                return (
+                  <SortableCompactPlanItem
+                    key={planItem.plan_item_id || planItem._id}
+                    planItem={planItem}
+                    canEdit={canEdit}
+                    handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                    handleViewPlanItemDetails={handleViewPlanItemDetails}
+                    handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                    handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                    setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                    setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                    onScheduleDate={handleScheduleDate}
+                    lang={lang}
+                    parentItem={parentItem}
+                  />
+                );
+              })}
             </div>
           </SortableContext>
         </DndContext>
       )}
 
-      {/* Plan Items List - Timeline View (grouped by date and time of day) */}
+      {/* Plan Items List - Activity View (grouped by activity type with drag and drop) */}
+      {planItemsView === 'activity' && activityGroups && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="activity-plan-items-list">
+            {/* Groups by activity type */}
+            {activityGroups.groups.map((group) => (
+              <div key={group.type} className="activity-type-group">
+                <div className="activity-type-group-header">
+                  <span className="activity-type-icon">{group.icon}</span>
+                  <span className="activity-type-label">{group.label}</span>
+                  <span className="activity-type-count">({group.items.length})</span>
+                </div>
+                <SortableContext
+                  items={group.items.map(item => (item.plan_item_id || item._id).toString())}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="activity-type-group-items">
+                    {group.items.map((planItem) => {
+                      const parentItem = planItem.parent
+                        ? parentItemMap.get(planItem.parent.toString())
+                        : null;
+                      return (
+                        <SortableCompactPlanItem
+                          key={planItem.plan_item_id || planItem._id}
+                          planItem={planItem}
+                          canEdit={canEdit}
+                          handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                          handleViewPlanItemDetails={handleViewPlanItemDetails}
+                          handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                          handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                          setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                          setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                          onScheduleDate={handleScheduleDate}
+                          lang={lang}
+                          parentItem={parentItem}
+                          showActivityBadge={true}
+                        />
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </div>
+            ))}
+
+            {/* Ungrouped items (no activity type) */}
+            {activityGroups.ungrouped.length > 0 && (
+              <div className="activity-type-group activity-type-ungrouped">
+                <div className="activity-type-group-header">
+                  <span className="activity-type-icon">📌</span>
+                  <span className="activity-type-label">Unspecified</span>
+                  <span className="activity-type-count">({activityGroups.ungrouped.length})</span>
+                </div>
+                <SortableContext
+                  items={activityGroups.ungrouped.map(item => (item.plan_item_id || item._id).toString())}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="activity-type-group-items">
+                    {activityGroups.ungrouped.map((planItem) => {
+                      const parentItem = planItem.parent
+                        ? parentItemMap.get(planItem.parent.toString())
+                        : null;
+                      return (
+                        <SortableCompactPlanItem
+                          key={planItem.plan_item_id || planItem._id}
+                          planItem={planItem}
+                          canEdit={canEdit}
+                          handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                          handleViewPlanItemDetails={handleViewPlanItemDetails}
+                          handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                          handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                          setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                          setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                          onScheduleDate={handleScheduleDate}
+                          lang={lang}
+                          parentItem={parentItem}
+                        />
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {activityGroups.groups.length === 0 && activityGroups.ungrouped.length === 0 && (
+              <div className="activity-empty-state">
+                <p>No plan items yet. Add items to see them grouped by activity type.</p>
+              </div>
+            )}
+          </div>
+        </DndContext>
+      )}
+
+      {/* Plan Items List - Timeline View (grouped by date, time of day, then activity type) */}
       {planItemsView === 'timeline' && timelineGroups && (
           <div className="timeline-plan-items-list">
             {/* Scheduled items grouped by date */}
@@ -1868,10 +2226,11 @@ export default function MyPlanTabContent({
                 setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
                 onScheduleDate={handleScheduleDate}
                 lang={lang}
+                parentItemMap={parentItemMap}
               />
             ))}
 
-            {/* Unscheduled items section */}
+            {/* Unscheduled items section - also grouped by activity type */}
             {timelineGroups.unscheduled.length > 0 && (
               <div className="timeline-date-group timeline-unscheduled">
                 <div className="timeline-date-header">
@@ -1879,21 +2238,73 @@ export default function MyPlanTabContent({
                 </div>
                 <div className="timeline-date-content">
                   <div className="timeline-time-items">
-                    {timelineGroups.unscheduled.map(item => (
-                      <TimelinePlanItem
-                        key={item.plan_item_id || item._id}
-                        planItem={item}
-                        canEdit={canEdit}
-                        handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                        handleViewPlanItemDetails={handleViewPlanItemDetails}
-                        handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                        handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                        setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                        setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                        onScheduleDate={handleScheduleDate}
-                        lang={lang}
-                      />
+                    {/* Grouped by activity type */}
+                    {timelineGroups.unscheduledByActivity?.groups?.map(activityGroup => (
+                      <div key={activityGroup.type} className="timeline-activity-group">
+                        <div className="timeline-activity-header">
+                          <span className="timeline-activity-icon">{activityGroup.icon}</span>
+                          <span className="timeline-activity-label">{activityGroup.label}</span>
+                        </div>
+                        <div className="timeline-activity-items">
+                          {activityGroup.items.map(item => {
+                            const parentItem = item.parent
+                              ? parentItemMap.get(item.parent.toString())
+                              : null;
+                            return (
+                              <TimelinePlanItem
+                                key={item.plan_item_id || item._id}
+                                planItem={item}
+                                canEdit={canEdit}
+                                handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                                handleViewPlanItemDetails={handleViewPlanItemDetails}
+                                handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                                handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                                setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                                setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                                onScheduleDate={handleScheduleDate}
+                                lang={lang}
+                                parentItem={parentItem}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
                     ))}
+
+                    {/* Ungrouped items (no activity type) */}
+                    {timelineGroups.unscheduledByActivity?.ungrouped?.length > 0 && (
+                      <div className="timeline-activity-group timeline-activity-ungrouped">
+                        {timelineGroups.unscheduledByActivity?.groups?.length > 0 && (
+                          <div className="timeline-activity-header">
+                            <span className="timeline-activity-icon">📌</span>
+                            <span className="timeline-activity-label">Other</span>
+                          </div>
+                        )}
+                        <div className="timeline-activity-items">
+                          {timelineGroups.unscheduledByActivity.ungrouped.map(item => {
+                            const parentItem = item.parent
+                              ? parentItemMap.get(item.parent.toString())
+                              : null;
+                            return (
+                              <TimelinePlanItem
+                                key={item.plan_item_id || item._id}
+                                planItem={item}
+                                canEdit={canEdit}
+                                handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                                handleViewPlanItemDetails={handleViewPlanItemDetails}
+                                handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                                handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                                setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                                setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                                onScheduleDate={handleScheduleDate}
+                                lang={lang}
+                                parentItem={parentItem}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1938,6 +2349,8 @@ export default function MyPlanTabContent({
         loading={costsLoading}
         showSummary={true}
         compact={false}
+        presenceConnected={presenceConnected}
+        onlineUserIds={onlineUserIds}
       />
     </div>
   );

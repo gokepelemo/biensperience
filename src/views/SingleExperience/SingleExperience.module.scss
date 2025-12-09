@@ -2577,6 +2577,9 @@
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+  /* Pixel-perfect rounded corners for top of date group */
+  border-top-left-radius: calc(var(--radius-lg) - 1px); /* Account for border */
+  border-top-right-radius: calc(var(--radius-lg) - 1px);
 }
 
 /* Unscheduled section styling */
@@ -2591,6 +2594,16 @@
 :global(.timeline-date-content) {
   display: flex;
   flex-direction: column;
+
+  /* When timeline-time-items is directly in date-content (e.g., unscheduled section without time grouping) */
+  > :global(.timeline-time-items) {
+    padding: var(--space-3) var(--space-4);
+
+    &:last-child {
+      border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+      border-bottom-right-radius: calc(var(--radius-lg) - 1px);
+    }
+  }
 }
 
 /* Time of day section (Morning, Afternoon, Evening) */
@@ -2600,6 +2613,9 @@
 
   &:last-child {
     border-bottom: none;
+    /* Pixel-perfect rounded corners for bottom of date group */
+    border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+    border-bottom-right-radius: calc(var(--radius-lg) - 1px);
   }
 }
 
@@ -2872,6 +2888,158 @@
     :global(.timeline-meta-notes) {
       display: none;
     }
+  }
+}
+
+/* ==============================================
+   ACTIVITY TYPE GROUPING STYLES
+   ============================================== */
+
+/* Activity View */
+:global(.activity-plan-items-list) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+:global(.activity-type-group) {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+:global(.activity-type-group-header) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-light);
+  font-weight: var(--font-weight-semibold);
+}
+
+:global(.activity-type-icon) {
+  font-size: var(--font-size-lg);
+}
+
+:global(.activity-type-label) {
+  flex: 1;
+  color: var(--color-text-primary);
+}
+
+:global(.activity-type-count) {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+:global(.activity-type-group-items) {
+  padding: var(--space-2) 0;
+}
+
+:global(.activity-type-ungrouped) {
+  :global(.activity-type-group-header) {
+    background: transparent;
+    border-bottom: 1px dashed var(--color-border-light);
+  }
+}
+
+:global(.activity-empty-state) {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--color-text-muted);
+}
+
+/* Activity type badge for child items with different type than parent */
+:global(.compact-activity-badge),
+:global(.timeline-activity-badge) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  opacity: 0.85;
+}
+
+:global(.compact-activity-badge-inline) {
+  margin-left: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+/* Timeline Activity Type Groups */
+:global(.timeline-activity-group) {
+  margin-bottom: var(--space-3);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+:global(.timeline-activity-header) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+}
+
+:global(.timeline-activity-icon) {
+  font-size: var(--font-size-base);
+}
+
+:global(.timeline-activity-label) {
+  color: var(--color-text-secondary);
+}
+
+:global(.timeline-activity-count) {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+:global(.timeline-activity-items) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+:global(.timeline-activity-ungrouped) {
+  :global(.timeline-activity-header) {
+    background: transparent;
+    border: 1px dashed var(--color-border-light);
+    opacity: 0.85;
+  }
+}
+
+/* Mobile responsive styles for grouped views */
+@include breakpoint-max(sm) {
+  :global(.activity-type-group-header) {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+
+  :global(.activity-type-icon) {
+    font-size: var(--font-size-base);
+  }
+
+  :global(.compact-activity-badge),
+  :global(.timeline-activity-badge) {
+    font-size: var(--font-size-xxs);
+  }
+
+  :global(.timeline-activity-header) {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-xs);
+  }
+
+  :global(.timeline-activity-group) {
+    margin-bottom: var(--space-2);
   }
 }
 

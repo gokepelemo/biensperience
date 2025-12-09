@@ -7,23 +7,11 @@
 import { useState, useCallback, useEffect, useId } from 'react';
 import { Form } from 'react-bootstrap';
 import Modal from '../../../components/Modal/Modal';
+import ActivityTypeSelect from '../../../components/ActivityTypeSelect';
 import { getAddressSuggestions, getPlaceDetails } from '../../../utilities/address-utils';
 import { logger } from '../../../utilities/logger';
 
 const { Label: FormLabel, Control: FormControl } = Form;
-
-// Activity type options matching the backend enum
-const ACTIVITY_TYPES = [
-  { value: '', label: 'Select activity type (optional)' },
-  { value: 'food', label: '🍽️ Food & Dining' },
-  { value: 'transport', label: '🚗 Transportation' },
-  { value: 'accommodation', label: '🏨 Accommodation' },
-  { value: 'activity', label: '🎯 Task' },
-  { value: 'shopping', label: '🛍️ Shopping' },
-  { value: 'entertainment', label: '🎭 Entertainment' },
-  { value: 'sightseeing', label: '📸 Sightseeing' },
-  { value: 'custom', label: '✨ Custom Activity' }
-];
 
 export default function PlanItemModal({
   // Modal state
@@ -295,19 +283,14 @@ export default function PlanItemModal({
         <div className="mb-3">
           <FormLabel htmlFor={`${formId}-activityType`}>
             {lang.current.label.activityType || "Activity Type"}
+            <small className="text-muted ms-2">(optional)</small>
           </FormLabel>
-          <FormControl
-            as="select"
-            id={`${formId}-activityType`}
-            value={editingPlanItem.activity_type || ""}
-            onChange={(e) => handleActivityTypeChange(e.target.value)}
-          >
-            {ACTIVITY_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </FormControl>
+          <ActivityTypeSelect
+            value={editingPlanItem.activity_type}
+            onChange={handleActivityTypeChange}
+            placeholder="Search or select activity type..."
+            size="md"
+          />
         </div>
 
         {/* Address with Autocomplete */}

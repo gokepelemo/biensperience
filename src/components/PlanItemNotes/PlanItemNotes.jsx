@@ -1,11 +1,13 @@
 /**
  * PlanItemNotes Component
  * Displays and manages notes for a plan item in a chat-style interface
- * Features: search, pagination, InteractiveTextArea with mentions support
+ * Features: search, endless scroll (newest at bottom), InteractiveTextArea with mentions support
+ *
+ * Notes are displayed in reverse chronological order - newest at the bottom.
+ * User scrolls UP to see older notes.
  */
 
-import { useState, useMemo, useCallback } from 'react';
-import { Dropdown } from 'react-bootstrap';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Button } from '../../components/design-system';
 import { FaPaperPlane, FaSearch, FaPlus, FaTimes } from 'react-icons/fa';
 import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
@@ -18,6 +20,84 @@ import useEntityResolver from '../../hooks/useEntityResolver';
 import { createFilter } from '../../utilities/trie';
 import styles from './PlanItemNotes.module.scss';
 
+// Visibility options for notes (plan-level restriction)
+// - 'contributors': Visible to all plan collaborators (All Contributors)
+// - 'private': Only visible to the note creator
+const VISIBILITY_OPTIONS = [
+  { value: 'contributors', label: 'All Contributors', icon: '👥' },
+  { value: 'private', label: 'Private', icon: '🔒' }
+];
+
+/**
+ * NoteForm Component - Unified form for Add and Edit operations
+ * Ensures consistent interface between add and edit modes
+ */
+function NoteForm({
+  mode = 'add', // 'add' or 'edit'
+  content,
+  onContentChange,
+  visibility,
+  onVisibilityChange,
+  onSubmit,
+  onCancel,
+  availableEntities = [],
+  entityData = {},
+  disabled = false,
+  loading = false
+}) {
+  const isEdit = mode === 'edit';
+  const title = isEdit ? 'Edit Note' : 'Add a Note';
+  const submitText = isEdit ? 'Save' : 'Add Note';
+  const loadingText = isEdit ? 'Saving...' : 'Adding...';
+
+  return (
+    <div className={styles.noteForm}>
+      <div className={styles.formHeader}>
+        <h4>{title}</h4>
+        <Button
+          variant="link"
+          size="sm"
+          onClick={onCancel}
+          className={styles.closeFormButton}
+          disabled={loading}
+        >
+          <FaTimes />
+        </Button>
+      </div>
+
+      <InteractiveTextArea
+        value={content}
+        onChange={onContentChange}
+        visibility={visibility}
+        onVisibilityChange={onVisibilityChange}
+        availableEntities={availableEntities}
+        entityData={entityData}
+        placeholder="Type your note... Use @ to mention users, destinations, or experiences"
+        rows={4}
+        disabled={loading || disabled}
+        highlightUrls={true}
+      />
+
+      <div className={styles.formActions}>
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          disabled={loading}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          onClick={onSubmit}
+          disabled={!content?.trim() || loading}
+        >
+          <FaPaperPlane /> {loading ? loadingText : submitText}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * NoteMessage Component
  * Individual note message with entity resolution for mentions and URL previews
@@ -28,6 +108,9 @@ function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, format
 
   // Extract URLs from the note content for previews
   const urls = useMemo(() => extractUrls(note.content), [note.content]);
+
+  // Check if this is a private note
+  const isPrivate = note.visibility === 'private';
 
   return (
     <div
@@ -44,6 +127,24 @@ function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, format
         wordWrap: 'break-word'
       }}
     >
+      {/* Private note indicator */}
+      {isPrivate && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-1)',
+            marginBottom: 'var(--space-2)',
+            fontSize: 'var(--font-size-xs)',
+            opacity: 0.8
+          }}
+          title="This note is only visible to you"
+        >
+          <span role="img" aria-label="Private note">🔒</span>
+          <span>Private note</span>
+        </div>
+      )}
+
       {/* Render text with mentions and clickable URLs */}
       {renderTextWithMentionsAndUrls(note.content, mergedEntityData, onEntityClick)}
 
@@ -117,28 +218,25 @@ export default function PlanItemNotes({
   availableEntities = [],
   entityData = {},
   // Callback for when a mention entity is clicked (e.g., plan-item deep link)
-  onEntityClick
+  onEntityClick,
+  // Real-time presence for online indicators
+  presenceConnected = false,
+  onlineUserIds = new Set()
 }) {
-  // Visibility options for notes
-  // - 'contributors': Visible to all plan collaborators (All Contributors)
-  // - 'private': Only visible to the note creator
-  const visibilityOptions = [
-    { value: 'contributors', label: 'All Contributors', icon: '👥' },
-    { value: 'private', label: 'Private', icon: '🔒' }
-  ];
-
   const [newNoteContent, setNewNoteContent] = useState('');
   const [newNoteVisibility, setNewNoteVisibility] = useState('contributors');
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editContent, setEditContent] = useState('');
   const [editVisibility, setEditVisibility] = useState('contributors');
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showAddNoteForm, setShowAddNoteForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const notesPerPage = 5;
+  const [displayedCount, setDisplayedCount] = useState(10); // For endless scroll
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState(null);
+  const chatMessagesRef = useRef(null);
+  const prevNotesLengthRef = useRef(notes.length);
 
   // Build generic TrieFilter index for fast searching (memoized)
   // Supports filtering by content (high priority), author name (medium), and date (low)
@@ -179,13 +277,42 @@ export default function PlanItemNotes({
     return notesFilter.filter(searchQuery);
   }, [searchQuery, notesFilter]);
 
-  const paginatedNotes = useMemo(() => {
-    const startIndex = (currentPage - 1) * notesPerPage;
-    const endIndex = startIndex + notesPerPage;
-    return filteredNotes.slice(startIndex, endIndex);
-  }, [filteredNotes, currentPage, notesPerPage]);
+  // Sort notes by creation date (oldest first, so newest appears at bottom)
+  // This enables chat-style display with newest at the bottom
+  const sortedNotes = useMemo(() => {
+    return [...filteredNotes].sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
+      return dateA - dateB; // Oldest first (newest at bottom)
+    });
+  }, [filteredNotes]);
 
-  const totalPages = Math.ceil(filteredNotes.length / notesPerPage);
+  // For endless scroll: show last N notes (newest at bottom)
+  const displayedNotes = useMemo(() => {
+    const total = sortedNotes.length;
+    const startIndex = Math.max(0, total - displayedCount);
+    return sortedNotes.slice(startIndex);
+  }, [sortedNotes, displayedCount]);
+
+  const hasMoreNotes = displayedCount < sortedNotes.length;
+
+  // Scroll to bottom when new notes are added
+  useEffect(() => {
+    if (notes.length > prevNotesLengthRef.current && chatMessagesRef.current) {
+      // New note was added - scroll to bottom
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    }
+    prevNotesLengthRef.current = notes.length;
+  }, [notes.length]);
+
+  // Handle scroll to load more (when scrolling to top)
+  const handleScroll = useCallback((e) => {
+    const { scrollTop } = e.target;
+    // Load more when scrolled to top
+    if (scrollTop === 0 && hasMoreNotes) {
+      setDisplayedCount(prev => Math.min(prev + 10, sortedNotes.length));
+    }
+  }, [hasMoreNotes, sortedNotes.length]);
 
   const handleAddNote = useCallback(async () => {
     if (!newNoteContent.trim()) return;
@@ -219,6 +346,7 @@ export default function PlanItemNotes({
   const handleSaveEdit = useCallback(async (noteId) => {
     if (!editContent.trim()) return;
 
+    setIsSaving(true);
     try {
       // editContent is already in storage format {entity/id} from InteractiveTextArea
       await onUpdateNote(noteId, editContent.trim(), editVisibility);
@@ -227,8 +355,16 @@ export default function PlanItemNotes({
       setEditVisibility('contributors');
     } catch (error) {
       console.error('[PlanItemNotes] Failed to update note:', error);
+    } finally {
+      setIsSaving(false);
     }
   }, [editContent, editVisibility, onUpdateNote]);
+
+  const handleCancelAdd = useCallback(() => {
+    setShowAddNoteForm(false);
+    setNewNoteContent('');
+    setNewNoteVisibility('contributors');
+  }, []);
 
   const handleDeleteNote = useCallback((noteId) => {
     setNoteToDelete(noteId);
@@ -272,6 +408,19 @@ export default function PlanItemNotes({
     return note.user?._id === currentUser?._id || note.user === currentUser?._id;
   };
 
+  /**
+   * Check if a user is currently online based on presence data
+   * @param {Object|string} user - User object or user ID
+   * @returns {boolean} True if user is online
+   */
+  const isUserOnline = useCallback((user) => {
+    if (!presenceConnected || !onlineUserIds || onlineUserIds.size === 0) {
+      return false;
+    }
+    const userId = user?._id?.toString() || user?.toString();
+    return userId && onlineUserIds.has(userId);
+  }, [presenceConnected, onlineUserIds]);
+
   return (
     <div className={styles.planItemNotesChat}>
       {/* Search and Add Note Header */}
@@ -284,7 +433,7 @@ export default function PlanItemNotes({
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
-                setCurrentPage(1); // Reset to first page on search
+                setDisplayedCount(10); // Reset to initial display count on search
               }}
               placeholder="Search notes..."
               disabled={disabled}
@@ -303,64 +452,36 @@ export default function PlanItemNotes({
         </div>
       </div>
 
-      {/* Add Note Form (with InteractiveTextArea) */}
+      {/* Add Note Form (unified NoteForm component) */}
       {showAddNoteForm && !disabled && (
-        <div className={styles.addNoteForm}>
-          <div className={styles.formHeader}>
-            <h4>Add a Note</h4>
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => {
-                setShowAddNoteForm(false);
-                setNewNoteContent('');
-                setNewNoteVisibility('contributors');
-              }}
-              className={styles.closeFormButton}
-            >
-              <FaTimes />
-            </Button>
-          </div>
-
-          <InteractiveTextArea
-            value={newNoteContent}
-            onChange={setNewNoteContent}
-            visibility={newNoteVisibility}
-            onVisibilityChange={setNewNoteVisibility}
-            availableEntities={availableEntities}
-            entityData={entityData}
-            placeholder="Type your note... Use @ to mention users, destinations, or experiences"
-            rows={4}
-            disabled={isAdding}
-            highlightUrls={true}
-          />
-
-          <div className={styles.formActions}>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowAddNoteForm(false);
-                setNewNoteContent('');
-                setNewNoteVisibility('contributors');
-              }}
-              disabled={isAdding}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleAddNote}
-              disabled={!newNoteContent.trim() || isAdding}
-            >
-              <FaPaperPlane /> {isAdding ? 'Adding...' : 'Add Note'}
-            </Button>
-          </div>
-        </div>
+        <NoteForm
+          mode="add"
+          content={newNoteContent}
+          onContentChange={setNewNoteContent}
+          visibility={newNoteVisibility}
+          onVisibilityChange={setNewNoteVisibility}
+          onSubmit={handleAddNote}
+          onCancel={handleCancelAdd}
+          availableEntities={availableEntities}
+          entityData={entityData}
+          loading={isAdding}
+        />
       )}
 
-      {/* Chat messages area */}
-      <div className={styles.chatMessages}>
-        {filteredNotes.length === 0 ? (
+      {/* Chat messages area - scroll up to load more (newest at bottom) */}
+      <div
+        className={styles.chatMessages}
+        ref={chatMessagesRef}
+        onScroll={handleScroll}
+      >
+        {/* Load more indicator */}
+        {hasMoreNotes && (
+          <div className={styles.loadMoreIndicator}>
+            <span>Scroll up to load older notes</span>
+          </div>
+        )}
+
+        {sortedNotes.length === 0 ? (
           searchQuery ? (
             <EmptyState
               variant="search"
@@ -377,7 +498,7 @@ export default function PlanItemNotes({
             />
           )
         ) : (
-          paginatedNotes.map((note) => {
+          displayedNotes.map((note) => {
             const isAuthor = isNoteAuthor(note);
             const isEditing = editingNoteId === note._id;
 
@@ -392,6 +513,8 @@ export default function PlanItemNotes({
                     user={note.user}
                     size="md"
                     linkToProfile={true}
+                    showPresence={presenceConnected}
+                    isOnline={isUserOnline(note.user)}
                   />
                 )}
 
@@ -405,66 +528,19 @@ export default function PlanItemNotes({
                   )}
 
                   {isEditing ? (
-                    // Edit mode with InteractiveTextArea
-                    <div className={styles.editNoteContainer}>
-                      <div className={styles.editNoteTextareaWrapper}>
-                        <InteractiveTextArea
-                          value={editContent}
-                          onChange={setEditContent}
-                          visibility={editVisibility}
-                          onVisibilityChange={setEditVisibility}
-                          availableEntities={availableEntities}
-                          entityData={entityData}
-                          placeholder="Edit your note..."
-                          rows={3}
-                          showFooter={false}
-                          highlightUrls={true}
-                        />
-                      </div>
-                      {/* Custom footer row with Visibility on left, Save/Cancel on right */}
-                      <div className={styles.editNoteFooter}>
-                        {/* Visibility selector on the left */}
-                        <Dropdown onSelect={setEditVisibility}>
-                          <Dropdown.Toggle
-                            variant="outline-secondary"
-                            size="sm"
-                            className={styles.visibilitySelector}
-                          >
-                            {visibilityOptions.find(opt => opt.value === editVisibility)?.icon}{' '}
-                            {visibilityOptions.find(opt => opt.value === editVisibility)?.label}
-                          </Dropdown.Toggle>
-                          <Dropdown.Menu>
-                            {visibilityOptions.map(option => (
-                              <Dropdown.Item
-                                key={option.value}
-                                eventKey={option.value}
-                                active={editVisibility === option.value}
-                              >
-                                {option.icon} {option.label}
-                              </Dropdown.Item>
-                            ))}
-                          </Dropdown.Menu>
-                        </Dropdown>
-                        {/* Save/Cancel buttons on the right */}
-                        <div className={styles.editNoteActions}>
-                          <Button
-                            size="sm"
-                            variant="primary"
-                            onClick={() => handleSaveEdit(note._id)}
-                            disabled={!editContent.trim()}
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCancelEdit}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                    // Edit mode with unified NoteForm
+                    <NoteForm
+                      mode="edit"
+                      content={editContent}
+                      onContentChange={setEditContent}
+                      visibility={editVisibility}
+                      onVisibilityChange={setEditVisibility}
+                      onSubmit={() => handleSaveEdit(note._id)}
+                      onCancel={handleCancelEdit}
+                      availableEntities={availableEntities}
+                      entityData={entityData}
+                      loading={isSaving}
+                    />
                   ) : (
                     // View mode with entity resolution
                     <NoteMessage
@@ -485,6 +561,8 @@ export default function PlanItemNotes({
                     user={currentUser}
                     size="md"
                     linkToProfile={true}
+                    showPresence={presenceConnected}
+                    isOnline={isUserOnline(currentUser)}
                   />
                 )}
               </div>
@@ -492,36 +570,6 @@ export default function PlanItemNotes({
           })
         )}
       </div>
-
-      {/* Pagination Controls */}
-      {filteredNotes.length > notesPerPage && (
-        <div className={styles.paginationControls}>
-          <div className={styles.paginationInfo}>
-            Showing {((currentPage - 1) * notesPerPage) + 1} - {Math.min(currentPage * notesPerPage, filteredNotes.length)} of {filteredNotes.length} notes
-          </div>
-          <div className={styles.paginationButtons}>
-            <Button
-              size="sm"
-              variant="outline-secondary"
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <span className={styles.pageIndicator}>
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              size="sm"
-              variant="outline-secondary"
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal

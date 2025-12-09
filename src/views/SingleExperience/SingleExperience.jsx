@@ -1299,6 +1299,47 @@ export default function SingleExperience() {
     }
   }, [selectedPlanId, sharedPlans, experience, checkPlanDivergence]);
 
+  // Keep selectedDetailsItem in sync with the latest plan data
+  // This fixes the "Unknown User" issue when navigating - the plan data may be
+  // initially loaded without populated notes.user, then updated by API with populated data
+  useEffect(() => {
+    // Only sync when modal is open and we have a selected item
+    if (!showDetailsModal || !selectedDetailsItem?._id) return;
+
+    // Find the current plan containing this item
+    const currentPlanData = selectedPlanId
+      ? sharedPlans.find(p => idEquals(p._id, selectedPlanId))
+      : userPlan;
+
+    if (!currentPlanData?.plan) return;
+
+    // Find the updated item in the plan
+    const updatedItem = currentPlanData.plan.find(item =>
+      idEquals(item._id, selectedDetailsItem._id)
+    );
+
+    if (!updatedItem) return;
+
+    // Check if the item data has meaningful differences (especially notes.user population)
+    // We want to update if notes now have populated user objects
+    const hasPopulatedNotes = updatedItem.details?.notes?.some(note =>
+      note.user && typeof note.user === 'object' && note.user.name
+    );
+    const currentHasUnpopulatedNotes = selectedDetailsItem.details?.notes?.some(note =>
+      note.user && (typeof note.user === 'string' || !note.user.name)
+    );
+
+    // Only update if there's meaningful new data (populated user objects)
+    if (hasPopulatedNotes && currentHasUnpopulatedNotes) {
+      debug.log('[SingleExperience] Syncing selectedDetailsItem with populated data', {
+        itemId: selectedDetailsItem._id,
+        hadUnpopulatedNotes: currentHasUnpopulatedNotes,
+        nowHasPopulated: hasPopulatedNotes
+      });
+      setSelectedDetailsItem(updatedItem);
+    }
+  }, [showDetailsModal, selectedDetailsItem?._id, selectedPlanId, sharedPlans, userPlan, idEquals]);
+
   // Update displayed planned date based on active tab and selected plan, gated by ownership state
   useEffect(() => {
     // If the user doesn't currently have this experience planned, suppress any planned date display
@@ -3611,6 +3652,8 @@ export default function SingleExperience() {
         onAddCostForItem={handleAddCostForItem}
         onAddDetail={handleAddDetail}
         onShare={handleSharePlanItem}
+        presenceConnected={presenceConnected}
+        planMembers={planMembers}
       />
 
       {/* Inline Cost Entry Modal - for adding costs from plan item details */}

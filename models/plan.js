@@ -383,10 +383,24 @@ const planItemSnapshotSchema = new Schema({
   url: String,
   photos: { type: [Schema.Types.ObjectId], ref: 'Photo', default: [] },
   parent: { type: Schema.Types.ObjectId },
-  // Activity type for grouping plan items (e.g., 'food', 'transport', 'accommodation', 'activity', 'custom')
+  // Activity type for grouping plan items
+  // Expanded for travel and local exploration theme
   activity_type: {
     type: String,
-    enum: ['food', 'transport', 'accommodation', 'activity', 'shopping', 'entertainment', 'sightseeing', 'custom', null],
+    enum: [
+      // Essentials
+      'accommodation', 'transport', 'food', 'drinks', 'coffee',
+      // Experiences
+      'sightseeing', 'museum', 'nature', 'adventure', 'sports', 'entertainment',
+      'wellness', 'tour', 'class', 'nightlife', 'religious', 'local',
+      // Services
+      'shopping', 'market', 'health', 'banking', 'communication', 'admin', 'laundry', 'rental',
+      // Other
+      'photography', 'meeting', 'work', 'rest', 'packing', 'checkpoint', 'custom',
+      // Legacy (for backwards compatibility)
+      'activity',
+      null
+    ],
     default: null
   },
   // Scheduled date and time for timeline organization (user-specific overrides)

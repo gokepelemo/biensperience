@@ -657,7 +657,7 @@ export default function UpdateProfile() {
                     tooltipPlacement="top"
                   />
 
-                  <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
                     <div style={{ flex: 1 }}>
                       <FormField
                         name="location"
@@ -709,7 +709,7 @@ export default function UpdateProfile() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginBottom: 'var(--space-4)'
+                        // Let flex alignment control vertical positioning
                       }}
                     >
                       {geolocating ? (

@@ -62,7 +62,7 @@ const InteractiveTextArea = ({
   onChange,
   placeholder = 'Type your message... Use @ to mention users, destinations, or experiences',
   rows = 4,
-  visibility = 'public',
+  visibility = 'contributors',
   onVisibilityChange,
   availableEntities = [],
   entityData = {},
@@ -89,9 +89,11 @@ const InteractiveTextArea = ({
   const containerRef = useRef(null);
   const searchDebounceRef = useRef(null);
 
+  // Plan notes are always restricted to owner and collaborators
+  // - 'contributors': Visible to all plan collaborators (All Contributors)
+  // - 'private': Only visible to the note creator
   const visibilityOptions = [
-    { value: 'public', label: 'Public', icon: '🌐' },
-    { value: 'contributors', label: 'Contributors Only', icon: '👥' },
+    { value: 'contributors', label: 'All Contributors', icon: '👥' },
     { value: 'private', label: 'Private', icon: '🔒' }
   ];
 

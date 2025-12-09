@@ -52,7 +52,10 @@ export default function PlanItemDetailsModal({
   // Display currency - if different from plan currency, amounts will be converted for display
   displayCurrency,
   // Callback for sharing a plan item - called with planItem
-  onShare
+  onShare,
+  // Real-time presence for online indicators
+  presenceConnected = false,
+  planMembers = []
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditingAssignment, setIsEditingAssignment] = useState(false);
@@ -261,6 +264,14 @@ export default function PlanItemDetailsModal({
       onClose();
     }
   }, [onClose, onPlanItemClick]);
+
+  // Compute online user IDs from presence data for UserAvatar indicators
+  const onlineUserIds = useMemo(() => {
+    if (!presenceConnected || !planMembers || planMembers.length === 0) {
+      return new Set();
+    }
+    return new Set(planMembers.map(member => member.userId?.toString()).filter(Boolean));
+  }, [presenceConnected, planMembers]);
 
   // Calculate actual costs assigned to this plan item from plan.costs
   // NOTE: These useMemo hooks MUST be before any early returns to maintain hooks order
@@ -1310,6 +1321,8 @@ export default function PlanItemDetailsModal({
               availableEntities={availableEntities}
               entityData={entityData}
               onEntityClick={handleEntityClick}
+              presenceConnected={presenceConnected}
+              onlineUserIds={onlineUserIds}
             />
           )}
 

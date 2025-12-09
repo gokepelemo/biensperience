@@ -1464,9 +1464,22 @@ const updatePlanItem = asyncHandler(async (req, res) => {
     if (scheduled_date !== undefined) setObj['plan.$.scheduled_date'] = scheduled_date;
     if (scheduled_time !== undefined) setObj['plan.$.scheduled_time'] = scheduled_time;
 
-    // Validate and set activity_type
+    // Validate and set activity_type - use full list from model enum
     if (activity_type !== undefined) {
-      const validActivityTypes = ['food', 'transport', 'accommodation', 'activity', 'shopping', 'entertainment', 'sightseeing', 'custom', null];
+      const validActivityTypes = [
+        // Essentials
+        'accommodation', 'transport', 'food', 'drinks', 'coffee',
+        // Experiences
+        'sightseeing', 'museum', 'nature', 'adventure', 'sports', 'entertainment',
+        'wellness', 'tour', 'class', 'nightlife', 'religious', 'local',
+        // Services
+        'shopping', 'market', 'health', 'banking', 'communication', 'admin', 'laundry', 'rental',
+        // Other
+        'photography', 'meeting', 'work', 'rest', 'packing', 'checkpoint', 'custom',
+        // Legacy
+        'activity',
+        null
+      ];
       setObj['plan.$.activity_type'] = validActivityTypes.includes(activity_type) ? activity_type : null;
     }
 
@@ -1562,9 +1575,22 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   if (scheduled_date !== undefined) planItem.scheduled_date = scheduled_date;
   if (scheduled_time !== undefined) planItem.scheduled_time = scheduled_time;
 
-  // Validate and set activity_type
+  // Validate and set activity_type - use full list from model enum
   if (activity_type !== undefined) {
-    const validActivityTypes = ['food', 'transport', 'accommodation', 'activity', 'shopping', 'entertainment', 'sightseeing', 'custom', null];
+    const validActivityTypes = [
+      // Essentials
+      'accommodation', 'transport', 'food', 'drinks', 'coffee',
+      // Experiences
+      'sightseeing', 'museum', 'nature', 'adventure', 'sports', 'entertainment',
+      'wellness', 'tour', 'class', 'nightlife', 'religious', 'local',
+      // Services
+      'shopping', 'market', 'health', 'banking', 'communication', 'admin', 'laundry', 'rental',
+      // Other
+      'photography', 'meeting', 'work', 'rest', 'packing', 'checkpoint', 'custom',
+      // Legacy
+      'activity',
+      null
+    ];
     planItem.activity_type = validActivityTypes.includes(activity_type) ? activity_type : null;
   }
 
@@ -1783,8 +1809,21 @@ const addPlanItem = asyncHandler(async (req, res) => {
     });
   }
 
-  // Validate activity_type if provided
-  const validActivityTypes = ['food', 'transport', 'accommodation', 'activity', 'shopping', 'entertainment', 'sightseeing', 'custom', null];
+  // Validate activity_type if provided - use full list from model enum
+  const validActivityTypes = [
+    // Essentials
+    'accommodation', 'transport', 'food', 'drinks', 'coffee',
+    // Experiences
+    'sightseeing', 'museum', 'nature', 'adventure', 'sports', 'entertainment',
+    'wellness', 'tour', 'class', 'nightlife', 'religious', 'local',
+    // Services
+    'shopping', 'market', 'health', 'banking', 'communication', 'admin', 'laundry', 'rental',
+    // Other
+    'photography', 'meeting', 'work', 'rest', 'packing', 'checkpoint', 'custom',
+    // Legacy
+    'activity',
+    null
+  ];
   const resolvedActivityType = activity_type && validActivityTypes.includes(activity_type) ? activity_type : null;
 
   // Create new plan item (Mongoose will auto-generate _id)

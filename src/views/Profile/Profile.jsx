@@ -1217,7 +1217,7 @@ export default function Profile() {
                       variant="destinations"
                       title={isOwnProfile ? "No Destinations Yet" : "No Destinations"}
                       description={isOwnProfile
-                        ? "You haven't favorited any destinations yet. Browse destinations and add some to your favorites."
+                        ? `You haven't favorited any destinations yet${user?.name ? `, ${getFirstName(user.name)}` : ''}. Browse destinations and add some to your favorites.`
                         : `${getFirstName(currentProfile?.name)} hasn't favorited any destinations yet.`}
                       primaryAction={isOwnProfile ? "Browse Destinations" : null}
                       onPrimaryAction={isOwnProfile ? () => window.location.href = '/destinations' : null}
@@ -1263,7 +1263,7 @@ export default function Profile() {
                       variant="experiences"
                       title={isOwnProfile ? "No Planned Experiences" : "No Planned Experiences"}
                       description={isOwnProfile
-                        ? "You haven't planned any experiences yet. Browse experiences and start planning your next adventure."
+                        ? `You haven't planned any experiences yet${user?.name ? `, ${getFirstName(user.name)}` : ''}. Browse experiences and start planning your next adventure.`
                         : `${getFirstName(currentProfile?.name)} hasn't planned any experiences yet.`}
                       primaryAction={isOwnProfile ? "Browse Experiences" : null}
                       onPrimaryAction={isOwnProfile ? () => window.location.href = '/experiences' : null}
@@ -1310,7 +1310,7 @@ export default function Profile() {
                       icon="✨"
                       title={isOwnProfile ? "No Created Experiences" : "No Created Experiences"}
                       description={isOwnProfile
-                        ? "You haven't created any experiences yet. Share your travel knowledge with the community."
+                        ? `You haven't created any experiences yet${user?.name ? `, ${getFirstName(user.name)}` : ''}. Share your travel knowledge with the community.`
                         : `${getFirstName(currentProfile?.name)} hasn't created any experiences yet.`}
                       primaryAction={isOwnProfile ? "Create an Experience" : null}
                       onPrimaryAction={isOwnProfile ? () => openExperienceWizard() : null}

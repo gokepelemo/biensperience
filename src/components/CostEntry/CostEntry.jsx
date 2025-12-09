@@ -353,18 +353,18 @@ export default function CostEntry({
           </div>
         </div>
 
-        {/* Paid by / Paid for (Collaborator) */}
+        {/* Paid for (Collaborator) */}
         {collaborators.length > 0 && (
           <div className={styles.formGroup}>
             <FormLabel htmlFor={`${formId}-collaborator`} className={styles.formLabel}>
-              {costData.collaborator ? costStrings.paidFor || 'Paid for' : costStrings.assignedTo}
+              {costStrings.paidFor || 'Paid for'}
             </FormLabel>
             <FormSelect
               id={`${formId}-collaborator`}
               value={costData.collaborator}
               onChange={handleChange('collaborator')}
             >
-              <option value="">{costStrings.assignedToPlaceholder}</option>
+              <option value="">{costStrings.selectCollaboratorOptional || 'Select Collaborator (optional)'}</option>
               {collaborators.map(collab => (
                 <option key={collab._id} value={collab._id}>
                   {collab.name || collab.email}
@@ -398,9 +398,11 @@ export default function CostEntry({
                 </option>
               ))}
             </FormSelect>
-            <span className={styles.formHelp}>
-              {costStrings.generalCost}
-            </span>
+            {!costData.plan_item && (
+              <span className={styles.formHelp}>
+                {costStrings.generalCost}
+              </span>
+            )}
           </div>
         )}
       </form>

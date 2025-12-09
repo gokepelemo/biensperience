@@ -73,9 +73,23 @@ const planItemSchema = new Schema({
   planning_days: { type: Number, default: 0 },
   parent: { type: mongoose.Schema.Types.ObjectId }, // reference to parent plan item
   // Activity type for grouping plan items
+  // Expanded for travel and local exploration theme
   activity_type: {
     type: String,
-    enum: ['food', 'transport', 'accommodation', 'activity', 'shopping', 'entertainment', 'sightseeing', 'custom', null],
+    enum: [
+      // Essentials
+      'accommodation', 'transport', 'food', 'drinks', 'coffee',
+      // Experiences
+      'sightseeing', 'museum', 'nature', 'adventure', 'sports', 'entertainment',
+      'wellness', 'tour', 'class', 'nightlife', 'religious', 'local',
+      // Services
+      'shopping', 'market', 'health', 'banking', 'communication', 'admin', 'laundry', 'rental',
+      // Other
+      'photography', 'meeting', 'work', 'rest', 'packing', 'checkpoint', 'custom',
+      // Legacy (for backwards compatibility)
+      'activity',
+      null
+    ],
     default: null
   },
   // Location for the plan item (address and GeoJSON coordinates)

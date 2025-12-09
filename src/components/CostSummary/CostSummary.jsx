@@ -166,7 +166,15 @@ function CategoryBreakdown({ costsByCategory, totalCost, currency }) {
 /**
  * PerPersonSplitTable - Shows per-person cost breakdown
  */
-function PerPersonSplitTable({ perPersonSplit, sharedCosts, currency, collaboratorCount }) {
+function PerPersonSplitTable({ perPersonSplit, sharedCosts, currency, collaboratorCount, presenceConnected = false, onlineUserIds = new Set() }) {
+  // Check if a user is currently online
+  const isUserOnline = (user) => {
+    if (!presenceConnected || !onlineUserIds || onlineUserIds.size === 0) {
+      return false;
+    }
+    const userId = user?._id?.toString() || user?.toString();
+    return userId && onlineUserIds.has(userId);
+  };
   const costStrings = lang.current.cost;
 
   if (!perPersonSplit || perPersonSplit.length <= 1) {
@@ -190,7 +198,13 @@ function PerPersonSplitTable({ perPersonSplit, sharedCosts, currency, collaborat
               <td>
                 <div className={styles.personCell}>
                   {split.collaborator && (
-                    <UserAvatar user={split.collaborator} size="sm" linkToProfile={false} />
+                    <UserAvatar
+                      user={split.collaborator}
+                      size="sm"
+                      linkToProfile={false}
+                      showPresence={presenceConnected}
+                      isOnline={isUserOnline(split.collaborator)}
+                    />
                   )}
                   <span>{split.collaborator?.name || split.collaborator?.email || 'Unknown'}</span>
                 </div>
@@ -239,6 +253,10 @@ export default function CostSummary({
 
   // Additional class
   className = '',
+
+  // Real-time presence for online indicators
+  presenceConnected = false,
+  onlineUserIds = new Set()
 }) {
   const costStrings = lang.current.cost;
   const [ratesLoaded, setRatesLoaded] = useState(false);
@@ -570,6 +588,8 @@ export default function CostSummary({
             sharedCosts={sharedCostsAmount}
             currency={currency}
             collaboratorCount={collaboratorCount}
+            presenceConnected={presenceConnected}
+            onlineUserIds={onlineUserIds}
           />
         </ExpandableSection>
       )}

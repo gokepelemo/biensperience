@@ -620,7 +620,7 @@ const en = {
     noFavoriteDestinations:
       "No favorite destinations yet. Explore our destinations and add your favorites.",
     addFavoriteDestinations: "Add Some Favorite Destinations",
-    noInviteCodes: "You haven't created any invite codes yet.",
+    noInviteCodes: "You haven't created any invite codes yet{first_name_suffix}.",
     selectInviteCode: "Select an invite code to view details.",
     noInviteRedemptions: "No one has redeemed this invite code yet",
     noExperiencesYet: "No experiences planned yet. ",

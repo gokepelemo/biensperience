@@ -8,6 +8,7 @@ import Modal from '../../../components/Modal/Modal';
 import Alert from '../../../components/Alert/Alert';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import PlanningTime from '../../../components/PlanningTime/PlanningTime';
+import { FormCheck } from '../../../components/design-system';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 
@@ -66,15 +67,15 @@ export default function SyncPlanModal({
                   )}
                 </strong>
               </h6>
-              <div className="form-check sync-modal-select-all">
-                <input
-                  className="form-check-input"
+              <div className="sync-modal-select-all">
+                <FormCheck
                   type="checkbox"
                   id="selectAllAdded"
                   checked={
                     selectedSyncItems.added.length ===
                     syncChanges.added.length
                   }
+                  label={lang.current.label.selectAll}
                   onChange={(e) => {
                     if (e.target.checked) {
                       setSelectedSyncItems((prev) => ({
@@ -89,21 +90,14 @@ export default function SyncPlanModal({
                     }
                   }}
                 />
-                <label
-                  className="form-check-label"
-                  htmlFor="selectAllAdded"
-                >
-                  {lang.current.label.selectAll}
-                </label>
               </div>
             </div>
             <div className="list-group">
               {syncChanges.added.map((item, idx) => (
                 <div key={idx} className="list-group-item">
                   <div className="d-flex align-items-start">
-                    <div className="form-check me-3 mt-1">
-                      <input
-                        className="form-check-input"
+                    <div className="me-3 mt-1">
+                      <FormCheck
                         type="checkbox"
                         id={`add-${idx}`}
                         checked={selectedSyncItems.added.includes(idx)}
@@ -175,15 +169,15 @@ export default function SyncPlanModal({
                   )}
                 </strong>
               </h6>
-              <div className="form-check sync-modal-select-all">
-                <input
-                  className="form-check-input"
+              <div className="sync-modal-select-all">
+                <FormCheck
                   type="checkbox"
                   id="selectAllRemoved"
                   checked={
                     selectedSyncItems.removed.length ===
                     syncChanges.removed.length
                   }
+                  label={lang.current.label.selectAll}
                   onChange={(e) => {
                     if (e.target.checked) {
                       setSelectedSyncItems((prev) => ({
@@ -198,12 +192,6 @@ export default function SyncPlanModal({
                     }
                   }}
                 />
-                <label
-                  className="form-check-label"
-                  htmlFor="selectAllRemoved"
-                >
-                  {lang.current.label.selectAll}
-                </label>
               </div>
             </div>
             <div className="list-group">
@@ -213,9 +201,8 @@ export default function SyncPlanModal({
                   className="list-group-item list-group-item-danger"
                 >
                   <div className="d-flex align-items-start">
-                    <div className="form-check me-3 mt-1">
-                      <input
-                        className="form-check-input"
+                    <div className="me-3 mt-1">
+                      <FormCheck
                         type="checkbox"
                         id={`remove-${idx}`}
                         checked={selectedSyncItems.removed.includes(idx)}
@@ -263,15 +250,15 @@ export default function SyncPlanModal({
                   )}
                 </strong>
               </h6>
-              <div className="form-check sync-modal-select-all">
-                <input
-                  className="form-check-input"
+              <div className="sync-modal-select-all">
+                <FormCheck
                   type="checkbox"
                   id="selectAllModified"
                   checked={
                     selectedSyncItems.modified.length ===
                     syncChanges.modified.length
                   }
+                  label={lang.current.label.selectAll}
                   onChange={(e) => {
                     if (e.target.checked) {
                       setSelectedSyncItems((prev) => ({
@@ -286,21 +273,14 @@ export default function SyncPlanModal({
                     }
                   }}
                 />
-                <label
-                  className="form-check-label"
-                  htmlFor="selectAllModified"
-                >
-                  {lang.current.label.selectAll}
-                </label>
               </div>
             </div>
             <div className="list-group">
               {syncChanges.modified.map((item, idx) => (
                 <div key={idx} className="list-group-item">
                   <div className="d-flex align-items-start">
-                    <div className="form-check me-3 mt-1">
-                      <input
-                        className="form-check-input"
+                    <div className="me-3 mt-1">
+                      <FormCheck
                         type="checkbox"
                         id={`modify-${idx}`}
                         checked={selectedSyncItems.modified.includes(idx)}

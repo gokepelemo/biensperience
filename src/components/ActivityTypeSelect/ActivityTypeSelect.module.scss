@@ -1,0 +1,311 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * ActivityTypeSelect Component Styles
+ * Autocomplete dropdown with category grouping
+ */
+
+.activityTypeSelect {
+  position: relative;
+  width: 100%;
+}
+
+// Size variants
+.sm {
+  .input {
+    height: var(--btn-height-sm, 36px);
+    padding: 0.25rem 2.5rem 0.25rem 0.5rem;
+    font-size: var(--font-size-sm, 0.875rem);
+  }
+
+  .selectedBadge {
+    padding: 0.125rem 0.5rem;
+    font-size: var(--font-size-xs, 0.75rem);
+  }
+
+  .option {
+    padding: 0.375rem 0.75rem;
+    font-size: var(--font-size-sm, 0.875rem);
+  }
+}
+
+.md {
+  .input {
+    height: var(--btn-height-md, 44px);
+    padding: 0.375rem 2.5rem 0.375rem 0.75rem;
+    font-size: var(--font-size-base, 1rem);
+  }
+
+  .selectedBadge {
+    padding: 0.25rem 0.625rem;
+    font-size: var(--font-size-sm, 0.875rem);
+  }
+
+  .option {
+    padding: 0.5rem 0.875rem;
+  }
+}
+
+.lg {
+  .input {
+    height: var(--btn-height-lg, 52px);
+    padding: 0.5rem 2.75rem 0.5rem 1rem;
+    font-size: var(--font-size-lg, 1.125rem);
+  }
+
+  .selectedBadge {
+    padding: 0.375rem 0.75rem;
+    font-size: var(--font-size-base, 1rem);
+  }
+
+  .option {
+    padding: 0.625rem 1rem;
+    font-size: var(--font-size-lg, 1.125rem);
+  }
+}
+
+// Input wrapper
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+// Input field
+.input {
+  width: 100%;
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: var(--border-radius-md, 0.375rem);
+  background-color: var(--color-bg-primary, #fff);
+  color: var(--color-text-primary, #212529);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary, #0d6efd);
+    box-shadow: 0 0 0 0.2rem rgba(var(--color-primary-rgb, 13, 110, 253), 0.25);
+  }
+
+  &:disabled {
+    background-color: var(--color-bg-secondary, #e9ecef);
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+
+  &.hasSelection {
+    color: transparent;
+    caret-color: var(--color-text-primary, #212529);
+  }
+
+  &::placeholder {
+    color: var(--color-text-muted, #6c757d);
+  }
+}
+
+// Selected badge (shown when value is selected)
+.selectedBadge {
+  position: absolute;
+  left: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background-color: var(--color-bg-tertiary, #f8f9fa);
+  border-radius: var(--border-radius-sm, 0.25rem);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.selectedIcon {
+  font-size: 1em;
+  line-height: 1;
+}
+
+.selectedLabel {
+  font-weight: 500;
+  color: var(--color-text-primary, #212529);
+  white-space: nowrap;
+}
+
+// Clear button
+.clearButton {
+  position: absolute;
+  right: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: var(--color-bg-tertiary, #e9ecef);
+  color: var(--color-text-secondary, #6c757d);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background-color: var(--color-danger-bg, #dc3545);
+    color: var(--color-text-inverse, #fff);
+  }
+}
+
+// Dropdown arrow
+.arrow {
+  position: absolute;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted, #6c757d);
+  pointer-events: none;
+  transition: transform 0.15s ease;
+}
+
+// Dropdown
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1060; // Higher than Bootstrap modal (1055) and modal-backdrop (1050)
+  max-height: 320px;
+  margin-top: 4px;
+  overflow-y: auto;
+  background-color: var(--color-bg-primary, #fff);
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: var(--border-radius-md, 0.375rem);
+  box-shadow: var(--shadow-lg, 0 0.5rem 1rem rgba(0, 0, 0, 0.15));
+
+  // Custom scrollbar
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--color-border, #dee2e6);
+    border-radius: 3px;
+
+    &:hover {
+      background-color: var(--color-text-muted, #6c757d);
+    }
+  }
+}
+
+// Category group
+.categoryGroup {
+  &:not(:first-child) {
+    border-top: 1px solid var(--color-border-light, #f0f0f0);
+  }
+}
+
+// Category header
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem 0.375rem;
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted, #6c757d);
+  background-color: var(--color-bg-secondary, #f8f9fa);
+}
+
+.categoryIcon {
+  font-size: 0.875rem;
+  line-height: 1;
+}
+
+.categoryLabel {
+  flex: 1;
+}
+
+// Option item
+.option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+
+  &:hover,
+  &.highlighted {
+    background-color: var(--color-bg-hover, #e9ecef);
+  }
+
+  &.selected {
+    background-color: var(--color-primary-bg, rgba(13, 110, 253, 0.1));
+    color: var(--color-primary, #0d6efd);
+  }
+
+  &.selected.highlighted {
+    background-color: var(--color-primary-bg-hover, rgba(13, 110, 253, 0.2));
+  }
+}
+
+.optionIcon {
+  font-size: 1.125em;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.optionLabel {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.checkmark {
+  margin-left: auto;
+  color: var(--color-success, #198754);
+  font-weight: 600;
+}
+
+// No results message
+.noResults {
+  padding: 1rem;
+  text-align: center;
+  color: var(--color-text-muted, #6c757d);
+  font-style: italic;
+}
+
+// Dark mode support
+:global([data-theme='dark']) {
+  .input {
+    background-color: var(--color-bg-primary-dark, #1a1a2e);
+    border-color: var(--color-border-dark, #3a3a4a);
+    color: var(--color-text-primary-dark, #e0e0e0);
+  }
+
+  .selectedBadge {
+    background-color: var(--color-bg-tertiary-dark, #2a2a3e);
+  }
+
+  .dropdown {
+    background-color: var(--color-bg-primary-dark, #1a1a2e);
+    border-color: var(--color-border-dark, #3a3a4a);
+  }
+
+  .categoryHeader {
+    background-color: var(--color-bg-secondary-dark, #252538);
+  }
+
+  .option {
+    &:hover,
+    &.highlighted {
+      background-color: var(--color-bg-hover-dark, #2a2a3e);
+    }
+  }
+
+  .clearButton {
+    background-color: var(--color-bg-tertiary-dark, #3a3a4a);
+  }
+}
