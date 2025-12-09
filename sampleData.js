@@ -1599,6 +1599,8 @@ class DataGenerator {
         const linkedItem = isItemLinked ? getRandomElement(planItems) : null;
         const costAmount = Math.max(5, Math.round((linkedItem ? (linkedItem.cost || 50) : randomBetween(10, 500)) * (0.8 + Math.random() * 1.2)));
         // 50% of costs are associated with a specific collaborator (who paid)
+        // Shared plan expenses are costs NOT assigned to any collaborator (collaborator: undefined)
+        // These are split evenly among all plan participants
         const collaboratorForCost = Math.random() < 0.5 ? getRandomElement(collaborators) : null;
         // 85% of costs have a category assigned
         const hasCategory = Math.random() < 0.85;
@@ -1611,7 +1613,7 @@ class DataGenerator {
           title: isItemLinked ? `Cost for: ${linkedItem.text}` : getRandomElement(sharedCostTitles),
           description: isItemLinked
             ? `Tracked expense for '${linkedItem.text}'`
-            : `Shared plan expense - ${collaboratorForCost ? 'paid by collaborator' : 'split among all'}`,
+            : collaboratorForCost ? 'Individual expense paid by a collaborator' : 'Shared expense split among all participants',
           cost: costAmount,
           currency: getRandomElement(currencyOptions),
           category: hasCategory ? getRandomElement(categoryOptions) : null,

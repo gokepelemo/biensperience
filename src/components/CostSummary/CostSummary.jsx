@@ -31,7 +31,6 @@ import {
   FaEllipsisH
 } from 'react-icons/fa';
 import { formatActualCost } from '../../utilities/cost-utils';
-import { getCurrencySymbol } from '../../utilities/currency-utils';
 import { convertCostToTarget, fetchRates } from '../../utilities/currency-conversion';
 import { lang } from '../../lang.constants';
 import UserAvatar from '../UserAvatar/UserAvatar';
@@ -171,7 +170,6 @@ function CategoryBreakdown({ costsByCategory, totalCost, currency }) {
  */
 function PerPersonSplitTable({ perPersonSplit, sharedCosts, currency, collaboratorCount }) {
   const costStrings = lang.current.cost;
-  const symbol = getCurrencySymbol(currency);
 
   if (!perPersonSplit || perPersonSplit.length <= 1) {
     return null;
@@ -199,10 +197,10 @@ function PerPersonSplitTable({ perPersonSplit, sharedCosts, currency, collaborat
                   <span>{split.collaborator?.name || split.collaborator?.email || 'Unknown'}</span>
                 </div>
               </td>
-              <td>{symbol}{(split.individualTotal || 0).toFixed(2)}</td>
-              <td>{symbol}{(split.sharedPortion || 0).toFixed(2)}</td>
+              <td>{formatActualCost(split.individualTotal || 0, { currency, exact: true })}</td>
+              <td>{formatActualCost(split.sharedPortion || 0, { currency, exact: true })}</td>
               <td className={styles.grandTotalCell}>
-                {symbol}{(split.grandTotal || 0).toFixed(2)}
+                {formatActualCost(split.grandTotal || 0, { currency, exact: true })}
               </td>
             </tr>
           ))}
