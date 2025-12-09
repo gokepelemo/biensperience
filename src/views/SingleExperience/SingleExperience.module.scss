@@ -2479,7 +2479,7 @@
   position: absolute;
   top: 100%;
   right: 0;
-  z-index: 100;
+  z-index: 1050; /* Higher z-index to overlay all other elements */
   min-width: 160px;
   margin-top: var(--space-1);
   padding: var(--space-1) 0;
