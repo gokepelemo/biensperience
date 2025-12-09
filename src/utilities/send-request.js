@@ -8,6 +8,7 @@ import {
     extractError,
     handleNetworkError
 } from './error-handler';
+import { getRequestQueue, PRIORITY } from './request-queue';
 
 // CSRF token cache
 let csrfToken = null;
@@ -363,3 +364,55 @@ export async function uploadFile(url, method = "POST", payload = null) {
         throw error;
     }
 }
+
+/**
+ * Queued version of sendRequest with rate limiting
+ *
+ * Uses the RequestQueue to prevent backend overload while maintaining
+ * responsive user experience. Critical requests (auth, session) bypass the queue.
+ *
+ * @param {string} url - The URL to send the request to
+ * @param {string} [method="GET"] - HTTP method
+ * @param {Object} [payload=null] - Request payload
+ * @param {Object} [requestOptions={}] - Additional options
+ * @param {number} [requestOptions.priority] - Priority level (use PRIORITY constants)
+ * @param {boolean} [requestOptions.critical] - If true, bypasses queue
+ * @param {string} [requestOptions.label] - Human-readable label for debugging
+ * @returns {Promise<Object>} Response data as JSON
+ */
+export async function sendQueuedRequest(url, method = "GET", payload = null, requestOptions = {}) {
+    // Determine priority based on request type
+    const isStateChanging = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
+
+    // Auth and session requests are critical - bypass queue entirely
+    const isCritical = url.includes('/api/auth/') ||
+                       url.includes('/api/session') ||
+                       requestOptions.critical === true;
+
+    if (isCritical) {
+        // Critical requests bypass the queue
+        logger.debug('[send-request] Critical request - bypassing queue', { url, method });
+        return sendRequest(url, method, payload, requestOptions);
+    }
+
+    const priority = requestOptions.priority ?? (
+        isStateChanging ? PRIORITY.HIGH : PRIORITY.NORMAL
+    );
+
+    const queue = getRequestQueue();
+
+    return queue.enqueue(
+        () => sendRequest(url, method, payload, requestOptions),
+        {
+            priority,
+            url,
+            method,
+            payload,
+            label: requestOptions.label || url.split('/').slice(-2).join('/'),
+            coalesce: method === 'GET' && requestOptions.coalesce !== false,
+        }
+    );
+}
+
+// Re-export PRIORITY for consumers
+export { PRIORITY };

@@ -1,4 +1,4 @@
-import { sendRequest } from './send-request.js';
+import { sendRequest, sendQueuedRequest, PRIORITY } from './send-request.js';
 import { logger } from './logger';
 import { broadcastEvent } from './event-bus';
 
@@ -16,7 +16,8 @@ export async function getDestinations (filters = {}) {
     Object.entries(filters || {}).forEach(([k, v]) => {
         if (v !== undefined && v !== null) params.append(k, v);
     });
-    const resp = await sendRequest(`${BASE_URL}?${params.toString()}`, "GET");
+    // Use queued request for rate limiting and coalescing
+    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/list' });
     // Return full response with { data, meta } for pagination support
     return resp;
 }
@@ -28,7 +29,7 @@ export async function getDestinations (filters = {}) {
 export async function getFavorites(userId) {
     if (!userId) return [];
     const params = new URLSearchParams({ favorited_by: String(userId) });
-    const resp = await sendRequest(`${BASE_URL}?${params.toString()}`, "GET");
+    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/favorites' });
 
     // Controller returns an array when favorited_by is used
     if (Array.isArray(resp)) return resp;
@@ -42,7 +43,7 @@ export async function getDestinationsPage(page = 1, limit = 30, filters = {}) {
     Object.entries(filters || {}).forEach(([k, v]) => {
         if (v !== undefined && v !== null) params.append(k, v);
     });
-    return await sendRequest(`${BASE_URL}?${params.toString()}`, "GET");
+    return await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/page' });
 }
 
 /**
@@ -79,7 +80,11 @@ export async function createDestination (destinationData) {
  * @returns {Promise<Object>} Destination object
  */
 export async function showDestination (id) {
-    return await sendRequest(`${BASE_URL}${id}`, "GET")
+    // Critical navigation - use high priority for instant perception
+    return await sendQueuedRequest(`${BASE_URL}${id}`, "GET", null, {
+        priority: PRIORITY.HIGH,
+        label: `destination/${id}`
+    });
 }
 
 /**

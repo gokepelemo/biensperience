@@ -15,7 +15,23 @@
  * - Insert: O(k) where k = length of string
  * - Search: O(m) where m = length of query
  * - Memory: O(n * k) where n = number of strings, k = average length
+ *
+ * Ranking scores (higher = better match):
+ * - SCORE_EXACT_MATCH (1000): Exact field match "Paris" === "Paris"
+ * - SCORE_EXACT_WORD (500): Exact word in field "Paris" in "Paris, France"
+ * - SCORE_STARTS_WITH (300): Field starts with query "Par" → "Paris"
+ * - SCORE_WORD_STARTS (200): Word starts with query "Fra" → "Paris, France"
+ * - SCORE_CONTAINS (100): Field contains query "ari" → "Paris"
+ * - SCORE_PREFIX_MATCH (50): Trie prefix match (base)
  */
+
+// Ranking score constants
+const SCORE_EXACT_MATCH = 1000;   // Exact field match
+const SCORE_EXACT_WORD = 500;    // Exact word match within field
+const SCORE_STARTS_WITH = 300;   // Field starts with query
+const SCORE_WORD_STARTS = 200;   // Word in field starts with query
+const SCORE_CONTAINS = 100;      // Field contains query substring
+const SCORE_PREFIX_MATCH = 50;   // Basic trie prefix match
 
 /**
  * TrieNode - Node in the trie tree
@@ -264,33 +280,75 @@ class TrieFilter {
   }
 
   /**
+   * Calculate match score for a query against a field value
+   * @param {string} query - Full search query (normalized)
+   * @param {string} queryWord - Individual query word (normalized)
+   * @param {string} fieldValue - Field value (normalized)
+   * @returns {number} Match score
+   * @private
+   */
+  _calculateMatchScore(query, queryWord, fieldValue) {
+    // Exact field match (highest priority)
+    if (fieldValue === query) {
+      return SCORE_EXACT_MATCH;
+    }
+
+    // Split field into words for word-level matching
+    const fieldWords = fieldValue.split(/\s+/).map(w => w.replace(/[^\w]/g, ''));
+
+    // Exact word match within field
+    if (fieldWords.includes(queryWord)) {
+      return SCORE_EXACT_WORD;
+    }
+
+    // Field starts with query
+    if (fieldValue.startsWith(query)) {
+      return SCORE_STARTS_WITH;
+    }
+
+    // Any word starts with query word
+    if (fieldWords.some(word => word.startsWith(queryWord))) {
+      return SCORE_WORD_STARTS;
+    }
+
+    // Field contains query as substring
+    if (fieldValue.includes(query) || fieldValue.includes(queryWord)) {
+      return SCORE_CONTAINS;
+    }
+
+    // Base trie prefix match
+    return SCORE_PREFIX_MATCH;
+  }
+
+  /**
    * Filter items by query string
    * @param {string} query - Search query
    * @param {Object} options - Filter options
    * @param {boolean} options.rankResults - Sort by relevance (default: true)
    * @param {number} options.limit - Max results to return
+   * @param {boolean} options.includeSubstringMatches - Include items containing query as substring (default: true)
    * @returns {Array} Filtered items
    */
   filter(query, options = {}) {
-    const { rankResults = true, limit = Infinity } = options;
+    const { rankResults = true, limit = Infinity, includeSubstringMatches = true } = options;
 
     if (!query || query.trim().length === 0) {
       return limit === Infinity ? this.items : this.items.slice(0, limit);
     }
 
+    const normalizedQuery = query.toLowerCase().trim();
     const queryWords = this.tokenize(query);
     const itemScores = new Map();
 
+    // Phase 1: Trie-based prefix matching (fast)
     queryWords.forEach(queryWord => {
       const matchingIndices = this.trie.search(queryWord);
 
       matchingIndices.forEach(index => {
         const currentScore = itemScores.get(index) || 0;
+        let bestScore = SCORE_PREFIX_MATCH;
 
-        // Calculate score based on match quality
-        let scoreIncrement = 10; // Base score
-
-        // Check each field for better match quality
+        // Check each field for best match quality
         this.fields.forEach(field => {
           const path = typeof field === 'function' ? null : (field.path || field);
           if (!path) return;
@@ -299,25 +357,45 @@ class TrieFilter {
           if (!value || typeof value !== 'string') return;
 
           const normalizedValue = value.toLowerCase();
-
-          // Exact phrase match (highest)
-          if (normalizedValue.includes(query.toLowerCase())) {
-            scoreIncrement = Math.max(scoreIncrement, 100);
-          }
-          // Starts with query (high)
-          else if (normalizedValue.startsWith(queryWord)) {
-            scoreIncrement = Math.max(scoreIncrement, 80);
-          }
-          // Word boundary match (medium)
-          else if (new RegExp(`\\b${queryWord}`, 'i').test(normalizedValue)) {
-            scoreIncrement = Math.max(scoreIncrement, 50);
-          }
+          const fieldScore = this._calculateMatchScore(normalizedQuery, queryWord, normalizedValue);
+          bestScore = Math.max(bestScore, fieldScore);
         });
 
-        itemScores.set(index, currentScore + scoreIncrement);
+        // Add score, boosting for multiple query word matches
+        itemScores.set(index, currentScore + bestScore);
       });
     });
 
+    // Phase 2: Substring matching for items not found by trie (catches partial matches)
+    if (includeSubstringMatches && normalizedQuery.length >= 2) {
+      this.items.forEach((item, index) => {
+        // Skip if already found by trie
+        if (itemScores.has(index)) return;
+
+        let bestScore = 0;
+
+        this.fields.forEach(field => {
+          const path = typeof field === 'function' ? null : (field.path || field);
+          if (!path) return;
+
+          const value = this._getNestedValue(item, path);
+          if (!value || typeof value !== 'string') return;
+
+          const normalizedValue = value.toLowerCase();
+
+          // Check for substring match
+          if (normalizedValue.includes(normalizedQuery)) {
+            bestScore = Math.max(bestScore, SCORE_CONTAINS);
+          }
+        });
+
+        if (bestScore > 0) {
+          itemScores.set(index, bestScore);
+        }
+      });
+    }
+
+    // Phase 3: Build and sort results
     let results = Array.from(itemScores.entries())
       .map(([index, score]) => ({ item: this.items[index], score }));
 
@@ -328,6 +406,85 @@ class TrieFilter {
     results = results.slice(0, limit).map(({ item }) => item);
 
     return results;
+  }
+
+  /**
+   * Filter items by query string, returning results with scores
+   * @param {string} query - Search query
+   * @param {Object} options - Filter options (same as filter())
+   * @returns {Array<{item: Object, score: number}>} Filtered items with scores
+   */
+  filterWithScores(query, options = {}) {
+    const { rankResults = true, limit = Infinity, includeSubstringMatches = true } = options;
+
+    if (!query || query.trim().length === 0) {
+      const items = limit === Infinity ? this.items : this.items.slice(0, limit);
+      return items.map(item => ({ item, score: 0 }));
+    }
+
+    const normalizedQuery = query.toLowerCase().trim();
+    const queryWords = this.tokenize(query);
+    const itemScores = new Map();
+
+    // Phase 1: Trie-based prefix matching (fast)
+    queryWords.forEach(queryWord => {
+      const matchingIndices = this.trie.search(queryWord);
+
+      matchingIndices.forEach(index => {
+        const currentScore = itemScores.get(index) || 0;
+        let bestScore = SCORE_PREFIX_MATCH;
+
+        this.fields.forEach(field => {
+          const path = typeof field === 'function' ? null : (field.path || field);
+          if (!path) return;
+
+          const value = this._getNestedValue(this.items[index], path);
+          if (!value || typeof value !== 'string') return;
+
+          const normalizedValue = value.toLowerCase();
+          const fieldScore = this._calculateMatchScore(normalizedQuery, queryWord, normalizedValue);
+          bestScore = Math.max(bestScore, fieldScore);
+        });
+
+        itemScores.set(index, currentScore + bestScore);
+      });
+    });
+
+    // Phase 2: Substring matching
+    if (includeSubstringMatches && normalizedQuery.length >= 2) {
+      this.items.forEach((item, index) => {
+        if (itemScores.has(index)) return;
+
+        let bestScore = 0;
+
+        this.fields.forEach(field => {
+          const path = typeof field === 'function' ? null : (field.path || field);
+          if (!path) return;
+
+          const value = this._getNestedValue(item, path);
+          if (!value || typeof value !== 'string') return;
+
+          const normalizedValue = value.toLowerCase();
+          if (normalizedValue.includes(normalizedQuery)) {
+            bestScore = Math.max(bestScore, SCORE_CONTAINS);
+          }
+        });
+
+        if (bestScore > 0) {
+          itemScores.set(index, bestScore);
+        }
+      });
+    }
+
+    // Phase 3: Build and sort results
+    let results = Array.from(itemScores.entries())
+      .map(([index, score]) => ({ item: this.items[index], score }));
+
+    if (rankResults) {
+      results.sort((a, b) => b.score - a.score);
+    }
+
+    return results.slice(0, limit);
   }
 
   /**
@@ -377,6 +534,16 @@ export function createSimpleFilter(fieldPaths) {
 export function createFilter(config) {
   return new TrieFilter(config);
 }
+
+// Export score constants for external use
+export const SCORES = {
+  EXACT_MATCH: SCORE_EXACT_MATCH,
+  EXACT_WORD: SCORE_EXACT_WORD,
+  STARTS_WITH: SCORE_STARTS_WITH,
+  WORD_STARTS: SCORE_WORD_STARTS,
+  CONTAINS: SCORE_CONTAINS,
+  PREFIX_MATCH: SCORE_PREFIX_MATCH
+};
 
 export { Trie, TrieNode, TrieFilter };
 export default TrieFilter;

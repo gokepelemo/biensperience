@@ -1,4 +1,4 @@
-import { sendRequest } from "./send-request.js";
+import { sendRequest, sendQueuedRequest, PRIORITY } from "./send-request.js";
 import { normalizeUrl } from "./url-utils.js";
 import { logger } from './logger';
 import { broadcastEvent } from './event-bus';
@@ -19,7 +19,8 @@ export async function getExperiences(filters = {}) {
   });
   const url = `${BASE_URL}?${params.toString()}`;
   logger.debug('getExperiences request', { url, filters });
-  const resp = await sendRequest(url, "GET");
+  // Use queued request for rate limiting and coalescing
+  const resp = await sendQueuedRequest(url, "GET", null, { label: 'experiences/list' });
   // Return full response with { data, meta } for pagination support
   return resp;
 }
@@ -30,14 +31,14 @@ export async function getExperiencesPage(page = 1, limit = 30, filters = {}) {
     if (k.startsWith('__')) return; // Skip client-only filters like __viewSpecific, __noApiParam
     if (v !== undefined && v !== null) params.append(k, v);
   });
-  return await sendRequest(`${BASE_URL}?${params.toString()}`, "GET");
+  return await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'experiences/page' });
 }
 
 export async function getExperienceTags(filters = {}) {
   const params = new URLSearchParams();
   if (filters.q) params.append('q', filters.q);
   const url = params.toString() ? `${BASE_URL}tags?${params.toString()}` : `${BASE_URL}tags`;
-  const resp = await sendRequest(url, "GET");
+  const resp = await sendQueuedRequest(url, "GET", null, { label: 'experiences/tags' });
   // Return full response for consistency
   return resp;
 }
@@ -60,13 +61,21 @@ export async function createExperience(experienceData) {
 }
 
 export async function showExperience(id) {
-  return await sendRequest(`${BASE_URL}${id}`, "GET");
+  // Critical navigation - use high priority for instant perception
+  return await sendQueuedRequest(`${BASE_URL}${id}`, "GET", null, {
+    priority: PRIORITY.HIGH,
+    label: `experience/${id}`
+  });
 }
 
 // OPTIMIZATION: Fetch experience with full context (experience + userPlan + sharedPlans)
 // Reduces 3 API calls to 1 for dramatically faster page load
 export async function showExperienceWithContext(id) {
-  return await sendRequest(`${BASE_URL}${id}/with-context`, "GET");
+  // Critical navigation - use high priority for instant perception
+  return await sendQueuedRequest(`${BASE_URL}${id}/with-context`, "GET", null, {
+    priority: PRIORITY.HIGH,
+    label: `experience/${id}/context`
+  });
 }
 
 export async function deleteExperience(id) {

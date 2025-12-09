@@ -540,6 +540,12 @@ const TIMEZONE_OPTIONS = [
 ];
 
 /**
+ * Pre-built Set for O(1) timezone validation
+ * Avoids O(n) .some() lookup on every timezone check
+ */
+const VALID_TIMEZONES = new Set(TIMEZONE_OPTIONS.map(opt => opt.value));
+
+/**
  * Get timezone options for select dropdown
  * @returns {Array<{value: string, label: string}>} Array of timezone options
  */
@@ -644,8 +650,8 @@ export function getTimezone(profile = null) {
   // If not set, detect from browser
   if (!tz || tz === 'UTC') {
     const detected = detectUserTimezone();
-    // Only use detected if it's a valid timezone from our list
-    if (TIMEZONE_OPTIONS.some(opt => opt.value === detected)) {
+    // O(1) Set lookup instead of O(n) array.some()
+    if (VALID_TIMEZONES.has(detected)) {
       return detected;
     }
   }

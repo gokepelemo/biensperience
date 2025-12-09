@@ -12,9 +12,23 @@
 const http = require('http');
 const app = require('./app');
 const backendLogger = require('./utilities/backend-logger');
+const { updateExchangeRates } = require('./utilities/exchange-rate-updater');
 
 const port = process.env.PORT || 3001;
 const wsEnabled = process.env.WEBSOCKET_ENABLED === 'true';
+
+// Update exchange rates on server start (async, non-blocking)
+updateExchangeRates()
+  .then(success => {
+    if (success) {
+      backendLogger.info('Exchange rates updated successfully');
+    } else {
+      backendLogger.warn('Exchange rates update skipped or failed, using existing fallback rates');
+    }
+  })
+  .catch(err => {
+    backendLogger.error('Exchange rates update error', { error: err.message });
+  });
 
 // Create HTTP server from Express app
 const server = http.createServer(app);

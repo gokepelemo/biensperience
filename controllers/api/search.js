@@ -86,6 +86,15 @@ function levenshtein(a = '', b = '') {
 /**
  * Compute a relevance score between 0 and 1 for an item against a query.
  * Uses a mix of exact/startsWith/includes checks and normalized Levenshtein similarity.
+ *
+ * Score priority (highest to lowest):
+ * 1.0     - Exact match (text === query)
+ * 0.98    - Text contains query as complete phrase (for long queries)
+ * 0.95    - Query contains text as complete phrase (query is superset)
+ * 0.90-1.0 - Text starts with query
+ * 0.85    - Any word in text starts with query
+ * 0.70-0.90 - Text contains query as substring
+ * 0.0-0.60 - Levenshtein similarity fallback
  */
 function computeRelevanceScore(query, item) {
   const q = normalize(query);
@@ -98,40 +107,79 @@ function computeRelevanceScore(query, item) {
 
   if (candidates.length === 0) return 0;
 
+  const qWords = q.split(/\s+/).filter(Boolean);
+  const isMultiWordQuery = qWords.length > 1;
+
   let best = 0;
   for (const text of candidates) {
     if (!text) continue;
 
-    // Exact match boost
+    // Exact match - highest priority
     if (text === q) {
       best = Math.max(best, 1.0);
       continue;
+    }
+
+    // For multi-word queries, check for complete phrase containment
+    if (isMultiWordQuery) {
+      // Text contains the entire query as a phrase (exact sentence match)
+      // e.g., query="hidden gems of helsinki" in text="hidden gems of helsinki monsoon season"
+      if (text.includes(q)) {
+        // Score based on how much of the text is covered by the query
+        const coverage = q.length / text.length;
+        // High coverage = better match (query is most of the text)
+        const score = 0.92 + (0.06 * coverage); // 0.92-0.98
+        best = Math.max(best, score);
+        continue;
+      }
+
+      // Query contains the entire text as a phrase
+      // e.g., query="hidden gems of helsinki monsoon season adventures" contains text="hidden gems of helsinki"
+      if (q.includes(text)) {
+        const coverage = text.length / q.length;
+        const score = 0.88 + (0.07 * coverage); // 0.88-0.95
+        best = Math.max(best, score);
+        continue;
+      }
+
+      // All query words appear in text (word-level AND match)
+      const textWords = text.split(/\s+/).filter(Boolean);
+      const allWordsMatch = qWords.every(qw =>
+        textWords.some(tw => tw === qw || tw.startsWith(qw))
+      );
+      if (allWordsMatch) {
+        // Score based on word order similarity
+        const wordMatchCount = qWords.filter(qw => textWords.includes(qw)).length;
+        const exactWordRatio = wordMatchCount / qWords.length;
+        const score = 0.80 + (0.08 * exactWordRatio); // 0.80-0.88
+        best = Math.max(best, score);
+      }
     }
 
     // Starts with boost
     if (text.startsWith(q)) {
       // Longer prefix match slightly better
       const pct = Math.min(1, q.length / Math.max(1, text.length));
-      best = Math.max(best, 0.9 + 0.1 * pct);
+      best = Math.max(best, 0.90 + 0.08 * pct); // 0.90-0.98
     }
 
     // Word-boundary startsWith
-    const words = text.split(' ');
+    const words = text.split(/\s+/);
     if (words.some(w => w.startsWith(q))) {
       best = Math.max(best, 0.85);
     }
 
-    // Includes
+    // Includes (substring match) - for single words or partial matches
     if (text.includes(q)) {
       const pct = Math.min(1, q.length / Math.max(1, text.length));
-      best = Math.max(best, 0.8 * pct + 0.1); // cap below startsWith
+      best = Math.max(best, 0.70 + (0.15 * pct)); // 0.70-0.85
     }
 
-    // Levenshtein similarity (normalized)
+    // Levenshtein similarity (normalized) - fuzzy fallback
     const dist = levenshtein(text, q);
     const maxLen = Math.max(text.length, q.length) || 1;
     const sim = 1 - dist / maxLen; // 0..1
-    best = Math.max(best, 0.6 * sim); // modest weight
+    best = Math.max(best, 0.6 * sim); // modest weight, max 0.6
   }
 
   // Small type-based adjustments (optional): prioritize exact entity names slightly
@@ -150,7 +198,8 @@ function getCandidateStrings(item) {
     case 'destination':
       return [item.name, item.city, item.country, item.description];
     case 'experience':
-      return [item.name, item.description, item.experience_type?.[0], item.destination?.name, item.destinationName];
+      // Experience model uses 'overview' not 'description'
+      return [item.name, item.overview, item.experience_type?.[0], item.destination?.name, item.destinationName];
     case 'plan':
       return [item.experience?.name, item.experience?.title, item.title, item.description];
     case 'user':
@@ -189,15 +238,149 @@ function escapeRegex(string) {
 function buildRegexSearchQuery(query, fields) {
   // Escape special regex characters to prevent injection
   const escapedQuery = escapeRegex(query);
-  const regex = new RegExp(escapedQuery.split(' ').join('|'), 'i');
+
+  // For multi-word queries, create a more sophisticated search:
+  // 1. First priority: exact phrase match (escaped query as-is)
+  // 2. Second priority: all words must appear (AND logic via lookahead)
+  // 3. Third priority: any word matches (OR logic)
+  const words = escapedQuery.split(/\s+/).filter(w => w.length > 0);
+
+  logger.debug('buildRegexSearchQuery', {
+    query,
+    escapedQuery,
+    wordCount: words.length,
+    words: words.slice(0, 10) // Limit to 10 words in log
+  });
+
+  if (words.length === 1) {
+    // Single word: simple contains match
+    const regex = new RegExp(words[0], 'i');
+    return {
+      $or: fields.map(field => ({ [field]: regex }))
+    };
+  }
+
+  // Multi-word query: match the full phrase OR all words (AND)
+  // Using lookahead for AND: (?=.*word1)(?=.*word2).*
+  const andPattern = words.map(w => `(?=.*${w})`).join('') + '.*';
+  const andRegex = new RegExp(andPattern, 'i');
+
+  // Also allow OR matching for partial results
+  const orRegex = new RegExp(words.join('|'), 'i');
+
+  logger.debug('buildRegexSearchQuery patterns', {
+    phrasePattern: escapedQuery,
+    andPattern: andPattern.slice(0, 100),
+    orPattern: words.join('|').slice(0, 100)
+  });
+
+  // Build query that prefers phrase/AND matches
   return {
-    $or: fields.map(field => ({ [field]: regex }))
+    $or: [
+      // Exact phrase match (highest priority in results)
+      ...fields.map(field => ({ [field]: new RegExp(escapedQuery, 'i') })),
+      // All words present (AND)
+      ...fields.map(field => ({ [field]: andRegex })),
+      // Any word present (OR) - for broader results
+      ...fields.map(field => ({ [field]: orRegex }))
+    ]
   };
+}
+
+/**
+ * Check if a string is a valid MongoDB ObjectId
+ * @param {string} str - String to check
+ * @returns {boolean} True if valid ObjectId
+ */
+function isValidObjectId(str) {
+  return mongoose.Types.ObjectId.isValid(str) && /^[a-fA-F0-9]{24}$/.test(str);
+}
+
+/**
+ * Lookup an entity directly by ObjectId
+ * Returns the entity with type and isDirectMatch flag for "I'm feeling lucky" behavior
+ * @param {string} id - ObjectId to lookup
+ * @param {Object} user - Current user
+ * @returns {Promise<Object|null>} Entity with type, or null if not found
+ */
+async function lookupByObjectId(id, user) {
+  const objectId = new mongoose.Types.ObjectId(id);
+
+  // Try each collection in order of likelihood
+  // Experience first (most common use case)
+  const experience = await Experience.findById(objectId)
+    .populate('destination', 'name city country')
+    .select('name description destination experience_type photos')
+    .lean();
+
+  if (experience) {
+    return {
+      ...experience,
+      type: 'experience',
+      isDirectMatch: true,
+      score: 1.0
+    };
+  }
+
+  // Try destination
+  const destination = await Destination.findById(objectId)
+    .select('name city country description photos')
+    .lean();
+
+  if (destination) {
+    const expCount = await Experience.countDocuments({ destination: objectId });
+    return {
+      ...destination,
+      type: 'destination',
+      experienceCount: expCount,
+      isDirectMatch: true,
+      score: 1.0
+    };
+  }
+
+  // Try plan (only if user has access)
+  const plan = await Plan.findOne({
+    _id: objectId,
+    $or: [
+      { user: user._id },
+      { 'permissions.user': user._id }
+    ]
+  })
+    .populate('experience', 'name title description')
+    .lean();
+
+  if (plan) {
+    return {
+      ...plan,
+      type: 'plan',
+      isDirectMatch: true,
+      score: 1.0
+    };
+  }
+
+  // Try user
+  const foundUser = await User.findById(objectId)
+    .select(isSuperAdmin(user) ? 'name email role photos default_photo_id' : 'name photos default_photo_id')
+    .lean();
+
+  if (foundUser) {
+    return {
+      ...foundUser,
+      type: 'user',
+      isDirectMatch: true,
+      score: 1.0
+    };
+  }
+
+  return null;
 }
 
 /**
  * Search all collections
  * GET /api/search?q=query&types=destination,experience&limit=10
+ *
+ * Special behavior: If query is a valid ObjectId, returns direct match
+ * with isDirectMatch=true for "I'm feeling lucky" redirect behavior
  */
 async function searchAll(req, res) {
   try {
@@ -208,6 +391,24 @@ async function searchAll(req, res) {
       return res.status(400).json({
         error: `Query must be at least ${SEARCH_CONFIG.minQueryLength} characters`
       });
+    }
+
+    const trimmedQuery = query.trim();
+
+    // Check if query is a valid ObjectId - return direct match
+    if (isValidObjectId(trimmedQuery)) {
+      logger.info('ObjectId search', { userId: req.user._id, objectId: trimmedQuery });
+
+      const directMatch = await lookupByObjectId(trimmedQuery, req.user);
+      if (directMatch) {
+        logger.info('Direct ObjectId match found', {
+          userId: req.user._id,
+          objectId: trimmedQuery,
+          type: directMatch.type
+        });
+        return res.json({ results: [directMatch] });
+      }
+      // If no direct match, continue with regular search
     }
 
     // Parse types filter
@@ -223,7 +424,7 @@ async function searchAll(req, res) {
 
     logger.info('Global search', {
       userId: req.user._id,
-      query,
+      query: trimmedQuery,
       types: searchTypes,
       limit: searchLimit
     });
@@ -231,18 +432,26 @@ async function searchAll(req, res) {
     // Execute searches in parallel
     const results = await Promise.all([
       searchTypes.includes('destination')
-        ? searchDestinationsInternal(query, searchLimit, req.user)
+        ? searchDestinationsInternal(trimmedQuery, searchLimit, req.user)
         : Promise.resolve([]),
       searchTypes.includes('experience')
-        ? searchExperiencesInternal(query, searchLimit, req.user)
+        ? searchExperiencesInternal(trimmedQuery, searchLimit, req.user)
         : Promise.resolve([]),
       searchTypes.includes('plan')
-        ? searchPlansInternal(query, searchLimit, req.user)
+        ? searchPlansInternal(trimmedQuery, searchLimit, req.user)
         : Promise.resolve([]),
       searchTypes.includes('user')
-        ? searchUsersInternal(query, searchLimit, req.user)
+        ? searchUsersInternal(trimmedQuery, searchLimit, req.user)
         : Promise.resolve([]),
     ]);
+
+    logger.debug('Search results by type', {
+      query: trimmedQuery,
+      destinations: results[0]?.length || 0,
+      experiences: results[1]?.length || 0,
+      plans: results[2]?.length || 0,
+      users: results[3]?.length || 0
+    });
 
     // Flatten and combine results
     let combinedResults = results.flat();
@@ -250,13 +459,13 @@ async function searchAll(req, res) {
     // Compute relevance scores and sort descending by score
     combinedResults = combinedResults.map((r) => ({
       ...r,
-      score: computeRelevanceScore(query, r),
+      score: computeRelevanceScore(trimmedQuery, r),
     }))
     .sort((a, b) => b.score - a.score);
 
     logger.info('Search completed', {
       userId: req.user._id,
-      query,
+      query: trimmedQuery,
       resultCount: combinedResults.length
     });
 
@@ -305,13 +514,25 @@ async function searchDestinationsInternal(query, limit, user) {
  */
 async function searchExperiencesInternal(query, limit, user) {
   try {
-    const searchQuery = buildRegexSearchQuery(query, ['name', 'description', 'experience_type']);
+    // Fields: name, overview (not description), experience_type array
+    const searchQuery = buildRegexSearchQuery(query, ['name', 'overview', 'experience_type']);
+
+    logger.debug('Experience search query', {
+      query,
+      mongoQuery: JSON.stringify(searchQuery).slice(0, 500)
+    });
 
     const experiences = await Experience.find(searchQuery)
       .limit(limit)
       .populate('destination', 'name city country')
-      .select('name description destination experience_type photos')
+      .select('name overview destination experience_type photos')
       .lean();
+
+    logger.debug('Experience search results', {
+      query,
+      resultCount: experiences.length,
+      names: experiences.slice(0, 5).map(e => e.name)
+    });
 
     return experiences.map(exp => ({
       ...exp,

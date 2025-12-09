@@ -2,15 +2,23 @@
  * Currency conversion utility
  * - Fetches exchange rates from configurable API endpoints (via env vars)
  * - Primary: EXCHANGE_RATE_API_URL (default: v6.exchangerate-api.com)
- * - Fallback: EXCHANGE_RATE_FALLBACK_URL (default: exchangerate.host)
+ * - Fallback: EXCHANGE_RATE_FALLBACK_URL (default: frankfurter.app)
+ * - Static fallback: fallback-exchange-rates.json (offline/error scenarios)
  * - API key: EXCHANGE_RATE_API_KEY (required for exchangerate-api.com)
  * - Caches rates for a configurable TTL (default 1 hour, configurable via EXCHANGE_RATE_CACHE_TTL)
  * - Allows manual injection of rates for offline/testing
  */
 
 import { logger } from './logger';
+import fallbackRatesData from '../data/fallback-exchange-rates.json';
 
-let _rates = null; // { base: 'USD', rates: { EUR: 0.92, GBP: 0.78, ... }, fetchedAt: 0 }
+// Initialize with fallback rates immediately so conversions work even before API fetch
+let _rates = {
+  base: fallbackRatesData.base,
+  rates: fallbackRatesData.rates,
+  fetchedAt: 0, // Mark as stale so fresh rates are fetched when possible
+  isFallback: true
+};
 
 // Cache TTL from env var (in milliseconds) or default to 1 hour
 const DEFAULT_TTL = 1000 * 60 * 60; // 1 hour
@@ -123,16 +131,31 @@ export async function fetchRates(base = 'USD', symbols = []) {
     }
 
     if (!data || !data.rates) {
-      throw lastError || new Error('All exchange rate APIs failed');
+      // Use static fallback rates if all API endpoints fail
+      logger.warn('currency-conversion: All APIs failed, using static fallback rates');
+      _rates = {
+        base: fallbackRatesData.base,
+        rates: fallbackRatesData.rates,
+        fetchedAt: Date.now(),
+        isFallback: true
+      };
+      return _rates;
     }
 
-    _rates = { base: data.base_code || data.base || base, rates: data.rates, fetchedAt: Date.now() };
+    _rates = { base: data.base_code || data.base || base, rates: data.rates, fetchedAt: Date.now(), isFallback: false };
     return _rates;
   } catch (err) {
     logger.error('currency-conversion: fetchRates failed', { error: err.message }, err);
-    // fall back to cached rates if available
+    // Fall back to static rates if nothing else is available
     if (_rates) return _rates;
-    throw err;
+    // Last resort: use static fallback
+    _rates = {
+      base: fallbackRatesData.base,
+      rates: fallbackRatesData.rates,
+      fetchedAt: Date.now(),
+      isFallback: true
+    };
+    return _rates;
   }
 }
 

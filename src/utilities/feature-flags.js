@@ -11,6 +11,50 @@ import { logger } from './logger';
 import { lang } from '../lang.constants';
 
 /**
+ * WeakMap cache for user flag Maps - O(1) lookups instead of O(n) array search
+ * Uses WeakMap so entries are garbage collected when user object is released
+ */
+const userFlagCache = new WeakMap();
+
+/**
+ * Get or create a Map of feature flags for a user (O(1) subsequent lookups)
+ * @param {Object} user - User object with feature_flags array
+ * @returns {Map<string, Object>} Map of flag key -> flag object
+ */
+function getUserFlagMap(user) {
+  if (!user || !user.feature_flags || !Array.isArray(user.feature_flags)) {
+    return new Map();
+  }
+
+  // Check cache first
+  let flagMap = userFlagCache.get(user);
+  if (flagMap) {
+    return flagMap;
+  }
+
+  // Build Map from array - O(n) once, then O(1) for all lookups
+  flagMap = new Map();
+  for (const flag of user.feature_flags) {
+    if (flag && flag.flag) {
+      flagMap.set(flag.flag.toLowerCase(), flag);
+    }
+  }
+
+  userFlagCache.set(user, flagMap);
+  return flagMap;
+}
+
+/**
+ * Invalidate the flag cache for a user (call when user.feature_flags changes)
+ * @param {Object} user - User object to invalidate
+ */
+export function invalidateUserFlagCache(user) {
+  if (user) {
+    userFlagCache.delete(user);
+  }
+}
+
+/**
  * Known feature flags registry (mirrors backend)
  * Used for metadata and documentation
  */
@@ -74,8 +118,10 @@ export function hasFeatureFlag(user, flagKey, options = {}) {
     return false;
   }
 
+  // O(1) lookup using cached Map instead of O(n) array.find()
   const normalizedKey = flagKey.toLowerCase();
-  const flag = user.feature_flags.find(f => f.flag === normalizedKey);
+  const flagMap = getUserFlagMap(user);
+  const flag = flagMap.get(normalizedKey);
 
   if (!flag || !flag.enabled) {
     return false;
@@ -104,8 +150,10 @@ export function getFeatureFlagConfig(user, flagKey) {
     return null;
   }
 
+  // O(1) lookup using cached Map instead of O(n) array.find()
   const normalizedKey = flagKey.toLowerCase();
-  const flag = user.feature_flags.find(f => f.flag === normalizedKey);
+  const flagMap = getUserFlagMap(user);
+  const flag = flagMap.get(normalizedKey);
 
   if (!flag || !flag.enabled) {
     return null;
@@ -126,14 +174,17 @@ export function getUserFeatureFlags(user) {
   }
 
   const now = new Date();
+  const flagMap = getUserFlagMap(user);
+  const activeFlags = [];
 
-  return user.feature_flags
-    .filter(flag => {
-      if (!flag.enabled) return false;
-      if (flag.expires_at && new Date(flag.expires_at) < now) return false;
-      return true;
-    })
-    .map(flag => flag.flag);
+  // Iterate Map values - still O(n) but avoids creating intermediate arrays
+  for (const flag of flagMap.values()) {
+    if (!flag.enabled) continue;
+    if (flag.expires_at && new Date(flag.expires_at) < now) continue;
+    activeFlags.push(flag.flag);
+  }
+
+  return activeFlags;
 }
 
 /**

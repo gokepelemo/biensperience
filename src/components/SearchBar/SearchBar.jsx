@@ -22,6 +22,31 @@ export default function SearchBar({
   const navigate = useNavigate();
 
   /**
+   * Check if a string looks like a MongoDB ObjectId
+   */
+  const isObjectId = (str) => /^[a-fA-F0-9]{24}$/.test(str);
+
+  /**
+   * Navigate instantly to an ObjectId - no API call needed
+   * The target page will validate and fetch data; we navigate optimistically
+   * @returns {boolean} True if navigation occurred
+   */
+  const navigateToObjectId = useCallback((objectId) => {
+    // Clear search state immediately
+    setSearchQuery('');
+    setResults([]);
+    setLoading(false);
+
+    logger.info('Instant ObjectId navigation', { objectId });
+
+    // Navigate to experience by default (most common case)
+    // The target page will handle 404 if not found
+    // We try experience first, then the page will redirect if needed
+    navigate(`/experiences/${objectId}`);
+    return true;
+  }, [navigate]);
+
+  /**
    * Perform search with debouncing
    */
   const performSearch = useCallback(async (query) => {
@@ -30,9 +55,16 @@ export default function SearchBar({
       return;
     }
 
+    const trimmed = query.trim();
+
+    // INSTANT navigation for ObjectIds - no API call, no delay
+    if (isObjectId(trimmed)) {
+      navigateToObjectId(trimmed);
+      return;
+    }
+
     setLoading(true);
     try {
-      const trimmed = query.trim();
       const searchResults = await searchAll(trimmed);
 
       // Transform results to match Autocomplete component format
@@ -149,7 +181,7 @@ export default function SearchBar({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [navigate, navigateToObjectId]);
 
   /**
    * Get country flag emoji from country name

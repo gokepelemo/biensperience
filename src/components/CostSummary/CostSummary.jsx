@@ -30,7 +30,7 @@ import {
   FaToolbox,
   FaEllipsisH
 } from 'react-icons/fa';
-import { formatActualCost } from '../../utilities/cost-utils';
+import { formatCurrencyDisambiguated } from '../../utilities/currency-utils';
 import { convertCostToTarget, fetchRates } from '../../utilities/currency-conversion';
 import { lang } from '../../lang.constants';
 import UserAvatar from '../UserAvatar/UserAvatar';
@@ -85,7 +85,8 @@ function ExpandableSection({ title, icon: Icon, total, currency, children, defau
         </div>
         <div className={styles.sectionTotal}>
           <span className={styles.totalAmount}>
-            {formatActualCost(total, { currency, exact: true })}
+            {/* Use disambiguated symbol for totals to clearly identify the currency */}
+            {formatCurrencyDisambiguated(total, currency)}
           </span>
           {expanded ? (
             <FaChevronUp className={styles.chevron} aria-hidden="true" />
@@ -117,7 +118,7 @@ function BreakdownList({ items, currency }) {
         <div key={item.id || index} className={styles.breakdownItem}>
           <span className={styles.breakdownLabel}>{item.label}</span>
           <span className={styles.breakdownValue}>
-            {formatActualCost(item.amount, { exact: true, currency })}
+            {formatCurrencyDisambiguated(item.amount, currency)}
           </span>
         </div>
       ))}
@@ -153,7 +154,7 @@ function CategoryBreakdown({ costsByCategory, totalCost, currency }) {
               />
             </div>
             <div className={styles.categoryAmount}>
-              {formatActualCost(cat.total, { currency, exact: true })}
+              {formatCurrencyDisambiguated(cat.total, currency)}
             </div>
           </div>
         );
@@ -194,10 +195,10 @@ function PerPersonSplitTable({ perPersonSplit, sharedCosts, currency, collaborat
                   <span>{split.collaborator?.name || split.collaborator?.email || 'Unknown'}</span>
                 </div>
               </td>
-              <td>{formatActualCost(split.individualTotal || 0, { currency, exact: true })}</td>
-              <td>{formatActualCost(split.sharedPortion || 0, { currency, exact: true })}</td>
+              <td>{formatCurrencyDisambiguated(split.individualTotal || 0, currency)}</td>
+              <td>{formatCurrencyDisambiguated(split.sharedPortion || 0, currency)}</td>
               <td className={styles.grandTotalCell}>
-                {formatActualCost(split.grandTotal || 0, { currency, exact: true })}
+                {formatCurrencyDisambiguated(split.grandTotal || 0, currency)}
               </td>
             </tr>
           ))}
@@ -257,9 +258,29 @@ export default function CostSummary({
     return convertCostToTarget(cost, currency);
   }, [currency, ratesLoaded]);
 
-  // Calculate summary from costs array if summary not provided
+  // Calculate summary from costs array with currency conversion
+  // NOTE: We ALWAYS calculate client-side to ensure proper currency conversion.
+  // The backend summary doesn't convert currencies, so we ignore it when costs
+  // are provided and use the costs array directly for accurate converted totals.
   const calculatedSummary = useMemo(() => {
-    if (summary) return summary;
+    // If we have costs, always calculate client-side with conversion
+    // This ensures proper currency conversion regardless of backend summary
+    if (!costs || costs.length === 0) {
+      // Fall back to summary if no costs provided (for display-only scenarios)
+      if (summary) return summary;
+      return {
+        totalCost: 0,
+        costCount: 0,
+        costsByCollaborator: [],
+        costsByPlanItem: [],
+        costsByCategory: [],
+        sharedCosts: { total: 0, costs: [] },
+        generalCosts: { total: 0, costs: [] },
+        perPersonShare: 0,
+        perPersonSplit: [],
+        collaboratorCount: 0,
+      };
+    }
 
     // Calculate from costs array, converting each cost to target currency
     const totalCost = costs.reduce((sum, cost) => sum + getConvertedAmount(cost), 0);
@@ -485,7 +506,7 @@ export default function CostSummary({
           <FaDollarSign className={styles.compactIcon} />
           <span className={styles.compactLabel}>{costStrings.totalCosts}:</span>
           <span className={styles.compactValue}>
-            {formatActualCost(totalCost, { exact: true, currency })}
+            {formatCurrencyDisambiguated(totalCost, currency)}
           </span>
         </div>
       </div>
@@ -499,7 +520,7 @@ export default function CostSummary({
         <SummaryCard
           icon={FaDollarSign}
           label={costStrings.totalCosts}
-          value={formatActualCost(totalCost, { exact: true, currency })}
+          value={formatCurrencyDisambiguated(totalCost, currency)}
           subValue={costCount > 0 ? `${costCount} ${costCount === 1 ? 'cost' : 'costs'}` : undefined}
           variant="primary"
         />
@@ -508,7 +529,7 @@ export default function CostSummary({
           <SummaryCard
             icon={FaShareAlt}
             label={costStrings.sharedCosts}
-            value={formatActualCost(sharedCostsAmount, { exact: true, currency })}
+            value={formatCurrencyDisambiguated(sharedCostsAmount, currency)}
           />
         )}
 
@@ -516,7 +537,7 @@ export default function CostSummary({
           <SummaryCard
             icon={FaUserFriends}
             label={costStrings.perPersonShare}
-            value={formatActualCost(perPersonSplitAmount, { exact: true, currency })}
+            value={formatCurrencyDisambiguated(perPersonSplitAmount, currency)}
             subValue={`${collaboratorCount} people`}
           />
         )}

@@ -1,4 +1,4 @@
-import { sendRequest } from "./send-request";
+import { sendRequest, sendQueuedRequest, PRIORITY } from "./send-request";
 import { normalizeUrl } from "./url-utils.js";
 import { logger } from "./logger";
 import { broadcastEvent, eventBus } from "./event-bus";
@@ -50,17 +50,21 @@ export function getUserPlans(options = {}) {
       page: String(page),
       limit: String(limit)
     });
-    return sendRequest(`${BASE_URL}?${params.toString()}`);
+    return sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'plans/user' });
   }
 
-  return sendRequest(BASE_URL);
+  return sendQueuedRequest(BASE_URL, "GET", null, { label: 'plans/user' });
 }
 
 /**
  * Get a specific plan by ID
  */
 export function getPlanById(planId) {
-  return sendRequest(`${BASE_URL}/${planId}`);
+  // Critical navigation - use high priority for instant perception
+  return sendQueuedRequest(`${BASE_URL}/${planId}`, "GET", null, {
+    priority: PRIORITY.HIGH,
+    label: `plan/${planId}`
+  });
 }
 
 /**

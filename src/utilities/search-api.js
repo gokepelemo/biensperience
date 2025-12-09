@@ -1,4 +1,4 @@
-import { sendRequest } from './send-request';
+import { sendQueuedRequest, PRIORITY } from './send-request';
 
 const BASE_URL = '/api/search';
 
@@ -22,7 +22,12 @@ export async function searchAll(query, options = {}) {
     params.append('types', types.join(','));
   }
 
-  const response = await sendRequest(`${BASE_URL}?${params.toString()}`);
+  // High priority for search - user is actively typing and waiting
+  const response = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, {
+    priority: PRIORITY.HIGH,
+    label: 'search',
+    coalesce: true, // Coalesce rapid search requests
+  });
   // Backend returns { results: [...] }, extract the results array
   return response.results || [];
 }
