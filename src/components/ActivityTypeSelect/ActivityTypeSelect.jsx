@@ -203,13 +203,15 @@ export default function ActivityTypeSelect({
 
   // Scroll highlighted item into view
   useEffect(() => {
-    if (isOpen && dropdownRef.current) {
-      const highlighted = dropdownRef.current.querySelector(`[data-index="${highlightedIndex}"]`);
-      if (highlighted) {
-        highlighted.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      }
+    // Only scroll when dropdown is open and index changes
+    // Skip when dropdown closes to prevent unnecessary work
+    if (!isOpen || !dropdownRef.current) return;
+
+    const highlighted = dropdownRef.current.querySelector(`[data-index="${highlightedIndex}"]`);
+    if (highlighted) {
+      highlighted.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
-  }, [highlightedIndex, isOpen]);
+  }, [highlightedIndex]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -223,9 +225,6 @@ export default function ActivityTypeSelect({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Build flat index for items
-  let flatIndex = 0;
 
   return (
     <div className={`${styles.activityTypeSelect} ${styles[size]} ${className}`}>
@@ -293,39 +292,42 @@ export default function ActivityTypeSelect({
             </div>
           ) : groupByCategory ? (
             // Grouped view
-            Object.entries(groupedResults).map(([category, types]) => {
-              const categoryInfo = ACTIVITY_CATEGORIES[category] || { label: category, icon: '📦' };
+            (() => {
+              let flatIndex = 0; // Initialize index tracker for this render
+              return Object.entries(groupedResults).map(([category, types]) => {
+                const categoryInfo = ACTIVITY_CATEGORIES[category] || { label: category, icon: '📦' };
 
-              return (
-                <div key={category} className={styles.categoryGroup}>
-                  <div className={styles.categoryHeader}>
-                    <span className={styles.categoryIcon}>{categoryInfo.icon}</span>
-                    <span className={styles.categoryLabel}>{categoryInfo.label}</span>
+                return (
+                  <div key={category} className={styles.categoryGroup}>
+                    <div className={styles.categoryHeader}>
+                      <span className={styles.categoryIcon}>{categoryInfo.icon}</span>
+                      <span className={styles.categoryLabel}>{categoryInfo.label}</span>
+                    </div>
+                    {types.map((type) => {
+                      const itemIndex = flatIndex++;
+                      const isHighlighted = itemIndex === highlightedIndex;
+
+                      return (
+                        <div
+                          key={type.value}
+                          data-index={itemIndex}
+                          className={`${styles.option} ${isHighlighted ? styles.highlighted : ''} ${type.value === value ? styles.selected : ''}`}
+                          onClick={() => handleSelect(type)}
+                          role="option"
+                          aria-selected={type.value === value}
+                        >
+                          <span className={styles.optionIcon}>{type.icon}</span>
+                          <span className={styles.optionLabel}>{type.label}</span>
+                          {type.value === value && (
+                            <span className={styles.checkmark}>✓</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  {types.map((type) => {
-                    const itemIndex = flatIndex++;
-                    const isHighlighted = itemIndex === highlightedIndex;
-
-                    return (
-                      <div
-                        key={type.value}
-                        data-index={itemIndex}
-                        className={`${styles.option} ${isHighlighted ? styles.highlighted : ''} ${type.value === value ? styles.selected : ''}`}
-                        onClick={() => handleSelect(type)}
-                        role="option"
-                        aria-selected={type.value === value}
-                      >
-                        <span className={styles.optionIcon}>{type.icon}</span>
-                        <span className={styles.optionLabel}>{type.label}</span>
-                        {type.value === value && (
-                          <span className={styles.checkmark}>✓</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })
+                );
+              });
+            })()
           ) : (
             // Flat view
             flatResults.map((type, index) => (
