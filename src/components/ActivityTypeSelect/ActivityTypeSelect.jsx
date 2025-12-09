@@ -10,16 +10,15 @@ import { createFilter } from '../../utilities/trie';
 import {
   ACTIVITY_TYPES,
   ACTIVITY_CATEGORIES,
-  getActivityType,
-  getActivityTypeSearchTerms
+  getActivityType
 } from '../../constants/activity-types';
 import styles from './ActivityTypeSelect.module.scss';
 
 /**
  * Build the trie filter for activity type search
- * @returns {TrieFilter} Configured filter
+ * Memoized at module level for performance
  */
-function buildActivityTypeFilter() {
+const activityTypeFilter = (() => {
   const filter = createFilter({
     fields: [
       { path: 'label', score: 100 },
@@ -27,20 +26,9 @@ function buildActivityTypeFilter() {
       (item) => item.keywords || []
     ]
   });
-
   filter.buildIndex(ACTIVITY_TYPES);
   return filter;
-}
-
-// Singleton filter instance (built once, reused)
-let activityTypeFilter = null;
-
-function getFilter() {
-  if (!activityTypeFilter) {
-    activityTypeFilter = buildActivityTypeFilter();
-  }
-  return activityTypeFilter;
-}
+})();
 
 /**
  * ActivityTypeSelect - Autocomplete for activity types
@@ -63,26 +51,35 @@ export default function ActivityTypeSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
-  // Get the selected type object (memoized to prevent re-computation on every render)
-  const selectedType = useMemo(() => getActivityType(value), [value]);
+  // Get the selected type object - safe null handling
+  const selectedType = useMemo(() => {
+    if (!value) return null;
+    return getActivityType(value);
+  }, [value]);
 
-  // Filter results based on input
+  // Filter results based on input - memoized with stable reference
   const filteredResults = useMemo(() => {
-    const filter = getFilter();
+    const trimmedInput = inputValue.trim();
 
-    if (!inputValue.trim()) {
-      // Show all types grouped by category when no search
+    if (!trimmedInput) {
+      // Return ACTIVITY_TYPES directly (stable reference)
       return ACTIVITY_TYPES;
     }
 
     // Use trie-based filtering
-    return filter.filter(inputValue, {
+    return activityTypeFilter.filter(trimmedInput, {
       rankResults: true,
       limit: maxResults
     });
   }, [inputValue, maxResults]);
 
   // Group results by category if enabled
+  // Use stable category order to prevent re-renders
+  const categoryOrder = useMemo(() => {
+    return Object.keys(ACTIVITY_CATEGORIES)
+      .sort((a, b) => ACTIVITY_CATEGORIES[a].order - ACTIVITY_CATEGORIES[b].order);
+  }, []);
+
   const groupedResults = useMemo(() => {
     if (!groupByCategory) {
       return { all: filteredResults };
@@ -99,9 +96,6 @@ export default function ActivityTypeSelect({
 
     // Sort groups by category order
     const sortedGroups = {};
-    const categoryOrder = Object.keys(ACTIVITY_CATEGORIES)
-      .sort((a, b) => ACTIVITY_CATEGORIES[a].order - ACTIVITY_CATEGORIES[b].order);
-
     for (const cat of categoryOrder) {
       if (groups[cat]?.length > 0) {
         sortedGroups[cat] = groups[cat];
@@ -109,20 +103,32 @@ export default function ActivityTypeSelect({
     }
 
     return sortedGroups;
-  }, [filteredResults, groupByCategory]);
+  }, [filteredResults, groupByCategory, categoryOrder]);
 
-  // Flatten grouped results for keyboard navigation
+  // Flatten grouped results for keyboard navigation - derive from filteredResults directly
   const flatResults = useMemo(() => {
+    // When not grouping, just return filtered results
     if (!groupByCategory) {
       return filteredResults;
     }
 
+    // When grouping, flatten in category order
     const flat = [];
-    for (const category of Object.keys(groupedResults)) {
-      flat.push(...groupedResults[category]);
+    for (const cat of categoryOrder) {
+      const catItems = groupedResults[cat];
+      if (catItems?.length > 0) {
+        flat.push(...catItems);
+      }
     }
     return flat;
-  }, [groupedResults, groupByCategory, filteredResults]);
+  }, [filteredResults, groupByCategory, groupedResults, categoryOrder]);
+
+  // Reset highlighted index when results change to prevent invalid index access
+  useEffect(() => {
+    if (highlightedIndex >= flatResults.length && flatResults.length > 0) {
+      setHighlightedIndex(0);
+    }
+  }, [flatResults.length, highlightedIndex]);
 
   // Handle input change
   const handleInputChange = useCallback((e) => {
@@ -156,22 +162,28 @@ export default function ActivityTypeSelect({
       }
     }
 
+    const resultsLength = flatResults.length;
+
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setHighlightedIndex(prev =>
-          prev < flatResults.length - 1 ? prev + 1 : 0
-        );
+        if (resultsLength > 0) {
+          setHighlightedIndex(prev =>
+            prev < resultsLength - 1 ? prev + 1 : 0
+          );
+        }
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setHighlightedIndex(prev =>
-          prev > 0 ? prev - 1 : flatResults.length - 1
-        );
+        if (resultsLength > 0) {
+          setHighlightedIndex(prev =>
+            prev > 0 ? prev - 1 : resultsLength - 1
+          );
+        }
         break;
       case 'Enter':
         e.preventDefault();
-        if (flatResults[highlightedIndex]) {
+        if (resultsLength > 0 && flatResults[highlightedIndex]) {
           handleSelect(flatResults[highlightedIndex]);
         }
         break;
@@ -201,20 +213,26 @@ export default function ActivityTypeSelect({
     }, 150);
   }, []);
 
-  // Scroll highlighted item into view
+  // Scroll highlighted item into view - debounced to prevent excessive calls
   useEffect(() => {
-    // Only scroll when dropdown is open and index changes
-    // Skip when dropdown closes to prevent unnecessary work
+    // Only scroll when dropdown is open
     if (!isOpen || !dropdownRef.current) return;
 
-    const highlighted = dropdownRef.current.querySelector(`[data-index="${highlightedIndex}"]`);
-    if (highlighted) {
-      highlighted.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
-  }, [highlightedIndex, isOpen]); // Include isOpen to prevent running when closed
+    // Use requestAnimationFrame to debounce scroll operations
+    const rafId = requestAnimationFrame(() => {
+      const highlighted = dropdownRef.current?.querySelector(`[data-index="${highlightedIndex}"]`);
+      if (highlighted) {
+        highlighted.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+      }
+    });
 
-  // Close dropdown on outside click
+    return () => cancelAnimationFrame(rafId);
+  }, [highlightedIndex, isOpen]);
+
+  // Close dropdown on outside click - only attach when open
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (e) => {
       if (!dropdownRef.current?.contains(e.target) && !inputRef.current?.contains(e.target)) {
         setIsOpen(false);
@@ -224,7 +242,7 @@ export default function ActivityTypeSelect({
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
   return (
     <div className={`${styles.activityTypeSelect} ${styles[size]} ${className}`}>
