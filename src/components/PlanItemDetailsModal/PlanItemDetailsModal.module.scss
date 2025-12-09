@@ -358,6 +358,12 @@
   background: var(--color-bg-primary);
   display: flex;
   flex-direction: column;
+
+  /* Ensure child components like PlanItemNotes fill full height */
+  > * {
+    flex: 1;
+    min-height: 0;
+  }
 }
 
 .comingSoonMessage {
