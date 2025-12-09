@@ -814,6 +814,7 @@ function formatTimeForDisplay(timeString) {
 
 /**
  * Group items within a time section by activity type
+ * Items within each group are sorted by scheduled_time
  * @param {Array} items - Items in a time section
  * @returns {Array} Items grouped by activity type with ungrouped at the end
  */
@@ -843,6 +844,35 @@ function groupTimeItemsByActivityType(items) {
     }
     groups[activityType].items.push(item);
   }
+
+  // Sort items within each group by scheduled_time
+  // Items without scheduled_time appear first
+  for (const group of Object.values(groups)) {
+    group.items.sort((a, b) => {
+      const timeA = a.scheduled_time || '';
+      const timeB = b.scheduled_time || '';
+      
+      // Items without time come first
+      if (!timeA && !timeB) return 0;
+      if (!timeA) return -1;
+      if (!timeB) return 1;
+      
+      // Compare times (HH:MM format)
+      return timeA.localeCompare(timeB);
+    });
+  }
+
+  // Sort ungrouped items by scheduled_time
+  ungrouped.sort((a, b) => {
+    const timeA = a.scheduled_time || '';
+    const timeB = b.scheduled_time || '';
+    
+    if (!timeA && !timeB) return 0;
+    if (!timeA) return -1;
+    if (!timeB) return 1;
+    
+    return timeA.localeCompare(timeB);
+  });
 
   // Sort groups by category order, then alphabetically
   const categoryOrder = { essentials: 1, experiences: 2, services: 3, other: 4 };

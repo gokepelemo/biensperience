@@ -452,9 +452,11 @@ export default function ExperienceTabContent({
   const [rawPlanItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
 
   // ExperienceTabContent only supports 'card' and 'compact' views
-  // Fallback 'timeline' to 'compact' since Timeline is only available in MyPlanTabContent
+  // Fallback 'timeline' and 'activity' to 'compact' since they're only available in MyPlanTabContent
   const planItemsView = useMemo(() => {
-    return rawPlanItemsView === 'timeline' ? 'compact' : rawPlanItemsView;
+    return (rawPlanItemsView === 'timeline' || rawPlanItemsView === 'activity') 
+      ? 'compact' 
+      : rawPlanItemsView;
   }, [rawPlanItemsView]);
 
   // Compute online user IDs from presence data
