@@ -13,8 +13,10 @@
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important; /* Use 100% instead of 100vw to avoid horizontal scroll on iOS */
+  height: 100% !important; /* Use 100% instead of 100vh for iOS Safari address bar handling */
   z-index: $z-index-modal-backdrop !important;
   display: flex !important;
   align-items: center !important;
@@ -23,6 +25,7 @@
   pointer-events: auto !important; /* Allow backdrop to capture clicks for onClose */
   overflow: hidden !important; /* Prevent any overflow from modal backdrop */
   overscroll-behavior: contain; /* Prevent scroll chaining to parent */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 /* Modal Dialog Centered */
@@ -184,10 +187,10 @@
 }
 
 .modalFullscreen {
-  width: 100vw;
-  max-width: 100vw;
-  height: 100vh;
-  max-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
   margin: 0;
   overflow: hidden; /* Prevent scroll on fullscreen modal container */
 
@@ -205,6 +208,7 @@
     flex: 1;
     overflow-y: auto;
     overscroll-behavior: contain; /* Prevent scroll chaining to parent */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   }
 }
 

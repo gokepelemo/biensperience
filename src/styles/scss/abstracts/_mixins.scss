@@ -437,10 +437,16 @@
 }
 
 // Full width section (breakout from container)
+// Note: This pattern can cause horizontal scroll on mobile/iOS
+// Use with caution and ensure parent has overflow-x: hidden
 @mixin full-width-section {
-  width: 100vw;
-  margin-left: 50%;
-  transform: translateX(-50%);
+  width: 100%;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  max-width: 100vw;
 }
 
 // ============================================================================

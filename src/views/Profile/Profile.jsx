@@ -1007,9 +1007,11 @@ export default function Profile() {
                   {/* Compact Metrics Bar */}
                   <div className={styles.profileMetricsBar}>
                     <span className={styles.profileMetric}>
-                      <strong>{planCounts.total}</strong> {planCounts.total === 1 ? 'Plan' : 'Plans'}
+                      <strong>{planCounts.owned}</strong> {planCounts.owned === 1 ? 'Plan' : 'Plans'}
                       {planCounts.shared > 0 && (
-                        <span className={styles.profileMetricSecondary}> ({planCounts.shared} collaborative)</span>
+                        <span className={styles.profileMetricSecondary}>
+                          , <strong>{planCounts.shared}</strong> collaborative
+                        </span>
                       )}
                     </span>
                     <span className={styles.profileMetricDivider}>·</span>

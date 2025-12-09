@@ -32,14 +32,31 @@ export default function Modal({
   showHeader = true
 }) {
   // Lock body scroll when modal is open to prevent background scrolling
+  // Enhanced for iOS Safari which requires additional fixes
   useEffect(() => {
     if (show) {
-      // Store original overflow value to restore later
+      // Store original styles to restore later
       const originalOverflow = document.body.style.overflow;
+      const originalPosition = document.body.style.position;
+      const originalTop = document.body.style.top;
+      const originalWidth = document.body.style.width;
+      const scrollY = window.scrollY;
+
+      // Apply scroll lock - this approach works reliably on iOS Safari
       document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
 
       return () => {
+        // Restore original styles
         document.body.style.overflow = originalOverflow;
+        document.body.style.position = originalPosition;
+        document.body.style.top = originalTop;
+        document.body.style.width = originalWidth;
+
+        // Restore scroll position
+        window.scrollTo(0, scrollY);
       };
     }
   }, [show]);
