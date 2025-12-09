@@ -306,7 +306,7 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   margin-bottom: $space-6;
-  overflow: hidden;
+  overflow: visible; /* Allow dropdown menus to extend beyond card boundaries */
 
   .cardBody {
     padding: $space-6;

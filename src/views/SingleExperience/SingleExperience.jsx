@@ -2377,13 +2377,23 @@ export default function SingleExperience() {
 
           // Success feedback
           try {
-            success(lang.current.notification?.plan?.created || "You're planning this experience! Check out your plan in the My Plan tab.");
+            success(lang.current.notification?.plan?.created || "You're planning this experience!");
           } catch (e) {
             // ignore toast failures
           }
 
-          // Switch to My Plan tab to show the new plan
-          setActiveTab("myplan");
+          // Navigate to the newly created plan
+          if (newPlan?._id) {
+            // Set the selected plan and switch to My Plan tab
+            setSelectedPlanId(newPlan._id);
+            setActiveTab("myplan");
+
+            // Navigate with hash to enable deep linking to the new plan
+            navigate(`/experiences/${experience._id}#plan-${newPlan._id}`, { replace: true });
+          } else {
+            // Fallback: just switch to My Plan tab
+            setActiveTab("myplan");
+          }
         } catch (planErr) {
           logger?.error?.("Error creating plan", {
             experienceId: experience._id,
@@ -2407,7 +2417,8 @@ export default function SingleExperience() {
       userHasExperience,
       createPlan,
       success,
-      showError
+      showError,
+      navigate
     ]
   );
 
