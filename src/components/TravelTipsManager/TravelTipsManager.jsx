@@ -4,29 +4,36 @@
  * Supports both simple string tips and structured tips with metadata
  */
 
-import { Form, Button, ListGroup, Badge, ButtonGroup, Row, Col } from 'react-bootstrap';
+// Note: Bootstrap imports removed - using custom styled components
 import { lang } from '../../lang.constants';
 import styles from './TravelTipsManager.module.scss';
 import { useState } from 'react';
+import { Button } from '../design-system';
+import {
+  FaLanguage, FaMoneyBillWave, FaBus, FaShieldAlt,
+  FaCloudSun, FaHandshake, FaUtensils, FaHotel,
+  FaExclamationTriangle, FaThumbtack, FaLightbulb,
+  FaGripVertical, FaTrash, FaExternalLinkAlt, FaPlus, FaLink
+} from 'react-icons/fa';
 
 const TIP_TYPES = [
-  { value: 'Language', icon: '🗣️', label: 'Language' },
-  { value: 'Currency', icon: '💶', label: 'Currency' },
-  { value: 'Transportation', icon: '🚇', label: 'Transportation' },
-  { value: 'Safety', icon: '🛡️', label: 'Safety' },
-  { value: 'Weather', icon: '🌤️', label: 'Weather' },
-  { value: 'Culture', icon: '🤝', label: 'Culture' },
-  { value: 'Food', icon: '🍽️', label: 'Food & Drink' },
-  { value: 'Accommodation', icon: '🏨', label: 'Accommodation' },
-  { value: 'Emergency', icon: '🚨', label: 'Emergency' },
-  { value: 'Custom', icon: '📌', label: 'Custom' }
+  { value: 'Language', icon: '🗣️', faIcon: FaLanguage, label: 'Language', color: '#667eea' },
+  { value: 'Currency', icon: '💶', faIcon: FaMoneyBillWave, label: 'Currency', color: '#28a745' },
+  { value: 'Transportation', icon: '🚇', faIcon: FaBus, label: 'Transport', color: '#17a2b8' },
+  { value: 'Safety', icon: '🛡️', faIcon: FaShieldAlt, label: 'Safety', color: '#ffc107' },
+  { value: 'Weather', icon: '🌤️', faIcon: FaCloudSun, label: 'Weather', color: '#6f42c1' },
+  { value: 'Culture', icon: '🤝', faIcon: FaHandshake, label: 'Culture', color: '#e83e8c' },
+  { value: 'Food', icon: '🍽️', faIcon: FaUtensils, label: 'Food', color: '#fd7e14' },
+  { value: 'Accommodation', icon: '🏨', faIcon: FaHotel, label: 'Stay', color: '#20c997' },
+  { value: 'Emergency', icon: '🚨', faIcon: FaExclamationTriangle, label: 'Emergency', color: '#dc3545' },
+  { value: 'Custom', icon: '📌', faIcon: FaThumbtack, label: 'Custom', color: '#6c757d' }
 ];
 
 export default function TravelTipsManager({
   tips,
   newTip,
   onNewTipChange,
-  onNewTipKeyPress,
+  // onNewTipKeyPress - deprecated, using onKeyDown instead
   onAddTip,
   onDeleteTip,
   label = "Travel Tips",
@@ -71,8 +78,10 @@ export default function TravelTipsManager({
 
   const handleDrop = (e, dropIndex) => {
     e.preventDefault();
-    
+
     if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
       return;
     }
 
@@ -81,44 +90,61 @@ export default function TravelTipsManager({
     const [draggedItem] = newTips.splice(draggedIndex, 1);
     newTips.splice(dropIndex, 0, draggedItem);
 
+    // Clear drag state first to prevent stale renders
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
     // Call the onReorder callback if provided
     if (onReorder) {
       onReorder(newTips);
     }
+  };
 
-    setDraggedIndex(null);
-    setDragOverIndex(null);
+  // Generate a stable key for a tip
+  const getTipKey = (tip, index) => {
+    if (typeof tip === 'string') {
+      return `simple-${index}-${tip.substring(0, 20)}`;
+    }
+    return `structured-${index}-${tip.type}-${(tip.value || '').substring(0, 20)}`;
   };
 
   const renderTipPreview = (tip, index) => {
     const isDragging = draggedIndex === index;
     const isDragOver = dragOverIndex === index;
-    
+    const tipKey = getTipKey(tip, index);
+
     // Simple string tip
     if (typeof tip === 'string') {
       return (
-        <ListGroup.Item
-          key={index}
-          className={`d-flex justify-content-between align-items-center ${isDragging ? styles.dragging : ''} ${isDragOver ? styles.dragOver : ''}`}
+        <div
+          key={tipKey}
+          className={`${styles.tipCard} ${styles.tipCardSimple} ${isDragging ? styles.dragging : ''} ${isDragOver ? styles.dragOver : ''}`}
           draggable={!!onReorder}
           onDragStart={(e) => handleDragStart(e, index)}
           onDragOver={(e) => handleDragOver(e, index)}
           onDrop={(e) => handleDrop(e, index)}
           onDragEnd={handleDragEnd}
         >
-          <div className="d-flex align-items-center gap-2">
-            {onReorder && <span className={styles.dragHandle} title="Drag to reorder travel tips">⋮⋮</span>}
-            <span>💡</span>
-            <span>{tip}</span>
+          <div className={styles.tipCardContent}>
+            {onReorder && (
+              <span className={styles.dragHandle} title="Drag to reorder">
+                <FaGripVertical />
+              </span>
+            )}
+            <div className={styles.tipIconSimple}>
+              <FaLightbulb />
+            </div>
+            <span className={styles.tipText}>{tip}</span>
           </div>
-          <Button
-            variant="outline-danger"
-            size="sm"
+          <button
+            type="button"
+            className={styles.tipDeleteBtn}
             onClick={() => onDeleteTip(index)}
+            aria-label={deleteButtonText}
           >
-            {deleteButtonText}
-          </Button>
-        </ListGroup.Item>
+            <FaTrash />
+          </button>
+        </div>
       );
     }
 
@@ -126,233 +152,278 @@ export default function TravelTipsManager({
     const { type, category, value, note, exchangeRate, callToAction, icon } = tip;
     const tipType = TIP_TYPES.find(t => t.value === type) || TIP_TYPES[9];
     const displayIcon = icon || tipType.icon;
+    const FAIcon = tipType.faIcon;
 
     return (
-      <ListGroup.Item
-        key={index}
-        className={`${styles.structuredTipPreview} ${isDragging ? styles.dragging : ''} ${isDragOver ? styles.dragOver : ''}`}
+      <div
+        key={tipKey}
+        className={`${styles.tipCard} ${styles.tipCardStructured} ${isDragging ? styles.dragging : ''} ${isDragOver ? styles.dragOver : ''}`}
         draggable={!!onReorder}
         onDragStart={(e) => handleDragStart(e, index)}
         onDragOver={(e) => handleDragOver(e, index)}
         onDrop={(e) => handleDrop(e, index)}
         onDragEnd={handleDragEnd}
+        style={{ '--tip-color': tipType.color }}
       >
-        <div className="d-flex justify-content-between align-items-start">
-          <div className="flex-grow-1">
-            <div className="d-flex align-items-center gap-2 mb-2">
-              {onReorder && <span className={styles.dragHandle} title="Drag to reorder travel tips">⋮⋮</span>}
-              <span>{displayIcon}</span>
-              <Badge className="badge badge-primary">{category || type}</Badge>
-            </div>
-            <div className="mb-1"><strong>{value}</strong></div>
-            {note && <div className="text-muted small mb-1">{note}</div>}
-            {exchangeRate && type === 'Currency' && (
-              <div className="text-muted small mb-1">{exchangeRate}</div>
-            )}
-            {callToAction?.url && (
-              <div className="mt-2">
-                <Button
-                  href={callToAction.url}
-                  target="_blank"
-                  variant="outline-primary"
-                  size="sm"
-                >
-                  {callToAction.label || 'Learn More'} →
-                </Button>
-              </div>
-            )}
+        <div className={styles.tipCardHeader}>
+          {onReorder && (
+            <span className={styles.dragHandle} title="Drag to reorder">
+              <FaGripVertical />
+            </span>
+          )}
+          <div className={styles.tipIconWrapper} style={{ background: tipType.color }}>
+            <span className={styles.tipEmoji}>{displayIcon}</span>
           </div>
-          <Button
-            variant="outline-danger"
-            size="sm"
+          <span className={styles.tipBadge} style={{ background: `${tipType.color}20`, color: tipType.color }}>
+            <FAIcon size="0.75em" style={{ marginRight: '4px' }} />
+            {category || type}
+          </span>
+          <button
+            type="button"
+            className={styles.tipDeleteBtn}
             onClick={() => onDeleteTip(index)}
+            aria-label={deleteButtonText}
           >
-            {deleteButtonText}
-          </Button>
+            <FaTrash />
+          </button>
         </div>
-      </ListGroup.Item>
+        <div className={styles.tipCardBody}>
+          <p className={styles.tipValue}>{value}</p>
+          {note && <p className={styles.tipNote}>{note}</p>}
+          {exchangeRate && type === 'Currency' && (
+            <p className={styles.tipExchangeRate}>
+              <FaMoneyBillWave size="0.85em" style={{ marginRight: '4px' }} />
+              {exchangeRate}
+            </p>
+          )}
+          {callToAction?.url && (
+            <a
+              href={callToAction.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.tipCtaLink}
+            >
+              <FaExternalLinkAlt size="0.75em" />
+              {callToAction.label || 'Learn More'}
+            </a>
+          )}
+        </div>
+      </div>
     );
   };
 
-  return (
-    <div className={className}>
-      <Form.Group className="mb-3">
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <div className="flex-grow-1">
-            <Form.Label className="mb-1">{label}</Form.Label>
-            <div className={styles.travelTipsHelper}>
-              {lang.current.helper.travelTipsHelp}
-            </div>
-          </div>
+  // Get selected type for visual feedback
+  const selectedType = TIP_TYPES.find(t => t.value === structuredTip?.type) || TIP_TYPES[0];
 
-          {onModeChange && (
-            <ButtonGroup size="sm" className="ms-3 flex-shrink-0">
-              <Button
-                variant={isSimpleMode ? 'primary' : 'outline-secondary'}
-                onClick={() => onModeChange('simple')}
-              >
-                {lang.current.button.quickTip}
-              </Button>
-              <Button
-                variant={!isSimpleMode ? 'primary' : 'outline-secondary'}
-                onClick={() => onModeChange('structured')}
-              >
-                {lang.current.button.details}
-              </Button>
-            </ButtonGroup>
-          )}
+  return (
+    <div className={`${styles.travelTipsManager} ${className}`}>
+      {/* Header with title and mode toggle */}
+      <div className={styles.header}>
+        <div className={styles.headerText}>
+          <h3 className={styles.title}>{label}</h3>
+          <p className={styles.subtitle}>{lang.current.helper.travelTipsHelp}</p>
         </div>
 
+        {onModeChange && (
+          <div className={styles.modeToggle}>
+            <button
+              type="button"
+              className={`${styles.modeBtn} ${isSimpleMode ? styles.modeBtnActive : ''}`}
+              onClick={() => onModeChange('simple')}
+            >
+              {lang.current.button.quickTip}
+            </button>
+            <button
+              type="button"
+              className={`${styles.modeBtn} ${!isSimpleMode ? styles.modeBtnActive : ''}`}
+              onClick={() => onModeChange('structured')}
+            >
+              {lang.current.button.details}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Form Container */}
+      <div className={styles.formContainer}>
         {isSimpleMode ? (
-          // Simple tip input
-          <div className="d-flex gap-2">
-            <Form.Control
-              type="text"
-              placeholder={placeholder}
-              value={newTip}
-              onChange={onNewTipChange}
-              onKeyPress={onNewTipKeyPress}
-              style={{
-                backgroundColor: 'var(--form-field-control-bg)',
-                border: 'var(--form-field-border)',
-                color: 'var(--form-field-control-color)',
-                fontSize: 'var(--form-field-control-font-size)',
-                padding: 'var(--form-field-control-padding)',
-                minHeight: 'var(--form-field-min-height)',
-                outline: 'var(--form-field-control-outline)',
-                boxShadow: 'var(--form-field-control-box-shadow)',
-                borderRadius: 'var(--form-field-border-radius)',
-              }}
-            />
+          // Simple tip input - Clean single-line design
+          <div className={styles.simpleForm}>
+            <div className={styles.simpleInputWrapper}>
+              <FaLightbulb className={styles.inputIcon} />
+              <input
+                type="text"
+                className={styles.simpleInput}
+                placeholder={placeholder}
+                value={newTip}
+                onChange={onNewTipChange}
+                onKeyDown={(e) => e.key === 'Enter' && canAddSimpleTip && onAddTip()}
+              />
+            </div>
             <Button
-              variant="outline-primary"
+              variant="gradient"
+              size="sm"
               onClick={onAddTip}
               disabled={!canAddSimpleTip}
+              className={styles.addBtn}
             >
+              <FaPlus size="0.85em" />
               {addButtonText}
             </Button>
           </div>
         ) : (
-          // Structured tip form
-          <div className={styles.structuredTipForm}>
-            <Row className="mb-3">
-              <Col md={6}>
-                <Form.Label>{lang.current.label.travelTipsType} *</Form.Label>
-                <Form.Select
-                  value={structuredTip?.type || 'Language'}
-                  onChange={(e) => onStructuredTipFieldChange('type', e.target.value)}
-                >
-                  {TIP_TYPES.map(type => (
-                    <option key={type.value} value={type.value}>
-                      {type.icon} {type.label}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Col>
+          // Structured tip form - Modern card-based layout
+          <div className={styles.structuredForm}>
+            {/* Type Selection Grid */}
+            <div className={styles.formSection}>
+              <label className={styles.formLabel}>
+                {lang.current.label.travelTipsType} <span className={styles.required}>*</span>
+              </label>
+              <div className={styles.typeGrid}>
+                {TIP_TYPES.map(type => {
+                  const isSelected = structuredTip?.type === type.value;
+                  return (
+                    <button
+                      key={type.value}
+                      type="button"
+                      className={`${styles.typeBtn} ${isSelected ? styles.typeBtnSelected : ''}`}
+                      onClick={() => onStructuredTipFieldChange('type', type.value)}
+                      style={{
+                        '--type-color': type.color,
+                        '--type-bg': `${type.color}15`
+                      }}
+                    >
+                      <span className={styles.typeIcon}>{type.icon}</span>
+                      <span className={styles.typeLabel}>{type.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-              {structuredTip?.type === 'Custom' && (
-                <Col md={6}>
-                  <Form.Label>{lang.current.label.travelTipsCategory}</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder={lang.current.placeholder.travelTipCategory}
-                    value={structuredTip?.category || ''}
-                    onChange={(e) => onStructuredTipFieldChange('category', e.target.value)}
-                  />
-                </Col>
-              )}
-            </Row>
+            {/* Custom Category (only for Custom type) */}
+            {structuredTip?.type === 'Custom' && (
+              <div className={styles.formSection}>
+                <label className={styles.formLabel}>{lang.current.label.travelTipsCategory}</label>
+                <input
+                  type="text"
+                  className={styles.formInput}
+                  placeholder={lang.current.placeholder.travelTipCategory}
+                  value={structuredTip?.category || ''}
+                  onChange={(e) => onStructuredTipFieldChange('category', e.target.value)}
+                />
+              </div>
+            )}
 
-            <Form.Group className="mb-3">
-              <Form.Label>{lang.current.label.travelTipsDescription} *</Form.Label>
-              <Form.Control
+            {/* Main Content */}
+            <div className={styles.formSection}>
+              <label className={styles.formLabel}>
+                {lang.current.label.travelTipsDescription} <span className={styles.required}>*</span>
+              </label>
+              <input
                 type="text"
+                className={styles.formInput}
                 placeholder={lang.current.placeholder.travelTipDescription}
                 value={structuredTip?.value || ''}
                 onChange={(e) => onStructuredTipFieldChange('value', e.target.value)}
               />
-            </Form.Group>
+            </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label>{lang.current.label.travelTipsAdditionalNote}</Form.Label>
-              <Form.Control
-                as="textarea"
+            {/* Additional Notes */}
+            <div className={styles.formSection}>
+              <label className={styles.formLabel}>{lang.current.label.travelTipsAdditionalNote}</label>
+              <textarea
+                className={styles.formTextarea}
                 rows={2}
                 placeholder={lang.current.placeholder.travelTipNote}
                 value={structuredTip?.note || ''}
                 onChange={(e) => onStructuredTipFieldChange('note', e.target.value)}
               />
-            </Form.Group>
+            </div>
 
+            {/* Exchange Rate (Currency only) */}
             {structuredTip?.type === 'Currency' && (
-              <Form.Group className="mb-3">
-                <Form.Label>{lang.current.label.travelTipsExchangeRate}</Form.Label>
-                <Form.Control
+              <div className={styles.formSection}>
+                <label className={styles.formLabel}>
+                  <FaMoneyBillWave size="0.85em" style={{ marginRight: '6px' }} />
+                  {lang.current.label.travelTipsExchangeRate}
+                </label>
+                <input
                   type="text"
+                  className={styles.formInput}
                   placeholder={lang.current.placeholder.travelTipExchangeRate}
                   value={structuredTip?.exchangeRate || ''}
                   onChange={(e) => onStructuredTipFieldChange('exchangeRate', e.target.value)}
                 />
-              </Form.Group>
+              </div>
             )}
 
-            <Form.Group className="mb-3">
-              <Form.Label>{lang.current.label.travelTipsIcon}</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder={lang.current.placeholder.travelTipIcon}
-                value={structuredTip?.icon || ''}
-                onChange={(e) => onStructuredTipFieldChange('icon', e.target.value)}
-                maxLength={2}
-              />
-              <Form.Text className="text-muted">
-                {lang.current.helper.travelTipsIconHelp}
-              </Form.Text>
-            </Form.Group>
-
-            <div className={styles.callToActionSection}>
-              <Form.Label>{lang.current.label.travelTipsCallToAction}</Form.Label>
-              <Row>
-                <Col md={6}>
-                  <Form.Control
-                    type="text"
-                    placeholder={lang.current.placeholder.travelTipCtaLabel}
-                    value={structuredTip?.callToAction?.label || ''}
-                    onChange={(e) => onCallToActionChange('label', e.target.value)}
-                    className="mb-2 mb-md-0"
-                  />
-                </Col>
-                <Col md={6}>
-                  <Form.Control
-                    type="url"
-                    placeholder={lang.current.placeholder.travelTipCtaUrl}
-                    value={structuredTip?.callToAction?.url || ''}
-                    onChange={(e) => onCallToActionChange('url', e.target.value)}
-                  />
-                </Col>
-              </Row>
-              <Form.Text className="text-muted">
-                {lang.current.helper.travelTipsCtaHelp}
-              </Form.Text>
+            {/* Custom Icon */}
+            <div className={styles.formSection}>
+              <label className={styles.formLabel}>{lang.current.label.travelTipsIcon}</label>
+              <div className={styles.iconInputWrapper}>
+                <input
+                  type="text"
+                  className={styles.formInputSmall}
+                  placeholder={lang.current.placeholder.travelTipIcon}
+                  value={structuredTip?.icon || ''}
+                  onChange={(e) => onStructuredTipFieldChange('icon', e.target.value)}
+                  maxLength={2}
+                />
+                <span className={styles.iconPreview}>
+                  {structuredTip?.icon || selectedType.icon}
+                </span>
+              </div>
+              <span className={styles.formHelper}>{lang.current.helper.travelTipsIconHelp}</span>
             </div>
 
-            <div className="d-flex justify-content-end">
+            {/* Call to Action */}
+            <div className={styles.ctaSection}>
+              <label className={styles.formLabel}>
+                <FaLink size="0.85em" style={{ marginRight: '6px' }} />
+                {lang.current.label.travelTipsCallToAction}
+              </label>
+              <div className={styles.ctaInputs}>
+                <input
+                  type="text"
+                  className={styles.formInput}
+                  placeholder={lang.current.placeholder.travelTipCtaLabel}
+                  value={structuredTip?.callToAction?.label || ''}
+                  onChange={(e) => onCallToActionChange('label', e.target.value)}
+                />
+                <input
+                  type="url"
+                  className={styles.formInput}
+                  placeholder={lang.current.placeholder.travelTipCtaUrl}
+                  value={structuredTip?.callToAction?.url || ''}
+                  onChange={(e) => onCallToActionChange('url', e.target.value)}
+                />
+              </div>
+              <span className={styles.formHelper}>{lang.current.helper.travelTipsCtaHelp}</span>
+            </div>
+
+            {/* Add Button */}
+            <div className={styles.formActions}>
               <Button
-                variant="outline-primary"
+                variant="gradient"
+                size="sm"
                 onClick={onAddStructuredTip}
                 disabled={!canAddStructuredTip}
+                className={styles.addBtn}
               >
+                <FaPlus size="0.85em" />
                 {addButtonText}
               </Button>
             </div>
           </div>
         )}
-      </Form.Group>
+      </div>
 
+      {/* Tips List */}
       {tips && tips.length > 0 && (
-        <ListGroup className="mb-3">
+        <div className={styles.tipsList}>
           {tips.map((tip, index) => renderTipPreview(tip, index))}
-        </ListGroup>
+        </div>
       )}
     </div>
   );

@@ -1,143 +1,578 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Helper text override for better contrast */
-.travelTipsHelper {
+/* ============================================
+   TravelTipsManager - Modern Travel Tips Form
+   ============================================ */
+
+.travelTipsManager {
+  width: 100%;
+}
+
+/* Header Section */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: $space-4;
+  margin-bottom: $space-4;
+  flex-wrap: wrap;
+
+  @media (max-width: 576px) {
+    flex-direction: column;
+    gap: $space-3;
+  }
+}
+
+.headerText {
+  flex: 1;
+  min-width: 200px;
+}
+
+.title {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin: 0 0 $space-1 0;
+}
+
+.subtitle {
+  font-size: $font-size-sm;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: $line-height-relaxed;
+}
+
+/* Mode Toggle - Pill Style */
+.modeToggle {
+  display: flex;
+  background: var(--color-bg-tertiary);
+  border-radius: $radius-full;
+  padding: $space-1;
+  gap: $space-1;
+  flex-shrink: 0;
+}
+
+.modeBtn {
+  padding: $space-2 $space-4;
+  border: none;
+  background: transparent;
   color: var(--color-text-secondary);
   font-size: $font-size-sm;
-  line-height: 1.4;
-}
+  font-weight: $font-weight-medium;
+  border-radius: $radius-full;
+  cursor: pointer;
+  transition: all $transition-fast ease;
+  white-space: nowrap;
 
-.structuredTipForm {
-  border: var(--border-width-thin) solid var(--color-border-medium);
-  border-radius: $radius-md;
-  padding: $space-4;
-  background-color: var(--color-bg-secondary);
-  transition: background-color var(--transition-base), border-color var(--transition-base);
-}
-
-.structuredTipPreview {
-  padding: $space-4;
-
-  :global(.badge) {
-    font-size: $font-size-xs;
-    padding: $space-1 $space-2;
-  }
-
-  :global(strong) {
-    font-size: $font-size-base;
+  &:hover:not(.modeBtnActive) {
     color: var(--color-text-primary);
+    background: var(--color-bg-hover);
   }
 
-  :global(.text-muted) {
-    font-size: $font-size-sm;
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.modeBtnActive {
+  background: var(--gradient-primary);
+  color: white;
+  box-shadow: $shadow-sm;
+
+  &:hover {
+    filter: brightness(1.05);
+  }
+}
+
+/* Form Container */
+.formContainer {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: $radius-xl;
+  padding: $space-5;
+  margin-bottom: $space-4;
+
+  @media (max-width: 576px) {
+    padding: $space-4;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-medium);
+  }
+}
+
+/* Simple Form - Quick Tip Mode */
+.simpleForm {
+  display: flex;
+  gap: $space-3;
+  align-items: stretch;
+
+  @media (max-width: 576px) {
+    flex-direction: column;
+  }
+}
+
+.simpleInputWrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: $space-4;
+  color: var(--color-primary);
+  font-size: $font-size-lg;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.simpleInput {
+  width: 100%;
+  padding: $space-3 $space-4 $space-3 $space-12;
+  padding-left: 48px; // Ensure enough space for the icon
+  border: 2px solid var(--color-border-medium);
+  border-radius: $radius-xl;
+  font-size: $font-size-base;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: border-color $transition-fast ease, box-shadow $transition-fast ease;
+  min-height: 52px;
+
+  &::placeholder {
     color: var(--color-text-muted);
   }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
+  }
 }
 
-/* Mode toggle buttons - Design system compliant with layout stability */
-:global(.btn-group) {
-  /* Contain layout shifts within button group */
-  contain: layout;
+.addBtn {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 
-  :global(.btn) {
-    font-size: $font-size-sm;
-    /* Prevent focus/active state from causing layout shifts */
-    box-sizing: border-box;
-    /* Use padding that accounts for border changes */
-    padding: $space-2 $space-3;
-    /* Reserve space for focus border by using consistent border */
-    border-width: var(--space-0-5);
-    border-style: solid;
-    transition: background-color var(--transition-base),
-                color var(--transition-base),
-                border-color var(--transition-base);
-    /* Prevent any transform on interaction */
-    transform: none !important;
-    /* Lock vertical alignment */
-    vertical-align: middle;
-    /* Prevent outline from extending outside */
-    outline-offset: -2px;
+/* Structured Form */
+.structuredForm {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.formLabel {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.required {
+  color: var(--color-danger);
+  margin-left: $space-1;
+}
+
+.formHelper {
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+  margin-top: $space-1;
+}
+
+/* Type Selection Grid */
+.typeGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: $space-2;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(5, 1fr);
   }
 
-  /* Primary button state */
-  :global(.btn.btn-primary) {
-    border-color: var(--color-primary);
-    background-color: var(--color-primary);
-    color: var(--color-text-inverse);
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(5, 1fr);
+    gap: $space-1;
+  }
+}
+
+.typeBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: $space-1;
+  padding: $space-3 $space-2;
+  border: 2px solid var(--color-border-light);
+  border-radius: $radius-lg;
+  background: var(--color-bg-primary);
+  cursor: pointer;
+  transition: all $transition-fast ease;
+  min-height: 72px;
+
+  &:hover {
+    border-color: var(--type-color, var(--color-primary));
+    background: var(--type-bg, var(--color-primary-alpha-10));
+    transform: translateY(-2px);
   }
 
-  /* Outline button state */
-  :global(.btn.btn-outline-secondary) {
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 480px) {
+    padding: $space-2 $space-1;
+    min-height: 60px;
+    gap: 2px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
     border-color: var(--color-border-medium);
-    background-color: transparent;
-    color: var(--color-text-secondary);
+  }
+}
+
+.typeBtnSelected {
+  border-color: var(--type-color, var(--color-primary));
+  background: var(--type-bg, var(--color-primary-alpha-10));
+  box-shadow: 0 0 0 3px var(--type-bg, var(--color-primary-alpha-20));
+
+  .typeLabel {
+    color: var(--type-color, var(--color-primary));
+    font-weight: $font-weight-semibold;
+  }
+}
+
+.typeIcon {
+  font-size: $font-size-xl;
+  line-height: 1;
+
+  @media (max-width: 480px) {
+    font-size: $font-size-lg;
+  }
+}
+
+.typeLabel {
+  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: 1.2;
+
+  @media (max-width: 480px) {
+    font-size: 10px;
+  }
+}
+
+/* Form Inputs */
+.formInput,
+.formTextarea {
+  width: 100%;
+  padding: $space-3 $space-4;
+  border: 2px solid var(--color-border-medium);
+  border-radius: $radius-lg;
+  font-size: $font-size-base;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: border-color $transition-fast ease, box-shadow $transition-fast ease;
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
+  }
+}
+
+.formTextarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.formInputSmall {
+  width: 80px;
+  padding: $space-2 $space-3;
+  border: 2px solid var(--color-border-medium);
+  border-radius: $radius-md;
+  font-size: $font-size-lg;
+  text-align: center;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: border-color $transition-fast ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
+  }
+}
+
+.iconInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+}
+
+.iconPreview {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient-primary);
+  border-radius: $radius-lg;
+  font-size: $font-size-xl;
+  box-shadow: $shadow-sm;
+}
+
+/* Call to Action Section */
+.ctaSection {
+  background: var(--color-bg-tertiary);
+  border-radius: $radius-lg;
+  padding: $space-4;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+  }
+}
+
+.ctaInputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-3;
+
+  @media (max-width: 576px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Form Actions */
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: $space-2;
+}
+
+/* Tips List */
+.tipsList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+/* Tip Card - Shared Styles */
+.tipCard {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: $radius-lg;
+  padding: $space-4;
+  transition: all $transition-fast ease;
+  cursor: default;
+
+  &:hover {
+    box-shadow: $shadow-sm;
+    border-color: var(--color-border-medium);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-medium);
 
     &:hover {
       border-color: var(--color-border-dark);
-      background-color: var(--color-bg-secondary);
-      color: var(--color-text-primary);
     }
   }
+}
 
-  /* Focus states - use border color change only */
-  :global(.btn:focus),
-  :global(.btn:focus-visible) {
-    /* Keep same border width - only change color */
-    border-color: var(--color-primary);
-    /* Use inset box-shadow instead of outline */
-    box-shadow: inset 0 0 0 var(--border-width-thin) var(--color-primary);
-    outline: none;
-    /* Lock position - no movement */
-    transform: none !important;
-    /* Prevent any size changes */
-    padding: $space-2 $space-3;
-    margin: 0;
-  }
+/* Simple Tip Card */
+.tipCardSimple {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+}
 
-  /* Active state */
-  :global(.btn:active) {
-    transform: none !important;
-    box-shadow: none;
-    /* Slightly darker on click but no movement */
-    filter: brightness(0.95);
-  }
+.tipCardContent {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  flex: 1;
+  min-width: 0;
+}
 
-  /* Hover state */
-  :global(.btn:hover) {
-    transform: none !important;
-  }
+.tipIconSimple {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient-primary);
+  border-radius: $radius-md;
+  color: white;
+  font-size: $font-size-base;
+  flex-shrink: 0;
+}
 
-  /* Override any Bootstrap defaults that might cause shifts */
-  :global(.btn.btn-primary:hover),
-  :global(.btn.btn-primary:focus),
-  :global(.btn.btn-primary:active),
-  :global(.btn.btn-outline-secondary:hover),
-  :global(.btn.btn-outline-secondary:focus),
-  :global(.btn.btn-outline-secondary:active) {
-    transform: none !important;
-    box-shadow: none;
+.tipText {
+  font-size: $font-size-base;
+  color: var(--color-text-primary);
+  line-height: $line-height-relaxed;
+  word-break: break-word;
+}
+
+/* Structured Tip Card */
+.tipCardStructured {
+  border-left: 4px solid var(--tip-color, var(--color-primary));
+}
+
+.tipCardHeader {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  margin-bottom: $space-3;
+}
+
+.tipIconWrapper {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-md;
+  flex-shrink: 0;
+}
+
+.tipEmoji {
+  font-size: $font-size-base;
+  line-height: 1;
+}
+
+.tipBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: $space-1 $space-3;
+  border-radius: $radius-full;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tipCardBody {
+  padding-left: calc(36px + $space-3);
+
+  @media (max-width: 576px) {
+    padding-left: 0;
   }
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .structuredTipForm {
-    padding: $space-3;
-  }
-
-  .structuredTipPreview {
-    padding: $space-3;
-  }
+.tipValue {
+  font-size: $font-size-base;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin: 0 0 $space-2 0;
+  line-height: $line-height-relaxed;
 }
 
-/* Drag and drop styles */
-.dragHandle {
-  cursor: grab;
+.tipNote {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  margin: 0 0 $space-2 0;
+  font-style: italic;
+  line-height: $line-height-relaxed;
+}
+
+.tipExchangeRate {
+  display: flex;
+  align-items: center;
+  font-size: $font-size-xs;
   color: var(--color-text-muted);
-  font-size: $font-size-lg;
-  margin-right: $space-2;
-  user-select: none;
-  transition: color var(--transition-fast);
+  margin: 0 0 $space-2 0;
+}
+
+.tipCtaLink {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-primary);
+  text-decoration: none;
+  margin-top: $space-2;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* Delete Button */
+.tipDeleteBtn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  border-radius: $radius-full;
+  cursor: pointer;
+  transition: all $transition-fast ease;
+  flex-shrink: 0;
+  margin-left: auto;
+
+  &:hover {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-danger);
+    outline-offset: 2px;
+  }
+}
+
+/* Drag Handle */
+.dragHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  cursor: grab;
+  padding: $space-1;
+  border-radius: $radius-sm;
+  transition: color $transition-fast ease;
 
   &:hover {
     color: var(--color-text-secondary);
@@ -148,69 +583,38 @@
   }
 }
 
+/* Drag States */
 .dragging {
-  opacity: 0.5;
-  transform: rotate(5deg);
-  box-shadow: var(--shadow-md);
+  opacity: 0.6;
+  transform: rotate(2deg);
+  box-shadow: $shadow-lg;
 }
 
 .dragOver {
-  border-top: var(--space-0-5) solid var(--color-primary);
-  background-color: var(--color-bg-tertiary);
-  transition: background-color var(--transition-fast);
+  border-top: 3px solid var(--color-primary);
+  margin-top: -3px;
 }
 
-/* Dark mode specific adjustments */
-@media (prefers-color-scheme: dark) {
-  .structuredTipForm {
-    background-color: var(--color-bg-tertiary);
-    border-color: var(--color-border-light);
-  }
-
-  .dragOver {
-    background-color: var(--color-bg-secondary);
-  }
-
-  .callToActionSection {
-    background-color: var(--color-bg-tertiary);
-  }
+/* Legacy styles for backwards compatibility */
+.travelTipsHelper {
+  color: var(--color-text-muted);
+  font-size: $font-size-sm;
+  line-height: $line-height-relaxed;
 }
 
-/* Call to Action Section - Design System Compliant */
-.callToActionSection {
-  border: var(--space-0-5) solid var(--color-border-medium);
+.structuredTipForm {
+  border: 1px solid var(--color-border-medium);
   border-radius: $radius-lg;
   padding: $space-4;
-  margin-bottom: $space-3;
-  background-color: var(--color-bg-secondary);
-  transition: background-color var(--transition-base), border-color var(--transition-base);
+  background: var(--color-bg-secondary);
+}
 
-  :global(.form-label) {
-    color: var(--color-text-primary);
-    font-weight: var(--font-weight-medium);
-    font-size: $font-size-base;
-    margin-bottom: $space-2;
-  }
+.structuredTipPreview {
+  padding: $space-4;
+}
 
-  :global(.form-control) {
-    background-color: var(--color-bg-input);
-    border-color: var(--color-border-medium);
-    color: var(--color-text-primary);
-
-    &:focus {
-      background-color: var(--color-bg-input);
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 var(--space-0-5) var(--color-primary-alpha);
-    }
-
-    &::placeholder {
-      color: var(--color-text-placeholder);
-    }
-  }
-
-  :global(.form-text) {
-    color: var(--color-text-muted);
-    font-size: $font-size-sm;
-    margin-top: $space-2;
-  }
+.callToActionSection {
+  background: var(--color-bg-tertiary);
+  border-radius: $radius-lg;
+  padding: $space-4;
 }

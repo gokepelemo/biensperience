@@ -6,6 +6,7 @@ import { useData } from "../../contexts/DataContext";
 import { useToast } from "../../contexts/ToastContext";
 import { lang } from "../../lang.constants";
 import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
+import Banner from "../Banner/Banner";
 import Alert from "../Alert/Alert";
 import Loading from "../Loading/Loading";
 import { handleError } from "../../utilities/error-handler";
@@ -30,6 +31,7 @@ export default function UpdateDestination() {
   const [originalDestination, setOriginalDestination] = useState(null);
   const [changes, setChanges] = useState({});
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [hasCalculatedChanges, setHasCalculatedChanges] = useState(false);
   const [isMediaSettled, setIsMediaSettled] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [error, setError] = useState("");
@@ -99,8 +101,14 @@ export default function UpdateDestination() {
         });
         setTravelTips(destinationData.travel_tips || []);
         setLoading(false);
-        // Mark initial load complete after a short delay to ensure all state is set
-        setTimeout(() => setIsInitialLoad(false), 100);
+        // Delay marking as loaded to prevent change detection during hydration
+        // Use requestAnimationFrame to sync with browser render cycle
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            setIsInitialLoad(false);
+            setHasCalculatedChanges(true);
+          }, 150);
+        });
       } catch (err) {
         const errorMessage = handleError(err, { context: 'Loading destination for update' });
         setError(errorMessage || lang.current.alert.failedToLoadResource);
@@ -145,71 +153,76 @@ export default function UpdateDestination() {
   useEffect(() => {
     if (!destination || !originalDestination || isInitialLoad || !isMediaSettled) return;
 
-    const newChanges = { ...changes };
+    // Debounce change detection to prevent flashing
+    const timeoutId = setTimeout(() => {
+      const newChanges = { ...changes };
 
-    // Normalize photos by ID and ignore order
-    const getId = (p) => {
-      if (!p) return null;
-      if (typeof p === 'string') return p;
-      if (p._id) return String(p._id);
-      return String(p);
-    };
-    const normalizePhotos = (arr = []) => arr.map(getId).filter(Boolean).sort();
-
-    const originalPhotos = originalDestination.photos || [];
-    const currentPhotos = destination.photos || [];
-
-    const originalPhotoIds = normalizePhotos(originalPhotos);
-    const currentPhotoIds = normalizePhotos(currentPhotos);
-
-    const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
-
-    if (photosChanged) {
-      const fromText = originalPhotoIds.length === 0 ? 'No photos' : `${originalPhotoIds.length} photo${originalPhotoIds.length > 1 ? 's' : ''}`;
-      const toText = currentPhotoIds.length === 0 ? 'No photos' : `${currentPhotoIds.length} photo${currentPhotoIds.length > 1 ? 's' : ''}`;
-
-      newChanges.photos = { from: fromText, to: toText };
-    } else {
-      delete newChanges.photos;
-    }
-
-    // Check if default photo changed by ID (fallback to first photo when unset)
-    const originalDefaultId = originalDestination.default_photo_id;
-    const currentDefaultId = destination.default_photo_id;
-
-    const normalizedOriginalDefault = originalDefaultId
-      ? String(getId(originalDefaultId))
-      : (originalPhotoIds[0] || null);
-    let normalizedCurrentDefault = currentDefaultId
-      ? String(getId(currentDefaultId))
-      : (currentPhotoIds[0] || null);
-
-    // If there are no current photos, treat default as null
-    if (currentPhotoIds.length === 0) normalizedCurrentDefault = null;
-
-    if (
-      normalizedOriginalDefault !== normalizedCurrentDefault &&
-      currentPhotoIds.length > 0
-    ) {
-      const originalIndex = normalizedOriginalDefault
-        ? originalPhotoIds.indexOf(normalizedOriginalDefault)
-        : -1;
-      const currentIndex = normalizedCurrentDefault
-        ? currentPhotoIds.indexOf(normalizedCurrentDefault)
-        : -1;
-
-      newChanges.default_photo = {
-        from: originalIndex >= 0 ? `Photo #${originalIndex + 1}` : 'None',
-        to: currentIndex >= 0 ? `Photo #${currentIndex + 1}` : 'None'
+      // Normalize photos by ID and ignore order
+      const getId = (p) => {
+        if (!p) return null;
+        if (typeof p === 'string') return p;
+        if (p._id) return String(p._id);
+        return String(p);
       };
-    } else {
-      delete newChanges.default_photo;
-    }
+      const normalizePhotos = (arr = []) => arr.map(getId).filter(Boolean).sort();
 
-    // Only update if changes actually differ
-    if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
-      setChanges(newChanges);
-    }
+      const originalPhotos = originalDestination.photos || [];
+      const currentPhotos = destination.photos || [];
+
+      const originalPhotoIds = normalizePhotos(originalPhotos);
+      const currentPhotoIds = normalizePhotos(currentPhotos);
+
+      const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
+
+      if (photosChanged) {
+        const fromText = originalPhotoIds.length === 0 ? 'No photos' : `${originalPhotoIds.length} photo${originalPhotoIds.length > 1 ? 's' : ''}`;
+        const toText = currentPhotoIds.length === 0 ? 'No photos' : `${currentPhotoIds.length} photo${currentPhotoIds.length > 1 ? 's' : ''}`;
+
+        newChanges.photos = { from: fromText, to: toText };
+      } else {
+        delete newChanges.photos;
+      }
+
+      // Check if default photo changed by ID (fallback to first photo when unset)
+      const originalDefaultId = originalDestination.default_photo_id;
+      const currentDefaultId = destination.default_photo_id;
+
+      const normalizedOriginalDefault = originalDefaultId
+        ? String(getId(originalDefaultId))
+        : (originalPhotoIds[0] || null);
+      let normalizedCurrentDefault = currentDefaultId
+        ? String(getId(currentDefaultId))
+        : (currentPhotoIds[0] || null);
+
+      // If there are no current photos, treat default as null
+      if (currentPhotoIds.length === 0) normalizedCurrentDefault = null;
+
+      if (
+        normalizedOriginalDefault !== normalizedCurrentDefault &&
+        currentPhotoIds.length > 0
+      ) {
+        const originalIndex = normalizedOriginalDefault
+          ? originalPhotoIds.indexOf(normalizedOriginalDefault)
+          : -1;
+        const currentIndex = normalizedCurrentDefault
+          ? currentPhotoIds.indexOf(normalizedCurrentDefault)
+          : -1;
+
+        newChanges.default_photo = {
+          from: originalIndex >= 0 ? `Photo #${originalIndex + 1}` : 'None',
+          to: currentIndex >= 0 ? `Photo #${currentIndex + 1}` : 'None'
+        };
+      } else {
+        delete newChanges.default_photo;
+      }
+
+      // Only update if changes actually differ
+      if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
+        setChanges(newChanges);
+      }
+    }, 100); // 100ms debounce
+
+    return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destination, originalDestination, isInitialLoad, isMediaSettled]);
 
@@ -217,20 +230,25 @@ export default function UpdateDestination() {
   useEffect(() => {
     if (!originalDestination || isInitialLoad) return;
 
-    const newChanges = { ...changes };
+    // Debounce change detection to prevent flashing
+    const timeoutId = setTimeout(() => {
+      const newChanges = { ...changes };
 
-    if (JSON.stringify(travelTips) !== JSON.stringify(originalDestination.travel_tips || [])) {
-      newChanges.travel_tips = {
-        from: originalDestination.travel_tips || [],
-        to: travelTips
-      };
-    } else {
-      delete newChanges.travel_tips;
-    }
+      if (JSON.stringify(travelTips) !== JSON.stringify(originalDestination.travel_tips || [])) {
+        newChanges.travel_tips = {
+          from: originalDestination.travel_tips || [],
+          to: travelTips
+        };
+      } else {
+        delete newChanges.travel_tips;
+      }
 
-    if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
-      setChanges(newChanges);
-    }
+      if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
+        setChanges(newChanges);
+      }
+    }, 100); // 100ms debounce
+
+    return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [travelTips, originalDestination]);
 
@@ -316,20 +334,22 @@ export default function UpdateDestination() {
         />
       )}
 
-      {!isInitialLoad && isMediaSettled && Object.keys(changes).length > 0 && (
-        <Alert
+      {hasCalculatedChanges && !isInitialLoad && isMediaSettled && Object.keys(changes).length > 0 && (
+        <Banner
           type="info"
+          variant="bordered"
+          title={lang.current.message.changesDetected}
           className="mb-4"
+          showIcon={true}
         >
-          <strong>Changes detected:</strong>
-          <ul className="mb-0 mt-2">
+          <ul className="mb-0 mt-2" style={{ paddingLeft: '1.5rem' }}>
             {Object.keys(changes).map((field, idx) => (
               <li key={idx} style={{ whiteSpace: 'pre-line' }}>
                 {formatChanges(field, changes[field], 'destination')}
               </li>
             ))}
           </ul>
-        </Alert>
+        </Banner>
       )}
 
       <div className="row my-4 animation-fade-in">
