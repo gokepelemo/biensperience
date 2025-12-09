@@ -2906,6 +2906,7 @@
   background: var(--color-bg-secondary);
   border-radius: var(--radius-lg);
   overflow: visible; /* Allow dropdowns to extend beyond container */
+  transition: box-shadow 0.2s ease;
 }
 
 :global(.activity-type-group-header) {
@@ -2914,8 +2915,10 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   background: var(--color-bg-tertiary);
-  border-bottom: 1px solid var(--color-border-light);
   font-weight: var(--font-weight-semibold);
+  /* Rounded corners on top to match parent container */
+  border-top-left-radius: calc(var(--radius-lg) - 1px); /* Account for border */
+  border-top-right-radius: calc(var(--radius-lg) - 1px);
 }
 
 :global(.activity-type-icon) {
@@ -2934,13 +2937,17 @@
 }
 
 :global(.activity-type-group-items) {
-  padding: var(--space-2) 0;
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 :global(.activity-type-ungrouped) {
   :global(.activity-type-group-header) {
     background: transparent;
-    border-bottom: 1px dashed var(--color-border-light);
+    border: 1px dashed var(--color-border-light);
+    border-radius: var(--radius-md); /* Full rounded corners for ungrouped */
   }
 }
 
