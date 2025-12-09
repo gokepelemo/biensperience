@@ -1352,7 +1352,10 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
   };
 
   const renderTimeSection = (activityData, timeOfDay) => {
-    if (!activityData || (activityData.groups?.length === 0 && activityData.ungrouped?.length === 0)) {
+    // Check if data is empty - handle both empty array and empty object with no items
+    if (!activityData || 
+        (Array.isArray(activityData) && activityData.length === 0) ||
+        (activityData.groups?.length === 0 && activityData.ungrouped?.length === 0)) {
       return null;
     }
 
