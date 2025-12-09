@@ -14,9 +14,19 @@ import { logger } from './logger';
  * Format is always: {code}{symbol}{amount} for 'before' position currencies
  * or {code}{amount}{symbol} for 'after' position currencies
  */
+/**
+ * Currency configuration with disambiguated display symbols
+ *
+ * disambiguatedSymbol: Used when the base symbol is shared by multiple currencies
+ *   - For $ currencies: US$, A$, C$, NZ$, S$, HK$, MX$, TW$
+ *   - For ¥ currencies: JP¥, CN¥
+ *   - For kr currencies: SEK, NOK, DKK (use 3-letter code)
+ *   - Unique symbols (€, £, ₹, etc.) don't need disambiguation
+ */
 const currencyConfig = {
   USD: {
     symbol: '$',
+    disambiguatedSymbol: 'US$', // International standard
     code: 'USD',
     locale: 'en-US',
     position: 'before',
@@ -26,6 +36,7 @@ const currencyConfig = {
   },
   EUR: {
     symbol: '€',
+    disambiguatedSymbol: '€', // Unique symbol, no disambiguation needed
     code: 'EUR',
     locale: 'de-DE',
     position: 'after',
@@ -35,6 +46,7 @@ const currencyConfig = {
   },
   GBP: {
     symbol: '£',
+    disambiguatedSymbol: '£', // Unique symbol
     code: 'GBP',
     locale: 'en-GB',
     position: 'before',
@@ -44,6 +56,7 @@ const currencyConfig = {
   },
   JPY: {
     symbol: '¥',
+    disambiguatedSymbol: 'JP¥', // Distinguish from CNY
     code: 'JPY',
     locale: 'ja-JP',
     position: 'before',
@@ -53,6 +66,7 @@ const currencyConfig = {
   },
   AUD: {
     symbol: '$',
+    disambiguatedSymbol: 'A$', // Australian dollar
     code: 'AUD',
     locale: 'en-AU',
     position: 'before',
@@ -62,6 +76,7 @@ const currencyConfig = {
   },
   CAD: {
     symbol: '$',
+    disambiguatedSymbol: 'C$', // Canadian dollar
     code: 'CAD',
     locale: 'en-CA',
     position: 'before',
@@ -71,6 +86,7 @@ const currencyConfig = {
   },
   CHF: {
     symbol: 'Fr.',
+    disambiguatedSymbol: 'CHF', // Swiss Franc - use code
     code: 'CHF',
     locale: 'de-CH',
     position: 'before',
@@ -80,6 +96,7 @@ const currencyConfig = {
   },
   CNY: {
     symbol: '¥',
+    disambiguatedSymbol: 'CN¥', // Distinguish from JPY
     code: 'CNY',
     locale: 'zh-CN',
     position: 'before',
@@ -89,6 +106,7 @@ const currencyConfig = {
   },
   INR: {
     symbol: '₹',
+    disambiguatedSymbol: '₹', // Unique symbol
     code: 'INR',
     locale: 'en-IN',
     position: 'before',
@@ -98,6 +116,7 @@ const currencyConfig = {
   },
   KRW: {
     symbol: '₩',
+    disambiguatedSymbol: '₩', // Unique symbol
     code: 'KRW',
     locale: 'ko-KR',
     position: 'before',
@@ -107,6 +126,7 @@ const currencyConfig = {
   },
   MXN: {
     symbol: '$',
+    disambiguatedSymbol: 'MX$', // Mexican peso
     code: 'MXN',
     locale: 'es-MX',
     position: 'before',
@@ -116,6 +136,7 @@ const currencyConfig = {
   },
   NZD: {
     symbol: '$',
+    disambiguatedSymbol: 'NZ$', // New Zealand dollar
     code: 'NZD',
     locale: 'en-NZ',
     position: 'before',
@@ -125,6 +146,7 @@ const currencyConfig = {
   },
   SGD: {
     symbol: '$',
+    disambiguatedSymbol: 'S$', // Singapore dollar
     code: 'SGD',
     locale: 'en-SG',
     position: 'before',
@@ -134,6 +156,7 @@ const currencyConfig = {
   },
   THB: {
     symbol: '฿',
+    disambiguatedSymbol: '฿', // Unique symbol
     code: 'THB',
     locale: 'th-TH',
     position: 'before',
@@ -143,6 +166,7 @@ const currencyConfig = {
   },
   BRL: {
     symbol: 'R$',
+    disambiguatedSymbol: 'R$', // Already includes country prefix
     code: 'BRL',
     locale: 'pt-BR',
     position: 'before',
@@ -152,6 +176,7 @@ const currencyConfig = {
   },
   ZAR: {
     symbol: 'R',
+    disambiguatedSymbol: 'ZAR', // Use code to distinguish from BRL
     code: 'ZAR',
     locale: 'en-ZA',
     position: 'before',
@@ -161,6 +186,7 @@ const currencyConfig = {
   },
   SEK: {
     symbol: 'kr',
+    disambiguatedSymbol: 'SEK', // Use code to distinguish from NOK/DKK
     code: 'SEK',
     locale: 'sv-SE',
     position: 'after',
@@ -170,6 +196,7 @@ const currencyConfig = {
   },
   NOK: {
     symbol: 'kr',
+    disambiguatedSymbol: 'NOK', // Use code to distinguish from SEK/DKK
     code: 'NOK',
     locale: 'nb-NO',
     position: 'after',
@@ -179,6 +206,7 @@ const currencyConfig = {
   },
   DKK: {
     symbol: 'kr',
+    disambiguatedSymbol: 'DKK', // Use code to distinguish from SEK/NOK
     code: 'DKK',
     locale: 'da-DK',
     position: 'after',
@@ -188,6 +216,7 @@ const currencyConfig = {
   },
   HKD: {
     symbol: '$',
+    disambiguatedSymbol: 'HK$', // Hong Kong dollar
     code: 'HKD',
     locale: 'zh-HK',
     position: 'before',
@@ -197,6 +226,7 @@ const currencyConfig = {
   },
   TWD: {
     symbol: '$',
+    disambiguatedSymbol: 'NT$', // New Taiwan dollar (common abbreviation)
     code: 'TWD',
     locale: 'zh-TW',
     position: 'before',
@@ -206,6 +236,7 @@ const currencyConfig = {
   },
   PHP: {
     symbol: '₱',
+    disambiguatedSymbol: '₱', // Unique symbol
     code: 'PHP',
     locale: 'en-PH',
     position: 'before',
@@ -215,6 +246,7 @@ const currencyConfig = {
   },
   IDR: {
     symbol: 'Rp',
+    disambiguatedSymbol: 'Rp', // Unique symbol
     code: 'IDR',
     locale: 'id-ID',
     position: 'before',
@@ -224,6 +256,7 @@ const currencyConfig = {
   },
   MYR: {
     symbol: 'RM',
+    disambiguatedSymbol: 'RM', // Unique symbol
     code: 'MYR',
     locale: 'ms-MY',
     position: 'before',
@@ -233,6 +266,7 @@ const currencyConfig = {
   },
   VND: {
     symbol: '₫',
+    disambiguatedSymbol: '₫', // Unique symbol
     code: 'VND',
     locale: 'vi-VN',
     position: 'after',
@@ -242,6 +276,7 @@ const currencyConfig = {
   },
   AED: {
     symbol: 'د.إ',
+    disambiguatedSymbol: 'AED', // Use code for non-Latin script
     code: 'AED',
     locale: 'ar-AE',
     position: 'before',
@@ -251,6 +286,7 @@ const currencyConfig = {
   },
   SAR: {
     symbol: '﷼',
+    disambiguatedSymbol: 'SAR', // Use code for non-Latin script
     code: 'SAR',
     locale: 'ar-SA',
     position: 'before',
@@ -260,6 +296,7 @@ const currencyConfig = {
   },
   ILS: {
     symbol: '₪',
+    disambiguatedSymbol: '₪', // Unique symbol
     code: 'ILS',
     locale: 'he-IL',
     position: 'before',
@@ -269,6 +306,7 @@ const currencyConfig = {
   },
   TRY: {
     symbol: '₺',
+    disambiguatedSymbol: '₺', // Unique symbol
     code: 'TRY',
     locale: 'tr-TR',
     position: 'before',
@@ -278,6 +316,7 @@ const currencyConfig = {
   },
   RUB: {
     symbol: '₽',
+    disambiguatedSymbol: '₽', // Unique symbol
     code: 'RUB',
     locale: 'ru-RU',
     position: 'after',
@@ -287,6 +326,7 @@ const currencyConfig = {
   },
   PLN: {
     symbol: 'zł',
+    disambiguatedSymbol: 'zł', // Unique symbol
     code: 'PLN',
     locale: 'pl-PL',
     position: 'after',
@@ -296,6 +336,7 @@ const currencyConfig = {
   },
   CZK: {
     symbol: 'Kč',
+    disambiguatedSymbol: 'Kč', // Unique symbol
     code: 'CZK',
     locale: 'cs-CZ',
     position: 'after',
@@ -305,6 +346,7 @@ const currencyConfig = {
   },
   HUF: {
     symbol: 'Ft',
+    disambiguatedSymbol: 'Ft', // Unique symbol
     code: 'HUF',
     locale: 'hu-HU',
     position: 'after',
@@ -345,6 +387,22 @@ export function getDefaultCurrency() {
  */
 export function getCurrencySymbol(currencyCode = defaultCurrency) {
   return currencyConfig[currencyCode]?.symbol || '$';
+}
+
+/**
+ * Get disambiguated currency symbol for clear identification
+ * Uses short prefixes for currencies that share symbols:
+ * - $ currencies: US$, A$, C$, NZ$, S$, HK$, MX$, NT$
+ * - ¥ currencies: JP¥, CN¥
+ * - kr currencies: SEK, NOK, DKK (use 3-letter code)
+ * - Unique symbols (€, £, ₹, etc.) remain unchanged
+ *
+ * @param {string} currencyCode - Currency code (optional, uses default if not provided)
+ * @returns {string} Disambiguated currency symbol
+ */
+export function getDisambiguatedSymbol(currencyCode = defaultCurrency) {
+  const config = currencyConfig[currencyCode];
+  return config?.disambiguatedSymbol || config?.symbol || currencyCode;
 }
 
 /**
@@ -393,6 +451,52 @@ export function formatCurrency(amount, currencyCode = defaultCurrency, showSymbo
   }
 
   return result;
+}
+
+/**
+ * Format currency with disambiguated symbol for clear identification
+ * Uses short prefixes for currencies that share symbols (US$, A$, €, £, etc.)
+ *
+ * Examples:
+ * - USD: US$100.00
+ * - AUD: A$100.00
+ * - EUR: 100.00€
+ * - GBP: £100.00
+ * - JPY: JP¥10,000
+ * - CAD: C$100.00
+ *
+ * @param {number|string} amount - The amount to format
+ * @param {string} currencyCode - Currency code (optional, uses default if not provided)
+ * @returns {string} Formatted currency string with disambiguated symbol
+ */
+export function formatCurrencyDisambiguated(amount, currencyCode = defaultCurrency) {
+  const config = currencyConfig[currencyCode] || currencyConfig.USD;
+  const disambiguatedSymbol = config.disambiguatedSymbol || config.symbol || currencyCode;
+
+  // Convert to number and handle invalid values
+  const numAmount = parseFloat(amount);
+  if (isNaN(numAmount)) {
+    return config.position === 'before' ? `${disambiguatedSymbol}0` : `0${disambiguatedSymbol}`;
+  }
+
+  // Check if the amount has cents (decimal places)
+  const hasCents = numAmount % 1 !== 0;
+
+  // Use Intl.NumberFormat for proper locale-based formatting
+  const formatter = new Intl.NumberFormat(config.locale, {
+    minimumFractionDigits: hasCents ? config.decimalPlaces : 0,
+    maximumFractionDigits: config.decimalPlaces,
+  });
+
+  const formattedNumber = formatter.format(Math.abs(numAmount));
+  const sign = numAmount < 0 ? '-' : '';
+
+  // Build the final string with disambiguated symbol
+  if (config.position === 'before') {
+    return sign + disambiguatedSymbol + formattedNumber;
+  } else {
+    return sign + formattedNumber + disambiguatedSymbol;
+  }
 }
 
 /**

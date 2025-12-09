@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useId } from 'react';
 import { FaDollarSign, FaPlus, FaEdit, FaTrash, FaUser, FaListUl } from 'react-icons/fa';
-import { formatActualCost } from '../../utilities/cost-utils';
+import { formatTrackedCost } from '../../utilities/cost-utils';
 import { lang } from '../../lang.constants';
 import CostEntry from '../CostEntry';
 import CostSummary from '../CostSummary';
@@ -280,11 +280,8 @@ export default function CostsList({
 
               <div className={styles.costItemRight}>
                 <div className={styles.costItemAmount}>
-                  {/* Display individual costs in their original tracked currency */}
-                  {formatActualCost(cost.cost, {
-                    exact: true,
-                    currency: cost.currency || 'USD',
-                  })}
+                  {/* Display individual costs in their original tracked currency with disambiguated symbol */}
+                  {formatTrackedCost(cost.cost, { currency: cost.currency || 'USD' })}
                 </div>
 
                 {canEdit && (

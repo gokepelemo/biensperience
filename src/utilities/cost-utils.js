@@ -12,7 +12,7 @@
  * @module cost-utils
  */
 
-import { formatCurrency, getCurrencySymbol } from './currency-utils';
+import { formatCurrency, formatCurrencyDisambiguated, getCurrencySymbol } from './currency-utils';
 
 /**
  * Round cost to a friendly number based on magnitude.
@@ -230,6 +230,47 @@ export function formatActualCost(cost, options = {}) {
 }
 
 /**
+ * Format a tracked cost with disambiguated currency symbol.
+ * Use this for displaying individual tracked costs to avoid confusion
+ * between currencies that share symbols (e.g., USD, AUD, CAD all use $).
+ *
+ * @param {number} cost - The cost value
+ * @param {Object} options - Formatting options
+ * @param {string} options.currency - Currency code (default: 'USD')
+ * @returns {string|null} Formatted string with disambiguated symbol or null if invalid
+ *
+ * @example
+ * formatTrackedCost(100, { currency: 'USD' })   // 'US$100'
+ * formatTrackedCost(100, { currency: 'AUD' })   // 'A$100'
+ * formatTrackedCost(100, { currency: 'EUR' })   // '100€'
+ * formatTrackedCost(100, { currency: 'GBP' })   // '£100'
+ * formatTrackedCost(100, { currency: 'JPY' })   // 'JP¥100'
+ * formatTrackedCost(100, { currency: 'CAD' })   // 'C$100'
+ * formatTrackedCost(100, { currency: 'MXN' })   // 'MX$100'
+ */
+export function formatTrackedCost(cost, options = {}) {
+  const { currency = 'USD' } = options;
+
+  // Handle invalid inputs
+  if (cost === null || cost === undefined || cost === '') {
+    return null;
+  }
+
+  const numCost = typeof cost === 'string' ? parseFloat(cost) : cost;
+
+  if (typeof numCost !== 'number' || isNaN(numCost) || numCost < 0) {
+    return null;
+  }
+
+  if (numCost === 0) {
+    return null;
+  }
+
+  // Use disambiguated format for clear currency identification
+  return formatCurrencyDisambiguated(numCost, currency);
+}
+
+/**
  * Get cost level indicator (1-5 dollar signs based on cost magnitude).
  *
  * @param {number} cost - Cost value
@@ -357,6 +398,7 @@ export function getTotalCostTooltip(totalCost, costEntries = [], options = {}) {
 export default {
   formatCostEstimate,
   formatActualCost,
+  formatTrackedCost,
   getCostEstimateTooltip,
   getTrackedCostTooltip,
   getCostEstimateLabel,
