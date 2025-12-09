@@ -2905,7 +2905,7 @@
 :global(.activity-type-group) {
   background: var(--color-bg-secondary);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow: visible; /* Allow dropdowns to extend beyond container */
 }
 
 :global(.activity-type-group-header) {
