@@ -5,10 +5,9 @@
  * Includes inline cost summary.
  */
 
-import { useState, useMemo, useId, useEffect } from 'react';
+import { useState, useMemo, useId } from 'react';
 import { FaDollarSign, FaPlus, FaEdit, FaTrash, FaUser, FaListUl } from 'react-icons/fa';
 import { formatActualCost } from '../../utilities/cost-utils';
-import { convertCostToTarget, fetchRates } from '../../utilities/currency-conversion';
 import { lang } from '../../lang.constants';
 import CostEntry from '../CostEntry';
 import CostSummary from '../CostSummary';
@@ -47,29 +46,10 @@ export default function CostsList({
 }) {
   const listId = useId();
   const costStrings = lang.current.cost;
-  const [ratesLoaded, setRatesLoaded] = useState(false);
 
-  // Determine the target currency for display
-  // If displayCurrency is provided, convert to that; otherwise use plan currency
+  // Determine the target currency for rollup display (CostSummary)
+  // If displayCurrency is provided (user preference), use that; otherwise use plan currency
   const targetCurrency = displayCurrency || currency;
-
-  // Fetch exchange rates on mount
-  useEffect(() => {
-    fetchRates(targetCurrency)
-      .then(() => setRatesLoaded(true))
-      .catch(() => setRatesLoaded(true)); // Still render even if rates fail
-  }, [targetCurrency]);
-
-  /**
-   * Get converted cost amount for a single cost item
-   * NOTE: This is memoized and depends on ratesLoaded to trigger re-render when rates become available
-   * Converts from cost's tracked currency to the display currency
-   */
-  const getConvertedAmount = useMemo(() => {
-    // Return a function that can be called to convert costs
-    // The dependency on ratesLoaded ensures this is recalculated when rates load
-    return (cost) => convertCostToTarget(cost, targetCurrency);
-  }, [targetCurrency, ratesLoaded]);
 
   // Modal state
   const [showCostModal, setShowCostModal] = useState(false);
@@ -300,9 +280,10 @@ export default function CostsList({
 
               <div className={styles.costItemRight}>
                 <div className={styles.costItemAmount}>
-                  {formatActualCost(getConvertedAmount(cost), {
+                  {/* Display individual costs in their original tracked currency */}
+                  {formatActualCost(cost.cost, {
                     exact: true,
-                    currency: targetCurrency,
+                    currency: cost.currency || 'USD',
                   })}
                 </div>
 
