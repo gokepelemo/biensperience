@@ -13,6 +13,11 @@ import { Form } from 'react-bootstrap';
 import Modal from '../Modal/Modal';
 import { lang } from '../../lang.constants';
 import { getCurrencySymbol, getCurrencyDropdownOptions } from '../../utilities/currency-utils';
+import {
+  ACTIVITY_TYPES,
+  ACTIVITY_CATEGORIES,
+  getCostCategoryIcon
+} from '../../constants/activity-types';
 import styles from './CostEntry.module.scss';
 
 const { Label: FormLabel, Control: FormControl, Select: FormSelect } = Form;
@@ -20,15 +25,18 @@ const { Label: FormLabel, Control: FormControl, Select: FormSelect } = Form;
 // Get currency options from centralized utility (sorted by popularity)
 const CURRENCIES = getCurrencyDropdownOptions({ format: 'codeAndName' });
 
-// Cost categories
-const CATEGORIES = [
-  { value: 'accommodation', labelKey: 'categoryAccommodation' },
-  { value: 'transport', labelKey: 'categoryTransport' },
-  { value: 'food', labelKey: 'categoryFood' },
-  { value: 'activities', labelKey: 'categoryActivities' },
-  { value: 'equipment', labelKey: 'categoryEquipment' },
-  { value: 'other', labelKey: 'categoryOther' },
-];
+// Pre-compute category order once at module level (stable, no side effects)
+const CATEGORY_ORDER = Object.keys(ACTIVITY_CATEGORIES)
+  .sort((a, b) => ACTIVITY_CATEGORIES[a].order - ACTIVITY_CATEGORIES[b].order);
+
+// Pre-group activity types by category for cost category dropdown
+const GROUPED_COST_CATEGORIES = CATEGORY_ORDER.reduce((acc, category) => {
+  const items = ACTIVITY_TYPES.filter(t => t.category === category);
+  if (items.length > 0) {
+    acc[category] = items;
+  }
+  return acc;
+}, {});
 
 /**
  * Format date for input[type="date"]
@@ -328,11 +336,20 @@ export default function CostEntry({
               aria-label={costStrings.category}
             >
               <option value="">{costStrings.categoryPlaceholder}</option>
-              {CATEGORIES.map(cat => (
-                <option key={cat.value} value={cat.value}>
-                  {costStrings[cat.labelKey]}
-                </option>
-              ))}
+              {CATEGORY_ORDER.map(categoryKey => {
+                const categoryInfo = ACTIVITY_CATEGORIES[categoryKey];
+                const types = GROUPED_COST_CATEGORIES[categoryKey];
+                if (!types || types.length === 0) return null;
+                return (
+                  <optgroup key={categoryKey} label={`${categoryInfo.icon} ${categoryInfo.label}`}>
+                    {types.map(type => (
+                      <option key={type.value} value={type.value}>
+                        {type.icon} {type.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </FormSelect>
           </div>
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId, useMemo } from 'react';
 import { OverlayTrigger, Tooltip as BootstrapTooltip } from 'react-bootstrap';
 import PropTypes from 'prop-types';
 
@@ -32,20 +32,23 @@ export default function Tooltip({
   onToggle,
   rootClose = false,
 }) {
+  // Generate stable ID using React's useId hook to prevent re-render issues
+  const tooltipId = useId();
 
   // If no content, just return children without tooltip
   if (!content) {
     return <>{children}</>;
   }
 
-  const renderTooltip = (props) => (
-    <BootstrapTooltip id={`tooltip-${Math.random().toString(36).substr(2, 9)}`} className={className} {...props}>
+  // Memoize the tooltip render function to prevent unnecessary re-renders
+  const renderTooltip = useMemo(() => (props) => (
+    <BootstrapTooltip id={`tooltip-${tooltipId}`} className={className} {...props}>
       {content}
     </BootstrapTooltip>
-  );
+  ), [tooltipId, className, content]);
 
-  // Popper.js configuration to prevent flash at (0,0) position
-  const popperConfig = {
+  // Memoize Popper.js configuration to prevent re-initialization on every render
+  const popperConfig = useMemo(() => ({
     modifiers: [
       {
         name: 'preventOverflow',
@@ -60,12 +63,21 @@ export default function Tooltip({
         },
       },
     ],
-  };
+  }), []);
+
+  // Memoize delay configuration to prevent reference changes
+  const delayConfig = useMemo(() => {
+    if (delay != null) return delay;
+    if (delayShow != null || delayHide != null) {
+      return { show: delayShow ?? 0, hide: delayHide ?? 0 };
+    }
+    return undefined;
+  }, [delay, delayShow, delayHide]);
 
   return (
     <OverlayTrigger
       placement={placement}
-      delay={delay || { show: delayShow, hide: delayHide }}
+      delay={delayConfig}
       overlay={renderTooltip}
       trigger={trigger}
       show={show}

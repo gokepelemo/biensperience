@@ -194,4 +194,67 @@ export function normalizeActivityType(value) {
   return LEGACY_ACTIVITY_TYPE_MAP[value] || value;
 }
 
+/**
+ * Cost categories derived from activity types
+ * Uses the same values as activity types for consistency
+ * Includes all activity types that make sense as cost categories
+ */
+export const COST_CATEGORIES = ACTIVITY_TYPES.map(type => ({
+  value: type.value,
+  label: type.label,
+  icon: type.icon,
+  category: type.category
+}));
+
+/**
+ * Get cost category options for dropdowns
+ * Grouped by category for better UX
+ * @returns {Array} Cost category options with icon and label
+ */
+export function getCostCategoryOptions() {
+  return ACTIVITY_TYPES.map(type => ({
+    value: type.value,
+    label: `${type.icon} ${type.label}`,
+    icon: type.icon,
+    category: type.category
+  }));
+}
+
+/**
+ * Get cost category info by value
+ * @param {string} value - Cost category value
+ * @returns {Object|null} Category info with icon and label
+ */
+export function getCostCategory(value) {
+  if (!value) return null;
+  const type = ACTIVITY_TYPE_MAP[value];
+  if (!type) return null;
+  return {
+    value: type.value,
+    label: type.label,
+    icon: type.icon,
+    category: type.category
+  };
+}
+
+/**
+ * Get cost category icon by value
+ * @param {string} value - Cost category value
+ * @returns {string} Icon emoji or default
+ */
+export function getCostCategoryIcon(value) {
+  const category = getCostCategory(value);
+  return category?.icon || '💰';
+}
+
+/**
+ * Get cost category label by value
+ * @param {string} value - Cost category value
+ * @returns {string} Label or value
+ */
+export function getCostCategoryLabel(value) {
+  const category = getCostCategory(value);
+  return category?.label || value || 'Other';
+}
+
 export default ACTIVITY_TYPES;

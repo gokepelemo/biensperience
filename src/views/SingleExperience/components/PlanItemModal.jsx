@@ -279,17 +279,18 @@ export default function PlanItemModal({
           </div>
         </div>
 
-        {/* Activity Type */}
+        {/* Activity Type - Full autocomplete with all activity types */}
         <div className="mb-3">
           <FormLabel htmlFor={`${formId}-activityType`}>
             {lang.current.label.activityType || "Activity Type"}
             <small className="text-muted ms-2">(optional)</small>
           </FormLabel>
           <ActivityTypeSelect
-            value={editingPlanItem.activity_type}
+            value={editingPlanItem.activity_type || null}
             onChange={handleActivityTypeChange}
-            placeholder="Search or select activity type..."
-            size="md"
+            placeholder={lang.current.placeholder.activityTypePlaceholder || "Select or search activity type..."}
+            showClear={true}
+            groupByCategory={true}
           />
         </div>
 

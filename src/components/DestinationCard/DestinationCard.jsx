@@ -21,6 +21,7 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
   const titleRef = useRef(null);
   const containerRef = useRef(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const prevImageSrcRef = useRef(null);
 
   // Get background image URL from destination photos or fallback to placeholder
   const { imageSrc, backgroundImage } = useMemo(() => {
@@ -55,8 +56,14 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
   }, [destination, rand]);
 
   // Use shared image preloader utility to ensure skeleton overlay exists and load image
+  // Only reset imageLoaded when the actual URL changes, not on every render
   useEffect(() => {
-    setImageLoaded(false);
+    // Only reset if image source actually changed to a different URL
+    if (prevImageSrcRef.current !== imageSrc) {
+      prevImageSrcRef.current = imageSrc;
+      setImageLoaded(false);
+    }
+
     if (!imageSrc) {
       setImageLoaded(true);
       return;
