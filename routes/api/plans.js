@@ -21,16 +21,23 @@ router.delete("/:id", modificationLimiter, plansCtrl.deletePlan); // Delete plan
 router.post("/:id/items", modificationLimiter, plansCtrl.addPlanItem); // Add plan item
 router.patch("/:id/items/:itemId", modificationLimiter, plansCtrl.updatePlanItem); // Update specific plan item
 router.delete("/:id/items/:itemId", modificationLimiter, plansCtrl.deletePlanItem); // Delete plan item
+router.put("/:id/items/:itemId/pin", modificationLimiter, plansCtrl.pinPlanItem); // Pin/unpin plan item (toggle)
+router.delete("/:id/pin", modificationLimiter, plansCtrl.unpinPlanItem); // Unpin currently pinned item
 
 // Collaborator management (rate limited to prevent abuse)
 router.get("/:id/collaborators", plansCtrl.getCollaborators); // Get plan collaborators
 router.post("/:id/permissions/collaborator", collaboratorLimiter, plansCtrl.addCollaborator);
 router.delete("/:id/permissions/collaborator/:userId", collaboratorLimiter, plansCtrl.removeCollaborator);
 
-// Plan item details routes
+// Plan item details routes - Notes
 router.post("/:id/items/:itemId/notes", modificationLimiter, plansCtrl.addPlanItemNote); // Add note to plan item
 router.patch("/:id/items/:itemId/notes/:noteId", modificationLimiter, plansCtrl.updatePlanItemNote); // Update note
 router.delete("/:id/items/:itemId/notes/:noteId", modificationLimiter, plansCtrl.deletePlanItemNote); // Delete note
+
+// Plan item details routes - Generic (transport, parking, discount, documents, photos)
+router.post("/:id/items/:itemId/details", modificationLimiter, plansCtrl.addPlanItemDetail); // Add detail
+router.patch("/:id/items/:itemId/details/:detailId?", modificationLimiter, plansCtrl.updatePlanItemDetail); // Update detail (detailId optional for single-object types)
+router.delete("/:id/items/:itemId/details/:detailId?", modificationLimiter, plansCtrl.deletePlanItemDetail); // Delete detail (detailId optional for single-object types)
 
 // Plan item assignment routes
 router.post("/:id/items/:itemId/assign", modificationLimiter, plansCtrl.assignPlanItem); // Assign plan item

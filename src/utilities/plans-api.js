@@ -1019,3 +1019,97 @@ export async function deletePlanItemDetail(planId, itemId, detailId) {
     throw error;
   }
 }
+
+/**
+ * Pin or unpin a plan item (toggle)
+ * Only one item can be pinned at a time per plan
+ * @param {string} planId - Plan ID
+ * @param {string} itemId - Plan item ID to pin/unpin
+ * @returns {Promise<{success: boolean, pinnedItemId: string|null, action: 'pinned'|'unpinned', message: string}>}
+ */
+export async function pinPlanItem(planId, itemId) {
+  try {
+    logger.debug('[plans-api] Toggling plan item pin', { planId, itemId });
+
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/pin`, "PUT");
+
+    logger.info('[plans-api] Plan item pin toggled', {
+      planId,
+      itemId,
+      action: result.action,
+      pinnedItemId: result.pinnedItemId
+    });
+
+    // Emit events via event bus
+    try {
+      const version = Date.now();
+      const eventPayload = {
+        planId,
+        itemId,
+        pinnedItemId: result.pinnedItemId,
+        action: result.action,
+        version
+      };
+
+      // Standardized event for DataContext
+      broadcastEvent('plan:updated', { planId, data: { pinnedItemId: result.pinnedItemId }, version });
+
+      // Granular pin event
+      broadcastEvent('plan:item:pinned', eventPayload);
+
+      logger.debug('[plans-api] Plan item pin events dispatched', { version });
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch pin events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to toggle plan item pin', {
+      planId,
+      itemId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
+ * Unpin the currently pinned plan item
+ * @param {string} planId - Plan ID
+ * @returns {Promise<{success: boolean, pinnedItemId: null, message: string}>}
+ */
+export async function unpinPlanItem(planId) {
+  try {
+    logger.debug('[plans-api] Unpinning plan item', { planId });
+
+    const result = await sendRequest(`${BASE_URL}/${planId}/pin`, "DELETE");
+
+    logger.info('[plans-api] Plan item unpinned', { planId });
+
+    // Emit events via event bus
+    try {
+      const version = Date.now();
+      const eventPayload = {
+        planId,
+        pinnedItemId: null,
+        action: 'unpinned',
+        version
+      };
+
+      broadcastEvent('plan:updated', { planId, data: { pinnedItemId: null }, version });
+      broadcastEvent('plan:item:pinned', eventPayload);
+
+      logger.debug('[plans-api] Plan item unpin events dispatched', { version });
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch unpin events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to unpin plan item', {
+      planId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}

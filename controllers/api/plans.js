@@ -2417,6 +2417,470 @@ const deletePlanItemNote = asyncHandler(async (req, res) => {
   res.json(plan);
 });
 
+// ============================================================================
+// PLAN ITEM DETAILS (Transport, Parking, Discount, Documents, Photos)
+// ============================================================================
+
+/**
+ * Valid detail types that can be added/updated/deleted
+ * These map to the details subdocument fields in planItemSnapshotSchema
+ */
+const VALID_DETAIL_TYPES = ['transport', 'parking', 'discount', 'documents', 'photos'];
+
+/**
+ * Add a detail to a plan item
+ * Handles transport, parking, discount, documents, and photos
+ * @param {string} type - Type of detail: 'transport', 'parking', 'discount', 'documents', 'photos'
+ * @param {object} data - Detail-specific data
+ */
+const addPlanItemDetail = asyncHandler(async (req, res) => {
+  const { id, itemId } = req.params;
+  const { type, data } = req.body;
+
+  if (!type || !VALID_DETAIL_TYPES.includes(type)) {
+    return res.status(400).json({
+      error: 'Invalid detail type',
+      message: `Type must be one of: ${VALID_DETAIL_TYPES.join(', ')}`
+    });
+  }
+
+  if (!data) {
+    return res.status(400).json({ error: 'Detail data is required' });
+  }
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Permission check: owner, collaborator, or super admin
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: permCheck.reason
+    });
+  }
+
+  // Find the plan item
+  const planItem = plan.plan.id(itemId);
+  if (!planItem) {
+    return res.status(404).json({ error: 'Plan item not found' });
+  }
+
+  // Initialize details if not exists
+  if (!planItem.details) {
+    planItem.details = {
+      notes: [],
+      chat: [],
+      photos: [],
+      documents: [],
+      transport: null,
+      parking: null,
+      discount: null
+    };
+  }
+
+  // Handle different detail types
+  switch (type) {
+    case 'transport':
+      // Transport is a single object, not an array
+      if (!data.mode) {
+        return res.status(400).json({ error: 'Transport mode is required' });
+      }
+      planItem.details.transport = data;
+      break;
+
+    case 'parking':
+      // Parking is a single object, not an array
+      planItem.details.parking = data;
+      break;
+
+    case 'discount':
+      // Discount is a single object, not an array
+      planItem.details.discount = data;
+      break;
+
+    case 'documents':
+      // Documents is an array - add new document reference
+      if (!data.document) {
+        return res.status(400).json({ error: 'Document ID is required' });
+      }
+      if (!mongoose.Types.ObjectId.isValid(data.document)) {
+        return res.status(400).json({ error: 'Invalid document ID' });
+      }
+      planItem.details.documents.push({
+        document: data.document,
+        addedBy: req.user._id,
+        addedAt: new Date(),
+        displayName: data.displayName,
+        contextNotes: data.contextNotes
+      });
+      break;
+
+    case 'photos':
+      // Photos is an array of ObjectIds - add new photo reference
+      if (!data.photoId) {
+        return res.status(400).json({ error: 'Photo ID is required' });
+      }
+      if (!mongoose.Types.ObjectId.isValid(data.photoId)) {
+        return res.status(400).json({ error: 'Invalid photo ID' });
+      }
+      if (!planItem.details.photos.includes(data.photoId)) {
+        planItem.details.photos.push(data.photoId);
+      }
+      break;
+  }
+
+  await plan.save();
+
+  // Populate necessary fields for response
+  await plan.populate('experience', 'name');
+  if (type === 'documents') {
+    await plan.populate({
+      path: 'plan.details.documents.document',
+      select: 'originalFilename mimeType s3Key status'
+    });
+    await plan.populate({
+      path: 'plan.details.documents.addedBy',
+      select: 'name email'
+    });
+  }
+  if (type === 'photos') {
+    await plan.populate({
+      path: 'plan.details.photos',
+      select: 'url caption'
+    });
+  }
+
+  backendLogger.info('Detail added to plan item', {
+    planId: id,
+    itemId,
+    detailType: type,
+    userId: req.user._id.toString()
+  });
+
+  // Log activity
+  const planItemName = planItem.text || 'Unnamed item';
+  await Activity.log({
+    action: 'plan_item_detail_added',
+    actor: {
+      _id: req.user._id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role
+    },
+    resource: {
+      id: plan._id,
+      type: 'Plan',
+      name: plan.experience?.name || 'Unknown Experience'
+    },
+    target: {
+      id: itemId,
+      type: 'PlanItem',
+      name: planItemName
+    },
+    reason: `Added ${type} detail to plan item "${planItemName}"`,
+    metadata: {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      requestPath: req.path,
+      requestMethod: req.method,
+      detailType: type
+    }
+  });
+
+  // Filter notes based on visibility before returning
+  filterNotesByVisibility(plan, req.user._id);
+
+  res.status(201).json(plan);
+});
+
+/**
+ * Update a detail on a plan item
+ * For single-object types (transport, parking, discount): updates the object
+ * For array types (documents): updates specific entry by detailId
+ */
+const updatePlanItemDetail = asyncHandler(async (req, res) => {
+  const { id, itemId, detailId } = req.params;
+  const { type, data } = req.body;
+
+  if (!type || !VALID_DETAIL_TYPES.includes(type)) {
+    return res.status(400).json({
+      error: 'Invalid detail type',
+      message: `Type must be one of: ${VALID_DETAIL_TYPES.join(', ')}`
+    });
+  }
+
+  if (!data) {
+    return res.status(400).json({ error: 'Detail data is required' });
+  }
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Permission check
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: permCheck.reason
+    });
+  }
+
+  const planItem = plan.plan.id(itemId);
+  if (!planItem) {
+    return res.status(404).json({ error: 'Plan item not found' });
+  }
+
+  if (!planItem.details) {
+    return res.status(404).json({ error: 'No details found on this plan item' });
+  }
+
+  // Handle different detail types
+  switch (type) {
+    case 'transport':
+      if (!planItem.details.transport) {
+        return res.status(404).json({ error: 'Transport detail not found' });
+      }
+      // Merge updates into existing transport
+      Object.assign(planItem.details.transport, data);
+      break;
+
+    case 'parking':
+      if (!planItem.details.parking) {
+        return res.status(404).json({ error: 'Parking detail not found' });
+      }
+      Object.assign(planItem.details.parking, data);
+      break;
+
+    case 'discount':
+      if (!planItem.details.discount) {
+        return res.status(404).json({ error: 'Discount detail not found' });
+      }
+      Object.assign(planItem.details.discount, data);
+      break;
+
+    case 'documents':
+      // Update specific document entry by detailId
+      if (!detailId) {
+        return res.status(400).json({ error: 'Detail ID required for updating documents' });
+      }
+      const docEntry = planItem.details.documents.id(detailId);
+      if (!docEntry) {
+        return res.status(404).json({ error: 'Document entry not found' });
+      }
+      if (data.displayName !== undefined) docEntry.displayName = data.displayName;
+      if (data.contextNotes !== undefined) docEntry.contextNotes = data.contextNotes;
+      break;
+
+    case 'photos':
+      // Photos are just ObjectIds - can't really "update" them, only add/remove
+      return res.status(400).json({ error: 'Photos cannot be updated, only added or removed' });
+  }
+
+  await plan.save();
+
+  // Populate for response
+  await plan.populate('experience', 'name');
+  if (type === 'documents') {
+    await plan.populate({
+      path: 'plan.details.documents.document',
+      select: 'originalFilename mimeType s3Key status'
+    });
+    await plan.populate({
+      path: 'plan.details.documents.addedBy',
+      select: 'name email'
+    });
+  }
+
+  backendLogger.info('Detail updated on plan item', {
+    planId: id,
+    itemId,
+    detailId,
+    detailType: type,
+    userId: req.user._id.toString()
+  });
+
+  // Log activity
+  const planItemName = planItem.text || 'Unnamed item';
+  await Activity.log({
+    action: 'plan_item_detail_updated',
+    actor: {
+      _id: req.user._id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role
+    },
+    resource: {
+      id: plan._id,
+      type: 'Plan',
+      name: plan.experience?.name || 'Unknown Experience'
+    },
+    target: {
+      id: itemId,
+      type: 'PlanItem',
+      name: planItemName
+    },
+    reason: `Updated ${type} detail on plan item "${planItemName}"`,
+    metadata: {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      requestPath: req.path,
+      requestMethod: req.method,
+      detailType: type,
+      detailId
+    }
+  });
+
+  filterNotesByVisibility(plan, req.user._id);
+
+  res.json(plan);
+});
+
+/**
+ * Delete a detail from a plan item
+ * For single-object types: sets to null
+ * For array types: removes specific entry
+ */
+const deletePlanItemDetail = asyncHandler(async (req, res) => {
+  const { id, itemId, detailId } = req.params;
+  const { type } = req.body;
+
+  if (!type || !VALID_DETAIL_TYPES.includes(type)) {
+    return res.status(400).json({
+      error: 'Invalid detail type',
+      message: `Type must be one of: ${VALID_DETAIL_TYPES.join(', ')}`
+    });
+  }
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Permission check
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (!permCheck.allowed) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: permCheck.reason
+    });
+  }
+
+  const planItem = plan.plan.id(itemId);
+  if (!planItem) {
+    return res.status(404).json({ error: 'Plan item not found' });
+  }
+
+  if (!planItem.details) {
+    return res.status(404).json({ error: 'No details found on this plan item' });
+  }
+
+  // Handle different detail types
+  switch (type) {
+    case 'transport':
+      planItem.details.transport = null;
+      break;
+
+    case 'parking':
+      planItem.details.parking = null;
+      break;
+
+    case 'discount':
+      planItem.details.discount = null;
+      break;
+
+    case 'documents':
+      if (!detailId) {
+        return res.status(400).json({ error: 'Detail ID required for deleting documents' });
+      }
+      const docEntry = planItem.details.documents.id(detailId);
+      if (!docEntry) {
+        return res.status(404).json({ error: 'Document entry not found' });
+      }
+      planItem.details.documents.pull(detailId);
+      break;
+
+    case 'photos':
+      if (!detailId) {
+        return res.status(400).json({ error: 'Photo ID required for removing photos' });
+      }
+      const photoIndex = planItem.details.photos.findIndex(
+        p => p.toString() === detailId
+      );
+      if (photoIndex === -1) {
+        return res.status(404).json({ error: 'Photo not found in plan item' });
+      }
+      planItem.details.photos.splice(photoIndex, 1);
+      break;
+  }
+
+  await plan.save();
+
+  await plan.populate('experience', 'name');
+
+  backendLogger.info('Detail deleted from plan item', {
+    planId: id,
+    itemId,
+    detailId,
+    detailType: type,
+    userId: req.user._id.toString()
+  });
+
+  // Log activity
+  const planItemName = planItem.text || 'Unnamed item';
+  await Activity.log({
+    action: 'plan_item_detail_deleted',
+    actor: {
+      _id: req.user._id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role
+    },
+    resource: {
+      id: plan._id,
+      type: 'Plan',
+      name: plan.experience?.name || 'Unknown Experience'
+    },
+    target: {
+      id: itemId,
+      type: 'PlanItem',
+      name: planItemName
+    },
+    reason: `Deleted ${type} detail from plan item "${planItemName}"`,
+    metadata: {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      requestPath: req.path,
+      requestMethod: req.method,
+      detailType: type,
+      detailId
+    }
+  });
+
+  filterNotesByVisibility(plan, req.user._id);
+
+  res.json(plan);
+});
+
 /**
  * Assign a plan item to a collaborator or owner
  * Only owner, collaborators, and super admins can assign items
@@ -3147,11 +3611,146 @@ const getCostSummary = asyncHandler(async (req, res) => {
   });
 });
 
+// ============================================================================
+// PINNED PLAN ITEM
+// ============================================================================
+
+/**
+ * Pin a plan item (or unpin if already pinned)
+ * Only one item can be pinned at a time per plan
+ * PUT /api/plans/:id/items/:itemId/pin
+ */
+const pinPlanItem = asyncHandler(async (req, res) => {
+  const { id: planId, itemId } = req.params;
+  const userId = req.user._id;
+
+  // Validate ObjectIds
+  if (!mongoose.Types.ObjectId.isValid(planId) || !mongoose.Types.ObjectId.isValid(itemId)) {
+    return res.status(400).json({ error: 'Invalid plan or item ID' });
+  }
+
+  // Get the plan
+  const plan = await Plan.findById(planId);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Check edit permissions
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const canEdit = await enforcer.canEdit({ userId, resource: plan });
+  if (!canEdit.allowed) {
+    return res.status(403).json({ error: canEdit.reason || 'Not authorized to edit this plan' });
+  }
+
+  // Find the plan item
+  const planItem = plan.plan.id(itemId);
+  if (!planItem) {
+    return res.status(404).json({ error: 'Plan item not found' });
+  }
+
+  // Toggle pin: if already pinned, unpin; otherwise pin
+  const wasAlreadyPinned = plan.pinnedItemId?.toString() === itemId;
+  plan.pinnedItemId = wasAlreadyPinned ? null : new mongoose.Types.ObjectId(itemId);
+
+  await plan.save();
+
+  backendLogger.info('Plan item pin toggled', {
+    planId,
+    itemId,
+    action: wasAlreadyPinned ? 'unpinned' : 'pinned',
+    userId: userId.toString()
+  });
+
+  // Broadcast event via WebSocket
+  try {
+    broadcastEvent('plan', planId.toString(), {
+      type: 'plan:item:pinned',
+      payload: {
+        planId: planId.toString(),
+        itemId: itemId.toString(),
+        pinnedItemId: plan.pinnedItemId?.toString() || null,
+        action: wasAlreadyPinned ? 'unpinned' : 'pinned',
+        userId: userId.toString()
+      }
+    }, userId.toString());
+  } catch (wsErr) {
+    backendLogger.warn('[WebSocket] Failed to broadcast pin event', { error: wsErr.message });
+  }
+
+  res.json({
+    success: true,
+    pinnedItemId: plan.pinnedItemId,
+    action: wasAlreadyPinned ? 'unpinned' : 'pinned',
+    message: wasAlreadyPinned ? 'Plan item unpinned' : 'Plan item pinned'
+  });
+});
+
+/**
+ * Unpin the currently pinned plan item
+ * DELETE /api/plans/:id/pin
+ */
+const unpinPlanItem = asyncHandler(async (req, res) => {
+  const { id: planId } = req.params;
+  const userId = req.user._id;
+
+  // Validate ObjectId
+  if (!mongoose.Types.ObjectId.isValid(planId)) {
+    return res.status(400).json({ error: 'Invalid plan ID' });
+  }
+
+  // Get the plan
+  const plan = await Plan.findById(planId);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Check edit permissions
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const canEdit = await enforcer.canEdit({ userId, resource: plan });
+  if (!canEdit.allowed) {
+    return res.status(403).json({ error: canEdit.reason || 'Not authorized to edit this plan' });
+  }
+
+  const previousPinnedId = plan.pinnedItemId;
+  plan.pinnedItemId = null;
+  await plan.save();
+
+  backendLogger.info('Plan item unpinned', {
+    planId,
+    previousPinnedId: previousPinnedId?.toString(),
+    userId: userId.toString()
+  });
+
+  // Broadcast event via WebSocket
+  try {
+    broadcastEvent('plan', planId.toString(), {
+      type: 'plan:item:pinned',
+      payload: {
+        planId: planId.toString(),
+        pinnedItemId: null,
+        previousPinnedId: previousPinnedId?.toString() || null,
+        action: 'unpinned',
+        userId: userId.toString()
+      }
+    }, userId.toString());
+  } catch (wsErr) {
+    backendLogger.warn('[WebSocket] Failed to broadcast unpin event', { error: wsErr.message });
+  }
+
+  res.json({
+    success: true,
+    pinnedItemId: null,
+    message: 'Plan item unpinned'
+  });
+});
+
 module.exports = {
   createPlan,
   getUserPlans,
   getPlanById,
   getExperiencePlans,
+  pinPlanItem,
+  unpinPlanItem,
   checkUserPlanForExperience,
   updatePlan,
   reorderPlanItems,
@@ -3165,6 +3764,10 @@ module.exports = {
   addPlanItemNote,
   updatePlanItemNote,
   deletePlanItemNote,
+  // Plan item details (transport, parking, discount, documents, photos)
+  addPlanItemDetail,
+  updatePlanItemDetail,
+  deletePlanItemDetail,
   assignPlanItem,
   unassignPlanItem,
   // Cost management

@@ -548,6 +548,12 @@ const planSchema = new Schema(
     },
     notes: {
       type: String
+    },
+    // Pinned plan item - only one item can be pinned at a time
+    // The pinned item always appears at the top of the plan list with a star prefix
+    pinnedItemId: {
+      type: Schema.Types.ObjectId,
+      default: null
     }
   },
   {
