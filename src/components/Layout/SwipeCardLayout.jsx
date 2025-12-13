@@ -6,6 +6,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import styles from './SwipeCardLayout.module.scss';
+import { lang } from '../../lang.constants';
 
 /**
  * Individual swipeable card
@@ -154,7 +155,7 @@ export function SwipeActions({ onReject, onLike, onSuperLike, onUndo }) {
         <button
           className={`${styles.actionButton} ${styles.undoButton}`}
           onClick={onUndo}
-          aria-label="Undo"
+          aria-label={lang.current.swipeCardLayout.undo}
         >
           ↩
         </button>
@@ -162,7 +163,7 @@ export function SwipeActions({ onReject, onLike, onSuperLike, onUndo }) {
       <button
         className={`${styles.actionButton} ${styles.rejectButton}`}
         onClick={onReject}
-        aria-label="Pass"
+        aria-label={lang.current.swipeCardLayout.pass}
       >
         ✕
       </button>
@@ -170,7 +171,7 @@ export function SwipeActions({ onReject, onLike, onSuperLike, onUndo }) {
         <button
           className={`${styles.actionButton} ${styles.superLikeButton}`}
           onClick={onSuperLike}
-          aria-label="Super like"
+          aria-label={lang.current.swipeCardLayout.superLike}
         >
           ★
         </button>
@@ -178,7 +179,7 @@ export function SwipeActions({ onReject, onLike, onSuperLike, onUndo }) {
       <button
         className={`${styles.actionButton} ${styles.likeButton}`}
         onClick={onLike}
-        aria-label="Like"
+        aria-label={lang.current.swipeCardLayout.like}
       >
         ♥
       </button>
@@ -200,9 +201,9 @@ export function SwipeEmpty({ title, message, action }) {
   return (
     <div className={styles.empty}>
       <div className={styles.emptyIcon}>🎉</div>
-      <h3 className={styles.emptyTitle}>{title || "You've seen them all!"}</h3>
+      <h3 className={styles.emptyTitle}>{title || lang.current.swipeCardLayout.emptyTitle}</h3>
       <p className={styles.emptyMessage}>
-        {message || 'Check back later for more experiences.'}
+        {message || lang.current.swipeCardLayout.emptyMessage}
       </p>
       {action}
     </div>

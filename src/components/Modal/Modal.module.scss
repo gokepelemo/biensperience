@@ -211,7 +211,10 @@
 
   .modalBody {
     flex: 1;
-    overflow-y: auto;
+    min-height: 0; /* Critical: Allow flex item to shrink below content size */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Don't scroll here - let children handle their own scrolling */
     overscroll-behavior: contain; /* Prevent scroll chaining to parent */
     -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   }

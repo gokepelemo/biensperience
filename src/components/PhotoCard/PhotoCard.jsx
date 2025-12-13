@@ -160,7 +160,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
             setShowModal(true);
           }
         }}
-        aria-label="Click to view full size photo"
+        aria-label={lang.current.photoCard.clickToViewFullSize}
       >
         {imageLoading && (
           <div className={styles.photoLoader}>
@@ -188,7 +188,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
             <button
               className={`${styles.thumbnailScrollButton} ${styles.thumbnailScrollLeft}`}
               onClick={() => scrollThumbnails('left')}
-              aria-label="Scroll thumbnails left"
+              aria-label={lang.current.photoCard.scrollThumbnailsLeft}
               type="button"
             >
               ‹
@@ -212,7 +212,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
             <button
               className={`${styles.thumbnailScrollButton} ${styles.thumbnailScrollRight}`}
               onClick={() => scrollThumbnails('right')}
-              aria-label="Scroll thumbnails right"
+              aria-label={lang.current.photoCard.scrollThumbnailsRight}
               type="button"
             >
               ›
@@ -225,7 +225,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
       {hasRealPhotos && sanitizedCredit && sanitizedCredit !== "undefined" && sanitizedCredit.toLowerCase() !== "biensperience" && (
         <figcaption className={styles.photoCreditBlock}>
           <small>
-            Photo by{" "}
+            {lang.current.photoCard.photoBy}{" "}
             {sanitizedCreditUrl ? (
               <a
                 href={sanitizedCreditUrl}

@@ -156,7 +156,13 @@ export default function LoginForm({ setUser }) {
         try {
             const user = await usersService.login(credentials);
             setUser(user);
-            navigate("/"); // Update address bar to home after login
+
+            // Retrieve intended route for post-login redirect (deep linking support)
+            const intendedRoute = sessionStorage.getItem('bien:intendedRoute');
+            sessionStorage.removeItem('bien:intendedRoute'); // Clear after use
+
+            // Navigate to intended route if exists, otherwise go home
+            navigate(intendedRoute || "/");
         } catch {
             setError(lang.current.alert.loginFailed);
             setShowForgotPasswordLink(true); // Show link immediately on failed login

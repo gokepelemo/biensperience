@@ -3,6 +3,7 @@
  * White rounded rectangle with purple gradient plus symbol
  */
 import React from 'react';
+import { lang } from '../../lang.constants';
 import IconClean from '../../icons/icon-clean.svg?react';
 import IconFlat from '../../icons/icon-flat.svg?react';
 import IconSoft from '../../icons/icon-soft.svg?react';
@@ -121,7 +122,7 @@ export default function BiensperienceLogo({
     <LogoComponent 
       className={className}
       style={combinedStyle}
-      aria-label="Biensperience Logo"
+      aria-label={lang.current.biensperienceLogo.logoAlt}
       {...props}
     />
   );

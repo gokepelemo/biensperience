@@ -73,9 +73,9 @@ export default function MyPlans() {
 
   // Filter options for searchable select with icons
   const filterOptions = useMemo(() => [
-    { value: PLAN_FILTERS.ALL, label: 'All', icon: FaList, suffix: `${plans.length}` },
-    { value: PLAN_FILTERS.OWNED, label: 'My Plans', icon: FaUser, suffix: `${ownedPlans.length}` },
-    { value: PLAN_FILTERS.SHARED, label: 'Shared Plans', icon: FaUserFriends, suffix: `${sharedPlans.length}` }
+    { value: PLAN_FILTERS.ALL, label: lang.current.myPlans.filterAll, icon: FaList, suffix: `${plans.length}` },
+    { value: PLAN_FILTERS.OWNED, label: lang.current.myPlans.filterMyPlans, icon: FaUser, suffix: `${ownedPlans.length}` },
+    { value: PLAN_FILTERS.SHARED, label: lang.current.myPlans.filterSharedPlans, icon: FaUserFriends, suffix: `${sharedPlans.length}` }
   ], [plans.length, ownedPlans.length, sharedPlans.length]);
 
   // Fetch collaborators for a list of plans in parallel
@@ -332,13 +332,13 @@ export default function MyPlans() {
             <div className={styles.headerControls}>
               {/* View mode toggle */}
               {plans.length > 0 && (
-                <div className={styles.viewToggle} role="group" aria-label="View mode">
+                <div className={styles.viewToggle} role="group" aria-label={lang.current.dashboardView.viewMode}>
                   <button
                     type="button"
                     className={`${styles.viewToggleButton} ${viewMode === VIEW_MODES.LIST ? styles.active : ''}`}
                     onClick={() => setViewMode(VIEW_MODES.LIST)}
                     aria-pressed={viewMode === VIEW_MODES.LIST}
-                    title="List view"
+                    title={lang.current.dashboardView.listView}
                   >
                     <FaThList size={14} />
                   </button>
@@ -347,7 +347,7 @@ export default function MyPlans() {
                     className={`${styles.viewToggleButton} ${viewMode === VIEW_MODES.CALENDAR ? styles.active : ''}`}
                     onClick={() => setViewMode(VIEW_MODES.CALENDAR)}
                     aria-pressed={viewMode === VIEW_MODES.CALENDAR}
-                    title="Calendar view"
+                    title={lang.current.dashboardView.calendarView}
                   >
                     <FaCalendarAlt size={14} />
                   </button>
@@ -360,10 +360,10 @@ export default function MyPlans() {
                     options={filterOptions}
                     value={planFilter}
                     onChange={setPlanFilter}
-                    placeholder="Filter plans"
+                    placeholder={lang.current.dashboardView.filterPlans}
                     searchable={false}
                     size="md"
-                    aria-label="Filter plans"
+                    aria-label={lang.current.dashboardView.filterPlans}
                   />
                 </div>
               )}
@@ -395,10 +395,10 @@ export default function MyPlans() {
           <EmptyState
             variant="plans"
             size="md"
-            title={planFilter === PLAN_FILTERS.SHARED ? "No shared plans yet" : "No plans in this category"}
+            title={planFilter === PLAN_FILTERS.SHARED ? lang.current.myPlans.noSharedPlans : lang.current.myPlans.noPlansInCategory}
             description={planFilter === PLAN_FILTERS.SHARED
-              ? "When someone shares a plan with you, it will appear here."
-              : "Try changing the filter to see other plans."}
+              ? lang.current.myPlans.noSharedPlansDescription
+              : lang.current.myPlans.noPlansInCategoryDescription}
           />
         )}
 
@@ -435,7 +435,9 @@ export default function MyPlans() {
                   role="button"
                   tabIndex={0}
                   aria-expanded={isExpanded}
-                  aria-label={`${isExpanded ? 'Collapse' : 'Expand'} plan for ${plan.experience?.name || 'Unnamed Experience'}`}
+                  aria-label={isExpanded
+                    ? lang.current.myPlans.collapsePlanAria.replace('{name}', plan.experience?.name || 'Unnamed Experience')
+                    : lang.current.myPlans.expandPlanAria.replace('{name}', plan.experience?.name || 'Unnamed Experience')}
                   onKeyPress={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
@@ -468,7 +470,7 @@ export default function MyPlans() {
                         <div className={styles.planMeta}>
                           <span className={styles.metaItem}>
                             <FaTasks size={12} />
-                            {completedCount}/{itemCount} items
+                            {lang.current.myPlans.itemsProgress.replace('{completed}', completedCount).replace('{total}', itemCount)}
                           </span>
                           {plan.planned_date && (
                             <span className={styles.metaItem}>
@@ -539,7 +541,7 @@ export default function MyPlans() {
                         />
                       </div>
                       <Text size="xs" variant="muted" className={styles.progressText}>
-                        {completionPercentage}% complete
+                        {lang.current.myPlans.percentComplete.replace('{percent}', completionPercentage)}
                       </Text>
                     </div>
                   </div>
@@ -564,7 +566,7 @@ export default function MyPlans() {
                               {isCompleted && (
                                 <div className={styles.completionBadge}>
                                   <FaCheckCircle size={12} />
-                                  <span>Done</span>
+                                  <span>{lang.current.myPlans.done}</span>
                                 </div>
                               )}
 
@@ -613,7 +615,9 @@ export default function MyPlans() {
                               role="button"
                               tabIndex={0}
                               aria-expanded={expandedCostAccordions.has(plan._id)}
-                              aria-label={`${expandedCostAccordions.has(plan._id) ? 'Collapse' : 'Expand'} cost breakdown for ${plan.experience?.name || 'Unnamed Experience'}`}
+                              aria-label={expandedCostAccordions.has(plan._id)
+                                ? lang.current.myPlans.collapseCostBreakdownAria.replace('{name}', plan.experience?.name || 'Unnamed Experience')
+                                : lang.current.myPlans.expandCostBreakdownAria.replace('{name}', plan.experience?.name || 'Unnamed Experience')}
                               onKeyPress={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault();
@@ -661,7 +665,7 @@ export default function MyPlans() {
                       <div className={styles.planFooter}>
                         <HashLink to={`/experiences/${plan.experience?._id || plan.experience}#plan-${plan._id}`}>
                           <Button variant="outline" size="md" style={{ width: '100%' }}>
-                            View Full Experience
+                            {lang.current.myPlans.viewFullExperience}
                           </Button>
                         </HashLink>
                       </div>
@@ -680,7 +684,7 @@ export default function MyPlans() {
                   onClick={handleLoadMore}
                   disabled={loadingMore}
                 >
-                  {loadingMore ? 'Loading...' : `Load More (${pagination.totalCount - plans.length} remaining)`}
+                  {loadingMore ? lang.current.myPlans.loading : lang.current.myPlans.loadMore.replace('{remaining}', pagination.totalCount - plans.length)}
                 </Button>
               </div>
             )}

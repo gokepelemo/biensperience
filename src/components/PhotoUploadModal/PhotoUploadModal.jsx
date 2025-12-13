@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import styles from './PhotoUploadModal.module.scss';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import { Button } from '../design-system';
+import { lang } from '../../lang.constants';
 
 export default function PhotoUploadModal({
   show,
@@ -130,7 +131,7 @@ export default function PhotoUploadModal({
       onClose();
     } catch (err) {
       console.error(err);
-      setError(err?.message || 'Failed to save photos');
+      setError(err?.message || lang.current.photoUploadModal.failedToSave);
     } finally {
       setSaving(false);
     }
@@ -139,11 +140,11 @@ export default function PhotoUploadModal({
   if (!show) return null;
 
   return (
-    <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-label="Manage photos">
+    <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-label={lang.current.photoUploadModal.managePhotosAria}>
       <div className={styles.modalContent}>
         <div className={styles.modalHeader}>
-          <h4>Manage Photos</h4>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
+          <h4>{lang.current.photoUploadModal.title}</h4>
+          <button className={styles.closeBtn} onClick={onClose} aria-label={lang.current.photoUploadModal.closeAria}>✕</button>
         </div>
 
         <div className={styles.modalBody}>
@@ -152,9 +153,9 @@ export default function PhotoUploadModal({
         </div>
 
         <div className={styles.modalFooter}>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>{lang.current.photoUploadModal.cancel}</Button>
           <Button variant="primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Photos'}
+            {saving ? lang.current.photoUploadModal.saving : lang.current.photoUploadModal.save}
           </Button>
         </div>
       </div>

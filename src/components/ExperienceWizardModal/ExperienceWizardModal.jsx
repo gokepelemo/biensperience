@@ -41,13 +41,7 @@ const STEPS = {
   SUCCESS: 5,
 };
 
-const STEP_LABELS = {
-  [STEPS.BASIC_INFO]: 'Basic Info',
-  [STEPS.MORE_DETAILS]: 'Details',
-  [STEPS.PLAN_ITEMS]: 'Plan Items',
-  [STEPS.COLLABORATORS]: 'Collaborators',
-  [STEPS.SUCCESS]: 'Done',
-};
+// Step labels are set dynamically using lang constants in renderStepIndicator
 
 /**
  * ExperienceWizardModal - A comprehensive multi-step wizard for creating a fully featured experience
@@ -492,6 +486,14 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
 
   if (!show) return null;
 
+  const stepLabels = {
+    [STEPS.BASIC_INFO]: lang.current.experienceWizardModal.stepBasicInfo,
+    [STEPS.MORE_DETAILS]: lang.current.experienceWizardModal.stepDetails,
+    [STEPS.PLAN_ITEMS]: lang.current.experienceWizardModal.stepPlanItems,
+    [STEPS.COLLABORATORS]: lang.current.experienceWizardModal.stepCollaborators,
+    [STEPS.SUCCESS]: lang.current.experienceWizardModal.stepDone,
+  };
+
   const renderStepIndicator = () => (
     <div className={styles.stepIndicator}>
       {[STEPS.BASIC_INFO, STEPS.MORE_DETAILS, STEPS.PLAN_ITEMS, STEPS.COLLABORATORS].map((step, index, arr) => (
@@ -500,7 +502,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
             <span className={styles.stepNumber}>
               {currentStep > step ? <FaCheck size={12} /> : index + 1}
             </span>
-            <span className={styles.stepLabel}>{STEP_LABELS[step]}</span>
+            <span className={styles.stepLabel}>{stepLabels[step]}</span>
           </div>
           {index < arr.length - 1 && (
             <div className={`${styles.stepConnector} ${currentStep > step ? styles.active : ''}`} />
@@ -514,38 +516,38 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
     <Form onSubmit={(e) => { e.preventDefault(); setCurrentStep(STEPS.MORE_DETAILS); }}>
       <FormField
         name="name"
-        label="Experience Title"
+        label={lang.current.experienceWizardModal.experienceTitle}
         type="text"
         value={experienceData.name || ''}
         onChange={handleChange}
-        placeholder="e.g., Weekend in Paris, Tokyo Food Tour"
+        placeholder={lang.current.experienceWizardModal.experienceTitlePlaceholder}
         required
-        tooltip="Give your experience a memorable name"
+        tooltip={lang.current.helper.nameRequired}
       />
 
       <FormField
         name="description"
-        label="Overview"
+        label={lang.current.experienceWizardModal.overview}
         type="textarea"
         value={experienceData.description || ''}
         onChange={handleChange}
-        placeholder="Describe what makes this experience special..."
+        placeholder={lang.current.experienceWizardModal.overviewPlaceholder}
         rows={3}
-        tooltip="A brief overview of your planned experience"
+        tooltip={lang.current.helper.overviewOptional}
       />
 
       <div className="mb-4">
         <Form.Group>
           <Form.Label>
-            Destination
+            {lang.current.experienceWizardModal.destination}
             {' '}<span className="text-danger">*</span>{' '}
             <FormTooltip
-              text="Select where this experience takes place"
+              text={lang.current.helper.destinationRequired}
               placement="top"
             />
           </Form.Label>
           <Autocomplete
-            placeholder="Search for a destination..."
+            placeholder={lang.current.experienceWizardModal.destinationPlaceholder}
             entityType="destination"
             items={getFilteredDestinations()}
             displayValue={destinationSearchTerm}
@@ -573,20 +575,20 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
               setDestinationInput(query);
             }}
             size="md"
-            emptyMessage="Type to search destinations..."
+            emptyMessage={lang.current.placeholder.destination}
             disableFilter={true}
           />
           <small className="form-text text-muted mt-2 d-block">
-            Can't find your destination?{' '}
+            {lang.current.helper.destinationRequired}{' '}
             <a
               href="#"
               role="button"
               onClick={(e) => { e.preventDefault(); handleCreateDestinationClick(); }}
               className="btn btn-link p-0 align-baseline"
               style={{ textDecoration: 'none' }}
-              aria-label="Create a new destination"
+              aria-label={lang.current.helper.createNewDestination}
             >
-              Create a new one
+              {lang.current.helper.createNewDestination}
             </a>
           </small>
         </Form.Group>
@@ -598,31 +600,31 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
     <Form onSubmit={(e) => { e.preventDefault(); handleCreateExperience(); }}>
       <FormField
         name="map_location"
-        label="Address"
+        label={lang.current.label.address}
         type="text"
         value={experienceData.map_location || ''}
         onChange={handleChange}
-        placeholder="Specific address or area (optional)"
-        tooltip="Add a specific location for this experience"
+        placeholder={lang.current.placeholder.address}
+        tooltip={lang.current.helper.addressOptional}
       />
 
       <div className="mb-4">
         <Form.Label htmlFor="experience_type">
-          Experience Types
-          <FormTooltip content="Tag your experience for easier discovery" placement="top" />
+          {lang.current.experienceWizardModal.experienceTypes}
+          <FormTooltip content={lang.current.helper.experienceTypesOptional} placement="top" />
         </Form.Label>
         <TagInput
           tags={tags}
           onChange={handleTagsChange}
-          placeholder="e.g., Adventure, Food, Culture"
+          placeholder={lang.current.experienceWizardModal.experienceTypesPlaceholder}
           maxTags={4}
         />
       </div>
 
       <div className="mb-4">
         <Form.Label>
-          Photos
-          <FormTooltip content="Add photos to make your experience more appealing" placement="top" />
+          {lang.current.experienceWizardModal.photos}
+          <FormTooltip content={lang.current.helper.photosOptional} placement="top" />
         </Form.Label>
         <PhotoUpload data={experienceData} setData={setExperienceData} />
       </div>
@@ -632,7 +634,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
   const renderStep3 = () => (
     <div className={styles.planItemsContainer}>
       <p className={styles.stepDescription}>
-        Add items to your plan. These are things you want to do, places to visit, or activities to complete.
+        {lang.current.experienceWizardModal.noPlanItemsDescription}
       </p>
 
       <div className={styles.planItemsList}>
@@ -644,7 +646,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
               <input
                 type="text"
                 className={styles.planItemInput}
-                placeholder="What do you want to do?"
+                placeholder={lang.current.experienceWizardModal.planItemPlaceholder}
                 value={item.content}
                 onChange={(e) => handlePlanItemChange(item.id, 'content', e.target.value)}
               />
@@ -652,8 +654,8 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
               <div className={styles.planItemMeta}>
                 <div className={styles.metaField}>
                   <label>
-                    Planning Days
-                    <FormTooltip content="Days needed to plan this experience without rushing" placement="top" />
+                    {lang.current.experienceWizardModal.planningDays}
+                    <FormTooltip content={lang.current.helper.planningDays} placement="top" />
                   </label>
                   <div className={styles.counterControl}>
                     <button
@@ -677,8 +679,8 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
 
                 <div className={styles.metaField}>
                   <label>
-                    Est. Cost
-                    <FormTooltip content="Estimated cost for this activity in your preferred currency" placement="top" />
+                    {lang.current.experienceWizardModal.costEstimate}
+                    <FormTooltip content={lang.current.helper.costEstimate} placement="top" />
                   </label>
                   <div className={styles.costInput}>
                     <span className={styles.currencySymbol}>$</span>
@@ -715,7 +717,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
         onClick={handleAddPlanItem}
       >
         <FaPlus size={14} />
-        Add Another Item
+        {lang.current.experienceWizardModal.addPlanItem}
       </button>
     </div>
   );
@@ -723,7 +725,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
   const renderStep4 = () => (
     <div className={styles.collaboratorsContainer}>
       <p className={styles.stepDescription}>
-        Invite others to collaborate on your experience. They'll be able to view and contribute to your plan.
+        {lang.current.experienceWizardModal.noCollaboratorsDescription}
       </p>
 
       <div className={styles.inviteModeToggle}>
@@ -733,7 +735,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
           onClick={() => setInviteMode('search')}
         >
           <FaUserPlus size={14} />
-          Search Users
+          {lang.current.experienceWizardModal.searchUsers}
         </button>
         <button
           type="button"
@@ -741,14 +743,14 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
           onClick={() => setInviteMode('email')}
         >
           <FaEnvelope size={14} />
-          Invite by Email
+          {lang.current.experienceWizardModal.inviteByEmail}
         </button>
       </div>
 
       {inviteMode === 'search' ? (
         <div className={styles.searchSection}>
           <Autocomplete
-            placeholder="Search by name or email..."
+            placeholder={lang.current.experienceWizardModal.searchUsersPlaceholder}
             entityType="user"
             items={collaboratorSearchResults}
             onSelect={handleSelectCollaborator}
@@ -758,19 +760,19 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
             showAvatar={true}
             showStatus={true}
             size="md"
-            emptyMessage="Type to search users..."
+            emptyMessage={lang.current.experienceWizardModal.searchUsersPlaceholder}
           />
         </div>
       ) : (
         <div className={styles.emailSection}>
           <FormField
             name="inviteEmail"
-            label="Email Address"
+            label={lang.current.label.email}
             type="email"
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="friend@example.com"
-            helpText="We'll send them an invitation to join"
+            placeholder={lang.current.experienceWizardModal.inviteEmailPlaceholder}
+            helpText={lang.current.helper.inviteEmailHelpText}
           />
           <Button
             variant="outline"
@@ -782,14 +784,14 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
               setInviteEmail('');
             }}
           >
-            Send Invite
+            {lang.current.button.sendInvite}
           </Button>
         </div>
       )}
 
       {selectedCollaborators.length > 0 && (
         <div className={styles.selectedCollaborators}>
-          <label>Selected Collaborators ({selectedCollaborators.length})</label>
+          <label>{lang.current.label.selectedCollaborators} ({selectedCollaborators.length})</label>
           <div className={styles.collaboratorPills}>
             {selectedCollaborators.map(collab => (
               <Pill
@@ -810,9 +812,9 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
       <div className={styles.successIcon}>
         <FaCheckCircle size={64} />
       </div>
-      <h3 className={styles.successTitle}>Experience Created!</h3>
+      <h3 className={styles.successTitle}>{lang.current.experienceWizardModal.doneTitle}</h3>
       <p className={styles.successMessage}>
-        Your experience "{createdExperience?.name}" has been created successfully.
+        {lang.current.experienceWizardModal.doneMessage}
         {planItems.filter(i => i.content?.trim()).length > 0 && (
           <> You've added {planItems.filter(i => i.content?.trim()).length} plan items.</>
         )}
@@ -822,10 +824,10 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
       </p>
       <div className={styles.successActions}>
         <Button variant="gradient" size="lg" onClick={handleGoToExperience}>
-          Go to Experience
+          {lang.current.experienceWizardModal.goToExperience}
         </Button>
         <Button variant="outline" size="lg" onClick={onClose}>
-          Close
+          {lang.current.experienceWizardModal.close}
         </Button>
       </div>
     </div>
@@ -839,18 +841,18 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
         <div className={styles.footerLeft}>
           {currentStep === STEPS.BASIC_INFO && (
             <button type="button" className={styles.backButton} onClick={handleClose}>
-              Cancel
+              {lang.current.button.cancel}
             </button>
           )}
           {currentStep === STEPS.MORE_DETAILS && (
             <button type="button" className={styles.backButton} onClick={() => setCurrentStep(STEPS.BASIC_INFO)}>
               <FaArrowLeft size={12} className="me-2" />
-              Back
+              {lang.current.experienceWizardModal.back}
             </button>
           )}
           {(currentStep === STEPS.PLAN_ITEMS || currentStep === STEPS.COLLABORATORS) && (
             <button type="button" className={styles.skipLink} onClick={handleSkipStep}>
-              Skip this step
+              {lang.current.experienceWizardModal.skip}
             </button>
           )}
         </div>
@@ -863,7 +865,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
               onClick={() => setCurrentStep(STEPS.MORE_DETAILS)}
               disabled={!canProceedStep1}
             >
-              Next
+              {lang.current.experienceWizardModal.next}
               <FaArrowRight size={12} className="ms-2" />
             </Button>
           )}
@@ -874,7 +876,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
               onClick={handleCreateExperience}
               disabled={loading}
             >
-              {loading ? 'Creating...' : 'Create Experience'}
+              {loading ? lang.current.button.creating : lang.current.experienceWizardModal.create}
             </Button>
           )}
           {currentStep === STEPS.PLAN_ITEMS && (
@@ -884,7 +886,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
               onClick={handleSavePlanItems}
               disabled={loading}
             >
-              {loading ? 'Saving...' : planItems.filter(i => i.content?.trim()).length > 0 ? 'Save & Continue' : 'Continue'}
+              {loading ? lang.current.button.saving : planItems.filter(i => i.content?.trim()).length > 0 ? lang.current.button.saveContinue : lang.current.button.continue}
             </Button>
           )}
           {currentStep === STEPS.COLLABORATORS && (
@@ -894,7 +896,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
               onClick={handleSaveCollaborators}
               disabled={loading}
             >
-              {loading ? 'Adding...' : selectedCollaborators.length > 0 ? 'Add & Finish' : 'Finish'}
+              {loading ? lang.current.button.adding : selectedCollaborators.length > 0 ? lang.current.button.addFinish : lang.current.experienceWizardModal.finish}
             </Button>
           )}
         </div>
@@ -909,7 +911,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
           {/* Header */}
           <div className={styles.modalHeader}>
             <h5 className={styles.modalTitle}>
-              {currentStep === STEPS.SUCCESS ? 'Success!' : 'Create New Experience'}
+              {currentStep === STEPS.SUCCESS ? lang.current.experienceWizardModal.doneTitle : lang.current.experienceWizardModal.basicInfoTitle}
             </h5>
             <button
               type="button"

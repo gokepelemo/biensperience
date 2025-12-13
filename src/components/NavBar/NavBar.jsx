@@ -314,14 +314,15 @@ export default function NavBar() {
             className={styles.logoLink}
             to="/"
             role="button"
-            aria-label="Biensperience home"
+            aria-label={lang.current.aria.biensperienceHome}
             title="Biensperience"
             onMouseEnter={() => setLogoHovered(true)}
             onMouseLeave={() => setLogoHovered(false)}
           >
-            <BiensperienceLogo 
-              type={logoHovered ? "engine" : "clean"} 
-              size="lg" 
+            <BiensperienceLogo
+              type={logoHovered ? "engine" : "clean"}
+              width={36}
+              height={36}
               className={styles.logo}
               aria-hidden="true"
             />
@@ -331,7 +332,7 @@ export default function NavBar() {
             type="button"
             className={`${styles.brandText} ${styles.brandTextButton}`}
             onClick={handleBrandClick}
-            aria-label={isShowingH1 ? "Scroll to top of page" : lang.current.aria.biensperienceHome}
+            aria-label={isShowingH1 ? lang.current.aria.scrollToTop : lang.current.aria.biensperienceHome}
           >
             {getBrandText()}
           </button>
@@ -386,7 +387,7 @@ export default function NavBar() {
                 onClick={(e) => handleNavAction(e, { to: '/dashboard' })}
                 className="nav-link"
                 role="menuitem"
-                aria-label="View dashboard"
+                aria-label={lang.current.aria.viewDashboard}
               >
                 Dashboard
               </NavLink>
@@ -398,7 +399,7 @@ export default function NavBar() {
                 type="button"
                 aria-expanded="false"
                 aria-haspopup="true"
-                aria-label={`User menu for ${getDisplayName()}`}
+                aria-label={lang.current.aria.userMenuFor.replace('{name}', getDisplayName())}
               >
                 {getDisplayName()}
               </button>

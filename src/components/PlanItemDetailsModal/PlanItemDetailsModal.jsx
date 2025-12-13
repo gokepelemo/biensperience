@@ -67,16 +67,21 @@ export default function PlanItemDetailsModal({
   const [ratesLoaded, setRatesLoaded] = useState(false);
   // Add dropdown state
   const [showAddDropdown, setShowAddDropdown] = useState(false);
+  const [addDropdownFilter, setAddDropdownFilter] = useState('');
   const [showAddDetailModal, setShowAddDetailModal] = useState(false);
   const [selectedDetailType, setSelectedDetailType] = useState(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
   const [locationSaving, setLocationSaving] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
+  // Local state for immediate UI feedback on scheduled date/time changes
+  const [localScheduledDate, setLocalScheduledDate] = useState(null);
+  const [localScheduledTime, setLocalScheduledTime] = useState(null);
   const assignmentInputRef = useRef(null);
   const dropdownRef = useRef(null);
   const titleInputRef = useRef(null);
   const addDropdownRef = useRef(null);
+  const addDropdownFilterRef = useRef(null);
 
   // Fetch exchange rates for currency conversion
   // Use displayCurrency if provided, otherwise plan currency
@@ -98,8 +103,11 @@ export default function PlanItemDetailsModal({
       setShowAddDropdown(false);
       setShowLocationModal(false);
       setShowDateModal(false);
+      // Sync local scheduled date/time with prop values
+      setLocalScheduledDate(planItem?.scheduled_date || null);
+      setLocalScheduledTime(planItem?.scheduled_time || null);
     }
-  }, [show, planItem?._id, initialTab, planItem?.text]);
+  }, [show, planItem?._id, initialTab, planItem?.text, planItem?.scheduled_date, planItem?.scheduled_time]);
 
   // Handle click outside for add dropdown
   useEffect(() => {
@@ -115,6 +123,17 @@ export default function PlanItemDetailsModal({
     if (showAddDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showAddDropdown]);
+
+  // Clear filter and focus input when Add dropdown opens
+  useEffect(() => {
+    if (showAddDropdown) {
+      setAddDropdownFilter('');
+      // Focus filter input after dropdown renders
+      requestAnimationFrame(() => {
+        addDropdownFilterRef.current?.focus();
+      });
     }
   }, [showAddDropdown]);
 
@@ -175,6 +194,29 @@ export default function PlanItemDetailsModal({
     }));
     return createSimpleFilter(['name']).buildIndex(normalizedCollabs);
   }, [collaborators]);
+
+  // Build detail type items array and trie filter for the Add dropdown
+  const detailTypeItems = useMemo(() => {
+    return Object.entries(DETAIL_TYPE_CONFIG).map(([type, config]) => ({
+      type,
+      label: config.label,
+      icon: config.icon,
+      description: config.description || ''
+    }));
+  }, []);
+
+  const detailTypeTrieFilter = useMemo(() => {
+    // Index by label and description for comprehensive search
+    return createSimpleFilter(['label', 'description']).buildIndex(detailTypeItems);
+  }, [detailTypeItems]);
+
+  // Filter detail types based on dropdown filter input using trie
+  const filteredDetailTypes = useMemo(() => {
+    if (addDropdownFilter.trim() === '') {
+      return detailTypeItems;
+    }
+    return detailTypeTrieFilter.filter(addDropdownFilter, { rankResults: true });
+  }, [addDropdownFilter, detailTypeItems, detailTypeTrieFilter]);
 
   // Filter collaborators based on search using trie
   useEffect(() => {
@@ -557,6 +599,10 @@ export default function PlanItemDetailsModal({
         scheduledTime: dateData.scheduled_time
       });
 
+      // Update local state immediately for UI feedback (Scheduled card appears instantly)
+      setLocalScheduledDate(dateData.scheduled_date || null);
+      setLocalScheduledTime(dateData.scheduled_time || null);
+
       // The updatePlanItem utility already broadcasts events, so no need to emit again
       setShowDateModal(false);
     } catch (err) {
@@ -650,9 +696,12 @@ export default function PlanItemDetailsModal({
   // Use targetCurrency for display (user preference or plan currency)
   const currency = targetCurrency;
 
-  // Get scheduled date/time from plan item (only if valid)
-  const scheduledDate = planItem.scheduled_date && new Date(planItem.scheduled_date).getTime() ? planItem.scheduled_date : null;
-  const scheduledTime = planItem.scheduled_time || null;
+  // Get scheduled date/time - use local state for immediate UI feedback, fallback to prop
+  // Local state is updated immediately when date is saved, prop updates when parent re-renders
+  const scheduledDate = (localScheduledDate && new Date(localScheduledDate).getTime())
+    ? localScheduledDate
+    : (planItem.scheduled_date && new Date(planItem.scheduled_date).getTime() ? planItem.scheduled_date : null);
+  const scheduledTime = localScheduledTime || planItem.scheduled_time || null;
 
   // Format scheduled date for display (short format without year)
   const getFormattedScheduledDate = () => {
@@ -690,7 +739,7 @@ export default function PlanItemDetailsModal({
   const hasInfoToDisplay = scheduledDate || planningDays > 0 || costEstimate > 0 || actualCosts.length > 0;
 
   const getAssigneeName = () => {
-    if (!assignedTo) return 'Unassigned';
+    if (!assignedTo) return lang.current.planItemDetailsModal.unassigned;
 
     const assigneeId = assignedTo._id || assignedTo;
     const assignee = collaborators.find(c => {
@@ -698,7 +747,7 @@ export default function PlanItemDetailsModal({
       return collabId === assigneeId;
     });
 
-    return assignee?.name || assignee?.user?.name || 'Unknown User';
+    return assignee?.name || assignee?.user?.name || lang.current.planItemDetailsModal.unknownUser;
   };
 
   const handleAssignmentClick = () => {
@@ -810,7 +859,7 @@ export default function PlanItemDetailsModal({
 
         {/* Assignment section */}
         <div className={styles.assignmentSection}>
-          <label className={styles.assignmentLabel}>Assigned To:</label>
+          <label className={styles.assignmentLabel}>{lang.current.planItemDetailsModal.assignedTo}</label>
           {canEdit ? (
             <div className={styles.assignmentAutocompleteWrapper}>
               {!isEditingAssignment ? (
@@ -827,7 +876,7 @@ export default function PlanItemDetailsModal({
                     ref={assignmentInputRef}
                     type="text"
                     className={styles.assignmentInput}
-                    placeholder="Search collaborators..."
+                    placeholder={lang.current.planItemDetailsModal.searchCollaborators}
                     value={assignmentSearch}
                     onChange={(e) => setAssignmentSearch(e.target.value)}
                     onKeyDown={handleKeyDown}
@@ -843,11 +892,11 @@ export default function PlanItemDetailsModal({
                         }}
                         onMouseEnter={() => setHighlightedIndex(0)}
                       >
-                        <span className={styles.assignmentOptionText}>-- Unassigned --</span>
+                        <span className={styles.assignmentOptionText}>-- {lang.current.planItemDetailsModal.unassigned} --</span>
                       </div>
                       {filteredCollaborators.map((collab, index) => {
                         const userId = collab._id || collab.user?._id;
-                        const userName = collab.name || collab.user?.name || 'Unknown User';
+                        const userName = collab.name || collab.user?.name || lang.current.planItemDetailsModal.unknownUser;
                         return (
                           <div
                             key={userId}
@@ -865,7 +914,7 @@ export default function PlanItemDetailsModal({
                       })}
                       {filteredCollaborators.length === 0 && assignmentSearch && (
                         <div className={`${styles.assignmentOption} ${styles.disabled}`}>
-                          <span className={styles.assignmentOptionText}>No collaborators found</span>
+                          <span className={styles.assignmentOptionText}>{lang.current.planItemDetailsModal.noCollaboratorsFound}</span>
                         </div>
                       )}
                     </div>
@@ -890,7 +939,7 @@ export default function PlanItemDetailsModal({
               >
                 <span className={styles.completeIcon}>{planItem.complete ? '✓' : '○'}</span>
                 <span className={styles.completeText}>
-                  {planItem.complete ? 'Completed' : 'Mark Complete'}
+                  {planItem.complete ? lang.current.planItemDetailsModal.completed : lang.current.planItemDetailsModal.markComplete}
                 </span>
               </button>
             </div>
@@ -996,25 +1045,47 @@ export default function PlanItemDetailsModal({
                         aria-haspopup="menu"
                       >
                         <FaPlus className={styles.addButtonIcon} />
-                        <span className={styles.addButtonText}>Add</span>
+                        <span className={styles.addButtonText}>{lang.current.button.add}</span>
                         <span className={styles.addButtonCaret}>▾</span>
                       </button>
                     </Tooltip>
 
                     {showAddDropdown && (
                       <div className={styles.addDropdownMenu} role="menu">
-                        {Object.entries(DETAIL_TYPE_CONFIG).map(([type, config]) => (
-                          <button
-                            key={type}
-                            type="button"
-                            className={styles.addDropdownItem}
-                            onClick={() => handleSelectDetailType(type)}
-                            role="menuitem"
-                          >
-                            <span className={styles.addDropdownIcon}>{config.icon}</span>
-                            <span className={styles.addDropdownLabel}>{config.label}</span>
-                          </button>
-                        ))}
+                        {/* Filter input for searching detail types */}
+                        <div className={styles.addDropdownFilterWrapper}>
+                          <input
+                            ref={addDropdownFilterRef}
+                            type="text"
+                            className={styles.addDropdownFilterInput}
+                            placeholder="Search..."
+                            value={addDropdownFilter}
+                            onChange={(e) => setAddDropdownFilter(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label="Filter detail types"
+                          />
+                        </div>
+                        {/* Filtered list of detail types */}
+                        <div className={styles.addDropdownItems}>
+                          {filteredDetailTypes.length > 0 ? (
+                            filteredDetailTypes.map((item) => (
+                              <button
+                                key={item.type}
+                                type="button"
+                                className={styles.addDropdownItem}
+                                onClick={() => handleSelectDetailType(item.type)}
+                                role="menuitem"
+                              >
+                                <span className={styles.addDropdownIcon}>{item.icon}</span>
+                                <span className={styles.addDropdownLabel}>{item.label}</span>
+                              </button>
+                            ))
+                          ) : (
+                            <div className={styles.addDropdownNoResults}>
+                              No matching types
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1029,7 +1100,7 @@ export default function PlanItemDetailsModal({
                       onClick={() => onShare(planItem)}
                     >
                       <FaShareAlt className={styles.shareButtonIcon} />
-                      <span className={styles.shareButtonText}>Share</span>
+                      <span className={styles.shareButtonText}>{lang.current.planItemDetailsModal.share}</span>
                     </button>
                   </Tooltip>
                 )}
@@ -1045,42 +1116,42 @@ export default function PlanItemDetailsModal({
             onClick={() => setActiveTab('details')}
             type="button"
           >
-            📋 Details {totalDetailsCount > 0 && `(${totalDetailsCount})`}
+            {lang.current.planItemDetailsModal.tabDetails} {totalDetailsCount > 0 && `(${totalDetailsCount})`}
           </button>
           <button
             className={`${styles.detailsTab} ${activeTab === 'notes' ? styles.active : ''}`}
             onClick={() => setActiveTab('notes')}
             type="button"
           >
-            📝 Notes {notes.length > 0 && `(${notes.length})`}
+            {lang.current.planItemDetailsModal.tabNotes} {notes.length > 0 && `(${notes.length})`}
           </button>
           <button
             className={`${styles.detailsTab} ${activeTab === 'location' ? styles.active : ''}`}
             onClick={() => setActiveTab('location')}
             type="button"
           >
-            📍 Location {planItem?.location?.address && '✓'}
+            {lang.current.planItemDetailsModal.tabLocation} {planItem?.location?.address && '✓'}
           </button>
           <button
             className={`${styles.detailsTab} ${styles.disabled}`}
             disabled
             type="button"
           >
-            💬 Chat
+            {lang.current.planItemDetailsModal.tabChat}
           </button>
           <button
             className={`${styles.detailsTab} ${styles.disabled}`}
             disabled
             type="button"
           >
-            📷 Photos
+            {lang.current.planItemDetailsModal.tabPhotos}
           </button>
           <button
             className={`${styles.detailsTab} ${styles.disabled}`}
             disabled
             type="button"
           >
-            📄 Documents
+            {lang.current.planItemDetailsModal.tabDocuments}
           </button>
         </div>
 
@@ -1098,7 +1169,7 @@ export default function PlanItemDetailsModal({
                       onClick={handleExportPDF}
                     >
                       <FaFilePdf className={styles.exportPdfIcon} />
-                      <span>Export PDF</span>
+                      <span>{lang.current.planItemDetailsModal.exportPdf}</span>
                     </button>
                   </Tooltip>
                 </div>
@@ -1302,8 +1373,8 @@ export default function PlanItemDetailsModal({
                 <EmptyState
                   variant="generic"
                   icon="📋"
-                  title="No Details Added Yet"
-                  description="Use the + Add button above to add flight itineraries, hotel reservations, parking details, discount codes, and more."
+                  title={lang.current.planItemDetailsModal.noDetailsAdded}
+                  description={lang.current.planItemDetailsModal.noDetailsDescription}
                   size="md"
                 />
               )}
@@ -1353,7 +1424,7 @@ export default function PlanItemDetailsModal({
                         className={styles.changeLocationButton}
                         onClick={() => setShowLocationModal(true)}
                       >
-                        Change
+                        {lang.current.planItemDetailsModal.change}
                       </button>
                     )}
                   </div>
@@ -1389,9 +1460,9 @@ export default function PlanItemDetailsModal({
                 <EmptyState
                   variant="generic"
                   icon="📍"
-                  title="No Location Set"
-                  description="Add a location to this plan item to see it on the map and get directions."
-                  primaryAction={canEdit ? "Add a Location" : null}
+                  title={lang.current.planItemDetailsModal.noLocationSet}
+                  description={lang.current.planItemDetailsModal.noLocationDescription}
+                  primaryAction={canEdit ? lang.current.planItemDetailsModal.addLocation : null}
                   onPrimaryAction={canEdit ? () => setShowLocationModal(true) : null}
                   size="md"
                 />

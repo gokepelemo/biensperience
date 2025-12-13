@@ -1306,6 +1306,7 @@ export default function SingleExperience() {
   // Keep selectedDetailsItem in sync with the latest plan data
   // This fixes the "Unknown User" issue when navigating - the plan data may be
   // initially loaded without populated notes.user, then updated by API with populated data
+  // Also preserves populated user data if the source temporarily has unpopulated data
   useEffect(() => {
     // Only sync when modal is open and we have a selected item
     if (!showDetailsModal || !selectedDetailsItem?._id) return;
@@ -1325,22 +1326,96 @@ export default function SingleExperience() {
     if (!updatedItem) return;
 
     // Check if the item data has meaningful differences (especially notes.user population)
-    // We want to update if notes now have populated user objects
-    const hasPopulatedNotes = updatedItem.details?.notes?.some(note =>
+    const sourceHasPopulatedNotes = updatedItem.details?.notes?.some(note =>
+      note.user && typeof note.user === 'object' && note.user.name
+    );
+    const currentHasPopulatedNotes = selectedDetailsItem.details?.notes?.some(note =>
       note.user && typeof note.user === 'object' && note.user.name
     );
     const currentHasUnpopulatedNotes = selectedDetailsItem.details?.notes?.some(note =>
       note.user && (typeof note.user === 'string' || !note.user.name)
     );
 
-    // Only update if there's meaningful new data (populated user objects)
-    if (hasPopulatedNotes && currentHasUnpopulatedNotes) {
-      debug.log('[SingleExperience] Syncing selectedDetailsItem with populated data', {
+    // Case 1: Source has populated data, current doesn't - sync from source
+    if (sourceHasPopulatedNotes && currentHasUnpopulatedNotes) {
+      debug.log('[SingleExperience] Syncing selectedDetailsItem with populated data from source', {
         itemId: selectedDetailsItem._id,
-        hadUnpopulatedNotes: currentHasUnpopulatedNotes,
-        nowHasPopulated: hasPopulatedNotes
+        currentHadUnpopulated: currentHasUnpopulatedNotes
       });
       setSelectedDetailsItem(updatedItem);
+      return;
+    }
+
+    // Case 2: Current has populated data but source doesn't - preserve current's populated user data
+    // This prevents "Unknown User" flash when source temporarily has unpopulated data
+    if (currentHasPopulatedNotes && !sourceHasPopulatedNotes && updatedItem.details?.notes?.length > 0) {
+      // Build a map of populated user data from current selectedDetailsItem
+      const populatedUserMap = {};
+      selectedDetailsItem.details?.notes?.forEach(note => {
+        if (note.user && typeof note.user === 'object' && note.user.name) {
+          const noteId = note._id?.toString() || note._id;
+          populatedUserMap[noteId] = note.user;
+        }
+      });
+
+      // Only merge if we have populated users to preserve
+      if (Object.keys(populatedUserMap).length > 0) {
+        debug.log('[SingleExperience] Preserving populated user data in notes', {
+          itemId: selectedDetailsItem._id,
+          preservedUserCount: Object.keys(populatedUserMap).length
+        });
+
+        // Create merged item with preserved populated user data
+        const mergedNotes = updatedItem.details.notes.map(note => {
+          const noteId = note._id?.toString() || note._id;
+          const preservedUser = populatedUserMap[noteId];
+          if (preservedUser && (!note.user?.name)) {
+            return { ...note, user: preservedUser };
+          }
+          return note;
+        });
+
+        setSelectedDetailsItem({
+          ...updatedItem,
+          details: {
+            ...updatedItem.details,
+            notes: mergedNotes
+          }
+        });
+        return;
+      }
+    }
+
+    // Case 3: Both have populated data or neither has notes - sync other changes
+    // Check for other meaningful changes (not related to notes.user population)
+    const sourceNoteCount = updatedItem.details?.notes?.length || 0;
+    const currentNoteCount = selectedDetailsItem.details?.notes?.length || 0;
+    if (sourceNoteCount !== currentNoteCount) {
+      // Note count changed (add/delete) - need to sync, preserving populated users
+      const populatedUserMap = {};
+      selectedDetailsItem.details?.notes?.forEach(note => {
+        if (note.user && typeof note.user === 'object' && note.user.name) {
+          const noteId = note._id?.toString() || note._id;
+          populatedUserMap[noteId] = note.user;
+        }
+      });
+
+      const mergedNotes = updatedItem.details?.notes?.map(note => {
+        const noteId = note._id?.toString() || note._id;
+        const preservedUser = populatedUserMap[noteId];
+        if (preservedUser && (!note.user?.name)) {
+          return { ...note, user: preservedUser };
+        }
+        return note;
+      }) || [];
+
+      setSelectedDetailsItem({
+        ...updatedItem,
+        details: {
+          ...updatedItem.details,
+          notes: mergedNotes
+        }
+      });
     }
   }, [showDetailsModal, selectedDetailsItem?._id, selectedPlanId, sharedPlans, userPlan, idEquals]);
 
@@ -2977,8 +3052,8 @@ export default function SingleExperience() {
                             ))
                           : null
                     )}
-                    {experience.destination && (
-                      <Link to={`/destinations/${experience.destination._id}`} style={{ textDecoration: 'none' }}>
+                    {experience.destination && experience.destination.country && (
+                      <Link to={`/countries/${createUrlSlug(experience.destination.country)}`} style={{ textDecoration: 'none' }}>
                         <Badge bg="secondary" className={styles.tag}>
                           {experience.destination.country}
                         </Badge>

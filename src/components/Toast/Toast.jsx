@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Toast as BootstrapToast } from 'react-bootstrap';
 import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaExclamationTriangle } from 'react-icons/fa';
+import { lang } from '../../lang.constants';
 import styles from './Toast.module.scss';
 
 /**
@@ -141,7 +142,7 @@ export default function Toast({
         <button
           type="button"
           className={`btn-close ${['light', 'warning', 'info', 'secondary'].includes(variant) ? '' : styles.btnCloseWhite}`}
-          aria-label="Close"
+          aria-label={lang.current.toast.close}
           onClick={handleClose}
           style={{
             position: 'absolute',

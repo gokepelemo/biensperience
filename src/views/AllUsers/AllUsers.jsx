@@ -10,6 +10,7 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
 import InviteCodeModal from "../../components/InviteCodeModal/InviteCodeModal";
+import Pagination from "../../components/Pagination/Pagination";
 import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, FormControl, EmptyState, Pill } from "../../components/design-system";
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
@@ -36,6 +37,10 @@ export default function AllUsers() {
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
   const [showInviteModal, setShowInviteModal] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   // Check if current user is super admin
   const isCurrentUserSuperAdmin = user && isSuperAdmin(user);
@@ -108,7 +113,20 @@ export default function AllUsers() {
     });
 
     setFilteredUsers(result);
+    // Reset to page 1 when filters change
+    setCurrentPage(1);
   }, [users, searchTerm, roleFilter, sortField, sortDirection, userTrieFilter]);
+
+  // Compute paginated users from filtered results
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredUsers, currentPage]);
+
+  // Calculate total pages
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+  }, [filteredUsers.length]);
 
   // Effects
   useEffect(() => {
@@ -414,7 +432,7 @@ export default function AllUsers() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {filteredUsers.map((userData) => {
+                      {paginatedUsers.map((userData) => {
                         const isCurrentUser = userData._id === user._id;
                         return (
                           <TableRow key={userData._id} className={isCurrentUser ? 'highlight' : ''}>
@@ -514,6 +532,19 @@ export default function AllUsers() {
                       })}
                     </TableBody>
                   </Table>
+                )}
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="d-flex justify-content-center mt-4 mb-3">
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                      totalResults={filteredUsers.length}
+                      resultsPerPage={ITEMS_PER_PAGE}
+                      variant="numbers"
+                    />
+                  </div>
                 )}
               </Card.Body>
             </Card>

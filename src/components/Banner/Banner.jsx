@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { FaTimes, FaInfoCircle, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaBullhorn } from 'react-icons/fa';
 import { Button } from '../design-system';
 import { FadeIn } from '../Animation';
+import { lang } from '../../lang.constants';
 import styles from './Banner.module.scss';
 
 /**
@@ -184,7 +185,7 @@ export default function Banner({
             type="button"
             className={styles.bannerClose}
             onClick={handleDismiss}
-            aria-label="Dismiss banner"
+            aria-label={lang.current.banner.dismissBanner}
           >
             <FaTimes size={16} />
           </button>

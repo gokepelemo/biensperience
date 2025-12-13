@@ -6,6 +6,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import styles from './ExperienceDetailLayout.module.scss';
+import { lang } from '../../lang.constants';
 
 /**
  * Hero section for experience detail
@@ -16,18 +17,18 @@ export function DetailHero({ image, title, subtitle, badge, backAction, shareAct
       <div className={styles.heroOverlay} />
       <div className={styles.heroTopBar}>
         {backAction && (
-          <button className={styles.heroAction} onClick={backAction} aria-label="Go back">
+          <button className={styles.heroAction} onClick={backAction} aria-label={lang.current.experienceDetailLayout.goBack}>
             ←
           </button>
         )}
         <div className={styles.heroTopActions}>
           {shareAction && (
-            <button className={styles.heroAction} onClick={shareAction} aria-label="Share">
+            <button className={styles.heroAction} onClick={shareAction} aria-label={lang.current.experienceDetailLayout.share}>
               ↗
             </button>
           )}
           {favoriteAction && (
-            <button className={styles.heroAction} onClick={favoriteAction} aria-label="Favorite">
+            <button className={styles.heroAction} onClick={favoriteAction} aria-label={lang.current.experienceDetailLayout.favorite}>
               ♡
             </button>
           )}

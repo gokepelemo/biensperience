@@ -26,7 +26,7 @@ import { handleError } from "../../utilities/error-handler";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { deduplicateById } from "../../utilities/deduplication";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
-import { isSuperAdmin, isOwner as isResourceOwner } from "../../utilities/permissions";
+import { isSuperAdmin } from "../../utilities/permissions";
 import { Button, EmptyState, Container, EntityNotFound } from "../../components/design-system";
 import { Card, Row, Col } from "react-bootstrap";
 import { useToast } from '../../contexts/ToastContext';
@@ -785,7 +785,29 @@ export default function Profile() {
   }, [uiState.destinations, uiState.experiences, uiState.created]);
 
   // Numbered pagination is provided by shared <Pagination /> component
-  
+
+  // Get user's avatar photo - MUST be before early returns to satisfy React hooks rules
+  const avatarPhoto = useMemo(() => {
+    if (!currentProfile?.photos?.length) return null;
+    return getDefaultPhoto(currentProfile);
+  }, [currentProfile]);
+
+  // Safe counts for arrays that may be null while loading - MUST be before early returns
+  const uniqueUserExperiencesCount = uniqueUserExperiences ? uniqueUserExperiences.length : 0;
+  const uniqueCreatedExperiencesCount = uniqueCreatedExperiences ? uniqueCreatedExperiences.length : 0;
+  const favoriteDestinationsCount = favoriteDestinations ? favoriteDestinations.length : 0;
+
+  // Calculate owned vs shared plans - MUST be before early returns
+  // Uses isCollaborative flag from API which indicates if user is NOT the owner
+  const planCounts = useMemo(() => {
+    if (!plans || !currentProfile) return { total: 0, owned: 0, shared: 0 };
+    const total = plans.length;
+    // shared = plans where isCollaborative is true (user is collaborator, not owner)
+    const shared = plans.filter(plan => plan.isCollaborative === true).length;
+    const owned = total - shared;
+    return { total, owned, shared };
+  }, [plans, currentProfile]);
+
   // Show error state if profile not found
   if (profileError === 'User not found') {
     return (
@@ -839,26 +861,6 @@ export default function Profile() {
     );
   }
   
-  // Get user's avatar photo
-  const avatarPhoto = useMemo(() => {
-    if (!currentProfile?.photos?.length) return null;
-    return getDefaultPhoto(currentProfile);
-  }, [currentProfile]);
-
-  // Safe counts for arrays that may be null while loading
-  const uniqueUserExperiencesCount = uniqueUserExperiences ? uniqueUserExperiences.length : 0;
-  const uniqueCreatedExperiencesCount = uniqueCreatedExperiences ? uniqueCreatedExperiences.length : 0;
-  const favoriteDestinationsCount = favoriteDestinations ? favoriteDestinations.length : 0;
-
-  // Calculate owned vs shared plans
-  const planCounts = useMemo(() => {
-    if (!plans || !currentProfile) return { total: 0, owned: 0, shared: 0 };
-    const total = plans.length;
-    const owned = plans.filter(plan => isResourceOwner(currentProfile, plan)).length;
-    const shared = total - owned;
-    return { total, owned, shared };
-  }, [plans, currentProfile]);
-
   // Show full-page skeleton during initial load (before profile data arrives)
   if (isLoadingProfile && !currentProfile) {
     return <ProfileSkeleton />;

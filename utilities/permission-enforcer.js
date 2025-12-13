@@ -551,6 +551,11 @@ class PermissionEnforcer {
       return VISIBILITY.PUBLIC;
     }
 
+    // Plans are private/restricted - only owner and collaborators can view
+    if (resource.constructor.modelName === 'Plan') {
+      return VISIBILITY.RESTRICTED;
+    }
+
     // Default to authenticated for unknown types
     return VISIBILITY.AUTHENTICATED;
   }

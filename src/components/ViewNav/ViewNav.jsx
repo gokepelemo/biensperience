@@ -11,6 +11,7 @@
 import { useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import styles from './ViewNav.module.scss';
+import { lang } from '../../lang.constants';
 
 /**
  * ViewNav - Responsive hash-based navigation component
@@ -75,7 +76,7 @@ export default function ViewNav({
     <nav
       className={`${styles.viewNav} ${className}`}
       role="tablist"
-      aria-label="View navigation"
+      aria-label={lang.current.viewNav.viewNavigation}
     >
       <div className={styles.navContainer}>
         {items.map((item) => {

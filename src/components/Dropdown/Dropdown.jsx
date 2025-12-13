@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { lang } from '../../lang.constants';
 import styles from './Dropdown.module.scss';
 
 /**
@@ -98,17 +99,17 @@ export default function Dropdown({
             <div className={styles.searchRow}>
               <input
                 type="search"
-                placeholder="Search"
+                placeholder={lang.current.dropdown.searchPlaceholder}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 className={styles.searchInput}
-                aria-label="Search options"
+                aria-label={lang.current.dropdown.searchOptionsAria}
               />
             </div>
           )}
 
           <ul className={styles.optionList}>
-            {visible.length === 0 && <li className={styles.empty}>No results</li>}
+            {visible.length === 0 && <li className={styles.empty}>{lang.current.dropdown.noResults}</li>}
             {visible.map((opt, idx) => (
               <li
                 key={opt.value}

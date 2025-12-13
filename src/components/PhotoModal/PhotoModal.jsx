@@ -138,7 +138,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
         {/* Image counter for multiple photos */}
         {hasMultiplePhotos && (
           <div className={styles.photoModalCounter}>
-            {currentIndex + 1} of {photoArray.length}
+            {lang.current.photoModal.counter.replace('{current}', currentIndex + 1).replace('{total}', photoArray.length)}
           </div>
         )}
 
@@ -167,12 +167,12 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
                     setCurrentIndex(index);
                   }
                 }}
-                aria-label={`View photo ${index + 1} of ${photoArray.length}${index === currentIndex ? ' (current)' : ''}`}
-                title={(photo.photo_credit && photo.photo_credit.toLowerCase() !== 'biensperience') ? photo.photo_credit : `Photo ${index + 1}`}
+                aria-label={`${lang.current.photoThumbnail.viewPhoto.replace('{index}', index + 1)} ${lang.current.photoModal.counter.replace('{current}', '').replace('{total}', photoArray.length).trim()}${index === currentIndex ? ' (current)' : ''}`}
+                title={(photo.photo_credit && photo.photo_credit.toLowerCase() !== 'biensperience') ? photo.photo_credit : lang.current.photoModal.thumbnailTitle.replace('{index}', index + 1)}
               >
                 <img
                   src={photo.url}
-                  alt={`Thumbnail ${index + 1}`}
+                  alt={lang.current.photoModal.thumbnailAlt.replace('{index}', index + 1)}
                   loading="lazy"
                 />
               </div>
@@ -183,7 +183,7 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
         {/* Photo credit - hide "Biensperience" default */}
         {sanitizedCredit && sanitizedCredit.toLowerCase() !== "biensperience" && (
           <div className={styles.photoModalCredits}>
-            <span>Photo by: </span>
+            <span>{lang.current.photoModal.photoBy} </span>
             {sanitizedCreditUrl ? (
               <a
                 href={sanitizedCreditUrl}

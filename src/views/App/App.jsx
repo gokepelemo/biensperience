@@ -1,5 +1,5 @@
 import React, { useEffect, lazy, Suspense } from "react";
-import { Route, Routes, Navigate } from "react-router-dom";
+import { Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
 import { ToastProvider, useToast } from "../../contexts/ToastContext";
 import { UserProvider, useUser } from "../../contexts/UserContext";
@@ -45,6 +45,7 @@ const InviteTracking = lazy(() => import("../InviteTracking/InviteTracking"));
 const ResetPassword = lazy(() => import("../ResetPassword/ResetPassword"));
 const ConfirmEmail = lazy(() => import("../ConfirmEmail/ConfirmEmail"));
 const Dashboard = lazy(() => import("../Dashboard/Dashboard"));
+const Countries = lazy(() => import("../Countries/Countries"));
 
 logger.info('App.jsx loaded');
 
@@ -140,7 +141,7 @@ function AppContent() {
   logger.debug('useUser completed', { isAuthenticated });
 
   logger.debug('About to call useApp');
-  const { isScrolled } = useApp();
+  useApp(); // Initializes app context (scroll tracking, etc.)
   logger.debug('useApp completed');
 
   logger.debug('About to call useToast');
@@ -148,6 +149,25 @@ function AppContent() {
   logger.debug('useToast completed');
 
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Store intended route for post-login redirect when user is not authenticated
+  // This enables deep linking - users can access protected routes after login
+  useEffect(() => {
+    if (!isAuthenticated) {
+      const currentPath = location.pathname + location.search + location.hash;
+      // Don't store auth-related paths or the home page as intended routes
+      const excludedPaths = ['/', '/signup', '/reset-password', '/confirm-email'];
+      const shouldStore = !excludedPaths.some(path =>
+        currentPath === path || currentPath.startsWith('/reset-password/') || currentPath.startsWith('/confirm-email/')
+      );
+
+      if (shouldStore && currentPath !== '/') {
+        sessionStorage.setItem('bien:intendedRoute', currentPath);
+        logger.info('[Login Redirect] Stored intended route:', currentPath);
+      }
+    }
+  }, [isAuthenticated, location]);
 
   // Preserve hash fragments - React Router strips them during navigation
   // This effect captures and restores hashes for deep linking
@@ -346,6 +366,14 @@ function AppContent() {
           updateUser(oauthUser);
           const message = lang.current.notification?.auth?.oauthSuccess?.replace('{provider}', provider) || `Welcome back! You're signed in with ${provider}.`;
           success(message);
+
+          // Redirect to intended route after OAuth login (deep linking support)
+          const intendedRoute = sessionStorage.getItem('bien:intendedRoute');
+          if (intendedRoute) {
+            sessionStorage.removeItem('bien:intendedRoute');
+            logger.info('[Login Redirect] Redirecting to intended route after OAuth:', intendedRoute);
+            navigate(intendedRoute);
+          }
         }
       } catch (err) {
         showError(err.message || 'Authentication failed');
@@ -359,11 +387,10 @@ function AppContent() {
 
     return (
       <>
-        {isAuthenticated && !isScrolled && (
-          <a href="#main-content" className="skip-link">
-            Skip to main content
-          </a>
-        )}
+        {/* Skip link for keyboard navigation - WCAG 2.1 SC 2.4.1 Bypass Blocks */}
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
         <div className={styles.app}>
           <CookieConsent />
           {/* Legal modals accessible via hash links (#terms, #privacy) */}
@@ -402,6 +429,7 @@ function AppContent() {
                       <Route path="/experiences" element={<Experiences />} />
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/destinations" element={<Destinations />} />
+                      <Route path="/countries/:countryName" element={<Countries />} />
                       <Route path="/experience-types/:tagName" element={<ExperiencesByTag />} />
                       <Route path="/experiences/:experienceId" element={
                         <ErrorBoundary title="Experience Error" message="Error loading experience details.">

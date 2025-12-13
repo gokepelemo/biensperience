@@ -1,5 +1,6 @@
 import GoogleMap from '../GoogleMap/GoogleMap';
 import styles from './MapView.module.scss';
+import { lang } from '../../lang.constants';
 
 /**
  * MapView - Interactive Google Maps component for destination browsing
@@ -37,9 +38,9 @@ export default function MapView({
             {/* Map Controls */}
             <div className={styles.mapControls}>
               <button
-                className={styles.mapControlBtn} 
-                aria-label="Zoom in"
-                title="Zoom in"
+                className={styles.mapControlBtn}
+                aria-label={lang.current.mapView.zoomIn}
+                title={lang.current.mapView.zoomIn}
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -47,8 +48,8 @@ export default function MapView({
               </button>
               <button
                 className={styles.mapControlBtn}
-                aria-label="Zoom out"
-                title="Zoom out"
+                aria-label={lang.current.mapView.zoomOut}
+                title={lang.current.mapView.zoomOut}
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -56,8 +57,8 @@ export default function MapView({
               </button>
               <button
                 className={styles.mapControlBtn}
-                aria-label="Center map"
-                title="Center map"
+                aria-label={lang.current.mapView.centerMap}
+                title={lang.current.mapView.centerMap}
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
@@ -68,9 +69,9 @@ export default function MapView({
 
             {/* Location Button */}
             <button
-              className={styles.mapLocationBtn} 
-              aria-label="My location"
-              title="My location"
+              className={styles.mapLocationBtn}
+              aria-label={lang.current.mapView.myLocation}
+              title={lang.current.mapView.myLocation}
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z" stroke="currentColor" strokeWidth="1.5"/>
@@ -86,15 +87,15 @@ export default function MapView({
         <div className={styles.mapLegend}>
           <div className={styles.legendItem}>
             <div className={styles.legendMarker} style={{ background: 'var(--color-primary)' }}></div>
-            <span className={styles.legendLabel}>Hotels ({markers.filter(m => m.type === 'hotel').length})</span>
+            <span className={styles.legendLabel}>{lang.current.mapView.hotels} ({markers.filter(m => m.type === 'hotel').length})</span>
           </div>
           <div className={styles.legendItem}>
             <div className={styles.legendMarker} style={{ background: 'var(--color-success)' }}></div>
-            <span className={styles.legendLabel}>Restaurants ({markers.filter(m => m.type === 'restaurant').length})</span>
+            <span className={styles.legendLabel}>{lang.current.mapView.restaurants} ({markers.filter(m => m.type === 'restaurant').length})</span>
           </div>
           <div className={styles.legendItem}>
             <div className={styles.legendMarker} style={{ background: 'var(--color-warning)' }}></div>
-            <span className={styles.legendLabel}>Attractions ({markers.filter(m => m.type === 'attraction').length})</span>
+            <span className={styles.legendLabel}>{lang.current.mapView.attractions} ({markers.filter(m => m.type === 'attraction').length})</span>
           </div>
         </div>
       )}

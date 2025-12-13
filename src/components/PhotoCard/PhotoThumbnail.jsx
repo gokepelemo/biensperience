@@ -120,7 +120,7 @@ export default function PhotoThumbnail({
       role="button"
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      aria-label={`View photo ${photoIndex + 1}${showDefaultBadge ? ' (default)' : ''}`}
+      aria-label={`${lang.current.photoThumbnail.viewPhoto.replace('{index}', photoIndex + 1)}${showDefaultBadge ? ` (${lang.current.photoThumbnail.defaultPhoto.toLowerCase()})` : ''}`}
     >
       <div
         className={`${styles.photoThumbnailContainer} d-flex align-items-center justify-content-center`}
@@ -153,7 +153,7 @@ export default function PhotoThumbnail({
       </div>
 
       {showDefaultBadge && currentIndex === defaultIndex && (
-        <span className={styles.thumbnailDefaultBadge} aria-label="Default photo">★</span>
+        <span className={styles.thumbnailDefaultBadge} aria-label={lang.current.photoThumbnail.defaultPhoto}>★</span>
       )}
     </div>
   );

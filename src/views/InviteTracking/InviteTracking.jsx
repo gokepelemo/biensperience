@@ -8,7 +8,7 @@
  * Header content loads immediately, dynamic content loads after API call.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Tabs, Tab, Badge, Row, Col } from 'react-bootstrap';
 import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar } from 'react-icons/fa';
@@ -19,6 +19,7 @@ import { logger } from '../../utilities/logger';
 import { getDefaultPhoto } from '../../utilities/photo-utils';
 import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
+import Pagination from '../../components/Pagination/Pagination';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
 import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, SpaceY, Pill, EmptyState } from '../../components/design-system';
 import styles from './InviteTracking.module.scss';
@@ -32,6 +33,21 @@ export default function InviteTracking() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const { error: showError } = useToast();
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
+  // Compute paginated invites
+  const paginatedInvites = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return invites.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [invites, currentPage]);
+
+  // Calculate total pages
+  const totalPages = useMemo(() => {
+    return Math.ceil(invites.length / ITEMS_PER_PAGE);
+  }, [invites.length]);
 
   useEffect(() => {
     loadInvites();
@@ -180,7 +196,7 @@ export default function InviteTracking() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {invites.map((invite) => (
+                {paginatedInvites.map((invite) => (
                   <TableRow key={invite._id}>
                     <TableCell>
                       <code className={styles.inviteCode}>{invite.code}</code>
@@ -221,6 +237,19 @@ export default function InviteTracking() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="d-flex justify-content-center mt-4 mb-3">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalResults={invites.length}
+                resultsPerPage={ITEMS_PER_PAGE}
+                variant="numbers"
+              />
+            </div>
           )}
         </Card.Body>
       </Card>

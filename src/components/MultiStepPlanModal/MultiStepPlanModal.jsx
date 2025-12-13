@@ -152,7 +152,7 @@ export default function MultiStepPlanModal() {
           if (persistedData.plannedDate) setPlannedDate(persistedData.plannedDate);
           if (persistedData.planItems) setPlanItems(persistedData.planItems);
 
-          success('Restored your in-progress experience');
+          success(lang.current.multiStepPlanModal.restoredInProgress);
         }
       } catch (err) {
         // Silently fail - don't break the modal if persistence fails
@@ -319,13 +319,13 @@ export default function MultiStepPlanModal() {
       if (createdExperience) {
         // Update existing experience
         experience = await updateExperience(createdExperience._id, experienceData);
-        success('Experience updated! Now add plan items.');
+        success(lang.current.multiStepPlanModal.experienceUpdated);
       } else {
         // Create new experience
         experience = await createExperience(experienceData);
         addExperience(experience);
         setCreatedExperience(experience);
-        success('Experience created! Now add plan items.');
+        success(lang.current.multiStepPlanModal.experienceCreated);
       }
 
       setCurrentStep(STEPS.ADD_PLAN_ITEMS);
@@ -571,9 +571,9 @@ export default function MultiStepPlanModal() {
           {/* Header */}
           <div className="modal-header" style={{ borderBottom: '1px solid var(--color-border-light)' }}>
             <h5 className="modal-title" style={{ fontWeight: 'var(--font-weight-bold)' }}>
-              {currentStep === STEPS.CREATE_EXPERIENCE ? 'Create New Experience' :
-               currentStep === STEPS.ADD_PLAN_ITEMS ? 'Add Plan Items' :
-               'Plan Your Experience'}
+              {currentStep === STEPS.CREATE_EXPERIENCE ? lang.current.multiStepPlanModal.createNewExperience :
+               currentStep === STEPS.ADD_PLAN_ITEMS ? lang.current.multiStepPlanModal.addPlanItemsTitle :
+               lang.current.multiStepPlanModal.planYourExperience}
             </h5>
             <button
               type="button"
@@ -589,19 +589,19 @@ export default function MultiStepPlanModal() {
               <span className={styles.stepNumber}>
                 {currentStep > 1 ? <FaCheck size={12} /> : '1'}
               </span>
-              <span className={styles.stepLabel}>Create Experience</span>
+              <span className={styles.stepLabel}>{lang.current.multiStepPlanModal.stepCreateExperience}</span>
             </div>
             <div className={`${styles.stepConnector} ${currentStep > 1 ? styles.active : ''}`} />
             <div className={`${styles.step} ${currentStep >= 2 ? styles.active : ''} ${currentStep > 2 ? styles.completed : ''}`}>
               <span className={styles.stepNumber}>
                 {currentStep > 2 ? <FaCheck size={12} /> : '2'}
               </span>
-              <span className={styles.stepLabel}>Add Plan Items</span>
+              <span className={styles.stepLabel}>{lang.current.multiStepPlanModal.stepAddPlanItems}</span>
             </div>
             <div className={`${styles.stepConnector} ${currentStep > 2 ? styles.active : ''}`} />
             <div className={`${styles.step} ${currentStep >= 3 ? styles.active : ''}`}>
               <span className={styles.stepNumber}>3</span>
-              <span className={styles.stepLabel}>Select Date</span>
+              <span className={styles.stepLabel}>{lang.current.multiStepPlanModal.stepSelectDate}</span>
             </div>
           </div>
 
@@ -699,7 +699,7 @@ export default function MultiStepPlanModal() {
 
                   <div className="mb-4">
                       <Form.Label>
-                      Photos
+                      {lang.current.label.photos}
                       <FormTooltip content={lang.current.helper.photosOptional} placement="top" />
                     </Form.Label>
                     <PhotoUpload data={newExperience} setData={setNewExperience} />
@@ -721,20 +721,20 @@ export default function MultiStepPlanModal() {
                   </div>
 
                   <div className={styles.planItemsSection}>
-                    <h6 className={styles.sectionTitle}>Plan Items</h6>
+                    <h6 className={styles.sectionTitle}>{lang.current.multiStepPlanModal.stepAddPlanItems}</h6>
                     <p className={styles.sectionDescription}>
-                      Add items to plan for this experience. You can create hierarchical items and reorder them by dragging.
+                      {lang.current.multiStepPlanModal.noItemsDescription}
                     </p>
 
                     {/* Add new plan item form */}
                     <div className={styles.addPlanItemForm}>
                       <FormField
                         name="text"
-                        label="Plan Item"
+                        label={lang.current.label.planItem}
                         type="text"
                         value={newPlanItem.text}
                         onChange={(e) => setNewPlanItem(prev => ({ ...prev, text: e.target.value }))}
-                        placeholder="What do you need to plan?"
+                        placeholder={lang.current.multiStepPlanModal.itemPlaceholder}
                         required
                       />
 
@@ -797,7 +797,7 @@ export default function MultiStepPlanModal() {
                         className="mt-2"
                       >
                         <FaPlus className="me-2" />
-                        Add Plan Item
+                        {lang.current.multiStepPlanModal.addItem}
                       </Button>
                     </div>
 
@@ -827,7 +827,7 @@ export default function MultiStepPlanModal() {
 
                     {planItems.length === 0 && (
                       <div className={styles.emptyState}>
-                        <p>No plan items added yet. Add some items above to get started!</p>
+                        <p>{lang.current.multiStepPlanModal.noItemsYet}</p>
                       </div>
                     )}
                   </div>
@@ -876,7 +876,7 @@ export default function MultiStepPlanModal() {
               {(currentStep === STEPS.ADD_PLAN_ITEMS || currentStep === STEPS.SELECT_DATE) && (
                 <button type="button" className={styles.backButton} onClick={handleBack}>
                   <FaArrowLeft size={12} className="me-2" />
-                  Back
+                  {lang.current.multiStepPlanModal.back}
                 </button>
               )}
             </div>
@@ -888,7 +888,7 @@ export default function MultiStepPlanModal() {
                   onClick={handleCreateExperience}
                   disabled={loading || !newExperience.name || !newExperience.destination}
                 >
-                  {loading ? 'Saving...' : createdExperience ? 'Update & Continue' : 'Create & Continue'}
+                  {loading ? lang.current.button.saving : createdExperience ? lang.current.multiStepPlanModal.updateContinue : lang.current.multiStepPlanModal.createContinue}
                 </Button>
               )}
               {currentStep === STEPS.ADD_PLAN_ITEMS && (

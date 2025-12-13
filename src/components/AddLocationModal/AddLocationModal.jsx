@@ -14,6 +14,7 @@ import { Button } from '../design-system';
 import styles from './AddLocationModal.module.scss';
 import { logger } from '../../utilities/logger';
 import { sendRequest } from '../../utilities/send-request';
+import { lang } from '../../lang.constants';
 
 // Steps for the modal wizard
 const STEPS = {
@@ -54,7 +55,7 @@ export default function AddLocationModal({
   // Handle address search
   const handleSearch = useCallback(async () => {
     if (!address.trim()) {
-      setError('Please enter an address');
+      setError(lang.current.addLocationModal.pleaseEnterAddress);
       return;
     }
 
@@ -65,7 +66,7 @@ export default function AddLocationModal({
       const result = await geocodeAddress(address.trim());
 
       if (!result || !result.latitude || !result.longitude) {
-        throw new Error('Could not find location for this address');
+        throw new Error(lang.current.addLocationModal.couldNotFindLocation);
       }
 
       setGeocodedLocation(result);
@@ -73,7 +74,7 @@ export default function AddLocationModal({
       logger.info('[AddLocationModal] Address geocoded successfully', { address, result });
     } catch (err) {
       logger.error('[AddLocationModal] Geocoding failed', { error: err.message });
-      setError(err.message || 'Failed to find location. Please try a different address.');
+      setError(err.message || lang.current.addLocationModal.failedToFindLocation);
     } finally {
       setLoading(false);
     }
@@ -88,7 +89,7 @@ export default function AddLocationModal({
   // Handle save
   const handleSave = useCallback(async () => {
     if (!geocodedLocation) {
-      setError('No location to save');
+      setError(lang.current.addLocationModal.noLocationToSave);
       return;
     }
 
@@ -114,7 +115,7 @@ export default function AddLocationModal({
       onClose();
     } catch (err) {
       logger.error('[AddLocationModal] Save failed', { error: err.message });
-      setError(err.message || 'Failed to save location');
+      setError(err.message || lang.current.addLocationModal.failedToSaveLocation);
     } finally {
       setLoading(false);
     }
@@ -131,9 +132,9 @@ export default function AddLocationModal({
   // Get step title
   const getStepTitle = () => {
     if (currentStep === STEPS.ENTER_ADDRESS) {
-      return 'Add Location';
+      return lang.current.addLocationModal.addLocation;
     }
-    return 'Confirm Location';
+    return lang.current.addLocationModal.confirmLocation;
   };
 
   // Build location string for map
@@ -166,12 +167,12 @@ export default function AddLocationModal({
         <div className={styles.stepIndicator}>
           <div className={`${styles.step} ${currentStep >= STEPS.ENTER_ADDRESS ? styles.active : ''} ${currentStep > STEPS.ENTER_ADDRESS ? styles.completed : ''}`}>
             <span className={styles.stepNumber}>1</span>
-            <span className={styles.stepLabel}>Address</span>
+            <span className={styles.stepLabel}>{lang.current.addLocationModal.stepAddress}</span>
           </div>
           <div className={styles.stepConnector} />
           <div className={`${styles.step} ${currentStep >= STEPS.CONFIRM_LOCATION ? styles.active : ''}`}>
             <span className={styles.stepNumber}>2</span>
-            <span className={styles.stepLabel}>Confirm</span>
+            <span className={styles.stepLabel}>{lang.current.addLocationModal.stepConfirm}</span>
           </div>
         </div>
 
@@ -191,7 +192,7 @@ export default function AddLocationModal({
                 <input
                   type="text"
                   className={styles.addressInput}
-                  placeholder="Enter address, city, or place name..."
+                  placeholder={lang.current.addLocationModal.enterAddressPlaceholder}
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   onKeyPress={handleKeyPress}
@@ -212,7 +213,7 @@ export default function AddLocationModal({
                 </button>
               </div>
               <p className={styles.addressHint}>
-                Enter a street address, city name, landmark, or postal code
+                {lang.current.addLocationModal.addressHint}
               </p>
             </div>
           )}
@@ -242,12 +243,12 @@ export default function AddLocationModal({
                   location={getMapLocation()}
                   height={300}
                   showDirections={false}
-                  title="Location preview"
+                  title={lang.current.addLocationModal.locationPreview}
                 />
               </div>
 
               <p className={styles.confirmHint}>
-                Is this the correct location? If not, go back and try a more specific address.
+                {lang.current.addLocationModal.confirmHint}
               </p>
             </div>
           )}
@@ -261,7 +262,7 @@ export default function AddLocationModal({
               onClick={handleBack}
               disabled={loading}
             >
-              Back
+              {lang.current.addLocationModal.back}
             </Button>
           )}
 
@@ -274,12 +275,12 @@ export default function AddLocationModal({
               {loading ? (
                 <>
                   <FaSpinner className={styles.buttonSpinner} />
-                  Searching...
+                  {lang.current.addLocationModal.searching}
                 </>
               ) : (
                 <>
                   <FaSearch />
-                  Find Location
+                  {lang.current.addLocationModal.findLocation}
                 </>
               )}
             </Button>
@@ -294,12 +295,12 @@ export default function AddLocationModal({
               {loading ? (
                 <>
                   <FaSpinner className={styles.buttonSpinner} />
-                  Saving...
+                  {lang.current.addLocationModal.saving}
                 </>
               ) : (
                 <>
                   <FaCheck />
-                  Confirm Location
+                  {lang.current.addLocationModal.confirmLocationButton}
                 </>
               )}
             </Button>

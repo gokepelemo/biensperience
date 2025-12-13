@@ -8,6 +8,7 @@ import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { FaList, FaMapMarkedAlt } from 'react-icons/fa';
 import styles from './MapListLayout.module.scss';
+import { lang } from '../../lang.constants';
 
 /**
  * MapListLayout - Split view for map and list content
@@ -30,8 +31,8 @@ export default function MapListLayout({
   mapPosition = 'left',
   splitRatio = '50-50',
   resizable = false,
-  listLabel = 'List',
-  mapLabel = 'Map',
+  listLabel = lang.current.mapListLayout.list,
+  mapLabel = lang.current.mapListLayout.map,
   className = '',
 }) {
   const [mobileView, setMobileView] = useState(defaultView);

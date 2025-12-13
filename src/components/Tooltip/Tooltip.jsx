@@ -1,6 +1,7 @@
 import React, { useId, useMemo } from 'react';
 import { OverlayTrigger, Tooltip as BootstrapTooltip } from 'react-bootstrap';
 import PropTypes from 'prop-types';
+import { lang } from '../../lang.constants';
 
 /**
  * Tooltip Component - Bootstrap Tooltip with Popper.js
@@ -123,7 +124,7 @@ export function FormTooltip({ content, placement = 'top', icon = 'ℹ️', iconC
         className={`${iconClass} cursor-help`} 
         tabIndex={0}
         role="button"
-        aria-label="More information"
+        aria-label={lang.current.tooltip.moreInformation}
       >
         {icon}
       </span>

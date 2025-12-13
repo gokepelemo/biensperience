@@ -5,6 +5,7 @@
  * Only visible to owners, collaborators, and super admins
  */
 
+import { lang } from '../../lang.constants';
 import styles from './DragHandle.module.scss';
 
 export default function DragHandle({ isDragging = false, disabled = false }) {
@@ -15,8 +16,8 @@ export default function DragHandle({ isDragging = false, disabled = false }) {
   return (
     <div
       className={`${styles.dragHandle} ${isDragging ? styles.dragging : ''}`}
-      aria-label="Drag to reorder"
-      title="Drag left to promote, right to nest, up/down to reorder"
+      aria-label={lang.current.dragHandle.dragToReorder}
+      title={lang.current.dragHandle.dragInstructions}
     >
       <svg
         width="20"

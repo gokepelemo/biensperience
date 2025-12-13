@@ -5,32 +5,43 @@
 
 @use './scss/abstracts' as *;
 
-/* Skip Navigation Link */
+/* Skip Navigation Link - WCAG 2.1 SC 2.4.1 Bypass Blocks
+ * Hidden by default, visible only on keyboard focus.
+ * This provides keyboard users a way to skip repetitive navigation
+ * while remaining invisible to mouse users.
+ */
 .skip-link {
-  position: fixed;
-  top: 0;
-  right: 10px;
-  background: var(--gradient-primary);
-  color: white !important;
-  padding: $space-3 $space-6;
-  text-decoration: none !important;
-  border-radius: 0 0 $radius-md $radius-md;
-  font-weight: $font-weight-semibold;
-  z-index: $z-index-tooltip;
-  transition: all $transition-slow;
+  /* Visually hidden by default */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
-  transform: translateY(-85%);
-  box-shadow: var(--shadow-md);
+  border: 0;
 
-  &:hover,
-  &:focus {
-    transform: translateY(0);
-    outline: 3px solid white;
-    outline-offset: 2px;
-    box-shadow: var(--shadow-lg);
-  }
-
+  /* Visible when focused */
+  &:focus,
   &:focus-visible {
+    position: fixed;
+    top: $space-3;
+    left: $space-3;
+    z-index: $z-index-tooltip;
+    width: auto;
+    height: auto;
+    padding: $space-3 $space-6;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    background: var(--gradient-primary);
+    color: white !important;
+    text-decoration: none !important;
+    border-radius: $radius-md;
+    font-weight: $font-weight-semibold;
+    font-size: $font-size-base;
+    box-shadow: var(--shadow-lg);
     outline: 3px solid white;
     outline-offset: 2px;
   }

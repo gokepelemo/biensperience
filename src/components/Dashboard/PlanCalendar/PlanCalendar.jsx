@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaUsers } from 'react-icons/fa';
 import Tooltip from '../../Tooltip/Tooltip';
 import { useUIPreference } from '../../../hooks/useUIPreference';
+import { lang } from '../../../lang.constants';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import styles from './PlanCalendar.module.scss';
 
@@ -98,7 +99,7 @@ export default function PlanCalendar({ plans = [], className = '' }) {
         <span className={styles.eventTooltipTitle}>{event.title}</span>
         {event.isCollaborative && (
           <span className={styles.eventTooltipBadge}>
-            <FaUsers size={10} /> Shared
+            <FaUsers size={10} /> {lang.current.planCalendar.shared}
           </span>
         )}
       </div>
@@ -125,13 +126,13 @@ export default function PlanCalendar({ plans = [], className = '' }) {
           className={styles.toolbarButton}
           onClick={() => onNavigate('TODAY')}
         >
-          Today
+          {lang.current.planCalendar.today}
         </button>
         <button
           type="button"
           className={styles.toolbarButtonIcon}
           onClick={() => onNavigate('PREV')}
-          aria-label="Previous"
+          aria-label={lang.current.planCalendar.previousAria}
         >
           &lt;
         </button>
@@ -139,7 +140,7 @@ export default function PlanCalendar({ plans = [], className = '' }) {
           type="button"
           className={styles.toolbarButtonIcon}
           onClick={() => onNavigate('NEXT')}
-          aria-label="Next"
+          aria-label={lang.current.planCalendar.nextAria}
         >
           &gt;
         </button>
@@ -154,7 +155,7 @@ export default function PlanCalendar({ plans = [], className = '' }) {
             handleViewChange('month');
           }}
         >
-          Month
+          {lang.current.planCalendar.month}
         </button>
         <button
           type="button"
@@ -164,7 +165,7 @@ export default function PlanCalendar({ plans = [], className = '' }) {
             handleViewChange('week');
           }}
         >
-          Week
+          {lang.current.planCalendar.week}
         </button>
         <button
           type="button"
@@ -174,7 +175,7 @@ export default function PlanCalendar({ plans = [], className = '' }) {
             handleViewChange('day');
           }}
         >
-          Day
+          {lang.current.planCalendar.day}
         </button>
       </div>
     </div>

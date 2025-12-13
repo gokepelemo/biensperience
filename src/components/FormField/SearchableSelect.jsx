@@ -21,14 +21,15 @@ import React, { useState, useRef, useEffect, useCallback, useId, useMemo } from 
 import PropTypes from 'prop-types';
 import { FaSearch, FaChevronDown, FaCheck } from 'react-icons/fa';
 import { createFilter } from '../../utilities/trie';
+import { lang } from '../../lang.constants';
 import styles from './SearchableSelect.module.scss';
 
 export default function SearchableSelect({
   options = [],
   value,
   onChange,
-  placeholder = 'Select...',
-  searchPlaceholder = 'Search...',
+  placeholder = lang.current.searchableSelect.defaultPlaceholder,
+  searchPlaceholder = lang.current.searchableSelect.searchPlaceholder,
   searchable = true,
   disabled = false,
   className = '',
@@ -314,7 +315,7 @@ export default function SearchableSelect({
                 placeholder={searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                aria-label="Search options"
+                aria-label={lang.current.searchableSelect.searchOptionsAria}
               />
             </div>
           )}
@@ -327,7 +328,7 @@ export default function SearchableSelect({
             aria-activedescendant={filteredOptions[highlightedIndex]?.value}
           >
             {filteredOptions.length === 0 ? (
-              <li className={styles.noResults}>No results found</li>
+              <li className={styles.noResults}>{lang.current.searchableSelect.noResultsFound}</li>
             ) : (
               filteredOptions.map((option, index) => (
                 <li

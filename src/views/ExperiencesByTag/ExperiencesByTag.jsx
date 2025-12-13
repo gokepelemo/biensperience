@@ -14,6 +14,7 @@ import { logger } from "../../utilities/logger";
 import * as experiencesAPI from "../../utilities/experiences-api";
 import { Button, Container, FlexBetween, FlexCenter, FadeIn } from "../../components/design-system";
 import { FaUser, FaArrowRight } from "react-icons/fa";
+import { lang } from "../../lang.constants";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -154,9 +155,9 @@ export default function ExperiencesByTag() {
   const displayTagName = actualTagName || initialTitleCaseTag;
 
   return (
-    <PageWrapper title={`${displayTagName} Experiences`}>
+    <PageWrapper title={lang.current.experiencesByTag.pageTitle.replace('{tagName}', displayTagName)}>
       <PageOpenGraph
-        title={`Experiences tagged ${displayTagName}`}
+        title={lang.current.experiencesByTag.experiencesTagged.replace('{tagName}', displayTagName)}
         description={`Discover ${displayedExperiences.length > 0 ? displayedExperiences.length : ''} travel experiences tagged as ${displayTagName}. Find unique ${displayTagName} adventures and activities around the world.`}
         keywords={`${displayTagName}, travel experiences, ${displayTagName} activities, ${displayTagName} adventures, travel planning, tourism`}
         ogTitle={`${displayTagName} Travel Experiences`}
@@ -167,7 +168,7 @@ export default function ExperiencesByTag() {
         <Container className={styles.headerContainer}>
           {/* Row 1: Title (full width) */}
           <div className={styles.titleRow}>
-            <h1 className="my-4">Experiences tagged {displayTagName}</h1>
+            <h1 className="my-4">{lang.current.experiencesByTag.experiencesTagged.replace('{tagName}', displayTagName)}</h1>
           </div>
           {/* Row 2: Actions (right-aligned) */}
           <div className={styles.actionsRow}>
@@ -179,7 +180,7 @@ export default function ExperiencesByTag() {
                 leftIcon={<FaUser />}
                 rightIcon={<FaArrowRight />}
               >
-                View All Experiences
+                {lang.current.experiencesByTag.viewAllExperiences}
               </Button>
             </div>
           </div>
@@ -190,7 +191,7 @@ export default function ExperiencesByTag() {
         <Loading
           variant="centered"
           size="lg"
-          message={`Loading ${displayTagName} experiences...`}
+          message={lang.current.experiencesByTag.loadingExperiences.replace('{tagName}', displayTagName)}
         />
       ) : (
         <FadeIn>
@@ -218,10 +219,10 @@ export default function ExperiencesByTag() {
                 type="info"
                 style={{ textAlign: 'center', width: '100%' }}
               >
-                <h5>No experiences found with tag "{displayTagName}"</h5>
-                <p>Try browsing all experiences or search for a different tag.</p>
+                <h5>{lang.current.experiencesByTag.noExperiencesFound.replace('{tagName}', displayTagName)}</h5>
+                <p>{lang.current.experiencesByTag.tryBrowsingAll}</p>
                 <Button as={Link} to="/experiences" variant="gradient" className="mt-2">
-                  Browse All Experiences
+                  {lang.current.experiencesByTag.browseAll}
                 </Button>
               </Alert>
             )}

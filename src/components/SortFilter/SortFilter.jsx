@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import Autocomplete from "../Autocomplete/Autocomplete";
 import { FormGroup, FormLabel, FormControl } from "../design-system";
+import { lang } from "../../lang.constants";
 import styles from "./SortFilter.module.scss";
 
 /**
@@ -62,20 +63,20 @@ export default function SortFilter({
         return (
           <div className={styles.sfField} key="sort">
             <FormGroup>
-              <FormLabel htmlFor="sort-select">Sort by:</FormLabel>
-              <FormControl as="select" id="sort-select" value={sortBy} onChange={handleSortChange} aria-label="Sort">
-                <option value="alphabetical">Alphabetical (A-Z)</option>
-                <option value="alphabetical-desc">Alphabetical (Z-A)</option>
+              <FormLabel htmlFor="sort-select">{lang.current.sortFilter.sortBy}</FormLabel>
+              <FormControl as="select" id="sort-select" value={sortBy} onChange={handleSortChange} aria-label={lang.current.sortFilter.sortAriaLabel}>
+                <option value="alphabetical">{lang.current.sortFilter.alphabetical}</option>
+                <option value="alphabetical-desc">{lang.current.sortFilter.alphabeticalDesc}</option>
                 {filterType === "experiences" && (
                   <>
-                    <option value="destination">Destination (A-Z)</option>
-                    <option value="destination-desc">Destination (Z-A)</option>
+                    <option value="destination">{lang.current.sortFilter.destinationAZ}</option>
+                    <option value="destination-desc">{lang.current.sortFilter.destinationZA}</option>
                   </>
                 )}
-                <option value="created-newest">Created (Newest First)</option>
-                <option value="created-oldest">Created (Oldest First)</option>
-                <option value="updated-newest">Updated (Newest First)</option>
-                <option value="updated-oldest">Updated (Oldest)</option>
+                <option value="created-newest">{lang.current.sortFilter.createdNewest}</option>
+                <option value="created-oldest">{lang.current.sortFilter.createdOldest}</option>
+                <option value="updated-newest">{lang.current.sortFilter.updatedNewest}</option>
+                <option value="updated-oldest">{lang.current.sortFilter.updatedOldest}</option>
               </FormControl>
             </FormGroup>
           </div>
@@ -84,13 +85,13 @@ export default function SortFilter({
         return (
           <div className={styles.sfField} key="show">
             <FormGroup>
-              <FormLabel htmlFor="filter-select">Show:</FormLabel>
-              <FormControl as="select" id="filter-select" value={filterBy} onChange={handleFilterChange} aria-label={`Filter ${filterType}`}>
-                <option value="all">All {filterType === "experiences" ? "Experiences" : "Destinations"}</option>
-                <option value="planned">{filterType === "experiences" ? "Planned Experiences Only" : "Favorite Destinations Only"}</option>
-                <option value="unplanned">{filterType === "experiences" ? "Not Planned Yet" : "Not Favorited Yet"}</option>
+              <FormLabel htmlFor="filter-select">{lang.current.sortFilter.show}</FormLabel>
+              <FormControl as="select" id="filter-select" value={filterBy} onChange={handleFilterChange} aria-label={filterType === "experiences" ? lang.current.sortFilter.filterExperiences : lang.current.sortFilter.filterDestinations}>
+                <option value="all">{filterType === "experiences" ? lang.current.sortFilter.allExperiences : lang.current.sortFilter.allDestinations}</option>
+                <option value="planned">{filterType === "experiences" ? lang.current.sortFilter.plannedExperiencesOnly : lang.current.sortFilter.favoriteDestinationsOnly}</option>
+                <option value="unplanned">{filterType === "experiences" ? lang.current.sortFilter.notPlannedYet : lang.current.sortFilter.notFavoritedYet}</option>
                 {filterType === "experiences" && (
-                  <option value="created">My Experiences (Created by Me)</option>
+                  <option value="created">{lang.current.sortFilter.myExperiences}</option>
                 )}
               </FormControl>
             </FormGroup>
@@ -101,9 +102,9 @@ export default function SortFilter({
         return (
           <div className={styles.sfField} key="destination">
             <FormGroup>
-              <FormLabel htmlFor="dest-filter-autocomplete">Destination:</FormLabel>
+              <FormLabel htmlFor="dest-filter-autocomplete">{lang.current.sortFilter.destination}</FormLabel>
                 <Autocomplete
-                placeholder="Search destinations..."
+                placeholder={lang.current.sortFilter.searchDestinations}
                 items={destinations}
                 entityType="destination"
                 multi={destinationMulti}
@@ -127,7 +128,7 @@ export default function SortFilter({
                 displayValue={destinationDisplayValue}
                 disableFilter={false}
                 loading={destinationLoading}
-                emptyMessage="No destinations"
+                emptyMessage={lang.current.sortFilter.noDestinations}
               />
             </FormGroup>
           </div>
@@ -137,10 +138,10 @@ export default function SortFilter({
         return (
           <div className={styles.sfField} key="type">
             <FormGroup>
-              <FormLabel htmlFor="type-filter-autocomplete">Type:</FormLabel>
+              <FormLabel htmlFor="type-filter-autocomplete">{lang.current.sortFilter.type}</FormLabel>
                 <div className={styles.sfTypeWithClear}>
                       <Autocomplete
-                        placeholder="Search types..."
+                        placeholder={lang.current.sortFilter.searchTypes}
                         items={types}
                         entityType="category"
                         multi={false}
@@ -171,14 +172,14 @@ export default function SortFilter({
                         displayValue={typeDisplayValue}
                         disableFilter={false}
                         loading={typeLoading}
-                        emptyMessage="No types"
+                        emptyMessage={lang.current.sortFilter.noTypes}
                       />
                   {/* Clear button shown when there is a display value */}
                   {typeDisplayValue ? (
                     <button
                       type="button"
                       className="type-clear-btn"
-                      aria-label="Clear type filter"
+                      aria-label={lang.current.sortFilter.clearTypeFilter}
                       onClick={() => {
                         if (typeof onTypeChange === 'function') onTypeChange('all', null);
                         if (typeof onTypeSearch === 'function') onTypeSearch('');
@@ -197,7 +198,7 @@ export default function SortFilter({
   };
 
   return (
-    <div className={styles.sortFilterContainer} role="region" aria-label="Sort and filter options">
+    <div className={styles.sortFilterContainer} role="region" aria-label={lang.current.sortFilter.sortAndFilterOptions}>
       <div className={styles.sortFilterGrid}>
         {fields.map((f) => renderField(f))}
       </div>

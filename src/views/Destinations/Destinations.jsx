@@ -12,6 +12,7 @@ import { sortItems, filterDestinations } from "../../utilities/sort-filter";
 import { Container, Mobile, Desktop, EmptyState } from "../../components/design-system";
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { logger } from "../../utilities/logger";
+import { lang } from "../../lang.constants";
 
 export default function Destinations() {
   const { user } = useUser();
@@ -79,7 +80,7 @@ export default function Destinations() {
   }, [destinations, sortBy, filterBy, user?._id]);
 
   return (
-    <PageWrapper title="Destinations">
+    <PageWrapper title={lang.current.destinationsView.pageTitle}>
       <PageOpenGraph
         title="All Destinations"
         description="Explore our curated collection of travel destinations from around the world. Find your next adventure destination with detailed information, photos, and travel tips."
@@ -91,10 +92,10 @@ export default function Destinations() {
       <Container className={styles.destinationsHeader}>
         <div className="col-md-6">
           <Mobile>
-            <h1 className="my-4" style={{ textAlign: 'center' }}>Destinations</h1>
+            <h1 className="my-4" style={{ textAlign: 'center' }}>{lang.current.destinationsView.pageTitle}</h1>
           </Mobile>
           <Desktop>
-            <h1 className="my-4" style={{ textAlign: 'start' }}>Destinations</h1>
+            <h1 className="my-4" style={{ textAlign: 'start' }}>{lang.current.destinationsView.pageTitle}</h1>
           </Desktop>
         </div>
       </Container>
@@ -117,7 +118,7 @@ export default function Destinations() {
           variant="centered"
           size="lg"
           animation="engine"
-          message="Loading destinations..."
+          message={lang.current.destinationsView.loading}
         />
       ) : (
         <Container className="my-4">
@@ -141,8 +142,8 @@ export default function Destinations() {
             ) : (
               <EmptyState
                 variant="search"
-                title="No Destinations Found"
-                description="No destinations match your current filters. Try adjusting your search criteria or browse all destinations."
+                title={lang.current.destinationsView.noDestinationsFound}
+                description={lang.current.destinationsView.noDestinationsDescription}
                 size="md"
               />
             )}
@@ -162,7 +163,7 @@ export default function Destinations() {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <Loading size="md" variant="overlay" animation="engine" message="Loading more destinations..." />
+                <Loading size="md" variant="overlay" animation="engine" message={lang.current.destinationsView.loadingMore} />
               </div>
             )}
           </div>

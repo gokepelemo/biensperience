@@ -6,6 +6,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import styles from './BottomNavLayout.module.scss';
+import { lang } from '../../lang.constants';
 
 /**
  * NavItem - Individual navigation item
@@ -103,7 +104,7 @@ export default function BottomNavLayout({
 
       <main className={styles.content}>{children}</main>
 
-      <nav className={styles.bottomNav} aria-label="Main navigation">
+      <nav className={styles.bottomNav} aria-label={lang.current.bottomNavLayout.mainNavigation}>
         {nav}
       </nav>
     </div>

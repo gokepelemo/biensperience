@@ -1,6 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Button } from '../../components/design-system';
+import { lang } from '../../lang.constants';
 import styles from './Pagination.module.scss';
 
 /**
@@ -128,7 +129,9 @@ export default function Pagination({
 
   // Results info text
   const resultsInfoText = typeof totalResults === 'number'
-    ? `Showing ${displayedResults.toLocaleString()} of ${totalResults.toLocaleString()} results`
+    ? lang.current.pagination.showingResults
+        .replace('{count}', displayedResults.toLocaleString())
+        .replace('{total}', totalResults.toLocaleString())
     : null;
 
   // Common click handlers
@@ -152,15 +155,23 @@ export default function Pagination({
           const recordCount = pageRecordCounts[i] || resultsPerPage;
           const sizeClass = getDotSize(recordCount, maxRecordCount);
 
+          const ariaLabel = pageRecordCounts[i]
+            ? lang.current.pagination.pageWithItems
+                .replace('{page}', pageNum)
+                .replace('{items}', pageRecordCounts[i])
+            : lang.current.pagination.pageOf
+                .replace('{page}', pageNum)
+                .replace('{total}', totalPages);
+
           return (
             <button
               key={pageNum}
               className={`${styles.dot} ${styles[`dot${sizeClass.charAt(0).toUpperCase() + sizeClass.slice(1)}`]} ${isActive ? styles.dotActive : ''}`}
               onClick={() => handlePage(pageNum)}
               disabled={disabled}
-              aria-label={`Page ${pageNum}${pageRecordCounts[i] ? ` (${pageRecordCounts[i]} items)` : ''}`}
+              aria-label={ariaLabel}
               aria-current={isActive ? 'page' : undefined}
-              title={`Page ${pageNum}${pageRecordCounts[i] ? ` (${pageRecordCounts[i]} items)` : ''}`}
+              title={ariaLabel}
             />
           );
         })}
@@ -179,12 +190,12 @@ export default function Pagination({
           disabled={disabled || isFirst}
         >
           <ChevronLeft size={14} />
-          <span>Previous</span>
+          <span>{lang.current.pagination.previous}</span>
         </button>
 
         {/* Page info */}
         <span className={styles.pageInfo}>
-          Page {active} of {totalPages}
+          {lang.current.pagination.pageOf.replace('{page}', active).replace('{total}', totalPages)}
         </span>
 
         {/* Next text button */}
@@ -193,7 +204,7 @@ export default function Pagination({
           onClick={handleNext}
           disabled={disabled || isLast}
         >
-          <span>Next</span>
+          <span>{lang.current.pagination.next}</span>
           <ChevronRight size={14} />
         </button>
       </div>
@@ -212,7 +223,7 @@ export default function Pagination({
           className={`${styles.arrowButton} ${isFirst ? styles.disabled : ''}`}
           onClick={handlePrev}
           disabled={disabled || isFirst}
-          aria-label="Previous page"
+          aria-label={lang.current.pagination.previousPage}
         >
           <ChevronLeft size={16} />
         </button>
@@ -220,7 +231,7 @@ export default function Pagination({
           className={`${styles.arrowButton} ${isLast ? styles.disabled : ''}`}
           onClick={handleNext}
           disabled={disabled || isLast}
-          aria-label="Next page"
+          aria-label={lang.current.pagination.nextPage}
         >
           <ChevronRight size={16} />
         </button>
@@ -232,7 +243,7 @@ export default function Pagination({
           disabled={disabled || isFirst}
         >
           <ChevronLeft size={14} />
-          <span>Previous</span>
+          <span>{lang.current.pagination.previous}</span>
         </button>
 
         {/* Next text button */}
@@ -241,7 +252,7 @@ export default function Pagination({
           onClick={handleNext}
           disabled={disabled || isLast}
         >
-          <span>Next</span>
+          <span>{lang.current.pagination.next}</span>
           <ChevronRight size={14} />
         </button>
 
@@ -251,7 +262,7 @@ export default function Pagination({
         )}
 
         {/* More indicator */}
-        <button className={`${styles.moreButton} ${styles.disabled}`} disabled aria-label="More options">
+        <button className={`${styles.moreButton} ${styles.disabled}`} disabled aria-label={lang.current.pagination.moreOptions}>
           <span>...</span>
         </button>
       </div>
@@ -262,13 +273,13 @@ export default function Pagination({
   const pages = buildPages(active, totalPages);
 
   return (
-    <nav aria-label="Pagination" className={`${styles.paginationWrap} ${disabled ? styles.disabled : ''} ${className}`}>
+    <nav aria-label={lang.current.pagination.pageNavigation} className={`${styles.paginationWrap} ${disabled ? styles.disabled : ''} ${className}`}>
       <ul className={`pagination justify-content-center ${styles.paginationList}`}>
         <li className="page-item">
-          <Button variant="link" size="sm" onClick={() => handlePage(1)} disabled={disabled || isFirst} aria-label="First page">First</Button>
+          <Button variant="link" size="sm" onClick={() => handlePage(1)} disabled={disabled || isFirst} aria-label={lang.current.pagination.firstPage}>{lang.current.pagination.first}</Button>
         </li>
         <li className="page-item">
-          <Button variant="link" size="sm" onClick={handlePrev} disabled={disabled || isFirst} aria-label="Previous page">Previous</Button>
+          <Button variant="link" size="sm" onClick={handlePrev} disabled={disabled || isFirst} aria-label={lang.current.pagination.previousPage}>{lang.current.pagination.previous}</Button>
         </li>
         {pages.map((it, idx) => (
           typeof it === 'number' ? (
@@ -288,10 +299,10 @@ export default function Pagination({
           )
         ))}
         <li className="page-item">
-          <Button variant="link" size="sm" onClick={handleNext} disabled={disabled || isLast} aria-label="Next page">Next</Button>
+          <Button variant="link" size="sm" onClick={handleNext} disabled={disabled || isLast} aria-label={lang.current.pagination.nextPage}>{lang.current.pagination.next}</Button>
         </li>
         <li className="page-item">
-          <Button variant="link" size="sm" onClick={() => handlePage(totalPages)} disabled={disabled || isLast} aria-label="Last page">Last</Button>
+          <Button variant="link" size="sm" onClick={() => handlePage(totalPages)} disabled={disabled || isLast} aria-label={lang.current.pagination.lastPage}>{lang.current.pagination.last}</Button>
         </li>
       </ul>
       {showResultsInfo && resultsInfoText && (

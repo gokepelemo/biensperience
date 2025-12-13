@@ -1,3 +1,4 @@
+import { lang } from '../../lang.constants';
 import styles from "./Loading.module.scss";
 
 /**
@@ -64,7 +65,7 @@ export default function Loading({
             viewBox="0 0 256 256"
             xmlns="http://www.w3.org/2000/svg"
             role="img"
-            aria-label="Biensperience logo"
+            aria-label={lang.current.loading.biensperienceLogo}
             className={styles.loadingSvg}
           >
             <defs>

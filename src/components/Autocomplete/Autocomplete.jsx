@@ -4,6 +4,7 @@ import { FaSearch, FaUser, FaMapMarkerAlt, FaStar, FaGlobe } from 'react-icons/f
 import Loading from '../Loading/Loading';
 import { Pill } from '../design-system';
 import { createFilter } from '../../utilities/trie';
+import { lang } from '../../lang.constants';
 import styles from './Autocomplete.module.scss';
 
 /**
@@ -32,7 +33,7 @@ import styles from './Autocomplete.module.scss';
  * @param {boolean} props.disableFilter - Disable client-side filtering (use for API-based search)
  */
 export default function Autocomplete({
-  placeholder = 'Search...',
+  placeholder = lang.current.autocomplete.defaultPlaceholder,
   items = [],
   entityType = 'user',
   onSelect,
@@ -44,7 +45,7 @@ export default function Autocomplete({
   onChange,
   displayValue,
   loading = false,
-  emptyMessage = 'No results found',
+  emptyMessage = lang.current.autocomplete.defaultEmptyMessage,
   disabled = false,
   size = 'md', // 'sm', 'md', 'lg'
   disableFilter = false, // Disable client-side filtering
@@ -420,7 +421,7 @@ export default function Autocomplete({
           <button
             type="button"
             onClick={handleClear}
-            aria-label="Clear"
+            aria-label={lang.current.autocomplete.clearAriaLabel}
             className={styles.autocompleteClear}
           >
             ×
@@ -445,7 +446,7 @@ export default function Autocomplete({
                 type="button"
                 className={styles.chipRemove}
                 onClick={() => handleRemoveSelected(si)}
-                aria-label={`Remove ${si.name || si.label || si.value}`}
+                aria-label={lang.current.autocomplete.removeItemAriaLabel.replace('{name}', si.name || si.label || si.value)}
               >
                 ×
               </button>
@@ -459,11 +460,11 @@ export default function Autocomplete({
         <div ref={dropdownRef} className={styles.autocompleteDropdown}>
           {loading ? (
             <div className={styles.autocompleteLoading}>
-              <Loading 
-                size="sm" 
-                animation="engine" 
+              <Loading
+                size="sm"
+                animation="engine"
                 showMessage={true}
-                message="Searching..."
+                message={lang.current.autocomplete.searchingMessage}
               />
             </div>
           ) : filteredItems.length === 0 ? (
