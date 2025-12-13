@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsThreeDotsVertical, BsListUl, BsCardList, BsCalendarWeek } from 'react-icons/bs';
+import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsListUl, BsCardList, BsCalendarWeek } from 'react-icons/bs';
 import {
   FaEdit,
   FaTrash,
@@ -17,8 +17,11 @@ import {
   FaDollarSign,
   FaCheckCircle,
   FaClock,
-  FaUser
+  FaUser,
+  FaStar,
+  FaThumbtack
 } from 'react-icons/fa';
+import ActionsMenu from '../../../components/ActionsMenu';
 import {
   DndContext,
   closestCenter,
@@ -49,7 +52,7 @@ import Checkbox from '../../../components/Checkbox/Checkbox';
 import SearchableSelect from '../../../components/FormField/SearchableSelect';
 import AddDateModal from '../../../components/AddDateModal';
 import { useUIPreference } from '../../../hooks/useUIPreference';
-import { updatePlanItem } from '../../../utilities/plans-api';
+import { updatePlanItem, pinPlanItem } from '../../../utilities/plans-api';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatDateMetricCard, formatDateForInput } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
@@ -564,13 +567,15 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
   setPlanInstanceItemToDelete,
   setShowPlanInstanceDeleteModal,
   onScheduleDate,
+  onPinItem,
+  isPinned = false,
   lang,
   parentItem = null,
-  showActivityBadge = false
+  showActivityBadge = false,
+  planOwner = null,
+  planCollaborators = []
 }) {
   const itemId = planItem.plan_item_id || planItem._id;
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
-  const actionsMenuRef = useRef(null);
 
   const {
     attributes,
@@ -590,18 +595,58 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
     zIndex: isDragging ? 1000 : 'auto',
   };
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    if (!showActionsMenu) return;
+  // Build actions array for ActionsMenu
+  const actions = useMemo(() => {
+    const items = [
+      {
+        id: 'edit',
+        label: lang.current.tooltip.edit,
+        icon: <FaEdit />,
+        onClick: () => handleEditPlanInstanceItem(planItem),
+      },
+      {
+        id: 'add-child',
+        label: lang.current.button?.addChildItem || 'Add Child Item',
+        icon: <FaPlus />,
+        onClick: () => handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id),
+      },
+      {
+        id: 'schedule',
+        label: 'Schedule Date',
+        icon: <FaCalendarAlt />,
+        onClick: () => onScheduleDate(planItem),
+      },
+    ];
 
-    function handleClickOutside(event) {
-      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
-        setShowActionsMenu(false);
-      }
+    // Pin action - only for root items (not children)
+    if (!planItem.isChild && !planItem.parent && onPinItem) {
+      items.push({
+        id: 'pin',
+        label: isPinned ? 'Unpin' : 'Pin to Top',
+        icon: <FaThumbtack />,
+        variant: isPinned ? 'active' : 'default',
+        onClick: () => onPinItem(planItem),
+      });
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showActionsMenu]);
+
+    // Delete action (always last, danger variant)
+    items.push({
+      id: 'delete',
+      label: lang.current.tooltip.delete,
+      icon: <FaTrash />,
+      variant: 'danger',
+      onClick: () => {
+        setPlanInstanceItemToDelete(planItem);
+        setShowPlanInstanceDeleteModal(true);
+      },
+    });
+
+    return items;
+  }, [
+    lang, planItem, isPinned, onPinItem,
+    handleEditPlanInstanceItem, handleAddPlanInstanceItem,
+    onScheduleDate, setPlanInstanceItemToDelete, setShowPlanInstanceDeleteModal
+  ]);
 
   return (
     <div
@@ -637,7 +682,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
 
       {/* Item text - clickable to view details */}
       <span
-        className={`compact-item-text ${planItem.complete ? 'text-decoration-line-through text-muted' : ''}`}
+        className={`compact-item-text ${planItem.complete ? 'text-decoration-line-through text-muted' : ''} ${isPinned ? 'is-pinned' : ''}`}
         onClick={() => handleViewPlanItemDetails(planItem)}
         title="Click to view details"
         role="button"
@@ -649,6 +694,10 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
           }
         }}
       >
+        {/* Pinned item star indicator */}
+        {isPinned && (
+          <FaStar className="pinned-star-icon" title="Pinned item" />
+        )}
         {planItem.url ? (
           <a
             href={planItem.url}
@@ -703,68 +752,33 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
             <FaStickyNote /> {planItem.details.notes.length}
           </span>
         )}
-        {planItem.assignedTo && (
-          <span className="compact-meta-assigned" title="Assigned">
-            <FaUser />
-          </span>
-        )}
+        {planItem.assignedTo && (() => {
+          // Resolve assignee name for tooltip
+          const isPopulated = typeof planItem.assignedTo === 'object' && planItem.assignedTo.name;
+          const assigneeId = planItem.assignedTo._id || planItem.assignedTo;
+          let assigneeName = isPopulated ? planItem.assignedTo.name : null;
+          if (!assigneeName && (planOwner || planCollaborators.length > 0)) {
+            const assignee = [planOwner, ...planCollaborators].find(c => {
+              const collabId = c?._id || c?.user?._id;
+              return collabId === assigneeId || collabId?.toString() === assigneeId?.toString();
+            });
+            assigneeName = assignee?.name || assignee?.user?.name || 'Assigned';
+          }
+          return (
+            <span className="compact-meta-assigned" title={`Assigned to ${assigneeName || 'team member'}`}>
+              <FaUser />
+            </span>
+          );
+        })()}
       </span>
 
-      {/* Actions menu (overflow button with dropdown) */}
+      {/* Actions menu */}
       {canEdit && (
-        <div className="compact-item-actions-wrapper" ref={actionsMenuRef}>
-          <button
-            className="compact-actions-toggle"
-            onClick={() => setShowActionsMenu(!showActionsMenu)}
-            aria-expanded={showActionsMenu}
-            aria-haspopup="true"
-            aria-label="Item actions"
-            title="Actions"
-          >
-            <BsThreeDotsVertical />
-          </button>
-          {showActionsMenu && (
-            <div className="compact-actions-menu">
-              <button
-                className="compact-actions-item"
-                onClick={() => {
-                  handleEditPlanInstanceItem(planItem);
-                  setShowActionsMenu(false);
-                }}
-              >
-                <FaEdit /> {lang.current.tooltip.edit}
-              </button>
-              <button
-                className="compact-actions-item"
-                onClick={() => {
-                  handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id);
-                  setShowActionsMenu(false);
-                }}
-              >
-                <FaPlus /> {lang.current.button?.addChildItem || 'Add Child Item'}
-              </button>
-              <button
-                className="compact-actions-item"
-                onClick={() => {
-                  onScheduleDate(planItem);
-                  setShowActionsMenu(false);
-                }}
-              >
-                <FaCalendarAlt /> Schedule Date
-              </button>
-              <button
-                className="compact-actions-item compact-actions-item-danger"
-                onClick={() => {
-                  setPlanInstanceItemToDelete(planItem);
-                  setShowPlanInstanceDeleteModal(true);
-                  setShowActionsMenu(false);
-                }}
-              >
-                <FaTrash /> {lang.current.tooltip.delete}
-              </button>
-            </div>
-          )}
-        </div>
+        <ActionsMenu
+          actions={actions}
+          size="sm"
+          ariaLabel="Item actions"
+        />
       )}
     </div>
   );
@@ -781,7 +795,10 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
     prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
     prevProps.canEdit === nextProps.canEdit &&
     prevProps.parentItem?.activity_type === nextProps.parentItem?.activity_type &&
-    prevProps.showActivityBadge === nextProps.showActivityBadge
+    prevProps.showActivityBadge === nextProps.showActivityBadge &&
+    prevProps.planOwner?._id === nextProps.planOwner?._id &&
+    prevProps.planCollaborators?.length === nextProps.planCollaborators?.length &&
+    prevProps.isPinned === nextProps.isPinned
   );
 });
 
@@ -1079,7 +1096,9 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
   setShowPlanInstanceDeleteModal,
   onScheduleDate,
   lang,
-  parentItem = null
+  parentItem = null,
+  planOwner = null,
+  planCollaborators = []
 }) {
   const itemId = planItem.plan_item_id || planItem._id;
   const [showActionsMenu, setShowActionsMenu] = useState(false);
@@ -1190,11 +1209,24 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
             <FaStickyNote /> {planItem.details.notes.length}
           </span>
         )}
-        {planItem.assignedTo && (
-          <span className="timeline-meta-assigned" title="Assigned">
-            <FaUser />
-          </span>
-        )}
+        {planItem.assignedTo && (() => {
+          // Resolve assignee name for tooltip
+          const isPopulated = typeof planItem.assignedTo === 'object' && planItem.assignedTo.name;
+          const assigneeId = planItem.assignedTo._id || planItem.assignedTo;
+          let assigneeName = isPopulated ? planItem.assignedTo.name : null;
+          if (!assigneeName && (planOwner || planCollaborators.length > 0)) {
+            const assignee = [planOwner, ...planCollaborators].find(c => {
+              const collabId = c?._id || c?.user?._id;
+              return collabId === assigneeId || collabId?.toString() === assigneeId?.toString();
+            });
+            assigneeName = assignee?.name || assignee?.user?.name || 'Assigned';
+          }
+          return (
+            <span className="timeline-meta-assigned" title={`Assigned to ${assigneeName || 'team member'}`}>
+              <FaUser />
+            </span>
+          );
+        })()}
       </span>
 
       {/* Actions menu (overflow button with dropdown) */}
@@ -1269,7 +1301,9 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
     prevProps.planItem.scheduled_time === nextProps.planItem.scheduled_time &&
     prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
     prevProps.canEdit === nextProps.canEdit &&
-    prevProps.parentItem?.activity_type === nextProps.parentItem?.activity_type
+    prevProps.parentItem?.activity_type === nextProps.parentItem?.activity_type &&
+    prevProps.planOwner?._id === nextProps.planOwner?._id &&
+    prevProps.planCollaborators?.length === nextProps.planCollaborators?.length
   );
 });
 
@@ -1288,7 +1322,9 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
   setShowPlanInstanceDeleteModal,
   onScheduleDate,
   lang,
-  parentItemMap
+  parentItemMap,
+  planOwner = null,
+  planCollaborators = []
 }) {
   const formatDateHeader = (date) => {
     const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
@@ -1336,6 +1372,8 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
                     onScheduleDate={onScheduleDate}
                     lang={lang}
                     parentItem={parentItem}
+                    planOwner={planOwner}
+                    planCollaborators={planCollaborators}
                   />
                 );
               })}
@@ -1371,6 +1409,8 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
                     onScheduleDate={onScheduleDate}
                     lang={lang}
                     parentItem={parentItem}
+                    planOwner={planOwner}
+                    planCollaborators={planCollaborators}
                   />
                 );
               })}
@@ -1512,6 +1552,19 @@ export default function MyPlanTabContent({
       throw error;
     }
   }, [dateModalPlanItem, selectedPlanId]);
+
+  // Handle pin/unpin plan item (toggle)
+  const handlePinItem = useCallback(async (planItem) => {
+    if (!selectedPlanId) return;
+
+    try {
+      const itemId = planItem._id || planItem.plan_item_id;
+      await pinPlanItem(selectedPlanId, itemId);
+      debug.log('[MyPlanTabContent] Plan item pin toggled', { planId: selectedPlanId, itemId });
+    } catch (error) {
+      debug.error('[MyPlanTabContent] Failed to pin/unpin item', error);
+    }
+  }, [selectedPlanId]);
 
   // Compute online user IDs from presence data
   const onlineUserIds = useMemo(() => {
@@ -1971,11 +2024,37 @@ export default function MyPlanTabContent({
 
   // Render plan items
   const flattenedItems = flattenPlanItems(currentPlan.plan);
-  const itemsToRender = flattenedItems.filter(
+  const filteredItems = flattenedItems.filter(
     (item) =>
       item.isVisible ||
       (item.isChild && animatingCollapse === item.parent)
   );
+
+  // Sort items to place pinned item at the top (only for root items)
+  // Pinned item and its children should appear first
+  const pinnedItemId = currentPlan.pinnedItemId?.toString();
+  const itemsToRender = useMemo(() => {
+    if (!pinnedItemId) return filteredItems;
+
+    // Find the pinned item and its children
+    const pinnedItems = [];
+    const otherItems = [];
+
+    for (const item of filteredItems) {
+      const itemId = (item.plan_item_id || item._id)?.toString();
+      const parentId = item.parent?.toString();
+
+      // Item is pinned or is a child of the pinned item
+      if (itemId === pinnedItemId || parentId === pinnedItemId) {
+        pinnedItems.push(item);
+      } else {
+        otherItems.push(item);
+      }
+    }
+
+    // Pinned item (and children) first, then others
+    return [...pinnedItems, ...otherItems];
+  }, [filteredItems, pinnedItemId]);
 
   // Memoize timeline grouping to avoid recalculation on every render
   const timelineGroups = useMemo(() => {
@@ -2123,6 +2202,7 @@ export default function MyPlanTabContent({
                 const parentItem = planItem.parent
                   ? parentItemMap.get(planItem.parent.toString())
                   : null;
+                const itemId = (planItem.plan_item_id || planItem._id)?.toString();
                 return (
                   <SortableCompactPlanItem
                     key={planItem.plan_item_id || planItem._id}
@@ -2135,8 +2215,12 @@ export default function MyPlanTabContent({
                     setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
                     setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
                     onScheduleDate={handleScheduleDate}
+                    onPinItem={handlePinItem}
+                    isPinned={itemId === pinnedItemId}
                     lang={lang}
                     parentItem={parentItem}
+                    planOwner={planOwner}
+                    planCollaborators={planCollaborators}
                   />
                 );
               })}
@@ -2170,6 +2254,7 @@ export default function MyPlanTabContent({
                       const parentItem = planItem.parent
                         ? parentItemMap.get(planItem.parent.toString())
                         : null;
+                      const itemId = (planItem.plan_item_id || planItem._id)?.toString();
                       return (
                         <SortableCompactPlanItem
                           key={planItem.plan_item_id || planItem._id}
@@ -2182,9 +2267,13 @@ export default function MyPlanTabContent({
                           setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
                           setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
                           onScheduleDate={handleScheduleDate}
+                          onPinItem={handlePinItem}
+                          isPinned={itemId === pinnedItemId}
                           lang={lang}
                           parentItem={parentItem}
                           showActivityBadge={true}
+                          planOwner={planOwner}
+                          planCollaborators={planCollaborators}
                         />
                       );
                     })}
@@ -2210,6 +2299,7 @@ export default function MyPlanTabContent({
                       const parentItem = planItem.parent
                         ? parentItemMap.get(planItem.parent.toString())
                         : null;
+                      const itemId = (planItem.plan_item_id || planItem._id)?.toString();
                       return (
                         <SortableCompactPlanItem
                           key={planItem.plan_item_id || planItem._id}
@@ -2222,8 +2312,12 @@ export default function MyPlanTabContent({
                           setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
                           setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
                           onScheduleDate={handleScheduleDate}
+                          onPinItem={handlePinItem}
+                          isPinned={itemId === pinnedItemId}
                           lang={lang}
                           parentItem={parentItem}
+                          planOwner={planOwner}
+                          planCollaborators={planCollaborators}
                         />
                       );
                     })}
@@ -2260,6 +2354,8 @@ export default function MyPlanTabContent({
                 onScheduleDate={handleScheduleDate}
                 lang={lang}
                 parentItemMap={parentItemMap}
+                planOwner={planOwner}
+                planCollaborators={planCollaborators}
               />
             ))}
 
@@ -2297,6 +2393,8 @@ export default function MyPlanTabContent({
                                 onScheduleDate={handleScheduleDate}
                                 lang={lang}
                                 parentItem={parentItem}
+                                planOwner={planOwner}
+                                planCollaborators={planCollaborators}
                               />
                             );
                           })}
@@ -2332,6 +2430,8 @@ export default function MyPlanTabContent({
                                 onScheduleDate={handleScheduleDate}
                                 lang={lang}
                                 parentItem={parentItem}
+                                planOwner={planOwner}
+                                planCollaborators={planCollaborators}
                               />
                             );
                           })}

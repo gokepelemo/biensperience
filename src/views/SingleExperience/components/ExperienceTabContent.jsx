@@ -6,7 +6,9 @@
 
 import { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { BsPlusCircle, BsPersonPlus, BsThreeDotsVertical, BsListUl, BsCardList } from 'react-icons/bs';
+import { BsPlusCircle, BsPersonPlus, BsListUl, BsCardList } from 'react-icons/bs';
+import { FaEdit, FaTrash } from 'react-icons/fa';
+import ActionsMenu from '../../../components/ActionsMenu';
 import {
   DndContext,
   closestCenter,
@@ -278,9 +280,6 @@ const SortableCompactExperiencePlanItem = memo(function SortableCompactExperienc
   setShowPlanDeleteModal,
   lang
 }) {
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
-  const actionsMenuRef = useRef(null);
-
   const {
     attributes,
     listeners,
@@ -299,20 +298,27 @@ const SortableCompactExperiencePlanItem = memo(function SortableCompactExperienc
     zIndex: isDragging ? 1000 : 'auto',
   };
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    if (!showActionsMenu) return;
-
-    function handleClickOutside(event) {
-      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
-        setShowActionsMenu(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showActionsMenu]);
-
   const isChild = !!planItem.parent;
+
+  // Build actions array for ActionsMenu
+  const actions = useMemo(() => [
+    {
+      id: 'edit',
+      label: lang.current.tooltip.edit,
+      icon: <FaEdit />,
+      onClick: () => handleEditExperiencePlanItem(planItem),
+    },
+    {
+      id: 'delete',
+      label: lang.current.tooltip.delete,
+      icon: <FaTrash />,
+      variant: 'danger',
+      onClick: () => {
+        setPlanItemToDelete(planItem._id);
+        setShowPlanDeleteModal(true);
+      },
+    },
+  ], [lang, planItem, handleEditExperiencePlanItem, setPlanItemToDelete, setShowPlanDeleteModal]);
 
   return (
     <div
@@ -365,43 +371,13 @@ const SortableCompactExperiencePlanItem = memo(function SortableCompactExperienc
         )}
       </span>
 
-      {/* Actions menu (overflow button with dropdown) */}
+      {/* Actions menu */}
       {canEdit && (
-        <div className="compact-item-actions-wrapper" ref={actionsMenuRef}>
-          <button
-            className="compact-actions-toggle"
-            onClick={() => setShowActionsMenu(!showActionsMenu)}
-            aria-expanded={showActionsMenu}
-            aria-haspopup="true"
-            aria-label="Item actions"
-            title="Actions"
-          >
-            <BsThreeDotsVertical />
-          </button>
-          {showActionsMenu && (
-            <div className="compact-actions-menu">
-              <button
-                className="compact-actions-item"
-                onClick={() => {
-                  handleEditExperiencePlanItem(planItem);
-                  setShowActionsMenu(false);
-                }}
-              >
-                ✏️ {lang.current.tooltip.edit}
-              </button>
-              <button
-                className="compact-actions-item compact-actions-item-danger"
-                onClick={() => {
-                  setPlanItemToDelete(planItem._id);
-                  setShowPlanDeleteModal(true);
-                  setShowActionsMenu(false);
-                }}
-              >
-                🗑️ {lang.current.tooltip.delete}
-              </button>
-            </div>
-          )}
-        </div>
+        <ActionsMenu
+          actions={actions}
+          size="sm"
+          ariaLabel="Item actions"
+        />
       )}
     </div>
   );
