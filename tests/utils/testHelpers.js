@@ -70,9 +70,8 @@ async function createTestDestination(user, destinationData = {}) {
 async function createTestExperience(user, destination, experienceData = {}) {
   const defaultExperience = {
     name: 'Test Experience',
-    description: 'Test Description',
+    overview: 'Test Overview',
     destination: destination._id,
-    user: user._id,
     permissions: [
       {
         _id: user._id,
@@ -80,8 +79,7 @@ async function createTestExperience(user, destination, experienceData = {}) {
         type: 'owner'
       }
     ],
-    tags: ['test', 'sample'],
-    users: [],
+    experience_type: ['test', 'sample'],
     plan_items: [],
     ...experienceData,
   };
@@ -190,20 +188,16 @@ const validators = {
 
   /**
    * Validates experience object structure
+   * Note: Experience model uses 'overview' instead of 'description', and 'experience_type' instead of 'tags'
    */
   isValidExperience(experience) {
     expect(experience).toHaveProperty('_id');
     expect(experience).toHaveProperty('name');
-    expect(experience).toHaveProperty('description');
     expect(experience).toHaveProperty('destination');
-    expect(experience).toHaveProperty('user');
-    expect(experience).toHaveProperty('tags');
-    expect(experience).toHaveProperty('users');
+    expect(experience).toHaveProperty('permissions');
     expect(experience).toHaveProperty('plan_items');
     expect(typeof experience.name).toBe('string');
-    expect(typeof experience.description).toBe('string');
-    expect(Array.isArray(experience.tags)).toBe(true);
-    expect(Array.isArray(experience.users)).toBe(true);
+    expect(Array.isArray(experience.permissions)).toBe(true);
     expect(Array.isArray(experience.plan_items)).toBe(true);
   },
 

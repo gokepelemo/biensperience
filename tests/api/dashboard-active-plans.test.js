@@ -1,31 +1,33 @@
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 const { getDashboard } = require('../../controllers/api/dashboard');
 const User = require('../../models/user');
 const Plan = require('../../models/plan');
 const Experience = require('../../models/experience');
 const Destination = require('../../models/destination');
+const dbSetup = require('../setup/testSetup');
 
 describe('Dashboard API - ActivePlansCard Integration', () => {
-  let mongoServer;
   let userId;
 
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    await mongoose.connect(mongoServer.getUri());
+    await dbSetup.connect();
   });
 
   afterAll(async () => {
-    await mongoose.disconnect();
-    await mongoServer.stop();
+    await dbSetup.closeDatabase();
   });
 
   beforeEach(async () => {
-    // Create test user
+    // Create test user with preferences (required by dashboard controller)
     const user = await User.create({
       name: 'Test User',
       email: 'test@example.com',
-      password: 'password123'
+      password: 'password123',
+      preferences: {
+        currency: 'USD',
+        theme: 'light',
+        timezone: 'America/New_York'
+      }
     });
     userId = user._id;
 
@@ -106,8 +108,12 @@ describe('Dashboard API - ActivePlansCard Integration', () => {
   });
 
   it('should return detailed active plans statistics for ActivePlansCard', async () => {
+    // Fetch the full user object with preferences
+    const fullUser = await User.findById(userId);
+
     const mockReq = {
-      user: { _id: userId }
+      user: fullUser,
+      query: {}  // Required by dashboard controller for currency parameter
     };
     const mockRes = {
       status: jest.fn().mockReturnThis(),
@@ -119,11 +125,12 @@ describe('Dashboard API - ActivePlansCard Integration', () => {
     expect(mockRes.json).toHaveBeenCalled();
     const responseData = mockRes.json.mock.calls[0][0];
 
-    // Verify the response structure
-    expect(responseData).toHaveProperty('stats');
-    expect(responseData.stats).toHaveProperty('activePlansDetails');
+    // Verify the response structure (wrapped in { data, success } by successResponse helper)
+    expect(responseData).toHaveProperty('data');
+    expect(responseData.data).toHaveProperty('stats');
+    expect(responseData.data.stats).toHaveProperty('activePlansDetails');
 
-    const details = responseData.stats.activePlansDetails;
+    const details = responseData.data.stats.activePlansDetails;
 
     // Should have 2 total plans (1 owned + 1 shared)
     expect(details.totalPlans).toBe(2);
@@ -142,8 +149,12 @@ describe('Dashboard API - ActivePlansCard Integration', () => {
     // Clean up existing plans
     await Plan.deleteMany({});
 
+    // Fetch the full user object with preferences
+    const fullUser = await User.findById(userId);
+
     const mockReq = {
-      user: { _id: userId }
+      user: fullUser,
+      query: {}  // Required by dashboard controller for currency parameter
     };
     const mockRes = {
       status: jest.fn().mockReturnThis(),
@@ -155,7 +166,7 @@ describe('Dashboard API - ActivePlansCard Integration', () => {
     expect(mockRes.json).toHaveBeenCalled();
     const responseData = mockRes.json.mock.calls[0][0];
 
-    const details = responseData.stats.activePlansDetails;
+    const details = responseData.data.stats.activePlansDetails;
 
     // Should have 0 plans
     expect(details.totalPlans).toBe(0);

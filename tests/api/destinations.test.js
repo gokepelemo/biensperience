@@ -77,15 +77,16 @@ describe('Destinations API Routes', () => {
       logger.success('All destinations returned successfully');
     });
 
-    test('should return 401 without authentication', async () => {
-      logger.section('GET /api/destinations - Auth failure');
+    test('should return destinations without authentication (public endpoint)', async () => {
+      logger.section('GET /api/destinations - Public access');
 
       logger.request('GET', '/api/destinations (no auth)');
       const response = await request(app).get('/api/destinations');
 
       logger.response(response.status, response.body);
-      expect(response.status).toBe(401);
-      logger.success('Correctly rejected unauthenticated request');
+      // GET /api/destinations is a public endpoint, returns 200
+      expect(response.status).toBe(200);
+      logger.success('Public destinations endpoint accessible');
     });
 
     test('should return empty array when no destinations exist', async () => {
@@ -261,8 +262,8 @@ describe('Destinations API Routes', () => {
       logger.success('Invalid ID rejected');
     });
 
-    test('should return 401 without authentication', async () => {
-      logger.section('GET /api/destinations/:id - No auth');
+    test('should return destination without authentication (public endpoint)', async () => {
+      logger.section('GET /api/destinations/:id - Public access');
 
       const user = await createTestUser();
       const destination = await createTestDestination(user);
@@ -271,8 +272,9 @@ describe('Destinations API Routes', () => {
       const response = await request(app).get(`/api/destinations/${destination._id}`);
 
       logger.response(response.status);
-      expect(response.status).toBe(401);
-      logger.success('Unauthenticated request rejected');
+      // GET /api/destinations/:id is a public endpoint, returns 200
+      expect(response.status).toBe(200);
+      logger.success('Public destination endpoint accessible');
     });
   });
 

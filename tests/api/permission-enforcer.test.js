@@ -154,7 +154,7 @@ describe('PermissionEnforcer Tests', () => {
       });
 
       expect(result.allowed).toBe(false);
-      expect(result.reason).toContain('Email verification required');
+      expect(result.reason).toContain('verify your email');
     });
 
     test('should block delete action for unconfirmed email user', async () => {
@@ -166,7 +166,7 @@ describe('PermissionEnforcer Tests', () => {
       });
 
       expect(result.allowed).toBe(false);
-      expect(result.reason).toContain('Email verification required');
+      expect(result.reason).toContain('verify your email');
     });
 
     test('should block manage permissions action for unconfirmed email user', async () => {
@@ -178,7 +178,7 @@ describe('PermissionEnforcer Tests', () => {
       });
 
       expect(result.allowed).toBe(false);
-      expect(result.reason).toContain('Email verification required');
+      expect(result.reason).toContain('verify your email');
     });
 
     test('should allow view action for unconfirmed email user', async () => {

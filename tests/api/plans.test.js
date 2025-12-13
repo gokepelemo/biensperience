@@ -5,29 +5,22 @@
 
 const request = require('supertest');
 const app = require('../../app');
-const mongoose = require('mongoose');
-const User = require('../../models/user');
 const Experience = require('../../models/experience');
-const Destination = require('../../models/destination');
 const Plan = require('../../models/plan');
-const { createTestUser, createTestDestination, createTestExperience, generateAuthToken } = require('../utils/testHelpers');
+const { createTestUser, createTestDestination, createTestExperience, generateAuthToken, clearTestData } = require('../utils/testHelpers');
+const dbSetup = require('../setup/testSetup');
 
 describe('Plan Integration Tests', () => {
   let user, experienceOwner, experience, destination, authToken;
 
   beforeAll(async () => {
-    // Connect to test database
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(process.env.DATABASE_URL || 'mongodb://localhost:27017/biensperience-test');
-    }
+    // Connect to in-memory test database
+    await dbSetup.connect();
   });
 
   beforeEach(async () => {
-    // Clean up test data
-    await User.deleteMany({});
-    await Experience.deleteMany({});
-    await Destination.deleteMany({});
-    await Plan.deleteMany({});
+    // Clear all test data (safe because we're using in-memory database)
+    await clearTestData();
 
     // Create test users using helpers
     user = await createTestUser({ name: 'Test User', email: 'testuser@example.com' });
@@ -57,7 +50,7 @@ describe('Plan Integration Tests', () => {
   });
 
   afterAll(async () => {
-    await mongoose.connection.close();
+    await dbSetup.closeDatabase();
   });
 
   describe('Plan Creation on Experience Add', () => {
@@ -230,10 +223,12 @@ describe('Plan Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ planned_date: new Date() });
 
-      // Modify experience plan items (reload first to avoid version conflict)
-      experience = await Experience.findById(experience._id);
-      experience.plan_items[0].text = 'Modified Plan Item';
-      await experience.save();
+      // Modify experience plan items using findOneAndUpdate to avoid version conflicts
+      await Experience.findOneAndUpdate(
+        { _id: experience._id },
+        { $set: { 'plan_items.0.text': 'Modified Plan Item' } },
+        { new: true }
+      );
 
       // Verify plan snapshot unchanged
       const plan = await Plan.findById(response.body._id);
