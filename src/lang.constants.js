@@ -82,6 +82,11 @@ const en = {
     rememberMe: "Remember me",
     viewDetails: "View Details",
     updating: "Updating...",
+    creating: "Creating...",
+    continue: "Continue",
+    saveContinue: "Save & Continue",
+    addFinish: "Add & Finish",
+    sendInvite: "Send Invite",
   },
 
   alert: {
@@ -444,6 +449,8 @@ const en = {
     sharedPlanTooltip: "This plan was shared with you by {ownerName}. As a collaborator, you can view progress, add notes, and track costs, but you cannot delete the plan or remove other collaborators.",
     totalSpent: "Tracked Costs",
     trackedCosts: "Tracked Costs",
+    planItem: "Plan Item",
+    photos: "Photos",
   },
 
   aria: {
@@ -457,9 +464,12 @@ const en = {
     mainContent: "Main content",
     authentication: "Authentication",
     biensperienceHome: "Biensperience home",
+    scrollToTop: "Scroll to top of page",
     toggleNavigationMenu: "Toggle navigation menu",
     browseDestinations: "Browse destinations",
     browseExperiences: "Browse experiences",
+    viewDashboard: "View dashboard",
+    userMenuFor: "User menu for {name}",
     userAccountOptions: "User account options",
     viewYourProfile: "View your profile",
     trackYourInviteCodes: "Track your invite codes",
@@ -607,6 +617,9 @@ const en = {
     travelTipsHelp: "Add helpful tips for travelers. Choose quick tip for quick notes, or detailed tip for in-depth information and links.",
     travelTipsIconHelp: "Leave blank to use default icon for this type.",
     travelTipsCtaHelp: "Add a button with a link for more information.",
+    planningDays: "Days needed to plan this without rushing",
+    costEstimate: "Estimated cost in your preferred currency",
+    inviteEmailHelpText: "We'll send them an invitation to join",
   },
 
   message: {
@@ -816,6 +829,7 @@ const en = {
     setPlannedDate: "Click to set a planned date",
     edit: "Edit",
     delete: "Delete",
+    moreInformation: "More information",
     // Experience form tooltips (friendly & playful)
     experienceName: "Give it a snappy title — make travelers curious!",
     overview: "Describe the experience in a few sentences: highlights, expectations, and must-knows.",
@@ -1364,10 +1378,17 @@ const en = {
   pagination: {
     first: "First",
     last: "Last",
-    previous: "Previous page",
-    next: "Next page",
+    previous: "Previous",
+    next: "Next",
+    firstPage: "First page",
+    lastPage: "Last page",
+    previousPage: "Previous page",
+    nextPage: "Next page",
     moreOptions: "More options",
     pageNavigation: "Pagination",
+    pageOf: "Page {page} of {total}",
+    showingResults: "Showing {count} of {total} results",
+    pageWithItems: "Page {page} ({items} items)",
   },
 
   // Dashboard strings
@@ -1380,8 +1401,59 @@ const en = {
     filterPlans: "Filter plans",
   },
 
+  // MyPlans component strings
+  myPlans: {
+    // Filter options
+    filterAll: "All",
+    filterMyPlans: "My Plans",
+    filterSharedPlans: "Shared Plans",
+
+    // Empty states
+    noSharedPlans: "No shared plans yet",
+    noSharedPlansDescription: "When someone shares a plan with you, it will appear here.",
+    noPlansInCategory: "No plans in this category",
+    noPlansInCategoryDescription: "Try changing the filter to see other plans.",
+
+    // Progress
+    percentComplete: "{percent}% complete",
+    itemsProgress: "{completed}/{total} items",
+
+    // Completion badge
+    done: "Done",
+
+    // Buttons
+    viewFullExperience: "View Full Experience",
+    loadMore: "Load More ({remaining} remaining)",
+    loading: "Loading...",
+
+    // Aria labels
+    expandPlanAria: "Expand plan for {name}",
+    collapsePlanAria: "Collapse plan for {name}",
+    expandCostBreakdownAria: "Expand cost breakdown for {name}",
+    collapseCostBreakdownAria: "Collapse cost breakdown for {name}",
+  },
+
+  // PlanCalendar component strings
+  planCalendar: {
+    // Toolbar buttons
+    today: "Today",
+    month: "Month",
+    week: "Week",
+    day: "Day",
+
+    // Navigation aria labels
+    previousAria: "Previous",
+    nextAria: "Next",
+
+    // Tooltip
+    shared: "Shared",
+  },
+
   // Experiences by tag view strings
   experiencesByTag: {
+    pageTitle: "{tagName} Experiences",
+    experiencesTagged: "Experiences tagged {tagName}",
+    viewAllExperiences: "View All Experiences",
     loadingExperiences: "Loading {tagName} experiences...",
     noExperiencesFound: "No experiences found with tag \"{tagName}\"",
     tryBrowsingAll: "Try browsing all experiences or search for a different tag.",
@@ -1430,9 +1502,407 @@ const en = {
 
   // Destinations view strings
   destinationsView: {
+    pageTitle: "Destinations",
     loading: "Loading destinations...",
+    loadingMore: "Loading more destinations...",
     noDestinationsFound: "No Destinations Found",
     noDestinationsDescription: "No destinations match your current filters. Try adjusting your search criteria or browse all destinations.",
+  },
+
+  // SortFilter component strings
+  sortFilter: {
+    // Labels
+    sortBy: "Sort by:",
+    show: "Show:",
+    destination: "Destination:",
+    type: "Type:",
+
+    // Sort options
+    alphabetical: "Alphabetical (A-Z)",
+    alphabeticalDesc: "Alphabetical (Z-A)",
+    destinationAZ: "Destination (A-Z)",
+    destinationZA: "Destination (Z-A)",
+    createdNewest: "Created (Newest First)",
+    createdOldest: "Created (Oldest First)",
+    updatedNewest: "Updated (Newest First)",
+    updatedOldest: "Updated (Oldest)",
+
+    // Filter options
+    allExperiences: "All Experiences",
+    allDestinations: "All Destinations",
+    plannedExperiencesOnly: "Planned Experiences Only",
+    favoriteDestinationsOnly: "Favorite Destinations Only",
+    notPlannedYet: "Not Planned Yet",
+    notFavoritedYet: "Not Favorited Yet",
+    myExperiences: "My Experiences (Created by Me)",
+
+    // Placeholders
+    searchDestinations: "Search destinations...",
+    searchTypes: "Search types...",
+
+    // Empty states
+    noDestinations: "No destinations",
+    noTypes: "No types",
+
+    // Aria labels
+    sortAriaLabel: "Sort",
+    filterExperiences: "Filter experiences",
+    filterDestinations: "Filter destinations",
+    clearTypeFilter: "Clear type filter",
+    sortAndFilterOptions: "Sort and filter options",
+  },
+
+  // Dropdown component strings
+  dropdown: {
+    searchPlaceholder: "Search",
+    searchOptionsAria: "Search options",
+    noResults: "No results",
+  },
+
+  // Autocomplete component strings
+  autocomplete: {
+    defaultPlaceholder: "Search...",
+    defaultEmptyMessage: "No results found",
+    searchingMessage: "Searching...",
+    clearAriaLabel: "Clear",
+    removeItemAriaLabel: "Remove {name}",
+  },
+
+  // SearchableSelect component strings
+  searchableSelect: {
+    defaultPlaceholder: "Select...",
+    searchPlaceholder: "Search...",
+    searchOptionsAria: "Search options",
+    noResultsFound: "No results found",
+  },
+
+  // ViewNav component strings
+  viewNav: {
+    viewNavigation: "View navigation",
+  },
+
+  // BottomNavLayout component strings
+  bottomNavLayout: {
+    mainNavigation: "Main navigation",
+  },
+
+  // ExperienceDetailLayout component strings
+  experienceDetailLayout: {
+    goBack: "Go back",
+    share: "Share",
+    favorite: "Favorite",
+  },
+
+  // SwipeCardLayout component strings
+  swipeCardLayout: {
+    undo: "Undo",
+    pass: "Pass",
+    superLike: "Super like",
+    like: "Like",
+    emptyTitle: "You've seen them all!",
+    emptyMessage: "Check back later for more experiences.",
+  },
+
+  // MapView component strings
+  mapView: {
+    zoomIn: "Zoom in",
+    zoomOut: "Zoom out",
+    centerMap: "Center map",
+    myLocation: "My location",
+    hotels: "Hotels",
+    restaurants: "Restaurants",
+    attractions: "Attractions",
+  },
+
+  // GoogleMap component strings
+  googleMap: {
+    locationNotAvailable: "Location not available",
+    getDirections: "Get Directions",
+    directionsTo: "Directions to {location}",
+    gettingLocation: "Getting your location...",
+    openInGoogleMaps: "Open in Google Maps",
+    geolocationNotSupported: "Geolocation is not supported by your browser",
+    locationAccessDenied: "Location access denied. Please enable location services.",
+    locationUnavailable: "Location information unavailable",
+    locationTimeout: "Location request timed out",
+    unableToGetLocation: "Unable to get your location",
+    directionsHint: "You can still get directions by opening Google Maps directly.",
+    mapOf: "Map of {location}",
+  },
+
+  // AddLocationModal component strings
+  addLocationModal: {
+    addLocation: "Add Location",
+    confirmLocation: "Confirm Location",
+    stepAddress: "Address",
+    stepConfirm: "Confirm",
+    enterAddressPlaceholder: "Enter address, city, or place name...",
+    addressHint: "Enter a street address, city name, landmark, or postal code",
+    confirmHint: "Is this the correct location? If not, go back and try a more specific address.",
+    findLocation: "Find Location",
+    searching: "Searching...",
+    confirmLocationButton: "Confirm Location",
+    saving: "Saving...",
+    back: "Back",
+    pleaseEnterAddress: "Please enter an address",
+    couldNotFindLocation: "Could not find location for this address",
+    failedToFindLocation: "Failed to find location. Please try a different address.",
+    noLocationToSave: "No location to save",
+    failedToSaveLocation: "Failed to save location",
+    locationPreview: "Location preview",
+  },
+
+  // MapListLayout component strings
+  mapListLayout: {
+    list: "List",
+    map: "Map",
+  },
+
+  // PhotoCard component strings
+  photoCard: {
+    clickToViewFullSize: "Click to view full size photo",
+    scrollThumbnailsLeft: "Scroll thumbnails left",
+    scrollThumbnailsRight: "Scroll thumbnails right",
+    photoBy: "Photo by",
+  },
+
+  // PhotoThumbnail component strings
+  photoThumbnail: {
+    viewPhoto: "View photo {index}",
+    defaultPhoto: "Default photo",
+  },
+
+  // PhotoModal component strings
+  photoModal: {
+    counter: "{current} of {total}",
+    thumbnailTitle: "Photo {index}",
+    thumbnailAlt: "Thumbnail {index}",
+    photoBy: "Photo by:",
+  },
+
+  // Toast component strings
+  toast: {
+    close: "Close",
+  },
+
+  // Banner component strings
+  banner: {
+    dismissBanner: "Dismiss banner",
+  },
+
+  // Tooltip component strings (merged with tooltip above - line ~827)
+
+  // DragHandle component strings
+  dragHandle: {
+    dragToReorder: "Drag to reorder",
+    dragInstructions: "Drag left to promote, right to nest, up/down to reorder",
+  },
+
+  // Loading component strings
+  loading: {
+    biensperienceLogo: "Biensperience logo",
+  },
+
+  // BiensperienceLogo component strings
+  biensperienceLogo: {
+    logoAlt: "Biensperience Logo",
+  },
+
+  // PhotoUploadModal strings
+  photoUploadModal: {
+    title: "Manage Photos",
+    closeAria: "Close",
+    cancel: "Cancel",
+    save: "Save Photos",
+    saving: "Saving...",
+    failedToSave: "Failed to save photos",
+    managePhotosAria: "Manage photos",
+  },
+
+  // PlanItemDetailsModal strings
+  planItemDetailsModal: {
+    // Assignee section
+    unassigned: "Unassigned",
+    unknownUser: "Unknown User",
+    noCollaboratorsFound: "No collaborators found",
+    searchCollaborators: "Search collaborators...",
+    assignedTo: "Assigned To:",
+    completed: "Completed",
+    markComplete: "Mark Complete",
+
+    // Tabs
+    tabDetails: "📋 Details",
+    tabNotes: "📝 Notes",
+    tabLocation: "📍 Location",
+    tabChat: "💬 Chat",
+    tabPhotos: "📷 Photos",
+    tabDocuments: "📄 Documents",
+
+    // Empty states
+    noDetailsAdded: "No Details Added Yet",
+    noDetailsDescription: "Add details like booking info, confirmation numbers, or other specifics for this item.",
+    noLocationSet: "No Location Set",
+    noLocationDescription: "Add a location or address for this item.",
+    noNotes: "No Notes Yet",
+    noNotesDescription: "Add notes, reminders, or tips for this item.",
+    noPhotos: "No Photos Yet",
+    noPhotosDescription: "Add photos related to this item.",
+    noDocuments: "No Documents Yet",
+    noDocumentsDescription: "Upload documents like tickets, receipts, or confirmations.",
+
+    // Actions
+    addDetails: "Add Details",
+    addLocation: "Add Location",
+    addNote: "Add Note",
+    addPhoto: "Add Photo",
+    addDocument: "Add Document",
+    exportPdf: "Export PDF",
+    share: "Share",
+    change: "Change",
+
+    // Chat
+    chatPlaceholder: "Type a message...",
+    send: "Send",
+
+    // Details fields
+    detailLabel: "Label",
+    detailValue: "Value",
+    detailLabelPlaceholder: "e.g., Confirmation #",
+    detailValuePlaceholder: "e.g., ABC123",
+
+    // Location
+    locationPlaceholder: "Enter address or location",
+
+    // Notes
+    notePlaceholder: "Write your note here...",
+    editNote: "Edit Note",
+    deleteNote: "Delete Note",
+
+    // Cost tracking
+    actualCost: "Actual Cost",
+    estimatedCost: "Estimated Cost",
+    addCost: "Track Cost",
+
+    // Schedule
+    scheduledDate: "Scheduled Date",
+    scheduleItem: "Schedule Item",
+
+    // Aria labels
+    closeModal: "Close modal",
+    deleteItem: "Delete item",
+    editItem: "Edit item",
+    toggleComplete: "Toggle completion status",
+  },
+
+  // MultiStepPlanModal strings
+  multiStepPlanModal: {
+    // Step labels
+    stepCreateExperience: "Create Experience",
+    stepAddPlanItems: "Add Plan Items",
+    stepSelectDate: "Select Date",
+
+    // Step titles
+    createNewExperience: "Create New Experience",
+    addPlanItemsTitle: "Add Plan Items",
+    planYourExperience: "Plan Your Experience",
+
+    // Toast messages
+    restoredInProgress: "Restored your in-progress experience",
+    experienceUpdated: "Experience updated! Now add plan items.",
+    experienceCreated: "Experience created! Now add plan items.",
+    planCreated: "Your plan has been created!",
+
+    // Form labels
+    experienceName: "Experience Name",
+    destination: "Destination",
+    overview: "Overview",
+    experienceTypes: "Experience Types",
+
+    // Buttons
+    back: "Back",
+    next: "Next",
+    updateContinue: "Update & Continue",
+    createContinue: "Create & Continue",
+    skipToDate: "Skip to Date",
+    createPlan: "Create Plan",
+    finish: "Finish",
+
+    // Plan items
+    addItem: "Add Item",
+    noItemsYet: "No plan items yet",
+    noItemsDescription: "Add items to help plan this experience step by step.",
+    itemPlaceholder: "e.g., Book flight tickets",
+
+    // Date selection
+    selectDateTitle: "When do you want to have this experience?",
+    dateRequired: "Please select a date",
+
+    // Validation
+    nameRequired: "Experience name is required",
+    destinationRequired: "Please select a destination",
+  },
+
+  // ExperienceWizardModal strings
+  experienceWizardModal: {
+    // Step labels
+    stepBasicInfo: "Basic Info",
+    stepDetails: "Details",
+    stepPlanItems: "Plan Items",
+    stepCollaborators: "Collaborators",
+    stepDone: "Done",
+
+    // Step 1: Basic Info
+    basicInfoTitle: "Create Your Experience",
+    experienceTitle: "Experience Title",
+    experienceTitlePlaceholder: "e.g., Weekend in Paris",
+    overview: "Overview",
+    overviewPlaceholder: "Describe what makes this experience special...",
+    destination: "Destination",
+    destinationPlaceholder: "Search for a destination...",
+
+    // Step 2: Details
+    detailsTitle: "Add More Details",
+    experienceTypes: "Experience Types",
+    experienceTypesPlaceholder: "e.g., Adventure, Food, Culture",
+    costEstimate: "Estimated Cost",
+    costEstimatePlaceholder: "e.g., 500",
+    planningDays: "Recommended Planning Days",
+    planningDaysPlaceholder: "e.g., 14",
+    photos: "Photos",
+
+    // Step 3: Plan Items
+    planItemsTitle: "Build Your Plan",
+    addPlanItem: "Add Plan Item",
+    planItemPlaceholder: "e.g., Book accommodation",
+    noPlanItemsYet: "No plan items yet",
+    noPlanItemsDescription: "Add steps to help others plan this experience.",
+
+    // Step 4: Collaborators
+    collaboratorsTitle: "Invite Collaborators",
+    searchUsers: "Search Users",
+    searchUsersPlaceholder: "Search by name or email...",
+    inviteByEmail: "Invite by Email",
+    inviteEmailPlaceholder: "Enter email address",
+    noCollaboratorsYet: "No collaborators added",
+    noCollaboratorsDescription: "Search for users or invite by email to collaborate.",
+
+    // Step 5: Done
+    doneTitle: "Experience Created!",
+    doneMessage: "Your experience has been created successfully.",
+    goToExperience: "Go to Experience",
+    createAnother: "Create Another",
+    close: "Close",
+
+    // Navigation buttons
+    back: "Back",
+    next: "Next",
+    skip: "Skip",
+    finish: "Finish",
+    create: "Create",
+
+    // Validation
+    titleRequired: "Please enter a title",
+    destinationRequired: "Please select a destination",
   },
 
   email: {

@@ -190,52 +190,60 @@ export default function CostsList({
 
   return (
     <div className={styles.costsSection}>
-      {/* Cost Summary */}
-      {showSummary && costs.length > 0 && (
-        <div className={styles.summaryWrapper}>
-          <CostSummary
-            summary={costSummary}
-            costs={costs}
-            collaborators={collaborators}
-            planItems={planItems}
-            currency={targetCurrency}
-            compact={compact}
-            showBreakdowns={!compact}
-            presenceConnected={presenceConnected}
-            onlineUserIds={onlineUserIds}
-          />
-        </div>
-      )}
-
       {/* Tracked Costs Accordion - collapsed by default */}
+      {/* Contains: Cost Summary (Total/Export/Per Person) + Costs List */}
       <Accordion
         activeKey={isAccordionOpen ? accordionId : null}
         onSelect={(key) => setIsAccordionOpen(key === accordionId)}
         className={styles.trackedCostsAccordion}
       >
         <Accordion.Item eventKey={accordionId}>
-          <Accordion.Header className={styles.accordionHeader}>
+          <Accordion.Header className={styles.accordionHeader} as="div">
             <div className={styles.accordionHeaderLeft}>
               <FaChevronDown className={`${styles.accordionIcon} ${isAccordionOpen ? styles.accordionIconOpen : ''}`} />
               <FaDollarSign className={styles.sectionIcon} />
               <span className={styles.accordionTitle}>{costStrings.trackedCosts || 'Tracked Costs'}</span>
-              <Pill variant="secondary" size="sm">{costs.length}</Pill>
+              <Pill variant="neutral" size="sm">{costs.length}</Pill>
             </div>
             {canEdit && (
-              <button
+              <span
                 className="btn btn-outline-primary btn-sm"
+                role="button"
+                tabIndex={0}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleAddCost();
                 }}
-                type="button"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddCost();
+                  }
+                }}
               >
                 <FaPlus className="me-1" />
                 {costStrings.addCost}
-              </button>
+              </span>
             )}
           </Accordion.Header>
           <Accordion.Body className={styles.accordionBody}>
+            {/* Cost Summary - Total/Export CSV/Per Person Share */}
+            {showSummary && costs.length > 0 && (
+              <div className={styles.summaryWrapper}>
+                <CostSummary
+                  summary={costSummary}
+                  costs={costs}
+                  collaborators={collaborators}
+                  planItems={planItems}
+                  currency={targetCurrency}
+                  compact={compact}
+                  showBreakdowns={!compact}
+                  presenceConnected={presenceConnected}
+                  onlineUserIds={onlineUserIds}
+                />
+              </div>
+            )}
             {costs.length === 0 ? (
               /* Empty State */
               <EmptyState
