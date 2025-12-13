@@ -231,22 +231,32 @@ function escapeRegex(string) {
 
 /**
  * Build MongoDB regex search query (fallback when text index not available)
+ *
+ * Creates a comprehensive search query with three priority levels:
+ * 1. Exact phrase match (normalized whitespace)
+ * 2. All words present (AND logic)
+ * 3. Any word matches (OR logic)
+ *
  * @param {string} query - Search query
  * @param {Array<string>} fields - Fields to search
  * @returns {Object} MongoDB regex query object
  */
 function buildRegexSearchQuery(query, fields) {
+  // Normalize the query: trim, lowercase, collapse multiple whitespace
+  const normalizedQuery = normalize(query);
+
   // Escape special regex characters to prevent injection
-  const escapedQuery = escapeRegex(query);
+  const escapedQuery = escapeRegex(normalizedQuery);
 
   // For multi-word queries, create a more sophisticated search:
-  // 1. First priority: exact phrase match (escaped query as-is)
+  // 1. First priority: exact phrase match (with flexible whitespace)
   // 2. Second priority: all words must appear (AND logic via lookahead)
   // 3. Third priority: any word matches (OR logic)
   const words = escapedQuery.split(/\s+/).filter(w => w.length > 0);
 
   logger.debug('buildRegexSearchQuery', {
     query,
+    normalizedQuery,
     escapedQuery,
     wordCount: words.length,
     words: words.slice(0, 10) // Limit to 10 words in log
@@ -261,6 +271,12 @@ function buildRegexSearchQuery(query, fields) {
   }
 
   // Multi-word query: match the full phrase OR all words (AND)
+
+  // For exact phrase matching, replace spaces with \s+ to match any whitespace
+  // This handles cases where database has multiple spaces, tabs, or newlines
+  const phrasePattern = words.join('\\s+');
+  const phraseRegex = new RegExp(phrasePattern, 'i');
+
   // Using lookahead for AND: (?=.*word1)(?=.*word2).*
   const andPattern = words.map(w => `(?=.*${w})`).join('') + '.*';
   const andRegex = new RegExp(andPattern, 'i');
@@ -269,7 +285,7 @@ function buildRegexSearchQuery(query, fields) {
   const orRegex = new RegExp(words.join('|'), 'i');
 
   logger.debug('buildRegexSearchQuery patterns', {
-    phrasePattern: escapedQuery,
+    phrasePattern: phrasePattern.slice(0, 100),
     andPattern: andPattern.slice(0, 100),
     orPattern: words.join('|').slice(0, 100)
   });
@@ -277,8 +293,8 @@ function buildRegexSearchQuery(query, fields) {
   // Build query that prefers phrase/AND matches
   return {
     $or: [
-      // Exact phrase match (highest priority in results)
-      ...fields.map(field => ({ [field]: new RegExp(escapedQuery, 'i') })),
+      // Exact phrase match with flexible whitespace (highest priority in results)
+      ...fields.map(field => ({ [field]: phraseRegex })),
       // All words present (AND)
       ...fields.map(field => ({ [field]: andRegex })),
       // Any word present (OR) - for broader results
