@@ -23,6 +23,13 @@
  * - SCORE_WORD_STARTS (200): Word starts with query "Fra" → "Paris, France"
  * - SCORE_CONTAINS (100): Field contains query "ari" → "Paris"
  * - SCORE_PREFIX_MATCH (50): Trie prefix match (base)
+ *
+ * Field weight multiplier:
+ * - Field scores are used as multipliers (normalized to 0.5-2.0 range)
+ * - score: 50 = 1.0x multiplier (default)
+ * - score: 100 = 1.5x multiplier
+ * - score: 200 = 2.0x multiplier
+ * - Higher field scores boost matches in important fields (e.g., name vs description)
  */
 
 // Ranking score constants
@@ -349,16 +356,23 @@ class TrieFilter {
         let bestScore = SCORE_PREFIX_MATCH;
 
         // Check each field for best match quality
+        // Field weight is used as a multiplier (normalized to 0.5-2.0 range)
         this.fields.forEach(field => {
           const path = typeof field === 'function' ? null : (field.path || field);
           if (!path) return;
+
+          const fieldWeight = typeof field === 'object' ? (field.score || 50) : 50;
+          // Normalize field weight: 50 = 1.0x, 100 = 1.5x, 200 = 2.0x
+          const weightMultiplier = 0.5 + (fieldWeight / 100);
 
           const value = this._getNestedValue(this.items[index], path);
           if (!value || typeof value !== 'string') return;
 
           const normalizedValue = value.toLowerCase();
-          const fieldScore = this._calculateMatchScore(normalizedQuery, queryWord, normalizedValue);
-          bestScore = Math.max(bestScore, fieldScore);
+          const matchScore = this._calculateMatchScore(normalizedQuery, queryWord, normalizedValue);
+          // Apply field weight as multiplier to match score
+          const weightedScore = Math.round(matchScore * weightMultiplier);
+          bestScore = Math.max(bestScore, weightedScore);
         });
 
         // Add score, boosting for multiple query word matches
@@ -378,6 +392,9 @@ class TrieFilter {
           const path = typeof field === 'function' ? null : (field.path || field);
           if (!path) return;
 
+          const fieldWeight = typeof field === 'object' ? (field.score || 50) : 50;
+          const weightMultiplier = 0.5 + (fieldWeight / 100);
+
           const value = this._getNestedValue(item, path);
           if (!value || typeof value !== 'string') return;
 
@@ -385,7 +402,8 @@ class TrieFilter {
 
           // Check for substring match
           if (normalizedValue.includes(normalizedQuery)) {
-            bestScore = Math.max(bestScore, SCORE_CONTAINS);
+            const weightedScore = Math.round(SCORE_CONTAINS * weightMultiplier);
+            bestScore = Math.max(bestScore, weightedScore);
           }
         });
 
@@ -434,16 +452,24 @@ class TrieFilter {
         const currentScore = itemScores.get(index) || 0;
         let bestScore = SCORE_PREFIX_MATCH;
 
+        // Check each field for best match quality
+        // Field weight is used as a multiplier (normalized to 0.5-2.0 range)
         this.fields.forEach(field => {
           const path = typeof field === 'function' ? null : (field.path || field);
           if (!path) return;
+
+          const fieldWeight = typeof field === 'object' ? (field.score || 50) : 50;
+          // Normalize field weight: 50 = 1.0x, 100 = 1.5x, 200 = 2.0x
+          const weightMultiplier = 0.5 + (fieldWeight / 100);
 
           const value = this._getNestedValue(this.items[index], path);
           if (!value || typeof value !== 'string') return;
 
           const normalizedValue = value.toLowerCase();
-          const fieldScore = this._calculateMatchScore(normalizedQuery, queryWord, normalizedValue);
-          bestScore = Math.max(bestScore, fieldScore);
+          const matchScore = this._calculateMatchScore(normalizedQuery, queryWord, normalizedValue);
+          // Apply field weight as multiplier to match score
+          const weightedScore = Math.round(matchScore * weightMultiplier);
+          bestScore = Math.max(bestScore, weightedScore);
         });
 
         itemScores.set(index, currentScore + bestScore);
@@ -461,12 +487,16 @@ class TrieFilter {
           const path = typeof field === 'function' ? null : (field.path || field);
           if (!path) return;
 
+          const fieldWeight = typeof field === 'object' ? (field.score || 50) : 50;
+          const weightMultiplier = 0.5 + (fieldWeight / 100);
+
           const value = this._getNestedValue(item, path);
           if (!value || typeof value !== 'string') return;
 
           const normalizedValue = value.toLowerCase();
           if (normalizedValue.includes(normalizedQuery)) {
-            bestScore = Math.max(bestScore, SCORE_CONTAINS);
+            const weightedScore = Math.round(SCORE_CONTAINS * weightMultiplier);
+            bestScore = Math.max(bestScore, weightedScore);
           }
         });
 

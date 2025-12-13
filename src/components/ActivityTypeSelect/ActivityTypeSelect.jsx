@@ -1,11 +1,11 @@
 /**
  * ActivityTypeSelect Component
  *
- * Simple dropdown for selecting activity types.
- * Uses native filtering instead of trie for stability with small dataset.
+ * Minimal, stable dropdown for selecting activity types.
+ * Avoids useMemo chains and complex state dependencies to prevent browser crashes.
  */
 
-import { useState, useCallback, useMemo, useRef, useEffect, useId } from 'react';
+import { useState, useCallback, useRef, useEffect, useId } from 'react';
 import {
   ACTIVITY_TYPES,
   ACTIVITY_CATEGORIES,
@@ -13,269 +13,219 @@ import {
 } from '../../constants/activity-types';
 import styles from './ActivityTypeSelect.module.scss';
 
-// Pre-compute category order once at module level (stable, no side effects)
-const CATEGORY_ORDER = Object.keys(ACTIVITY_CATEGORIES)
-  .sort((a, b) => ACTIVITY_CATEGORIES[a].order - ACTIVITY_CATEGORIES[b].order);
+// Pre-compute stable data at module level
+const CATEGORY_ORDER = ['essentials', 'experiences', 'services', 'other'];
 
-// Pre-group activity types by category (stable, computed once)
-const GROUPED_ACTIVITY_TYPES = CATEGORY_ORDER.reduce((acc, category) => {
-  const items = ACTIVITY_TYPES.filter(t => t.category === category);
-  if (items.length > 0) {
-    acc[category] = items;
+// Pre-group items by category (computed once, never changes)
+const ITEMS_BY_CATEGORY = {};
+for (const type of ACTIVITY_TYPES) {
+  if (!ITEMS_BY_CATEGORY[type.category]) {
+    ITEMS_BY_CATEGORY[type.category] = [];
   }
-  return acc;
-}, {});
+  ITEMS_BY_CATEGORY[type.category].push(type);
+}
 
-/**
- * Simple case-insensitive filter for activity types
- */
-function filterActivityTypes(query, maxResults = 15) {
-  if (!query || !query.trim()) {
-    return ACTIVITY_TYPES;
+// Pre-compute index lookup for keyboard navigation in grouped view
+const ITEM_TO_INDEX = new Map();
+let idx = 0;
+for (const cat of CATEGORY_ORDER) {
+  const items = ITEMS_BY_CATEGORY[cat] || [];
+  for (const item of items) {
+    ITEM_TO_INDEX.set(item.value, idx++);
   }
-
-  const normalizedQuery = query.toLowerCase().trim();
-
-  return ACTIVITY_TYPES
-    .filter(type => {
-      // Check label
-      if (type.label.toLowerCase().includes(normalizedQuery)) return true;
-      // Check value
-      if (type.value.toLowerCase().includes(normalizedQuery)) return true;
-      // Check keywords
-      if (type.keywords?.some(kw => kw.toLowerCase().includes(normalizedQuery))) return true;
-      return false;
-    })
-    .slice(0, maxResults);
 }
 
 /**
- * ActivityTypeSelect - Dropdown for activity types
+ * Filter activity types by search query
  */
+function filterByQuery(query) {
+  if (!query) return null;
+
+  const q = query.toLowerCase();
+  const results = [];
+
+  for (const type of ACTIVITY_TYPES) {
+    if (results.length >= 15) break;
+
+    if (
+      type.label.toLowerCase().includes(q) ||
+      type.value.includes(q) ||
+      (type.keywords && type.keywords.some(k => k.toLowerCase().includes(q)))
+    ) {
+      results.push(type);
+    }
+  }
+
+  return results;
+}
+
 export default function ActivityTypeSelect({
   value,
   onChange,
-  placeholder = 'Select or search activity type...',
+  placeholder = 'Select activity type...',
   disabled = false,
   size = 'md',
   className = '',
-  showClear = true,
-  groupByCategory = true,
-  maxResults = 15
+  showClear = true
 }) {
-  const inputId = useId();
+  const uid = useId();
   const containerRef = useRef(null);
-  const inputRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  const [inputValue, setInputValue] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
 
-  // Get selected type object
+  // Selected type info (simple lookup, no memo needed for single lookup)
   const selectedType = value ? getActivityType(value) : null;
 
-  // Filter results based on input
-  const filteredResults = useMemo(() => {
-    return filterActivityTypes(inputValue, maxResults);
-  }, [inputValue, maxResults]);
+  // Determine what to render: filtered list or all grouped
+  const searchResults = query.trim() ? filterByQuery(query.trim()) : null;
 
-  // Group filtered results by category (only when grouping enabled and no search)
-  const displayData = useMemo(() => {
-    // When searching, show flat list for better UX
-    if (inputValue.trim()) {
-      return { type: 'flat', items: filteredResults };
-    }
+  // For keyboard nav, determine the list of items
+  const navItems = searchResults || ACTIVITY_TYPES;
+  const navLen = navItems.length;
 
-    // When not searching and grouping enabled, show grouped
-    if (groupByCategory) {
-      return { type: 'grouped', groups: GROUPED_ACTIVITY_TYPES };
-    }
-
-    // Flat list fallback
-    return { type: 'flat', items: ACTIVITY_TYPES };
-  }, [inputValue, groupByCategory, filteredResults]);
-
-  // Calculate flat list for keyboard navigation
-  const flatList = useMemo(() => {
-    if (displayData.type === 'flat') {
-      return displayData.items;
-    }
-    // Flatten grouped results in category order
-    return CATEGORY_ORDER.flatMap(cat => displayData.groups[cat] || []);
-  }, [displayData]);
-
-  // Reset highlight when results change
+  // Close on outside click
   useEffect(() => {
-    setHighlightedIndex(0);
-  }, [flatList.length]);
+    if (!open) return;
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleClickOutside = (e) => {
+    const handler = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setIsOpen(false);
-        setInputValue('');
+        setOpen(false);
+        setQuery('');
+        setHighlight(-1);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
 
-  // Scroll highlighted item into view
+  // Scroll highlighted into view
   useEffect(() => {
-    if (!isOpen || !dropdownRef.current) return;
+    if (!open || highlight < 0 || !dropdownRef.current) return;
 
-    const highlighted = dropdownRef.current.querySelector(`[data-index="${highlightedIndex}"]`);
-    if (highlighted) {
-      highlighted.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    const el = dropdownRef.current.querySelector(`[data-i="${highlight}"]`);
+    if (el) {
+      el.scrollIntoView({ block: 'nearest' });
     }
-  }, [highlightedIndex, isOpen]);
+  }, [open, highlight]);
 
-  // Handle input change
-  const handleInputChange = useCallback((e) => {
-    setInputValue(e.target.value);
-    setIsOpen(true);
-    setHighlightedIndex(0);
-  }, []);
+  // Reset highlight when search changes
+  useEffect(() => {
+    setHighlight(-1);
+  }, [query]);
 
-  // Handle option selection - simplified, no async operations
-  const handleSelect = useCallback((type) => {
-    // Immediately update local state
-    setIsOpen(false);
-    setInputValue('');
-    setHighlightedIndex(0);
-
-    // Notify parent
+  const doSelect = useCallback((type) => {
+    setOpen(false);
+    setQuery('');
+    setHighlight(-1);
     onChange(type.value);
   }, [onChange]);
 
-  // Handle clear
-  const handleClear = useCallback((e) => {
-    e.stopPropagation();
+  const doClear = useCallback((e) => {
     e.preventDefault();
-    setInputValue('');
+    e.stopPropagation();
+    setQuery('');
     onChange(null);
   }, [onChange]);
 
-  // Handle keyboard navigation
-  const handleKeyDown = useCallback((e) => {
-    if (!isOpen) {
+  const onKeyDown = useCallback((e) => {
+    if (!open) {
       if (e.key === 'ArrowDown' || e.key === 'Enter') {
         e.preventDefault();
-        setIsOpen(true);
-        return;
+        setOpen(true);
       }
       return;
     }
 
-    const len = flatList.length;
-    if (len === 0) return;
+    if (navLen === 0) return;
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setHighlightedIndex(prev => (prev + 1) % len);
+        setHighlight(h => (h + 1) % navLen);
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setHighlightedIndex(prev => (prev - 1 + len) % len);
+        setHighlight(h => (h <= 0 ? navLen - 1 : h - 1));
         break;
       case 'Enter':
         e.preventDefault();
-        if (flatList[highlightedIndex]) {
-          handleSelect(flatList[highlightedIndex]);
+        if (highlight >= 0 && highlight < navLen) {
+          doSelect(navItems[highlight]);
         }
         break;
       case 'Escape':
         e.preventDefault();
-        setIsOpen(false);
-        setInputValue('');
+        setOpen(false);
+        setQuery('');
+        setHighlight(-1);
         break;
       case 'Tab':
-        setIsOpen(false);
+        setOpen(false);
+        setQuery('');
         break;
       default:
         break;
     }
-  }, [isOpen, flatList, highlightedIndex, handleSelect]);
-
-  // Handle focus
-  const handleFocus = useCallback(() => {
-    setIsOpen(true);
-  }, []);
-
-  // Handle blur - simple, no timeout needed with mousedown prevention
-  const handleBlur = useCallback(() => {
-    // Small delay to allow click events to fire first
-    setTimeout(() => {
-      if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
-        setIsOpen(false);
-        setInputValue('');
-      }
-    }, 100);
-  }, []);
+  }, [open, navLen, highlight, navItems, doSelect]);
 
   // Render a single option
-  const renderOption = (type, index) => {
-    const isHighlighted = index === highlightedIndex;
-    const isSelected = type.value === value;
+  const Option = ({ type, index }) => {
+    const isHl = index === highlight;
+    const isSel = type.value === value;
 
     return (
       <div
-        key={type.value}
-        data-index={index}
-        className={`${styles.option} ${isHighlighted ? styles.highlighted : ''} ${isSelected ? styles.selected : ''}`}
+        data-i={index}
+        className={`${styles.option} ${isHl ? styles.highlighted : ''} ${isSel ? styles.selected : ''}`}
         onMouseDown={(e) => e.preventDefault()}
-        onClick={() => handleSelect(type)}
-        onMouseEnter={() => setHighlightedIndex(index)}
+        onClick={() => doSelect(type)}
+        onMouseEnter={() => setHighlight(index)}
         role="option"
-        aria-selected={isSelected}
+        aria-selected={isSel}
       >
         <span className={styles.optionIcon}>{type.icon}</span>
         <span className={styles.optionLabel}>{type.label}</span>
-        {isSelected && <span className={styles.checkmark}>✓</span>}
+        {isSel && <span className={styles.checkmark}>✓</span>}
       </div>
     );
   };
 
   // Render dropdown content
-  const renderDropdownContent = () => {
-    if (flatList.length === 0) {
-      return (
-        <div className={styles.noResults}>
-          No matching activity types
-        </div>
-      );
+  const renderDropdown = () => {
+    // Filtered view
+    if (searchResults !== null) {
+      if (searchResults.length === 0) {
+        return <div className={styles.noResults}>No matching activity types</div>;
+      }
+      return searchResults.map((type, i) => (
+        <Option key={type.value} type={type} index={i} />
+      ));
     }
 
-    // Flat view (when searching or groupByCategory is false)
-    if (displayData.type === 'flat') {
-      return displayData.items.map((type, index) => renderOption(type, index));
-    }
+    // Grouped view - use pre-computed index mapping
+    return CATEGORY_ORDER.map(cat => {
+      const items = ITEMS_BY_CATEGORY[cat];
+      if (!items || items.length === 0) return null;
 
-    // Grouped view
-    let globalIndex = 0;
-    return CATEGORY_ORDER.map(category => {
-      const types = displayData.groups[category];
-      if (!types || types.length === 0) return null;
-
-      const categoryInfo = ACTIVITY_CATEGORIES[category];
-      const startIndex = globalIndex;
-
-      // Increment global index for each item in this category
-      globalIndex += types.length;
+      const catInfo = ACTIVITY_CATEGORIES[cat];
 
       return (
-        <div key={category} className={styles.categoryGroup}>
+        <div key={cat} className={styles.categoryGroup}>
           <div className={styles.categoryHeader}>
-            <span className={styles.categoryIcon}>{categoryInfo.icon}</span>
-            <span className={styles.categoryLabel}>{categoryInfo.label}</span>
+            <span className={styles.categoryIcon}>{catInfo.icon}</span>
+            <span className={styles.categoryLabel}>{catInfo.label}</span>
           </div>
-          {types.map((type, i) => renderOption(type, startIndex + i))}
+          {items.map(type => (
+            <Option
+              key={type.value}
+              type={type}
+              index={ITEM_TO_INDEX.get(type.value)}
+            />
+          ))}
         </div>
       );
     });
@@ -286,50 +236,58 @@ export default function ActivityTypeSelect({
       ref={containerRef}
       className={`${styles.activityTypeSelect} ${styles[size]} ${className}`}
     >
-      {/* Input wrapper */}
       <div className={styles.inputWrapper}>
-        {/* Selected value badge */}
-        {selectedType && !inputValue && (
+        {/* Selected badge */}
+        {selectedType && !query && (
           <div className={styles.selectedBadge}>
             <span className={styles.selectedIcon}>{selectedType.icon}</span>
             <span className={styles.selectedLabel}>{selectedType.label}</span>
           </div>
         )}
 
-        {/* Search input */}
+        {/* Input */}
         <input
-          ref={inputRef}
-          id={inputId}
+          id={uid}
           type="text"
-          className={`${styles.input} ${selectedType && !inputValue ? styles.hasSelection : ''}`}
-          value={inputValue}
-          onChange={handleInputChange}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
+          className={`${styles.input} ${selectedType && !query ? styles.hasSelection : ''}`}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            if (!open) setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => {
+            setTimeout(() => {
+              if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
+                setOpen(false);
+                setQuery('');
+                setHighlight(-1);
+              }
+            }, 150);
+          }}
+          onKeyDown={onKeyDown}
           placeholder={selectedType ? '' : placeholder}
           disabled={disabled}
           autoComplete="off"
           aria-haspopup="listbox"
-          aria-expanded={isOpen}
-          aria-controls={`${inputId}-listbox`}
+          aria-expanded={open}
         />
 
-        {/* Clear button */}
+        {/* Clear */}
         {showClear && selectedType && !disabled && (
           <button
             type="button"
             className={styles.clearButton}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={handleClear}
-            aria-label="Clear selection"
+            onClick={doClear}
+            aria-label="Clear"
             tabIndex={-1}
           >
             ×
           </button>
         )}
 
-        {/* Dropdown arrow */}
+        {/* Arrow */}
         <div className={styles.arrow} aria-hidden="true">
           <svg width="12" height="12" viewBox="0 0 12 12">
             <path d="M2 4L6 8L10 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -338,14 +296,9 @@ export default function ActivityTypeSelect({
       </div>
 
       {/* Dropdown */}
-      {isOpen && (
-        <div
-          ref={dropdownRef}
-          className={styles.dropdown}
-          id={`${inputId}-listbox`}
-          role="listbox"
-        >
-          {renderDropdownContent()}
+      {open && (
+        <div ref={dropdownRef} className={styles.dropdown} role="listbox">
+          {renderDropdown()}
         </div>
       )}
     </div>
