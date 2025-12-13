@@ -1,4 +1,5 @@
 // Design System Components
+export { default as ActionsMenu } from './ActionsMenu';
 export { default as Button } from './Button';
 export { default as Pill } from './Pill';
 export { default as TagPill } from './Pill/TagPill';

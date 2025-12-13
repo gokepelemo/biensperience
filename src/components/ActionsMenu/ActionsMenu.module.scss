@@ -1,0 +1,278 @@
+/**
+ * ActionsMenu Styles
+ * Uses design tokens for consistent theming and accessibility
+ */
+
+@use '../../styles/scss/abstracts' as *;
+
+/* Container */
+.container {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Size variants */
+.size-sm {
+  .trigger {
+    width: 32px;
+    height: 32px;
+    font-size: var(--font-size-sm);
+  }
+
+  .menu {
+    min-width: 140px;
+  }
+
+  .item {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-xs);
+  }
+}
+
+.size-md {
+  .trigger {
+    width: var(--btn-height-md, 44px);
+    height: var(--btn-height-md, 44px);
+    font-size: var(--font-size-base);
+  }
+
+  .menu {
+    min-width: 160px;
+  }
+
+  .item {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+}
+
+/* Trigger button */
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--color-bg-secondary, #f8f9fa);
+  border: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.1));
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-secondary, #6c757d);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-hover, rgba(0, 0, 0, 0.05));
+    color: var(--color-text-primary, #212529);
+    border-color: var(--color-border-medium, rgba(0, 0, 0, 0.15));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary, #667eea);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  svg {
+    width: 1em;
+    height: 1em;
+  }
+}
+
+/* Dropdown menu */
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-1, 4px));
+  z-index: var(--z-index-dropdown, 1050);
+  padding: var(--space-1, 4px) 0;
+  background: var(--color-bg-elevated, #ffffff);
+  border: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.1));
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05));
+  white-space: nowrap;
+  animation: menuFadeIn 0.15s ease;
+  /* Ensure text colors are inherited from design system, not parent elements */
+  color: var(--color-text-primary, #1a202c);
+
+  /* Position variants */
+  &.position-bottom-right {
+    right: 0;
+  }
+
+  &.position-bottom-left {
+    left: 0;
+  }
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Menu item */
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  width: 100%;
+  background: transparent;
+  border: none;
+  /* Light mode: dark text on white background for legibility */
+  color: var(--color-text-primary, #1a202c);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+  line-height: 1.4;
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-hover, rgba(0, 0, 0, 0.05));
+  }
+
+  &:focus-visible {
+    outline: none;
+    background: var(--color-bg-hover, rgba(0, 0, 0, 0.05));
+  }
+
+  /* Danger variant - for delete actions */
+  &.itemDanger {
+    color: var(--color-danger, #dc3545);
+
+    &:hover:not(:disabled) {
+      background: var(--color-danger-bg, rgba(220, 53, 69, 0.1));
+    }
+
+    &:focus-visible {
+      background: var(--color-danger-bg, rgba(220, 53, 69, 0.1));
+    }
+  }
+
+  /* Active variant - for toggle states like "pinned" */
+  &.itemActive {
+    color: var(--color-warning, #ffc107);
+    font-weight: var(--font-weight-medium, 500);
+
+    &:hover:not(:disabled) {
+      background: var(--color-warning-bg, rgba(255, 193, 7, 0.15));
+    }
+
+    &:focus-visible {
+      background: var(--color-warning-bg, rgba(255, 193, 7, 0.15));
+    }
+  }
+
+  /* Disabled state */
+  &.itemDisabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+/* Icon within item */
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  font-size: 1em;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* Label text */
+.label {
+  flex: 1;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  .trigger {
+    background: var(--color-bg-secondary, #1e1e1e);
+    border-color: var(--color-border-light, rgba(255, 255, 255, 0.1));
+    color: var(--color-text-secondary, #adb5bd);
+
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
+      color: var(--color-text-primary, #f8f9fa);
+      border-color: var(--color-border-medium, rgba(255, 255, 255, 0.2));
+    }
+  }
+
+  .menu {
+    background: var(--color-bg-elevated, #2d2d2d);
+    border-color: var(--color-border-light, rgba(255, 255, 255, 0.1));
+    box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2));
+    color: var(--color-text-primary, #f8f9fa);
+  }
+
+  .item {
+    color: var(--color-text-primary, #f8f9fa);
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+      background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
+    }
+
+    &.itemDanger {
+      color: var(--color-danger, #ff6b6b);
+
+      &:hover:not(:disabled),
+      &:focus-visible {
+        background: rgba(255, 107, 107, 0.15);
+      }
+    }
+
+    &.itemActive {
+      color: var(--color-warning, #ffd93d);
+
+      &:hover:not(:disabled),
+      &:focus-visible {
+        background: rgba(255, 217, 61, 0.15);
+      }
+    }
+  }
+}
+
+/* .dark class override (for explicit dark mode) */
+:global(.dark) {
+  .trigger {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-light);
+    color: var(--color-text-secondary);
+
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+      color: var(--color-text-primary);
+      border-color: var(--color-border-medium);
+    }
+  }
+
+  .menu {
+    background: var(--color-bg-elevated);
+    border-color: var(--color-border-light);
+    color: var(--color-text-primary);
+  }
+
+  .item {
+    color: var(--color-text-primary);
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+      background: var(--color-bg-hover);
+    }
+  }
+}
