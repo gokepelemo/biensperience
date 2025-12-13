@@ -381,15 +381,8 @@ async function updateUser(req, res, next) {
       if (p.timezone && typeof p.timezone === 'string' && p.timezone.length <= 50) {
         const tzValue = p.timezone.trim();
         try {
-          const path = require('path');
-          const { pathToFileURL } = require('url');
-          const prefsPath = path.resolve(__dirname, '..', '..', 'src', 'utilities', 'preferences-utils.js');
-          // Dynamic import of ESM module
-          const prefsModule = await import(pathToFileURL(prefsPath).href);
-          const availableTimezones = typeof prefsModule.getTimezoneOptions === 'function'
-            ? prefsModule.getTimezoneOptions().map(tz => tz.value)
-            : [];
-          if (Array.isArray(availableTimezones) && availableTimezones.includes(tzValue)) {
+          const { isValidTimezone } = require('../../utilities/timezone-utils');
+          if (isValidTimezone(tzValue)) {
             prefs.timezone = tzValue;
           } else {
             // If timezone not available, skip (don't save invalid timezone)
