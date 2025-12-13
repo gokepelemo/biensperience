@@ -246,7 +246,9 @@ const SortablePlanItem = memo(function SortablePlanItem({
   handleViewPlanItemDetails,
   planOwner,
   planCollaborators,
-  lang
+  lang,
+  onPinItem,
+  isPinned = false
 }) {
   const {
     attributes,
@@ -273,7 +275,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
       data-plan-item-id={planItem._id}
       className={`plan-item-card mb-3 overflow-hidden ${
         planItem.isVisible ? "" : "collapsed"
-      } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''}`}
+      } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''} ${isPinned ? 'is-pinned' : ''}`}
     >
       <div className="plan-item-header p-3 p-md-4">
         <div className="plan-item-tree">
@@ -315,6 +317,9 @@ const SortablePlanItem = memo(function SortablePlanItem({
           )}
         </div>
         <div className="plan-item-title flex-grow-1 fw-semibold">
+          {isPinned && (
+            <FaStar className="text-warning me-2" aria-label="Pinned item" title="Pinned to top" />
+          )}
           {planItem.url ? (
             <Link
               to={planItem.url}
@@ -407,6 +412,18 @@ const SortablePlanItem = memo(function SortablePlanItem({
                       <FaTrash />
                     </button>
                   </>
+                )}
+                {/* Pin to Top button - only for root items */}
+                {canEditPlan && !planItem.parent && !planItem.isChild && onPinItem && (
+                  <button
+                    className={`btn btn-sm ${isPinned ? 'btn-warning' : 'btn-outline-warning'}`}
+                    onClick={() => onPinItem(planItem)}
+                    aria-label={isPinned ? `Unpin ${planItem.text}` : `Pin ${planItem.text} to top`}
+                    title={isPinned ? 'Unpin' : 'Pin to Top'}
+                    aria-pressed={isPinned}
+                  >
+                    <FaStar />
+                  </button>
                 )}
                 <button
                   className={`btn btn-sm btn-complete-toggle ${
@@ -1943,6 +1960,66 @@ export default function MyPlanTabContent({
     </div>
   );
 
+  // Compute rendering data BEFORE early returns to maintain hooks order
+  // Render plan items
+  const flattenedItems = currentPlan.plan && currentPlan.plan.length > 0
+    ? flattenPlanItems(currentPlan.plan)
+    : [];
+  const filteredItems = flattenedItems.filter(
+    (item) =>
+      item.isVisible ||
+      (item.isChild && animatingCollapse === item.parent)
+  );
+
+  // Sort items to place pinned item at the top (only for root items)
+  // Pinned item and its children should appear first
+  const pinnedItemId = currentPlan.pinnedItemId?.toString();
+  const itemsToRender = useMemo(() => {
+    if (!pinnedItemId || filteredItems.length === 0) return filteredItems;
+
+    // Find the pinned item and its children
+    const pinnedItems = [];
+    const otherItems = [];
+
+    for (const item of filteredItems) {
+      const itemId = (item.plan_item_id || item._id)?.toString();
+      const parentId = item.parent?.toString();
+
+      // Item is pinned or is a child of the pinned item
+      if (itemId === pinnedItemId || parentId === pinnedItemId) {
+        pinnedItems.push(item);
+      } else {
+        otherItems.push(item);
+      }
+    }
+
+    // Pinned item (and children) first, then others
+    return [...pinnedItems, ...otherItems];
+  }, [filteredItems, pinnedItemId]);
+
+  // Memoize timeline grouping to avoid recalculation on every render
+  const timelineGroups = useMemo(() => {
+    if (planItemsView !== 'timeline' || itemsToRender.length === 0) return null;
+    return groupPlanItemsByDate(itemsToRender);
+  }, [planItemsView, itemsToRender]);
+
+  // Memoize activity type grouping for activity view
+  const activityGroups = useMemo(() => {
+    if (planItemsView !== 'activity' || itemsToRender.length === 0) return null;
+    return groupItemsByActivityType(itemsToRender, currentPlan?.plan || []);
+  }, [planItemsView, itemsToRender, currentPlan?.plan]);
+
+  // Create parent item lookup for child activity badge display
+  const parentItemMap = useMemo(() => {
+    const map = new Map();
+    if (currentPlan?.plan) {
+      for (const item of currentPlan.plan) {
+        map.set((item.plan_item_id || item._id)?.toString(), item);
+      }
+    }
+    return map;
+  }, [currentPlan?.plan]);
+
   // Show skeleton loaders while plans are loading
   if (!currentPlan.plan || currentPlan.plan.length === 0) {
     if (plansLoading) {
@@ -2021,63 +2098,6 @@ export default function MyPlanTabContent({
       </div>
     );
   }
-
-  // Render plan items
-  const flattenedItems = flattenPlanItems(currentPlan.plan);
-  const filteredItems = flattenedItems.filter(
-    (item) =>
-      item.isVisible ||
-      (item.isChild && animatingCollapse === item.parent)
-  );
-
-  // Sort items to place pinned item at the top (only for root items)
-  // Pinned item and its children should appear first
-  const pinnedItemId = currentPlan.pinnedItemId?.toString();
-  const itemsToRender = useMemo(() => {
-    if (!pinnedItemId) return filteredItems;
-
-    // Find the pinned item and its children
-    const pinnedItems = [];
-    const otherItems = [];
-
-    for (const item of filteredItems) {
-      const itemId = (item.plan_item_id || item._id)?.toString();
-      const parentId = item.parent?.toString();
-
-      // Item is pinned or is a child of the pinned item
-      if (itemId === pinnedItemId || parentId === pinnedItemId) {
-        pinnedItems.push(item);
-      } else {
-        otherItems.push(item);
-      }
-    }
-
-    // Pinned item (and children) first, then others
-    return [...pinnedItems, ...otherItems];
-  }, [filteredItems, pinnedItemId]);
-
-  // Memoize timeline grouping to avoid recalculation on every render
-  const timelineGroups = useMemo(() => {
-    if (planItemsView !== 'timeline') return null;
-    return groupPlanItemsByDate(itemsToRender);
-  }, [planItemsView, itemsToRender]);
-
-  // Memoize activity type grouping for activity view
-  const activityGroups = useMemo(() => {
-    if (planItemsView !== 'activity') return null;
-    return groupItemsByActivityType(itemsToRender, currentPlan?.plan || []);
-  }, [planItemsView, itemsToRender, currentPlan?.plan]);
-
-  // Create parent item lookup for child activity badge display
-  const parentItemMap = useMemo(() => {
-    const map = new Map();
-    if (currentPlan?.plan) {
-      for (const item of currentPlan.plan) {
-        map.set((item.plan_item_id || item._id)?.toString(), item);
-      }
-    }
-    return map;
-  }, [currentPlan?.plan]);
 
   return (
     <div className="my-plan-view mt-4">
@@ -2159,29 +2179,34 @@ export default function MyPlanTabContent({
             items={itemsToRender.map(item => (item.plan_item_id || item._id).toString())}
             strategy={verticalListSortingStrategy}
           >
-            {itemsToRender.map((planItem) => (
-              <SortablePlanItem
-                key={planItem.plan_item_id || planItem._id}
-                planItem={planItem}
-                currentPlan={currentPlan}
-                user={user}
-                idEquals={idEquals}
-                expandedParents={expandedParents}
-                canEdit={canEdit}
-                toggleExpanded={toggleExpanded}
-                handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                hoveredPlanItem={hoveredPlanItem}
-                setHoveredPlanItem={setHoveredPlanItem}
-                handleViewPlanItemDetails={handleViewPlanItemDetails}
-                planOwner={planOwner}
-                planCollaborators={planCollaborators}
-                lang={lang}
-              />
-            ))}
+            {itemsToRender.map((planItem) => {
+              const itemId = (planItem.plan_item_id || planItem._id)?.toString();
+              return (
+                <SortablePlanItem
+                  key={planItem.plan_item_id || planItem._id}
+                  planItem={planItem}
+                  currentPlan={currentPlan}
+                  user={user}
+                  idEquals={idEquals}
+                  expandedParents={expandedParents}
+                  canEdit={canEdit}
+                  toggleExpanded={toggleExpanded}
+                  handleAddPlanInstanceItem={handleAddPlanInstanceItem}
+                  handleEditPlanInstanceItem={handleEditPlanInstanceItem}
+                  setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
+                  setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                  handlePlanItemToggleComplete={handlePlanItemToggleComplete}
+                  hoveredPlanItem={hoveredPlanItem}
+                  setHoveredPlanItem={setHoveredPlanItem}
+                  handleViewPlanItemDetails={handleViewPlanItemDetails}
+                  planOwner={planOwner}
+                  planCollaborators={planCollaborators}
+                  lang={lang}
+                  onPinItem={handlePinItem}
+                  isPinned={itemId === pinnedItemId}
+                />
+              );
+            })}
           </SortableContext>
         </DndContext>
       )}
