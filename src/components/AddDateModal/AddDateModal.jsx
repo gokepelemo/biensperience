@@ -49,7 +49,9 @@ export default function AddDateModal({
   initialDate = null,
   initialTime = null,
   planItemText = 'Plan Item',
-  minDate = null // Minimum allowed date (e.g., plan's planned_date)
+  minDate = null, // Minimum allowed date (e.g., plan's planned_date)
+  timeOnly = false, // If true, date is fixed (inherited from parent) and only time can be changed
+  fixedDate = null // The fixed date when in timeOnly mode
 }) {
   const { user } = useUser();
   const [selectedDate, setSelectedDate] = useState('');
@@ -66,11 +68,13 @@ export default function AddDateModal({
   // Reset state when modal opens/closes
   useEffect(() => {
     if (show) {
-      setSelectedDate(formatDateForInputTz(initialDate, user));
+      // In timeOnly mode, use the fixed date; otherwise use initialDate
+      const dateToUse = timeOnly && fixedDate ? fixedDate : initialDate;
+      setSelectedDate(formatDateForInputTz(dateToUse, user));
       setSelectedTime(formatTimeForInput(initialTime) || '');
       setError(null);
     }
-  }, [show, initialDate, initialTime, user]);
+  }, [show, initialDate, initialTime, user, timeOnly, fixedDate]);
 
   // Get modal strings
   const modalStrings = lang.current.modal.addDateModal;
@@ -193,11 +197,16 @@ export default function AddDateModal({
     </>
   );
 
+  // Determine modal title based on mode
+  const modalTitle = timeOnly
+    ? (modalStrings.titleTimeOnly || 'Schedule Time')
+    : modalStrings.title;
+
   return (
     <Modal
       show={show}
       onClose={onClose}
-      title={modalStrings.title}
+      title={modalTitle}
       size="sm"
       footer={modalFooter}
       loading={loading}
@@ -216,27 +225,29 @@ export default function AddDateModal({
           </div>
         )}
 
-        {/* Date input */}
+        {/* Date input - read-only in timeOnly mode */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
             <FaCalendarAlt className={styles.inputIcon} />
             {modalStrings.dateLabel}
+            {timeOnly && <span className={styles.inherited}> {modalStrings.inheritedFromParent || '(from parent)'}</span>}
           </label>
           <input
             type="date"
-            className={styles.dateInput}
+            className={`${styles.dateInput} ${timeOnly ? styles.readOnly : ''}`}
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            disabled={loading}
+            onChange={(e) => !timeOnly && setSelectedDate(e.target.value)}
+            disabled={loading || timeOnly}
+            readOnly={timeOnly}
             min={minDateForInput || undefined}
           />
         </div>
 
-        {/* Time input (optional) */}
+        {/* Time input - primary in timeOnly mode, optional otherwise */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
             <FaClock className={styles.inputIcon} />
-            {modalStrings.timeLabel} <span className={styles.optional}>{modalStrings.timeOptional}</span>
+            {modalStrings.timeLabel} {!timeOnly && <span className={styles.optional}>{modalStrings.timeOptional}</span>}
           </label>
           <input
             type="time"
@@ -244,6 +255,7 @@ export default function AddDateModal({
             value={selectedTime}
             onChange={(e) => setSelectedTime(e.target.value)}
             disabled={loading}
+            autoFocus={timeOnly}
           />
         </div>
 
@@ -278,5 +290,7 @@ AddDateModal.propTypes = {
   initialDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
   initialTime: PropTypes.string,
   planItemText: PropTypes.string,
-  minDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)])
+  minDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  timeOnly: PropTypes.bool,
+  fixedDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)])
 };

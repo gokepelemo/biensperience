@@ -1235,39 +1235,32 @@
 }
 
 :global(.expand-toggle) {
-  /* Full UI control styling - not a link */
+  /* Inline styling - minimal visual footprint */
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  min-width: 28px; /* Prevent shrinking */
-  border-radius: $radius-md;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border-light);
   cursor: pointer;
-  margin-right: $space-2;
-  color: var(--color-text-secondary) !important;
-  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+  font-size: $font-size-sm;
   @include transition-all($transition-normal);
   flex-shrink: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
 
   &:hover {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: white !important;
-    transform: none; /* No scale - keep it stable */
-    box-shadow: var(--shadow-sm);
+    color: var(--color-primary);
   }
 
   &:active {
-    background: var(--color-primary-dark);
-    transform: scale(0.95);
+    color: var(--color-primary-dark);
   }
 
   &:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
+    border-radius: $radius-sm;
   }
 }
 
@@ -1282,6 +1275,32 @@
   color: var(--color-single-experience-text-disabled);
   margin-left: $space-2;
   opacity: 0.3;
+}
+
+/* Pinned expand toggle - shows star by default, arrow on hover or when collapsed */
+:global(.pinned-expand-toggle) {
+  position: relative;
+
+  :global(.pinned-star-icon) {
+    display: block;
+    font-size: 0.875rem;
+  }
+
+  :global(.expand-arrow-icon) {
+    display: none;
+    font-size: $font-size-xs;
+  }
+
+  &:hover,
+  &:global(.collapsed) {
+    :global(.pinned-star-icon) {
+      display: none;
+    }
+
+    :global(.expand-arrow-icon) {
+      display: block;
+    }
+  }
 }
 
 /* Plan Button Styling - Unified with design tokens */
@@ -2209,18 +2228,11 @@
 
   /* Tree Controls */
   :global(.expand-toggle) {
-    /* Slightly larger touch target on mobile */
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    background: var(--color-bg-tertiary);
-    border-color: var(--color-border-light);
-    color: var(--color-text-secondary) !important;
+    /* Inline styling maintained on mobile */
+    color: var(--color-text-secondary);
 
     &:hover {
-      background: var(--color-primary);
-      border-color: var(--color-primary);
-      color: white !important;
+      color: var(--color-primary);
     }
   }
 
@@ -2388,12 +2400,12 @@
     }
   }
 
-  &.completed {
+  &:global(.completed) {
     background: var(--color-bg-tertiary);
     opacity: 0.85; /* WCAG: maintain sufficient contrast for completed items */
   }
 
-  &.is-child {
+  &:global(.is-child) {
     margin-left: var(--space-6);
   }
 
@@ -2606,7 +2618,7 @@
     padding: var(--space-2);
     gap: var(--space-1);
 
-    &.is-child {
+    &:global(.is-child) {
       margin-left: var(--space-4);
     }
   }
@@ -2737,12 +2749,12 @@
     border-color: var(--color-primary);
   }
 
-  &.completed {
+  &:global(.completed) {
     background: var(--color-bg-tertiary);
     opacity: 0.85; /* WCAG: maintain sufficient contrast for completed items */
   }
 
-  &.is-child {
+  &:global(.is-child) {
     margin-left: var(--space-6);
   }
 
@@ -3000,7 +3012,7 @@
     padding: var(--space-2) var(--space-3);
     gap: var(--space-1);
 
-    &.is-child {
+    &:global(.is-child) {
       margin-left: var(--space-4);
     }
   }

@@ -28,6 +28,18 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const backendLogger = require('./backend-logger');
 
+/**
+ * Cache for user profile visibility to avoid repeated DB queries
+ * Key: userId (string), Value: { visibility: string, cachedAt: number }
+ * @type {Map<string, object>}
+ */
+const userVisibilityCache = new Map();
+
+/**
+ * Cache TTL in milliseconds (5 minutes)
+ */
+const VISIBILITY_CACHE_TTL = 5 * 60 * 1000;
+
 // =====================
 // Rate Limiting Config
 // =====================
@@ -72,6 +84,64 @@ const userConnections = new Map();
 function isValidObjectId(id) {
   if (!id || typeof id !== 'string') return false;
   return mongoose.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id);
+}
+
+/**
+ * Check if a user has private profile visibility
+ * Uses caching to avoid repeated DB queries
+ *
+ * @param {string} userId - User ID to check
+ * @returns {Promise<boolean>} True if user has private profile
+ */
+async function hasPrivateProfile(userId) {
+  if (!userId) return false;
+
+  const userIdStr = userId.toString();
+
+  // Check cache first
+  const cached = userVisibilityCache.get(userIdStr);
+  if (cached && (Date.now() - cached.cachedAt) < VISIBILITY_CACHE_TTL) {
+    return cached.visibility === 'private';
+  }
+
+  try {
+    const User = mongoose.model('User');
+    const user = await User.findById(userIdStr, 'preferences.profileVisibility visibility').lean();
+
+    if (!user) {
+      // User not found - don't cache, return false
+      return false;
+    }
+
+    // Check preferences.profileVisibility first (newer), fall back to visibility field
+    const visibility = user.preferences?.profileVisibility || user.visibility || 'public';
+
+    // Cache the result
+    userVisibilityCache.set(userIdStr, {
+      visibility,
+      cachedAt: Date.now()
+    });
+
+    return visibility === 'private';
+  } catch (error) {
+    backendLogger.error('[WebSocket] Error checking profile visibility', {
+      userId: userIdStr,
+      error: error.message
+    }, error);
+    return false; // Default to not private on error
+  }
+}
+
+/**
+ * Invalidate visibility cache for a user
+ * Called when user updates their profile visibility preference
+ *
+ * @param {string} userId - User ID to invalidate
+ */
+function invalidateVisibilityCache(userId) {
+  if (userId) {
+    userVisibilityCache.delete(userId.toString());
+  }
 }
 
 /**
@@ -619,36 +689,45 @@ async function handleJoinRoom(ws, client, payload) {
   client.currentTab = tab;
   client.roomType = roomType;
 
+  // Check if user has private profile - cache this for presence filtering
+  const isPrivate = await hasPrivateProfile(client.userId);
+  client.hasPrivateProfile = isPrivate;
+
   backendLogger.info('[WebSocket] Client joined room', {
     userId: client.userId,
     roomId: actualRoomId,
     roomType,
     tab,
-    roomSize: room.size
+    roomSize: room.size,
+    hasPrivateProfile: isPrivate
   });
 
-  // Notify others in the room about the new member
-  broadcastToRoom(actualRoomId, {
-    type: 'presence:joined',
-    payload: {
-      userId: client.userId,
-      sessionId: client.sessionId,
-      roomId: actualRoomId,
-      experienceId: roomType === 'experience' ? resourceId : undefined,
-      planId: roomType === 'plan' ? resourceId : undefined,
-      tab,
-      timestamp: Date.now()
-    }
-  }, ws);
+  // Only broadcast presence:joined if user doesn't have a private profile
+  // Private profile users should appear as offline to others
+  if (!isPrivate) {
+    broadcastToRoom(actualRoomId, {
+      type: 'presence:joined',
+      payload: {
+        userId: client.userId,
+        sessionId: client.sessionId,
+        roomId: actualRoomId,
+        experienceId: roomType === 'experience' ? resourceId : undefined,
+        planId: roomType === 'plan' ? resourceId : undefined,
+        tab,
+        timestamp: Date.now()
+      }
+    }, ws);
+  }
 
-  // Send room info to the joining client
+  // Send room info to the joining client (including all members they can see)
+  const members = await getActiveRoomMembers(actualRoomId);
   send(ws, {
     type: 'room:joined',
     payload: {
       roomId: actualRoomId,
       experienceId: roomType === 'experience' ? resourceId : undefined,
       planId: roomType === 'plan' ? resourceId : undefined,
-      members: getActiveRoomMembers(actualRoomId)
+      members
     }
   });
 }
@@ -701,7 +780,8 @@ function leaveRoom(ws, client, roomId) {
   backendLogger.info('[WebSocket] Client left room', {
     userId: client.userId,
     roomId,
-    roomSize: room.size
+    roomSize: room.size,
+    hasPrivateProfile: client.hasPrivateProfile
   });
 
   // Clean up empty rooms
@@ -709,18 +789,21 @@ function leaveRoom(ws, client, roomId) {
     rooms.delete(roomId);
   }
 
-  // Notify others in the room
-  broadcastToRoom(roomId, {
-    type: 'presence:left',
-    payload: {
-      userId: client.userId,
-      sessionId: client.sessionId,
-      roomId,
-      experienceId,
-      planId,
-      timestamp: Date.now()
-    }
-  }, ws);
+  // Only broadcast presence:left if user doesn't have a private profile
+  // Private profile users were never announced as online, so no need to announce leaving
+  if (!client.hasPrivateProfile) {
+    broadcastToRoom(roomId, {
+      type: 'presence:left',
+      payload: {
+        userId: client.userId,
+        sessionId: client.sessionId,
+        roomId,
+        experienceId,
+        planId,
+        timestamp: Date.now()
+      }
+    }, ws);
+  }
 }
 
 /**
@@ -807,6 +890,12 @@ function handlePresenceUpdate(ws, client, payload) {
     client.currentTab = presenceData.tab;
   }
 
+  // Don't broadcast presence updates for users with private profiles
+  // They should always appear as offline to others
+  if (client.hasPrivateProfile) {
+    return;
+  }
+
   broadcastToRoom(targetRoomId, {
     type: 'presence:updated',
     payload: {
@@ -886,18 +975,23 @@ function send(ws, message) {
 
 /**
  * Get list of active members in a room
+ * Filters out users with private profile visibility
  *
  * @param {string} roomId - Room ID (format: "experience:{id}" or "plan:{id}")
- * @returns {Array<object>} Array of member info including tab for experience rooms
+ * @returns {Promise<Array<object>>} Array of member info including tab for experience rooms
  */
-function getActiveRoomMembers(roomId) {
+async function getActiveRoomMembers(roomId) {
   const room = rooms.get(roomId);
   if (!room) return [];
 
   const members = [];
-  room.forEach((ws) => {
+  for (const ws of room) {
     const client = clients.get(ws);
     if (client && ws.readyState === WebSocket.OPEN) {
+      // Skip users with private profiles - they should appear as offline
+      if (client.hasPrivateProfile) {
+        continue;
+      }
       members.push({
         userId: client.userId,
         sessionId: client.sessionId,
@@ -905,7 +999,7 @@ function getActiveRoomMembers(roomId) {
         connectedAt: client.connectedAt
       });
     }
-  });
+  }
 
   return members;
 }
@@ -1002,6 +1096,8 @@ module.exports = {
   getStats,
   broadcastEvent,
   broadcastToRoom,
+  // Cache invalidation for when user updates profile visibility
+  invalidateVisibilityCache,
   // Expose for testing
   rooms,
   clients

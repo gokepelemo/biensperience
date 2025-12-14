@@ -71,9 +71,9 @@ export async function showExperience(id) {
 // OPTIMIZATION: Fetch experience with full context (experience + userPlan + sharedPlans)
 // Reduces 3 API calls to 1 for dramatically faster page load
 export async function showExperienceWithContext(id) {
-  // Critical navigation - use high priority for instant perception
+  // Critical navigation - bypass queue entirely for instant perception
   return await sendQueuedRequest(`${BASE_URL}${id}/with-context`, "GET", null, {
-    priority: PRIORITY.HIGH,
+    priority: PRIORITY.CRITICAL,
     label: `experience/${id}/context`
   });
 }

@@ -37,6 +37,7 @@ import { logger } from "../../utilities/logger";
 import { eventBus } from "../../utilities/event-bus";
 import { broadcastEvent } from "../../utilities/event-bus";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
+import { isSystemUser } from "../../utilities/system-users";
 
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
@@ -384,6 +385,14 @@ export default function Profile() {
     // Validate userId before API calls
     if (!userId || typeof userId !== 'string' || userId.length !== 24) {
       setProfileError(lang.current.alert.invalidUserId);
+      setIsLoadingProfile(false);
+      return;
+    }
+
+    // Block access to system user profiles (e.g., Archive User)
+    // These are internal system accounts that should never be publicly viewable
+    if (isSystemUser(userId)) {
+      setProfileError(lang.current.alert.userNotFound);
       setIsLoadingProfile(false);
       return;
     }
@@ -809,7 +818,7 @@ export default function Profile() {
   }, [plans, currentProfile]);
 
   // Show error state if profile not found
-  if (profileError === 'User not found') {
+  if (profileError === lang.current.alert.userNotFound) {
     return (
       <div style={{ padding: 'var(--space-20) 0' }}>
         <Container>

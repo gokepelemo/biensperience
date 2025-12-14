@@ -646,6 +646,7 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
   // Enhance all plans with user data (no async operations needed)
   const plansWithCollaborators = plans.map(plan => {
     const planObj = plan.toObject();
+
     if (planObj.permissions && planObj.permissions.length > 0) {
       planObj.permissions = planObj.permissions.map(p => {
         if (p.entity === 'user' && userMap[p._id.toString()]) {

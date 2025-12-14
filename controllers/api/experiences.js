@@ -531,7 +531,7 @@ async function showExperienceWithContext(req, res) {
       experience: experienceId,
       user: userId
     })
-      .select('experience user planned_date plan permissions notes createdAt updatedAt')
+      .select('experience user planned_date plan permissions notes pinnedItemId createdAt updatedAt')
       .populate({
         path: 'user',
         select: 'name email photos default_photo_id',
@@ -567,7 +567,7 @@ async function showExperienceWithContext(req, res) {
         }
       ]
     })
-      .select('experience user planned_date plan permissions notes createdAt updatedAt')
+      .select('experience user planned_date plan permissions notes pinnedItemId createdAt updatedAt')
       // Populate the plan owner user small profile so frontend can render owner names
       .populate({
         path: 'user',

@@ -1040,7 +1040,11 @@ export async function pinPlanItem(planId, itemId) {
       pinnedItemId: result.pinnedItemId
     });
 
-    // Emit events via event bus
+    // Emit granular pin event only (NOT plan:updated)
+    // The plan:updated event with partial data { pinnedItemId } causes issues with
+    // reconcileState in usePlanManagement hook. The calling component (MyPlanTabContent)
+    // handles the optimistic update directly via setSharedPlans, so we only need
+    // the granular event for cross-tab sync if needed.
     try {
       const version = Date.now();
       const eventPayload = {
@@ -1051,15 +1055,12 @@ export async function pinPlanItem(planId, itemId) {
         version
       };
 
-      // Standardized event for DataContext
-      broadcastEvent('plan:updated', { planId, data: { pinnedItemId: result.pinnedItemId }, version });
-
-      // Granular pin event
+      // Granular pin event only - NOT plan:updated to avoid reconcileState issues
       broadcastEvent('plan:item:pinned', eventPayload);
 
-      logger.debug('[plans-api] Plan item pin events dispatched', { version });
+      logger.debug('[plans-api] Plan item pin event dispatched', { version });
     } catch (e) {
-      logger.warn('[plans-api] Failed to dispatch pin events', {}, e);
+      logger.warn('[plans-api] Failed to dispatch pin event', {}, e);
     }
 
     return result;

@@ -72,6 +72,13 @@
   color: var(--color-text-muted);
 }
 
+.inherited {
+  font-weight: $font-weight-normal;
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 .dateInput,
 .timeInput {
   width: 100%;
@@ -92,6 +99,17 @@
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  &.readOnly {
+    background: var(--color-bg-tertiary);
+    border-style: dashed;
+    cursor: default;
+    opacity: 0.8;
+
+    &::-webkit-calendar-picker-indicator {
+      display: none;
+    }
   }
 
   // Style the calendar/time picker icons

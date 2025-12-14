@@ -306,10 +306,12 @@ const en = {
     // Add Date Modal
     addDateModal: {
       title: "Schedule Date",
+      titleTimeOnly: "Schedule Time",
       forLabel: "For:",
       dateLabel: "Date",
       timeLabel: "Time",
       timeOptional: "(optional)",
+      inheritedFromParent: "(from parent)",
       timezoneInfo: "Times are in your timezone:",
       selectDate: "Please select a date",
       dateBeforeMinDate: "Scheduled date cannot be before the planned date",
@@ -1696,11 +1698,6 @@ const en = {
   dragHandle: {
     dragToReorder: "Drag to reorder",
     dragInstructions: "Drag left to promote, right to nest, up/down to reorder",
-  },
-
-  // Loading component strings
-  loading: {
-    biensperienceLogo: "Biensperience logo",
   },
 
   // BiensperienceLogo component strings

@@ -791,27 +791,61 @@ export default function SingleExperience() {
     return data;
   }, [allPlanCollaborators, selectedPlan, experience]);
 
-  const toggleExpanded = useCallback((parentId) => {
+  /**
+   * Get a canonical expansion key for a plan item.
+   * For plan items: prefer plan_item_id (experience item reference) since children use this to reference parent
+   * For experience items: use _id
+   * This ensures consistent key usage across all components.
+   */
+  const getExpansionKey = useCallback((item) => {
+    if (!item) return null;
+    // For plan items, use plan_item_id as the canonical key (this is what children reference)
+    // Fall back to _id if plan_item_id doesn't exist (e.g., plan-instance-only items)
+    return (item.plan_item_id || item._id)?.toString() || null;
+  }, []);
+
+  /**
+   * Check if an item is expanded. Handles both plan items and experience items.
+   * Also considers animatingCollapse - if an item is animating collapse, treat it as collapsed.
+   * @param {Object} item - The plan item or experience item
+   * @returns {boolean} Whether the item is expanded
+   */
+  const isItemExpanded = useCallback((item) => {
+    const key = getExpansionKey(item);
+    if (!key) return true;
+    // If this item is currently animating collapse, treat as not expanded
+    if (animatingCollapse === key) return false;
+    return expandedParents.has(key);
+  }, [expandedParents, getExpansionKey, animatingCollapse]);
+
+  /**
+   * Toggle expansion state for a plan item.
+   * @param {Object} item - The plan item to toggle (pass the full item object)
+   */
+  const toggleExpanded = useCallback((item) => {
+    const key = getExpansionKey(item);
+    if (!key) return;
+
     setExpandedParents((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(parentId)) {
-        // collapsing
-        setAnimatingCollapse(parentId);
+      if (newSet.has(key)) {
+        // collapsing - animate then remove
+        setAnimatingCollapse(key);
         setTimeout(() => {
           setExpandedParents((prev) => {
             const newSet = new Set(prev);
-            newSet.delete(parentId);
+            newSet.delete(key);
             return newSet;
           });
           setAnimatingCollapse(null);
         }, 300);
       } else {
         // expanding
-        newSet.add(parentId);
+        newSet.add(key);
       }
       return newSet;
     });
-  }, []);
+  }, [getExpansionKey]);
 
   // OPTIMIZATION: Combined fetch function - fetches all data in one API call
   // Reduces 3 API calls to 1 for dramatically faster page load
@@ -834,10 +868,11 @@ export default function SingleExperience() {
       }
 
       // Set expanded parents (all parents expanded by default)
+      // Use toString() for consistent Set operations
       const parentIds = experienceData.plan_items
         .filter((item) => !item.parent)
-        .map((item) => item._id);
-      setExpandedParents(new Set(parentIds));
+        .map((item) => item._id?.toString());
+      setExpandedParents(new Set(parentIds.filter(Boolean)));
 
       // Set user plan data
       setUserPlan(fetchedUserPlan || null);
@@ -1526,6 +1561,26 @@ export default function SingleExperience() {
     }
   }, [activeTab, setPresenceTab]);
 
+  // Re-initialize expandedParents when switching between experience and plan views
+  // Uses getExpansionKey for consistent canonical ID handling
+  useEffect(() => {
+    if (activeTab === 'experience' && experience?.plan_items) {
+      // Use canonical key (for experience items, this is _id)
+      const parentKeys = experience.plan_items
+        .filter((item) => !item.parent)
+        .map((item) => getExpansionKey(item))
+        .filter(Boolean);
+      setExpandedParents(new Set(parentKeys));
+    } else if (activeTab === 'myplan' && currentPlan?.plan) {
+      // Use canonical key (for plan items, this is plan_item_id, falling back to _id)
+      const parentKeys = currentPlan.plan
+        .filter((item) => !item.parent)
+        .map((item) => getExpansionKey(item))
+        .filter(Boolean);
+      setExpandedParents(new Set(parentKeys));
+    }
+  }, [activeTab, experience?.plan_items, currentPlan?.plan, getExpansionKey]);
+
   const handleSyncPlan = useCallback(async () => {
     if (!selectedPlanId || !experience) return;
 
@@ -2068,34 +2123,48 @@ export default function SingleExperience() {
 
   const handlePlanInstanceItemDelete = useCallback(async () => {
     if (!selectedPlanId || !planInstanceItemToDelete) return;
-    // Optimistic removal from selected plan snapshot
-    const prevPlans = [...sharedPlans];
-  const planIndex = sharedPlans.findIndex((p) => idEquals(p._id, selectedPlanId));
-    const prevPlan = planIndex >= 0 ? { ...sharedPlans[planIndex], plan: [...sharedPlans[planIndex].plan] } : null;
+
+    // Store the item to delete and previous state for rollback
+    const itemToDelete = planInstanceItemToDelete;
+    let prevPlansSnapshot = null;
 
     const apply = () => {
-      if (!prevPlan || planIndex < 0) return;
-      const updatedPlans = [...sharedPlans];
-      const updatedPlan = { ...prevPlan, plan: prevPlan.plan.filter((i) => i._id?.toString() !== planInstanceItemToDelete._id?.toString()) };
-      updatedPlans[planIndex] = updatedPlan;
-      setSharedPlans(updatedPlans);
+      // Use functional update to avoid stale closure issues
+      setSharedPlans(prev => {
+        // Capture snapshot for potential rollback
+        prevPlansSnapshot = prev;
+        const planIndex = prev.findIndex((p) => idEquals(p._id, selectedPlanId));
+        if (planIndex < 0) return prev;
+
+        const updatedPlans = [...prev];
+        const prevPlan = updatedPlans[planIndex];
+        updatedPlans[planIndex] = {
+          ...prevPlan,
+          plan: prevPlan.plan.filter((i) => i._id?.toString() !== itemToDelete._id?.toString())
+        };
+        return updatedPlans;
+      });
       setShowPlanInstanceDeleteModal(false);
       setPlanInstanceItemToDelete(null);
     };
 
     const apiCall = async () => {
-      await deletePlanItemFromInstance(selectedPlanId, planInstanceItemToDelete._id);
+      await deletePlanItemFromInstance(selectedPlanId, itemToDelete._id);
     };
 
     const rollback = () => {
-      setSharedPlans(prevPlans);
+      if (prevPlansSnapshot) {
+        setSharedPlans(prevPlansSnapshot);
+      }
     };
 
-      const onSuccess = async () => {
-        fetchSharedPlans().catch(() => {});
-        fetchUserPlan().catch(() => {});
-        fetchPlans().catch(() => {});
-      };    const onError = (err, defaultMsg) => {
+    const onSuccess = async () => {
+      fetchSharedPlans().catch(() => {});
+      fetchUserPlan().catch(() => {});
+      fetchPlans().catch(() => {});
+    };
+
+    const onError = (err, defaultMsg) => {
       const errorMsg = handleError(err, { context: "Delete plan item" }) || defaultMsg;
       showError(errorMsg);
     };
@@ -2105,7 +2174,6 @@ export default function SingleExperience() {
   }, [
     selectedPlanId,
     planInstanceItemToDelete,
-    sharedPlans,
     fetchSharedPlans,
     fetchUserPlan,
     fetchPlans,
@@ -3116,6 +3184,8 @@ export default function SingleExperience() {
                           experienceCollaboratorsLoading={experienceCollaboratorsLoading}
                           expandedParents={expandedParents}
                           animatingCollapse={animatingCollapse}
+                          getExpansionKey={getExpansionKey}
+                          isItemExpanded={isItemExpanded}
                           handleAddExperiencePlanItem={handleAddExperiencePlanItem}
                           handleEditExperiencePlanItem={handleEditExperiencePlanItem}
                           openCollaboratorModal={collaboratorManager.openCollaboratorModal}
@@ -3147,6 +3217,7 @@ export default function SingleExperience() {
                         user={user}
                         idEquals={idEquals}
                         sharedPlans={sharedPlans}
+                        setSharedPlans={setSharedPlans}
                         planOwner={planOwner}
                         planCollaborators={planCollaborators}
                         planOwnerLoading={planOwnerLoading}
@@ -3159,6 +3230,8 @@ export default function SingleExperience() {
                         plansLoading={plansLoading}
                         expandedParents={expandedParents}
                         animatingCollapse={animatingCollapse}
+                        getExpansionKey={getExpansionKey}
+                        isItemExpanded={isItemExpanded}
                         displayedPlannedDate={displayedPlannedDate}
                         setIsEditingDate={setIsEditingDate}
                         setPlannedDate={setPlannedDate}

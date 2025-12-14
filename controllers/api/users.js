@@ -6,8 +6,10 @@ const crypto = require("crypto");
 const mongoose = require("mongoose");
 const { USER_ROLES } = require("../../utilities/user-roles");
 const { isSuperAdmin } = require("../../utilities/permissions");
+const { isSystemUser } = require("../../utilities/system-users");
 const backendLogger = require("../../utilities/backend-logger");
 const { geocodeAddress } = require("../../utilities/geocoding-utils");
+const { invalidateVisibilityCache } = require("../../utilities/websocket-server");
 
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
@@ -142,6 +144,12 @@ async function getUser(req, res) {
       return res.status(400).json({ error: 'Invalid user ID format' });
     }
     const userId = new mongoose.Types.ObjectId(req.params.id);
+
+    // Block access to system user profiles (e.g., Archive User)
+    // These are internal system accounts that should never be publicly viewable
+    if (isSystemUser(userId)) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     const user = await User.findOne({ _id: userId })
       .populate("photos", "url caption photo_credit photo_credit_url width height")
@@ -568,6 +576,12 @@ async function updateUser(req, res, next) {
 
     user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true })
       .populate("photos", "url caption photo_credit photo_credit_url width height");
+
+    // Invalidate visibility cache if profileVisibility was updated
+    // This ensures websocket presence reflects the new privacy setting immediately
+    if (validatedUpdateData.preferences?.profileVisibility) {
+      invalidateVisibilityCache(userId.toString());
+    }
 
     // Generate new JWT token with updated user data
     const token = createJWT(user);
