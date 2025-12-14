@@ -19,7 +19,8 @@ import {
   FaClock,
   FaUser,
   FaStar,
-  FaThumbtack
+  FaThumbtack,
+  FaEye
 } from 'react-icons/fa';
 import ActionsMenu from '../../../components/ActionsMenu';
 import {
@@ -710,6 +711,16 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
         onClick: () => onScheduleDate(planItem, parentItem),
       },
     ];
+
+    // View Details action - only show when URL exists (since clicking text opens URL)
+    if (planItem.url) {
+      items.push({
+        id: 'view-details',
+        label: 'View Details',
+        icon: <FaEye />,
+        onClick: () => handleViewPlanItemDetails(planItem),
+      });
+    }
 
     // Pin action - only for root items (not children)
     if (!planItem.isChild && !planItem.parent && onPinItem) {
@@ -1523,6 +1534,17 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
                   <><FaCalendarAlt /> Schedule Date</>
                 )}
               </button>
+              {planItem.url && (
+                <button
+                  className="timeline-actions-item"
+                  onClick={() => {
+                    handleViewPlanItemDetails(planItem);
+                    setShowActionsMenu(false);
+                  }}
+                >
+                  <FaEye /> View Details
+                </button>
+              )}
               {!planItem.parent && !planItem.isChild && onPinItem && (
                 <button
                   className={`timeline-actions-item ${isPinned ? 'timeline-actions-item-active' : ''}`}
