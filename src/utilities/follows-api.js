@@ -3,7 +3,7 @@
  * Frontend service for managing follow relationships and feed
  */
 
-import { getToken } from './users-service';
+import { sendRequest } from './send-request';
 import { logger } from './logger';
 import { broadcastEvent } from './event-bus';
 
@@ -16,19 +16,7 @@ const BASE_URL = '/api/follows';
  */
 export async function followUser(userId) {
   try {
-    const response = await fetch(`${BASE_URL}/${userId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getToken()}`
-      }
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || 'Failed to follow user');
-    }
+    const result = await sendRequest(`${BASE_URL}/${userId}`, 'POST');
 
     logger.info('User followed successfully', { userId });
 
@@ -57,18 +45,7 @@ export async function followUser(userId) {
  */
 export async function unfollowUser(userId) {
   try {
-    const response = await fetch(`${BASE_URL}/${userId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${getToken()}`
-      }
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || 'Failed to unfollow user');
-    }
+    const result = await sendRequest(`${BASE_URL}/${userId}`, 'DELETE');
 
     logger.info('User unfollowed successfully', { userId });
 
@@ -93,17 +70,7 @@ export async function unfollowUser(userId) {
  */
 export async function getFollowStatus(userId) {
   try {
-    const response = await fetch(`${BASE_URL}/${userId}/status`, {
-      headers: {
-        'Authorization': `Bearer ${getToken()}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get follow status');
-    }
-
-    const result = await response.json();
+    const result = await sendRequest(`${BASE_URL}/${userId}/status`);
     return result.isFollowing;
   } catch (error) {
     logger.error('Error getting follow status', { error: error.message, userId });
@@ -118,17 +85,7 @@ export async function getFollowStatus(userId) {
  */
 export async function getFollowCounts(userId) {
   try {
-    const response = await fetch(`${BASE_URL}/${userId}/counts`, {
-      headers: {
-        'Authorization': `Bearer ${getToken()}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get follow counts');
-    }
-
-    const result = await response.json();
+    const result = await sendRequest(`${BASE_URL}/${userId}/counts`);
     return result.counts;
   } catch (error) {
     logger.error('Error getting follow counts', { error: error.message, userId });
@@ -149,17 +106,7 @@ export async function getFollowers(userId, options = {}) {
     const { limit = 50, skip = 0 } = options;
     const params = new URLSearchParams({ limit, skip });
 
-    const response = await fetch(`${BASE_URL}/${userId}/followers?${params}`, {
-      headers: {
-        'Authorization': `Bearer ${getToken()}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get followers');
-    }
-
-    return await response.json();
+    return await sendRequest(`${BASE_URL}/${userId}/followers?${params}`);
   } catch (error) {
     logger.error('Error getting followers', { error: error.message, userId });
     throw error;
@@ -179,17 +126,7 @@ export async function getFollowing(userId, options = {}) {
     const { limit = 50, skip = 0 } = options;
     const params = new URLSearchParams({ limit, skip });
 
-    const response = await fetch(`${BASE_URL}/${userId}/following?${params}`, {
-      headers: {
-        'Authorization': `Bearer ${getToken()}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get following list');
-    }
-
-    return await response.json();
+    return await sendRequest(`${BASE_URL}/${userId}/following?${params}`);
   } catch (error) {
     logger.error('Error getting following list', { error: error.message, userId });
     throw error;
@@ -212,17 +149,7 @@ export async function getFollowFeed(options = {}) {
       params.set('actions', actions);
     }
 
-    const response = await fetch(`${BASE_URL}/feed?${params}`, {
-      headers: {
-        'Authorization': `Bearer ${getToken()}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get feed');
-    }
-
-    return await response.json();
+    return await sendRequest(`${BASE_URL}/feed?${params}`);
   } catch (error) {
     logger.error('Error getting follow feed', { error: error.message });
     throw error;

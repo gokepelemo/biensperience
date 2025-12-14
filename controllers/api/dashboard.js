@@ -339,6 +339,17 @@ async function getRecentActivity(userId, options = {}) {
         targetName = activity.target.name;
       }
 
+      // For follow activities, use the target user's name and link to their profile
+      if (activity.action === 'follow_created' || activity.action === 'follow_removed') {
+        // For follow activities, the target is the followed user
+        if (activity.target) {
+          resourceName = activity.target.name || 'User';
+          if (activity.target.id) {
+            resourceLink = `/profile/${activity.target.id}`;
+          }
+        }
+      }
+
       // For cost activities, show the cost title from metadata
       if ((activity.action === 'cost_added' || activity.action === 'cost_updated' || activity.action === 'cost_deleted') &&
           activity.metadata?.costTitle) {
@@ -493,7 +504,9 @@ function formatActivityAction(action) {
     'collaborator_removed': 'Removed from collaboration on',
     'cost_added': 'Added a cost to',
     'cost_updated': 'Updated a cost on',
-    'cost_deleted': 'Deleted a cost from'
+    'cost_deleted': 'Deleted a cost from',
+    'follow_created': 'Followed',
+    'follow_removed': 'Unfollowed'
   };
 
   return actionMap[action] || action.replace(/_/g, ' ');

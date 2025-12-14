@@ -200,25 +200,43 @@ export function ProfileContentGridSkeleton({ type = 'experiences', count = 6 }) 
 
 /**
  * Tabs skeleton for Profile navigation
+ * Shows 5 tabs: Activity, Follows, Planned, Created, Destinations
  */
 export function ProfileTabsSkeleton() {
   return (
     <div className={styles.profileTabs}>
+      {/* Activity tab */}
+      <SkeletonLoader
+        variant="rectangle"
+        width="75px"
+        height="32px"
+        style={{ borderRadius: 'var(--radius-sm)' }}
+      />
+      {/* Follows tab */}
       <SkeletonLoader
         variant="rectangle"
         width="70px"
         height="32px"
         style={{ borderRadius: 'var(--radius-sm)' }}
       />
+      {/* Planned tab */}
+      <SkeletonLoader
+        variant="rectangle"
+        width="75px"
+        height="32px"
+        style={{ borderRadius: 'var(--radius-sm)' }}
+      />
+      {/* Created tab */}
       <SkeletonLoader
         variant="rectangle"
         width="70px"
         height="32px"
         style={{ borderRadius: 'var(--radius-sm)' }}
       />
+      {/* Destinations tab */}
       <SkeletonLoader
         variant="rectangle"
-        width="90px"
+        width="100px"
         height="32px"
         style={{ borderRadius: 'var(--radius-sm)' }}
       />

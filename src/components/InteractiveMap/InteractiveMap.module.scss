@@ -114,7 +114,12 @@
   max-height: none !important;
 }
 
+/* Hide the default Google Maps close button - we use our own */
 :global(.gm-ui-hover-effect) {
-  top: 4px !important;
-  right: 4px !important;
+  display: none !important;
+}
+
+/* Hide the InfoWindow header/close button container */
+:global(.gm-style-iw-chr) {
+  display: none !important;
 }

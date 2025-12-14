@@ -15,6 +15,7 @@ import { FaCalendarAlt, FaMapMarkerAlt, FaStar, FaUsers, FaFilter, FaChevronRigh
 import { getActivityFeed } from '../../utilities/dashboard-api';
 import { getFollowFeed } from '../../utilities/follows-api';
 import { logger } from '../../utilities/logger';
+import { lang } from '../../lang.constants';
 import { SkeletonLoader } from '../design-system';
 import styles from './ActivityFeed.module.scss';
 
@@ -291,6 +292,12 @@ export default function ActivityFeed({ userId, feedType = 'own' }) {
             {displayedActivities.map((activity) => {
               // Use actionType (raw) for icon selection, fall back to action text
               const Icon = getActivityIcon(activity.resourceType, activity.actionType || activity.action);
+              // Format action text with "You" prefix for own activities
+              // When viewing own profile feed, always use "You" instead of actor name
+              const isOwnActivity = feedType === 'own' || activity.actorId === userId;
+              const actionText = isOwnActivity
+                ? `You ${activity.action.toLowerCase()}`
+                : `${activity.actorName || 'Someone'} ${activity.action.toLowerCase()}`;
               return (
                 <div key={activity.id} className={styles.activityItem}>
                   <div className={styles.activityIcon}>
@@ -298,7 +305,7 @@ export default function ActivityFeed({ userId, feedType = 'own' }) {
                   </div>
                   <div className={styles.activityContent}>
                     <p className={styles.activityText}>
-                      <span className={styles.activityAction}>{activity.action}</span>
+                      <span className={styles.activityAction}>{actionText}</span>
                       {activity.item && (
                         <>
                           {' '}
@@ -334,7 +341,7 @@ export default function ActivityFeed({ userId, feedType = 'own' }) {
                   disabled={loadingMore}
                   className={styles.loadMoreButton}
                 >
-                  {loadingMore ? 'Loading...' : 'Load More'}
+                  {loadingMore ? lang.current.loading.default : lang.current.button.loadMore}
                 </button>
               </div>
             )}
@@ -348,8 +355,4 @@ export default function ActivityFeed({ userId, feedType = 'own' }) {
 ActivityFeed.propTypes = {
   userId: PropTypes.string.isRequired,
   feedType: PropTypes.oneOf(['own', 'following']),
-};
-
-ActivityFeed.defaultProps = {
-  feedType: 'own',
 };
