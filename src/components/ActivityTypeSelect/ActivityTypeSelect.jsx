@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect, useId, memo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ACTIVITY_TYPES,
   ACTIVITY_CATEGORIES,
@@ -98,6 +99,7 @@ export default function ActivityTypeSelect({
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
 
   // Selected type info (simple lookup, no memo needed for single lookup)
   const selectedType = value ? getActivityType(value) : null;
@@ -108,6 +110,29 @@ export default function ActivityTypeSelect({
   // For keyboard nav, determine the list of items
   const navItems = searchResults || ACTIVITY_TYPES;
   const navLen = navItems.length;
+
+  // Calculate dropdown position when opening
+  useEffect(() => {
+    if (!open || !containerRef.current) return;
+
+    const updatePosition = () => {
+      const rect = containerRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [open]);
 
   // Close on outside click
   useEffect(() => {
@@ -316,11 +341,22 @@ export default function ActivityTypeSelect({
         </div>
       </div>
 
-      {/* Dropdown */}
-      {open && (
-        <div ref={dropdownRef} className={styles.dropdown} role="listbox">
+      {/* Dropdown - rendered via portal to float above modals */}
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          className={styles.dropdown}
+          style={{
+            position: 'absolute',
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${dropdownPosition.width}px`
+          }}
+          role="listbox"
+        >
           {renderDropdown()}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

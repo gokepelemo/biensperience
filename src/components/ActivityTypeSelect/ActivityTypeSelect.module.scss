@@ -163,12 +163,8 @@
   transition: transform 0.15s ease;
 }
 
-// Dropdown
+// Dropdown - Rendered via portal, positioned absolutely by JS
 .dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
   z-index: 1060; // Higher than Bootstrap modal (1055) and modal-backdrop (1050)
   max-height: 320px;
   margin-top: 4px;
