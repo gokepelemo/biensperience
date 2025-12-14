@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Button } from '../design-system';
 import styles from './EmptyState.module.scss';
@@ -126,10 +126,22 @@ export default function EmptyState({
   const displayIcon = icon ?? config.icon;
   const displayTitle = title ?? config.title;
   const baseDescription = description ?? config.description;
+  
   // Apply Easter egg utility intermittently (30% chance for key variants)
-  const displayDescription = ['plans', 'experiences', 'destinations'].includes(variant)
-    ? addEasterEgg(baseDescription, { probability: 0.3, category: 'tagline' })
-    : baseDescription;
+  // Use useMemo with deterministic seed to prevent flashing on re-render
+  const displayDescription = useMemo(() => {
+    if (['plans', 'experiences', 'destinations'].includes(variant)) {
+      // Generate seed from base description for deterministic behavior
+      const seed = baseDescription.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      return addEasterEgg(baseDescription, { 
+        probability: 0.3, 
+        category: 'tagline',
+        seed: seed 
+      });
+    }
+    return baseDescription;
+  }, [variant, baseDescription]);
+  
   const displayPrimaryAction = primaryAction ?? config.primaryAction;
   const displaySecondaryAction = secondaryAction ?? config.secondaryAction;
 

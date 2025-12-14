@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Button } from '../design-system';
 import styles from './EntityNotFound.module.scss';
@@ -88,11 +88,17 @@ export default function EntityNotFound({
     : displayDescription;
   
   // Apply Easter egg utility (40% chance for 404s - classic Easter egg location)
-  const finalDescription = addEasterEgg(baseDescription, { 
-    probability: 0.4, 
-    category: 'subtle',
-    asNewSentence: true 
-  });
+  // Use useMemo with deterministic seed to prevent flashing on re-render
+  const finalDescription = useMemo(() => {
+    // Generate seed from base description for deterministic behavior
+    const seed = baseDescription.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return addEasterEgg(baseDescription, { 
+      probability: 0.4, 
+      category: 'subtle',
+      asNewSentence: true,
+      seed: seed
+    });
+  }, [baseDescription]);
 
   const containerClasses = [
     styles.entityNotFound,
