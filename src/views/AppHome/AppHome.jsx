@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
 import { useUser } from "../../contexts/UserContext";
@@ -24,10 +24,10 @@ export default function AppHome() {
   const [showAllExperiences, setShowAllExperiences] = useState(false);
 
   // Track whether initial data fetch has completed
-  // Initialize to true if data already exists (prevents skeleton flash on cached data)
-  const [initialFetchComplete, setInitialFetchComplete] = useState(
-    () => (destinations.length > 0 || experiences.length > 0) && !loading
-  );
+  // Use ref to track if we've already initiated a fetch to prevent double-fetching
+  const fetchInitiatedRef = useRef(false);
+  const hasExistingData = destinations.length > 0 || experiences.length > 0;
+  const [initialFetchComplete, setInitialFetchComplete] = useState(hasExistingData && !loading);
 
   const DESTINATIONS_INITIAL_DISPLAY = 10;
   const EXPERIENCES_INITIAL_DISPLAY = 12;
@@ -35,13 +35,21 @@ export default function AppHome() {
   // Fetch fresh, unfiltered data when AppHome mounts (only if no data exists)
   // This ensures we show all destinations and experiences, not filtered data from other views
   useEffect(() => {
-    // Skip fetch if data already exists (was cached)
-    if (initialFetchComplete) {
+    // Skip fetch if data already exists (was cached) - mark as complete immediately
+    if (hasExistingData && !loading) {
+      setInitialFetchComplete(true);
       logger.debug('AppHome: Data already loaded, skipping fetch');
       return;
     }
 
+    // Skip if we've already initiated a fetch (prevents double-fetch from strict mode)
+    if (fetchInitiatedRef.current) {
+      return;
+    }
+
+    fetchInitiatedRef.current = true;
     let mounted = true;
+
     (async () => {
       try {
         logger.info('AppHome: Fetching fresh unfiltered data on mount');
@@ -61,14 +69,15 @@ export default function AppHome() {
       }
     })();
     return () => { mounted = false; };
-    // Run once on mount - initialFetchComplete is stable after first render
+    // Run once on mount - dependencies are stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Determine loading states for each section
-  // Show skeleton if: loading OR initial fetch hasn't completed yet
-  const isDestinationsLoading = loading || !initialFetchComplete;
-  const isExperiencesLoading = loading || !initialFetchComplete;
+  // Show skeleton only if: no data exists AND (loading OR initial fetch hasn't completed)
+  // This prevents flashing when data already exists but a background refresh is happening
+  const isDestinationsLoading = destinations.length === 0 && (loading || !initialFetchComplete);
+  const isExperiencesLoading = experiences.length === 0 && (loading || !initialFetchComplete);
 
   // Check if this is a new user with no content (only after fetch completes)
   const isEmptyState = initialFetchComplete && !loading && destinations.length === 0 && experiences.length === 0;

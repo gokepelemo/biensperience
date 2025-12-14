@@ -757,13 +757,14 @@ export async function addPlanCost(planId, costData) {
     // Return the newly added cost (last item in the costs array)
     const newCost = result.costs[result.costs.length - 1];
 
-    // Emit events via event bus (handles local + cross-tab dispatch)
+    // Emit cost_added event via event bus (handles local + cross-tab dispatch)
+    // NOTE: Do NOT emit plan:updated here - it causes duplicate cost rendering
+    // The cost_added event is sufficient for state updates
     try {
       const version = Date.now();
       broadcastEvent('plan:cost_added', { plan: result, planId, costData, cost: newCost, version });
-      broadcastEvent('plan:updated', { plan: result, version });
     } catch (e) {
-      logger.warn('[plans-api] Failed to dispatch cost added events', {}, e);
+      logger.warn('[plans-api] Failed to dispatch cost added event', {}, e);
     }
 
     return newCost;
@@ -790,13 +791,13 @@ export async function updatePlanCost(planId, costId, updates) {
     // Find and return the updated cost
     const updatedCost = result.costs.find(cost => cost._id === costId);
 
-    // Emit events via event bus (handles local + cross-tab dispatch)
+    // Emit cost_updated event via event bus (handles local + cross-tab dispatch)
+    // NOTE: Do NOT emit plan:updated here - it causes duplicate state updates
     try {
       const version = Date.now();
       broadcastEvent('plan:cost_updated', { plan: result, planId, costId, updates, cost: updatedCost, version });
-      broadcastEvent('plan:updated', { plan: result, version });
     } catch (e) {
-      logger.warn('[plans-api] Failed to dispatch cost updated events', {}, e);
+      logger.warn('[plans-api] Failed to dispatch cost updated event', {}, e);
     }
 
     return updatedCost;
@@ -820,13 +821,13 @@ export async function deletePlanCost(planId, costId) {
   try {
     const result = await sendRequest(`${BASE_URL}/${planId}/costs/${costId}`, "DELETE");
 
-    // Emit events via event bus (handles local + cross-tab dispatch)
+    // Emit cost_deleted event via event bus (handles local + cross-tab dispatch)
+    // NOTE: Do NOT emit plan:updated here - it causes duplicate state updates
     try {
       const version = Date.now();
       broadcastEvent('plan:cost_deleted', { planId, costId, version });
-      broadcastEvent('plan:updated', { planId, version });
     } catch (e) {
-      logger.warn('[plans-api] Failed to dispatch cost deleted events', {}, e);
+      logger.warn('[plans-api] Failed to dispatch cost deleted event', {}, e);
     }
 
     return result;

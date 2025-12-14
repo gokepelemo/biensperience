@@ -351,19 +351,30 @@
 
 /* Details content */
 .detailsContent {
-  flex: 1; /* Take remaining space in flex container */
-  min-height: 0; /* Allow flex item to shrink below content size */
+  flex: 1 1 0; /* Take remaining space, allow shrinking to 0 */
+  min-height: 0; /* Critical: Allow flex item to shrink below content size */
   overflow: hidden; /* Let child handle scrolling */
   padding: 0; /* Remove padding - let child components handle their own padding */
   background: var(--color-bg-primary);
   display: flex;
   flex-direction: column;
 
-  /* Ensure child components like PlanItemNotes fill full height */
+  /* Ensure child components fill full height - use explicit properties for production builds */
   > * {
-    flex: 1;
+    flex: 1 1 0;
     min-height: 0;
+    height: 100%; /* Explicit height for production CSS */
   }
+}
+
+/* Notes tab wrapper - explicit styles for PlanItemNotes to fill available height */
+.notesTabWrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .comingSoonMessage {
@@ -455,31 +466,11 @@
     box-shadow: var(--shadow-sm);
   }
 
-  &.trackedCosts {
-    max-width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-
-    > .infoIcon {
-      position: absolute;
-    }
-
-    > .infoContent {
-      display: flex;
-      align-items: center;
-      gap: $space-2;
-    }
-  }
-
   @media (max-width: 768px) {
     min-width: 120px;
     max-width: none;
     flex: 1 1 calc(50% - $space-2);
     padding: $space-2 $space-3;
-
-    &.trackedCosts {
-      flex: 1 1 100%;
-    }
   }
 }
 

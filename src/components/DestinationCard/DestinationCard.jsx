@@ -20,7 +20,6 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const titleRef = useRef(null);
   const containerRef = useRef(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const prevImageSrcRef = useRef(null);
 
   // Get background image URL from destination photos or fallback to placeholder
@@ -55,17 +54,42 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
     return { imageSrc: src, backgroundImage: `url(${src})` };
   }, [destination, rand]);
 
+  // Check if image is already cached in browser to avoid skeleton flash on re-renders
+  // This runs synchronously during render to set correct initial state
+  const isImageCached = useMemo(() => {
+    if (!imageSrc) return true;
+    // Check if image is already in browser cache
+    const img = new Image();
+    img.src = imageSrc;
+    return img.complete && img.naturalHeight > 0;
+  }, [imageSrc]);
+
+  // Initialize imageLoaded based on cache status to prevent flash on cached images
+  const [imageLoaded, setImageLoaded] = useState(isImageCached);
+
   // Use shared image preloader utility to ensure skeleton overlay exists and load image
   // Only reset imageLoaded when the actual URL changes, not on every render
   useEffect(() => {
     // Only reset if image source actually changed to a different URL
     if (prevImageSrcRef.current !== imageSrc) {
       prevImageSrcRef.current = imageSrc;
+      // Check cache before resetting to false
+      const img = new Image();
+      img.src = imageSrc;
+      if (img.complete && img.naturalHeight > 0) {
+        setImageLoaded(true);
+        return;
+      }
       setImageLoaded(false);
     }
 
     if (!imageSrc) {
       setImageLoaded(true);
+      return;
+    }
+
+    // Skip preloading if already loaded (from cache or previous load)
+    if (imageLoaded) {
       return;
     }
 
@@ -77,7 +101,7 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
     return () => {
       try { cleanup && cleanup(); } catch (e) {}
     };
-  }, [imageSrc, forcePreload]);
+  }, [imageSrc, forcePreload, imageLoaded]);
 
   /**
    * Dynamically adjusts the font size of the destination title to fit within the card bounds.

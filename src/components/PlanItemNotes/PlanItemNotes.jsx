@@ -221,7 +221,9 @@ export default function PlanItemNotes({
   onEntityClick,
   // Real-time presence for online indicators
   presenceConnected = false,
-  onlineUserIds = new Set()
+  onlineUserIds = new Set(),
+  // Collaborators for resolving note author user data (names, photos)
+  collaborators = []
 }) {
   const [newNoteContent, setNewNoteContent] = useState('');
   const [newNoteVisibility, setNewNoteVisibility] = useState('contributors');
@@ -237,6 +239,46 @@ export default function PlanItemNotes({
   const [noteToDelete, setNoteToDelete] = useState(null);
   const chatMessagesRef = useRef(null);
   const prevNotesLengthRef = useRef(notes.length);
+
+  // Resolve user data from collaborators for notes that only have user IDs
+  // This prevents "Unknown User" flash by enriching notes with full user objects
+  const resolveUserFromCollaborators = useCallback((noteUser) => {
+    // If note.user is already a populated object with name, return as-is
+    if (noteUser && typeof noteUser === 'object' && noteUser.name) {
+      return noteUser;
+    }
+
+    // Get the user ID to look up
+    const userId = typeof noteUser === 'string' ? noteUser : noteUser?._id;
+    if (!userId) return noteUser;
+
+    // Check if currentUser matches
+    if (currentUser?._id === userId || currentUser?._id?.toString() === userId?.toString()) {
+      return currentUser;
+    }
+
+    // Look up in collaborators array
+    const collaborator = collaborators.find(c => {
+      const collabId = c._id || c.user?._id;
+      return collabId === userId || collabId?.toString() === userId?.toString();
+    });
+
+    if (collaborator) {
+      // Return the user object from collaborator (handles both { user: {...} } and {...} structures)
+      return collaborator.user || collaborator;
+    }
+
+    // Fallback: return original (may still show Unknown User)
+    return noteUser;
+  }, [collaborators, currentUser]);
+
+  // Pre-resolve all note users to avoid flash during render
+  const notesWithResolvedUsers = useMemo(() => {
+    return notes.map(note => ({
+      ...note,
+      user: resolveUserFromCollaborators(note.user)
+    }));
+  }, [notes, resolveUserFromCollaborators]);
 
   // Build generic TrieFilter index for fast searching (memoized)
   // Supports filtering by content (high priority), author name (medium), and date (low)
@@ -268,8 +310,8 @@ export default function PlanItemNotes({
           }
         }
       ]
-    }).buildIndex(notes);
-  }, [notes, entityData]);
+    }).buildIndex(notesWithResolvedUsers);
+  }, [notesWithResolvedUsers, entityData]);
 
   // Trie-based search with O(m) lookup complexity where m = query length
   // Real-time filtering as user types using generic TrieFilter

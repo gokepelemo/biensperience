@@ -3817,6 +3817,7 @@ export default function SingleExperience() {
         onShare={handleSharePlanItem}
         presenceConnected={presenceConnected}
         planMembers={planMembers}
+        experienceName={experience?.name || ''}
       />
 
       {/* Inline Cost Entry Modal - for adding costs from plan item details */}

@@ -5,7 +5,7 @@
  * Avoids useMemo chains and complex state dependencies to prevent browser crashes.
  */
 
-import { useState, useCallback, useRef, useEffect, useId } from 'react';
+import { useState, useCallback, useRef, useEffect, useId, memo } from 'react';
 import {
   ACTIVITY_TYPES,
   ACTIVITY_CATEGORIES,
@@ -58,6 +58,29 @@ function filterByQuery(query) {
 
   return results;
 }
+
+/**
+ * Option component - defined outside to prevent recreation on every render
+ * This is CRITICAL for performance - defining components inside render causes
+ * React to unmount/remount them on every render, causing exponential re-renders
+ */
+const Option = memo(function Option({ type, index, isHighlighted, isSelected, onSelect, onHighlight }) {
+  return (
+    <div
+      data-i={index}
+      className={`${styles.option} ${isHighlighted ? styles.highlighted : ''} ${isSelected ? styles.selected : ''}`}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => onSelect(type)}
+      onMouseEnter={() => onHighlight(index)}
+      role="option"
+      aria-selected={isSelected}
+    >
+      <span className={styles.optionIcon}>{type.icon}</span>
+      <span className={styles.optionLabel}>{type.label}</span>
+      {isSelected && <span className={styles.checkmark}>✓</span>}
+    </div>
+  );
+});
 
 export default function ActivityTypeSelect({
   value,
@@ -172,27 +195,10 @@ export default function ActivityTypeSelect({
     }
   }, [open, navLen, highlight, navItems, doSelect]);
 
-  // Render a single option
-  const Option = ({ type, index }) => {
-    const isHl = index === highlight;
-    const isSel = type.value === value;
-
-    return (
-      <div
-        data-i={index}
-        className={`${styles.option} ${isHl ? styles.highlighted : ''} ${isSel ? styles.selected : ''}`}
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => doSelect(type)}
-        onMouseEnter={() => setHighlight(index)}
-        role="option"
-        aria-selected={isSel}
-      >
-        <span className={styles.optionIcon}>{type.icon}</span>
-        <span className={styles.optionLabel}>{type.label}</span>
-        {isSel && <span className={styles.checkmark}>✓</span>}
-      </div>
-    );
-  };
+  // Stable callback for highlighting - wrapped in useCallback to prevent recreation
+  const handleHighlight = useCallback((index) => {
+    setHighlight(index);
+  }, []);
 
   // Render dropdown content
   const renderDropdown = () => {
@@ -202,7 +208,15 @@ export default function ActivityTypeSelect({
         return <div className={styles.noResults}>No matching activity types</div>;
       }
       return searchResults.map((type, i) => (
-        <Option key={type.value} type={type} index={i} />
+        <Option
+          key={type.value}
+          type={type}
+          index={i}
+          isHighlighted={i === highlight}
+          isSelected={type.value === value}
+          onSelect={doSelect}
+          onHighlight={handleHighlight}
+        />
       ));
     }
 
@@ -219,13 +233,20 @@ export default function ActivityTypeSelect({
             <span className={styles.categoryIcon}>{catInfo.icon}</span>
             <span className={styles.categoryLabel}>{catInfo.label}</span>
           </div>
-          {items.map(type => (
-            <Option
-              key={type.value}
-              type={type}
-              index={ITEM_TO_INDEX.get(type.value)}
-            />
-          ))}
+          {items.map(type => {
+            const itemIndex = ITEM_TO_INDEX.get(type.value);
+            return (
+              <Option
+                key={type.value}
+                type={type}
+                index={itemIndex}
+                isHighlighted={itemIndex === highlight}
+                isSelected={type.value === value}
+                onSelect={doSelect}
+                onHighlight={handleHighlight}
+              />
+            );
+          })}
         </div>
       );
     });

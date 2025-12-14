@@ -55,7 +55,9 @@ export default function PlanItemDetailsModal({
   onShare,
   // Real-time presence for online indicators
   presenceConnected = false,
-  planMembers = []
+  planMembers = [],
+  // Experience name for PDF export title
+  experienceName = ''
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditingAssignment, setIsEditingAssignment] = useState(false);
@@ -319,10 +321,18 @@ export default function PlanItemDetailsModal({
   // NOTE: These useMemo hooks MUST be before any early returns to maintain hooks order
   const actualCosts = useMemo(() => {
     if (!plan?.costs || !planItem?._id) return [];
-    return plan.costs.filter(cost => {
+    const filtered = plan.costs.filter(cost => {
       const costPlanItemId = cost.plan_item?._id || cost.plan_item;
       const planItemId = planItem._id;
       return costPlanItemId && String(costPlanItemId) === String(planItemId);
+    });
+    // Deduplicate by cost _id to prevent rendering duplicates
+    const seen = new Set();
+    return filtered.filter(cost => {
+      const id = cost._id?.toString() || cost._id;
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
     });
   }, [plan?.costs, planItem?._id]);
 
@@ -403,7 +413,12 @@ export default function PlanItemDetailsModal({
     const groups = {};
 
     // Process each detail type that exists on the plan item
+    // EXCLUDE COST type here - costs are handled separately via actualCosts (from plan.costs)
+    // to avoid duplicates and ensure we use the canonical cost data
     Object.entries(DETAIL_TYPE_CONFIG).forEach(([type, config]) => {
+      // Skip cost type - handled below via actualCosts
+      if (type === DETAIL_TYPES.COST) return;
+
       const detailsArray = planItem.details[type] || [];
       if (detailsArray.length > 0) {
         const category = config.category;
@@ -423,7 +438,7 @@ export default function PlanItemDetailsModal({
       }
     });
 
-    // Also include tracked costs in the expense category
+    // Include tracked costs in the expense category (from plan.costs, the canonical source)
     if (actualCosts.length > 0) {
       const category = 'expense';
       if (!groups[category]) {
@@ -471,6 +486,79 @@ export default function PlanItemDetailsModal({
       return el;
     };
 
+    // Helper to add a meta row to the dl element
+    const addMetaRow = (dl, label, value) => {
+      if (value) {
+        dl.appendChild(createEl('dt', null, `${label}:`));
+        dl.appendChild(createEl('dd', null, String(value)));
+      }
+    };
+
+    // Helper to get collaborator name by ID
+    const getCollaboratorNameById = (collabId) => {
+      if (!collabId || !collaborators || collaborators.length === 0) return null;
+      const collab = collaborators.find(c => {
+        const id = c._id || c.user?._id;
+        return id === collabId || id?.toString() === collabId?.toString();
+      });
+      return collab ? (collab.name || collab.user?.name) : null;
+    };
+
+    // Get display fields for each detail type (mirrors UI)
+    const getDisplayFields = (item) => {
+      const fields = [];
+      const type = item.type;
+
+      if (type === DETAIL_TYPES.COST) {
+        // Show amount with original currency
+        if (item.cost !== undefined && item.cost !== null) {
+          const originalCurrency = item.currency || 'USD';
+          fields.push({ label: 'Amount', value: formatActualCost(item.cost, { currency: originalCurrency, exact: true }) });
+        }
+        // Show category if present
+        if (item.category) fields.push({ label: 'Category', value: item.category });
+        // Show who paid (collaborator name or "Shared Cost")
+        if (item.collaborator) {
+          const collabName = getCollaboratorNameById(item.collaborator);
+          if (collabName) {
+            fields.push({ label: 'Paid for', value: collabName });
+          }
+        } else {
+          fields.push({ label: 'Type', value: 'Shared Cost' });
+        }
+      } else if (type === DETAIL_TYPES.FLIGHT) {
+        if (item.airline) fields.push({ label: 'Airline', value: item.airline });
+        if (item.flight_number) fields.push({ label: 'Flight', value: item.flight_number });
+        if (item.departure_date) fields.push({ label: 'Departure', value: `${item.departure_date} ${item.departure_time || ''}`.trim() });
+        if (item.confirmation_number) fields.push({ label: 'Confirmation', value: item.confirmation_number });
+      } else if (type === DETAIL_TYPES.HOTEL) {
+        if (item.hotel_name) fields.push({ label: 'Hotel', value: item.hotel_name });
+        if (item.check_in) fields.push({ label: 'Check-in', value: item.check_in });
+        if (item.check_out) fields.push({ label: 'Check-out', value: item.check_out });
+        if (item.confirmation_number) fields.push({ label: 'Confirmation', value: item.confirmation_number });
+      } else if ([DETAIL_TYPES.TRAIN, DETAIL_TYPES.BUS, DETAIL_TYPES.FERRY, DETAIL_TYPES.CRUISE].includes(type)) {
+        if (item.departure_station) fields.push({ label: 'From', value: item.departure_station });
+        if (item.arrival_station) fields.push({ label: 'To', value: item.arrival_station });
+        if (item.departure_date) fields.push({ label: 'Date', value: `${item.departure_date} ${item.departure_time || ''}`.trim() });
+        if (item.confirmation_number) fields.push({ label: 'Confirmation', value: item.confirmation_number });
+      } else if (type === DETAIL_TYPES.PARKING) {
+        if (item.location) fields.push({ label: 'Location', value: item.location });
+        if (item.start_date) fields.push({ label: 'Start', value: item.start_date });
+        if (item.end_date) fields.push({ label: 'End', value: item.end_date });
+        if (item.confirmation_number) fields.push({ label: 'Confirmation', value: item.confirmation_number });
+      } else if (type === DETAIL_TYPES.DISCOUNT) {
+        if (item.code) fields.push({ label: 'Code', value: item.code });
+        if (item.discount_amount) fields.push({ label: 'Discount', value: `${item.discount_amount}${item.discount_type === 'percentage' ? '%' : ''}` });
+        if (item.expiry_date) fields.push({ label: 'Expires', value: item.expiry_date });
+        if (item.terms) fields.push({ label: 'Terms', value: item.terms });
+      }
+
+      // Notes field for any type
+      if (item.notes) fields.push({ label: 'Notes', value: item.notes });
+
+      return fields;
+    };
+
     // Create printable document structure using safe DOM APIs
     const printContent = document.createElement('div');
 
@@ -496,7 +584,9 @@ export default function PlanItemDetailsModal({
 
     // Header (user data via textContent)
     const header = createEl('div', 'print-header');
-    header.appendChild(createEl('h1', 'print-title', `${planItem?.text || 'Plan Item'} - Details`));
+    const itemName = planItem?.text || 'Plan Item';
+    const titleText = experienceName ? `${experienceName} - ${itemName}` : itemName;
+    header.appendChild(createEl('h1', 'print-title', titleText));
     header.appendChild(createEl('p', 'print-subtitle', `Exported on ${new Date().toLocaleDateString()}`));
     printContent.appendChild(header);
 
@@ -508,16 +598,17 @@ export default function PlanItemDetailsModal({
       category.items.forEach(item => {
         const itemDiv = createEl('div', 'print-item');
         itemDiv.appendChild(createEl('div', 'print-item-type', `${item.typeConfig.icon} ${item.typeConfig.label}`));
-        itemDiv.appendChild(createEl('div', 'print-item-title', item.title || item.name || item.confirmation_number || 'Detail'));
+        itemDiv.appendChild(createEl('div', 'print-item-title', item.title || item.name || item.confirmation_number || item.airline || item.hotel_name || 'Detail'));
 
         const dl = document.createElement('dl');
         dl.className = 'print-item-meta';
-        Object.entries(item).forEach(([key, value]) => {
-          if (!['type', 'typeConfig', '_id', 'createdAt', 'updatedAt'].includes(key) && value) {
-            dl.appendChild(createEl('dt', null, `${key.replace(/_/g, ' ')}:`));
-            dl.appendChild(createEl('dd', null, String(value)));
-          }
+
+        // Use type-specific display fields (same as UI)
+        const displayFields = getDisplayFields(item);
+        displayFields.forEach(field => {
+          addMetaRow(dl, field.label, field.value);
         });
+
         itemDiv.appendChild(dl);
         categoryDiv.appendChild(itemDiv);
       });
@@ -528,13 +619,17 @@ export default function PlanItemDetailsModal({
     // Open print dialog using safe DOM serialization
     const printWindow = window.open('', '_blank');
     if (printWindow) {
+      // Set the document title (shows in tab and PDF filename)
+      // Include experience name if available for better context
+      printWindow.document.title = titleText;
+
       // Use DOM methods instead of document.write for safety
       printWindow.document.body.appendChild(printContent.cloneNode(true));
       printWindow.document.close();
       printWindow.print();
       printWindow.close();
     }
-  }, [planItem?.text, groupedDetails]);
+  }, [planItem?.text, experienceName, groupedDetails, targetCurrency, getConvertedAmount, collaborators]);
 
   /**
    * Handle saving location from AddLocationModal
@@ -1000,32 +1095,19 @@ export default function PlanItemDetailsModal({
               </Tooltip>
             )}
 
-            {/* Tracked Costs - real expenses incurred */}
+            {/* Tracked Costs - shows total only (itemized on Details tab) */}
             {actualCosts.length > 0 && (
               <Tooltip content={getTrackedCostTooltip(totalActualCost, actualCosts.length, { currency })} placement="top">
-                <div className={`${styles.infoCard} ${styles.trackedCosts}`}>
+                <div className={styles.infoCard}>
                   <span className={styles.infoIcon}>💵</span>
                   <div className={styles.infoContent}>
                     <span className={styles.infoLabel}>
-                      {lang.en.heading.trackedCosts || 'Tracked Costs'} ({actualCosts.length})
+                      {lang.en.heading.trackedCosts || 'Tracked Costs'}
                     </span>
                     <span className={styles.infoValue}>
                       {formatActualCost(totalActualCost, { currency, exact: true })}
                     </span>
                   </div>
-                  {/* Expandable list of individual costs */}
-                  {actualCosts.length > 0 && (
-                    <div className={styles.costBreakdown}>
-                      {actualCosts.map((cost, index) => (
-                        <div key={cost._id || index} className={styles.costItem}>
-                          <span className={styles.costTitle}>{cost.title}</span>
-                          <span className={styles.costAmount}>
-                            {formatActualCost(getConvertedAmount(cost), { currency, exact: true })}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </Tooltip>
             )}
@@ -1200,10 +1282,10 @@ export default function PlanItemDetailsModal({
                                 {/* Render relevant fields based on detail type */}
                                 {item.type === DETAIL_TYPES.COST && (
                                   <>
-                                    {item.amount && (
+                                    {(item.cost !== undefined && item.cost !== null) && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>Amount:</dt>
-                                        <dd>{formatActualCost(getConvertedAmount(item), { currency: targetCurrency, exact: true })}</dd>
+                                        <dd>{formatActualCost(item.cost, { currency: item.currency || 'USD', exact: true })}</dd>
                                       </div>
                                     )}
                                     {item.category && (
@@ -1212,6 +1294,23 @@ export default function PlanItemDetailsModal({
                                         <dd>{item.category}</dd>
                                       </div>
                                     )}
+                                    {/* Show who paid - collaborator name or Shared Cost */}
+                                    <div className={styles.detailMetaRow}>
+                                      <dt>{item.collaborator ? 'Paid for:' : 'Type:'}</dt>
+                                      <dd>
+                                        {item.collaborator ? (
+                                          (() => {
+                                            const collab = collaborators.find(c => {
+                                              const id = c._id || c.user?._id;
+                                              return id === item.collaborator || id?.toString() === item.collaborator?.toString();
+                                            });
+                                            return collab ? (collab.name || collab.user?.name) : 'Unknown';
+                                          })()
+                                        ) : (
+                                          'Shared Cost'
+                                        )}
+                                      </dd>
+                                    </div>
                                   </>
                                 )}
                                 {item.type === DETAIL_TYPES.FLIGHT && (
@@ -1382,19 +1481,22 @@ export default function PlanItemDetailsModal({
           )}
 
           {activeTab === 'notes' && (
-            <PlanItemNotes
-              notes={notes}
-              currentUser={currentUser}
-              onAddNote={onAddNote}
-              onUpdateNote={onUpdateNote}
-              onDeleteNote={onDeleteNote}
-              disabled={!canEdit}
-              availableEntities={availableEntities}
-              entityData={entityData}
-              onEntityClick={handleEntityClick}
-              presenceConnected={presenceConnected}
-              onlineUserIds={onlineUserIds}
-            />
+            <div className={styles.notesTabWrapper}>
+              <PlanItemNotes
+                notes={notes}
+                currentUser={currentUser}
+                onAddNote={onAddNote}
+                onUpdateNote={onUpdateNote}
+                onDeleteNote={onDeleteNote}
+                disabled={!canEdit}
+                availableEntities={availableEntities}
+                entityData={entityData}
+                onEntityClick={handleEntityClick}
+                presenceConnected={presenceConnected}
+                onlineUserIds={onlineUserIds}
+                collaborators={collaborators}
+              />
+            </div>
           )}
 
           {activeTab === 'location' && (

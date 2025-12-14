@@ -422,7 +422,8 @@ const SortablePlanItem = memo(function SortablePlanItem({
         </div>
 
         {/* Drag handle - positioned between title and action buttons */}
-        {canEdit && (
+        {/* Pinned items don't show drag handle since they're always at top */}
+        {canEdit && !isPinned && (
           <div {...attributes} {...listeners} className="drag-handle-wrapper" style={{ cursor: isDragging ? 'grabbing' : 'grab' }}>
             <DragHandle
               isDragging={isDragging}
@@ -747,8 +748,8 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
       data-plan-item-id={planItem._id}
       className={`compact-plan-item ${planItem.complete ? 'completed' : ''} ${planItem.isChild ? 'is-child' : ''} ${isDragging ? 'dragging' : ''}`}
     >
-      {/* Drag handle */}
-      {canEdit && (
+      {/* Drag handle - hidden for pinned items since they're always at top */}
+      {canEdit && !isPinned && (
         <div {...attributes} {...listeners} className="compact-drag-handle" style={{ cursor: isDragging ? 'grabbing' : 'grab' }}>
           <DragHandle
             isDragging={isDragging}

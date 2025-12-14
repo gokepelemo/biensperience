@@ -40,6 +40,9 @@ export function DataProvider({ children }) {
   const [experiencesMeta, setExperiencesMeta] = useState({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
   const [experiencesFilters, setExperiencesFilters] = useState({});
   const experiencesFiltersRef = React.useRef(experiencesFilters);
+  // Refs to access current data without triggering callback recreation
+  const destinationsRef = React.useRef(destinations);
+  const experiencesRef = React.useRef(experiences);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState({
@@ -147,22 +150,45 @@ export function DataProvider({ children }) {
 
   // Keep a ref with the latest experiencesFilters to avoid stale closures in
   // async fetch functions. This lets fetchMoreExperiences and fetchExperiences
-  // always read the most recent filters without requiring them in dependency
+  // always read the most recent filters/data without requiring them in dependency
   // arrays (which could otherwise trigger re-creations and unexpected effects).
   useEffect(() => {
     experiencesFiltersRef.current = experiencesFilters;
   }, [experiencesFilters]);
 
+  useEffect(() => {
+    destinationsRef.current = destinations;
+  }, [destinations]);
+
+  useEffect(() => {
+    experiencesRef.current = experiences;
+  }, [experiences]);
+
   const applyDestinationsFilter = useCallback(async (filters = {}) => {
     const cleanFilters = filters || {};
+    const isEmptyFilter = Object.keys(cleanFilters).length === 0;
+    const currentDestinations = destinationsRef.current;
+    const hasExistingData = currentDestinations.length > 0;
+
+    // If applying empty filter and data already exists, skip the refresh
+    // This prevents unnecessary flash/re-render when navigating back to home
+    if (isEmptyFilter && hasExistingData) {
+      logger.debug('applyDestinationsFilter: Empty filter with existing data, skipping refresh');
+      setDestinationsFilters(cleanFilters);
+      return currentDestinations;
+    }
+
     setDestinationsFilters(cleanFilters);
 
     // Set loading state BEFORE clearing destinations
     // This prevents "No destinations" flash while filter is being applied
     setLoading(true);
 
-    setDestinations([]);
-    setDestinationsMeta({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
+    // Only clear data if we're actually changing filters
+    if (!isEmptyFilter) {
+      setDestinations([]);
+      setDestinationsMeta({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
+    }
 
     try {
       return await fetchDestinations();
@@ -418,7 +444,13 @@ export function DataProvider({ children }) {
       plans: refreshPlans = true,
     } = options;
 
-    setLoading(true);
+    // Only set loading=true if we don't have any existing data
+    // This prevents flash/re-render when data already exists (background refresh)
+    const hasExistingData = destinationsRef.current.length > 0 || experiencesRef.current.length > 0;
+    if (!hasExistingData) {
+      setLoading(true);
+    }
+
     try {
       const promises = [];
 
@@ -442,7 +474,10 @@ export function DataProvider({ children }) {
     } catch (error) {
       logger.error('Failed to refresh data', { error: error.message });
     } finally {
-      setLoading(false);
+      // Only clear loading if we set it (when there was no existing data)
+      if (!hasExistingData) {
+        setLoading(false);
+      }
     }
   }, [user, fetchDestinations, fetchExperiences, fetchPlans]);
 
@@ -635,20 +670,34 @@ export function DataProvider({ children }) {
   // internal fetch functions change identity (which can create render loops).
   const applyExperiencesFilter = useCallback(async (filters = {}) => {
     const cleanFilters = filters || {};
+    const isEmptyFilter = Object.keys(cleanFilters).length === 0;
+    const currentExperiences = experiencesRef.current;
+    const hasExistingData = currentExperiences.length > 0;
+
+    // If applying empty filter and data already exists, skip the refresh
+    // This prevents unnecessary flash/re-render when navigating back to home
+    if (isEmptyFilter && hasExistingData) {
+      logger.debug('applyExperiencesFilter: Empty filter with existing data, skipping refresh');
+      setExperiencesFilters(cleanFilters);
+      return currentExperiences;
+    }
+
     setExperiencesFilters(cleanFilters);
     logger.info('applyExperiencesFilter called', {
       filters: cleanFilters,
       hasViewSpecific: cleanFilters.__viewSpecific,
-      isEmpty: Object.keys(cleanFilters).length === 0
+      isEmpty: isEmptyFilter
     });
 
     // Set loading state BEFORE clearing experiences
     // This prevents "No experiences" flash while filter is being applied
     setLoading(true);
 
-    // Reset experiences and fetch first page with filters
-    setExperiences([]);
-    setExperiencesMeta({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
+    // Only clear data if we're actually changing filters
+    if (!isEmptyFilter) {
+      setExperiences([]);
+      setExperiencesMeta({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
+    }
 
     try {
       // Call the API directly rather than delegating to fetchExperiences

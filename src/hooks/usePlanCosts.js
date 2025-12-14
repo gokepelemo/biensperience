@@ -65,15 +65,9 @@ export default function usePlanCosts(planId, options = {}) {
 
     try {
       const result = await addPlanCost(id, costData);
-
-      // Update local state optimistically
-      if (result) {
-        setCosts(prev => [...prev, result]);
-        // Refetch summary to get updated totals
-        const summaryData = await getPlanCostSummary(id);
-        setCostSummary(summaryData);
-      }
-
+      // NOTE: Do NOT update local state here - the plan:cost_added event
+      // handler (subscribed below) will handle adding the cost to state.
+      // Adding it here AND in the event handler causes duplicate rendering.
       return result;
     } catch (err) {
       logger.error('Failed to add cost', { planId: id, error: err.message });
@@ -92,19 +86,8 @@ export default function usePlanCosts(planId, options = {}) {
 
     try {
       const result = await updatePlanCost(id, costId, updates);
-
-      // Update local state
-      if (result) {
-        setCosts(prev =>
-          prev.map(cost =>
-            cost._id === costId ? { ...cost, ...result } : cost
-          )
-        );
-        // Refetch summary to get updated totals
-        const summaryData = await getPlanCostSummary(id);
-        setCostSummary(summaryData);
-      }
-
+      // NOTE: Do NOT update local state here - the plan:cost_updated event
+      // handler (subscribed below) will handle updating the cost in state.
       return result;
     } catch (err) {
       logger.error('Failed to update cost', { planId: id, costId, error: err.message });
@@ -123,12 +106,8 @@ export default function usePlanCosts(planId, options = {}) {
 
     try {
       await deletePlanCost(id, costId);
-
-      // Remove from local state
-      setCosts(prev => prev.filter(cost => cost._id !== costId));
-      // Refetch summary to get updated totals
-      const summaryData = await getPlanCostSummary(id);
-      setCostSummary(summaryData);
+      // NOTE: Do NOT update local state here - the plan:cost_deleted event
+      // handler (subscribed below) will handle removing the cost from state.
     } catch (err) {
       logger.error('Failed to delete cost', { planId: id, costId, error: err.message });
       throw err;

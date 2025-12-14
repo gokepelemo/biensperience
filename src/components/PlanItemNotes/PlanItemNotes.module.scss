@@ -5,10 +5,10 @@
 .planItemNotesChat {
   display: flex;
   flex-direction: column;
-  flex: 1; /* Fill available space in parent flex container */
+  flex: 1 1 0; /* Fill available space in parent flex container, shrink to 0 if needed */
   height: 100%;
   width: 100%;
-  min-height: 0; /* Allow flexbox to shrink */
+  min-height: 0; /* Critical: Allow flexbox to shrink below content height */
   overflow: hidden; /* Prevent overflow, let chatMessages handle scrolling */
   position: relative; /* For absolute positioning of add note form overlay */
 }
