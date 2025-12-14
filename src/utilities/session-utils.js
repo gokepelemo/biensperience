@@ -8,6 +8,7 @@
  */
 
 import { encryptData, decryptData } from './crypto-utils';
+import { logger } from './logger';
 
 // Constants
 const SESSION_STORAGE_KEY = 'bien_session_data';
@@ -67,7 +68,7 @@ async function getSessionData(userId = null) {
     const decrypted = await decryptData(encryptedData, userId);
     return JSON.parse(decrypted);
   } catch (error) {
-    console.error('Error retrieving session data:', error);
+    logger.error('Error retrieving session data:', { error: error.message }, error);
     return null;
   }
 }
@@ -88,7 +89,7 @@ async function saveSessionData(sessionData, userId = null) {
     const encrypted = await encryptData(dataString, userId);
     localStorage.setItem(SESSION_STORAGE_KEY, encrypted);
   } catch (error) {
-    console.error('Error saving session data:', error);
+    logger.error('Error saving session data:', { error: error.message }, error);
   }
 }
 
@@ -115,7 +116,7 @@ export async function getSessionId(userId = null) {
 
   // Validate session is bound to correct user (if userId provided)
   if (userId && sessionData.userId !== userId) {
-    console.warn('Session user ID mismatch - clearing session');
+    logger.warn('Session user ID mismatch - clearing session');
     clearSession();
     return null;
   }

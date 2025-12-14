@@ -4,6 +4,7 @@ import styles from './PhotoUploadModal.module.scss';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import { Button } from '../design-system';
 import { lang } from '../../lang.constants';
+import { logger } from '../../utilities/logger';
 
 export default function PhotoUploadModal({
   show,
@@ -108,8 +109,7 @@ export default function PhotoUploadModal({
       onChange(merged);
     } catch (e) {
       // swallow errors from parent handler but log for debugging
-      // eslint-disable-next-line no-console
-      console.error('[PhotoUploadModal] onChange handler error', e);
+      logger.error('[PhotoUploadModal] onChange handler error', { error: e.message }, e);
     }
   }, [localData, onChange]);
 
@@ -130,7 +130,7 @@ export default function PhotoUploadModal({
       }
       onClose();
     } catch (err) {
-      console.error(err);
+      logger.error('[PhotoUploadModal] Save failed:', { error: err.message }, err);
       setError(err?.message || lang.current.photoUploadModal.failedToSave);
     } finally {
       setSaving(false);

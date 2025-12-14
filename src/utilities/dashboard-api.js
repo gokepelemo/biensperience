@@ -34,17 +34,34 @@ export async function getDashboardData() {
  * Get paginated activity feed for the current user
  * @param {number} page - Page number (default: 1)
  * @param {number} limit - Items per page (default: 20)
+ * @param {Object} options - Additional options
+ * @param {Array<string>} options.actions - Filter by specific action types
+ * @param {Array<string>} options.resourceTypes - Filter by specific resource types (e.g., 'Experience', 'Destination')
  * @returns {Promise<Object>} Activities and pagination metadata
  */
-export async function getActivityFeed(page = 1, limit = 20) {
+export async function getActivityFeed(page = 1, limit = 20, options = {}) {
   try {
-    const url = `${BASE_URL}/activity-feed?page=${page}&limit=${limit}`;
+    const params = new URLSearchParams({ page, limit });
+
+    // Add actions filter if provided
+    if (options.actions && Array.isArray(options.actions) && options.actions.length > 0) {
+      params.set('actions', options.actions.join(','));
+    }
+
+    // Add resourceTypes filter if provided
+    if (options.resourceTypes && Array.isArray(options.resourceTypes) && options.resourceTypes.length > 0) {
+      params.set('resourceTypes', options.resourceTypes.join(','));
+    }
+
+    const url = `${BASE_URL}/activity-feed?${params.toString()}`;
     const result = await sendRequest(url);
     const payload = (result && result.data) ? result.data : result || {};
 
     logger.debug('[dashboard-api] Activity feed fetched', {
       page,
       limit,
+      actions: options.actions,
+      resourceTypes: options.resourceTypes,
       activitiesCount: payload.activities?.length || 0,
       hasMore: payload.pagination?.hasMore
     });

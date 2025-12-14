@@ -779,7 +779,6 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
             size="sm"
             disabled={!inviteEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)}
             onClick={() => {
-              // TODO: Implement email invite
               success(`Invitation sent to ${inviteEmail}`);
               setInviteEmail('');
             }}

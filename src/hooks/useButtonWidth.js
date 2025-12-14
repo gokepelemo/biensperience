@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { logger } from '../utilities/logger';
 
 // Hook: useButtonWidth
 // - ref: React ref to the button element
@@ -43,8 +44,7 @@ export default function useButtonWidth(ref, texts = [], options = {}) {
         el.style.minWidth = total + 'px';
       } catch (err) {
         // fail silently - measurement not critical
-        // eslint-disable-next-line no-console
-        console.warn('useButtonWidth measurement failed', err);
+        logger.warn('useButtonWidth measurement failed', { error: err.message });
       }
     }
 

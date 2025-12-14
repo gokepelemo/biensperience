@@ -2,6 +2,8 @@
  * Image utility functions for dimension detection and manipulation
  */
 
+import { logger } from './logger';
+
 /**
  * Get image dimensions from a URL
  * @param {string} url - Image URL to load
@@ -101,7 +103,7 @@ export async function getImageDimensionsSafe(source) {
     }
     return {};
   } catch (err) {
-    console.warn('Failed to get image dimensions:', err.message);
+    logger.warn('Failed to get image dimensions:', { error: err.message });
     return {};
   }
 }

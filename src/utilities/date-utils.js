@@ -2,6 +2,8 @@
  * Date utility functions for consistent date formatting across the application
  */
 
+import { logger } from './logger';
+
 /**
  * @typedef {Object} TimeOfDay
  * @property {'morning'|'afternoon'|'evening'|'night'} period - Time period of the day
@@ -385,7 +387,7 @@ export function parseDateTime(dateInput, timeInput = null, timezone = null, loca
       inputFormat
     };
   } catch (error) {
-    console.error('parseDateTime error:', error);
+    logger.error('parseDateTime error:', { error: error.message }, error);
     return null;
   }
 }

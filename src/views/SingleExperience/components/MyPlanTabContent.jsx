@@ -377,7 +377,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                       aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
                       title="Pinned to top - click to expand/collapse"
                     >
-                      <FaStar className="text-warning pinned-star-icon" />
+                      <FaThumbtack className="text-warning pinned-pin-icon" />
                       <span className="expand-arrow-icon">{isExpanded ? "▼" : "▶"}</span>
                     </span>
                   );
@@ -396,10 +396,10 @@ const SortablePlanItem = memo(function SortablePlanItem({
                   </span>
                 );
               } else {
-                // For items without children: show star instead of bullet when pinned
+                // For items without children: show pin instead of bullet when pinned
                 return (
-                  <span className={`no-child-arrow ${isPinned ? 'pinned-star' : ''}`}>
-                    {isPinned ? <FaStar className="text-warning" aria-label="Pinned item" title="Pinned to top" /> : '•'}
+                  <span className={`no-child-arrow ${isPinned ? 'pinned-pin' : ''}`}>
+                    {isPinned ? <FaThumbtack className="text-warning" aria-label="Pinned item" title="Pinned to top" /> : '•'}
                   </span>
                 );
               }
@@ -490,7 +490,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                 title={isPinned ? 'Unpin' : 'Pin to Top'}
                 aria-pressed={isPinned}
               >
-                <FaStar />
+                <FaThumbtack />
               </button>
             )}
             <button
@@ -769,8 +769,8 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
         </div>
       )}
 
-      {/* Hierarchy indicator - star replaces bullet when pinned, expand/collapse for parents with children */}
-      <span className={`compact-item-indent ${isPinned && !planItem.isChild ? 'pinned-star' : ''}`}>
+      {/* Hierarchy indicator - pin replaces bullet when pinned, expand/collapse for parents with children */}
+      <span className={`compact-item-indent ${isPinned && !planItem.isChild ? 'pinned-pin' : ''}`}>
         {planItem.isChild ? (
           '↳'
         ) : hasChildren && onToggleExpand ? (
@@ -785,7 +785,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
               aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
               title="Pinned to top - click to expand/collapse"
             >
-              <FaStar className="text-warning pinned-star-icon" />
+              <FaThumbtack className="text-warning pinned-pin-icon" />
               <span className="expand-arrow-icon">{isExpanded ? "▼" : "▶"}</span>
             </span>
           ) : (
@@ -802,7 +802,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
             </span>
           )
         ) : isPinned ? (
-          <FaStar className="text-warning" aria-label="Pinned item" title="Pinned to top" />
+          <FaThumbtack className="text-warning" aria-label="Pinned item" title="Pinned to top" />
         ) : (
           '•'
         )}
@@ -1348,8 +1348,8 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
       data-plan-item-id={planItem._id}
       className={`timeline-plan-item ${planItem.complete ? 'completed' : ''} ${planItem.isChild ? 'is-child' : ''}`}
     >
-      {/* Hierarchy indicator - star replaces bullet when pinned, expand/collapse for parents with children */}
-      <span className={`timeline-item-indent ${isPinned && !planItem.isChild ? 'pinned-star' : ''}`}>
+      {/* Hierarchy indicator - pin replaces bullet when pinned, expand/collapse for parents with children */}
+      <span className={`timeline-item-indent ${isPinned && !planItem.isChild ? 'pinned-pin' : ''}`}>
         {planItem.isChild ? (
           '↳'
         ) : hasChildren && onToggleExpand ? (
@@ -1364,7 +1364,7 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
               aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
               title="Pinned to top - click to expand/collapse"
             >
-              <FaStar className="text-warning pinned-star-icon" />
+              <FaThumbtack className="text-warning pinned-pin-icon" />
               <span className="expand-arrow-icon">{isExpanded ? "▼" : "▶"}</span>
             </span>
           ) : (
@@ -1381,7 +1381,7 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
             </span>
           )
         ) : isPinned ? (
-          <FaStar className="text-warning" aria-label="Pinned item" title="Pinned to top" />
+          <FaThumbtack className="text-warning" aria-label="Pinned item" title="Pinned to top" />
         ) : (
           '•'
         )}

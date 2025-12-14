@@ -72,7 +72,9 @@
 /* Directions Modal */
 .directionsModalBody {
   padding: 0 !important;
+  /* Use vh as fallback, dvh for modern browsers */
   height: calc(100vh - 120px);
+  height: calc(100dvh - 120px);
   overflow: hidden;
 }
 
@@ -211,5 +213,6 @@
 
   .directionsModalBody {
     height: calc(100vh - 100px);
+    height: calc(100dvh - 100px);
   }
 }

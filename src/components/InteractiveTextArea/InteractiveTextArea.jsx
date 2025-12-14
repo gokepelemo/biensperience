@@ -210,7 +210,7 @@ const InteractiveTextArea = ({
         const displayText = await resolveMentionsToDisplayText(value, planItemsMap);
         setInternalValue(displayText);
       } catch (error) {
-        console.error('[InteractiveTextArea] Failed to resolve mentions:', error);
+        logger.error('[InteractiveTextArea] Failed to resolve mentions:', { error: error.message }, error);
         // Fallback: show raw storage format
         setInternalValue(value);
       } finally {

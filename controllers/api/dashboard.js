@@ -201,17 +201,39 @@ async function getDashboardStats(userId, targetCurrency = 'USD') {
  * @param {Object} options - Query options
  * @param {number} options.limit - Number of activities to return (default: 10)
  * @param {number} options.skip - Number of activities to skip (default: 0)
+ * @param {Array<string>} options.actions - Filter by specific action types (optional)
+ * @param {Array<string>} options.resourceTypes - Filter by specific resource types (optional)
  * @returns {Promise<Array>} Array of enriched activities
  */
 async function getRecentActivity(userId, options = {}) {
   try {
-    const { limit = 10, skip = 0 } = options;
+    const { limit = 10, skip = 0, actions = null, resourceTypes = null } = options;
 
     backendLogger.info('Fetching recent activity', {
       userId: userId.toString(),
       limit,
-      skip
+      skip,
+      actions,
+      resourceTypes
     });
+
+    // Build query: user is either actor or target
+    const query = {
+      $or: [
+        { 'actor._id': userId },    // Activities performed by the user
+        { 'target.id': userId }      // Activities performed on the user
+      ]
+    };
+
+    // Add action type filter if specified
+    if (actions && Array.isArray(actions) && actions.length > 0) {
+      query.action = { $in: actions };
+    }
+
+    // Add resource type filter if specified
+    if (resourceTypes && Array.isArray(resourceTypes) && resourceTypes.length > 0) {
+      query['resource.type'] = { $in: resourceTypes };
+    }
 
     // Find activities where user is either:
     // 1. The actor (performed the action)
@@ -219,12 +241,7 @@ async function getRecentActivity(userId, options = {}) {
     // This ensures users see all relevant activities including:
     // - Actions they performed (plan item completions, adding collaborators)
     // - Actions performed on them (being added as collaborator)
-    const activities = await Activity.find({
-      $or: [
-        { 'actor._id': userId },    // Activities performed by the user
-        { 'target.id': userId }      // Activities performed on the user
-      ]
-    })
+    const activities = await Activity.find(query)
     .sort({ timestamp: -1 })
     .limit(limit)
     .skip(skip)
@@ -347,6 +364,7 @@ async function getRecentActivity(userId, options = {}) {
       return {
         id: activity._id.toString(),
         action: actionText,
+        actionType: activity.action, // Raw action type for client-side filtering
         item: resourceName,
         targetItem: targetName,
         link: resourceLink,
@@ -519,7 +537,15 @@ function formatDate(date) {
 
 /**
  * Get paginated activity feed for the authenticated user
- * Supports infinite scroll with cursor-based pagination
+ * Supports infinite scroll with cursor-based pagination and action type filtering
+ *
+ * Query params:
+ * - page: Page number (default: 1)
+ * - limit: Items per page (default: 20)
+ * - actions: Comma-separated list of action types to filter by (optional)
+ *   Example: ?actions=plan_created,plan_updated,cost_added
+ * - resourceTypes: Comma-separated list of resource types to filter by (optional)
+ *   Example: ?resourceTypes=Experience,Destination
  */
 async function getActivityFeed(req, res) {
   try {
@@ -528,24 +554,50 @@ async function getActivityFeed(req, res) {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
+    // Parse actions filter from comma-separated string
+    let actions = null;
+    if (req.query.actions && typeof req.query.actions === 'string') {
+      actions = req.query.actions.split(',').map(a => a.trim()).filter(a => a.length > 0);
+    }
+
+    // Parse resourceTypes filter from comma-separated string
+    let resourceTypes = null;
+    if (req.query.resourceTypes && typeof req.query.resourceTypes === 'string') {
+      resourceTypes = req.query.resourceTypes.split(',').map(t => t.trim()).filter(t => t.length > 0);
+    }
+
     backendLogger.info('Fetching activity feed', {
       userId: userId.toString(),
       page,
       limit,
-      skip
+      skip,
+      actions,
+      resourceTypes
     });
 
-    // Get total count for pagination metadata
-    // Count activities where user is actor OR target
-    const totalCount = await Activity.countDocuments({
+    // Build count query: user is actor OR target
+    const countQuery = {
       $or: [
         { 'actor._id': userId },
         { 'target.id': userId }
       ]
-    });
+    };
 
-    // Get activities with pagination
-    const activities = await getRecentActivity(userId, { limit, skip });
+    // Add action filter to count query if specified
+    if (actions && actions.length > 0) {
+      countQuery.action = { $in: actions };
+    }
+
+    // Add resourceTypes filter to count query if specified
+    if (resourceTypes && resourceTypes.length > 0) {
+      countQuery['resource.type'] = { $in: resourceTypes };
+    }
+
+    // Get total count for pagination metadata
+    const totalCount = await Activity.countDocuments(countQuery);
+
+    // Get activities with pagination and filtering
+    const activities = await getRecentActivity(userId, { limit, skip, actions, resourceTypes });
 
     const totalPages = Math.max(1, Math.ceil(totalCount / limit));
     const response = {
@@ -558,14 +610,18 @@ async function getActivityFeed(req, res) {
         // numPages kept for caller convenience (explicit name requested)
         numPages: totalPages,
         hasMore: skip + activities.length < totalCount
-      }
+      },
+      // Include applied filter for client-side sync
+      filter: actions || resourceTypes ? { actions, resourceTypes } : null
     };
 
     backendLogger.info('Activity feed fetched successfully', {
       userId: userId.toString(),
       activitiesCount: activities.length,
       totalCount,
-      hasMore: response.pagination.hasMore
+      hasMore: response.pagination.hasMore,
+      actionsFilter: actions,
+      resourceTypesFilter: resourceTypes
     });
 
     return successResponse(res, response);

@@ -1,4 +1,4 @@
-import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera, FaStar, FaGlobe, FaExternalLinkAlt } from "react-icons/fa";
+import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera, FaStar, FaGlobe, FaExternalLinkAlt, FaCode, FaExclamationTriangle, FaCodeBranch, FaCog, FaShieldAlt, FaChartLine, FaUsers, FaCalendarAlt, FaPlusCircle } from "react-icons/fa";
 import { getSocialNetwork, getLinkIcon, getLinkDisplayText, buildLinkUrl } from "../../utilities/social-links";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
@@ -38,6 +38,10 @@ import { eventBus } from "../../utilities/event-bus";
 import { broadcastEvent } from "../../utilities/event-bus";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
 import { isSystemUser } from "../../utilities/system-users";
+import { followUser, unfollowUser, getFollowStatus, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
+import { getActivityFeed } from "../../utilities/dashboard-api";
+import ActivityFeed from "../../components/ActivityFeed/ActivityFeed";
+import TabNav from "../../components/TabNav/TabNav";
 
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
@@ -62,10 +66,24 @@ export default function Profile() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState(null);
   const [uiState, setUiState] = useState({
-    experiences: true,
+    activity: true,
+    follows: false,
+    experiences: false,
     created: false,
     destinations: false,
   });
+
+  // Follow feature state
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+  const [followButtonHovered, setFollowButtonHovered] = useState(false);
+
+  // Follows tab state
+  const [followsFilter, setFollowsFilter] = useState('followers'); // 'followers' | 'following'
+  const [followsList, setFollowsList] = useState([]);
+  const [followsLoading, setFollowsLoading] = useState(false);
+  const [followsPagination, setFollowsPagination] = useState({ total: 0, hasMore: false, skip: 0 });
 
   const [showApiTokenModal, setShowApiTokenModal] = useState(false);
   const [showActivityMonitor, setShowActivityMonitor] = useState(false);
@@ -81,8 +99,10 @@ export default function Profile() {
       if (!hash) return;
 
       // Map known hashes to local profile tabs
-      if (['experiences', 'created', 'destinations'].includes(hash)) {
+      if (['activity', 'follows', 'experiences', 'created', 'destinations'].includes(hash)) {
         setUiState({
+          activity: hash === 'activity',
+          follows: hash === 'follows',
           experiences: hash === 'experiences',
           created: hash === 'created',
           destinations: hash === 'destinations',
@@ -126,8 +146,10 @@ export default function Profile() {
           return;
         }
 
-        if (['experiences', 'created', 'destinations'].includes(hash)) {
+        if (['activity', 'follows', 'experiences', 'created', 'destinations'].includes(hash)) {
           setUiState({
+            activity: hash === 'activity',
+            follows: hash === 'follows',
             experiences: hash === 'experiences',
             created: hash === 'created',
             destinations: hash === 'destinations',
@@ -446,6 +468,14 @@ export default function Profile() {
     }
   }, [profileId, isOwner, profile, userId]);
 
+  // If viewing another user's profile and Activity tab is selected (which they can't see),
+  // switch to Follows tab instead
+  useEffect(() => {
+    if (!isOwnProfile && uiState.activity) {
+      setUiState(prev => ({ ...prev, activity: false, follows: true }));
+    }
+  }, [isOwnProfile, uiState.activity]);
+
   const handleRoleUpdate = async (newRole) => {
     if (!isSuperAdmin(user)) {
       handleError({ message: 'Only super admins can update user roles' });
@@ -685,6 +715,159 @@ export default function Profile() {
     };
   }, [userId]);
 
+  // Fetch follow status and counts when viewing another user's profile
+  useEffect(() => {
+    if (!userId || !user || isOwnProfile) return;
+
+    const fetchFollowData = async () => {
+      try {
+        const [status, counts] = await Promise.all([
+          getFollowStatus(userId),
+          getFollowCounts(userId)
+        ]);
+        setIsFollowing(status);
+        setFollowCounts(counts);
+      } catch (err) {
+        logger.error('[Profile] Failed to fetch follow data', { error: err.message });
+      }
+    };
+
+    fetchFollowData();
+  }, [userId, user, isOwnProfile]);
+
+  // Fetch follow counts for own profile (to display in metrics)
+  useEffect(() => {
+    if (!userId || !isOwnProfile) return;
+
+    const fetchOwnFollowCounts = async () => {
+      try {
+        const counts = await getFollowCounts(userId);
+        setFollowCounts(counts);
+      } catch (err) {
+        logger.error('[Profile] Failed to fetch follow counts', { error: err.message });
+      }
+    };
+
+    fetchOwnFollowCounts();
+  }, [userId, isOwnProfile]);
+
+  // Listen for follow events to update UI
+  useEffect(() => {
+    if (!userId) return;
+
+    const handleFollowCreated = (event) => {
+      // If we just followed this user, update state
+      if (event.followingId === userId) {
+        setIsFollowing(true);
+        setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
+      }
+    };
+
+    const handleFollowDeleted = (event) => {
+      // If we just unfollowed this user, update state
+      if (event.followingId === userId) {
+        setIsFollowing(false);
+        setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+      }
+    };
+
+    const unsubCreate = eventBus.subscribe('follow:created', handleFollowCreated);
+    const unsubDelete = eventBus.subscribe('follow:deleted', handleFollowDeleted);
+
+    return () => {
+      unsubCreate();
+      unsubDelete();
+    };
+  }, [userId]);
+
+  // Handle follow button click
+  const handleFollow = useCallback(async () => {
+    if (followLoading || !userId) return;
+
+    setFollowLoading(true);
+    try {
+      await followUser(userId);
+      setIsFollowing(true);
+      setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
+      success('Now following this user');
+    } catch (err) {
+      const message = handleError(err, { context: 'Follow user' });
+      showError(message || 'Failed to follow user');
+    } finally {
+      setFollowLoading(false);
+    }
+  }, [userId, followLoading, success, showError]);
+
+  // Handle unfollow button click
+  const handleUnfollow = useCallback(async () => {
+    if (followLoading || !userId) return;
+
+    setFollowLoading(true);
+    try {
+      await unfollowUser(userId);
+      setIsFollowing(false);
+      setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+      success('Unfollowed user');
+    } catch (err) {
+      const message = handleError(err, { context: 'Unfollow user' });
+      showError(message || 'Failed to unfollow user');
+    } finally {
+      setFollowLoading(false);
+    }
+  }, [userId, followLoading, success, showError]);
+
+  // Fetch followers or following list for Follows tab
+  const fetchFollowsList = useCallback(async (filter = followsFilter, reset = false) => {
+    if (!userId) return;
+
+    setFollowsLoading(true);
+    try {
+      const skip = reset ? 0 : followsList.length;
+      const limit = 20;
+      const options = { limit, skip };
+
+      let response;
+      if (filter === 'followers') {
+        response = await getFollowers(userId, options);
+        const users = response.followers || [];
+        setFollowsList(prev => reset ? users : [...prev, ...users]);
+        setFollowsPagination({
+          total: response.total || 0,
+          hasMore: skip + users.length < (response.total || 0),
+          skip: skip + users.length
+        });
+      } else {
+        response = await getFollowing(userId, options);
+        const users = response.following || [];
+        setFollowsList(prev => reset ? users : [...prev, ...users]);
+        setFollowsPagination({
+          total: response.total || 0,
+          hasMore: skip + users.length < (response.total || 0),
+          skip: skip + users.length
+        });
+      }
+    } catch (err) {
+      logger.error('[Profile] Failed to fetch follows list', { error: err.message });
+    } finally {
+      setFollowsLoading(false);
+    }
+  }, [userId, followsFilter, followsList.length]);
+
+  // Handle follows filter change
+  const handleFollowsFilterChange = useCallback((filter) => {
+    setFollowsFilter(filter);
+    setFollowsList([]);
+    setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
+    fetchFollowsList(filter, true);
+  }, [fetchFollowsList]);
+
+  // Fetch follows list when tab becomes active
+  useEffect(() => {
+    if (uiState.follows && userId && followsList.length === 0) {
+      fetchFollowsList(followsFilter, true);
+    }
+  }, [uiState.follows, userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Register h1 for navbar integration - clicking scrolls to top
   // Re-run when currentProfile loads so h1 element is available
   useEffect(() => {
@@ -733,12 +916,70 @@ export default function Profile() {
 
   const handleExpNav = useCallback((view) => {
     setUiState({
+      activity: view === 'activity',
+      follows: view === 'follows',
       experiences: view === 'experiences',
       created: view === 'created',
       destinations: view === 'destinations',
     });
+    // Update URL hash for deep linking
+    try { window.history.pushState(null, '', `${window.location.pathname}#${view}`); } catch (e) {}
     // Note: Do NOT reset pagination on tab switch - preserve user's place in each tab
   }, []);
+
+  // Get the active tab key from uiState
+  const activeTab = useMemo(() => {
+    if (uiState.activity) return 'activity';
+    if (uiState.follows) return 'follows';
+    if (uiState.experiences) return 'experiences';
+    if (uiState.created) return 'created';
+    if (uiState.destinations) return 'destinations';
+    return 'activity';
+  }, [uiState]);
+
+  // Build tabs configuration for TabNav
+  const profileTabs = useMemo(() => {
+    const tabs = [];
+
+    // Activity tab - only for own profile
+    if (isOwnProfile) {
+      tabs.push({
+        id: 'activity',
+        label: 'Activity',
+        icon: <FaChartLine />,
+      });
+    }
+
+    // Follows tab
+    tabs.push({
+      id: 'follows',
+      label: 'Follows',
+      icon: <FaUsers />,
+    });
+
+    // Planned (experiences) tab
+    tabs.push({
+      id: 'experiences',
+      label: 'Planned',
+      icon: <FaCalendarAlt />,
+    });
+
+    // Created tab
+    tabs.push({
+      id: 'created',
+      label: 'Created',
+      icon: <FaPlusCircle />,
+    });
+
+    // Destinations tab
+    tabs.push({
+      id: 'destinations',
+      label: 'Destinations',
+      icon: <FaMapMarkerAlt />,
+    });
+
+    return tabs;
+  }, [isOwnProfile]);
 
   // Fetch experiences when page changes (API-level pagination)
   // Skip initial page 1 (fetched by getProfile), but fetch on subsequent page 1 navigations
@@ -1018,6 +1259,14 @@ export default function Profile() {
                   {/* Compact Metrics Bar */}
                   <div className={styles.profileMetricsBar}>
                     <span className={styles.profileMetric}>
+                      <strong>{followCounts.followers}</strong> {followCounts.followers === 1 ? 'Follower' : 'Followers'}
+                    </span>
+                    <span className={styles.profileMetricDivider}>·</span>
+                    <span className={styles.profileMetric}>
+                      <strong>{followCounts.following}</strong> Following
+                    </span>
+                    <span className={styles.profileMetricDivider}>·</span>
+                    <span className={styles.profileMetric}>
                       <strong>{planCounts.total}</strong> {planCounts.total === 1 ? 'Plan' : 'Plans'}
                       {planCounts.shared > 0 && (
                         <span className={styles.profileMetricSecondary}>
@@ -1043,9 +1292,29 @@ export default function Profile() {
                       <Button variant="outline" style={{ borderRadius: 'var(--radius-full)' }}>
                         <FaEnvelope /> Message
                       </Button>
-                      <Button variant="gradient" style={{ borderRadius: 'var(--radius-full)' }}>
-                        Follow
-                      </Button>
+                      {isFollowing ? (
+                        <Button
+                          variant={followButtonHovered ? 'danger' : 'outline'}
+                          style={{ borderRadius: 'var(--radius-full)', minWidth: '100px' }}
+                          onClick={handleUnfollow}
+                          disabled={followLoading}
+                          onMouseEnter={() => setFollowButtonHovered(true)}
+                          onMouseLeave={() => setFollowButtonHovered(false)}
+                          className={styles.followButton}
+                        >
+                          {followLoading ? 'Loading...' : followButtonHovered ? 'Unfollow' : 'Following'}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="gradient"
+                          style={{ borderRadius: 'var(--radius-full)', minWidth: '100px' }}
+                          onClick={handleFollow}
+                          disabled={followLoading}
+                          className={styles.followButton}
+                        >
+                          {followLoading ? 'Loading...' : 'Follow'}
+                        </Button>
+                      )}
                     </>
                   )}
                   {isOwner && (
@@ -1152,40 +1421,110 @@ export default function Profile() {
           </Card.Body>
         </Card>
 
-        {/* Tab Navigation - Underline Style */}
-        <div className={styles.profileTabs}>
-          <button
-            className={`${styles.profileTab} ${uiState.experiences ? styles.profileTabActive : ''}`}
-            onClick={() => {
-              handleExpNav('experiences');
-              try { window.history.pushState(null, '', `${window.location.pathname}#experiences`); } catch (e) {}
-            }}
-          >
-            Planned
-          </button>
-          <button
-            className={`${styles.profileTab} ${uiState.created ? styles.profileTabActive : ''}`}
-            onClick={() => {
-              handleExpNav('created');
-              try { window.history.pushState(null, '', `${window.location.pathname}#created`); } catch (e) {}
-            }}
-          >
-            Created
-          </button>
-          <button
-            className={`${styles.profileTab} ${uiState.destinations ? styles.profileTabActive : ''}`}
-            onClick={() => {
-              handleExpNav('destinations');
-              try { window.history.pushState(null, '', `${window.location.pathname}#destinations`); } catch (e) {}
-            }}
-          >
-            Destinations
-          </button>
-        </div>
+        {/* Tab Navigation - GitHub-style with icons */}
+        <TabNav
+          tabs={profileTabs}
+          activeTab={activeTab}
+          onTabChange={handleExpNav}
+          className={styles.profileTabs}
+        />
 
         {/* Content Grid */}
         <Row>
           <Col lg={12}>
+            {/* Activity Tab - Only shown on own profile */}
+            {uiState.activity && isOwnProfile && (
+              <ActivityFeed userId={userId} />
+            )}
+
+            {/* Follows Tab */}
+            {uiState.follows && (
+              <div className={styles.followsTab}>
+                {/* Filter Pills */}
+                <div className={styles.followsFilterPills}>
+                  <button
+                    className={`${styles.followsFilterPill} ${followsFilter === 'followers' ? styles.followsFilterPillActive : ''}`}
+                    onClick={() => handleFollowsFilterChange('followers')}
+                  >
+                    Followers ({followCounts.followers})
+                  </button>
+                  <button
+                    className={`${styles.followsFilterPill} ${followsFilter === 'following' ? styles.followsFilterPillActive : ''}`}
+                    onClick={() => handleFollowsFilterChange('following')}
+                  >
+                    Following ({followCounts.following})
+                  </button>
+                </div>
+
+                {/* Users List */}
+                <div className={styles.followsList}>
+                  {followsLoading && followsList.length === 0 ? (
+                    // Loading skeleton
+                    Array.from({ length: 6 }).map((_, i) => (
+                      <div key={`skeleton-follow-${i}`} className={styles.followsItemSkeleton}>
+                        <SkeletonLoader variant="circle" width="48px" height="48px" />
+                        <div style={{ flex: 1 }}>
+                          <SkeletonLoader variant="text" width="120px" height="16px" />
+                          <SkeletonLoader variant="text" width="80px" height="14px" style={{ marginTop: '4px' }} />
+                        </div>
+                      </div>
+                    ))
+                  ) : followsList.length === 0 ? (
+                    // Empty state
+                    <EmptyState
+                      variant="users"
+                      title={followsFilter === 'followers' ? 'No Followers Yet' : 'Not Following Anyone'}
+                      description={followsFilter === 'followers'
+                        ? (isOwnProfile ? "You don't have any followers yet." : `${getFirstName(currentProfile?.name)} doesn't have any followers yet.`)
+                        : (isOwnProfile ? "You're not following anyone yet." : `${getFirstName(currentProfile?.name)} isn't following anyone yet.`)}
+                      size="md"
+                    />
+                  ) : (
+                    <>
+                      {followsList.map((followUser) => (
+                        <Link
+                          key={followUser._id}
+                          to={`/profile/${followUser._id}`}
+                          className={styles.followsItem}
+                        >
+                          <div className={styles.followsItemAvatar}>
+                            {followUser.photos?.[0]?.url ? (
+                              <img src={followUser.photos[0].url} alt={followUser.name} />
+                            ) : (
+                              <div className={styles.followsItemAvatarPlaceholder}>
+                                <FaUser />
+                              </div>
+                            )}
+                          </div>
+                          <div className={styles.followsItemInfo}>
+                            <span className={styles.followsItemName}>{followUser.name}</span>
+                            {followUser.location && (
+                              <span className={styles.followsItemLocation}>
+                                <FaMapMarkerAlt /> {formatLocation(followUser.location)}
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+                      ))}
+
+                      {/* Load More Button */}
+                      {followsPagination.hasMore && (
+                        <div className={styles.followsLoadMore}>
+                          <Button
+                            variant="outline"
+                            onClick={() => fetchFollowsList(followsFilter, false)}
+                            disabled={followsLoading}
+                          >
+                            {followsLoading ? 'Loading...' : 'Load More'}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Destinations Tab */}
             {uiState.destinations && (
               <div ref={reservedRef} className={styles.destinationsGrid}>

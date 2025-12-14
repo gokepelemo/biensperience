@@ -1,11 +1,15 @@
 import styles from "./NewPlanItem.module.scss";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useMemo } from "react";
 import Modal from "../Modal/Modal";
 import { addPlanItem, updatePlanItem } from "../../utilities/experiences-api";
 import { lang } from "../../lang.constants";
 import { handleError } from "../../utilities/error-handler";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { FormControl, FormLabel } from "../../components/design-system";
+import { useFormPersistence } from "../../hooks/useFormPersistence";
+import { formatRestorationMessage } from "../../utilities/time-utils";
+import { useToast } from "../../contexts/ToastContext";
+import { useUser } from "../../contexts/UserContext";
 
 export default function NewPlanItem({
   experience,
@@ -18,6 +22,69 @@ export default function NewPlanItem({
   setNewPlanItem,
   updateData,
 }) {
+  const { user } = useUser();
+  const { success } = useToast();
+
+  // Determine if we're in add mode (formState === 1)
+  const isAddMode = formState === 1;
+
+  // Form persistence - only for add mode
+  const formData = useMemo(() => {
+    if (!isAddMode) return null;
+    return {
+      text: newPlanItem.text || '',
+      cost_estimate: newPlanItem.cost_estimate || '',
+      planning_days: newPlanItem.planning_days || '',
+      parent: newPlanItem.parent || '',
+      url: newPlanItem.url || ''
+    };
+  }, [isAddMode, newPlanItem.text, newPlanItem.cost_estimate,
+      newPlanItem.planning_days, newPlanItem.parent, newPlanItem.url]);
+
+  const setFormData = useCallback((data) => {
+    if (!data || !isAddMode) return;
+    setNewPlanItem(prev => ({
+      ...prev,
+      text: data.text !== undefined ? data.text : prev.text,
+      cost_estimate: data.cost_estimate !== undefined ? data.cost_estimate : prev.cost_estimate,
+      planning_days: data.planning_days !== undefined ? data.planning_days : prev.planning_days,
+      parent: data.parent !== undefined ? data.parent : prev.parent,
+      url: data.url !== undefined ? data.url : prev.url
+    }));
+  }, [isAddMode, setNewPlanItem]);
+
+  const persistence = useFormPersistence(
+    experience?._id && isAddMode ? `new-plan-item-form-${experience._id}` : null,
+    formData,
+    setFormData,
+    {
+      enabled: !!experience?._id && isAddMode && !!user?._id,
+      userId: user?._id,
+      ttl: 24 * 60 * 60 * 1000, // 24 hours
+      debounceMs: 1000,
+      shouldSave: (data) => data?.text?.trim()?.length > 0,
+      onRestore: (savedData, age) => {
+        if (savedData?.text?.trim()) {
+          // Auto-show the form if data is restored
+          setFormVisible(true);
+          setFormState(1);
+          const message = formatRestorationMessage(age, 'create');
+          success(message, {
+            duration: 15000,
+            actions: [{
+              label: 'Clear',
+              onClick: () => {
+                setNewPlanItem({});
+                persistence.clear();
+              },
+              variant: 'link'
+            }]
+          });
+        }
+      }
+    }
+  );
+
   const handleChange = useCallback((e) => {
     let planItem = { ...newPlanItem };
     const value = e.target.name === 'url' ? createUrlSlug(e.target.value) : e.target.value;
@@ -36,6 +103,10 @@ export default function NewPlanItem({
         setFormVisible(false);
         setShowSuccessModal(true);
         setSavedParent(newPlanItem.parent || '');
+        // Clear form persistence on successful add
+        if (persistence) {
+          persistence.clear();
+        }
       } else {
         let updatedExperience = await updatePlanItem(
           experience._id,
@@ -48,7 +119,7 @@ export default function NewPlanItem({
     } catch (err) {
       handleError(err, { context: formState ? 'Add plan item' : 'Update plan item' });
     }
-  }, [formState, experience._id, newPlanItem, setExperience, setFormVisible, formVisible, setNewPlanItem, updateData]);
+  }, [formState, experience._id, newPlanItem, setExperience, setFormVisible, formVisible, setNewPlanItem, updateData, persistence]);
 
   const handleVisibility = useCallback((e) => {
     e.preventDefault();

@@ -12,6 +12,7 @@ import {
   formatFileSize,
   isSupportedDocument
 } from '../../utilities/document-viewer';
+import { logger } from '../../utilities/logger';
 import {
   FaFile,
   FaFilePdf,
@@ -110,7 +111,7 @@ export default function DocumentViewerModal({
       const viewable = await convertDocumentForViewing(doc);
       setViewableContent(viewable);
     } catch (err) {
-      console.error('Error loading document:', err);
+      logger.error('Error loading document:', { error: err.message }, err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -123,7 +124,7 @@ export default function DocumentViewerModal({
   }, []);
 
   const onPdfLoadError = useCallback((error) => {
-    console.error('Error loading PDF:', error);
+    logger.error('Error loading PDF:', { error: error.message }, error);
     setPdfError(error.message);
   }, []);
 

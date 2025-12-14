@@ -1,0 +1,98 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * MapInfoCard Styles
+ * Styles for info card in Google Maps InfoWindow
+ */
+
+.infoCard {
+  width: 240px;
+  background: white;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-family: var(--font-family-base);
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
+  }
+}
+
+.photoContainer {
+  width: 100%;
+  height: 120px;
+  overflow: hidden;
+}
+
+.photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.content {
+  padding: $space-3;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  margin-bottom: $space-2;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  padding: $space-1 $space-2;
+  border-radius: var(--radius-full);
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+
+  &.experience {
+    background: rgba(245, 158, 11, 0.15);
+    color: #D97706;
+  }
+
+  &.destination {
+    background: rgba(59, 130, 246, 0.15);
+    color: #2563EB;
+  }
+}
+
+.badgeIcon {
+  font-size: 0.75rem;
+}
+
+.name {
+  margin: 0 0 $space-2 0;
+  font-size: $font-size-base;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+
+  /* Truncate long names */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.viewLink {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  color: var(--color-primary);
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+  }
+}
+
+.arrowIcon {
+  font-size: 0.625rem;
+}

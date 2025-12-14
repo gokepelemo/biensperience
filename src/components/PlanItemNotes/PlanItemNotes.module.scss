@@ -1,16 +1,28 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Plan Item Notes - Chat-style interface with search, pagination, and InteractiveTextArea */
+/* Plan Item Notes - Chat-style interface with search, pagination, and InteractiveTextArea
+ * This component must fill 100% of its parent container's available height.
+ * The flex chain is: notesTabWrapper > planItemNotesChat > (notesHeader + chatMessages)
+ */
 
 .planItemNotesChat {
+  /* Flex column container */
   display: flex;
   flex-direction: column;
-  flex: 1 1 0; /* Fill available space in parent flex container, shrink to 0 if needed */
+  /* Fill available space - flex-grow: 1, flex-shrink: 1, flex-basis: 0 */
+  flex: 1 1 0;
+  /* Explicit height for Safari */
   height: 100%;
+  /* Max height prevents overflow */
+  max-height: 100%;
+  /* Full width of container */
   width: 100%;
-  min-height: 0; /* Critical: Allow flexbox to shrink below content height */
-  overflow: hidden; /* Prevent overflow, let chatMessages handle scrolling */
-  position: relative; /* For absolute positioning of add note form overlay */
+  /* Critical: Allow flexbox to shrink below intrinsic content height */
+  min-height: 0;
+  /* Prevent overflow at container level - chatMessages handles scrolling */
+  overflow: hidden;
+  /* For absolute positioning of add note form overlay */
+  position: relative;
 }
 
 /* Search and Add Note Header */
@@ -261,12 +273,27 @@
   margin-top: $space-3;
 }
 
-/* Chat messages area */
+/* Chat messages area - THE SCROLLABLE CONTENT CONTAINER
+ * This is the primary scrollable area that shows all notes.
+ * It must fill remaining vertical space after the header.
+ */
 .chatMessages {
-  flex: 1;
+  /* Fill all remaining vertical space */
+  flex: 1 1 0;
+  /* Allow shrinking below content size - critical for Safari */
+  min-height: 0;
+  /* Explicit height for Safari fallback */
+  height: 100%;
+  /* Enable vertical scrolling */
   overflow-y: auto;
+  /* Prevent horizontal overflow */
+  overflow-x: hidden;
   padding: $space-6;
   background-color: var(--color-bg-secondary);
+  /* Prevent scroll chaining to parent */
+  overscroll-behavior: contain;
+  /* Smooth scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
 
   @media (max-width: 768px) {
     padding: $space-4;

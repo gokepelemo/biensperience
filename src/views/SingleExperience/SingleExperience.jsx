@@ -3510,6 +3510,7 @@ export default function SingleExperience() {
         setEditingPlanItem={setEditingPlanItem}
         planItemFormState={planItemFormState}
         activeTab={activeTab}
+        experienceId={experienceId}
         onSaveExperiencePlanItem={handleSaveExperiencePlanItem}
         onSavePlanInstanceItem={handleSavePlanInstanceItem}
         loading={loading}

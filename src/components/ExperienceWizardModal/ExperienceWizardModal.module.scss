@@ -431,8 +431,8 @@
 }
 
 .removeItemBtn {
-  width: 32px;
-  height: 32px;
+  width: 44px; /* WCAG 2.1 minimum touch target */
+  height: 44px; /* WCAG 2.1 minimum touch target */
   border: none;
   background: transparent;
   color: var(--color-text-muted);

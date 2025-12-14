@@ -113,9 +113,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
     } catch (err) {
       if (!isMountedRef.current) return;
 
-      logger.error('Error toggling API access', {}, err);
-      // extra debug output to help trace failures
-      console.error('ApiTokenModal: toggleApiAccess failed', err);
+      logger.error('Error toggling API access', { error: err.message }, err);
       showError(lang.current.api.failedToToggleAccess || 'Failed to toggle API access');
     } finally {
       if (isMountedRef.current) {

@@ -18,6 +18,10 @@ import { renderTextWithMentionsAndUrls, extractUrls, mentionsToPlainText } from 
 import { LinkPreviewList } from '../LinkPreview/LinkPreview';
 import useEntityResolver from '../../hooks/useEntityResolver';
 import { createFilter } from '../../utilities/trie';
+import { logger } from '../../utilities/logger';
+import { useFormPersistence } from '../../hooks/useFormPersistence';
+import { formatRestorationMessage } from '../../utilities/time-utils';
+import { useToast } from '../../contexts/ToastContext';
 import styles from './PlanItemNotes.module.scss';
 
 // Visibility options for notes (plan-level restriction)
@@ -223,8 +227,11 @@ export default function PlanItemNotes({
   presenceConnected = false,
   onlineUserIds = new Set(),
   // Collaborators for resolving note author user data (names, photos)
-  collaborators = []
+  collaborators = [],
+  // Plan item ID for form persistence (optional)
+  planItemId = null
 }) {
+  const { success } = useToast();
   const [newNoteContent, setNewNoteContent] = useState('');
   const [newNoteVisibility, setNewNoteVisibility] = useState('contributors');
   const [editingNoteId, setEditingNoteId] = useState(null);
@@ -239,6 +246,49 @@ export default function PlanItemNotes({
   const [noteToDelete, setNoteToDelete] = useState(null);
   const chatMessagesRef = useRef(null);
   const prevNotesLengthRef = useRef(notes.length);
+
+  // Form persistence for new note content
+  const formData = useMemo(() => ({
+    content: newNoteContent,
+    visibility: newNoteVisibility
+  }), [newNoteContent, newNoteVisibility]);
+
+  const setFormData = useCallback((data) => {
+    if (!data) return;
+    if (data.content !== undefined) setNewNoteContent(data.content);
+    if (data.visibility !== undefined) setNewNoteVisibility(data.visibility);
+  }, []);
+
+  const persistence = useFormPersistence(
+    planItemId ? `plan-item-note-form-${planItemId}` : null,
+    formData,
+    setFormData,
+    {
+      enabled: !!planItemId && !!currentUser?._id,
+      userId: currentUser?._id,
+      ttl: 24 * 60 * 60 * 1000, // 24 hours
+      debounceMs: 1000,
+      shouldSave: (data) => data?.content?.trim()?.length > 0,
+      onRestore: (savedData, age) => {
+        if (savedData?.content?.trim()) {
+          setShowAddNoteForm(true);
+          const message = formatRestorationMessage(age, 'create');
+          success(message, {
+            duration: 15000,
+            actions: [{
+              label: 'Clear',
+              onClick: () => {
+                setNewNoteContent('');
+                setNewNoteVisibility('contributors');
+                persistence.clear();
+              },
+              variant: 'link'
+            }]
+          });
+        }
+      }
+    }
+  );
 
   // Resolve user data from collaborators for notes that only have user IDs
   // This prevents "Unknown User" flash by enriching notes with full user objects
@@ -366,12 +416,14 @@ export default function PlanItemNotes({
       setNewNoteContent('');
       setNewNoteVisibility('contributors');
       setShowAddNoteForm(false);
+      // Clear persisted form data on success
+      persistence.clear();
     } catch (error) {
-      console.error('[PlanItemNotes] Failed to add note:', error);
+      logger.error('[PlanItemNotes] Failed to add note:', { error: error.message }, error);
     } finally {
       setIsAdding(false);
     }
-  }, [newNoteContent, newNoteVisibility, onAddNote]);
+  }, [newNoteContent, newNoteVisibility, onAddNote, persistence]);
 
   const handleStartEdit = useCallback((note) => {
     setEditingNoteId(note._id);
@@ -396,7 +448,7 @@ export default function PlanItemNotes({
       setEditContent('');
       setEditVisibility('contributors');
     } catch (error) {
-      console.error('[PlanItemNotes] Failed to update note:', error);
+      logger.error('[PlanItemNotes] Failed to update note:', { error: error.message }, error);
     } finally {
       setIsSaving(false);
     }
@@ -421,7 +473,7 @@ export default function PlanItemNotes({
       setShowDeleteConfirm(false);
       setNoteToDelete(null);
     } catch (error) {
-      console.error('[PlanItemNotes] Failed to delete note:', error);
+      logger.error('[PlanItemNotes] Failed to delete note:', { error: error.message }, error);
     }
   }, [noteToDelete, onDeleteNote]);
 

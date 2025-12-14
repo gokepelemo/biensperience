@@ -4,12 +4,16 @@
  * Handles form state, validation, and submission
  */
 
-import { useState, useCallback, useEffect, useId } from 'react';
+import { useState, useCallback, useEffect, useId, useMemo } from 'react';
 import { Form } from 'react-bootstrap';
 import Modal from '../../../components/Modal/Modal';
 import ActivityTypeSelect from '../../../components/ActivityTypeSelect';
 import { getAddressSuggestions, getPlaceDetails } from '../../../utilities/address-utils';
 import { logger } from '../../../utilities/logger';
+import { useFormPersistence } from '../../../hooks/useFormPersistence';
+import { formatRestorationMessage } from '../../../utilities/time-utils';
+import { useToast } from '../../../contexts/ToastContext';
+import { useUser } from '../../../contexts/UserContext';
 
 const { Label: FormLabel, Control: FormControl } = Form;
 
@@ -25,6 +29,7 @@ export default function PlanItemModal({
 
   // Context
   activeTab, // "experience" or "myplan"
+  experienceId = null, // For form persistence unique key
 
   // Handlers
   onSaveExperiencePlanItem,
@@ -38,6 +43,78 @@ export default function PlanItemModal({
 }) {
   // Generate unique IDs for form elements
   const formId = useId();
+  const { user } = useUser();
+  const { success } = useToast();
+
+  // Determine if we're in add mode (planItemFormState === 1)
+  const isAddMode = planItemFormState === 1;
+
+  // Form persistence - only for add mode
+  const formData = useMemo(() => {
+    if (!isAddMode) return null;
+    return {
+      text: editingPlanItem.text || '',
+      url: editingPlanItem.url || '',
+      cost: editingPlanItem.cost || 0,
+      planning_days: editingPlanItem.planning_days || 0,
+      activity_type: editingPlanItem.activity_type || null,
+      location: editingPlanItem.location || null,
+      parent: editingPlanItem.parent || null
+    };
+  }, [isAddMode, editingPlanItem.text, editingPlanItem.url, editingPlanItem.cost,
+      editingPlanItem.planning_days, editingPlanItem.activity_type,
+      editingPlanItem.location, editingPlanItem.parent]);
+
+  const setFormData = useCallback((data) => {
+    if (!data || !isAddMode) return;
+    setEditingPlanItem(prev => ({
+      ...prev,
+      text: data.text !== undefined ? data.text : prev.text,
+      url: data.url !== undefined ? data.url : prev.url,
+      cost: data.cost !== undefined ? data.cost : prev.cost,
+      planning_days: data.planning_days !== undefined ? data.planning_days : prev.planning_days,
+      activity_type: data.activity_type !== undefined ? data.activity_type : prev.activity_type,
+      location: data.location !== undefined ? data.location : prev.location,
+      parent: data.parent !== undefined ? data.parent : prev.parent
+    }));
+  }, [isAddMode, setEditingPlanItem]);
+
+  const persistence = useFormPersistence(
+    experienceId && isAddMode ? `plan-item-form-${experienceId}-${activeTab}` : null,
+    formData,
+    setFormData,
+    {
+      enabled: !!experienceId && isAddMode && !!user?._id,
+      userId: user?._id,
+      ttl: 24 * 60 * 60 * 1000, // 24 hours
+      debounceMs: 1000,
+      shouldSave: (data) => data?.text?.trim()?.length > 0,
+      onRestore: (savedData, age) => {
+        if (savedData?.text?.trim()) {
+          const message = formatRestorationMessage(age, 'create');
+          success(message, {
+            duration: 15000,
+            actions: [{
+              label: 'Clear',
+              onClick: () => {
+                setEditingPlanItem(prev => ({
+                  ...prev,
+                  text: '',
+                  url: '',
+                  cost: 0,
+                  planning_days: 0,
+                  activity_type: null,
+                  location: null
+                }));
+                persistence.clear();
+              },
+              variant: 'link'
+            }]
+          });
+        }
+      }
+    }
+  );
 
   // Address autocomplete state
   const [addressInput, setAddressInput] = useState('');
@@ -131,9 +208,23 @@ export default function PlanItemModal({
     }));
   }, [setEditingPlanItem]);
 
-  const handleSubmit = activeTab === "experience"
-    ? onSaveExperiencePlanItem
-    : onSavePlanInstanceItem;
+  // Wrap submit handlers to clear persistence on success
+  const handleSubmit = useCallback(async () => {
+    const submitFn = activeTab === "experience"
+      ? onSaveExperiencePlanItem
+      : onSavePlanInstanceItem;
+
+    try {
+      await submitFn();
+      // Clear persistence after successful save (only in add mode)
+      if (isAddMode && persistence) {
+        persistence.clear();
+      }
+    } catch (error) {
+      // Let parent handle error - don't clear persistence
+      throw error;
+    }
+  }, [activeTab, onSaveExperiencePlanItem, onSavePlanInstanceItem, isAddMode, persistence]);
 
   const modalTitle = planItemFormState === 1
     ? (editingPlanItem.parent ? "Add Child Plan Item" : "Add Plan Item")

@@ -5,6 +5,8 @@
  * - Provides helpers to get/apply default theme
  */
 
+import { logger } from './logger';
+
 const PREFERENCES_KEY = 'biensperience:preferences';
 
 let _mediaQuery = null;
@@ -177,8 +179,7 @@ export function applyTheme(theme) {
     }
   } catch (err) {
     // ignore in environments without DOM
-    // eslint-disable-next-line no-console
-    console.warn('applyTheme: failed to apply theme', err.message || err);
+    logger.warn('applyTheme: failed to apply theme', { error: err.message || err });
   }
 }
 

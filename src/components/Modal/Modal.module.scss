@@ -189,15 +189,21 @@
 .modalFullscreen {
   width: 100%;
   max-width: 100%;
+  /* Use 100% with fallback to dvh for iOS Safari address bar handling */
   height: 100%;
+  height: 100dvh;
   max-height: 100%;
+  max-height: 100dvh;
   margin: 0;
   overflow: hidden; /* Prevent scroll on fullscreen modal container */
 
   .modalContent {
     width: 100%;
+    /* Explicit height chain for fullscreen - critical for Safari */
     height: 100%;
+    height: 100dvh;
     max-height: 100%;
+    max-height: 100dvh;
     border-radius: 0; /* Edge-to-edge fullscreen */
     overflow: hidden; /* Let children handle their own scrolling */
     display: flex;
@@ -210,8 +216,11 @@
   }
 
   .modalBody {
-    flex: 1;
+    /* Flexbox fill pattern: grow, shrink, zero basis */
+    flex: 1 1 0;
     min-height: 0; /* Critical: Allow flex item to shrink below content size */
+    /* Explicit height ensures Safari calculates properly */
+    height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden; /* Don't scroll here - let children handle their own scrolling */

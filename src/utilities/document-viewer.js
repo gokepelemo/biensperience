@@ -6,6 +6,7 @@
  */
 
 import { sendRequest } from './send-request';
+import { logger } from './logger';
 
 // Dynamic imports for document libraries to avoid loading them unnecessarily
 let mammoth = null;
@@ -30,7 +31,7 @@ async function loadDocumentLibraries() {
       pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
     }
   } catch (error) {
-    console.warn('Failed to load document libraries:', error);
+    logger.warn('Failed to load document libraries:', { error: error.message });
   }
 }
 
@@ -172,7 +173,7 @@ export async function loadDocument(url, options = {}) {
     };
 
   } catch (error) {
-    console.error('Error loading document:', error);
+    logger.error('Error loading document:', { error: error.message }, error);
     throw new Error(`Failed to load document: ${error.message}`);
   }
 }
@@ -215,7 +216,7 @@ export async function convertDocumentForViewing(document) {
           fileName
         };
       } catch (error) {
-        console.error('Error converting DOCX:', error);
+        logger.error('Error converting DOCX:', { error: error.message }, error);
         return {
           type: 'html',
           content: `
@@ -245,7 +246,7 @@ export async function convertDocumentForViewing(document) {
           fileName
         };
       } catch (error) {
-        console.error('Error reading text document:', error);
+        logger.error('Error reading text document:', { error: error.message }, error);
         return {
           type: 'html',
           content: '<div class="document-error"><p>Unable to read text document.</p></div>',

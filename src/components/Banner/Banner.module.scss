@@ -456,6 +456,11 @@
     gap: $space-2;
   }
 
+  // Add right padding when dismiss button is present to prevent text overlapping close button
+  .bannerDismissible .bannerContent {
+    padding-right: $space-6;
+  }
+
   .bannerIcon {
     flex-shrink: 0;
   }
@@ -464,6 +469,7 @@
     // Take full width minus icon, forcing button to wrap below
     flex: 1 1 calc(100% - 3rem);
     min-width: 0;
+    text-align: center;
   }
 
   .bannerActions {

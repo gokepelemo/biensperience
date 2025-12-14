@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import Modal from '../Modal/Modal';
+import { logger } from '../../utilities/logger';
 import styles from './AssignPlanItemModal.module.scss';
 
 export default function AssignPlanItemModal({
@@ -27,7 +28,7 @@ export default function AssignPlanItemModal({
       await onAssign(selectedUserId);
       onClose();
     } catch (error) {
-      console.error('[AssignPlanItemModal] Failed to assign:', error);
+      logger.error('[AssignPlanItemModal] Failed to assign:', { error: error.message }, error);
     } finally {
       setIsSubmitting(false);
     }
@@ -40,7 +41,7 @@ export default function AssignPlanItemModal({
       setSelectedUserId('');
       onClose();
     } catch (error) {
-      console.error('[AssignPlanItemModal] Failed to unassign:', error);
+      logger.error('[AssignPlanItemModal] Failed to unassign:', { error: error.message }, error);
     } finally {
       setIsSubmitting(false);
     }

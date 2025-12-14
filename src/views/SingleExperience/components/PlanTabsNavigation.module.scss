@@ -1,0 +1,200 @@
+@use '../../../styles/scss/abstracts' as *;
+
+/* PlanTabsNavigation - GitHub-style horizontal tab navigation */
+
+.planTabsNav {
+  display: flex;
+  gap: var(--space-1);
+  overflow: visible; /* Changed from overflow-x: auto to allow dropdown to display */
+  border-bottom: 1px solid var(--color-border-light);
+  margin-bottom: var(--space-6);
+
+  @media (max-width: 991px) {
+    justify-content: center;
+  }
+
+  @media (max-width: 768px) {
+    gap: 0;
+    justify-content: center;
+    flex-wrap: wrap; /* Allow tabs to wrap on mobile instead of scrolling */
+  }
+
+  @media (prefers-color-scheme: dark) {
+    border-bottom-color: var(--color-border-dark);
+  }
+}
+
+.tabItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+  margin-bottom: -1px; /* Overlap the container border */
+
+  &:hover:not(:disabled) {
+    color: var(--color-text-primary);
+    border-bottom-color: var(--color-border-medium);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+    border-radius: var(--radius-sm);
+  }
+
+  @media (max-width: 768px) {
+    padding: var(--space-3);
+    font-size: var(--font-size-xs);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:hover:not(:disabled) {
+      border-bottom-color: var(--color-border-light);
+    }
+  }
+}
+
+.tabItemActive {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-primary);
+
+  &:hover:not(:disabled) {
+    border-bottom-color: var(--color-primary);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    color: var(--color-text-primary);
+    border-bottom-color: var(--color-primary);
+
+    &:hover:not(:disabled) {
+      border-bottom-color: var(--color-primary);
+    }
+  }
+}
+
+.tabItemDisabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.tabIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+
+  svg {
+    width: 1em;
+    height: 1em;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.875rem;
+  }
+}
+
+.tabLabel {
+  line-height: 1;
+}
+
+/* Dropdown container for multiple plans */
+.tabDropdownContainer {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tabItemWithDropdown {
+  padding-right: var(--space-2);
+}
+
+.tabCaretButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  margin-bottom: -1px;
+  transition: color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  svg {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+}
+
+.tabDropdownActive .tabCaretButton,
+.tabDropdownOpen .tabCaretButton {
+  color: var(--color-primary);
+}
+
+.tabDropdownMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+  min-width: 160px;
+  padding: var(--space-2) 0;
+  background: var(--color-bg-primary, #ffffff);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+  }
+}
+
+.tabDropdownItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+
+  &:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+}
+
+.tabDropdownItemSelected {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+
+  &:hover {
+    color: var(--color-primary);
+  }
+}
+
+.checkmark {
+  margin-left: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--color-primary);
+}

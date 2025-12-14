@@ -64,7 +64,7 @@ export default function Experiences() {
       const base = location?.pathname || '/experiences';
       navigate(`${base}${qs ? `?${qs}` : ''}`, { replace: true });
     } catch (err) {
-      console.warn('Failed to update URL from filters', err?.message || err);
+      logger.warn('Failed to update URL from filters', { error: err?.message || err });
     }
   }
 
@@ -192,7 +192,7 @@ export default function Experiences() {
         setTypeLoading(false);
       } catch (err) {
         // ignore errors silently
-        console.warn('Failed to load experience types', err?.message || err);
+        logger.warn('Failed to load experience types', { error: err?.message || err });
         setTypeLoading(false);
       }
     })();
@@ -231,7 +231,7 @@ export default function Experiences() {
         setDirectFilterExperiences(items || []);
       }
     } catch (err) {
-      console.warn('Failed to fetch direct experiences for filters', err?.message || err);
+      logger.warn('Failed to fetch direct experiences for filters', { error: err?.message || err });
       setDirectFilterExperiences([]);
     } finally {
       setDirectFilterLoading(false);
@@ -266,7 +266,7 @@ export default function Experiences() {
             setDirectFilterExperiences(items || []);
           }
       } catch (err) {
-        console.warn('Failed to fetch direct experiences for destination', err?.message || err);
+        logger.warn('Failed to fetch direct experiences for destination', { error: err?.message || err });
         setDirectFilterExperiences([]);
       } finally {
         setDirectFilterLoading(false);
@@ -291,7 +291,7 @@ export default function Experiences() {
         setDestLoading(false);
       } catch (err) {
         // ignore search errors silently
-        console.warn('Destination search failed', err.message);
+        logger.warn('Destination search failed', { error: err.message });
         setDestAutocompleteItems([]);
         setDestLoading(false);
       }
@@ -318,7 +318,7 @@ export default function Experiences() {
         setTypeLoading(false);
       } catch (err) {
         // ignore
-        console.warn('Type search failed', err?.message || err);
+        logger.warn('Type search failed', { error: err?.message || err });
         setTypeAutocompleteItems([]);
         setTypeLoading(false);
       }
@@ -519,7 +519,7 @@ export default function Experiences() {
         }
       } catch (err) {
         // swallow errors here; sendRequest already logs
-        console.warn('applyExperiencesFilter failed on Experiences mount', err?.message || err);
+        logger.warn('applyExperiencesFilter failed on Experiences mount', { error: err?.message || err });
       } finally {
         if (mounted) setInitialLoading(false);
       }

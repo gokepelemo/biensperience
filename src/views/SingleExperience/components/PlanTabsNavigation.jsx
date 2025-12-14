@@ -1,11 +1,14 @@
 /**
  * PlanTabsNavigation Component
  * Displays tab navigation for Experience Plan vs My Plan with dropdown for multiple plans
+ * Design inspired by GitHub-style tab navigation
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { FaListAlt, FaUser, FaChevronDown, FaChevronUp, FaCheck } from 'react-icons/fa';
 import Loading from '../../../components/Loading/Loading';
 import debug from '../../../utilities/debug';
+import styles from './PlanTabsNavigation.module.scss';
 
 export default function PlanTabsNavigation({
   // Tab state
@@ -47,21 +50,24 @@ export default function PlanTabsNavigation({
     }
   }, [dropdownOpen]);
   return (
-    <div className="plan-tabs-nav mb-4">
+    <div className={styles.planTabsNav} role="tablist" aria-label="Plan tabs">
       {/* The Plan Tab - Always visible */}
       <button
-        className={`plan-tab-button ${
-          activeTab === "experience" ? "active" : ""
-        }`}
+        type="button"
+        className={`${styles.tabItem} ${activeTab === "experience" ? styles.tabItemActive : ""}`}
         onClick={() => setActiveTab("experience")}
+        aria-selected={activeTab === "experience"}
+        role="tab"
+        tabIndex={activeTab === "experience" ? 0 : -1}
       >
-        {lang.current.heading.thePlan}
+        <span className={styles.tabIcon}><FaListAlt /></span>
+        <span className={styles.tabLabel}>{lang.current.heading.thePlan}</span>
       </button>
 
       {/* My Plan Tab(s) - Loading or Dropdown/Button */}
       {plansLoading ? (
         // Show loading state for plan tabs
-        <button className="plan-tab-button" disabled>
+        <button type="button" className={styles.tabItem} disabled>
           <Loading size="sm" variant="inline" showMessage={false} />
         </button>
       ) : (
@@ -104,47 +110,41 @@ export default function PlanTabsNavigation({
             return (
               <div
                 ref={dropdownRef}
-                className={`plan-tab-dropdown-container ${activeTab === 'myplan' ? 'active' : ''} ${dropdownOpen ? 'dropdown-open' : ''}`}
+                className={`${styles.tabDropdownContainer} ${activeTab === 'myplan' ? styles.tabDropdownActive : ''} ${dropdownOpen ? styles.tabDropdownOpen : ''}`}
               >
                 {/* Tab button - switches to My Plan tab without opening dropdown */}
                 <button
-                  className={`plan-tab-button plan-tab-select ${activeTab === "myplan" ? "active" : ""}`}
+                  type="button"
+                  className={`${styles.tabItem} ${styles.tabItemWithDropdown} ${activeTab === "myplan" ? styles.tabItemActive : ""}`}
                   onClick={() => {
                     setActiveTab("myplan");
                     setDropdownOpen(false); // Close dropdown when switching tabs
                   }}
-                  type="button"
+                  aria-selected={activeTab === "myplan"}
+                  role="tab"
+                  tabIndex={activeTab === "myplan" ? 0 : -1}
                 >
-                  {selectedDisplayName}
+                  <span className={styles.tabIcon}><FaUser /></span>
+                  <span className={styles.tabLabel}>{selectedDisplayName}</span>
                 </button>
 
                 {/* Caret button - toggles dropdown */}
                 <button
-                  className="plan-tab-caret-button"
+                  type="button"
+                  className={styles.tabCaretButton}
                   onClick={(e) => {
                     e.stopPropagation();
                     setDropdownOpen(!dropdownOpen);
                   }}
-                  type="button"
                   aria-label="Toggle plans dropdown"
                   aria-expanded={dropdownOpen}
                 >
-                  <span className="plan-tab-caret" aria-hidden="true">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      {dropdownOpen ? (
-                        // Caret up when open
-                        <polyline points="18 15 12 9 6 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                      ) : (
-                        // Caret down when closed
-                        <polyline points="6 9 12 15 18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                      )}
-                    </svg>
-                  </span>
+                  {dropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
                 </button>
 
                 {/* Dropdown menu */}
                 {dropdownOpen && (
-                  <div className="plan-tab-dropdown-menu">
+                  <div className={styles.tabDropdownMenu}>
                     {sharedPlans.map((plan, ci) => {
                       const planUserId = plan.user?._id || plan.user;
                       const isOwnPlan = idEquals(planUserId, user._id);
@@ -164,16 +164,16 @@ export default function PlanTabsNavigation({
                       return (
                         <button
                           key={optionKey}
-                          className={`plan-tab-dropdown-item ${isSelected ? 'selected' : ''}`}
+                          type="button"
+                          className={`${styles.tabDropdownItem} ${isSelected ? styles.tabDropdownItemSelected : ''}`}
                           onClick={() => {
                             handlePlanChange(planId);
                             setActiveTab("myplan");
                             setDropdownOpen(false);
                           }}
-                          type="button"
                         >
-                          {displayName}
-                          {isSelected && <span className="checkmark">✓</span>}
+                          <span>{displayName}</span>
+                          {isSelected && <FaCheck className={styles.checkmark} />}
                         </button>
                       );
                     })}
@@ -192,15 +192,20 @@ export default function PlanTabsNavigation({
             if (isOwnPlan) {
               return (
                 <button
-                  className={`plan-tab-button ${activeTab === "myplan" ? "active" : ""}`}
+                  type="button"
+                  className={`${styles.tabItem} ${activeTab === "myplan" ? styles.tabItemActive : ""}`}
                   onClick={() => {
                     const planId = onlyPlan._id && onlyPlan._id.toString ? onlyPlan._id.toString() : onlyPlan._id;
                     setSelectedPlanId(planId);
                     handlePlanChange(planId); // Ensure plan is set before switching tabs
                     setActiveTab("myplan");
                   }}
+                  aria-selected={activeTab === "myplan"}
+                  role="tab"
+                  tabIndex={activeTab === "myplan" ? 0 : -1}
                 >
-                  My Plan
+                  <span className={styles.tabIcon}><FaUser /></span>
+                  <span className={styles.tabLabel}>My Plan</span>
                 </button>
               );
             }

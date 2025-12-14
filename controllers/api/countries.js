@@ -126,7 +126,7 @@ async function getByCountry(req, res) {
           .sort({ name: 1 })
           .skip(experiencesSkip)
           .limit(experiencesLimit)
-          .select('name destination photos default_photo_id permissions experience_type overview createdAt updatedAt')
+          .select('name destination photos default_photo_id permissions experience_type overview location createdAt updatedAt')
           .populate('destination', 'name country city')
           .populate('photos', 'url caption photo_credit photo_credit_url width height')
           .populate('default_photo_id', 'url caption photo_credit photo_credit_url width height')

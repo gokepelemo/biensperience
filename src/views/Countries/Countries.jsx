@@ -1,10 +1,13 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { FaTh, FaMap } from "react-icons/fa";
 import { lang } from "../../lang.constants";
 import { getCountryData } from "../../utilities/countries-api";
 import { eventBus } from "../../utilities/event-bus";
+import { useViewModePreference } from "../../hooks/useUIPreference";
 import DestinationCard from "../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
+import { InteractiveMap } from "../../components/InteractiveMap";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import Alert from "../../components/Alert/Alert";
@@ -25,6 +28,10 @@ function slugToDisplayName(slug) {
 
 export default function Countries() {
   const { countryName } = useParams();
+  const navigate = useNavigate();
+
+  // View mode preference (list or map)
+  const { viewMode, setViewMode } = useViewModePreference('countries', 'list');
 
   // Data state
   const [destinations, setDestinations] = useState([]);
@@ -216,6 +223,47 @@ export default function Countries() {
     return `${destCount} ${destCount === 1 ? 'destination' : 'destinations'} • ${expCount} ${expCount === 1 ? 'experience' : 'experiences'}`;
   }, [loading, destinationsMeta?.total, experiencesMeta?.total, destinations.length, experiences.length]);
 
+  // Transform experiences into map markers (only those with coordinates)
+  const mapMarkers = useMemo(() => {
+    const markers = [];
+
+    // Add experiences with valid coordinates
+    experiences.forEach(exp => {
+      if (exp.location?.geo?.coordinates && exp.location.geo.coordinates.length === 2) {
+        const [lng, lat] = exp.location.geo.coordinates;
+        // Validate coordinates are valid numbers
+        if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+          markers.push({
+            id: exp._id,
+            lat,
+            lng,
+            type: 'experience',
+            name: exp.name,
+            photo: exp.default_photo_id?.url || exp.photos?.[0]?.url,
+            link: `/experiences/${exp._id}`
+          });
+        }
+      }
+    });
+
+    logger.debug('[Countries] Map markers generated', {
+      totalExperiences: experiences.length,
+      markersWithCoords: markers.length
+    });
+
+    return markers;
+  }, [experiences]);
+
+  // Handle marker click - navigate to experience
+  const handleMarkerClick = useCallback((marker) => {
+    if (marker.link) {
+      navigate(marker.link);
+    }
+  }, [navigate]);
+
+  // Check if map view is available (has experiences with coordinates)
+  const hasMapData = mapMarkers.length > 0;
+
   return (
     <PageWrapper title={pageTitle}>
       <PageOpenGraph
@@ -234,6 +282,32 @@ export default function Countries() {
             {subtitle && (
               <FadeIn delay={100}>
                 <p className={styles.subtitle}>{subtitle}</p>
+              </FadeIn>
+            )}
+
+            {/* View Toggle - only show if not loading and has data */}
+            {!loading && !error && (destinations.length > 0 || experiences.length > 0) && (
+              <FadeIn delay={150}>
+                <div className={styles.viewToggle}>
+                  <button
+                    className={`${styles.viewToggleButton} ${viewMode === 'list' ? styles.viewToggleButtonActive : ''}`}
+                    onClick={() => setViewMode('list')}
+                    aria-label="Cards view"
+                  >
+                    <FaTh />
+                    <span>Cards</span>
+                  </button>
+                  <button
+                    className={`${styles.viewToggleButton} ${viewMode === 'map' ? styles.viewToggleButtonActive : ''}`}
+                    onClick={() => setViewMode('map')}
+                    aria-label="Map view"
+                    disabled={!hasMapData && viewMode !== 'map'}
+                    title={!hasMapData ? 'No experiences with location data' : 'View on map'}
+                  >
+                    <FaMap />
+                    <span>Map</span>
+                  </button>
+                </div>
               </FadeIn>
             )}
           </div>
@@ -255,13 +329,42 @@ export default function Countries() {
         {/* Content */}
         {!error && (
           <SpaceY size="6">
-            {/* Destinations Section */}
+            {/* Map View */}
+            {viewMode === 'map' && !loading && (
+              <FadeIn>
+                <div className={styles.mapViewContainer}>
+                  {hasMapData ? (
+                    <>
+                      <p className={styles.mapViewInfo}>
+                        Showing {mapMarkers.length} {mapMarkers.length === 1 ? 'experience' : 'experiences'} with location data
+                      </p>
+                      <InteractiveMap
+                        markers={mapMarkers}
+                        height="500px"
+                        onMarkerClick={handleMarkerClick}
+                        fitBounds={true}
+                      />
+                    </>
+                  ) : (
+                    <EmptyState
+                      variant="generic"
+                      title="No Location Data"
+                      description="None of the experiences in this country have location coordinates. Try the cards view instead."
+                      size="md"
+                    />
+                  )}
+                </div>
+              </FadeIn>
+            )}
+
+            {/* Cards View - Destinations Section */}
+            {viewMode === 'list' && (
             <section>
               <h2 className={styles.sectionTitle}>
                 {loading ? (
                   <SkeletonLoader variant="text" width="200px" height="24px" />
                 ) : (
-                  `${lang.current.heading.destinations || 'Destinations'} (${destinationsMeta?.total || destinations.length})`
+                  lang.current.heading.destinations || 'Destinations'
                 )}
               </h2>
               <FlexCenter>
@@ -307,14 +410,16 @@ export default function Countries() {
                 </div>
               )}
             </section>
+            )}
 
-            {/* Experiences Section */}
+            {/* Cards View - Experiences Section */}
+            {viewMode === 'list' && (
             <section>
               <h2 className={styles.sectionTitle}>
                 {loading ? (
                   <SkeletonLoader variant="text" width="200px" height="24px" />
                 ) : (
-                  `${lang.current.heading.experiences || 'Experiences'} (${experiencesMeta?.total || experiences.length})`
+                  lang.current.heading.experiences || 'Experiences'
                 )}
               </h2>
               <FlexCenter>
@@ -365,6 +470,7 @@ export default function Countries() {
                 </div>
               )}
             </section>
+            )}
           </SpaceY>
         )}
       </div>

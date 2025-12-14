@@ -6,6 +6,7 @@ import { checkExperiencePlans, deleteExperience, transferOwnership, archiveExper
 import { searchUsers } from '../../utilities/search-api';
 import { handleError } from '../../utilities/error-handler';
 import { lang } from '../../lang.constants';
+import { logger } from '../../utilities/logger';
 import { Button, Text } from '../design-system';
 import Modal from '../Modal/Modal';
 import Autocomplete from '../Autocomplete/Autocomplete';
@@ -142,7 +143,7 @@ export default function TransferOwnershipModal({
         }));
       setSearchResults(filtered);
     } catch (err) {
-      console.error('User search failed:', err);
+      logger.error('User search failed:', { error: err.message }, err);
       setSearchResults([]);
     } finally {
       setSearching(false);

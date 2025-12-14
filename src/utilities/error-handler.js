@@ -5,6 +5,8 @@
  * toast notifications and user-friendly messaging.
  */
 
+import { logger } from './logger';
+
 /**
  * Custom error class for API errors
  */
@@ -261,7 +263,7 @@ export function handleActionClick(action) {
       break;
 
     default:
-      console.warn('Unknown action type:', action.type);
+      logger.warn('Unknown action type:', { actionType: action.type });
   }
 }
 

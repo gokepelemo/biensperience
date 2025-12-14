@@ -54,7 +54,9 @@ body {
   text-rendering: optimizeLegibility;
 
   // Minimum height for sticky footers
+  // Use vh as fallback, dvh for modern browsers (iOS Safari address bar aware)
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 // =============================================================================

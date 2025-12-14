@@ -3,7 +3,9 @@
 :global(body) {
   margin: 0;
   background-color: var(--color-bg-primary);
-  height: 100vh;
+  /* Use 100% as fallback, then dvh for modern browsers that support it */
+  height: 100%;
+  height: 100dvh; /* Dynamic viewport height - accounts for iOS Safari address bar */
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
   color: var(--color-text-primary);
 }
@@ -12,7 +14,9 @@
 .app {
   padding-top: 70px; /* Account for static navbar height */
   padding-bottom: $space-8;
+  /* Use 100vh as fallback, then dvh for modern browsers */
   min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height - accounts for iOS Safari address bar */
   background-color: var(--color-bg-primary);
 
   /* Bootstrap container override for dark mode */
@@ -27,7 +31,9 @@
 :global(#main-content) {
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
+  /* Use calc with vh as fallback, then dvh for modern browsers */
   min-height: calc(100vh - 70px - 2rem); /* Account for navbar + app padding-bottom */
+  min-height: calc(100dvh - 70px - 2rem); /* Dynamic viewport height for iOS Safari */
   padding-bottom: $space-8;
 }
 

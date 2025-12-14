@@ -57,10 +57,15 @@
   background: var(--color-bg-primary);
   border-radius: var(--radius-lg); /* Match modal content border radius */
   overflow: hidden;
+  /* Robust flexbox container for Safari - explicit column layout */
   display: flex;
   flex-direction: column;
+  /* Triple height declaration for maximum Safari compatibility */
   height: 100%;
-  min-height: 0; /* Allow flexbox to shrink */
+  min-height: 0; /* Allow flexbox to shrink below content size */
+  max-height: 100%; /* Prevent overflow beyond parent */
+  /* Flex item properties when inside modal body */
+  flex: 1 1 0;
 }
 
 /* Link bar - shown when plan item has external URL */
@@ -186,7 +191,7 @@
   box-shadow: var(--shadow-lg);
   max-height: 200px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: $z-index-modal-dropdown; /* Dropdowns inside modals need higher z-index than modal */
 }
 
 .assignmentOption {
@@ -349,32 +354,65 @@
   }
 }
 
-/* Details content */
+/* Details content - THE CRITICAL FLEX FILL CONTAINER
+ * This is the primary content area that must fill all remaining vertical space.
+ * It sits between fixed-height sections (assignment, cost, tabs) and must
+ * expand to fill whatever space is left.
+ */
 .detailsContent {
-  flex: 1 1 0; /* Take remaining space, allow shrinking to 0 */
-  min-height: 0; /* Critical: Allow flex item to shrink below content size */
-  overflow: hidden; /* Let child handle scrolling */
-  padding: 0; /* Remove padding - let child components handle their own padding */
+  /* Flexbox fill pattern - grow to fill, shrink if needed, start from 0 */
+  flex: 1 1 0;
+  /* Critical: Allow flex item to shrink below intrinsic content size */
+  min-height: 0;
+  /* Explicit height for Safari which sometimes ignores flex-grow */
+  height: 100%;
+  /* Prevent overflow - children handle their own scrolling */
+  overflow: hidden;
+  /* Remove padding - children handle their own padding */
+  padding: 0;
   background: var(--color-bg-primary);
+  /* This is also a flex container for its children */
   display: flex;
   flex-direction: column;
 
-  /* Ensure child components fill full height - use explicit properties for production builds */
+  /* All direct children must also participate in flex layout */
   > * {
+    /* Fill available space, shrink if needed, start from 0 */
     flex: 1 1 0;
+    /* Allow shrinking below content size */
     min-height: 0;
-    height: 100%; /* Explicit height for production CSS */
+    /* Explicit 100% height for Safari */
+    height: 100%;
+    /* Max height prevents overflow */
+    max-height: 100%;
+    /* Child is also a flex column container */
+    display: flex;
+    flex-direction: column;
+    /* Prevent overflow at this level too */
+    overflow: hidden;
   }
 }
 
-/* Notes tab wrapper - explicit styles for PlanItemNotes to fill available height */
+/* Notes tab wrapper - explicit styles for PlanItemNotes to fill available height
+ * This wrapper ensures the PlanItemNotes component gets 100% of available vertical space.
+ * The flex chain is: modal > modalBody > planItemDetailsModal > detailsContent > notesTabWrapper > PlanItemNotes
+ */
 .notesTabWrapper {
+  /* Flex container for PlanItemNotes */
   display: flex;
   flex-direction: column;
+  /* Fill all available space */
   flex: 1 1 0;
+  /* Allow shrinking below content size - critical for Safari */
   min-height: 0;
+  /* Explicit height for Safari fallback */
   height: 100%;
+  /* Max height prevents overflow */
+  max-height: 100%;
+  /* Let PlanItemNotes handle its own scrolling */
   overflow: hidden;
+  /* Ensure width fills container */
+  width: 100%;
 }
 
 .comingSoonMessage {
@@ -689,7 +727,7 @@
   border: 1px solid var(--color-border-medium);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  z-index: 1000;
+  z-index: $z-index-modal-dropdown; /* Dropdowns inside modals need higher z-index than modal */
   overflow: hidden;
   max-height: 340px;
   display: flex;
@@ -842,11 +880,26 @@
    Details Tab Content - Grouped Detail Types
    ============================================= */
 
+/* Details Tab Content - Container for grouped detail types
+ * This must fill 100% of available vertical space within detailsContent.
+ * Contains: detailsExportBar (fixed) + detailsGroupedList (scrollable)
+ */
 .detailsTabContent {
+  /* Flex column container */
   display: flex;
   flex-direction: column;
+  /* Fill available space */
+  flex: 1 1 0;
+  /* Explicit height for Safari */
   height: 100%;
+  /* Max height prevents overflow */
+  max-height: 100%;
+  /* Allow shrinking below content size */
+  min-height: 0;
+  /* Prevent overflow - detailsGroupedList handles scrolling */
   overflow: hidden;
+  /* Full width */
+  width: 100%;
 }
 
 /* Export bar at top of details tab */
@@ -894,14 +947,28 @@
   line-height: 1;
 }
 
-/* Scrollable grouped list container */
+/* Scrollable grouped list container - THE SCROLLABLE CONTENT AREA
+ * This must fill remaining vertical space after the export bar.
+ */
 .detailsGroupedList {
-  flex: 1;
+  /* Fill remaining vertical space */
+  flex: 1 1 0;
+  /* Allow shrinking below content size - critical for Safari */
+  min-height: 0;
+  /* Explicit height for Safari fallback */
+  height: 100%;
+  /* Enable vertical scrolling */
   overflow-y: auto;
+  /* Prevent horizontal overflow */
+  overflow-x: hidden;
   padding: $space-4 $space-6;
   display: flex;
   flex-direction: column;
   gap: $space-5;
+  /* Prevent scroll chaining to parent */
+  overscroll-behavior: contain;
+  /* Smooth scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
 
   @media (max-width: 768px) {
     padding: $space-3 $space-4;
@@ -1034,7 +1101,7 @@
   letter-spacing: 0.05em;
 }
 
-/* Empty state for details tab */
+/* Empty state for details tab - fills available space and centers content */
 .detailsEmptyState {
   display: flex;
   flex-direction: column;
@@ -1042,7 +1109,12 @@
   justify-content: center;
   padding: $space-10;
   text-align: center;
-  flex: 1;
+  /* Fill all available space */
+  flex: 1 1 0;
+  /* Explicit height for Safari */
+  height: 100%;
+  /* Allow shrinking below content size */
+  min-height: 0;
 }
 
 .detailsEmptyIcon {
@@ -1068,12 +1140,31 @@
    Location Tab Content
    ============================================= */
 
+/* Location Tab Content - Container for location info and map
+ * This must fill 100% of available vertical space within detailsContent.
+ * Contains: copyableAddressBar (fixed) + locationMapWrapper (fills remaining space)
+ */
 .locationTabContent {
+  /* Flex column container */
   display: flex;
   flex-direction: column;
+  /* Fill available space */
+  flex: 1 1 0;
+  /* Explicit height for Safari */
   height: 100%;
+  /* Max height prevents overflow */
+  max-height: 100%;
+  /* Allow shrinking below content size */
+  min-height: 0;
   padding: $space-4 $space-6;
+  /* Enable vertical scrolling for mobile when map + address overflow */
   overflow-y: auto;
+  /* Prevent horizontal overflow */
+  overflow-x: hidden;
+  /* Prevent scroll chaining to parent */
+  overscroll-behavior: contain;
+  /* Smooth scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
 
   @media (max-width: 768px) {
     padding: $space-3 $space-4;
@@ -1146,9 +1237,14 @@
   }
 }
 
+/* Map wrapper - fills remaining vertical space after address bar */
 .locationMapWrapper {
-  flex: 1;
+  /* Fill remaining vertical space */
+  flex: 1 1 0;
+  /* Minimum height ensures map is usable */
   min-height: 400px;
+  /* Allow shrinking on very small screens */
+  /* Note: min-height takes precedence over flex shrink */
   border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--color-border-light);

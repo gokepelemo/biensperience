@@ -1,0 +1,120 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * InteractiveMap Styles
+ * Styles for interactive Google Map with markers and info windows
+ */
+
+.mapContainer {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.mapLoading,
+.mapError,
+.mapEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+  gap: $space-3;
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-dark);
+  }
+}
+
+.loadingSpinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-border-light);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+
+  @media (prefers-color-scheme: dark) {
+    border-color: var(--color-border-dark);
+    border-top-color: var(--color-primary);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.errorIcon,
+.emptyIcon {
+  font-size: 48px;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+/* Legend */
+.legend {
+  position: absolute;
+  bottom: $space-3;
+  left: $space-3;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  padding: $space-3;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  font-size: $font-size-sm;
+  z-index: 1;
+
+  @media (prefers-color-scheme: dark) {
+    background: rgba(30, 30, 30, 0.95);
+  }
+
+  @media (max-width: 480px) {
+    bottom: $space-2;
+    left: $space-2;
+    padding: $space-2;
+    font-size: $font-size-xs;
+  }
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  color: var(--color-text-primary);
+}
+
+.legendIconExperience {
+  color: #F59E0B;
+  font-size: 1rem;
+}
+
+.legendIconDestination {
+  color: #3B82F6;
+  font-size: 1rem;
+}
+
+/* Info Window styling - override Google Maps defaults */
+:global(.gm-style-iw) {
+  padding: 0 !important;
+  max-width: 280px !important;
+}
+
+:global(.gm-style-iw-d) {
+  overflow: hidden !important;
+  max-height: none !important;
+}
+
+:global(.gm-ui-hover-effect) {
+  top: 4px !important;
+  right: 4px !important;
+}

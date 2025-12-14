@@ -1277,11 +1277,11 @@
   opacity: 0.3;
 }
 
-/* Pinned expand toggle - shows star by default, arrow on hover or when collapsed */
+/* Pinned expand toggle - shows pin by default, arrow on hover or when collapsed */
 :global(.pinned-expand-toggle) {
   position: relative;
 
-  :global(.pinned-star-icon) {
+  :global(.pinned-pin-icon) {
     display: block;
     font-size: 0.875rem;
   }
@@ -1293,7 +1293,7 @@
 
   &:hover,
   &:global(.collapsed) {
-    :global(.pinned-star-icon) {
+    :global(.pinned-pin-icon) {
       display: none;
     }
 
@@ -1416,265 +1416,6 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-  }
-}
-
-/* Plan Tabs Navigation */
-:global(.plan-tabs-nav) {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: flex-end;
-  gap: 0.5rem;
-  border-bottom: 2px solid var(--color-single-experience-border-light);
-  padding-bottom: 0;
-  margin-bottom: 1.5rem;
-  overflow: visible;
-  -webkit-overflow-scrolling: touch;
-}
-
-:global(.plan-tab-button) {
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  padding: $space-3 $space-6;
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  color: var(--color-single-experience-text-secondary);
-  cursor: pointer;
-  @include transition-all($transition-normal);
-  position: relative;
-  bottom: 0;
-  white-space: nowrap;
-  flex-shrink: 0;
-  min-width: 120px;
-
-  &:hover {
-    color: var(--color-single-experience-text-dark-secondary);
-    background: var(--color-bg-hover);
-  }
-
-  &:global(.active) {
-    color: var(--color-primary);
-    border-bottom-color: var(--color-primary);
-    background: var(--color-primary-light);
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-
-  &:disabled {
-    opacity: 1;
-    cursor: pointer;
-    background-image: none;
-    padding-right: $space-6;
-  }
-}
-
-/* Plan Tab Select */
-:global(.plan-tab-select) {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  background-image: none;
-  padding-right: 2.5rem;
-  min-width: 120px;
-  width: auto;
-  flex-shrink: 0;
-  position: relative;
-  border-radius: 0;
-  padding: $space-3 $space-6;
-  font-size: var(--font-size-lg) !important;
-  font-weight: 600;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  color: var(--color-single-experience-text-secondary);
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  @include transition-all($transition-normal);
-
-  &:global(.active) {
-    color: var(--color-primary);
-    border-bottom-color: var(--color-primary);
-    background: var(--color-primary-light);
-    border-radius: 0;
-  }
-
-  &:hover {
-    color: var(--color-single-experience-text-dark-secondary);
-    background-color: var(--color-bg-hover);
-  }
-
-  &::-ms-expand {
-    display: none;
-  }
-}
-
-/* Plan Dropdown Container */
-:global(.plan-tab-dropdown-container) {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-end;
-  padding: 0;
-  margin: 0;
-  min-width: 120px;
-  gap: 0;
-
-  :global(.plan-tab-button) {
-    position: relative;
-    z-index: 1;
-  }
-
-  &::after {
-    display: none;
-  }
-
-  select {
-    padding-right: 2.25rem;
-    position: relative;
-    z-index: 1;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    background-image: none !important;
-  }
-
-  :global(.plan-tab-select),
-  select {
-    font-size: var(--font-size-lg) !important;
-    line-height: 1 !important;
-    font-family: inherit !important;
-    height: auto !important;
-  }
-}
-
-/* Caret Icon */
-:global(.plan-tab-caret) {
-  position: absolute;
-  right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 1em;
-  height: 1em;
-  pointer-events: none;
-  color: var(--color-single-experience-text-secondary);
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  svg {
-    width: 1em;
-    height: 1em;
-    display: block;
-    color: inherit;
-  }
-}
-
-:global(.plan-tab-dropdown-container.active .plan-tab-caret svg),
-:global(.plan-tab-button.active ~ .plan-tab-dropdown-container .plan-tab-caret svg) {
-  color: var(--color-primary);
-}
-
-/* Caret Button */
-:global(.plan-tab-caret-button) {
-  background: none;
-  border: none;
-  padding: 0.5rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-single-experience-text-secondary);
-  @include transition-all($transition-fast);
-  margin-left: 0.25rem;
-  position: relative;
-  z-index: 10;
-  flex-shrink: 0;
-  pointer-events: auto;
-
-  &:hover {
-    color: var(--color-primary);
-  }
-}
-
-:global(.plan-tab-dropdown-container.active .plan-tab-caret-button),
-:global(.plan-tab-dropdown-container.dropdown-open .plan-tab-caret-button) {
-  color: var(--color-primary);
-}
-
-/* Dropdown Menu */
-:global(.plan-tab-dropdown-menu) {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: auto;
-  background: var(--color-bg-primary, #ffffff);
-  border: 1px solid var(--color-border-light, #e2e8f0);
-  border-radius: var(--radius-md, 0.375rem);
-  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
-  margin-top: 0;
-  z-index: 1050;
-  min-width: 180px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-:global(.plan-tab-dropdown-item) {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: $font-size-base; // Uses responsive clamp()
-  color: var(--color-text-primary, #1a202c);
-  @include transition-all($transition-fast);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  &:hover {
-    background-color: var(--color-bg-hover, rgba(102, 126, 234, 0.1));
-  }
-
-  &:global(.selected) {
-    color: var(--color-primary);
-    font-weight: 600;
-  }
-
-  :global(.checkmark) {
-    margin-left: 0.5rem;
-    color: var(--color-primary);
-    font-weight: bold;
-  }
-}
-
-/* Legacy Plan Dropdown */
-:global(.plan-dropdown) {
-  padding: $space-2 $space-3;
-  border: 1px solid var(--color-single-experience-border-input);
-  border-radius: $radius-sm;
-  background: var(--color-bg-primary);
-  font-size: $font-size-sm; // Uses responsive clamp()
-  cursor: pointer;
-  @include transition-all($transition-fast);
-
-  &:hover {
-    border-color: var(--color-primary);
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-    border-color: var(--color-primary);
   }
 }
 
@@ -2098,52 +1839,6 @@
   :global(.plan-item-tree) {
     margin-bottom: 0.5rem;
   }
-
-  /* Plan tabs navigation */
-  :global(.plan-tabs-nav) {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    border-bottom: 2px solid var(--color-single-experience-border-light);
-    padding-bottom: 0;
-  }
-
-  :global(.plan-tab-button) {
-    flex: 1;
-    min-width: fit-content;
-    border-bottom: 3px solid transparent;
-    border-left: none;
-    text-align: center;
-    padding: $space-3 $space-4;
-    bottom: -2px;
-    white-space: nowrap;
-
-    &:global(.active) {
-      border-left-color: transparent;
-      border-bottom-color: var(--color-primary);
-    }
-  }
-
-  :global(.plan-tab-select) {
-    flex: 0 0 auto;
-    min-width: fit-content;
-    max-width: max-content;
-    padding: $space-3 $space-4;
-    padding-right: 2.5rem;
-  }
-
-  :global(.plan-tab-dropdown-container) {
-    flex: 1;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 0.25rem;
-  }
-
-  :global(.plan-dropdown) {
-    flex: 1;
-    min-width: 0;
-  }
 }
 
 /* ==============================================
@@ -2265,58 +1960,6 @@
     }
   }
 
-  /* Plan Tabs */
-  :global(.plan-tabs-nav) {
-    border-bottom: 2px solid var(--color-border-medium);
-  }
-
-  :global(.plan-tab-button) {
-    color: var(--color-text-muted);
-
-    &:hover {
-      color: var(--color-text-secondary);
-      background: var(--color-bg-hover);
-    }
-
-    &:global(.active) {
-      color: var(--color-primary);
-      border-bottom-color: var(--color-primary);
-      background: var(--color-primary-light);
-    }
-
-    &:disabled {
-      background-image: none;
-    }
-  }
-
-  /* Plan Tab Dropdown */
-  :global(.plan-tab-dropdown-container) {
-    --plan-caret-color: var(--color-text-secondary, #e9ecef);
-  }
-
-  :global(.plan-tab-select) {
-    &:hover {
-      color: var(--color-text-secondary);
-      background-color: var(--color-bg-hover);
-    }
-  }
-
-  /* Plan Dropdown */
-  :global(.plan-dropdown) {
-    background: var(--color-bg-tertiary);
-    border: 1px solid var(--color-border-medium);
-    color: var(--color-text-primary);
-
-    &:hover {
-      border-color: var(--color-primary);
-    }
-
-    &:focus {
-      outline: 2px solid var(--color-primary);
-      border-color: var(--color-primary);
-    }
-  }
-
   /* My Plan View */
   :global(.my-plan-view) {
     :global(.plan-item-card) {
@@ -2418,19 +2061,27 @@
   }
 }
 
-/* Hierarchy indicator */
+/* Hierarchy indicator - star/bullet/expand toggle */
 :global(.compact-item-indent) {
   width: 20px;
-  text-align: center;
+  /* Use flexbox for perfect vertical centering */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--color-text-muted);
   font-size: 0.875rem;
   flex-shrink: 0;
+  /* Match the line height for consistent vertical alignment */
+  line-height: 1;
 }
 
 /* Checkbox spacing in compact view */
 :global(.compact-item-checkbox) {
   margin-right: var(--space-2);
   flex-shrink: 0;
+  /* Ensure vertical centering */
+  display: flex;
+  align-items: center;
 }
 
 /* Item text - clickable area */
@@ -2444,14 +2095,25 @@
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color 0.15s ease;
+  /* Ensure vertical centering with inline content */
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  line-height: 1.3;
 
   &:hover {
     color: var(--color-primary);
   }
 
+  /* Anchor elements must also be vertically centered */
   a {
     color: inherit;
     text-decoration: none;
+    /* Ensure anchor is vertically centered within flex parent */
+    display: inline-flex;
+    align-items: center;
+    /* Prevent anchor from stretching to container height */
+    align-self: center;
 
     &:hover {
       text-decoration: underline;
@@ -2592,13 +2254,16 @@
   }
 }
 
-/* Pinned item star icon */
-:global(.pinned-star-icon) {
+/* Pinned item pin icon */
+:global(.pinned-pin-icon) {
   color: var(--color-warning, #ffc107);
-  margin-right: var(--space-1);
   font-size: 0.875em;
   flex-shrink: 0;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+  /* Ensure proper vertical alignment */
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 /* Pinned item text styling */

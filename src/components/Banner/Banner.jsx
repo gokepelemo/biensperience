@@ -105,6 +105,7 @@ export default function Banner({
     variantClass,
     sizeClass,
     isExpiring && styles.bannerExpiring,
+    dismissible && styles.bannerDismissible,
     className
   ].filter(Boolean).join(' ');
 

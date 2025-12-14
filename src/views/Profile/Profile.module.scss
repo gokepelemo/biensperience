@@ -350,35 +350,9 @@
   z-index: 10; /* Ensure dropdown floats above other profile content */
 }
 
-/* Tab Navigation - underline style */
+/* Tab Navigation - GitHub-style wrapper */
 .profileTabs {
-  display: flex;
-  gap: var(--space-4);
   margin-bottom: var(--space-6);
-  border-bottom: 2px solid var(--color-border-light);
-  padding-bottom: var(--space-2);
-}
-
-.profileTab {
-  background: none;
-  border: none;
-  padding: var(--space-3) 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  border-bottom: 3px solid transparent;
-  margin-bottom: calc(var(--space-1) * -1);
-
-  &:hover {
-    color: var(--color-text-primary);
-  }
-}
-
-.profileTabActive {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
 }
 
 /* Content Grid */
@@ -462,11 +436,6 @@
   .profileActions {
     padding-top: 0; /* Reset padding when stacked vertically */
     justify-content: center;
-  }
-
-  .profileTabs {
-    justify-content: center;
-    flex-wrap: wrap;
   }
 
   .profileGrid {
@@ -1263,4 +1232,189 @@
   border-radius: var(--radius-md);
   border-left: 3px solid var(--color-info);
   margin-top: var(--space-2);
+}
+
+/* ==================== Follows Tab Styles ==================== */
+
+.followsTab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Follows Filter Pills */
+.followsFilterPills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-light);
+
+  @media (prefers-color-scheme: dark) {
+    border-bottom-color: var(--color-border-dark);
+  }
+}
+
+.followsFilterPill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-medium);
+    color: var(--color-text-primary);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-dark);
+
+    &:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-medium);
+    }
+  }
+}
+
+.followsFilterPillActive {
+  background: var(--gradient-primary);
+  border-color: transparent;
+  color: white;
+
+  &:hover {
+    background: var(--gradient-primary);
+    border-color: transparent;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--gradient-primary);
+    border-color: transparent;
+  }
+}
+
+/* Follows List */
+.followsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.followsItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-medium);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+
+    &:hover {
+      background: var(--color-bg-tertiary);
+    }
+  }
+}
+
+.followsItemSkeleton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+  }
+}
+
+.followsItemAvatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.followsItemAvatarPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+
+  @media (prefers-color-scheme: dark) {
+    background: var(--color-bg-tertiary);
+  }
+}
+
+.followsItemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.followsItemName {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.followsItemLocation {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+
+  svg {
+    font-size: var(--font-size-xs);
+  }
+}
+
+.followsLoadMore {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) 0;
 }
