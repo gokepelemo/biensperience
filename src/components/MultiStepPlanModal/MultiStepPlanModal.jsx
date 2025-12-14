@@ -10,6 +10,7 @@ import { createExperience, updateExperience, addPlanItem } from '../../utilities
 import { createPlan } from '../../utilities/plans-api';
 import { isDuplicateName } from '../../utilities/deduplication';
 import { createFilter } from '../../utilities/trie';
+import { sanitizeUrl } from '../../utilities/sanitize';
 import { lang } from '../../lang.constants';
 import { Button } from '../design-system';
 import FormField from '../FormField/FormField';
@@ -481,13 +482,16 @@ export default function MultiStepPlanModal() {
               </small>
             )}
           </div>
-          {item.url && (
-            <div className={styles.planItemUrl}>
-              <a href={item.url} target="_blank" rel="noopener noreferrer">
-                {item.url}
-              </a>
-            </div>
-          )}
+          {item.url && (() => {
+            const safeUrl = sanitizeUrl(item.url);
+            return safeUrl ? (
+              <div className={styles.planItemUrl}>
+                <a href={safeUrl} target="_blank" rel="noopener noreferrer">
+                  {item.url}
+                </a>
+              </div>
+            ) : null;
+          })()}
           <div className={styles.planItemMeta}>
             {item.cost_estimate && <span>Cost: ${item.cost_estimate}</span>}
             {item.planning_days && <span>Days: {item.planning_days}</span>}
