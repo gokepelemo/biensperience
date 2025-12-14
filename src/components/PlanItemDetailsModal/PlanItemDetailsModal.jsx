@@ -938,20 +938,6 @@ export default function PlanItemDetailsModal({
       size="fullscreen"
     >
       <div className={styles.planItemDetailsModal}>
-        {/* Link to external URL if available */}
-        {planItem.url && (
-          <div className={styles.planItemLinkBar}>
-            <a
-              href={planItem.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.planItemLink}
-            >
-              🔗 View Link
-            </a>
-          </div>
-        )}
-
         {/* Assignment section */}
         <div className={styles.assignmentSection}>
           <label className={styles.assignmentLabel}>{lang.current.planItemDetailsModal.assignedTo}</label>
@@ -1037,6 +1023,22 @@ export default function PlanItemDetailsModal({
                   {planItem.complete ? lang.current.planItemDetailsModal.completed : lang.current.planItemDetailsModal.markComplete}
                 </span>
               </button>
+            </div>
+          )}
+
+          {/* Link to external URL if available */}
+          {planItem.url && (
+            <div className={styles.completionToggle}>
+              <a
+                href={planItem.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.completeButton}
+                title="Open external link"
+              >
+                <span className={styles.completeIcon}>🔗</span>
+                <span className={styles.completeText}>View Link</span>
+              </a>
             </div>
           )}
         </div>
