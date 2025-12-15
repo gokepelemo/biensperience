@@ -437,12 +437,18 @@ export default function ExperienceTabContent({
   }, [rawPlanItemsView]);
 
   // Compute online user IDs from presence data
+  // Always include the current user when presence is connected (they're always online to themselves)
   const onlineUserIds = useMemo(() => {
-    if (!presenceConnected || !experienceMembers || experienceMembers.length === 0) {
+    if (!presenceConnected) {
       return new Set();
     }
-    return new Set(experienceMembers.map(member => member.userId?.toString()).filter(Boolean));
-  }, [presenceConnected, experienceMembers]);
+    const ids = new Set(experienceMembers?.map(member => member.userId?.toString()).filter(Boolean) || []);
+    // Always include the current user - they should see themselves as online
+    if (user?._id) {
+      ids.add(user._id.toString());
+    }
+    return ids;
+  }, [presenceConnected, experienceMembers, user?._id]);
 
   // Setup sensors for drag and drop
   const sensors = useSensors(

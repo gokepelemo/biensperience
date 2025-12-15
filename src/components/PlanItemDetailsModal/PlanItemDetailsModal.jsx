@@ -310,12 +310,18 @@ export default function PlanItemDetailsModal({
   }, [onClose, onPlanItemClick]);
 
   // Compute online user IDs from presence data for UserAvatar indicators
+  // Always include the current user when presence is connected (they're always online to themselves)
   const onlineUserIds = useMemo(() => {
-    if (!presenceConnected || !planMembers || planMembers.length === 0) {
+    if (!presenceConnected) {
       return new Set();
     }
-    return new Set(planMembers.map(member => member.userId?.toString()).filter(Boolean));
-  }, [presenceConnected, planMembers]);
+    const ids = new Set(planMembers?.map(member => member.userId?.toString()).filter(Boolean) || []);
+    // Always include the current user - they should see themselves as online
+    if (currentUser?._id) {
+      ids.add(currentUser._id.toString());
+    }
+    return ids;
+  }, [presenceConnected, planMembers, currentUser?._id]);
 
   // Calculate actual costs assigned to this plan item from plan.costs
   // NOTE: These useMemo hooks MUST be before any early returns to maintain hooks order
