@@ -74,6 +74,9 @@ export default function Profile() {
     destinations: false,
   });
 
+  // Track previous profileId to detect navigation between profiles
+  const prevProfileIdRef = useRef(profileId);
+
   // Follow feature state
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -92,6 +95,27 @@ export default function Profile() {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
   const photoSaveTimerRef = useRef(null);
+
+  // Reset state immediately when navigating to a different profile
+  // This prevents showing stale data from the previous profile
+  useEffect(() => {
+    if (prevProfileIdRef.current !== profileId) {
+      // Profile ID changed - reset all profile-specific state
+      setCurrentProfile(null);
+      setIsLoadingProfile(true);
+      setProfileError(null);
+      setUserExperiences(null);
+      setUserExperiencesMeta(null);
+      setCreatedExperiences(null);
+      setCreatedExperiencesMeta(null);
+      setFollowCounts({ followers: 0, following: 0 });
+      setIsFollowing(false);
+      setFollowsList([]);
+      setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
+      // Update ref to new value
+      prevProfileIdRef.current = profileId;
+    }
+  }, [profileId]);
 
   // Initialize tab from hash (supports deep links like /profile#created)
   useEffect(() => {
