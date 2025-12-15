@@ -23,8 +23,11 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
   const { error: showError } = useToast();
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const [isLoading, setIsLoading] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
+  // Initialize imageLoaded to true to prevent flash - the effect will handle actual loading
+  // This prevents the brief skeleton flash on initial render in production
+  const [imageLoaded, setImageLoaded] = useState(true);
   const containerRef = useRef(null);
+  const prevImageSrcRef = useRef(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -165,21 +168,57 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
   }, [userPlans, globalPlans, experience._id, localPlanState, setLocalPlanStateWithCache]);
 
   // Listen for global plan events so this card updates immediately
+  // Handles events from: local API calls, cross-tab localStorage, and WebSocket broadcasts
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // Helper to extract experienceId from various event payload formats
+    // Event bus spreads payload into event, but also adds event.detail for CustomEvent compat
+    const extractExperienceId = (event) => {
+      // Try direct properties first (event bus format)
+      let rawExp = event?.experienceId || event?.data?.experience?._id || event?.data?.experience;
+      // Fallback to detail (CustomEvent format / legacy)
+      if (!rawExp && event?.detail) {
+        rawExp = event.detail.experienceId || event.detail.data?.experience?._id || event.detail.data?.experience;
+      }
+      // Also check plan property
+      if (!rawExp) {
+        const plan = event?.data || event?.plan || event?.detail?.data || event?.detail?.plan;
+        rawExp = plan?.experience?._id || plan?.experience;
+      }
+      // Also check payload property (WebSocket events)
+      if (!rawExp && event?.payload) {
+        rawExp = event.payload.experienceId || event.payload.experience?._id || event.payload.experience;
+      }
+      return rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+    };
+
+    // Helper to extract userId from event (for checking if event is from current user)
+    const extractUserId = (event) => {
+      return event?.userId || event?.detail?.userId || event?.data?.user?._id ||
+             event?.detail?.data?.user?._id || event?.payload?.userId;
+    };
+
     const onPlanCreated = (event) => {
       try {
-        const detail = event?.detail || {};
-        // Standardized payload: { planId, experienceId, data, version }
-        const createdPlan = detail.data || detail.plan;
-        const rawExp = detail.experienceId || createdPlan?.experience?._id || createdPlan?.experience || null;
-        const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-        if (!createdPlan || !expId) return;
+        const expId = extractExperienceId(event);
+        if (!expId) return;
         if (expId !== experience._id?.toString()) return;
 
+        // Check if this event is from the current user
+        const eventUserId = extractUserId(event);
+        const isOwnEvent = eventUserId && user?._id && eventUserId.toString() === user._id.toString();
+
         // Mark as planned for this user (cache + state)
-        setLocalPlanStateWithCache(true);
+        // For own events, always update. For other users' events, still useful to know a plan exists
+        if (isOwnEvent) {
+          setLocalPlanStateWithCache(true);
+          logger.debug('[ExperienceCard] Own plan:created event received', { experienceId: expId });
+        } else {
+          // Another user created a plan - this doesn't affect our local state
+          // but we log it for debugging cross-user WebSocket events
+          logger.debug('[ExperienceCard] Other user plan:created event received', { experienceId: expId, eventUserId });
+        }
       } catch (err) {
         logger.warn('[ExperienceCard] plan:created handler failed', { error: err?.message });
       }
@@ -187,16 +226,22 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
 
     const onPlanDeleted = (event) => {
       try {
-        const detail = event?.detail || {};
-        // Standardized payload: { planId, experienceId, data, version }
-        const deletedPlan = detail.data || detail.plan;
-        const rawExp = detail.experienceId || deletedPlan?.experience?._id || deletedPlan?.experience || null;
-        const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
+        const expId = extractExperienceId(event);
         if (!expId) return;
         if (expId !== experience._id?.toString()) return;
 
-        // Mark as not planned
-        setLocalPlanStateWithCache(false);
+        // Check if this event is from the current user
+        const eventUserId = extractUserId(event);
+        const isOwnEvent = eventUserId && user?._id && eventUserId.toString() === user._id.toString();
+
+        if (isOwnEvent) {
+          // Mark as not planned
+          setLocalPlanStateWithCache(false);
+          logger.debug('[ExperienceCard] Own plan:deleted event received', { experienceId: expId });
+        } else {
+          // Another user deleted their plan - may not affect our state
+          logger.debug('[ExperienceCard] Other user plan:deleted event received', { experienceId: expId, eventUserId });
+        }
       } catch (err) {
         logger.warn('[ExperienceCard] plan:deleted handler failed', { error: err?.message });
       }
@@ -204,22 +249,26 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
 
     const onPlanUpdated = (event) => {
       try {
-        const detail = event?.detail || {};
-        // Standardized payload: { planId, experienceId, data, version }
-        const updatedPlan = detail.data || detail.plan;
-        const rawExp = detail.experienceId || updatedPlan?.experience?._id || updatedPlan?.experience || null;
-        const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
-        if (!updatedPlan || !expId) return;
+        const expId = extractExperienceId(event);
+        if (!expId) return;
         if (expId !== experience._id?.toString()) return;
 
-        // If a plan for this experience was updated, ensure local state shows a plan exists
-        setLocalPlanStateWithCache(true);
+        // Check if this event is from the current user
+        const eventUserId = extractUserId(event);
+        const isOwnEvent = eventUserId && user?._id && eventUserId.toString() === user._id.toString();
+
+        if (isOwnEvent) {
+          // If a plan for this experience was updated, ensure local state shows a plan exists
+          setLocalPlanStateWithCache(true);
+          logger.debug('[ExperienceCard] Own plan:updated event received', { experienceId: expId });
+        }
       } catch (err) {
         logger.warn('[ExperienceCard] plan:updated handler failed', { error: err?.message });
       }
     };
 
     // Subscribe to standardized events via event bus
+    // These events come from: local API calls, cross-tab localStorage sync, and WebSocket broadcasts
     const unsubscribeCreated = eventBus.subscribe('plan:created', onPlanCreated);
     const unsubscribeDeleted = eventBus.subscribe('plan:deleted', onPlanDeleted);
     const unsubscribeUpdated = eventBus.subscribe('plan:updated', onPlanUpdated);
@@ -229,7 +278,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
       unsubscribeDeleted();
       unsubscribeUpdated();
     };
-  }, [experience._id, setLocalPlanStateWithCache]);
+  }, [experience._id, setLocalPlanStateWithCache, user?._id]);
 
   // Get the default photo URL (raw) and backgroundImage string
   const { imageSrc, backgroundImage } = useMemo(() => {
@@ -253,19 +302,52 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
   }, [experience, rand]);
 
   // Use shared image preloader utility to ensure skeleton overlay exists and load image
+  // Only reset imageLoaded when the actual URL changes, not on every render
   useEffect(() => {
-    setImageLoaded(false);
+    // Only reset if image source actually changed to a different URL
+    const urlChanged = prevImageSrcRef.current !== imageSrc;
+    if (urlChanged) {
+      prevImageSrcRef.current = imageSrc;
+    }
+
     if (!imageSrc) {
       setImageLoaded(true);
       return;
     }
 
+    // Check cache status
+    const img = new Image();
+    img.src = imageSrc;
+    const isCached = img.complete && img.naturalHeight > 0;
+
+    if (isCached) {
+      // Image is already cached, no loading needed
+      setImageLoaded(true);
+      return;
+    }
+
+    // Image needs to load - only show skeleton after a small delay to prevent flash
+    // for images that load very quickly (common with CDN/edge caching)
+    let showSkeletonTimeout = null;
+    let cancelled = false;
+
+    // Delay showing skeleton by 50ms - if image loads faster, no flash
+    showSkeletonTimeout = setTimeout(() => {
+      if (!cancelled) {
+        setImageLoaded(false);
+      }
+    }, 50);
+
     const cleanup = imagePreloader(containerRef, imageSrc, (err) => {
-      // small delay for smoother transition
-      setTimeout(() => setImageLoaded(true), 60);
+      cancelled = true;
+      if (showSkeletonTimeout) clearTimeout(showSkeletonTimeout);
+      // Small delay to ensure smooth transition
+      setTimeout(() => setImageLoaded(true), 30);
     }, { forcePreload: forcePreload, rootMargin: '400px' });
 
     return () => {
+      cancelled = true;
+      if (showSkeletonTimeout) clearTimeout(showSkeletonTimeout);
       try { cleanup && cleanup(); } catch (e) {}
     };
   }, [imageSrc, forcePreload]);

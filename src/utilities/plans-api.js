@@ -122,6 +122,10 @@ export async function createPlan(experienceId, plannedDate, options = {}) {
       const rawExp = experienceId || result?.experience?._id || result?.experience;
       const normalizedExpId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
 
+      // Get user ID from the result (plan owner)
+      const rawUserId = result?.user?._id || result?.user;
+      const userId = rawUserId && rawUserId.toString ? rawUserId.toString() : rawUserId;
+
       // Generate version for this event (timestamp-based)
       const version = Date.now();
 
@@ -129,6 +133,7 @@ export async function createPlan(experienceId, plannedDate, options = {}) {
       const eventPayload = {
         planId: result._id,
         experienceId: normalizedExpId,
+        userId,
         version,
         data: result,
         action: 'plan_created'
@@ -137,6 +142,7 @@ export async function createPlan(experienceId, plannedDate, options = {}) {
       logger.debug('[plans-api] Dispatching plan:created event', {
         timestamp: Date.now(),
         planId: result._id,
+        userId,
         version
       });
 
@@ -220,13 +226,18 @@ export async function deletePlan(planId) {
     const rawExp = result?.experience?._id || result?.experience || null;
     const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
 
+    // Get user ID from the result (plan owner)
+    const rawUserId = result?.user?._id || result?.user;
+    const userId = rawUserId && rawUserId.toString ? rawUserId.toString() : rawUserId;
+
     // Generate version for this event
     const version = Date.now();
 
-    // Event payload with version
+    // Event payload with version and userId for cross-user filtering
     const eventPayload = {
       planId,
       experienceId,
+      userId,
       version,
       data: result,
       action: 'plan_deleted'

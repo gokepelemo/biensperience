@@ -1483,19 +1483,44 @@ export default function SingleExperience() {
       fetchSharedPlans();
     };
 
+    // Handler for experience updates (collaborators changed, photos, etc.)
+    // This ensures collaborator avatars update in real-time across all users/tabs
+    const handleExperienceUpdated = (event) => {
+      // Skip events from this session (already handled locally)
+      if (event.sessionId === sessionId) return;
+
+      // Extract experienceId from various event payload formats
+      const eventExpId = event.experienceId || event.experience?._id ||
+                         event.detail?.experienceId || event.detail?.experience?._id ||
+                         event.payload?.experienceId || event.payload?.experience?._id;
+
+      // Only handle events for this experience
+      if (eventExpId !== experienceId) return;
+
+      logger.debug('[SingleExperience] Experience updated event received, refreshing data', {
+        experienceId: eventExpId,
+        updatedFields: event.updatedFields || event.payload?.updatedFields
+      });
+
+      // Refresh all experience data including permissions/collaborators
+      fetchAllData();
+    };
+
     // Subscribe to relevant events
     const unsubCollaboratorAdded = subscribeToEvents('plan:collaborator:added', handleCollaboratorEvent);
     const unsubCollaboratorRemoved = subscribeToEvents('plan:collaborator:removed', handleCollaboratorEvent);
     const unsubPlanCreated = subscribeToEvents(WS_EVENTS.PLAN_CREATED, handlePlanEvent);
     const unsubPlanDeleted = subscribeToEvents(WS_EVENTS.PLAN_DELETED, handlePlanEvent);
+    const unsubExperienceUpdated = subscribeToEvents(WS_EVENTS.EXPERIENCE_UPDATED, handleExperienceUpdated);
 
     return () => {
       unsubCollaboratorAdded();
       unsubCollaboratorRemoved();
       unsubPlanCreated();
       unsubPlanDeleted();
+      unsubExperienceUpdated();
     };
-  }, [subscribeToEvents, experienceId, fetchSharedPlans]);
+  }, [subscribeToEvents, experienceId, fetchSharedPlans, fetchAllData]);
 
   // Sync tab changes to presence system
   useEffect(() => {

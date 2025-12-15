@@ -174,7 +174,6 @@ const en = {
     failedToCreateBulkInvites: "Failed to create bulk invites",
     failedToDeactivateInviteCode: "Failed to deactivate invite code",
     pleaseEnableApiAccessFirst: "Please enable API access first",
-    onlySuperAdminsCanUpdateRoles: "Only super admins can update user roles",
     onlySuperAdminsCanUpdateEmailConfirmation: "Only super admins can update email confirmation",
   },
 

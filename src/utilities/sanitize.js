@@ -41,7 +41,14 @@ export function sanitizeText(dirty) {
 }
 
 /**
- * Sanitize URL to prevent javascript: and data: URIs
+ * Allowed URL protocols for safe navigation
+ * Only these protocols are permitted to prevent open redirect attacks
+ */
+const SAFE_URL_PROTOCOLS = ['http:', 'https:', 'mailto:', 'tel:'];
+
+/**
+ * Sanitize URL to prevent XSS and open redirect vulnerabilities
+ * Uses an allowlist approach - only permits safe protocols
  * @param {string} url - Potentially unsafe URL
  * @returns {string} - Sanitized URL or empty string if unsafe
  */
@@ -50,23 +57,39 @@ export function sanitizeUrl(url) {
     return '';
   }
 
-  const sanitized = url.trim().toLowerCase();
-
-  // Block dangerous protocols (checking for these strings is a security measure, not a vulnerability)
-  // eslint-disable-next-line no-script-url
-  if (
-    // eslint-disable-next-line no-script-url
-    sanitized.startsWith('javascript:') ||
-    sanitized.startsWith('data:') ||
-    sanitized.startsWith('vbscript:')
-  ) {
+  const trimmedUrl = url.trim();
+  
+  // Reject empty URLs
+  if (!trimmedUrl) {
     return '';
   }
 
-  // Ensure URL is properly encoded
+  // Reject protocol-relative URLs (//example.com) which could be exploited
+  if (trimmedUrl.startsWith('//')) {
+    return '';
+  }
+
   try {
-    return encodeURI(decodeURI(url));
-  } catch (e) {
+    // For URLs without a protocol, prepend https:// for validation
+    // This handles cases like "example.com" or "www.example.com"
+    const urlToValidate = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmedUrl)
+      ? trimmedUrl
+      : `https://${trimmedUrl}`;
+    
+    const parsedUrl = new URL(urlToValidate);
+    
+    // Allowlist check: only permit safe protocols
+    if (!SAFE_URL_PROTOCOLS.includes(parsedUrl.protocol)) {
+      return '';
+    }
+
+    // Return the original URL (preserving user's format) if it had a valid protocol,
+    // otherwise return the normalized version with https://
+    return /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmedUrl)
+      ? trimmedUrl
+      : urlToValidate;
+  } catch {
+    // URL parsing failed - reject the URL
     return '';
   }
 }

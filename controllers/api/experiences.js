@@ -1832,6 +1832,24 @@ async function addExperiencePermission(req, res) {
 
     // Permission saved by enforcer, no need to save again
 
+    // Broadcast experience:updated event for collaborator addition
+    // This enables real-time collaborator avatar updates across all users/tabs
+    try {
+      broadcastEvent('experience', req.params.id.toString(), {
+        type: 'experience:updated',
+        payload: {
+          experience: experience.toObject(),
+          experienceId: req.params.id.toString(),
+          updatedFields: ['permissions'],
+          action: 'permission_added',
+          permission: { _id, entity, type },
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast permission addition', { error: wsErr.message, experienceId: req.params.id });
+    }
+
     return successResponse(res, experience, 'Permission added successfully', 201);
 
   } catch (err) {
@@ -1897,6 +1915,24 @@ async function removeExperiencePermission(req, res) {
     }
 
     await experience.save();
+
+    // Broadcast experience:updated event for collaborator removal
+    // This enables real-time collaborator avatar updates across all users/tabs
+    try {
+      broadcastEvent('experience', req.params.id.toString(), {
+        type: 'experience:updated',
+        payload: {
+          experience: experience.toObject(),
+          experienceId: req.params.id.toString(),
+          updatedFields: ['permissions'],
+          action: 'permission_removed',
+          removedPermission: { entityId, entityType },
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast permission removal', { error: wsErr.message, experienceId: req.params.id });
+    }
 
     return successResponse(res, { removed: result.removed, experience }, 'Permission removed successfully');
 

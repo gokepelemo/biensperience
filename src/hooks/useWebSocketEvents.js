@@ -59,6 +59,11 @@ import { ConnectionState } from '../utilities/event-transport';
  * WebSocket event types for type safety
  */
 export const WS_EVENTS = {
+  // Experience events
+  EXPERIENCE_CREATED: 'experience:created',
+  EXPERIENCE_UPDATED: 'experience:updated',
+  EXPERIENCE_DELETED: 'experience:deleted',
+
   // Plan events
   PLAN_CREATED: 'plan:created',
   PLAN_UPDATED: 'plan:updated',
