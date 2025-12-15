@@ -114,6 +114,14 @@ export default function SingleExperience() {
   const navigate = useNavigate();
 
   // ============================================================================
+  // TOP-LEVEL STATE (defined before hooks to avoid circular dependencies)
+  // ============================================================================
+
+  // Date editing mode state - defined here because multiple hooks and callbacks need it
+  // Must be before useDateManagement and useExperienceActions hooks
+  const [isEditingDate, setIsEditingDate] = useState(false);
+
+  // ============================================================================
   // CUSTOM HOOKS
   // ============================================================================
 
@@ -2379,9 +2387,9 @@ export default function SingleExperience() {
   );
 
   // Date management hook - consolidates date editing logic
+  // Note: isEditingDate and setIsEditingDate are defined at top-level and passed in
+  // to avoid circular dependency with useExperienceActions and handleAddExperience
   const {
-    isEditingDate,
-    setIsEditingDate,
     plannedDateRef,
     handleDateUpdate
   } = useDateManagement({
@@ -2406,7 +2414,10 @@ export default function SingleExperience() {
     setLoading,
     closeModal: () => closeModal(),
     showError,
-    idEquals
+    idEquals,
+    // Pass in state from parent to avoid circular dependency
+    isEditingDateState: isEditingDate,
+    setIsEditingDateState: setIsEditingDate
   });
 
   // ============================================================================

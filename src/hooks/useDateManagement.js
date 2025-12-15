@@ -65,10 +65,15 @@ export function useDateManagement({
   setLoading,
   closeModal,
   showError,
-  idEquals
+  idEquals,
+  // Optional: allow passing in isEditingDate state from parent (to fix circular dependency)
+  isEditingDateState = null,
+  setIsEditingDateState = null
 }) {
-  // Date editing mode
-  const [isEditingDate, setIsEditingDate] = useState(false);
+  // Date editing mode - use provided state or create local state
+  const [localIsEditingDate, localSetIsEditingDate] = useState(false);
+  const isEditingDate = isEditingDateState !== null ? isEditingDateState : localIsEditingDate;
+  const setIsEditingDate = setIsEditingDateState || localSetIsEditingDate;
   
   // Ref for dynamic font sizing
   const plannedDateRef = useRef(null);

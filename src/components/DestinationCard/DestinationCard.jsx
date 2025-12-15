@@ -55,6 +55,9 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
     return { imageSrc: src, backgroundImage: `url(${src})` };
   }, [destination, rand]);
 
+  // Track if component has mounted to prevent flash on initial render
+  const hasMountedRef = useRef(false);
+
   // Check if image is already cached in browser to avoid skeleton flash on re-renders
   // This runs synchronously during render to set correct initial state
   const isImageCached = useMemo(() => {
@@ -65,44 +68,72 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
     return img.complete && img.naturalHeight > 0;
   }, [imageSrc]);
 
-  // Initialize imageLoaded based on cache status to prevent flash on cached images
-  const [imageLoaded, setImageLoaded] = useState(isImageCached);
+  // Initialize imageLoaded to true to prevent flash - the effect will handle actual loading
+  // This prevents the brief skeleton flash on initial render in production
+  const [imageLoaded, setImageLoaded] = useState(true);
+
+  // Track whether we've started loading (to avoid skeleton flash before we know if cached)
+  const [hasStartedLoading, setHasStartedLoading] = useState(false);
 
   // Use shared image preloader utility to ensure skeleton overlay exists and load image
   // Only reset imageLoaded when the actual URL changes, not on every render
   useEffect(() => {
+    // Mark as mounted after first render
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+    }
+
     // Only reset if image source actually changed to a different URL
-    if (prevImageSrcRef.current !== imageSrc) {
+    const urlChanged = prevImageSrcRef.current !== imageSrc;
+    if (urlChanged) {
       prevImageSrcRef.current = imageSrc;
-      // Check cache before resetting to false
-      const img = new Image();
-      img.src = imageSrc;
-      if (img.complete && img.naturalHeight > 0) {
-        setImageLoaded(true);
-        return;
-      }
-      setImageLoaded(false);
     }
 
     if (!imageSrc) {
       setImageLoaded(true);
+      setHasStartedLoading(true);
       return;
     }
 
-    // Skip preloading if already loaded (from cache or previous load)
-    if (imageLoaded) {
+    // Check cache status
+    const img = new Image();
+    img.src = imageSrc;
+    const isCached = img.complete && img.naturalHeight > 0;
+
+    if (isCached) {
+      // Image is already cached, no loading needed
+      setImageLoaded(true);
+      setHasStartedLoading(true);
       return;
     }
+
+    // Image needs to load - only show skeleton after a small delay to prevent flash
+    // for images that load very quickly (common with CDN/edge caching)
+    let showSkeletonTimeout = null;
+    let cancelled = false;
+
+    // Delay showing skeleton by 50ms - if image loads faster, no flash
+    showSkeletonTimeout = setTimeout(() => {
+      if (!cancelled) {
+        setImageLoaded(false);
+        setHasStartedLoading(true);
+      }
+    }, 50);
 
     // lazy preload with fallback to immediate load if requested
     const cleanup = imagePreloader(containerRef, imageSrc, () => {
+      cancelled = true;
+      if (showSkeletonTimeout) clearTimeout(showSkeletonTimeout);
+      // Small delay to ensure smooth transition
       setTimeout(() => setImageLoaded(true), 30);
     }, { forcePreload: forcePreload, rootMargin: '400px' });
 
     return () => {
+      cancelled = true;
+      if (showSkeletonTimeout) clearTimeout(showSkeletonTimeout);
       try { cleanup && cleanup(); } catch (e) {}
     };
-  }, [imageSrc, forcePreload, imageLoaded]);
+  }, [imageSrc, forcePreload]);
 
   /**
    * Dynamically adjusts the font size of the destination title to fit within the card bounds.
