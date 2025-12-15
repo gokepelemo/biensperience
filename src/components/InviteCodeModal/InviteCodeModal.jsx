@@ -9,7 +9,7 @@
  * - Configure experiences/destinations for invites
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Modal, Form, Button, Alert as BootstrapAlert, ListGroup, Badge, Tabs, Tab } from 'react-bootstrap';
 import { FaEnvelope, FaUsers, FaUpload, FaDownload } from 'react-icons/fa';
 import {
@@ -19,6 +19,7 @@ import {
   deactivateInviteCode,
   parseCsvFile
 } from '../../utilities/invite-codes-service';
+import { eventBus } from '../../utilities/event-bus';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
@@ -52,6 +53,56 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
   const [isCreating, setIsCreating] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const { success, error: showError } = useToast();
+
+  // Event handlers for real-time invite updates
+  const handleInviteCreated = useCallback((event) => {
+    const invite = event.invite || event.detail?.invite;
+    if (invite) {
+      setInvites(prev => {
+        // Avoid duplicates
+        if (prev.some(i => i._id === invite._id || i.code === invite.code)) {
+          return prev;
+        }
+        return [invite, ...prev];
+      });
+      logger.debug('[InviteCodeModal] Invite created event received', { inviteId: invite._id });
+    }
+  }, []);
+
+  const handleInviteRedeemed = useCallback((event) => {
+    const invite = event.invite || event.detail?.invite;
+    const inviteId = invite?._id || event.inviteId || event.detail?.inviteId;
+    if (inviteId) {
+      setInvites(prev => prev.map(i => {
+        if (i._id === inviteId || i.code === invite?.code) {
+          return invite || { ...i, usedCount: (i.usedCount || 0) + 1 };
+        }
+        return i;
+      }));
+      logger.debug('[InviteCodeModal] Invite redeemed event received', { inviteId });
+    }
+  }, []);
+
+  const handleInviteDeleted = useCallback((event) => {
+    const inviteId = event.inviteId || event.detail?.inviteId;
+    if (inviteId) {
+      setInvites(prev => prev.filter(i => i._id !== inviteId));
+      logger.debug('[InviteCodeModal] Invite deleted event received', { inviteId });
+    }
+  }, []);
+
+  // Subscribe to invite events for real-time updates
+  useEffect(() => {
+    const unsubCreate = eventBus.subscribe('invite:created', handleInviteCreated);
+    const unsubRedeem = eventBus.subscribe('invite:redeemed', handleInviteRedeemed);
+    const unsubDelete = eventBus.subscribe('invite:deleted', handleInviteDeleted);
+
+    return () => {
+      unsubCreate();
+      unsubRedeem();
+      unsubDelete();
+    };
+  }, [handleInviteCreated, handleInviteRedeemed, handleInviteDeleted]);
 
   // Load invites when modal opens and reset state when it closes
   useEffect(() => {

@@ -1581,6 +1581,21 @@ async function addPhoto(req, res) {
 
     await experience.save();
 
+    // Broadcast experience:updated event for photo addition
+    try {
+      broadcastEvent('experience', experience._id.toString(), {
+        type: 'experience:updated',
+        payload: {
+          experience: experience.toObject(),
+          experienceId: experience._id.toString(),
+          updatedFields: ['photos'],
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (err) {
+      backendLogger.error('Failed to broadcast experience:updated for photo addition', { error: err.message, experienceId: experience._id });
+    }
+
     return successResponse(res, experience, 'Created successfully', 201);
   } catch (err) {
     backendLogger.error('Error adding photo to experience', { error: err.message, userId: req.user._id, experienceId: req.params.id, url: req.body.url });
@@ -1623,6 +1638,21 @@ async function removePhoto(req, res) {
 
     await experience.save();
 
+    // Broadcast experience:updated event for photo removal
+    try {
+      broadcastEvent('experience', experience._id.toString(), {
+        type: 'experience:updated',
+        payload: {
+          experience: experience.toObject(),
+          experienceId: experience._id.toString(),
+          updatedFields: ['photos'],
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (err) {
+      backendLogger.error('Failed to broadcast experience:updated for photo removal', { error: err.message, experienceId: experience._id });
+    }
+
     return successResponse(res, experience);
   } catch (err) {
     backendLogger.error('Error removing photo from experience', { error: err.message, userId: req.user._id, experienceId: req.params.id, photoIndex: req.params.photoIndex });
@@ -1657,6 +1687,21 @@ async function setDefaultPhoto(req, res) {
 
     experience.default_photo_id = experience.photos[photoIndex];
     await experience.save();
+
+    // Broadcast experience:updated event for default photo change
+    try {
+      broadcastEvent('experience', experience._id.toString(), {
+        type: 'experience:updated',
+        payload: {
+          experience: experience.toObject(),
+          experienceId: experience._id.toString(),
+          updatedFields: ['default_photo_id'],
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (err) {
+      backendLogger.error('Failed to broadcast experience:updated for default photo', { error: err.message, experienceId: experience._id });
+    }
 
     return successResponse(res, experience);
   } catch (err) {

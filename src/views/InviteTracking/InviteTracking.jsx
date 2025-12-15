@@ -8,12 +8,13 @@
  * Header content loads immediately, dynamic content loads after API call.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Tabs, Tab, Badge, Row, Col } from 'react-bootstrap';
 import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 import { getMyInvites, getInviteDetails, getInviteAnalytics } from '../../utilities/invite-tracking-service';
+import { eventBus } from '../../utilities/event-bus';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 import { getDefaultPhoto } from '../../utilities/photo-utils';
@@ -48,6 +49,79 @@ export default function InviteTracking() {
   const totalPages = useMemo(() => {
     return Math.ceil(invites.length / ITEMS_PER_PAGE);
   }, [invites.length]);
+
+  // Event handlers for real-time invite updates
+  const handleInviteCreated = useCallback((event) => {
+    const invite = event.invite || event.detail?.invite;
+    if (invite) {
+      setInvites(prev => {
+        // Avoid duplicates
+        if (prev.some(i => i._id === invite._id || i.code === invite.code)) {
+          return prev;
+        }
+        return [invite, ...prev];
+      });
+      // Update stats
+      setStats(prev => prev ? {
+        ...prev,
+        total: (prev.total || 0) + 1,
+        pending: (prev.pending || 0) + 1
+      } : prev);
+      logger.debug('[InviteTracking] Invite created event received', { inviteId: invite._id });
+    }
+  }, []);
+
+  const handleInviteRedeemed = useCallback((event) => {
+    const invite = event.invite || event.detail?.invite;
+    const inviteId = invite?._id || event.inviteId || event.detail?.inviteId;
+    if (inviteId) {
+      setInvites(prev => prev.map(i => {
+        if (i._id === inviteId || i.code === invite?.code) {
+          return invite || { ...i, usedCount: (i.usedCount || 0) + 1 };
+        }
+        return i;
+      }));
+      // Update stats
+      setStats(prev => prev ? {
+        ...prev,
+        redeemed: (prev.redeemed || 0) + 1,
+        pending: Math.max(0, (prev.pending || 0) - 1)
+      } : prev);
+      logger.debug('[InviteTracking] Invite redeemed event received', { inviteId });
+    }
+  }, []);
+
+  const handleInviteDeleted = useCallback((event) => {
+    const inviteId = event.inviteId || event.detail?.inviteId;
+    if (inviteId) {
+      setInvites(prev => {
+        const deleted = prev.find(i => i._id === inviteId);
+        if (deleted) {
+          // Update stats based on deleted invite status
+          setStats(s => s ? {
+            ...s,
+            total: Math.max(0, (s.total || 0) - 1),
+            pending: deleted.usedCount === 0 ? Math.max(0, (s.pending || 0) - 1) : s.pending
+          } : s);
+        }
+        return prev.filter(i => i._id !== inviteId);
+      });
+      logger.debug('[InviteTracking] Invite deleted event received', { inviteId });
+    }
+  }, []);
+
+  // Subscribe to invite events for real-time updates
+  useEffect(() => {
+    const unsubCreate = eventBus.subscribe('invite:created', handleInviteCreated);
+    const unsubRedeem = eventBus.subscribe('invite:redeemed', handleInviteRedeemed);
+    const unsubDelete = eventBus.subscribe('invite:deleted', handleInviteDeleted);
+
+    return () => {
+      unsubCreate();
+      unsubRedeem();
+      unsubDelete();
+    };
+  }, [handleInviteCreated, handleInviteRedeemed, handleInviteDeleted]);
 
   useEffect(() => {
     loadInvites();

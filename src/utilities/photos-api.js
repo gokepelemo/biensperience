@@ -56,6 +56,22 @@ export async function uploadPhotoUrl(data) {
     return result;
 }
 
+export async function updatePhoto(id, data) {
+    const result = await sendRequest(`${BASE_URL}${id}`, "PUT", data);
+
+    // Emit event via event bus (handles local + cross-tab dispatch)
+    try {
+        if (result) {
+            broadcastEvent('photo:updated', { photo: result, photoId: id });
+            logger.debug('[photos-api] Photo updated event dispatched', { id });
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    return result;
+}
+
 export async function deletePhoto(id) {
     const result = await sendRequest(`${BASE_URL}${id}`, "DELETE");
 

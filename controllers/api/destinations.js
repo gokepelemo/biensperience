@@ -549,6 +549,21 @@ async function addPhoto(req, res) {
 
     await destination.save();
 
+    // Broadcast destination:updated event for photo addition
+    try {
+      broadcastEvent('destination', destination._id.toString(), {
+        type: 'destination:updated',
+        payload: {
+          destination: destination.toObject(),
+          destinationId: destination._id.toString(),
+          updatedFields: ['photos'],
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (err) {
+      backendLogger.error('Failed to broadcast destination:updated for photo addition', { error: err.message, destinationId: destination._id });
+    }
+
     return successResponse(res, destination, 'Photo added successfully', 201);
   } catch (err) {
     backendLogger.error('Error adding photo to destination', { error: err.message, userId: req.user._id, destinationId: req.params.id, url: req.body.url });
@@ -592,6 +607,21 @@ async function removePhoto(req, res) {
 
     await destination.save();
 
+    // Broadcast destination:updated event for photo removal
+    try {
+      broadcastEvent('destination', destination._id.toString(), {
+        type: 'destination:updated',
+        payload: {
+          destination: destination.toObject(),
+          destinationId: destination._id.toString(),
+          updatedFields: ['photos'],
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (err) {
+      backendLogger.error('Failed to broadcast destination:updated for photo removal', { error: err.message, destinationId: destination._id });
+    }
+
     return successResponse(res, destination, 'Photo removed successfully');
   } catch (err) {
     backendLogger.error('Error removing photo from destination', { error: err.message, userId: req.user._id, destinationId: req.params.id, photoIndex: req.params.photoIndex });
@@ -626,6 +656,21 @@ async function setDefaultPhoto(req, res) {
 
     destination.default_photo_id = destination.photos[photoIndex]._id;
     await destination.save();
+
+    // Broadcast destination:updated event for default photo change
+    try {
+      broadcastEvent('destination', destination._id.toString(), {
+        type: 'destination:updated',
+        payload: {
+          destination: destination.toObject(),
+          destinationId: destination._id.toString(),
+          updatedFields: ['default_photo_id'],
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (err) {
+      backendLogger.error('Failed to broadcast destination:updated for default photo', { error: err.message, destinationId: destination._id });
+    }
 
     return successResponse(res, destination, 'Default photo set successfully');
   } catch (err) {
