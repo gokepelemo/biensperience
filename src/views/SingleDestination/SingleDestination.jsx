@@ -343,7 +343,7 @@ export default function SingleDestination() {
       const photo = event.photo;
       if (!photo) return;
       // Refresh destination to get updated photos
-      fetchDestination();
+      getData();
     };
 
     const handlePhotoUpdated = (event) => {
@@ -382,7 +382,7 @@ export default function SingleDestination() {
       unsubUpdate();
       unsubDelete();
     };
-  }, [destinationId, fetchDestination]);
+  }, [destinationId, getData]);
 
   useEffect(() => {
     const filteredExperiences = experiences.filter((experience) => {
