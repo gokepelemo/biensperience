@@ -356,6 +356,10 @@ export default function SingleExperience() {
               Array.isArray(arr) && arr.length > 0 &&
               typeof arr[0] === 'object' && arr[0] !== null && arr[0].url;
 
+            // Helper to check if destination is populated (object with name property)
+            const isPopulatedDestination = (dest) =>
+              dest && typeof dest === 'object' && dest.name;
+
             // Avoid storing volatile metadata (like timestamps) on the merged object
             const merged = { ...(experience || {}), ...(updated || {}) };
 
@@ -364,6 +368,12 @@ export default function SingleExperience() {
             if (isPopulatedPhotoArray(experience?.photos) && !isPopulatedPhotoArray(updated?.photos)) {
               merged.photos = experience.photos;
               merged.photos_full = experience.photos_full || experience.photos;
+            }
+
+            // Preserve populated destination object if local has full object with name/country
+            // and incoming from context only has ID string or unpopulated object
+            if (isPopulatedDestination(experience?.destination) && !isPopulatedDestination(updated?.destination)) {
+              merged.destination = experience.destination;
             }
 
             setExperience(merged);
@@ -2466,7 +2476,7 @@ export default function SingleExperience() {
             }`}
             keywords={`${experience.name}, travel, experience, planning${
               experience.destination && experience.destination.name
-                ? `, ${experience.destination.name}, ${experience.destination.country}`
+                ? `, ${experience.destination.name}${experience.destination.country ? `, ${experience.destination.country}` : ''}`
                 : ""
             }${
               experience.experience_type ? `, ${experience.experience_type}` : ""
@@ -2494,7 +2504,7 @@ export default function SingleExperience() {
                   <FaHome size={12} style={{ marginRight: '4px' }} />
                   Home
                 </Breadcrumb.Item>
-                {experience.destination && (
+                {experience.destination && experience.destination.name && (
                   <Breadcrumb.Item
                     linkAs={Link}
                     linkProps={{ to: `/destinations/${experience.destination._id}` }}
@@ -2664,11 +2674,11 @@ export default function SingleExperience() {
                 {/* Title Section */}
                 <div className={styles.titleSection}>
                   <h1 ref={h1Ref} className={styles.experienceTitle}>{experience.name}</h1>
-                  {experience.destination && (
+                  {experience.destination && experience.destination.name && (
                     <p className={styles.locationText}>
                       <FaMapMarkerAlt />
                       <Link to={`/destinations/${experience.destination._id}`}>
-                        {experience.destination.name}, {experience.destination.country}
+                        {experience.destination.name}{experience.destination.country ? `, ${experience.destination.country}` : ''}
                       </Link>
                     </p>
                   )}

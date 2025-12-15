@@ -2399,8 +2399,53 @@ export default function MyPlanTabContent({
     return map;
   }, [currentPlan?.plan]);
 
-  // Plan not found
+  // Plan not found or still loading
+  // Show skeleton loader when:
+  // 1. plansLoading is true (explicit loading state)
+  // 2. selectedPlanId exists but plan not in sharedPlans yet (race condition during plan creation)
+  // Only show "Plan not found" after loading is complete and plan genuinely doesn't exist
   if (!currentPlan) {
+    // If we have a selectedPlanId but no plan, it's likely being created/loaded
+    const isPlanLoading = plansLoading || (selectedPlanId && !sharedPlans.some(p => idEquals(p._id, selectedPlanId)));
+
+    if (isPlanLoading) {
+      return (
+        <div className="my-plan-view mt-4">
+          {hashSelecting && (
+            <div className="mb-3">
+              <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
+            </div>
+          )}
+          {/* Skeleton for plan metrics */}
+          <div className="plan-metrics-container mb-4">
+            <div className="row g-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="col-md-3 col-sm-6">
+                  <div className="metric-card">
+                    <SkeletonLoader variant="text" width="60px" height="14px" className="mb-2" />
+                    <SkeletonLoader variant="text" width="80px" height="24px" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Skeleton for plan items */}
+          <div className="plan-items-skeleton mt-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="plan-item-card mb-3 p-3 p-md-4">
+                <div className="d-flex gap-3 mb-3">
+                  <SkeletonLoader variant="circle" width={24} height={24} />
+                  <SkeletonLoader variant="text" width="70%" height={20} />
+                </div>
+                <SkeletonLoader variant="text" lines={2} height={16} />
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Only show "Plan not found" when loading is complete and plan truly doesn't exist
     return (
       <div className="my-plan-view mt-4">
         <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
