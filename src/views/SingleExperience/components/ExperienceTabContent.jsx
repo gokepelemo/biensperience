@@ -8,6 +8,7 @@ import { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { BsPlusCircle, BsPersonPlus, BsListUl, BsCardList } from 'react-icons/bs';
 import { FaEdit, FaTrash } from 'react-icons/fa';
+import { lang } from '../../../lang.constants';
 import ActionsMenu from '../../../components/ActionsMenu';
 import {
   DndContext,
@@ -39,8 +40,8 @@ import debug from '../../../utilities/debug';
 
 // View options for experience plan items display
 const VIEW_OPTIONS = [
-  { value: 'card', label: 'Card View', icon: BsCardList },
-  { value: 'compact', label: 'Compact View', icon: BsListUl }
+  { value: 'card', label: lang.current.label.cardView, icon: BsCardList },
+  { value: 'compact', label: lang.current.label.compactView, icon: BsListUl }
 ];
 
 // Sortable plan item component for drag and drop
@@ -236,7 +237,7 @@ function ExperiencePlanActionsDropdown({
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
         aria-haspopup="true"
-        aria-label="Plan actions menu"
+        aria-label={lang.current.aria.planActionsMenu}
       >
         <BsPlusCircle />
       </button>
@@ -376,7 +377,7 @@ const SortableCompactExperiencePlanItem = memo(function SortableCompactExperienc
         <ActionsMenu
           actions={actions}
           size="sm"
-          ariaLabel="Item actions"
+          ariaLabel={lang.current.aria.itemActions}
         />
       )}
     </div>

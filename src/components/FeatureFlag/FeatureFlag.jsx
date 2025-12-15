@@ -157,7 +157,7 @@ export function FeatureLockedMessage({
   return (
     <div className="feature-locked-message text-center p-4">
       <div className="feature-locked-icon mb-3">
-        <span role="img" aria-label="locked" style={{ fontSize: '2rem' }}>🔒</span>
+        <span role="img" aria-label={lang.current.aria.locked} style={{ fontSize: '2rem' }}>🔒</span>
       </div>
       <h5 className="mb-2">{title}</h5>
       <p className="text-muted mb-3">

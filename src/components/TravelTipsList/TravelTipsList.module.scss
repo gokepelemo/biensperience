@@ -135,12 +135,15 @@
   box-sizing: border-box;
   min-height: 200px; /* Minimum height for visual consistency */
   height: auto; /* Allow card to expand to fit content */
+  display: flex; /* Enable vertical centering */
+  align-items: center; /* Vertically center card content */
 
   /* Ensure the TravelTip component fills the slide width but expands vertically */
   > * {
     min-height: 200px;
     height: auto; /* Allow expansion */
     max-width: 100%;
+    width: 100%;
   }
 }
 

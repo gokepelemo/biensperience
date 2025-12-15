@@ -492,7 +492,7 @@ export default function NavBar() {
 
           {/* Search Bar */}
           <div className={styles.navbarSearch}>
-            <SearchBar placeholder="Search..." className="navbar-search-input" />
+            <SearchBar placeholder={lang.current.placeholder.search} className="navbar-search-input" />
           </div>
 
           {/* Dynamic Action Buttons - shown when scrolled past h1 */}

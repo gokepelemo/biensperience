@@ -8,6 +8,7 @@ import { FaExclamationTriangle, FaTrash, FaExchangeAlt, FaUser } from 'react-ico
 import { deleteAccount, searchUsers } from '../../utilities/users-api';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
+import { lang } from '../../lang.constants';
 import styles from './DeleteAccountModal.module.scss';
 
 /**
@@ -191,7 +192,7 @@ export default function DeleteAccountModal({
           className="btn btn-outline-secondary"
           onClick={onClose}
         >
-          Cancel
+          {lang.current.button.cancel}
         </button>
         <button
           type="button"

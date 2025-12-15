@@ -9,6 +9,7 @@ import { logger } from '../../utilities/logger';
 import { useToast } from '../../contexts/ToastContext';
 import { SkeletonLoader, Heading, Text } from '../../components/design-system';
 import { eventBus } from '../../utilities/event-bus';
+import { lang } from '../../lang.constants';
 import {
   StatsCard,
   ActivityList,
@@ -142,9 +143,9 @@ export default function Dashboard() {
             <FaStar size={48} />
           </div>
           <Heading level={2} className={styles.errorTitle}>
-            Dashboard Unavailable
+            {lang.current.heading.dashboardUnavailable}
           </Heading>
-          <Text className={styles.errorMessage}>{error || 'We were unable to load your dashboard data.'}</Text>
+          <Text className={styles.errorMessage}>{error || lang.current.alert.unableToLoadDashboard}</Text>
           <Button onClick={fetchDashboardData} variant="primary">
             Try Again
           </Button>
@@ -162,9 +163,9 @@ export default function Dashboard() {
 
   // Navigation items with optional badges
   const navItems = [
-    { key: 'overview', label: 'Dashboard' },
-    { key: 'plans', label: 'Plans', badge: activePlansValue || undefined },
-    { key: 'preferences', label: 'Preferences' },
+    { key: 'overview', label: lang.current.label.dashboard },
+    { key: 'plans', label: lang.current.heading.plans, badge: activePlansValue || undefined },
+    { key: 'preferences', label: lang.current.label.preferences },
   ];
 
   return (

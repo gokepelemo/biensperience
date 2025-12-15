@@ -44,7 +44,9 @@ export async function getExperienceTags(filters = {}) {
 }
 
 export async function createExperience(experienceData) {
-  const result = await sendRequest(`${BASE_URL}`, "POST", experienceData);
+  const response = await sendRequest(`${BASE_URL}`, "POST", experienceData);
+  // Handle standardized API response: { success: true, data: experience }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   // Standardized payload: { entity, entityId } for created events
@@ -62,24 +64,37 @@ export async function createExperience(experienceData) {
 
 export async function showExperience(id) {
   // Critical navigation - use high priority for instant perception
-  return await sendQueuedRequest(`${BASE_URL}${id}`, "GET", null, {
+  const response = await sendQueuedRequest(`${BASE_URL}${id}`, "GET", null, {
     priority: PRIORITY.HIGH,
     label: `experience/${id}`
   });
+  // Handle standardized API response: { success: true, data: experience }
+  if (response && response.success && response.data) {
+    return response.data;
+  }
+  return response;
 }
 
 // OPTIMIZATION: Fetch experience with full context (experience + userPlan + sharedPlans)
 // Reduces 3 API calls to 1 for dramatically faster page load
 export async function showExperienceWithContext(id) {
   // Critical navigation - bypass queue entirely for instant perception
-  return await sendQueuedRequest(`${BASE_URL}${id}/with-context`, "GET", null, {
+  const response = await sendQueuedRequest(`${BASE_URL}${id}/with-context`, "GET", null, {
     priority: PRIORITY.CRITICAL,
     label: `experience/${id}/context`
   });
+  // Handle standardized API response: { success: true, data: { experience, userPlan, sharedPlans } }
+  if (response && response.success && response.data) {
+    return response.data;
+  }
+  // If response format is unexpected, throw error to prevent undefined access
+  throw new Error(response?.error || 'Failed to fetch experience data');
 }
 
 export async function deleteExperience(id) {
-  const result = await sendRequest(`${BASE_URL}${id}`, "DELETE");
+  const response = await sendRequest(`${BASE_URL}${id}`, "DELETE");
+  // Handle standardized API response: { success: true, data: { deletedPlans, ... } }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {
@@ -111,16 +126,18 @@ export async function deleteExperience(id) {
 }
 
 export async function transferOwnership(experienceId, newOwnerId) {
-  const result = await sendRequest(
+  const response = await sendRequest(
     `${BASE_URL}${experienceId}/transfer-ownership`,
     "PUT",
     { newOwnerId }
   );
+  // Handle standardized API response: { success: true, data: { experience, previousOwner, newOwner } }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {
-    if (result) {
-      broadcastEvent('experience:updated', { experience: result, experienceId });
+    if (result && result.experience) {
+      broadcastEvent('experience:updated', { experience: result.experience, experienceId });
       logger.debug('[experiences-api] Experience ownership transferred event dispatched', { experienceId, newOwnerId });
     }
   } catch (e) {
@@ -137,7 +154,12 @@ export async function transferOwnership(experienceId, newOwnerId) {
  * @returns {Promise<Object>} Object with plan info and users with plans
  */
 export async function checkExperiencePlans(experienceId) {
-  return sendRequest(`${BASE_URL}${experienceId}/check-plans`, "GET");
+  const response = await sendRequest(`${BASE_URL}${experienceId}/check-plans`, "GET");
+  // Handle standardized API response: { success: true, data: { ... } }
+  if (response && response.success && response.data) {
+    return response.data;
+  }
+  return response;
 }
 
 /**
@@ -148,11 +170,13 @@ export async function checkExperiencePlans(experienceId) {
  * @returns {Promise<Object>} Archive result with previous owner info
  */
 export async function archiveExperience(experienceId) {
-  const result = await sendRequest(`${BASE_URL}${experienceId}/archive`, "POST");
+  const response = await sendRequest(`${BASE_URL}${experienceId}/archive`, "POST");
+  // Handle standardized API response: { success: true, data: { experience, previousOwner } }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {
-    if (result) {
+    if (result && result.experience) {
       broadcastEvent('experience:archived', { experience: result.experience, experienceId });
       logger.debug('[experiences-api] Experience archived event dispatched', { experienceId });
     }
@@ -164,11 +188,13 @@ export async function archiveExperience(experienceId) {
 }
 
 export async function updateExperience(experienceId, experienceData) {
-  const result = await sendRequest(
+  const response = await sendRequest(
     `${BASE_URL}${experienceId}`,
     "PUT",
     experienceData
   );
+  // Handle standardized API response: { success: true, data: experience }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   // Standardized payload: { entity, entityId } for updated events
@@ -185,10 +211,12 @@ export async function updateExperience(experienceId, experienceData) {
 }
 
 export async function userRemoveExperience(userId, experienceId) {
-  const result = await sendRequest(
+  const response = await sendRequest(
     `${BASE_URL}${experienceId}/user/${userId}`,
     "DELETE"
   );
+  // Handle standardized API response: { success: true, data: plan }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {
@@ -202,11 +230,13 @@ export async function userRemoveExperience(userId, experienceId) {
 }
 
 export async function userAddExperience(userId, experienceId, data = {}) {
-  const result = await sendRequest(
+  const response = await sendRequest(
     `${BASE_URL}${experienceId}/user/${userId}`,
     "POST",
     data
   );
+  // Handle standardized API response: { success: true, data: plan }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   // Standardized payload: { entity, entityId, ...context } for created events
@@ -229,11 +259,13 @@ export async function addPlanItem(experienceId, planItemData) {
     url: planItemData.url ? normalizeUrl(planItemData.url) : planItemData.url
   };
 
-  const result = await sendRequest(
+  const response = await sendRequest(
     `${BASE_URL}${experienceId}/plan-item`,
     "POST",
     normalizedData
   );
+  // Handle standardized API response: { success: true, data: planItem }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {
@@ -255,11 +287,13 @@ export async function updatePlanItem(experienceId, planItemData) {
     url: planItemData.url ? normalizeUrl(planItemData.url) : planItemData.url
   };
 
-  const result = await sendRequest(
+  const response = await sendRequest(
     `${BASE_URL}${experienceId}/plan-item/${planItemData._id}`,
     "PUT",
     normalizedData
   );
+  // Handle standardized API response: { success: true, data: planItem }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {
@@ -275,10 +309,12 @@ export async function updatePlanItem(experienceId, planItemData) {
 }
 
 export async function deletePlanItem(experienceId, planItemId) {
-  const result = await sendRequest(
+  const response = await sendRequest(
     `${BASE_URL}${experienceId}/plan-item/${planItemId}`,
     "DELETE"
   );
+  // Handle standardized API response: { success: true, data: { message, ... } }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {
@@ -292,10 +328,12 @@ export async function deletePlanItem(experienceId, planItemId) {
 }
 
 export async function userPlanItemDone(experienceId, planItemId) {
-  const result = await sendRequest(
+  const response = await sendRequest(
     `${BASE_URL}${experienceId}/plan-item/${planItemId}`,
     "POST"
   );
+  // Handle standardized API response: { success: true, data: planItem }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {
@@ -321,15 +359,27 @@ export async function userPlanItemDone(experienceId, planItemId) {
  */
 export async function showUserExperiences(userId, options = {}) {
   const { page, limit } = options;
+  let response;
   // Only add pagination params if explicitly requested
   if (page !== undefined || limit !== undefined) {
     const params = new URLSearchParams();
     if (page !== undefined) params.set('page', String(page));
     if (limit !== undefined) params.set('limit', String(limit));
-    return await sendRequest(`${BASE_URL}user/${userId}?${params}`, "GET");
+    response = await sendRequest(`${BASE_URL}user/${userId}?${params}`, "GET");
+  } else {
+    // Default: return all (backwards compatible)
+    response = await sendRequest(`${BASE_URL}user/${userId}`, "GET");
   }
-  // Default: return all (backwards compatible)
-  return await sendRequest(`${BASE_URL}user/${userId}`, "GET");
+  // Handle standardized API response: { success: true, data: [...], meta: {...} }
+  // For paginated responses, return the full response with data and meta
+  // For non-paginated, extract the data array
+  if (response && response.success !== undefined) {
+    if (page !== undefined || limit !== undefined) {
+      return { data: response.data, meta: response.meta };
+    }
+    return response.data;
+  }
+  return response;
 }
 
 /**
@@ -343,30 +393,49 @@ export async function showUserExperiences(userId, options = {}) {
  */
 export async function showUserCreatedExperiences(userId, options = {}) {
   const { page, limit } = options;
+  let response;
   // Only add pagination params if explicitly requested
   if (page !== undefined || limit !== undefined) {
     const params = new URLSearchParams();
     if (page !== undefined) params.set('page', String(page));
     if (limit !== undefined) params.set('limit', String(limit));
-    return await sendRequest(`${BASE_URL}user/${userId}/created?${params}`, "GET");
+    response = await sendRequest(`${BASE_URL}user/${userId}/created?${params}`, "GET");
+  } else {
+    // Default: return all (backwards compatible)
+    response = await sendRequest(`${BASE_URL}user/${userId}/created`, "GET");
   }
-  // Default: return all (backwards compatible)
-  return await sendRequest(`${BASE_URL}user/${userId}/created`, "GET");
+  // Handle standardized API response: { success: true, data: [...], meta: {...} }
+  // For paginated responses, return the full response with data and meta
+  // For non-paginated, extract the data array
+  if (response && response.success !== undefined) {
+    if (page !== undefined || limit !== undefined) {
+      return { data: response.data, meta: response.meta };
+    }
+    return response.data;
+  }
+  return response;
 }
 
 export async function getTagName(tagSlug) {
-  return await sendRequest(`${BASE_URL}tag/${tagSlug}`, "GET");
+  const response = await sendRequest(`${BASE_URL}tag/${tagSlug}`, "GET");
+  // Handle standardized API response: { success: true, data: { tagName } }
+  if (response && response.success && response.data) {
+    return response.data;
+  }
+  return response;
 }
 
 /**
  * Add a collaborator permission to an experience
  */
 export async function addExperienceCollaborator(experienceId, userId) {
-  const result = await sendRequest(`${BASE_URL}${experienceId}/permissions`, "POST", {
+  const response = await sendRequest(`${BASE_URL}${experienceId}/permissions`, "POST", {
     _id: userId,
     entity: 'user',
     type: 'collaborator'
   });
+  // Handle standardized API response: { success: true, data: experience }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {
@@ -385,10 +454,12 @@ export async function addExperienceCollaborator(experienceId, userId) {
  * Remove a collaborator permission from an experience
  */
 export async function removeExperienceCollaborator(experienceId, userId) {
-  const result = await sendRequest(
+  const response = await sendRequest(
     `${BASE_URL}${experienceId}/permissions/${userId}/user`,
     "DELETE"
   );
+  // Handle standardized API response: { success: true, data: experience }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {
@@ -416,11 +487,13 @@ export async function reorderExperiencePlanItems(experienceId, reorderedItems) {
       } : null
     });
 
-    const result = await sendRequest(
+    const response = await sendRequest(
       `${BASE_URL}${experienceId}/reorder-plan-items`,
       "PUT",
       { plan_items: reorderedItems }
     );
+    // Handle standardized API response: { success: true, data: experience }
+    const result = (response && response.success && response.data) ? response.data : response;
 
     logger.info('[experiences-api] Experience plan items reordered successfully', {
       experienceId,

@@ -3,6 +3,7 @@ import styles from "./Modal.module.scss";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
 import { lang } from "../../lang.constants";
+import { useModalEscape } from "../../hooks/useKeyboardNavigation";
 
 /**
  * Flexible modal component with customizable size, buttons, and content.
@@ -31,6 +32,9 @@ export default function Modal({
   icon,
   showHeader = true
 }) {
+  // ESC key closes modal
+  useModalEscape(onClose, show);
+
   // Lock body scroll when modal is open to prevent background scrolling
   // Enhanced for iOS Safari which requires additional fixes
   useEffect(() => {
@@ -140,7 +144,7 @@ export default function Modal({
                       onClick={handleSubmit}
                       disabled={disableSubmit || loading}
                     >
-                      {loading ? "Loading..." : submitText}
+                      {loading ? lang.current.loading.default : submitText}
                     </button>
                   )}
                 </>

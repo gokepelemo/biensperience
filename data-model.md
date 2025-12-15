@@ -256,7 +256,8 @@ Travel destinations that contain experiences.
 | `country` | String | Country name |
 | `state` | String | State/province (optional) |
 | `overview` | String | Destination description |
-| `map_location` | String | Map embed or coordinates |
+| `map_location` | String | **[Deprecated]** Legacy location string. Use `location` field instead |
+| `location` | Location | Structured location with geocoded coordinates (see Location sub-schema) |
 | `users_favorite` | [ObjectId] | Users who favorited this destination |
 | `photos` | [ObjectId] | References to Photo documents |
 | `default_photo_id` | ObjectId | Default display photo |
@@ -265,6 +266,23 @@ Travel destinations that contain experiences.
 | `permissions` | [Permission] | Access control list |
 | `createdAt` | Date | Document creation timestamp |
 | `updatedAt` | Date | Last update timestamp |
+
+**Location Sub-schema:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `address` | String | Full formatted address |
+| `geo` | GeoPoint | GeoJSON Point for coordinates |
+| `city` | String | City name |
+| `state` | String | State/province |
+| `country` | String | Country name |
+| `postalCode` | String | Postal/ZIP code |
+| `placeId` | String | Google Places ID |
+
+**GeoPoint Sub-schema:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | String | Always `'Point'` (GeoJSON type) |
+| `coordinates` | [Number] | `[longitude, latitude]` array |
 
 **Permission Sub-schema:**
 | Field | Type | Description |
@@ -275,7 +293,7 @@ Travel destinations that contain experiences.
 | `granted_at` | Date | When permission was granted (Plan/Photo only) |
 | `granted_by` | ObjectId | User who granted permission (Plan/Photo only) |
 
-**Indexes:** `name+country`, `country`, `permissions._id`, `users_favorite`, `createdAt`, `photos`, `default_photo_id`
+**Indexes:** `name+country`, `country`, `permissions._id`, `users_favorite`, `createdAt`, `photos`, `default_photo_id`, `location.geo` (2dsphere)
 
 ---
 
@@ -605,3 +623,90 @@ Photo / Document
 ```
 
 Permission types: `owner` > `collaborator` > `contributor`
+
+---
+
+## Event-Driven Architecture
+
+The platform uses an event-driven architecture for real-time updates and cross-tab synchronization.
+
+### Event Catalog
+
+All API mutations emit events via `broadcastEvent()` which handles both same-tab and cross-tab dispatch.
+
+| Event | Payload | Source | Consumers |
+|-------|---------|--------|-----------|
+| `destination:created` | `{ destination, destinationId }` | destinations-api.js | DataContext |
+| `destination:updated` | `{ destination, destinationId }` | destinations-api.js | DataContext |
+| `destination:deleted` | `{ destinationId }` | destinations-api.js | DataContext |
+| `experience:created` | `{ experience, experienceId }` | experiences-api.js | DataContext |
+| `experience:updated` | `{ experience, experienceId }` | experiences-api.js | DataContext |
+| `experience:deleted` | `{ experienceId }` | experiences-api.js | DataContext |
+| `plan:created` | `{ plan, planId, experienceId }` | plans-api.js | DataContext |
+| `plan:updated` | `{ plan, planId }` | plans-api.js | DataContext |
+| `plan:deleted` | `{ planId }` | plans-api.js | DataContext |
+| `user:updated` | `{ user, userId }` | users-api.js | UserContext |
+| `photo:created` | `{ photo, photoId }` | photos-api.js | Components |
+| `photos:created` | `{ photos, photoIds }` | photos-api.js | Components |
+| `photo:deleted` | `{ photoId }` | photos-api.js | Components |
+
+### Granular Plan Events
+
+| Event | Description |
+|-------|-------------|
+| `plan:item:added` | Plan item added |
+| `plan:item:updated` | Plan item modified |
+| `plan:item:completed` | Plan item marked complete |
+| `plan:item:deleted` | Plan item removed |
+| `plan:item:reordered` | Plan items reordered |
+| `plan:item:scheduled` | Plan item date/time set |
+| `plan:item:note:added` | Note added to plan item |
+| `plan:item:note:updated` | Note modified |
+| `plan:item:note:deleted` | Note removed |
+| `plan:cost_added` | Cost entry added |
+| `plan:cost_updated` | Cost entry modified |
+| `plan:cost_deleted` | Cost entry removed |
+| `plan:collaborator:added` | Collaborator added to plan |
+| `plan:collaborator:removed` | Collaborator removed from plan |
+
+### WebSocket Broadcasts
+
+Backend controllers broadcast events to WebSocket clients after CRUD operations:
+
+```javascript
+const { broadcastEvent } = require('../../utilities/websocket-server');
+
+// Broadcast to room subscribers
+broadcastEvent('experience', experienceId, {
+  type: 'experience:updated',
+  payload: { experience, experienceId, userId }
+}, excludeUserId);
+```
+
+### Event Transport Modes
+
+| Mode | Description |
+|------|-------------|
+| `localStorage` | Default - cross-tab sync via storage events |
+| `websocket` | Real-time sync via WebSocket server |
+| `hybrid` | Both localStorage and WebSocket (recommended for collaboration)
+
+---
+
+## Custom Hooks
+
+Key React hooks for state management:
+
+| Hook | Purpose |
+|------|---------|
+| `usePlanManagement` | Plan CRUD operations with optimistic UI |
+| `usePlanItemNotes` | Note CRUD with stable callbacks |
+| `useExperienceActions` | Share/export/remove handlers |
+| `useCollaboratorManager` | Collaborator management with modals |
+| `useFormPersistence` | Auto-save forms to encrypted localStorage |
+| `useWebSocketEvents` | WebSocket connection and room management |
+| `useUIPreference` | Encrypted UI preference persistence |
+| `useModalManager` | Centralized modal state management |
+| `useDateManagement` | Date picker and scheduling logic |
+| `useKeyboardNavigation` | Keyboard shortcuts for lists |
+| `usePlanSync` | Plan synchronization with experience |

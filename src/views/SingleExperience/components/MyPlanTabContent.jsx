@@ -70,10 +70,10 @@ import {
 
 // View options for plan items display
 const VIEW_OPTIONS = [
-  { value: 'card', label: 'Card View', icon: BsCardList },
-  { value: 'compact', label: 'Compact View', icon: BsListUl },
-  { value: 'activity', label: 'Activity View', icon: BsListUl },
-  { value: 'timeline', label: 'Timeline View', icon: BsCalendarWeek }
+  { value: 'card', label: lang.current.label.cardView, icon: BsCardList },
+  { value: 'compact', label: lang.current.label.compactView, icon: BsListUl },
+  { value: 'activity', label: lang.current.label.activityView, icon: BsListUl },
+  { value: 'timeline', label: lang.current.label.timelineView, icon: BsCalendarWeek }
 ];
 
 /**
@@ -245,7 +245,7 @@ function PlanActionsDropdown({
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
         aria-haspopup="true"
-        title="Plan actions"
+        title={lang.current.tooltip.planActions}
       >
         <BsPlusCircle />
       </button>
@@ -375,7 +375,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpanded(planItem); } }}
                       aria-expanded={isExpanded}
                       aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-                      title="Pinned to top - click to expand/collapse"
+                      title={lang.current.tooltip.pinnedToTopExpandCollapse}
                     >
                       <FaThumbtack className="text-warning pinned-pin-icon" />
                       <span className="expand-arrow-icon">{isExpanded ? "▼" : "▶"}</span>
@@ -399,7 +399,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                 // For items without children: show pin instead of bullet when pinned
                 return (
                   <span className={`no-child-arrow ${isPinned ? 'pinned-pin' : ''}`}>
-                    {isPinned ? <FaThumbtack className="text-warning" aria-label="Pinned item" title="Pinned to top" /> : '•'}
+                    {isPinned ? <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} /> : '•'}
                   </span>
                 );
               }
@@ -591,7 +591,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
             {planItem.details?.notes?.length > 0 && (
               <span
                 className="plan-item-notes-count"
-                title="Click to view notes"
+                title={lang.current.tooltip.clickToViewNotes}
                 style={{ cursor: 'pointer' }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -610,7 +610,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                 handleViewPlanItemDetails(planItem);
               }}
             type="button"
-            title="View notes, assignments, and other details"
+            title={lang.current.tooltip.viewNotesAssignmentsDetails}
           >
             <FaClipboardList /> {lang.current.label.details}
           </button>
@@ -783,7 +783,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onToggleExpand(planItem); } }}
               aria-expanded={isExpanded}
               aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-              title="Pinned to top - click to expand/collapse"
+              title={lang.current.tooltip.pinnedToTopExpandCollapse}
             >
               <FaThumbtack className="text-warning pinned-pin-icon" />
               <span className="expand-arrow-icon">{isExpanded ? "▼" : "▶"}</span>
@@ -802,7 +802,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
             </span>
           )
         ) : isPinned ? (
-          <FaThumbtack className="text-warning" aria-label="Pinned item" title="Pinned to top" />
+          <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} />
         ) : (
           '•'
         )}
@@ -911,7 +911,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
         <ActionsMenu
           actions={actions}
           size="sm"
-          ariaLabel="Item actions"
+          ariaLabel={lang.current.aria.itemActions}
         />
       )}
     </div>
@@ -1362,7 +1362,7 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onToggleExpand(planItem); } }}
               aria-expanded={isExpanded}
               aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-              title="Pinned to top - click to expand/collapse"
+              title={lang.current.tooltip.pinnedToTopExpandCollapse}
             >
               <FaThumbtack className="text-warning pinned-pin-icon" />
               <span className="expand-arrow-icon">{isExpanded ? "▼" : "▶"}</span>
@@ -1381,7 +1381,7 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
             </span>
           )
         ) : isPinned ? (
-          <FaThumbtack className="text-warning" aria-label="Pinned item" title="Pinned to top" />
+          <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} />
         ) : (
           '•'
         )}
@@ -1496,8 +1496,8 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
             onClick={() => setShowActionsMenu(!showActionsMenu)}
             aria-expanded={showActionsMenu}
             aria-haspopup="true"
-            aria-label="Item actions"
-            title="Actions"
+            aria-label={lang.current.aria.itemActions}
+            title={lang.current.tooltip.actions}
           >
             <BsThreeDotsVertical />
           </button>

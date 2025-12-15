@@ -13,9 +13,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { FaUserPlus, FaTimes, FaUser, FaMapMarkerAlt, FaShare, FaRegImage, FaStar, FaHome } from "react-icons/fa";
+import { FaMapMarkerAlt, FaShare, FaRegImage, FaStar, FaHome } from "react-icons/fa";
 import { Row, Col, Badge, Breadcrumb } from "react-bootstrap";
-import { BsPlusCircle, BsPersonPlus, BsCheckCircleFill } from "react-icons/bs";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
@@ -27,7 +26,6 @@ import TransferOwnershipModal from "../../components/TransferOwnershipModal/Tran
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageSchema from '../../components/PageSchema/PageSchema';
 import { buildExperienceSchema } from '../../utilities/schema-utils';
-import PhotoCard from "../../components/PhotoCard/PhotoCard";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
 import CostEntry from "../../components/CostEntry";
@@ -58,7 +56,7 @@ import { StarRating, DifficultyRating } from "../../components/RatingScale/Ratin
 import { formatPlanningTime } from "../../utilities/planning-time-utils";
 import { formatCostEstimate } from "../../utilities/cost-utils";
 import { handleError } from "../../utilities/error-handler";
-import { createExpirableStorage, getCookieValue, setCookieValue } from "../../utilities/cookie-utils";
+import { storePreference, retrievePreference } from "../../utilities/preferences-utils";
 import { formatCurrency } from "../../utilities/currency-utils";
 import { isOwner, canEditPlan } from "../../utilities/permissions";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
@@ -66,14 +64,18 @@ import { isArchiveUser, isExperienceArchived, getDisplayName as getSystemUserDis
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import usePlanManagement from "../../hooks/usePlanManagement";
 import usePlanCosts from "../../hooks/usePlanCosts";
+import usePlanSync from "../../hooks/usePlanSync";
 import { usePresence } from "../../hooks/usePresence";
+import { useModalManager, MODAL_NAMES } from "../../hooks/useModalManager";
+import { useDateManagement } from "../../hooks/useDateManagement";
+import { useExperienceActions } from "../../hooks/useExperienceActions";
+import { usePlanItemNotes } from "../../hooks/usePlanItemNotes";
+import { WS_EVENTS } from "../../hooks/useWebSocketEvents";
 import {
   showExperienceWithContext,
   deletePlanItem,
   addPlanItem as addExperiencePlanItem,
   updatePlanItem as updateExperiencePlanItem,
-  addExperienceCollaborator,
-  removeExperienceCollaborator,
   reorderExperiencePlanItems,
   updateExperience,
 } from "../../utilities/experiences-api";
@@ -86,9 +88,6 @@ import {
   removeCollaborator,
   addCollaborator,
   reorderPlanItems,
-  addPlanItemNote,
-  updatePlanItemNote,
-  deletePlanItemNote,
   assignPlanItem,
   unassignPlanItem,
   addPlanItemDetail,
@@ -97,34 +96,9 @@ import { reconcileState, generateOptimisticId } from "../../utilities/event-bus"
 import { searchUsers } from "../../utilities/search-api";
 import { sendEmailInvite } from "../../utilities/invites-api";
 import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
+import { idEquals, normalizeId, findById, findIndexById, filterOutById } from "../../utilities/id-utils";
 
 export default function SingleExperience() {
-  // ============================================================================
-  // CONSTANTS & HELPER FUNCTIONS
-  // ============================================================================
-
-  // Constants for sync alert cookie management
-  const SYNC_ALERT_COOKIE = "planSyncAlertDismissed";
-  const SYNC_ALERT_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
-
-  // Helpers to read/write sync alert dismissal state
-  function getSyncAlertCookie(planId) {
-    try {
-      return getCookieValue(SYNC_ALERT_COOKIE, planId, SYNC_ALERT_DURATION);
-    } catch (err) {
-      debug.warn('getSyncAlertCookie failed', err);
-      return null;
-    }
-  }
-
-  function setSyncAlertCookie(planId) {
-    try {
-      setCookieValue(SYNC_ALERT_COOKIE, planId, Date.now(), SYNC_ALERT_DURATION, SYNC_ALERT_DURATION);
-    } catch (err) {
-      debug.warn('setSyncAlertCookie failed', err);
-    }
-  }
-
   // ============================================================================
   // CONTEXT HOOKS & ROUTER
   // ============================================================================
@@ -187,7 +161,8 @@ export default function SingleExperience() {
     experienceMembers,
     planMembers,
     setTyping,
-    setTab: setPresenceTab
+    setTab: setPresenceTab,
+    subscribe: subscribeToEvents
   } = usePresence({
     experienceId,
     planId: selectedPlanId,
@@ -214,49 +189,27 @@ export default function SingleExperience() {
   // UI state
   const [favHover, setFavHover] = useState(false);
   const [hoveredPlanItem, setHoveredPlanItem] = useState(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [isEditingDate, setIsEditingDate] = useState(false);
   const [activeTab, setActiveTab] = useState("experience"); // "experience" or "myplan"
   const [pendingUnplan, setPendingUnplan] = useState(false); // Hide planned date immediately when user clicks Remove (before confirm)
 
-  // Plan item UI state
+  // Plan item UI state - with encrypted persistence
   const [expandedParents, setExpandedParents] = useState(new Set());
   const [animatingCollapse, setAnimatingCollapse] = useState(null);
+  const [hierarchyLoaded, setHierarchyLoaded] = useState(false);
 
-  // Sync state
-  const [showSyncButton, setShowSyncButton] = useState(false);
-  const [showSyncAlert, setShowSyncAlert] = useState(true);
-  const [showSyncModal, setShowSyncModal] = useState(false);
-  const [syncChanges, setSyncChanges] = useState(null);
-  const [selectedSyncItems, setSelectedSyncItems] = useState({ added: [], removed: [], modified: [] });
+  // Consolidated modal management
+  const { activeModal, openModal, closeModal, isModalOpen } = useModalManager();
 
-  // Modal state - Delete/Remove modals
-  const [showDeleteModal, setShowDeleteModal] = useState(false); // Delete experience
-  const [showRemoveModal, setShowRemoveModal] = useState(false); // Remove from my plan
-  const [showPlanDeleteModal, setShowPlanDeleteModal] = useState(false); // Delete plan item from experience
+  // Modal data state (data associated with modals, not modal visibility)
   const [planItemToDelete, setPlanItemToDelete] = useState(null);
-  const [showPlanInstanceDeleteModal, setShowPlanInstanceDeleteModal] = useState(false); // Delete plan item from instance
   const [planInstanceItemToDelete, setPlanInstanceItemToDelete] = useState(null);
-
-  // Modal state - Plan item modals
-  const [showPlanItemModal, setShowPlanItemModal] = useState(false);
   const [planItemFormState, setPlanItemFormState] = useState(1); // 1 = add, 0 = edit
   const [editingPlanItem, setEditingPlanItem] = useState({});
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedDetailsItem, setSelectedDetailsItem] = useState(null);
   const [detailsModalInitialTab, setDetailsModalInitialTab] = useState('notes');
-
-  // Inline cost entry modal state (for adding costs from plan item details)
-  const [showInlineCostEntry, setShowInlineCostEntry] = useState(false);
   const [inlineCostPlanItem, setInlineCostPlanItem] = useState(null);
   const [inlineCostLoading, setInlineCostLoading] = useState(false);
-
-  // Photo viewer state for hero overlay button
-  const [showPhotoViewer, setShowPhotoViewer] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
-
-  // Photo upload modal state (for hero button when no photos)
-  const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
 
   // Curator tooltip state (two-click pattern: first shows tooltip, second navigates)
   const [curatorTooltipVisible, setCuratorTooltipVisible] = useState(false);
@@ -264,9 +217,6 @@ export default function SingleExperience() {
   // Refs
   const planButtonRef = useRef(null);
   const [planBtnWidth, setPlanBtnWidth] = useState(null);
-
-  // Ref for dynamic font sizing on planned date metric
-  const plannedDateRef = useRef(null);
 
   // Ref to track processed URL hashes to prevent re-scrolling on state changes
   const processedHashRef = useRef(null);
@@ -308,16 +258,6 @@ export default function SingleExperience() {
   // ============================================================================
   // MEMOIZED VALUES & COMPUTED STATE
   // ============================================================================
-
-  // Helper to compare IDs safely (ObjectId or string)
-  const idEquals = useCallback((a, b) => {
-    if (!a || !b) return false;
-    try {
-      return a.toString() === b.toString();
-    } catch (e) {
-      return false;
-    }
-  }, []);
 
   // Normalize plan objects for consistent client-side comparisons.
   // Ensures `_id` and nested `user._id` are strings to avoid select value mismatches.
@@ -487,7 +427,7 @@ export default function SingleExperience() {
         const hashPlanId = hashContent.split('-item-')[0]; // Get planId (before -item- if present)
 
         // If hash matches selected plan, this is a direct URL load - don't modify
-        if (hashPlanId === selectedPlanId.toString()) {
+        if (idEquals(hashPlanId, selectedPlanId)) {
           debug.log('URL management: Hash matches selected plan, preserving original URL', {
             currentHash,
             selectedPlanId,
@@ -820,21 +760,41 @@ export default function SingleExperience() {
 
   /**
    * Toggle expansion state for a plan item.
+   * Persists state to encrypted storage.
    * @param {Object} item - The plan item to toggle (pass the full item object)
    */
-  const toggleExpanded = useCallback((item) => {
+  const toggleExpanded = useCallback(async (item) => {
     const key = getExpansionKey(item);
-    if (!key) return;
+    if (!key || !user?._id) return;
+
+    const persistState = async (newSet) => {
+      try {
+        // Determine storage key based on current context
+        let storageKey;
+        if (activeTab === 'experience' && experience?._id) {
+          storageKey = `hierarchy.experience.${experience._id}`;
+        } else if (activeTab === 'myplan' && selectedPlanId) {
+          storageKey = `hierarchy.plan.${selectedPlanId}`;
+        }
+
+        if (storageKey) {
+          await storePreference(storageKey, Array.from(newSet), { userId: user._id });
+        }
+      } catch (error) {
+        logger.error('Failed to persist hierarchy state', error);
+      }
+    };
 
     setExpandedParents((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(key)) {
         // collapsing - animate then remove
         setAnimatingCollapse(key);
-        setTimeout(() => {
+        setTimeout(async () => {
           setExpandedParents((prev) => {
             const newSet = new Set(prev);
             newSet.delete(key);
+            persistState(newSet);
             return newSet;
           });
           setAnimatingCollapse(null);
@@ -842,10 +802,11 @@ export default function SingleExperience() {
       } else {
         // expanding
         newSet.add(key);
+        persistState(newSet);
       }
       return newSet;
     });
-  }, [getExpansionKey]);
+  }, [getExpansionKey, user?._id, activeTab, experience?._id, selectedPlanId]);
 
   // OPTIMIZATION: Combined fetch function - fetches all data in one API call
   // Reduces 3 API calls to 1 for dramatically faster page load
@@ -857,6 +818,11 @@ export default function SingleExperience() {
       debug.log("User plan:", fetchedUserPlan);
       debug.log("Shared plans:", fetchedSharedPlans);
 
+      // Validate experience data exists
+      if (!experienceData) {
+        throw new Error('Experience not found');
+      }
+
       // Set experience data
       setExperience(experienceData);
       setTravelTips(experienceData.travel_tips || []);
@@ -867,12 +833,8 @@ export default function SingleExperience() {
         updateExperienceInContext(experienceData);
       }
 
-      // Set expanded parents (all parents expanded by default)
-      // Use toString() for consistent Set operations
-      const parentIds = experienceData.plan_items
-        .filter((item) => !item.parent)
-        .map((item) => item._id?.toString());
-      setExpandedParents(new Set(parentIds.filter(Boolean)));
+      // Expanded parents will be loaded from persisted state by the hierarchy effect
+      // Don't override here to preserve user's expansion preferences
 
       // Set user plan data
       setUserPlan(fetchedUserPlan || null);
@@ -887,16 +849,13 @@ export default function SingleExperience() {
       // Filter to only show plans where user is owner or collaborator
       const accessiblePlans = fetchedSharedPlans.filter((plan) => {
         // Check if user owns this plan
-        const isUserPlan =
-          plan.user &&
-          (plan.user._id?.toString() === user._id?.toString() ||
-            plan.user.toString() === user._id?.toString());
+        const isUserPlan = plan.user && idEquals(plan.user._id || plan.user, user._id);
 
         // Check if user is a collaborator or owner via permissions
         const hasPermission = plan.permissions?.some(
           (p) =>
             p.entity === "user" &&
-            p._id?.toString() === user._id?.toString() &&
+            idEquals(p._id, user._id) &&
             (p.type === "owner" || p.type === "collaborator")
         );
 
@@ -909,8 +868,7 @@ export default function SingleExperience() {
       const sharedPlansOnly = fetchedUserPlan
         ? accessiblePlans.filter((plan) => {
             // Exclude user's own plan - it will be prepended separately
-            const planUserId = plan.user?._id?.toString() || plan.user?.toString();
-            return planUserId !== user._id?.toString();
+            return !idEquals(plan.user?._id || plan.user, user._id);
           })
         : accessiblePlans;
 
@@ -922,14 +880,8 @@ export default function SingleExperience() {
 
       // Sort plans: user's own plan first, then others
       const sortedPlans = allPlans.sort((a, b) => {
-        const aIsUserPlan =
-          a.user &&
-          (a.user._id?.toString() === user._id?.toString() ||
-            a.user.toString() === user._id?.toString());
-        const bIsUserPlan =
-          b.user &&
-          (b.user._id?.toString() === user._id?.toString() ||
-            b.user.toString() === user._id?.toString());
+        const aIsUserPlan = a.user && idEquals(a.user._id || a.user, user._id);
+        const bIsUserPlan = b.user && idEquals(b.user._id || b.user, user._id);
 
         if (aIsUserPlan && !bIsUserPlan) return -1;
         if (!aIsUserPlan && bIsUserPlan) return 1;
@@ -993,52 +945,86 @@ export default function SingleExperience() {
     showError
   });
 
+  // Plan sync hook - manages divergence detection and sync modal
+  const {
+    showSyncButton,
+    showSyncAlert,
+    showSyncModal,
+    syncChanges,
+    selectedSyncItems,
+    syncLoading,
+    setSelectedSyncItems,
+    handleSyncPlan,
+    confirmSyncPlan,
+    dismissSyncAlert,
+    closeSyncModal,
+    resetSyncState,
+    checkPlanDivergence
+  } = usePlanSync({
+    experience,
+    selectedPlanId,
+    sharedPlans,
+    fetchSharedPlans,
+    fetchUserPlan,
+    fetchPlans,
+    showError
+  });
+
+  // Experience action handlers (share, plan toggle, remove)
+  const {
+    handleExperience,
+    handleShareExperience,
+    handleSharePlanItem,
+    confirmRemoveExperience
+  } = useExperienceActions({
+    experience,
+    experienceId,
+    user,
+    userPlan,
+    userHasExperience,
+    selectedPlan,
+    openModal,
+    closeModal,
+    MODAL_NAMES,
+    setIsEditingDate,
+    setActiveTab,
+    setPendingUnplan,
+    deletePlan,
+    success,
+    showError
+  });
+
+  // Plan item notes CRUD handlers
+  const {
+    handleAddNote: handleAddNoteToItem,
+    handleUpdateNote: handleUpdateNoteOnItem,
+    handleDeleteNote: handleDeleteNoteFromItem
+  } = usePlanItemNotes({
+    selectedPlanId,
+    selectedDetailsItem,
+    setSelectedDetailsItem,
+    setSharedPlans,
+    success,
+    showError
+  });
+
+  // ============================================================================
+  // MODAL WRAPPER FUNCTIONS (for child components expecting setter props)
+  // ============================================================================
+
+  // Wrapper functions to maintain backward compatibility with components that expect setters
+  const handleOpenDatePicker = useCallback(() => openModal(MODAL_NAMES.DATE_PICKER), [openModal]);
+  const handleCloseDatePicker = useCallback(() => closeModal(), [closeModal]);
+  const handleOpenPlanDeleteModal = useCallback(() => openModal(MODAL_NAMES.DELETE_PLAN_ITEM), [openModal]);
+  const handleClosePlanDeleteModal = useCallback(() => closeModal(), [closeModal]);
+  const handleOpenPlanInstanceDeleteModal = useCallback(() => openModal(MODAL_NAMES.DELETE_PLAN_INSTANCE_ITEM), [openModal]);
+  const handleClosePlanInstanceDeleteModal = useCallback(() => closeModal(), [closeModal]);
+  const handleOpenDeleteExperienceModal = useCallback(() => openModal(MODAL_NAMES.DELETE_EXPERIENCE), [openModal]);
+  const handleCloseDeleteExperienceModal = useCallback(() => closeModal(), [closeModal]);
+
   // ============================================================================
   // CALLBACK FUNCTIONS & EVENT HANDLERS
   // ============================================================================
-
-  const checkPlanDivergence = useCallback((plan, experience) => {
-    // Defensive guards: ensure both plan.plan and experience.plan_items are arrays
-    if (!plan || !experience || !Array.isArray(experience.plan_items) || !Array.isArray(plan.plan)) {
-      return false;
-    }
-
-    // Check if plan items count differs
-    if ((plan.plan || []).length !== (experience.plan_items || []).length) {
-      return true;
-    }
-
-    // Helper functions to normalize values consistently with handleSyncPlan
-    // This prevents false positives where checkPlanDivergence thinks there's a change
-    // but handleSyncPlan finds no actual differences
-    const normalizeString = (val) => val || ''; // null/undefined/"" all become ""
-    const normalizeNumber = (val) => val || 0;  // null/undefined/0 all become 0
-
-    // Check if any plan item has changed
-    for (let i = 0; i < (plan.plan || []).length; i++) {
-      const planItem = plan.plan[i];
-      const experienceItem = experience.plan_items.find(
-        (item) => item._id.toString() === planItem.plan_item_id.toString()
-      );
-
-      if (!experienceItem) {
-        return true; // Item was deleted from experience
-      }
-
-      // Check if key fields have changed using same normalization as handleSyncPlan
-      // This ensures sync banner only shows when there are ACTUAL changes to sync
-      if (
-        normalizeString(experienceItem.text) !== normalizeString(planItem.text) ||
-        normalizeString(experienceItem.url) !== normalizeString(planItem.url) ||
-        normalizeNumber(experienceItem.cost_estimate) !== normalizeNumber(planItem.cost) ||
-        normalizeNumber(experienceItem.planning_days) !== normalizeNumber(planItem.planning_days)
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  }, []);
 
   // OPTIMIZATION: Use combined fetch on initial load for 3x faster page load
   useEffect(() => {
@@ -1059,21 +1045,16 @@ export default function SingleExperience() {
     setPlansLoading(true);
     setActiveTab("experience");
     setExpandedParents(new Set());
-    setShowSyncButton(false);
-    setShowSyncAlert(true);
-    setSyncChanges(null);
-    setSelectedSyncItems({ added: [], removed: [], modified: [] });
+    setHierarchyLoaded(false);
+    // Reset sync state via hook
+    resetSyncState();
     setFavHover(false);
     setPendingUnplan(false);
     setPlanBtnWidth(null);
-    setShowDatePicker(false);
+    closeModal(); // Close any open modal
     setIsEditingDate(false);
     setPlannedDate("");
-    setShowDeleteModal(false);
-    setShowRemoveModal(false);
-    setShowPlanDeleteModal(false);
     setPlanItemToDelete(null);
-    setShowPlanInstanceDeleteModal(false);
     setPlanInstanceItemToDelete(null);
     setExperienceNotFound(false); // Reset 404 state
     // Reset hash refs so URL hash can be processed for new experience
@@ -1081,11 +1062,10 @@ export default function SingleExperience() {
     initialHashHandledRef.current = false;
     userInteractionRef.current = false;
     // Collaborator state is now managed by useCollaboratorManager hook
-    setShowPlanItemModal(false);
+    // Modal state managed by useModalManager hook
     setPlanItemFormState(1);
     setEditingPlanItem({});
-    setShowSyncModal(false);
-  }, [experienceId]);
+  }, [experienceId, resetSyncState]);
 
   // Navigation Intent Consumer - handles deep-link navigation from HashLink and direct URL
   // Single source of truth for scroll/highlight behavior
@@ -1149,7 +1129,7 @@ export default function SingleExperience() {
     // CONSUME the intent BEFORE side effects to prevent re-processing
     consumeIntent(intentId);
 
-    const tid = targetPlan._id?.toString ? targetPlan._id.toString() : targetPlan._id;
+    const tid = normalizeId(targetPlan._id);
 
     debug.log('[NavigationIntent] ✅ Found target plan, switching...', { tid, targetItemId });
 
@@ -1174,9 +1154,7 @@ export default function SingleExperience() {
       debug.log('[NavigationIntent] Scheduling scroll to item:', { targetItemId, shouldAnimate });
 
       // Find the plan item to open in the modal
-      const planItem = targetPlan.plan?.find(item =>
-        (item._id?.toString ? item._id.toString() : item._id) === targetItemId
-      );
+      const planItem = findById(targetPlan.plan, targetItemId);
 
       // Use requestAnimationFrame + setTimeout to ensure DOM is ready after React renders
       requestAnimationFrame(() => {
@@ -1189,7 +1167,7 @@ export default function SingleExperience() {
             if (planItem) {
               setSelectedDetailsItem(planItem);
               setDetailsModalInitialTab('notes');
-              setShowDetailsModal(true);
+              openModal(MODAL_NAMES.PLAN_ITEM_DETAILS);
             }
           } catch (err) {
             debug.log('[NavigationIntent] scrollToItem error:', err);
@@ -1200,7 +1178,7 @@ export default function SingleExperience() {
       debug.log('[NavigationIntent] No targetItemId, skipping scroll');
     }
 
-  }, [intent, plansLoading, sharedPlans, idEquals, consumeIntent, clearIntent, scrollToItem]);
+  }, [intent, plansLoading, sharedPlans, consumeIntent, clearIntent, scrollToItem]);
 
   // Fallback handler for direct URL navigation (when no intent exists)
   // This handles cases where user pastes URL directly or navigates via browser history
@@ -1248,13 +1226,13 @@ export default function SingleExperience() {
 
     debug.log('[SingleExperience] Fallback URL hash handler:', { planId, itemId, selectedPlanId, hash });
 
-    const targetPlan = sharedPlans.find((p) => idEquals(p._id, planId));
+    const targetPlan = findById(sharedPlans, planId);
     if (!targetPlan) {
       debug.warn('[Fallback Hash] Plan not found:', planId);
       return;
     }
 
-    const tid = targetPlan._id?.toString ? targetPlan._id.toString() : targetPlan._id;
+    const tid = normalizeId(targetPlan._id);
 
     // Mark this hash as processed and initial navigation as complete
     processedHashRef.current = hash;
@@ -1271,9 +1249,7 @@ export default function SingleExperience() {
     // If we switched tabs, wait for React to render the new content first
     if (itemId) {
       // Find the plan item to open in the modal
-      const planItem = targetPlan.plan?.find(item =>
-        (item._id?.toString ? item._id.toString() : item._id) === itemId
-      );
+      const planItem = findById(targetPlan.plan, itemId);
 
       const openModalForItem = () => {
         scrollToItem(itemId, { shouldHighlight: true });
@@ -1281,7 +1257,7 @@ export default function SingleExperience() {
         if (planItem) {
           setSelectedDetailsItem(planItem);
           setDetailsModalInitialTab('notes');
-          setShowDetailsModal(true);
+          openModal(MODAL_NAMES.PLAN_ITEM_DETAILS);
         }
       };
 
@@ -1296,7 +1272,7 @@ export default function SingleExperience() {
         openModalForItem();
       }
     }
-  }, [plansLoading, sharedPlans, selectedPlanId, intent, idEquals, scrollToItem]);
+  }, [plansLoading, sharedPlans, selectedPlanId, intent, scrollToItem]);
 
   // Register h1 for navbar (action buttons removed - available in sticky sidebar)
   useEffect(() => {
@@ -1317,34 +1293,13 @@ export default function SingleExperience() {
     experience, // Re-register when experience loads (ensures h1Ref.current is populated)
   ]);
 
-  // Check for divergence when plan or experience changes
-  useEffect(() => {
-    if (selectedPlanId && sharedPlans.length > 0 && experience) {
-      const currentPlan = sharedPlans.find(
-  (p) => idEquals(p._id, selectedPlanId)
-      );
-      if (currentPlan) {
-        const hasDiverged = checkPlanDivergence(currentPlan, experience);
-        setShowSyncButton(hasDiverged);
-
-        // Check if alert was recently dismissed via cookie
-        if (hasDiverged) {
-          const dismissedTime = getSyncAlertCookie(selectedPlanId);
-          setShowSyncAlert(!dismissedTime); // Show alert only if not recently dismissed
-        } else {
-          setShowSyncAlert(false); // No divergence, no alert
-        }
-      }
-    }
-  }, [selectedPlanId, sharedPlans, experience, checkPlanDivergence]);
-
   // Keep selectedDetailsItem in sync with the latest plan data
   // This fixes the "Unknown User" issue when navigating - the plan data may be
   // initially loaded without populated notes.user, then updated by API with populated data
   // Also preserves populated user data if the source temporarily has unpopulated data
   useEffect(() => {
     // Only sync when modal is open and we have a selected item
-    if (!showDetailsModal || !selectedDetailsItem?._id) return;
+    if (!isModalOpen(MODAL_NAMES.PLAN_ITEM_DETAILS) || !selectedDetailsItem?._id) return;
 
     // Find the current plan containing this item
     const currentPlanData = selectedPlanId
@@ -1388,7 +1343,7 @@ export default function SingleExperience() {
       const populatedUserMap = {};
       selectedDetailsItem.details?.notes?.forEach(note => {
         if (note.user && typeof note.user === 'object' && note.user.name) {
-          const noteId = note._id?.toString() || note._id;
+          const noteId = normalizeId(note._id);
           populatedUserMap[noteId] = note.user;
         }
       });
@@ -1402,7 +1357,7 @@ export default function SingleExperience() {
 
         // Create merged item with preserved populated user data
         const mergedNotes = updatedItem.details.notes.map(note => {
-          const noteId = note._id?.toString() || note._id;
+          const noteId = normalizeId(note._id);
           const preservedUser = populatedUserMap[noteId];
           if (preservedUser && (!note.user?.name)) {
             return { ...note, user: preservedUser };
@@ -1430,13 +1385,13 @@ export default function SingleExperience() {
       const populatedUserMap = {};
       selectedDetailsItem.details?.notes?.forEach(note => {
         if (note.user && typeof note.user === 'object' && note.user.name) {
-          const noteId = note._id?.toString() || note._id;
+          const noteId = normalizeId(note._id);
           populatedUserMap[noteId] = note.user;
         }
       });
 
       const mergedNotes = updatedItem.details?.notes?.map(note => {
-        const noteId = note._id?.toString() || note._id;
+        const noteId = normalizeId(note._id);
         const preservedUser = populatedUserMap[noteId];
         if (preservedUser && (!note.user?.name)) {
           return { ...note, user: preservedUser };
@@ -1452,27 +1407,7 @@ export default function SingleExperience() {
         }
       });
     }
-  }, [showDetailsModal, selectedDetailsItem?._id, selectedPlanId, sharedPlans, userPlan, idEquals]);
-
-  // Update displayed planned date based on active tab and selected plan, gated by ownership state
-  useEffect(() => {
-    // If the user doesn't currently have this experience planned, suppress any planned date display
-    if (!userHasExperience) {
-      setDisplayedPlannedDate(null);
-      return;
-    }
-
-    if (activeTab === "myplan" && selectedPlanId) {
-      // Show the selected plan's planned date
-      const selectedPlan = sharedPlans.find(
-  (p) => idEquals(p._id, selectedPlanId)
-      );
-      setDisplayedPlannedDate(selectedPlan?.planned_date || null);
-    } else {
-      // Show the user's experience planned date
-      setDisplayedPlannedDate(userPlannedDate);
-    }
-  }, [activeTab, selectedPlanId, sharedPlans, userPlannedDate, userHasExperience]);
+  }, [isModalOpen, selectedDetailsItem?._id, selectedPlanId, sharedPlans, userPlan]);
 
   /**
    * Update URL hash when a plan is selected to enable direct linking
@@ -1504,54 +1439,55 @@ export default function SingleExperience() {
     }
   }, [activeTab, selectedPlanId]);
 
-  /**
-   * Dynamically adjusts the font size of the planned date metric value to fit within container.
-   * Similar to DestinationCard implementation - reduces font size incrementally if text overflows.
-   */
+  // Subscribe to WebSocket events for real-time shared plan updates
+  // Replaces polling - events trigger immediate refresh when collaborators are added/removed
   useEffect(() => {
-    const adjustPlannedDateFontSize = () => {
-      const element = plannedDateRef.current;
-      if (!element) return;
+    if (!subscribeToEvents || !experienceId) return;
 
-      // Reset to default size first
-      element.style.fontSize = "";
+    const sessionId = window.sessionStorage.getItem('bien:session_id');
 
-      // Get the computed style to find the current font size
-      let fontSize = parseFloat(window.getComputedStyle(element).fontSize);
-      const minFontSize = 1; // rem (16px at base 16px) - more aggressive minimum
+    // Handler for plan collaborator events
+    const handleCollaboratorEvent = (event) => {
+      // Skip events from this session (already handled locally)
+      if (event.sessionId === sessionId) return;
+      // Only handle events for this experience
+      if (event.experienceId !== experienceId) return;
 
-      // Check if text is overflowing horizontally
-      // Reduce more aggressively (2px instead of 1px per iteration)
-      while (
-        element.scrollWidth > element.clientWidth &&
-        fontSize > minFontSize * 16
-      ) {
-        fontSize -= 2; // More aggressive reduction
-        element.style.fontSize = `${fontSize}px`;
-      }
-    };
-
-    // Use setTimeout to ensure DOM is fully rendered before adjusting
-    const timeoutId = setTimeout(() => {
-      adjustPlannedDateFontSize();
-    }, 0);
-
-    // Adjust on window resize
-    window.addEventListener("resize", adjustPlannedDateFontSize);
-    return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener("resize", adjustPlannedDateFontSize);
-    };
-  }, [displayedPlannedDate]);
-
-  // Periodically refresh shared plans to pick up new collaborator additions
-  useEffect(() => {
-    const intervalId = setInterval(() => {
+      logger.debug('[SingleExperience] Collaborator event received, refreshing shared plans', {
+        action: event.action,
+        planId: event.planId
+      });
       fetchSharedPlans();
-    }, 30000); // Refresh every 30 seconds
+    };
 
-    return () => clearInterval(intervalId);
-  }, [fetchSharedPlans]);
+    // Handler for plan creation/deletion (new plans become shared plans)
+    const handlePlanEvent = (event) => {
+      // Skip events from this session
+      if (event.sessionId === sessionId) return;
+      // Only handle events for this experience
+      const eventExpId = event.experienceId || event.data?.experience;
+      if (eventExpId !== experienceId) return;
+
+      logger.debug('[SingleExperience] Plan event received, refreshing shared plans', {
+        type: event.type,
+        planId: event.planId
+      });
+      fetchSharedPlans();
+    };
+
+    // Subscribe to relevant events
+    const unsubCollaboratorAdded = subscribeToEvents('plan:collaborator:added', handleCollaboratorEvent);
+    const unsubCollaboratorRemoved = subscribeToEvents('plan:collaborator:removed', handleCollaboratorEvent);
+    const unsubPlanCreated = subscribeToEvents(WS_EVENTS.PLAN_CREATED, handlePlanEvent);
+    const unsubPlanDeleted = subscribeToEvents(WS_EVENTS.PLAN_DELETED, handlePlanEvent);
+
+    return () => {
+      unsubCollaboratorAdded();
+      unsubCollaboratorRemoved();
+      unsubPlanCreated();
+      unsubPlanDeleted();
+    };
+  }, [subscribeToEvents, experienceId, fetchSharedPlans]);
 
   // Sync tab changes to presence system
   useEffect(() => {
@@ -1561,268 +1497,77 @@ export default function SingleExperience() {
     }
   }, [activeTab, setPresenceTab]);
 
-  // Re-initialize expandedParents when switching between experience and plan views
-  // Uses getExpansionKey for consistent canonical ID handling
+  /**
+   * Load persisted hierarchy state from encrypted storage
+   * 
+   * Stores expansion state separately for:
+   * - Experience plan items: hierarchy.experience.{experienceId}
+   * - User plan items: hierarchy.plan.{planId}
+   * 
+   * Persists across hard refreshes using encrypted localStorage.
+   * Defaults to all top-level items expanded if no saved state exists.
+   */
   useEffect(() => {
-    if (activeTab === 'experience' && experience?.plan_items) {
-      // Use canonical key (for experience items, this is _id)
-      const parentKeys = experience.plan_items
-        .filter((item) => !item.parent)
-        .map((item) => getExpansionKey(item))
-        .filter(Boolean);
-      setExpandedParents(new Set(parentKeys));
-    } else if (activeTab === 'myplan' && currentPlan?.plan) {
-      // Use canonical key (for plan items, this is plan_item_id, falling back to _id)
-      const parentKeys = currentPlan.plan
-        .filter((item) => !item.parent)
-        .map((item) => getExpansionKey(item))
-        .filter(Boolean);
-      setExpandedParents(new Set(parentKeys));
-    }
-  }, [activeTab, experience?.plan_items, currentPlan?.plan, getExpansionKey]);
+    if (!user?._id) return;
 
-  const handleSyncPlan = useCallback(async () => {
-    if (!selectedPlanId || !experience) return;
+    let isMounted = true;
 
-    try {
-      // Calculate changes between experience and plan
-      const currentPlan = sharedPlans.find(
-        (p) => idEquals(p._id, selectedPlanId)
-      );
-      if (!currentPlan) return;
+    async function loadHierarchyState() {
+      try {
+        // Determine the storage key based on active tab and current context
+        let storageKey;
+        let defaultExpandedIds = [];
 
-      const changes = {
-        added: [],
-        removed: [],
-        modified: [],
-      };
-
-      // Find items in experience but not in plan (added)
-      experience.plan_items.forEach((expItem) => {
-        const planItem = currentPlan.plan.find(
-          (pItem) => pItem.plan_item_id?.toString() === expItem._id.toString()
-        );
-        if (!planItem) {
-          changes.added.push({
-            _id: expItem._id,
-            text: expItem.text,
-            url: expItem.url,
-            cost: expItem.cost_estimate || 0,
-            planning_days: expItem.planning_days || 0,
-            photo: expItem.photo,
-            parent: expItem.parent,
-          });
+        if (activeTab === 'experience' && experience?._id && experience?.plan_items) {
+          storageKey = `hierarchy.experience.${experience._id}`;
+          // Default: all top-level items expanded
+          defaultExpandedIds = experience.plan_items
+            .filter((item) => !item.parent)
+            .map((item) => getExpansionKey(item))
+            .filter(Boolean);
+        } else if (activeTab === 'myplan' && selectedPlanId && currentPlan?.plan) {
+          storageKey = `hierarchy.plan.${selectedPlanId}`;
+          // Default: all top-level items expanded
+          defaultExpandedIds = currentPlan.plan
+            .filter((item) => !item.parent)
+            .map((item) => getExpansionKey(item))
+            .filter(Boolean);
         }
-      });
 
-      // Find items in plan but not in experience (removed)
-      currentPlan.plan.forEach((planItem) => {
-        const expItem = experience.plan_items.find(
-          (eItem) => eItem._id.toString() === planItem.plan_item_id?.toString()
-        );
-        if (!expItem) {
-          changes.removed.push({
-            _id: planItem.plan_item_id,
-            text: planItem.text,
-            url: planItem.url,
-          });
-        }
-      });
-
-      // Find modified items (text, url, cost, or days changed)
-      // Normalize falsy values to empty string for string comparisons
-      const normalizeString = (val) => val || '';
-      const normalizeNumber = (val) => val || 0;
-
-      experience.plan_items.forEach((expItem) => {
-        const planItem = currentPlan.plan.find(
-          (pItem) => pItem.plan_item_id?.toString() === expItem._id.toString()
-        );
-        if (planItem) {
-          const modifications = [];
-          // Compare text - normalize to empty string for consistent comparison
-          if (normalizeString(planItem.text) !== normalizeString(expItem.text)) {
-            modifications.push({
-              field: "text",
-              old: planItem.text,
-              new: expItem.text,
-            });
-          }
-          // Compare url - normalize to empty string (handles null, undefined, empty string as equivalent)
-          if (normalizeString(planItem.url) !== normalizeString(expItem.url)) {
-            modifications.push({
-              field: "url",
-              old: planItem.url,
-              new: expItem.url,
-            });
-          }
-          // Compare cost - normalize to 0
-          if (normalizeNumber(planItem.cost) !== normalizeNumber(expItem.cost_estimate)) {
-            modifications.push({
-              field: "cost",
-              old: planItem.cost,
-              new: expItem.cost_estimate || 0,
-            });
-          }
-          // Compare planning_days - normalize to 0
-          if (normalizeNumber(planItem.planning_days) !== normalizeNumber(expItem.planning_days)) {
-            modifications.push({
-              field: "days",
-              old: planItem.planning_days,
-              new: expItem.planning_days || 0,
-            });
-          }
-
-          if (modifications.length > 0) {
-            changes.modified.push({
-              _id: expItem._id,
-              text: expItem.text,
-              modifications,
-            });
+        if (storageKey) {
+          // Load persisted state or use defaults
+          const persistedIds = await retrievePreference(storageKey, defaultExpandedIds, { userId: user._id });
+          
+          if (isMounted) {
+            setExpandedParents(new Set(persistedIds));
+            setHierarchyLoaded(true);
           }
         }
-      });
-
-      // Show modal with changes and select all by default
-      setSyncChanges(changes);
-      setSelectedSyncItems({
-        added: changes.added.map((_, idx) => idx),
-        removed: changes.removed.map((_, idx) => idx),
-        modified: changes.modified.map((_, idx) => idx),
-      });
-      setShowSyncModal(true);
-    } catch (err) {
-      const errorMsg = handleError(err, { context: "Calculate sync changes" });
-      showError(errorMsg);
+      } catch (error) {
+        logger.error('Failed to load hierarchy state', error);
+        if (isMounted) {
+          // Fallback to default (all expanded)
+          const defaultKeys = activeTab === 'experience' && experience?.plan_items
+            ? experience.plan_items.filter((item) => !item.parent).map((item) => getExpansionKey(item)).filter(Boolean)
+            : currentPlan?.plan?.filter((item) => !item.parent).map((item) => getExpansionKey(item)).filter(Boolean) || [];
+          setExpandedParents(new Set(defaultKeys));
+          setHierarchyLoaded(true);
+        }
+      }
     }
-  }, [selectedPlanId, experience, sharedPlans]);
 
-  const confirmSyncPlan = useCallback(async () => {
-    if (!selectedPlanId || !experience || !syncChanges) return;
+    loadHierarchyState();
 
-    try {
-      setLoading(true);
-
-      const currentPlan = sharedPlans.find(
-  (p) => idEquals(p._id, selectedPlanId)
-      );
-      if (!currentPlan) {
-        throw new Error("Current plan not found");
-      }
-
-      // Start with current plan items
-      let updatedPlanSnapshot = [...currentPlan.plan];
-
-      // Apply selected additions
-      if (selectedSyncItems.added.length > 0) {
-        const itemsToAdd = selectedSyncItems.added.map(
-          (idx) => syncChanges.added[idx]
-        );
-        itemsToAdd.forEach((item) => {
-          updatedPlanSnapshot.push({
-            plan_item_id: item._id,
-            complete: false,
-            cost: item.cost || 0,
-            planning_days: item.planning_days || 0,
-            text: item.text,
-            url: item.url,
-            photo: item.photo,
-            parent: item.parent,
-          });
-        });
-      }
-
-      // Apply selected removals
-      if (selectedSyncItems.removed.length > 0) {
-        const itemIdsToRemove = selectedSyncItems.removed.map((idx) =>
-          syncChanges.removed[idx]._id.toString()
-        );
-        updatedPlanSnapshot = updatedPlanSnapshot.filter(
-          (pItem) => !itemIdsToRemove.includes(pItem.plan_item_id?.toString())
-        );
-      }
-
-      // Apply selected modifications
-      if (selectedSyncItems.modified.length > 0) {
-        const itemsToModify = selectedSyncItems.modified.map(
-          (idx) => syncChanges.modified[idx]
-        );
-        itemsToModify.forEach((modItem) => {
-          const itemIndex = updatedPlanSnapshot.findIndex(
-            (pItem) => pItem.plan_item_id?.toString() === modItem._id.toString()
-          );
-          if (itemIndex !== -1) {
-            // Update fields that changed, preserve completion status and actual cost
-            const existingItem = updatedPlanSnapshot[itemIndex];
-            const expItem = experience.plan_items.find(
-              (ei) => ei._id.toString() === modItem._id.toString()
-            );
-            if (expItem) {
-              // Determine whether cost was among the selected modifications for this item
-              const changedFields = (modItem.modifications || []).map(m => m.field);
-              const shouldUpdateCost = changedFields.includes('cost');
-
-              updatedPlanSnapshot[itemIndex] = {
-                ...existingItem,
-                text: expItem.text,
-                url: expItem.url,
-                cost: shouldUpdateCost ? (expItem.cost_estimate || 0) : existingItem.cost,
-                planning_days: expItem.planning_days || 0,
-                photo: expItem.photo,
-                parent: expItem.parent,
-              };
-            }
-          }
-        });
-      }
-
-      // Update the plan with new snapshot
-      await updatePlan(selectedPlanId, { plan: updatedPlanSnapshot });
-
-      // Refresh plans
-      await fetchSharedPlans();
-      await fetchUserPlan();
-      await fetchPlans(); // Refresh global plans state
-
-      setShowSyncButton(false);
-      setShowSyncAlert(false);
-      setShowSyncModal(false);
-      setSyncChanges(null);
-      setSelectedSyncItems({ added: [], removed: [], modified: [] });
-
-      // Set cookie to hide alert for 1 week after successful sync
-      setSyncAlertCookie(selectedPlanId);
-
-      debug.log("Plan synced successfully");
-    } catch (err) {
-      const errorMsg = handleError(err, { context: "Sync plan" });
-      showError(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    selectedPlanId,
-    experience,
-    sharedPlans,
-    fetchSharedPlans,
-    fetchUserPlan,
-    selectedSyncItems,
-    syncChanges,
-  ]);
-
-  const dismissSyncAlert = useCallback(() => {
-    if (selectedPlanId) {
-      setSyncAlertCookie(selectedPlanId);
-      setShowSyncAlert(false);
-      debug.log("Sync alert dismissed for 1 week");
-    }
-  }, [selectedPlanId]);
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab, experience?._id, experience?.plan_items, selectedPlanId, currentPlan?.plan, user?._id, getExpansionKey]);
 
   const handleAddPlanInstanceItem = useCallback((parentId = null) => {
     setEditingPlanItem(parentId ? { parent: parentId } : {});
     setPlanItemFormState(1); // Add mode
-    setShowPlanItemModal(true);
-  }, []);
+    openModal(MODAL_NAMES.ADD_EDIT_PLAN_ITEM);
+  }, [openModal]);
 
   const handleEditPlanInstanceItem = useCallback((planItem) => {
     setEditingPlanItem({
@@ -1835,19 +1580,19 @@ export default function SingleExperience() {
       parent: planItem.parent || null,
     });
     setPlanItemFormState(0); // Edit mode
-    setShowPlanItemModal(true);
-  }, []);
+    openModal(MODAL_NAMES.ADD_EDIT_PLAN_ITEM);
+  }, [openModal]);
 
   // Handler to open Details modal for a plan item
   // Updates URL hash to enable direct linking: #plan-{planId}-item-{itemId}
   const handleViewPlanItemDetails = useCallback((planItem, initialTab = 'notes') => {
     setSelectedDetailsItem(planItem);
     setDetailsModalInitialTab(initialTab);
-    setShowDetailsModal(true);
+    openModal(MODAL_NAMES.PLAN_ITEM_DETAILS);
 
     // Update URL hash for direct linking to this plan item
     if (selectedPlanId && planItem?._id) {
-      const itemId = planItem._id?.toString ? planItem._id.toString() : planItem._id;
+      const itemId = normalizeId(planItem._id);
       const hash = `#plan-${selectedPlanId}-item-${itemId}`;
       const newUrl = `${window.location.pathname}${window.location.search || ''}${hash}`;
       if (window.location.href !== newUrl) {
@@ -1859,8 +1604,8 @@ export default function SingleExperience() {
   // Handler to open inline cost entry from plan item details modal
   const handleAddCostForItem = useCallback((planItem) => {
     setInlineCostPlanItem(planItem);
-    setShowInlineCostEntry(true);
-  }, []);
+    openModal(MODAL_NAMES.INLINE_COST_ENTRY);
+  }, [openModal]);
 
   // Handler to save inline cost entry
   const handleSaveInlineCost = useCallback(async (costData) => {
@@ -1876,14 +1621,14 @@ export default function SingleExperience() {
       await addCost(selectedPlanId, costWithPlanItem);
 
       // Close the modal
-      setShowInlineCostEntry(false);
+      closeModal();
       setInlineCostPlanItem(null);
 
       // Show success toast
       success(lang.current.notification?.cost?.added || 'Cost added successfully');
     } catch (error) {
       logger.error('Failed to add inline cost', { error: error.message });
-      showError(error.message || 'Failed to add cost');
+      showError(error.message || lang.current.alert.failedToAddCost);
     } finally {
       setInlineCostLoading(false);
     }
@@ -1957,77 +1702,7 @@ export default function SingleExperience() {
       showError(error.message || 'Failed to add detail');
       throw error; // Re-throw to let modal handle error state
     }
-  }, [selectedPlanId, addCost, idEquals, selectedDetailsItem, setSharedPlans, success, showError]);
-
-  // Note CRUD handlers for Details modal
-  const handleAddNoteToItem = useCallback(async (content) => {
-    if (!selectedPlanId || !selectedDetailsItem?._id || !content.trim()) return;
-
-    try {
-      const updatedPlan = await addPlanItemNote(selectedPlanId, selectedDetailsItem._id, content);
-
-      // Update collaborative plans with the new note
-      setSharedPlans(prevPlans =>
-        prevPlans.map(p => idEquals(p._id, selectedPlanId) ? updatedPlan : p)
-      );
-
-      // Update selected item with new note
-      const updatedItem = updatedPlan.plan.find(item => idEquals(item._id, selectedDetailsItem._id));
-      if (updatedItem) {
-        setSelectedDetailsItem(updatedItem);
-      }
-
-      success(lang.current.notification?.note?.added || 'Your note has been added and is visible to collaborators');
-    } catch (error) {
-      showError(error.message || 'Failed to add note');
-    }
-  }, [selectedPlanId, selectedDetailsItem, idEquals, setSharedPlans, success, showError]);
-
-  const handleUpdateNoteOnItem = useCallback(async (noteId, content) => {
-    if (!selectedPlanId || !selectedDetailsItem?._id || !noteId || !content.trim()) return;
-
-    try {
-      const updatedPlan = await updatePlanItemNote(selectedPlanId, selectedDetailsItem._id, noteId, content);
-
-      // Update collaborative plans
-      setSharedPlans(prevPlans =>
-        prevPlans.map(p => idEquals(p._id, selectedPlanId) ? updatedPlan : p)
-      );
-
-      // Update selected item
-      const updatedItem = updatedPlan.plan.find(item => idEquals(item._id, selectedDetailsItem._id));
-      if (updatedItem) {
-        setSelectedDetailsItem(updatedItem);
-      }
-
-      success(lang.current.notification?.note?.updated || 'Note updated. All collaborators can see your changes.');
-    } catch (error) {
-      showError(error.message || 'Failed to update note');
-    }
-  }, [selectedPlanId, selectedDetailsItem, idEquals, setSharedPlans, success, showError]);
-
-  const handleDeleteNoteFromItem = useCallback(async (noteId) => {
-    if (!selectedPlanId || !selectedDetailsItem?._id || !noteId) return;
-
-    try {
-      const updatedPlan = await deletePlanItemNote(selectedPlanId, selectedDetailsItem._id, noteId);
-
-      // Update shared plans
-      setSharedPlans(prevPlans =>
-        prevPlans.map(p => idEquals(p._id, selectedPlanId) ? updatedPlan : p)
-      );
-
-      // Update selected item
-      const updatedItem = updatedPlan.plan.find(item => idEquals(item._id, selectedDetailsItem._id));
-      if (updatedItem) {
-        setSelectedDetailsItem(updatedItem);
-      }
-
-      success(lang.current.notification?.note?.deleted || 'Note deleted');
-    } catch (error) {
-      showError(error.message || 'Failed to delete note');
-    }
-  }, [selectedPlanId, selectedDetailsItem, idEquals, setSharedPlans, success, showError]);
+  }, [selectedPlanId, addCost, selectedDetailsItem, setSharedPlans, success, showError]);
 
   const handleSavePlanInstanceItem = useCallback(
     async (e) => {
@@ -2060,7 +1735,7 @@ export default function SingleExperience() {
             complete: false,
           });
         } else {
-          const idx = updatedPlan.plan.findIndex((i) => i._id?.toString() === editingPlanItem._id?.toString());
+          const idx = findIndexById(updatedPlan.plan, editingPlanItem._id);
           if (idx >= 0) {
             updatedPlan.plan[idx] = {
               ...updatedPlan.plan[idx],
@@ -2076,7 +1751,7 @@ export default function SingleExperience() {
         }
         updatedPlans[planIndex] = updatedPlan;
         setSharedPlans(updatedPlans);
-        setShowPlanItemModal(false);
+        closeModal();
         setEditingPlanItem({});
       };
 
@@ -2091,7 +1766,7 @@ export default function SingleExperience() {
 
       const rollback = () => {
         setSharedPlans(prevPlans);
-        setShowPlanItemModal(true);
+        openModal(MODAL_NAMES.ADD_EDIT_PLAN_ITEM);
         setEditingPlanItem(isAdd ? (editingPlanItem || {}) : editingPlanItem);
       };
 
@@ -2133,18 +1808,18 @@ export default function SingleExperience() {
       setSharedPlans(prev => {
         // Capture snapshot for potential rollback
         prevPlansSnapshot = prev;
-        const planIndex = prev.findIndex((p) => idEquals(p._id, selectedPlanId));
+        const planIndex = findIndexById(prev, selectedPlanId);
         if (planIndex < 0) return prev;
 
         const updatedPlans = [...prev];
         const prevPlan = updatedPlans[planIndex];
         updatedPlans[planIndex] = {
           ...prevPlan,
-          plan: prevPlan.plan.filter((i) => i._id?.toString() !== itemToDelete._id?.toString())
+          plan: filterOutById(prevPlan.plan, itemToDelete._id)
         };
         return updatedPlans;
       });
-      setShowPlanInstanceDeleteModal(false);
+      closeModal();
       setPlanInstanceItemToDelete(null);
     };
 
@@ -2184,8 +1859,8 @@ export default function SingleExperience() {
   const handleAddExperiencePlanItem = useCallback((parentId = null) => {
     setEditingPlanItem(parentId ? { parent: parentId } : {});
     setPlanItemFormState(1); // Add mode
-    setShowPlanItemModal(true);
-  }, []);
+    openModal(MODAL_NAMES.ADD_EDIT_PLAN_ITEM);
+  }, [openModal]);
 
   const handleEditExperiencePlanItem = useCallback((planItem) => {
     setEditingPlanItem({
@@ -2197,8 +1872,8 @@ export default function SingleExperience() {
       parent: planItem.parent || null,
     });
     setPlanItemFormState(0); // Edit mode
-    setShowPlanItemModal(true);
-  }, []);
+    openModal(MODAL_NAMES.ADD_EDIT_PLAN_ITEM);
+  }, [openModal]);
 
   const handleSaveExperiencePlanItem = useCallback(
     async (e) => {
@@ -2223,7 +1898,7 @@ export default function SingleExperience() {
             location: editingPlanItem.location || null,
           });
         } else {
-          const idx = updated.plan_items.findIndex((i) => i._id?.toString() === editingPlanItem._id?.toString());
+          const idx = findIndexById(updated.plan_items, editingPlanItem._id);
           if (idx >= 0) {
             updated.plan_items[idx] = {
               ...updated.plan_items[idx],
@@ -2238,7 +1913,7 @@ export default function SingleExperience() {
           }
         }
         setExperience(updated);
-        setShowPlanItemModal(false);
+        closeModal();
         setEditingPlanItem({});
       };
 
@@ -2269,7 +1944,7 @@ export default function SingleExperience() {
 
       const rollback = () => {
         if (prevExperience) setExperience(prevExperience);
-        setShowPlanItemModal(true);
+        openModal(MODAL_NAMES.ADD_EDIT_PLAN_ITEM);
         setEditingPlanItem(isAdd ? (editingPlanItem || {}) : editingPlanItem);
       };
 
@@ -2335,7 +2010,7 @@ export default function SingleExperience() {
       // Only hash navigation (#plan-xxx) should trigger tab switch
       handlePlanChange(firstPlanId);
     }
-  }, [plansLoading, sharedPlans, selectedPlanId, intent, user._id, idEquals, handlePlanChange]);
+  }, [plansLoading, sharedPlans, selectedPlanId, intent, user._id, handlePlanChange]);
 
   // Collaborator handlers now provided by useCollaboratorManager hook
 
@@ -2343,67 +2018,6 @@ export default function SingleExperience() {
   const dollarSigns = useCallback((n) => {
     return "$".repeat(n);
   }, []);
-
-  const handleExperience = useCallback(async () => {
-    if (!experience || !user) return;
-    if (!userHasExperience) {
-      // Show date picker for new addition
-      setIsEditingDate(false);
-      setShowDatePicker(true);
-      return;
-    }
-    // Show confirmation modal before removing
-    // Don't hide badge yet - wait for user to confirm deletion
-    setShowRemoveModal(true);
-  }, [experience, user, userHasExperience]);
-
-  // Share experience handler - uses Web Share API with clipboard fallback
-  const handleShareExperience = useCallback(() => {
-    if (!experience) return;
-    const shareUrl = window.location.href;
-    const shareTitle = experience.name || 'Experience';
-
-    if (navigator.share) {
-      navigator.share({
-        title: shareTitle,
-        url: shareUrl
-      }).catch(() => {
-        // User cancelled or share failed - silently ignore
-      });
-    } else {
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        success(lang.current.notification?.share?.copied || 'Link copied to clipboard');
-      }).catch(() => {
-        showError(lang.current.notification?.share?.failed || 'Failed to copy link');
-      });
-    }
-  }, [experience, success, showError]);
-
-  // Share plan item handler - creates deep link to specific plan item
-  const handleSharePlanItem = useCallback((planItem) => {
-    if (!planItem || !selectedPlan || !experienceId) return;
-
-    // Build deep link URL: /experiences/:id#plan-{planId}-item-{itemId}
-    const baseUrl = `${window.location.origin}/experiences/${experienceId}`;
-    const hash = `#plan-${selectedPlan._id}-item-${planItem._id}`;
-    const shareUrl = baseUrl + hash;
-    const shareTitle = planItem.text || 'Plan Item';
-
-    if (navigator.share) {
-      navigator.share({
-        title: shareTitle,
-        url: shareUrl
-      }).catch(() => {
-        // User cancelled or share failed - silently ignore
-      });
-    } else {
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        success(lang.current.notification?.share?.copied || 'Link copied to clipboard');
-      }).catch(() => {
-        showError(lang.current.notification?.share?.failed || 'Failed to copy link');
-      });
-    }
-  }, [selectedPlan, experienceId, success, showError]);
 
   // Measure the maximum width needed for the plan/unplan button based on the longest label
   useEffect(() => {
@@ -2443,42 +2057,6 @@ export default function SingleExperience() {
     }
   }, []);
 
-  const confirmRemoveExperience = useCallback(async () => {
-    if (!experience || !user) return;
-    if (!userPlan) {
-      setShowRemoveModal(false);
-      return;
-    }
-
-    try {
-      // User confirmed deletion
-      setPendingUnplan(true);
-      setShowRemoveModal(false);
-      setShowDatePicker(false); // Close date picker modal when plan is removed
-      setActiveTab("experience"); // Switch back to experience tab
-
-      // Delete plan - hook handles ALL optimistic updates (userHasExperience, userPlan, etc.)
-      await deletePlan(userPlan._id);
-      debug.log("Plan deleted successfully");
-      success(lang.current.notification?.plan?.removed || "Removed from your plan. You can add it back anytime.");
-
-      setPendingUnplan(false);
-    } catch (err) {
-      // Hook's deletePlan already handles rollback on error
-      // Just show error to user and restore UI state
-      setShowRemoveModal(false);
-      setPendingUnplan(false);
-      const errorMsg = handleError(err, { context: "Remove plan" });
-      showError(errorMsg || "Failed to remove plan. Please try again.");
-    }
-  }, [
-    experience,
-    user,
-    userPlan,
-    deletePlan,
-    showError,
-  ]);
-
   const handleAddExperience = useCallback(
     async (data = null) => {
       const addData =
@@ -2492,7 +2070,7 @@ export default function SingleExperience() {
         });
 
         // Close UI elements - all plan state managed by usePlanManagement hook
-        setShowDatePicker(false);
+        closeModal();
         setIsEditingDate(false);
         setPlannedDate("");
 
@@ -2565,129 +2143,15 @@ export default function SingleExperience() {
     ]
   );
 
-  const handleDateUpdate = useCallback(async () => {
-    if (!plannedDate) return;
-
-    try {
-      setLoading(true);
-
-      // If viewing "My Plan" tab, update the selected plan's date
-      if (activeTab === "myplan" && selectedPlanId) {
-        // Convert date string to ISO format for the API
-        const dateToSend = plannedDate
-          ? new Date(plannedDate).toISOString()
-          : null;
-
-        // Optimistically update displayed date immediately
-        setDisplayedPlannedDate(dateToSend);
-
-        // Update server - event reconciliation handles state synchronization
-        await updatePlan(selectedPlanId, { planned_date: dateToSend });
-
-        // Refresh plans immediately - version-based reconciliation prevents overwrites
-        fetchUserPlan().catch(() => {});
-        fetchSharedPlans().catch(() => {});
-        fetchPlans().catch(() => {});
-
-        debug.log("Plan date updated successfully");
-      } else if (!isOwner(user, experience)) {
-        // Only non-owners can update planned date on Experience tab
-        // Owners don't have a planned date since they manage the experience directly
-
-        // Check if user already has a plan for this experience
-        if (userPlan) {
-          // Update existing plan's date
-          // Convert date string to ISO format for the API
-          const dateToSend = plannedDate
-            ? new Date(plannedDate).toISOString()
-            : null;
-
-          // Optimistically update displayed date
-          setDisplayedPlannedDate(dateToSend);
-
-          // Update server - event reconciliation handles state synchronization
-          await updatePlan(userPlan._id, { planned_date: dateToSend });
-
-          // Refresh plans immediately - version-based reconciliation prevents overwrites
-          fetchUserPlan().catch(() => {});
-          fetchSharedPlans().catch(() => {});
-          fetchPlans().catch(() => {});
-
-          debug.log("Existing plan date updated successfully");
-        } else {
-          // Create new plan by adding experience
-          await handleAddExperience();
-        }
-
-        // Refresh experience to get updated state
-        await fetchAllData();
-      } else if (isOwner(user, experience)) {
-        // Owners can now create plans for their own experiences
-        // Check if owner already has a plan
-        if (userPlan) {
-          // Update existing plan's date
-          const dateToSend = plannedDate
-            ? new Date(plannedDate).toISOString()
-            : null;
-
-          // Optimistically update displayed date
-          setDisplayedPlannedDate(dateToSend);
-
-          // Update server - event reconciliation handles state synchronization
-          await updatePlan(userPlan._id, { planned_date: dateToSend });
-
-          // Refresh plans immediately - version-based reconciliation prevents overwrites
-          fetchUserPlan().catch(() => {});
-          fetchSharedPlans().catch(() => {});
-          fetchPlans().catch(() => {});
-
-          debug.log("Owner's existing plan date updated successfully");
-        } else {
-          // Create new plan by adding experience
-          await handleAddExperience();
-        }
-
-        // Refresh experience to get updated state
-        await fetchAllData();
-      }
-
-      setShowDatePicker(false);
-      setIsEditingDate(false);
-      setPlannedDate("");
-    } catch (err) {
-      // Special-case email verification errors to give a clear action to the user
-      const msgLower = (err && err.message ? err.message.toLowerCase() : "");
-      if (msgLower.includes("email verification") || msgLower.includes("email_not_verified") || msgLower.includes("email not verified") || msgLower.includes("verify your email") || msgLower.includes("email_confirmed") ) {
-        showError('Email verification required. Please verify your email address (check your inbox for a verification link)');
-      } else {
-        const errorMsg = handleError(err, { context: "Update date" });
-        showError(errorMsg);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    plannedDate,
-    activeTab,
-    selectedPlanId,
-    user,
-    experience,
-    userPlan,
-    handleAddExperience,
-    fetchUserPlan,
-    fetchSharedPlans,
-    fetchAllData,
-  ]);
-
   const handlePlanDelete = useCallback(
     async (planItemId) => {
       if (!experience || !planItemId) return;
       const prevExperience = { ...experience, plan_items: [...(experience.plan_items || [])] };
 
       const apply = () => {
-        const updated = { ...prevExperience, plan_items: prevExperience.plan_items.filter((i) => i._id?.toString() !== planItemId?.toString()) };
+        const updated = { ...prevExperience, plan_items: filterOutById(prevExperience.plan_items, planItemId) };
         setExperience(updated);
-        setShowPlanDeleteModal(false);
+        closeModal();
       };
 
       const apiCall = async () => {
@@ -2763,7 +2227,7 @@ export default function SingleExperience() {
         userInteractionRef.current = false;
       }
     },
-    [selectedPlanId, sharedPlans, setSharedPlans, idEquals, showError]
+    [selectedPlanId, sharedPlans, setSharedPlans, showError]
   );
 
   /**
@@ -2914,6 +2378,37 @@ export default function SingleExperience() {
     ]
   );
 
+  // Date management hook - consolidates date editing logic
+  const {
+    isEditingDate,
+    setIsEditingDate,
+    plannedDateRef,
+    handleDateUpdate
+  } = useDateManagement({
+    user,
+    experience,
+    userPlan,
+    userHasExperience,
+    activeTab,
+    selectedPlanId,
+    sharedPlans,
+    plannedDate,
+    setPlannedDate,
+    userPlannedDate,
+    displayedPlannedDate,
+    setDisplayedPlannedDate,
+    updatePlan,
+    handleAddExperience,
+    fetchUserPlan,
+    fetchSharedPlans,
+    fetchPlans,
+    fetchAllData,
+    setLoading,
+    closeModal: () => closeModal(),
+    showError,
+    idEquals
+  });
+
   // ============================================================================
   // MAIN COMPONENT RENDER
   // ============================================================================
@@ -3008,16 +2503,16 @@ export default function SingleExperience() {
                       const canEdit = experience.permissions?.some(p =>
                         p.entity === 'user' &&
                         (p.type === 'owner' || p.type === 'collaborator') &&
-                        p._id?.toString() === user?._id?.toString()
+                        idEquals(p._id, user?._id)
                       );
 
                       if (!hasExperiencePhotos && canEdit) {
                         // No photos on experience and user can edit - open upload modal
-                        setShowPhotoUploadModal(true);
+                        openModal(MODAL_NAMES.PHOTO_UPLOAD);
                       } else {
                         // Has photos or user can't edit - open photo viewer
                         setPhotoViewerIndex(0);
-                        setShowPhotoViewer(true);
+                        openModal(MODAL_NAMES.PHOTO_VIEWER);
                       }
                     }}
                     aria-label={heroPhotos.length > 0 ? `View ${heroPhotos.length} photo${heroPhotos.length !== 1 ? 's' : ''}` : "Add photos"}
@@ -3163,13 +2658,11 @@ export default function SingleExperience() {
                       activeTab={activeTab}
                       setActiveTab={setActiveTab}
                       user={user}
-                      idEquals={idEquals}
                       sharedPlans={sharedPlans}
                       plansLoading={plansLoading}
                       selectedPlanId={selectedPlanId}
                       setSelectedPlanId={setSelectedPlanId}
                       handlePlanChange={handlePlanChange}
-                      lang={lang}
                     />
 
                     {/* Experience Plan Items Tab Content */}
@@ -3191,7 +2684,7 @@ export default function SingleExperience() {
                           openCollaboratorModal={collaboratorManager.openCollaboratorModal}
                           toggleExpanded={toggleExpanded}
                           setPlanItemToDelete={setPlanItemToDelete}
-                          setShowPlanDeleteModal={setShowPlanDeleteModal}
+                          setShowPlanDeleteModal={handleOpenPlanDeleteModal}
                           onReorderExperiencePlanItems={handleReorderExperiencePlanItems}
                           lang={lang}
                           // Real-time presence
@@ -3235,7 +2728,7 @@ export default function SingleExperience() {
                         displayedPlannedDate={displayedPlannedDate}
                         setIsEditingDate={setIsEditingDate}
                         setPlannedDate={setPlannedDate}
-                        setShowDatePicker={setShowDatePicker}
+                        setShowDatePicker={handleCloseDatePicker}
                         plannedDateRef={plannedDateRef}
                         handleSyncPlan={handleSyncPlan}
                         handleAddPlanInstanceItem={handleAddPlanInstanceItem}
@@ -3244,7 +2737,7 @@ export default function SingleExperience() {
                         openCollaboratorModal={collaboratorManager.openCollaboratorModal}
                         toggleExpanded={toggleExpanded}
                         setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                        setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
+                        setShowPlanInstanceDeleteModal={handleOpenPlanInstanceDeleteModal}
                         handlePlanItemToggleComplete={handlePlanItemToggleComplete}
                         onReorderPlanItems={handleReorderPlanItems}
                         hoveredPlanItem={hoveredPlanItem}
@@ -3268,7 +2761,7 @@ export default function SingleExperience() {
                     {activeTab === "myplan" && !selectedPlanId && (
                       <EmptyState
                         variant="plans"
-                        title="No Plans"
+                        title={lang.current.modal.noPlansFallback}
                         description={`There are no user plans for this experience yet.`}
                         primaryAction={!userHasExperience ? "Plan This Experience" : null}
                         onPrimaryAction={!userHasExperience ? () => handleExperience() : null}
@@ -3287,7 +2780,7 @@ export default function SingleExperience() {
 
                       {/* Date Picker Section */}
                       <DatePickerSection
-                        showDatePicker={showDatePicker}
+                        showDatePicker={isModalOpen(MODAL_NAMES.DATE_PICKER)}
                         experience={experience}
                         isEditingDate={isEditingDate}
                         plannedDate={plannedDate}
@@ -3295,7 +2788,7 @@ export default function SingleExperience() {
                         loading={loading}
                         handleDateUpdate={handleDateUpdate}
                         handleAddExperience={handleAddExperience}
-                        setShowDatePicker={setShowDatePicker}
+                        setShowDatePicker={handleCloseDatePicker}
                         setIsEditingDate={setIsEditingDate}
                         lang={lang}
                       />
@@ -3372,9 +2865,9 @@ export default function SingleExperience() {
                           favHover={favHover}
                           setFavHover={setFavHover}
                           handleExperience={handleExperience}
-                          setShowDeleteModal={setShowDeleteModal}
-                          showDatePicker={showDatePicker}
-                          setShowDatePicker={setShowDatePicker}
+                          setShowDeleteModal={handleOpenDeleteExperienceModal}
+                          showDatePicker={isModalOpen(MODAL_NAMES.DATE_PICKER)}
+                          setShowDatePicker={handleCloseDatePicker}
                           setIsEditingDate={setIsEditingDate}
                           setPlannedDate={setPlannedDate}
                           lang={lang}
@@ -3397,29 +2890,27 @@ export default function SingleExperience() {
       ) : (
         <SingleExperienceSkeleton />
       )}
-      {showPhotoViewer && (
+      {isModalOpen(MODAL_NAMES.PHOTO_VIEWER) && (
         <PhotoModal
           photos={heroPhotos}
           initialIndex={photoViewerIndex}
-          onClose={() => setShowPhotoViewer(false)}
+          onClose={closeModal}
         />
       )}
       <TransferOwnershipModal
-        show={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
+        show={isModalOpen(MODAL_NAMES.DELETE_EXPERIENCE)}
+        onClose={closeModal}
         experience={experience}
         onSuccess={() => {
           navigate('/experiences');
         }}
       />
       <ConfirmModal
-        show={showRemoveModal}
-        onClose={() => {
-          setShowRemoveModal(false);
-        }}
+        show={isModalOpen(MODAL_NAMES.REMOVE_PLAN)}
+        onClose={closeModal}
         onConfirm={confirmRemoveExperience}
-        title="Remove from Your Plans?"
-        message="You are about to remove"
+        title={lang.current.modal.removeExperienceFromPlans}
+        message={lang.current.modal.removeExperienceMessage}
         itemName={experience?.name}
         additionalInfo={[
           "Your plan progress",
@@ -3427,27 +2918,27 @@ export default function SingleExperience() {
           "Personal notes"
         ]}
         warningText="Your progress will be permanently deleted!"
-        confirmText="Remove from Plans"
+        confirmText={lang.current.modal.removeExperienceConfirmButton}
         confirmVariant="danger"
       />
       <ConfirmModal
-        show={showPlanDeleteModal}
-        onClose={() => setShowPlanDeleteModal(false)}
+        show={isModalOpen(MODAL_NAMES.DELETE_PLAN_ITEM)}
+        onClose={closeModal}
         onConfirm={() => handlePlanDelete(planItemToDelete)}
-        title="Delete Plan Item?"
+        title={lang.current.modal.confirmDeletePlanItemTitle}
         message="You are about to delete this plan item"
         itemName={planItemToDelete?.text}
         confirmText="Delete Permanently"
         confirmVariant="danger"
       />
       <ConfirmModal
-        show={showPlanInstanceDeleteModal}
+        show={isModalOpen(MODAL_NAMES.DELETE_PLAN_INSTANCE_ITEM)}
         onClose={() => {
-          setShowPlanInstanceDeleteModal(false);
+          closeModal();
           setPlanInstanceItemToDelete(null);
         }}
         onConfirm={handlePlanInstanceItemDelete}
-        title="Delete Plan Item?"
+        title={lang.current.modal.confirmDeletePlanItemTitle}
         message="You are about to delete this plan item"
         itemName={planInstanceItemToDelete?.text}
         confirmText="Delete Permanently"
@@ -3488,22 +2979,19 @@ export default function SingleExperience() {
       {/* Sync Plan Modal */}
       <SyncPlanModal
         show={showSyncModal}
-        onHide={() => {
-          setShowSyncModal(false);
-          setSyncChanges(null);
-        }}
+        onHide={closeSyncModal}
         syncChanges={syncChanges}
         selectedSyncItems={selectedSyncItems}
         setSelectedSyncItems={setSelectedSyncItems}
         onConfirmSync={confirmSyncPlan}
-        loading={loading}
+        loading={syncLoading}
         lang={lang}
       />
       {/* Plan Instance Item Modal */}
       <PlanItemModal
-        show={showPlanItemModal}
+        show={isModalOpen(MODAL_NAMES.ADD_EDIT_PLAN_ITEM)}
         onHide={() => {
-          setShowPlanItemModal(false);
+          closeModal();
           setEditingPlanItem({});
         }}
         editingPlanItem={editingPlanItem}
@@ -3519,9 +3007,9 @@ export default function SingleExperience() {
 
       {/* Plan Item Details Modal */}
       <PlanItemDetailsModal
-        show={showDetailsModal}
+        show={isModalOpen(MODAL_NAMES.PLAN_ITEM_DETAILS)}
         onClose={() => {
-          setShowDetailsModal(false);
+          closeModal();
           setSelectedDetailsItem(null);
           setDetailsModalInitialTab('notes');
 
@@ -3823,9 +3311,9 @@ export default function SingleExperience() {
 
       {/* Inline Cost Entry Modal - for adding costs from plan item details */}
       <CostEntry
-        show={showInlineCostEntry}
+        show={isModalOpen(MODAL_NAMES.INLINE_COST_ENTRY)}
         onHide={() => {
-          setShowInlineCostEntry(false);
+          closeModal();
           setInlineCostPlanItem(null);
         }}
         editingCost={inlineCostPlanItem ? { plan_item: inlineCostPlanItem._id || inlineCostPlanItem.plan_item_id } : null}
@@ -3837,8 +3325,8 @@ export default function SingleExperience() {
 
       {/* Photo Upload Modal - for adding photos when experience has none */}
       <PhotoUploadModal
-        show={showPhotoUploadModal}
-        onClose={() => setShowPhotoUploadModal(false)}
+        show={isModalOpen(MODAL_NAMES.PHOTO_UPLOAD)}
+        onClose={closeModal}
         entityType="experience"
         entity={experience}
         photos={experience?.photos_full || experience?.photos || []}
@@ -3873,7 +3361,7 @@ export default function SingleExperience() {
                 updateExperienceInContext(updated);
               }
 
-              success('Photos updated successfully');
+              success(lang.current.success.photosUpdated);
             }
           } catch (err) {
             logger.error('[SingleExperience] Failed to save photos', { error: err.message });

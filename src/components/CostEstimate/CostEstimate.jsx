@@ -31,6 +31,7 @@ import {
   getDollarSigns
 } from '../../utilities/cost-utils';
 import InfoTooltip from '../InfoTooltip/InfoTooltip';
+import { lang } from '../../lang.constants';
 import styles from './CostEstimate.module.scss';
 
 export default function CostEstimate({
@@ -107,7 +108,7 @@ export default function CostEstimate({
       {showTooltip && (
         <InfoTooltip
           content={tooltipText}
-          ariaLabel="Show actual cost estimate"
+          ariaLabel={lang.current.aria.showActualCostEstimate}
           variant={tooltipVariant}
         />
       )}

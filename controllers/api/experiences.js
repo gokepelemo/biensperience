@@ -11,6 +11,7 @@ const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activ
 const { hasFeatureFlag } = require('../../utilities/feature-flags');
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const { ARCHIVE_USER, isArchiveUser } = require('../../utilities/system-users');
+const { successResponse, errorResponse, paginatedResponse } = require('../../utilities/controller-helpers');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -96,10 +97,10 @@ async function getExperienceTags(req, res) {
     });
 
     const tags = Array.from(tagSet).sort();
-    res.status(200).json({ data: tags });
+    return successResponse(res, tags);
   } catch (err) {
     backendLogger.error('Error fetching experience tags', { error: err.message });
-    res.status(400).json({ error: 'Failed to fetch tags' });
+    return errorResponse(res, err, 'Failed to fetch tags', 400);
   }
 }
 
@@ -273,7 +274,7 @@ async function index(req, res) {
             { $sort: { 'destination.name': destSortDir } },
             { $project: { name: 1, destination: 1, photos: 1, default_photo_id: 1, permissions: 1, experience_type: 1, createdAt: 1, updatedAt: 1 } }
           ]).exec();
-          return res.status(200).json(all);
+          return successResponse(res, all);
         }
 
         const all = await Experience.find(filter)
@@ -283,7 +284,7 @@ async function index(req, res) {
           .sort(sortObj)
           .lean({ virtuals: false })
           .exec();
-        return res.status(200).json(all);
+        return successResponse(res, all);
       }
 
       // Apply sort and pagination
@@ -325,15 +326,12 @@ async function index(req, res) {
         userId: req.user?._id
       });
 
-      return res.status(200).json({
-        data: experiences,
-        meta: {
-          page: p,
-          limit: l,
-          total,
-          totalPages,
-          hasMore: p < totalPages
-        }
+      return paginatedResponse(res, experiences, {
+        page: p,
+        limit: l,
+        total,
+        totalPages,
+        hasMore: p < totalPages
       });
   } catch (err) {
       // Log full stack and context to aid debugging
@@ -347,7 +345,7 @@ async function index(req, res) {
       });
 
       // Return 500 to indicate server-side failure and include message for easier local debugging
-      res.status(500).json({ error: 'Failed to fetch experiences', details: err.message });
+      return errorResponse(res, err, 'Failed to fetch experiences', 500);
   }
 }
 
@@ -381,10 +379,7 @@ async function createExperience(req, res) {
     );
 
     if (exactDuplicate) {
-      return res.status(409).json({
-        error: 'Duplicate experience',
-        message: `An experience named "${req.body.name}" already exists. Please choose a different name.`
-      });
+      return errorResponse(res, null, `An experience named "${req.body.name}" already exists. Please choose a different name.`, 409);
     }
 
     // Check for similar experience names
@@ -396,10 +391,7 @@ async function createExperience(req, res) {
     );
 
     if (fuzzyDuplicate) {
-      return res.status(409).json({
-        error: 'Similar experience exists',
-        message: `A similar experience "${fuzzyDuplicate.name}" already exists. Did you mean to use that instead?`
-      });
+      return errorResponse(res, null, `A similar experience "${fuzzyDuplicate.name}" already exists. Did you mean to use that instead?`, 409);
     }
 
     // Log if curator is creating experience (curated status derived from owner's feature flag)
@@ -427,10 +419,10 @@ async function createExperience(req, res) {
       backendLogger.warn('[WebSocket] Failed to broadcast experience creation', { error: wsErr.message });
     }
 
-    res.status(201).json(experience);
+    return successResponse(res, experience, 'Experience created successfully', 201);
   } catch (err) {
     backendLogger.error('Error creating experience', { error: err.message, userId: req.user._id, name: req.body.name, destination: req.body.destination });
-    res.status(400).json({ error: 'Failed to create experience' });
+    return errorResponse(res, err, 'Failed to create experience', 400);
   }
 }
 
@@ -453,7 +445,7 @@ async function showExperience(req, res) {
       .exec();
 
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Manually compute virtuals since .lean() bypasses schema virtuals
@@ -500,10 +492,10 @@ async function showExperience(req, res) {
       experience.max_planning_days = 0;
     }
 
-    res.status(200).json(experience);
+    return successResponse(res, experience, 'Experience retrieved successfully');
   } catch (err) {
     backendLogger.error('Error fetching experience', { error: err.message, experienceId: req.params.id });
-    res.status(400).json({ error: 'Failed to fetch experience' });
+    return errorResponse(res, err, 'Failed to fetch experience', 400);
   }
 }
 
@@ -585,7 +577,7 @@ async function showExperienceWithContext(req, res) {
     ]);
 
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Manually compute virtuals since .lean() bypasses schema virtuals
@@ -710,7 +702,7 @@ async function showExperienceWithContext(req, res) {
     // (developer) test plan injection removed
 
     // Return combined data structure
-    res.status(200).json({
+    return successResponse(res, {
       experience,
       userPlan,
       sharedPlans
@@ -721,7 +713,7 @@ async function showExperienceWithContext(req, res) {
       experienceId: req.params.id,
       userId: req.user?._id
     });
-    res.status(400).json({ error: 'Failed to fetch experience data' });
+    return errorResponse(res, err, 'Failed to fetch experience data', 400);
   }
 }
 
@@ -735,7 +727,7 @@ async function updateExperience(req, res) {
     
     if (!experience) {
       backendLogger.warn('Experience not found', { experienceId });
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
     
     // Check if user has permission to edit using PermissionEnforcer
@@ -746,10 +738,7 @@ async function updateExperience(req, res) {
     });
     
     if (!permCheck.allowed) {
-      return res.status(403).json({ 
-        error: 'Not authorized to update this experience',
-        message: permCheck.reason || 'You must be the owner or a collaborator to edit this experience.'
-      });
+      return errorResponse(res, null, 'Not authorized to update this experience', 403);
     }
 
     // Check for duplicate experience name if name is being updated
@@ -768,10 +757,7 @@ async function updateExperience(req, res) {
       });
 
       if (exactDuplicate) {
-        return res.status(409).json({
-          error: 'Duplicate experience',
-          message: `An experience named "${req.body.name}" already exists. Please choose a different name.`
-        });
+        return errorResponse(res, null, `An experience named "${req.body.name}" already exists. Please choose a different name.`, 409);
       }
 
       // Check for fuzzy duplicate
@@ -794,10 +780,7 @@ async function updateExperience(req, res) {
       );
 
       if (fuzzyDuplicate) {
-        return res.status(409).json({
-          error: 'Similar experience exists',
-          message: `A similar experience "${fuzzyDuplicate.name}" already exists. Did you mean to use that instead?`
-        });
+        return errorResponse(res, null, `A similar experience "${fuzzyDuplicate.name}" already exists. Did you mean to use that instead?`, 409);
       }
     }
 
@@ -813,39 +796,23 @@ async function updateExperience(req, res) {
         updateData[field] = req.body[field];
       }
     }
-    backendLogger.debug('About to validate permissions');
+    backendLogger.info('Filtered update data', {
+      experienceId,
+      updateFields: Object.keys(updateData),
+      originalBodyKeys: Object.keys(req.body)
+    });
+
     // Validate permissions if present
     if (updateData.permissions) {
       backendLogger.debug('Validating permissions', { count: updateData.permissions.length });
       for (const perm of updateData.permissions) {
-        backendLogger.debug('Checking permission', { permission: perm });
         if (!perm._id) {
           backendLogger.error('Invalid permission: missing _id', { permission: perm, experienceId });
-          return res.status(400).json({ error: 'Invalid permissions data: missing _id' });
+          return errorResponse(res, null, 'Invalid permissions data: missing _id', 400);
         }
         if (!perm.entity || !['user', 'destination', 'experience'].includes(perm.entity)) {
           backendLogger.error('Invalid permission: invalid entity', { permission: perm, experienceId });
-          return res.status(400).json({ error: 'Invalid permissions data: invalid entity' });
-        }
-      }
-    }
-    
-    backendLogger.info('Filtered update data', { 
-      experienceId, 
-      updateFields: Object.keys(updateData),
-      originalBodyKeys: Object.keys(req.body)
-    });
-    
-    // Validate permissions if present
-    if (updateData.permissions) {
-      for (const perm of updateData.permissions) {
-        if (!perm._id) {
-          backendLogger.error('Invalid permission: missing _id', { permission: perm, experienceId });
-          return res.status(400).json({ error: 'Invalid permissions data: missing _id' });
-        }
-        if (!perm.entity || !['user', 'destination', 'experience'].includes(perm.entity)) {
-          backendLogger.error('Invalid permission: invalid entity', { permission: perm, experienceId });
-          return res.status(400).json({ error: 'Invalid permissions data: invalid entity' });
+          return errorResponse(res, null, 'Invalid permissions data: invalid entity', 400);
         }
       }
     }
@@ -885,7 +852,7 @@ async function updateExperience(req, res) {
       backendLogger.warn('[WebSocket] Failed to broadcast experience update', { error: wsErr.message });
     }
 
-    res.status(200).json(experience);
+    return successResponse(res, experience, 'Experience updated successfully');
   } catch (err) {
     backendLogger.error('Experience save error details', {
       message: err.message,
@@ -906,14 +873,7 @@ async function updateExperience(req, res) {
       experienceId: safeExperienceId 
     });
     
-    res.status(400).json({ 
-      error: 'Failed to update experience',
-      details: {
-        message: err.message,
-        name: err.name,
-        code: err.code
-      }
-    });
+    return errorResponse(res, err, 'Failed to update experience', 400);
   }
 }
 
@@ -921,27 +881,24 @@ async function deleteExperience(req, res) {
   try {
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
+      return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
 
     let experience = await Experience.findById(req.params.id);
     
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
-    
+
     // Check if user has permission to delete using PermissionEnforcer
     const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canDelete({
       userId: req.user._id,
       resource: experience
     });
-    
+
     if (!permCheck.allowed) {
-      return res.status(403).json({ 
-        error: 'Unauthorized',
-        message: permCheck.reason || 'Only the experience owner can delete it.'
-      });
+      return errorResponse(res, null, permCheck.reason || 'Only the experience owner can delete it.', 403);
     }
     
     // Check if any other users have plans for this experience
@@ -978,12 +935,7 @@ async function deleteExperience(req, res) {
           plannedDate: plan.planned_date
       }));
         
-        return res.status(409).json({
-          error: 'Experience cannot be deleted',
-          message: 'This experience cannot be deleted because other users have created plans for it. You can transfer ownership to one of these users instead.',
-          planCount: otherUserPlans.length,
-          usersWithPlans: usersWithPlans
-      });
+        return errorResponse(res, null, 'This experience cannot be deleted because other users have created plans for it. You can transfer ownership to one of these users instead.', 409);
       }
     }
     
@@ -1045,16 +997,15 @@ async function deleteExperience(req, res) {
     }
 
     // Return deletion info including cascade-deleted plans for frontend event emission
-    res.status(200).json({
-      message: 'Experience deleted successfully',
+    return successResponse(res, {
       deletedPlans: {
         count: deletedPlansCount,
         plans: deletedPlanIds
       }
-    });
+    }, 'Experience deleted successfully');
   } catch (err) {
     backendLogger.error('Error deleting experience', { error: err.message, userId: req.user._id, experienceId: req.params.id });
-    res.status(400).json({ error: 'Failed to delete experience' });
+    return errorResponse(res, err, 'Failed to delete experience', 400);
   }
 }
 
@@ -1062,7 +1013,7 @@ async function createPlanItem(req, res) {
   try {
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(req.params.experienceId)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
+      return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
 
     let experience = await Experience.findById(req.params.experienceId)
@@ -1087,7 +1038,7 @@ async function createPlanItem(req, res) {
       });
     
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
     
     // Check if user has permission to edit using PermissionEnforcer
@@ -1098,10 +1049,7 @@ async function createPlanItem(req, res) {
     });
     
     if (!permCheck.allowed) {
-      return res.status(403).json({ 
-        error: 'Not authorized to modify this experience',
-        message: permCheck.reason || 'You must be the owner or a collaborator to add plan items.'
-      });
+      return errorResponse(res, null, permCheck.reason || 'You must be the owner or a collaborator to add plan items.', 403);
     }
     
     // Sanitize plan item data before saving
@@ -1157,10 +1105,10 @@ async function createPlanItem(req, res) {
         model: "Photo"
       });
 
-    res.status(201).json(experience);
+    return successResponse(res, experience, 'Created successfully', 201);
   } catch (err) {
     backendLogger.error('Error creating plan item', { error: err.message, userId: req.user._id, experienceId: req.params.experienceId });
-    res.status(400).json({ error: 'Failed to create plan item' });
+    return errorResponse(res, err, 'Failed to create plan item', 400);
   }
 }
 
@@ -1168,10 +1116,10 @@ async function updatePlanItem(req, res) {
   try {
     // Validate ObjectIds
     if (!mongoose.Types.ObjectId.isValid(req.params.experienceId)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
+      return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
     if (!mongoose.Types.ObjectId.isValid(req.params.planItemId)) {
-      return res.status(400).json({ error: 'Invalid plan item ID format' });
+      return errorResponse(res, null, 'Invalid plan item ID format', 400);
     }
 
     let experience = await Experience.findById(req.params.experienceId)
@@ -1196,7 +1144,7 @@ async function updatePlanItem(req, res) {
       });
     
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
     
     // Check if user has permission to edit using PermissionEnforcer
@@ -1209,17 +1157,13 @@ async function updatePlanItem(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(403).json({
-        error: 'Not authorized to modify plan items',
-        message: permCheck.reason || 'You must be the owner or a collaborator to update plan items.',
-        code: permCheck.reason?.includes('verify') ? 'EMAIL_NOT_VERIFIED' : 'FORBIDDEN'
-      });
+      return errorResponse(res, null, permCheck.reason || 'You must be the owner or a collaborator to update plan items.', 403);
     }
     
     let plan_item = experience.plan_items.id(req.params.planItemId);
 
     if (!plan_item) {
-      return res.status(404).json({ error: 'Plan item not found' });
+      return errorResponse(res, null, 'Plan item not found', 404);
     }
 
     // Update only provided fields (exclude _id as it's immutable)
@@ -1271,10 +1215,10 @@ async function updatePlanItem(req, res) {
         model: "Photo"
       });
 
-    res.status(200).json(experience);
+    return successResponse(res, experience);
   } catch (err) {
     backendLogger.error('Error updating plan item', { error: err.message, userId: req.user._id, experienceId: req.params.experienceId, planItemId: req.params.planItemId });
-    res.status(400).json({ error: 'Failed to update plan item' });
+    return errorResponse(res, err, 'Failed to update plan item', 400);
   }
 }
 
@@ -1282,10 +1226,10 @@ async function deletePlanItem(req, res) {
   try {
     // Validate ObjectId formats
     if (!mongoose.Types.ObjectId.isValid(req.params.experienceId)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
+      return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
     if (!mongoose.Types.ObjectId.isValid(req.params.planItemId)) {
-      return res.status(400).json({ error: 'Invalid plan item ID format' });
+      return errorResponse(res, null, 'Invalid plan item ID format', 400);
     }
 
     let experience = await Experience.findById(req.params.experienceId)
@@ -1310,7 +1254,7 @@ async function deletePlanItem(req, res) {
       });
     
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
     
     // Check if user has permission to edit using PermissionEnforcer
@@ -1321,15 +1265,12 @@ async function deletePlanItem(req, res) {
     });
     
     if (!permCheck.allowed) {
-      return res.status(403).json({ 
-        error: 'Not authorized to modify plan items',
-        message: permCheck.reason || 'You must be the owner or a collaborator to delete plan items.'
-      });
+      return errorResponse(res, null, permCheck.reason || 'You must be the owner or a collaborator to delete plan items.', 403);
     }
     
     const planItem = experience.plan_items.id(req.params.planItemId);
     if (!planItem) {
-      return res.status(404).json({ error: 'Plan item not found' });
+      return errorResponse(res, null, 'Plan item not found', 404);
     }
 
     planItem.deleteOne();
@@ -1371,10 +1312,10 @@ async function deletePlanItem(req, res) {
         model: "Photo"
       });
     
-    res.status(200).json(experience);
+    return successResponse(res, experience);
   } catch (err) {
     backendLogger.error('Error deleting plan item', { error: err.message, userId: req.user._id, experienceId: req.params.experienceId, planItemId: req.params.planItemId });
-    res.status(400).json({ error: 'Failed to delete plan item' });
+    return errorResponse(res, err, 'Failed to delete plan item', 400);
   }
 }
 
@@ -1388,7 +1329,7 @@ async function showUserExperiences(req, res) {
   try {
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     // Check if pagination is requested (optional - defaults to returning all)
@@ -1442,23 +1383,20 @@ async function showUserExperiences(req, res) {
       const totalPlans = await Plan.countDocuments({ user: req.params.userId });
       const totalPages = Math.ceil(totalPlans / l);
 
-      res.status(200).json({
-        data: uniqueExperiences,
-        meta: {
-          page: p,
-          limit: l,
-          total: totalPlans,
-          totalPages,
-          hasMore: p < totalPages
-        }
+      return paginatedResponse(res, uniqueExperiences, {
+        page: p,
+        limit: l,
+        total: totalPlans,
+        totalPages,
+        hasMore: p < totalPages
       });
     } else {
       // Backwards compatible: return just the array
-      res.status(200).json(uniqueExperiences);
+      return successResponse(res, uniqueExperiences);
     }
   } catch (err) {
     backendLogger.error('Error fetching user experiences', { error: err.message, userId: req.params.userId });
-    res.status(400).json({ error: 'Failed to fetch user experiences' });
+    return errorResponse(res, err, 'Failed to fetch user experiences', 400);
   }
 }
 
@@ -1466,7 +1404,7 @@ async function showUserCreatedExperiences(req, res) {
   try {
     // Validate ObjectId format to prevent injection
     if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
     const userId = new mongoose.Types.ObjectId(req.params.userId);
 
@@ -1510,23 +1448,20 @@ async function showUserCreatedExperiences(req, res) {
       const total = await Experience.countDocuments(queryFilter);
       const totalPages = Math.ceil(total / l);
 
-      res.status(200).json({
-        data: experiences,
-        meta: {
-          page: p,
-          limit: l,
-          total,
-          totalPages,
-          hasMore: p < totalPages
-        }
+      return paginatedResponse(res, experiences, {
+        page: p,
+        limit: l,
+        total,
+        totalPages,
+        hasMore: p < totalPages
       });
     } else {
       // Backwards compatible: return just the array
-      res.status(200).json(experiences);
+      return successResponse(res, experiences);
     }
   } catch (err) {
     backendLogger.error('Error fetching user created experiences', { error: err.message, userId: req.params.userId });
-    res.status(400).json({ error: 'Failed to fetch user created experiences' });
+    return errorResponse(res, err, 'Failed to fetch user created experiences', 400);
   }
 }
 
@@ -1537,7 +1472,7 @@ async function getTagName(req, res) {
     // Validate input length to prevent ReDoS attacks
     const MAX_SLUG_LENGTH = 200;
     if (!tagSlug || typeof tagSlug !== 'string' || tagSlug.length > MAX_SLUG_LENGTH) {
-      return res.status(400).json({ error: 'Invalid tag slug' });
+      return errorResponse(res, null, 'Invalid tag slug', 400);
     }
 
     // Helper function to create URL slug (same logic as frontend)
@@ -1582,7 +1517,7 @@ async function getTagName(req, res) {
     .exec();
 
     if (!allExperiences || allExperiences.length === 0) {
-      return res.status(404).json({ error: 'No tags found' });
+      return errorResponse(res, null, 'No tags found', 404);
     }
 
     // Find the matching tag name (in-memory operation)
@@ -1599,16 +1534,16 @@ async function getTagName(req, res) {
           tag => createUrlSlug(tag) === normalizedInputSlug
         );
         if (matchingTag) {
-          return res.status(200).json({ tagName: matchingTag });
+          return successResponse(res, { tagName: matchingTag });
         }
       }
     }
 
     // If no match found, return the normalized slug as fallback
-    res.status(404).json({ error: 'Tag not found', tagName: normalizedInputSlug });
+    return errorResponse(res, null, 'Tag not found', 404);
   } catch (err) {
     backendLogger.error('Error finding tag by slug', { error: err.message, tagSlug: req.params.tagSlug });
-    res.status(400).json({ error: 'Failed to find tag' });
+    return errorResponse(res, err, 'Failed to find tag', 400);
   }
 }
 
@@ -1617,7 +1552,7 @@ async function addPhoto(req, res) {
     const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Check if user has permission to edit
@@ -1628,16 +1563,13 @@ async function addPhoto(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(401).json({
-        error: 'Not authorized to modify this experience',
-        message: permCheck.reason
-      });
+      return errorResponse(res, null, permCheck.reason || 'Not authorized to modify this experience', 403);
     }
 
     const { url, photo_credit, photo_credit_url } = req.body;
 
     if (!url) {
-      return res.status(400).json({ error: 'Photo URL is required' });
+      return errorResponse(res, null, 'Photo URL is required', 400);
     }
 
     // Add photo to photos array
@@ -1649,10 +1581,10 @@ async function addPhoto(req, res) {
 
     await experience.save();
 
-    res.status(201).json(experience);
+    return successResponse(res, experience, 'Created successfully', 201);
   } catch (err) {
     backendLogger.error('Error adding photo to experience', { error: err.message, userId: req.user._id, experienceId: req.params.id, url: req.body.url });
-    res.status(400).json({ error: 'Failed to add photo' });
+    return errorResponse(res, err, 'Failed to add photo', 400);
   }
 }
 
@@ -1661,7 +1593,7 @@ async function removePhoto(req, res) {
     const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Check if user has permission to edit using PermissionEnforcer
@@ -1672,16 +1604,13 @@ async function removePhoto(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(403).json({
-        error: 'Not authorized',
-        message: permCheck.reason || 'You must be the owner or a collaborator to modify this experience.'
-      });
+      return errorResponse(res, null, permCheck.reason || 'You must be the owner or a collaborator to modify this experience.', 403);
     }
 
     const photoIndex = parseInt(req.params.photoIndex);
 
     if (photoIndex < 0 || photoIndex >= experience.photos.length) {
-      return res.status(400).json({ error: 'Invalid photo index' });
+      return errorResponse(res, null, 'Invalid photo index', 400);
     }
 
     // Remove photo from array
@@ -1694,10 +1623,10 @@ async function removePhoto(req, res) {
 
     await experience.save();
 
-    res.status(200).json(experience);
+    return successResponse(res, experience);
   } catch (err) {
     backendLogger.error('Error removing photo from experience', { error: err.message, userId: req.user._id, experienceId: req.params.id, photoIndex: req.params.photoIndex });
-    res.status(400).json({ error: 'Failed to remove photo' });
+    return errorResponse(res, err, 'Failed to remove photo', 400);
   }
 }
 
@@ -1706,7 +1635,7 @@ async function setDefaultPhoto(req, res) {
     const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Check if user has permission to edit
@@ -1717,25 +1646,22 @@ async function setDefaultPhoto(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(401).json({
-        error: 'Not authorized to modify this experience',
-        message: permCheck.reason
-      });
+      return errorResponse(res, null, permCheck.reason || 'Not authorized to modify this experience', 403);
     }
 
     const photoIndex = parseInt(req.body.photoIndex);
 
     if (photoIndex < 0 || photoIndex >= experience.photos.length) {
-      return res.status(400).json({ error: 'Invalid photo index' });
+      return errorResponse(res, null, 'Invalid photo index', 400);
     }
 
     experience.default_photo_id = experience.photos[photoIndex];
     await experience.save();
 
-    res.status(200).json(experience);
+    return successResponse(res, experience);
   } catch (err) {
     backendLogger.error('Error setting default photo', { error: err.message, userId: req.user._id, experienceId: req.params.id, photoIndex: req.body.photoIndex });
-    res.status(400).json({ error: 'Failed to set default photo' });
+    return errorResponse(res, err, 'Failed to set default photo', 400);
   }
 }
 
@@ -1751,37 +1677,37 @@ async function addExperiencePermission(req, res) {
   try {
     // Validate experience ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
+      return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
 
     const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Only owner can modify permissions
     if (!permissions.isOwner(req.user, experience)) {
-      return res.status(401).json({ error: 'Only the experience owner can manage permissions' });
+      return errorResponse(res, null, 'Only the experience owner can manage permissions', 403);
     }
 
     const { _id, entity, type } = req.body;
 
     // Validate required fields
     if (!_id || !entity) {
-      return res.status(400).json({ error: 'Permission must have _id and entity fields' });
+      return errorResponse(res, null, 'Permission must have _id and entity fields', 400);
     }
 
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(_id)) {
-      return res.status(400).json({ error: 'Invalid permission _id format' });
+      return errorResponse(res, null, 'Invalid permission _id format', 400);
     }
 
     // Validate entity exists
     if (entity === permissions.ENTITY_TYPES.USER) {
       const user = await User.findById(_id);
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return errorResponse(res, null, 'User not found', 404);
       }
 
       // Prevent owner from being added as permission
@@ -1789,51 +1715,47 @@ async function addExperiencePermission(req, res) {
         p.entity === 'user' && p.type === 'owner'
       );
       if (ownerPermission && _id === ownerPermission._id.toString()) {
-        return res.status(400).json({ error: 'Owner already has full permissions' });
+        return errorResponse(res, null, 'Owner already has full permissions', 400);
       }
 
       if (!type) {
-        return res.status(400).json({ error: 'User permissions must have a type field' });
+        return errorResponse(res, null, 'User permissions must have a type field', 400);
       }
     } else if (entity === permissions.ENTITY_TYPES.DESTINATION) {
       const destination = await Destination.findById(_id);
       if (!destination) {
-        return res.status(404).json({ error: 'Target destination not found' });
+        return errorResponse(res, null, 'Target destination not found', 404);
       }
 
       // Check for circular dependency
       const models = { Destination, Experience };
       const wouldBeCircular = await permissions.wouldCreateCircularDependency(
-        experience, 
-        _id, 
-        entity, 
+        experience,
+        _id,
+        entity,
         models
       );
 
       if (wouldBeCircular) {
-        return res.status(400).json({ 
-          error: 'Cannot add permission: would create circular dependency' 
-      });
+        return errorResponse(res, null, 'Cannot add permission: would create circular dependency', 400);
       }
     } else if (entity === permissions.ENTITY_TYPES.EXPERIENCE) {
       const targetExp = await Experience.findById(_id);
       if (!targetExp) {
-        return res.status(404).json({ error: 'Target experience not found' });
+        return errorResponse(res, null, 'Target experience not found', 404);
       }
 
       // Check for circular dependency
       const models = { Destination, Experience };
       const wouldBeCircular = await permissions.wouldCreateCircularDependency(
-        experience, 
-        _id, 
-        entity, 
+        experience,
+        _id,
+        entity,
         models
       );
 
       if (wouldBeCircular) {
-        return res.status(400).json({ 
-          error: 'Cannot add permission: would create circular dependency' 
-      });
+        return errorResponse(res, null, 'Cannot add permission: would create circular dependency', 400);
       }
     }
 
@@ -1860,19 +1782,16 @@ async function addExperiencePermission(req, res) {
     });
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return errorResponse(res, null, result.error, 400);
     }
 
     // Permission saved by enforcer, no need to save again
 
-    res.status(201).json({
-      message: 'Permission added successfully',
-      experience
-    });
+    return successResponse(res, experience, 'Permission added successfully', 201);
 
   } catch (err) {
     backendLogger.error('Error adding experience permission', { error: err.message, userId: req.user._id, experienceId: req.params.id, entityId: req.body.entityId, entityType: req.body.entityType, type: req.body.type });
-    res.status(400).json({ error: 'Failed to add permission' });
+    return errorResponse(res, err, 'Failed to add permission', 400);
   }
 }
 
@@ -1884,32 +1803,30 @@ async function removeExperiencePermission(req, res) {
   try {
     // Validate experience ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
+      return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
 
     // Validate entity ID
     if (!mongoose.Types.ObjectId.isValid(req.params.entityId)) {
-      return res.status(400).json({ error: 'Invalid entity ID format' });
+      return errorResponse(res, null, 'Invalid entity ID format', 400);
     }
 
     const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Only owner can modify permissions
     if (!permissions.isOwner(req.user, experience)) {
-      return res.status(401).json({ error: 'Only the experience owner can manage permissions' });
+      return errorResponse(res, null, 'Only the experience owner can manage permissions', 403);
     }
 
     const { entityId, entityType } = req.params;
 
     // Validate entity type
     if (!Object.values(permissions.ENTITY_TYPES).includes(entityType)) {
-      return res.status(400).json({ 
-        error: `Invalid entity type. Must be one of: ${Object.values(permissions.ENTITY_TYPES).join(', ')}` 
-      });
+      return errorResponse(res, null, `Invalid entity type. Must be one of: ${Object.values(permissions.ENTITY_TYPES).join(', ')}`, 400);
     }
 
     // Remove permission using enforcer (SECURE)
@@ -1931,20 +1848,16 @@ async function removeExperiencePermission(req, res) {
     });
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return errorResponse(res, null, result.error, 400);
     }
 
     await experience.save();
 
-    res.status(200).json({
-      message: 'Permission removed successfully',
-      removed: result.removed,
-      experience
-    });
+    return successResponse(res, { removed: result.removed, experience }, 'Permission removed successfully');
 
   } catch (err) {
     backendLogger.error('Error removing experience permission', { error: err.message, userId: req.user._id, experienceId: req.params.id, entityId: req.params.entityId, entityType: req.params.entityType });
-    res.status(400).json({ error: 'Failed to remove permission' });
+    return errorResponse(res, err, 'Failed to remove permission', 400);
   }
 }
 
@@ -1956,29 +1869,29 @@ async function updateExperiencePermission(req, res) {
   try {
     // Validate experience ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
+      return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
 
     // Validate user ID
     if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Only owner can modify permissions
     if (!permissions.isOwner(req.user, experience)) {
-      return res.status(401).json({ error: 'Only the experience owner can manage permissions' });
+      return errorResponse(res, null, 'Only the experience owner can manage permissions', 403);
     }
 
     const { type } = req.body;
 
     if (!type) {
-      return res.status(400).json({ error: 'Permission type is required' });
+      return errorResponse(res, null, 'Permission type is required', 400);
     }
 
     // Update permission using enforcer (SECURE)
@@ -2001,19 +1914,16 @@ async function updateExperiencePermission(req, res) {
     });
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return errorResponse(res, null, result.error, 400);
     }
 
     await experience.save();
 
-    res.status(200).json({
-      message: 'Permission updated successfully',
-      experience
-    });
+    return successResponse(res, experience, 'Permission updated successfully');
 
   } catch (err) {
     backendLogger.error('Error updating experience permission', { error: err.message, userId: req.user._id, experienceId: req.params.id, userIdParam: req.params.userId, type: req.body.type });
-    res.status(400).json({ error: 'Failed to update permission' });
+    return errorResponse(res, err, 'Failed to update permission', 400);
   }
 }
 
@@ -2025,13 +1935,13 @@ async function getExperiencePermissions(req, res) {
   try {
     // Validate experience ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
+      return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
 
     const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     const models = { Destination, Experience };
@@ -2054,7 +1964,7 @@ async function getExperiencePermissions(req, res) {
       }
     }
 
-    res.status(200).json({
+    return successResponse(res, {
       owner: ownerInfo,
       permissions: allPermissions,
       directPermissions: experience.permissions || []
@@ -2062,7 +1972,7 @@ async function getExperiencePermissions(req, res) {
 
   } catch (err) {
     backendLogger.error('Error getting experience permissions', { error: err.message, experienceId: req.params.id });
-    res.status(400).json({ error: 'Failed to get permissions' });
+    return errorResponse(res, err, 'Failed to get permissions', 400);
   }
 }
 
@@ -2073,31 +1983,28 @@ async function transferOwnership(req, res) {
 
     // Validate ObjectIds
     if (!mongoose.Types.ObjectId.isValid(experienceId)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
+      return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
     if (!mongoose.Types.ObjectId.isValid(newOwnerId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     // Find experience and verify current ownership
     const experience = await Experience.findById(experienceId);
     
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Verify current user is the owner
     if (!permissions.isOwner(req.user._id, experience)) {
-      return res.status(403).json({
-        error: 'Unauthorized',
-        message: 'Only the experience owner can transfer ownership.'
-      });
+      return errorResponse(res, null, 'Only the experience owner can transfer ownership.', 403);
     }
 
     // Verify new owner exists and has a plan for this experience
     const newOwner = await User.findById(newOwnerId);
     if (!newOwner) {
-      return res.status(404).json({ error: 'New owner not found' });
+      return errorResponse(res, null, 'New owner not found', 404);
     }
 
     // Verify the new owner has a plan for this experience
@@ -2107,10 +2014,7 @@ async function transferOwnership(req, res) {
     });
 
     if (!newOwnerPlan) {
-      return res.status(400).json({ 
-        error: 'Invalid transfer',
-        message: 'The new owner must have a plan for this experience before ownership can be transferred.'
-      });
+      return errorResponse(res, null, 'The new owner must have a plan for this experience before ownership can be transferred.', 400);
     }
 
     // Update ownership using PermissionEnforcer (SECURE)
@@ -2132,10 +2036,7 @@ async function transferOwnership(req, res) {
     });
 
     if (!transferResult.success) {
-      return res.status(400).json({
-        error: 'Transfer failed',
-        message: transferResult.error
-      });
+      return errorResponse(res, null, transferResult.error, 400);
     }
 
     await experience.save();
@@ -2144,8 +2045,7 @@ async function transferOwnership(req, res) {
     // This avoids a redundant database query since we already have the experience
     await experience.populate('destination');
 
-    res.json({
-      message: 'Ownership transferred successfully',
+    return successResponse(res, {
       experience: experience,
       previousOwner: {
         id: req.user._id,
@@ -2155,11 +2055,11 @@ async function transferOwnership(req, res) {
         id: newOwner._id,
         name: newOwner.name
       }
-    });
+    }, 'Ownership transferred successfully');
 
   } catch (err) {
     backendLogger.error('Error transferring ownership', { error: err.message, userId: req.user._id, experienceId: req.params.experienceId, newOwnerId: req.body.newOwnerId });
-    res.status(400).json({ error: 'Failed to transfer ownership' });
+    return errorResponse(res, err, 'Failed to transfer ownership', 400);
   }
 }
 
@@ -2186,7 +2086,7 @@ async function reorderExperiencePlanItems(req, res) {
     // Validate experience ID
     if (!mongoose.Types.ObjectId.isValid(experienceId)) {
       backendLogger.warn('Invalid experience ID format', { experienceId });
-      return res.status(400).json({ error: "Invalid experience ID" });
+      return errorResponse(res, null, 'Invalid experience ID', 400);
     }
 
     // Validate reorderedItems
@@ -2195,7 +2095,7 @@ async function reorderExperiencePlanItems(req, res) {
         experienceId,
         receivedType: typeof reorderedItems
       });
-      return res.status(400).json({ error: "Plan items must be an array" });
+      return errorResponse(res, null, 'Plan items must be an array', 400);
     }
 
     // Validate that all items have _id
@@ -2207,17 +2107,14 @@ async function reorderExperiencePlanItems(req, res) {
         totalCount: reorderedItems.length,
         sampleItem: itemsWithoutId[0]
       });
-      return res.status(400).json({
-        error: "Invalid plan items",
-        message: "All plan items must have an _id field"
-      });
+      return errorResponse(res, null, 'All plan items must have an _id field', 400);
     }
 
     let experience = await Experience.findById(experienceId);
 
     if (!experience) {
       backendLogger.warn('Experience not found', { experienceId });
-      return res.status(404).json({ error: "Experience not found" });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Check permissions - must be owner or collaborator
@@ -2233,10 +2130,7 @@ async function reorderExperiencePlanItems(req, res) {
         userId: req.user._id.toString(),
         reason: permCheck.reason
       });
-      return res.status(403).json({
-        error: "Insufficient permissions to reorder this experience's plan",
-        message: permCheck.reason
-      });
+      return errorResponse(res, null, permCheck.reason || 'Insufficient permissions to reorder this experience\'s plan', 403);
     }
 
     // Validate that reordered items match existing items
@@ -2249,10 +2143,7 @@ async function reorderExperiencePlanItems(req, res) {
         existingCount: existingIds.size,
         reorderedCount: reorderedIds.size
       });
-      return res.status(400).json({
-        error: "Item count mismatch",
-        message: "Reordered items must match existing items"
-      });
+      return errorResponse(res, null, 'Reordered items must match existing items', 400);
     }
 
     for (const id of existingIds) {
@@ -2261,10 +2152,7 @@ async function reorderExperiencePlanItems(req, res) {
           experienceId,
           unknownId: id
         });
-        return res.status(400).json({
-          error: "Invalid item ID",
-          message: "Reordered items contain IDs not in original plan"
-        });
+        return errorResponse(res, null, 'Reordered items contain IDs not in original plan', 400);
       }
     }
 
@@ -2328,14 +2216,14 @@ async function reorderExperiencePlanItems(req, res) {
         model: "Photo"
       });
 
-    res.json(experience);
+    return successResponse(res, experience);
   } catch (err) {
     backendLogger.error('Error reordering experience plan items', {
       experienceId,
       error: err.message,
       userId: req.user._id.toString()
     });
-    res.status(400).json({ error: 'Failed to reorder plan items' });
+    return errorResponse(res, err, 'Failed to reorder plan items', 400);
   }
 }
 
@@ -2351,12 +2239,12 @@ async function checkExperiencePlans(req, res) {
 
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(experienceId)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
+      return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
 
     const experience = await Experience.findById(experienceId);
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Count plans for this experience (no user details)
@@ -2377,7 +2265,7 @@ async function checkExperiencePlans(req, res) {
     // Determine if user is owner (for canDelete logic)
     const isOwner = permissions.isOwner(req.user._id, experience);
 
-    res.json({
+    return successResponse(res, {
       experienceId,
       experienceName: experience.name,
       totalPlans,
@@ -2396,7 +2284,7 @@ async function checkExperiencePlans(req, res) {
       userId: req.user._id,
       experienceId: req.params.id
     });
-    res.status(500).json({ error: 'Failed to check experience plans' });
+    return errorResponse(res, err, 'Failed to check experience plans', 500);
   }
 }
 
@@ -2412,20 +2300,17 @@ async function archiveExperience(req, res) {
 
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(experienceId)) {
-      return res.status(400).json({ error: 'Invalid experience ID format' });
+      return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
 
     const experience = await Experience.findById(experienceId);
     if (!experience) {
-      return res.status(404).json({ error: 'Experience not found' });
+      return errorResponse(res, null, 'Experience not found', 404);
     }
 
     // Verify current user is the owner
     if (!permissions.isOwner(req.user._id, experience)) {
-      return res.status(403).json({
-        error: 'Unauthorized',
-        message: 'Only the experience owner can archive it.'
-      });
+      return errorResponse(res, null, 'Only the experience owner can archive it.', 403);
     }
 
     // Store original owner before transfer
@@ -2494,8 +2379,7 @@ async function archiveExperience(req, res) {
       backendLogger.warn('[WebSocket] Failed to broadcast experience archive', { error: wsErr.message });
     }
 
-    res.json({
-      message: 'Experience archived successfully',
+    return successResponse(res, {
       experience: {
         _id: experience._id,
         name: experience.name,
@@ -2505,7 +2389,7 @@ async function archiveExperience(req, res) {
         id: req.user._id,
         name: req.user.name
       }
-    });
+    }, 'Experience archived successfully');
 
   } catch (err) {
     backendLogger.error('Error archiving experience', {
@@ -2513,7 +2397,7 @@ async function archiveExperience(req, res) {
       userId: req.user._id,
       experienceId: req.params.experienceId
     });
-    res.status(500).json({ error: 'Failed to archive experience' });
+    return errorResponse(res, err, 'Failed to archive experience', 500);
   }
 }
 

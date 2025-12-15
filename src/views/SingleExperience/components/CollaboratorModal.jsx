@@ -12,6 +12,7 @@ import Alert from '../../../components/Alert/Alert';
 import FormField from '../../../components/FormField/FormField';
 import { Button as DSButton, Pill } from '../../../components/design-system';
 import { logger } from '../../../utilities/logger';
+import { lang } from '../../../lang.constants';
 import styles from './CollaboratorModal.module.scss';
 
 export default function CollaboratorModal({
@@ -250,7 +251,7 @@ export default function CollaboratorModal({
               <>
                 <div style={{ marginBottom: 'var(--space-3)' }}>
                   <Autocomplete
-                    placeholder="Search by name or email..."
+                    placeholder={lang.current.placeholder.searchByNameOrEmail}
                     entityType="user"
                     items={searchResults}
                     onSelect={(user) => {
@@ -267,8 +268,8 @@ export default function CollaboratorModal({
                     size="md"
                     emptyMessage={
                       searchTerm && searchTerm.length < 2
-                        ? 'Type at least 2 characters to search'
-                        : 'No users found. Try a different search term.'
+                        ? lang.current.message.typeAtLeast2CharsToSearch
+                        : lang.current.message.noUsersFoundTryDifferent
                     }
                     disableFilter={true}
                   />
@@ -278,7 +279,7 @@ export default function CollaboratorModal({
                 {newlySelectedCollaborators.length > 0 && (
                   <div className="mt-3">
                     <strong className="d-block mb-2 text-secondary font-size-adjust-sm fw-semibold">
-                      Selected ({newlySelectedCollaborators.length}):
+                      {lang.current.message.selected.replace('{count}', newlySelectedCollaborators.length)}
                     </strong>
                     <div style={{
                       display: 'flex',
@@ -312,9 +313,9 @@ export default function CollaboratorModal({
               <>
                 <FormField
                   name="email"
-                  label="Email Address"
+                  label={lang.current.aria.emailAddress}
                   type="email"
-                  placeholder="collaborator@example.com"
+                  placeholder={lang.current.placeholder.collaboratorEmail}
                   value={emailForm.email}
                   onChange={(e) => handleEmailChange('email', e.target.value)}
                   isInvalid={emailError && emailError.includes('email')}
@@ -326,7 +327,7 @@ export default function CollaboratorModal({
                   name="name"
                   label="Name"
                   type="text"
-                  placeholder="Collaborator's full name"
+                  placeholder={lang.current.placeholder.collaboratorName}
                   value={emailForm.name}
                   onChange={(e) => handleEmailChange('name', e.target.value)}
                   isInvalid={emailError && emailError.includes('Name')}

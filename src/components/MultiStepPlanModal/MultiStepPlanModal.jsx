@@ -501,7 +501,7 @@ export default function MultiStepPlanModal() {
           type="button"
           className={styles.planItemDelete}
           onClick={() => onDelete(item.id)}
-          aria-label="Delete plan item"
+          aria-label={lang.current.aria.deletePlanItem}
         >
           <FaTrash />
         </button>

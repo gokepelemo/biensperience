@@ -22,6 +22,7 @@ import { logger } from '../../utilities/logger';
 import { useFormPersistence } from '../../hooks/useFormPersistence';
 import { formatRestorationMessage } from '../../utilities/time-utils';
 import { useToast } from '../../contexts/ToastContext';
+import { lang } from '../../lang.constants';
 import styles from './PlanItemNotes.module.scss';
 
 // Visibility options for notes (plan-level restriction)
@@ -88,7 +89,7 @@ function NoteForm({
           onClick={onCancel}
           disabled={loading}
         >
-          Cancel
+          {lang.current.button.cancel}
         </Button>
         <Button
           variant="primary"

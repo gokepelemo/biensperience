@@ -43,13 +43,7 @@ import { handleError } from '../utilities/error-handler';
 import useOptimisticAction from './useOptimisticAction';
 import debug from '../utilities/debug';
 import { lang } from '../lang.constants';
-
-// Helper to compare IDs (handles both string and ObjectId)
-const idEquals = (id1, id2) => {
-  const str1 = id1 && id1.toString ? id1.toString() : id1;
-  const str2 = id2 && id2.toString ? id2.toString() : id2;
-  return str1 === str2;
-};
+import { idEquals } from '../utilities/id-utils';
 
 export default function useCollaboratorManager({
   experienceId,

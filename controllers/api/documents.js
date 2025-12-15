@@ -21,6 +21,7 @@ const User = require('../../models/user');
 const { s3Upload, s3Delete } = require('../../uploads/aws-s3');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const { isOwner, isCollaborator } = require('../../utilities/permissions');
+const { broadcastEvent } = require('../../utilities/websocket-server');
 const backendLogger = require('../../utilities/backend-logger');
 const {
   validateDocument,
@@ -308,6 +309,18 @@ async function uploadDocument(req, res) {
       });
     }
 
+    // Broadcast document:created event to relevant room
+    try {
+      const roomType = entityType === 'plan' || entityType === 'plan_item' ? 'plan' : entityType;
+      const roomId = entityType === 'plan_item' ? planId : entityId;
+      broadcastEvent(roomType, roomId.toString(), {
+        type: 'document:created',
+        payload: { document: document.toObject() }
+      });
+    } catch (err) {
+      backendLogger.error('Failed to broadcast document:created event', { error: err.message, documentId: document._id });
+    }
+    
     // Return the document
     res.status(201).json({
       success: true,
@@ -575,7 +588,24 @@ async function deleteDocument(req, res) {
     }
 
     // Delete from database
+    const documentId = document._id.toString();
+    const entityType = document.entityType;
+    const entityId = document.entityId.toString();
+    const planId = document.planId ? document.planId.toString() : null;
+    
     await document.deleteOne();
+    
+    // Broadcast document:deleted event to relevant room
+    try {
+      const roomType = entityType === 'plan' || entityType === 'plan_item' ? 'plan' : entityType;
+      const roomId = entityType === 'plan_item' ? planId : entityId;
+      broadcastEvent(roomType, roomId, {
+        type: 'document:deleted',
+        payload: { documentId, entityType, entityId }
+      });
+    } catch (err) {
+      backendLogger.error('Failed to broadcast document:deleted event', { error: err.message, documentId });
+    }
 
     res.json({ success: true, message: 'Document deleted successfully' });
 

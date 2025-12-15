@@ -137,7 +137,7 @@ function AppContent() {
   logger.debug('AppContent component function called');
 
   logger.debug('About to call useUser');
-  const { updateUser, isAuthenticated } = useUser();
+  const { user, updateUser, isAuthenticated } = useUser();
   logger.debug('useUser completed', { isAuthenticated });
 
   logger.debug('About to call useApp');
@@ -255,10 +255,8 @@ function AppContent() {
 
     const fetchNotifications = async () => {
       try {
-        if (!isAuthenticated) return;
-        const user = JSON.parse(localStorage.getItem('bien_user')) || null;
-        const userId = user?._id;
-        if (!userId) return;
+        if (!isAuthenticated || !user?._id) return;
+        const userId = user._id;
 
         const raw = await getCollaboratorNotifications(userId, { limit: 10 });
         const activities = Array.isArray(raw) ? raw : (raw?.data || []);
@@ -313,7 +311,7 @@ function AppContent() {
     fetchNotifications();
 
     return () => { mounted = false; };
-  }, [isAuthenticated, addToast, navigate]);
+  }, [isAuthenticated, user?._id, addToast, navigate]);
 
   // Effect: watch for OS theme changes and set bootstrap theme attribute
   // Only attach a global OS listener when the user's preference is `system-default` or not set.
@@ -402,21 +400,21 @@ function AppContent() {
               <NavBar />
               <Container as="main" id="main-content" role="main" aria-label={lang.current.aria.mainContent}>
                 <ErrorBoundary
-                  title="Page Error"
-                  message="We encountered an error loading this page. Please try again or return home."
+                  title={lang.current.modal.pageError}
+                  message={lang.current.modal.errorLoadingPage}
                   showHomeButton={true}
                 >
                   <ScrollToTop />
-                  <Suspense fallback={<Loading variant="centered" size="lg" message="Loading page..." />}>
+                  <Suspense fallback={<Loading variant="centered" size="lg" message={lang.current.loading.page} />}>
                     <Routes>
                       <Route path="/" element={<AppHome />} />
                       <Route path="/experiences/new" element={
-                        <ErrorBoundary title="Form Error" message="Error loading the new experience form.">
+                        <ErrorBoundary title={lang.current.modal.formError} message={lang.current.modal.errorLoadingForm}>
                           <NewExperience />
                         </ErrorBoundary>
                       } />
                       <Route path="/destinations/new" element={
-                        <ErrorBoundary title="Form Error" message="Error loading the new destination form.">
+                        <ErrorBoundary title={lang.current.modal.formError} message={lang.current.modal.errorLoadingForm}>
                           <NewDestination />
                         </ErrorBoundary>
                       } />
@@ -432,23 +430,23 @@ function AppContent() {
                       <Route path="/countries/:countryName" element={<Countries />} />
                       <Route path="/experience-types/:tagName" element={<ExperiencesByTag />} />
                       <Route path="/experiences/:experienceId" element={
-                        <ErrorBoundary title="Experience Error" message="Error loading experience details.">
+                        <ErrorBoundary title={lang.current.modal.experienceError} message={lang.current.modal.errorLoadingExperience}>
                           <SingleExperience />
                         </ErrorBoundary>
                       } />
                       <Route path="/confirm-email/:token" element={<ConfirmEmail />} />
                       <Route path="/experiences/:experienceId/update" element={
-                        <ErrorBoundary title="Form Error" message="Error loading the update experience form.">
+                        <ErrorBoundary title={lang.current.modal.formError} message={lang.current.modal.errorLoadingForm}>
                           <UpdateExperience />
                         </ErrorBoundary>
                       } />
                       <Route path="/destinations/:destinationId" element={
-                        <ErrorBoundary title="Destination Error" message="Error loading destination details.">
+                        <ErrorBoundary title={lang.current.modal.destinationError} message={lang.current.modal.errorLoadingDestination}>
                           <SingleDestination />
                         </ErrorBoundary>
                       } />
                       <Route path="/destinations/:destinationId/update" element={
-                        <ErrorBoundary title="Form Error" message="Error loading the update destination form.">
+                        <ErrorBoundary title={lang.current.modal.formError} message={lang.current.modal.errorLoadingForm}>
                           <UpdateDestination />
                         </ErrorBoundary>
                       } />

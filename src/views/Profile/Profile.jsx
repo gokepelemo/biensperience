@@ -36,6 +36,7 @@ import { formatLocation } from "../../utilities/address-utils";
 import { logger } from "../../utilities/logger";
 import { eventBus } from "../../utilities/event-bus";
 import { broadcastEvent } from "../../utilities/event-bus";
+import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
 import { isSystemUser } from "../../utilities/system-users";
 import { followUser, unfollowUser, getFollowStatus, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
@@ -478,7 +479,7 @@ export default function Profile() {
 
   const handleRoleUpdate = async (newRole) => {
     if (!isSuperAdmin(user)) {
-      handleError({ message: 'Only super admins can update user roles' });
+      handleError({ message: lang.current.alert.onlySuperAdminsCanUpdateRoles });
       return;
     }
 
@@ -498,7 +499,7 @@ export default function Profile() {
 
   const handleEmailConfirmationUpdate = async (emailConfirmed) => {
     if (!isSuperAdmin(user)) {
-      handleError({ message: 'Only super admins can update email confirmation' });
+      handleError({ message: lang.current.alert.onlySuperAdminsCanUpdateEmailConfirmation });
       return;
     }
 
@@ -580,6 +581,55 @@ export default function Profile() {
     const unsubscribe = eventBus.subscribe('user:updated', handleUserUpdated);
     return () => unsubscribe();
   }, [userId, mergeProfile]);
+
+  // Listen for photo events (profile photos)
+  useEffect(() => {
+    if (!userId) return;
+
+    const handlePhotoCreated = (event) => {
+      const photo = event.photo;
+      if (!photo) return;
+      // Refresh profile to get updated photos
+      getProfile();
+    };
+
+    const handlePhotoUpdated = (event) => {
+      const photo = event.photo;
+      if (!photo || !photo._id) return;
+      // Update photo in profile if it exists
+      setCurrentProfile(prev => {
+        if (!prev?.photos) return prev;
+        const photoIndex = prev.photos.findIndex(p => p._id === photo._id || p === photo._id);
+        if (photoIndex === -1) return prev;
+        const updatedPhotos = [...prev.photos];
+        updatedPhotos[photoIndex] = photo;
+        return { ...prev, photos: updatedPhotos };
+      });
+    };
+
+    const handlePhotoDeleted = (event) => {
+      const photoId = event.photoId;
+      if (!photoId) return;
+      // Remove photo from profile
+      setCurrentProfile(prev => {
+        if (!prev?.photos) return prev;
+        const updatedPhotos = prev.photos.filter(p => 
+          (p._id || p).toString() !== photoId.toString()
+        );
+        return { ...prev, photos: updatedPhotos };
+      });
+    };
+
+    const unsubCreate = eventBus.subscribe('photo:created', handlePhotoCreated);
+    const unsubUpdate = eventBus.subscribe('photo:updated', handlePhotoUpdated);
+    const unsubDelete = eventBus.subscribe('photo:deleted', handlePhotoDeleted);
+
+    return () => {
+      unsubCreate();
+      unsubUpdate();
+      unsubDelete();
+    };
+  }, [userId, getProfile]);
 
   // Listen for experience events to update profile lists
   useEffect(() => {
@@ -751,70 +801,122 @@ export default function Profile() {
     fetchOwnFollowCounts();
   }, [userId, isOwnProfile]);
 
+  // WebSocket events for real-time profile updates (when others follow this profile)
+  const { subscribe: wsSubscribe, emit: wsEmit } = useWebSocketEvents();
+
+  // Join the user's profile room for real-time follow updates
+  useEffect(() => {
+    if (!userId || !wsEmit) return;
+
+    // Join the user's profile room to receive follow events
+    wsEmit('room:join', { roomId: `user:${userId}`, userId, type: 'user' }, { localOnly: false });
+
+    return () => {
+      // Leave room on cleanup
+      wsEmit('room:leave', { roomId: `user:${userId}`, userId, type: 'user' }, { localOnly: false });
+    };
+  }, [userId, wsEmit]);
+
   // Listen for follow events to update UI
+  // Handles both local events (when current user follows) and WebSocket events (when others follow)
   useEffect(() => {
     if (!userId) return;
 
     const handleFollowCreated = (event) => {
-      // If we just followed this user, update state
-      if (event.followingId === userId) {
-        setIsFollowing(true);
+      // Check event payload structure (local events vs WebSocket events)
+      const followingId = event.followingId || event.payload?.followingId;
+      const eventUserId = event.userId || event.payload?.userId;
+
+      // If this event is for the profile being viewed, update follower count
+      if (followingId === userId || eventUserId === userId) {
+        // Only update isFollowing if current user is the follower
+        if (event.followerId === user._id) {
+          setIsFollowing(true);
+        }
         setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
+        logger.debug('[Profile] Follower count incremented via event', { followingId, userId });
       }
     };
 
     const handleFollowDeleted = (event) => {
-      // If we just unfollowed this user, update state
-      if (event.followingId === userId) {
-        setIsFollowing(false);
+      // Check event payload structure (local events vs WebSocket events)
+      const followingId = event.followingId || event.payload?.followingId;
+      const eventUserId = event.userId || event.payload?.userId;
+
+      // If this event is for the profile being viewed, update follower count
+      if (followingId === userId || eventUserId === userId) {
+        // Only update isFollowing if current user is the unfollower
+        if (event.followerId === user._id) {
+          setIsFollowing(false);
+        }
         setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+        logger.debug('[Profile] Follower count decremented via event', { followingId, userId });
       }
     };
 
+    // Subscribe to both local event bus and WebSocket events
     const unsubCreate = eventBus.subscribe('follow:created', handleFollowCreated);
     const unsubDelete = eventBus.subscribe('follow:deleted', handleFollowDeleted);
+
+    // WebSocket subscriptions for remote events
+    const unsubWsCreate = wsSubscribe?.('follow:created', handleFollowCreated);
+    const unsubWsDelete = wsSubscribe?.('follow:deleted', handleFollowDeleted);
 
     return () => {
       unsubCreate();
       unsubDelete();
+      unsubWsCreate?.();
+      unsubWsDelete?.();
     };
-  }, [userId]);
+  }, [userId, user._id, wsSubscribe]);
 
   // Handle follow button click
   const handleFollow = useCallback(async () => {
     if (followLoading || !userId) return;
+
+    // Defensive check: Prevent following yourself
+    if (userId === user._id) {
+      showError('You cannot follow yourself');
+      return;
+    }
 
     setFollowLoading(true);
     try {
       await followUser(userId);
       setIsFollowing(true);
       setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
-      success('Now following this user');
+      success(lang.current.success.nowFollowing);
     } catch (err) {
       const message = handleError(err, { context: 'Follow user' });
       showError(message || 'Failed to follow user');
     } finally {
       setFollowLoading(false);
     }
-  }, [userId, followLoading, success, showError]);
+  }, [userId, user._id, followLoading, success, showError]);
 
   // Handle unfollow button click
   const handleUnfollow = useCallback(async () => {
     if (followLoading || !userId) return;
+
+    // Defensive check: Prevent unfollowing yourself (should never happen but be safe)
+    if (userId === user._id) {
+      showError('Invalid operation');
+      return;
+    }
 
     setFollowLoading(true);
     try {
       await unfollowUser(userId);
       setIsFollowing(false);
       setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
-      success('Unfollowed user');
+      success(lang.current.success.unfollowed);
     } catch (err) {
       const message = handleError(err, { context: 'Unfollow user' });
       showError(message || 'Failed to unfollow user');
     } finally {
       setFollowLoading(false);
     }
-  }, [userId, followLoading, success, showError]);
+  }, [userId, user._id, followLoading, success, showError]);
 
   // Fetch followers or following list for Follows tab
   const fetchFollowsList = useCallback(async (filter = followsFilter, reset = false) => {
@@ -886,11 +988,11 @@ export default function Profile() {
       const editOnClick = () => navigate('/profile/update');
       const newButtons = [
         {
-          label: "Edit Profile",
+          label: lang.current.label.editProfile,
           onClick: editOnClick,
           variant: "outline-primary",
           icon: "✏️",
-          tooltip: "Edit Your Profile",
+          tooltip: lang.current.tooltip.editYourProfile,
           compact: true,
         },
       ];
@@ -967,14 +1069,14 @@ export default function Profile() {
     // Created tab
     tabs.push({
       id: 'created',
-      label: 'Created',
+      label: lang.current.label.created,
       icon: <FaPlusCircle />,
     });
 
     // Destinations tab
     tabs.push({
       id: 'destinations',
-      label: 'Destinations',
+      label: lang.current.label.destinations,
       icon: <FaMapMarkerAlt />,
     });
 
@@ -1302,7 +1404,7 @@ export default function Profile() {
                           onMouseLeave={() => setFollowButtonHovered(false)}
                           className={styles.followButton}
                         >
-                          {followLoading ? 'Loading...' : followButtonHovered ? 'Unfollow' : 'Following'}
+                          {followLoading ? lang.current.loading.default : followButtonHovered ? 'Unfollow' : 'Following'}
                         </Button>
                       ) : (
                         <Button
@@ -1312,7 +1414,7 @@ export default function Profile() {
                           disabled={followLoading}
                           className={styles.followButton}
                         >
-                          {followLoading ? 'Loading...' : 'Follow'}
+                          {followLoading ? lang.current.loading.default : 'Follow'}
                         </Button>
                       )}
                     </>
@@ -1515,7 +1617,7 @@ export default function Profile() {
                             onClick={() => fetchFollowsList(followsFilter, false)}
                             disabled={followsLoading}
                           >
-                            {followsLoading ? 'Loading...' : 'Load More'}
+                            {followsLoading ? lang.current.loading.default : lang.current.button.loadMore}
                           </Button>
                         </div>
                       )}

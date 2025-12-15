@@ -124,7 +124,7 @@ info:
 
     ### Document
     Uploaded documents with secure storage and access controls.
-  version: 0.5.4
+  version: 0.6.3
   contact:
     name: Biensperience Support
     url: https://github.com/gokepelemo/biensperience
@@ -317,18 +317,48 @@ components:
           type: string
         country:
           type: string
-        description:
+        state:
           type: string
+        overview:
+          type: string
+        map_location:
+          type: string
+          description: Legacy string location field (deprecated, use location)
+        location:
+          $ref: '#/components/schemas/Location'
         photos:
           type: array
           items:
             type: string
         default_photo_id:
           type: string
+        travel_tips:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: object
+                properties:
+                  type:
+                    type: string
+                  value:
+                    type: string
+                required:
+                  - type
+                  - value
+        visibility:
+          type: string
+          enum: [private, contributors, public]
+          default: public
         permissions:
           type: array
           items:
             $ref: '#/components/schemas/Permission'
+        users_favorite:
+          type: array
+          items:
+            type: string
+          description: Array of User IDs who favorited this destination
         createdAt:
           type: string
           format: date-time
@@ -4947,6 +4977,137 @@ paths:
                 $ref: '#/components/schemas/AICompletionResponse'
         '403':
           description: Feature flag 'ai_features' not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /countries/{countryName}:
+    get:
+      summary: Get Destinations by Country
+      description: Returns all destinations in a specific country with optional search and pagination
+      tags:
+        - Countries
+      parameters:
+        - name: countryName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Country name (case-insensitive, URL encoded)
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search query to filter destinations by name
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: List of destinations in the country
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      country:
+                        type: string
+                        description: Normalized country name
+                      destinations:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Destination'
+                      pagination:
+                        type: object
+                        properties:
+                          page:
+                            type: integer
+                          limit:
+                            type: integer
+                          totalCount:
+                            type: integer
+                          totalPages:
+                            type: integer
+                          hasMore:
+                            type: boolean
+        '404':
+          description: No destinations found for country
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /geocode:
+    post:
+      summary: Geocode Address
+      description: Converts an address string to coordinates using Google Geocoding API
+      tags:
+        - Geocoding
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                address:
+                  type: string
+                  description: Address string to geocode
+              required:
+                - address
+      responses:
+        '200':
+          description: Geocoded location data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      address:
+                        type: string
+                        description: Formatted address from geocoding
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                      postalCode:
+                        type: string
+                      placeId:
+                        type: string
+                        description: Google Places ID
+                      geo:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum: [Point]
+                          coordinates:
+                            type: array
+                            items:
+                              type: number
+                            description: "[longitude, latitude]"
+        '400':
+          description: Address is required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Location not found
           content:
             application/json:
               schema:

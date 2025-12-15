@@ -17,7 +17,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { updateUser } from '../../utilities/users-api';
 import { handleError } from '../../utilities/error-handler';
 import themeManager from '../../utilities/theme-manager';
-import { getLanguageOptions } from '../../lang.constants';
+import { lang, getLanguageOptions } from '../../lang.constants';
 import { getTimezoneOptions, detectUserTimezone } from '../../utilities/preferences-utils';
 import { getCurrencyDropdownOptions } from '../../utilities/currency-utils';
 
@@ -108,7 +108,7 @@ export default function Preferences() {
           localStorage.setItem('biensperience:timezone', form.timezone);
         } catch (e) { /* ignore */ }
       if (typeof fetchProfile === 'function') await fetchProfile();
-      showSuccess('Your preferences have been saved successfully.');
+      showSuccess(lang.current.success.preferencesSaved);
     } catch (err) {
       const errorMsg = handleError(err, { context: 'Save preferences', silent: true }) || 'Failed to save preferences. Please try again.';
       showError(errorMsg);

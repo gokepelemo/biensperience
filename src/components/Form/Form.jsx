@@ -80,7 +80,7 @@ export function FormLabel({ children, htmlFor, required = false, className = '',
       {...props}
     >
       {children}
-      {required && <span className={styles.formRequired} aria-label="required">*</span>}
+      {required && <span className={styles.formRequired} aria-label={lang.current.aria.required}>*</span>}
     </label>
   );
 }

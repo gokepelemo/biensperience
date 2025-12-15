@@ -11,6 +11,7 @@ const Follow = require('../../models/follow');
 const User = require('../../models/user');
 const Activity = require('../../models/activity');
 const backendLogger = require('../../utilities/backend-logger');
+const { broadcastEvent } = require('../../utilities/websocket-server');
 
 /**
  * Follow a user
@@ -20,6 +21,11 @@ async function followUser(req, res) {
   try {
     const followerId = req.user._id;
     const followingId = req.params.userId;
+
+    // Prevent following yourself
+    if (followerId.toString() === followingId.toString()) {
+      return res.status(400).json({ error: 'Cannot follow yourself' });
+    }
 
     // Verify the user to follow exists
     const userToFollow = await User.findById(followingId).select('name email');
@@ -65,6 +71,23 @@ async function followUser(req, res) {
       followingId: followingId,
       reactivated: result.reactivated || false
     });
+
+    // Broadcast WebSocket event to the followed user's profile room
+    // This enables real-time UI updates when someone follows them
+    try {
+      broadcastEvent('user', followingId.toString(), {
+        type: 'follow:created',
+        payload: {
+          followId: result.follow._id?.toString(),
+          followerId: followerId.toString(),
+          followerName: req.user.name,
+          followingId: followingId.toString(),
+          userId: followingId.toString()
+        }
+      }, followerId.toString()); // Exclude the follower from receiving this
+    } catch (wsError) {
+      backendLogger.warn('Failed to broadcast follow event', { error: wsError.message });
+    }
 
     res.status(201).json({
       success: true,
@@ -119,6 +142,21 @@ async function unfollowUser(req, res) {
       followerId: followerId.toString(),
       followingId: followingId
     });
+
+    // Broadcast WebSocket event to the unfollowed user's profile room
+    // This enables real-time UI updates when someone unfollows them
+    try {
+      broadcastEvent('user', followingId.toString(), {
+        type: 'follow:deleted',
+        payload: {
+          followerId: followerId.toString(),
+          followingId: followingId.toString(),
+          userId: followingId.toString()
+        }
+      }, followerId.toString()); // Exclude the unfollower from receiving this
+    } catch (wsError) {
+      backendLogger.warn('Failed to broadcast unfollow event', { error: wsError.message });
+    }
 
     res.json({ success: true, message: 'Unfollowed user' });
   } catch (error) {

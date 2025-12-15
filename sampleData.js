@@ -215,6 +215,46 @@ async function getSuperAdminDetails(args) {
 }
 
 /**
+ * Convert a "lat,lng" string to the new location schema format
+ * @param {string} mapLocation - Legacy format "lat,lng" string
+ * @param {string} name - Destination name for address
+ * @param {string} country - Country name for address
+ * @param {string} [state] - Optional state/province
+ * @returns {Object} Location object with geo coordinates
+ */
+function parseMapLocationToSchema(mapLocation, name, country, state) {
+  if (!mapLocation || typeof mapLocation !== 'string') {
+    return null;
+  }
+
+  const parts = mapLocation.split(',').map(p => parseFloat(p.trim()));
+  if (parts.length !== 2 || parts.some(isNaN)) {
+    return null;
+  }
+
+  const [lat, lng] = parts;
+
+  // Construct a human-readable address
+  const addressParts = [name];
+  if (state) addressParts.push(state);
+  addressParts.push(country);
+  const address = addressParts.join(', ');
+
+  return {
+    address,
+    geo: {
+      type: 'Point',
+      coordinates: [lng, lat] // GeoJSON format: [longitude, latitude]
+    },
+    city: name, // Destination name is typically the city
+    state: state || null,
+    country,
+    postalCode: null,
+    placeId: null
+  };
+}
+
+/**
  * Calculate Levenshtein distance for fuzzy matching
  */
 function levenshteinDistance(str1, str2) {
@@ -1083,7 +1123,8 @@ class DataGenerator {
         country: dest.country,
         state: dest.state,
         overview: this.generateDestinationOverview(dest.name, dest.country),
-        map_location: dest.map_location,
+        map_location: dest.map_location, // Deprecated: kept for backward compatibility
+        location: parseMapLocationToSchema(dest.map_location, dest.name, dest.country, dest.state),
         travel_tips: this.generateTravelTips(dest.name),
         permissions: [], // Will be set after users are created
         photos: [] // Will be set after photos are created

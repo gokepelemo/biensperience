@@ -82,10 +82,10 @@ export default function Destinations() {
   return (
     <PageWrapper title={lang.current.destinationsView.pageTitle}>
       <PageOpenGraph
-        title="All Destinations"
-        description="Explore our curated collection of travel destinations from around the world. Find your next adventure destination with detailed information, photos, and travel tips."
-        keywords="travel destinations, world destinations, travel planning, tourism, vacation spots, travel guide, countries, cities"
-        ogTitle="Discover Amazing Travel Destinations"
+        title={lang.current.page.destinations.title}
+        description={lang.current.page.destinations.description}
+        keywords={lang.current.page.destinations.keywords}
+        ogTitle={lang.current.page.destinations.ogTitle}
         ogDescription={`Browse ${processedDestinations?.length || 'hundreds of'} incredible travel destinations worldwide. Plan your perfect trip today.`}
       />
 

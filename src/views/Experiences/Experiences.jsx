@@ -17,6 +17,7 @@ import { sortItems, filterExperiences } from "../../utilities/sort-filter";
 import { createUrlSlug } from '../../utilities/url-utils';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
+import { useGridNavigation } from "../../hooks/useKeyboardNavigation";
 
 export default function Experiences() {
   const { user } = useUser();
@@ -27,6 +28,11 @@ export default function Experiences() {
   const [filterBy, setFilterBy] = useState("all");
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef(null);
+  const experiencesGridRef = useRef(null);
+  
+  // Enable arrow key navigation for experience cards
+  // Selector matches the Link class in ExperienceCard component
+  useGridNavigation(experiencesGridRef, `[class*="experienceCardLink"]`, !loading);
   const [selectedDestinationId, setSelectedDestinationId] = useState(experiencesFilters?.destination || 'all');
   const [selectedDestinationItems, setSelectedDestinationItems] = useState([]);
   const [destAutocompleteItems, setDestAutocompleteItems] = useState(destinations || []);
@@ -548,10 +554,10 @@ export default function Experiences() {
   return (
     <PageWrapper title="Experiences">
       <PageOpenGraph
-        title="All Experiences"
-        description="Browse our curated collection of travel experiences from around the world. Discover unique adventures, plan your trips, and create unforgettable memories."
-        keywords="travel experiences, adventures, trip planning, travel activities, tourism, bucket list, world travel"
-        ogTitle="Discover Amazing Travel Experiences"
+        title={lang.current.page.experiences.title}
+        description={lang.current.page.experiences.description}
+        keywords={lang.current.page.experiences.keywords}
+        ogTitle={lang.current.page.experiences.ogTitle}
   ogDescription={`Explore ${displayedExperiences?.length || 'hundreds of'} curated travel experiences worldwide. Start planning your next adventure today.`}
       />
 
@@ -743,7 +749,7 @@ export default function Experiences() {
         />
       ) : (
         <FadeIn>
-          <div className={styles.experiencesList}>
+          <div ref={experiencesGridRef} className={styles.experiencesList}>
             {displayedExperiences.length > 0 ? (
               displayedExperiences.map((experience, index) => (
                 <FadeIn key={experience?._id || `exp-${index}`} delay={index * 0.1}>
@@ -765,8 +771,8 @@ export default function Experiences() {
             ) : (
               <EmptyState
                 variant="search"
-                title="No Experiences Found"
-                description="No experiences match your current filters. Try adjusting your search criteria or browse all experiences."
+                title={lang.current.emptyState.noExperiencesFound}
+                description={lang.current.emptyState.noExperiencesFoundDescription}
                 size="md"
               />
             )}

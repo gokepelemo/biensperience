@@ -261,7 +261,7 @@ export default function DetailEntryForm({
               className={styles.currencySelect}
               value={selectedCurrency}
               onChange={(e) => setSelectedCurrency(e.target.value)}
-              aria-label="Select currency"
+              aria-label={lang.current.aria.selectCurrency}
             >
               {CURRENCIES.map(curr => (
                 <option key={curr.value} value={curr.value}>
@@ -406,7 +406,7 @@ export default function DetailEntryForm({
               type="button"
               className={styles.removeCustomButton}
               onClick={() => handleRemoveCustomField(index)}
-              aria-label="Remove custom field"
+              aria-label={lang.current.aria.removeCustomField}
             >
               ×
             </button>

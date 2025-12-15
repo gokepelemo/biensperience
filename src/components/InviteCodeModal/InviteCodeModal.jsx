@@ -21,6 +21,7 @@ import {
 } from '../../utilities/invite-codes-service';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
+import { lang } from '../../lang.constants';
 import Loading from '../Loading/Loading';
 import styles from './InviteCodeModal.module.scss';
 
@@ -107,7 +108,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
       logger.info('Invite code created', { code: invite.code, emailSent: invite.emailSent });
     } catch (err) {
       logger.error('Error creating invite code', {}, err);
-      showError('Failed to create invite code');
+      showError(lang.current.alert.failedToCreateInviteCode);
     } finally {
       setIsCreating(false);
     }
@@ -133,7 +134,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
 
   const handleBulkCreate = async () => {
     if (!csvData || csvData.length === 0) {
-      showError('No CSV data to process');
+      showError(lang.current.alert.noCsvDataToProcess);
       return;
     }
 
@@ -170,14 +171,14 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
       });
     } catch (err) {
       logger.error('Error bulk creating invite codes', {}, err);
-      showError('Failed to create bulk invites');
+      showError(lang.current.alert.failedToCreateBulkInvites);
     } finally {
       setIsCreating(false);
     }
   };
 
   const handleDeactivate = async (inviteId) => {
-    if (!window.confirm('Are you sure you want to deactivate this invite code?')) {
+    if (!window.confirm(lang.current.modal.deactivateInviteConfirm)) {
       return;
     }
 
@@ -190,7 +191,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
       logger.info('Invite code deactivated', { inviteId });
     } catch (err) {
       logger.error('Error deactivating invite code', {}, err);
-      showError('Failed to deactivate invite code');
+      showError(lang.current.alert.failedToDeactivateInviteCode);
     }
   };
 
@@ -321,7 +322,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
           </Tab>
 
           {/* Create Single Tab */}
-          <Tab eventKey="create" title="Create Single">
+          <Tab eventKey="create" title={lang.current.inviteTracking.tabCreateSingle}>
             <Form onSubmit={handleCreateSingle}>
               <Form.Group className="mb-3">
                 <Form.Label>Email (optional)</Form.Label>
@@ -472,7 +473,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
           </Tab>
 
           {/* Bulk Upload Tab */}
-          <Tab eventKey="bulk" title="Bulk Upload">
+          <Tab eventKey="bulk" title={lang.current.inviteTracking.tabBulkUpload}>
             <div className="mb-3">
               <Button
                 variant="outline-secondary"

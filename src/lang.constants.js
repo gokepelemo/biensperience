@@ -55,6 +55,7 @@ const en = {
     home: "Home",
     showMore: "Show More",
     showLess: "Show Less",
+    loadMore: "Load More",
     syncNow: "Sync Now",
     syncing: "Syncing...",
     edit: "Edit",
@@ -87,6 +88,10 @@ const en = {
     saveContinue: "Save & Continue",
     addFinish: "Add & Finish",
     sendInvite: "Send Invite",
+    createNewExperience: "Create New Experience",
+    addDestination: "Add Destination",
+    browseExperiences: "Browse Experiences",
+    addPhotoCredits: "+ Add Photo Credits",
   },
 
   alert: {
@@ -155,10 +160,27 @@ const en = {
     loadingAnalytics: "Loading analytics...",
     confirmingEmail: "Confirming your email address...",
     resettingPassword: "Resetting Password...",
+    unableToLoadDashboard: "We were unable to load your dashboard data.",
+    failedToFollowUser: "Failed to follow user",
+    failedToUnfollowUser: "Failed to unfollow user",
+    failedToAddCost: "Failed to add cost",
+    failedToAddDetail: "Failed to add detail",
+    failedToAddNote: "Failed to add note",
+    failedToUpdateNote: "Failed to update note",
+    failedToCreateInviteCode: "Failed to create invite code",
+    failedToLoadCountryData: "Failed to load country data",
+    failedToResendVerificationEmail: "Failed to resend verification email",
+    noCsvDataToProcess: "No CSV data to process",
+    failedToCreateBulkInvites: "Failed to create bulk invites",
+    failedToDeactivateInviteCode: "Failed to deactivate invite code",
+    pleaseEnableApiAccessFirst: "Please enable API access first",
+    onlySuperAdminsCanUpdateRoles: "Only super admins can update user roles",
+    onlySuperAdminsCanUpdateEmailConfirmation: "Only super admins can update email confirmation",
   },
 
   success: {
     experienceCreated: "Experience created.",
+    experienceCreatedExcited: "Experience created successfully!",
     experienceUpdated: "Experience updated.",
     experienceDeleted: "Experience deleted.",
     destinationCreated: "Destination created.",
@@ -169,6 +191,10 @@ const en = {
     apiTokenCreated: "API token created successfully. Make sure to copy it now.",
     changesSaved: "Changes saved successfully.",
     resendConfirmation: "Verification email sent. Please check your inbox.",
+    photosUpdated: "Photos updated successfully",
+    nowFollowing: "Now following this user",
+    unfollowed: "Unfollowed user",
+    preferencesSaved: "Your preferences have been saved successfully.",
   },
 
   // User-friendly notifications (actionable and context-aware)
@@ -269,6 +295,11 @@ const en = {
     multipleCollaboratorsAddedMessage: "{count} collaborators have been added to your {context} and can now view and edit it.",
     syncPlanTitle: "Sync Plan with Experience",
     removeExperienceTitle: "Remove Experience from Your Plans",
+    removeExperienceFromPlans: "Remove from Your Plans?",
+    removeExperienceMessage: "You are about to remove",
+    removeExperienceConfirmButton: "Remove from Plans",
+    deleteDestination: "Delete Destination?",
+    noPlansFallback: "No Plans",
     
     // Additional modal titles
     addNewDestination: "Add New Destination",
@@ -302,6 +333,7 @@ const en = {
     deletePhotoConfirm: "Are you sure you want to permanently delete this photo? This action cannot be undone.",
     removeExperienceConfirm: "Are you sure you want to remove this experience from your plans?",
     unsavedChangesMessage: "You have unsaved changes. Are you sure you want to leave?",
+    deactivateInviteConfirm: "Are you sure you want to deactivate this invite code?",
 
     // Add Date Modal
     addDateModal: {
@@ -364,6 +396,38 @@ const en = {
     },
   },
 
+  emptyState: {
+    noLocationData: "No Location Data",
+    noLocationDataDescription: "None of the experiences in this country have location coordinates. Try the cards view instead.",
+    noDestinationsYet: "No Destinations Yet",
+    noDestinationsYetDescription: "There are no destinations added for {country} yet.",
+    noExperiencesYet: "No Experiences Yet",
+    noExperiencesYetDescription: "There are no experiences added for {country} yet.",
+    noExperiencesFound: "No Experiences Found",
+    noExperiencesFoundDescription: "No experiences match your current filters. Try adjusting your search criteria or browse all experiences.",
+    noExperiencesInDestination: "No experiences in this destination yet",
+    noExperiencesInDestinationDescription: "Be the first to add one and help others discover amazing activities here.",
+  },
+
+  page: {
+    experiences: {
+      title: "All Experiences",
+      ogTitle: "Discover Amazing Travel Experiences",
+      description: "Browse our curated collection of travel experiences from around the world. Discover unique adventures, plan your trips, and create unforgettable memories.",
+      keywords: "travel experiences, adventures, trip planning, travel activities, tourism, bucket list, world travel",
+    },
+    destinations: {
+      title: "All Destinations",
+      ogTitle: "Discover Amazing Travel Destinations",
+      description: "Explore our curated collection of travel destinations from around the world. Find your next adventure destination with detailed information, photos, and travel tips.",
+      keywords: "travel destinations, world destinations, travel planning, tourism, vacation spots, travel guide, countries, cities",
+    },
+    allUsers: {
+      title: "All Users - Admin Panel",
+      description: "Super admin panel for managing all users and their roles.",
+    },
+  },
+
   heading: {
     signInToAccount: "Sign In To Your Account",
     createAccount: "Create Your Account",
@@ -391,7 +455,8 @@ const en = {
     myPlans: "My Plans",
     plans: "Plans",
     collaborators: "Collaborators",
-    experiencesIn: "Experiences in {destinationName}"
+    experiencesIn: "Experiences in {destinationName}",
+    dashboardUnavailable: "Dashboard Unavailable"
   },
 
   label: {
@@ -437,6 +502,7 @@ const en = {
     removedItems: "Removed Items ({count})",
     modifiedItems: "Modified Items ({count})",
     details: "Details",
+    note: "Note:",
     travelTipsType: "Type",
     travelTipsDescription: "Details",
     travelTipsAdditionalNote: "Additional Notes",
@@ -453,6 +519,17 @@ const en = {
     trackedCosts: "Tracked Costs",
     planItem: "Plan Item",
     photos: "Photos",
+    // Navigation and tab labels
+    dashboard: "Dashboard",
+    preferences: "Preferences",
+    editProfile: "Edit Profile",
+    created: "Created",
+    destinations: "Destinations",
+    // View mode labels
+    cardView: "Card View",
+    compactView: "Compact View",
+    activityView: "Activity View",
+    timelineView: "Timeline View",
   },
 
   aria: {
@@ -514,6 +591,40 @@ const en = {
     // Tips and help
     deleteTip: "Delete tip",
     moreInformation: "More information",
+    
+    // Plan and item actions
+    editPlanItemTitle: "Edit plan item title",
+    deletePlanItem: "Delete plan item",
+    addDetailsToPlanItem: "Add details to plan item",
+    
+    // Misc actions
+    removeFile: "Remove file",
+    selectCurrency: "Select currency",
+    removeCustomField: "Remove custom field",
+    copyAddressToClipboard: "Copy address to clipboard",
+    filterDetailTypes: "Filter detail types",
+    navigationTabs: "Navigation tabs",
+    locked: "locked",
+    remove: "remove",
+    required: "required",
+    
+    // View modes
+    cardsView: "Cards view",
+    mapView: "Map view",
+    listView: "List view",
+    gridView: "Grid view",
+    
+    // Plan and item management
+    planTabs: "Plan tabs",
+    togglePlansDropdown: "Toggle plans dropdown",
+    planActionsMenu: "Plan actions menu",
+    itemActions: "Item actions",
+    pinnedItem: "Pinned item",
+    clearAddress: "Clear address",
+    showActualCostEstimate: "Show actual cost estimate",
+    
+    // Misc
+    emailAddress: "Email Address",
   },
 
   placeholder: {
@@ -524,6 +635,7 @@ const en = {
     nameField: "Name",
     emailField: "Email",
     emailExample: "Email (ex. john@doe.com)",
+    search: "Search...",
     experienceName:
       "e.g. Brewery Tour at Lakefront Brewery with a Local in Milwaukee",
     overview:
@@ -556,6 +668,7 @@ const en = {
     searchNameOrEmail: "Type name or email...",
     searchByNameOrEmail: "Search by name or email...",
     collaboratorEmail: "collaborator@example.com",
+    collaboratorName: "Collaborator's full name",
     enterCurrentPassword: "Enter your current password",
     confirmNewPassword: "Confirm your new password",
     enterNewPassword: "Enter new password",
@@ -646,6 +759,12 @@ const en = {
     personCreatingPlan: "{count} person is creating this plan",
     peoplePlanningExperience: "{count} people are planning this experience",
     personPlanningExperience: "{count} person is planning this experience",
+    typeAtLeast2CharsToSearch: "Type at least 2 characters to search",
+    noUsersFoundTryDifferent: "No users found. Try a different search term.",
+    selected: "Selected ({count}):",
+    quickCreateNote: "You can add more details (description, photos, travel tips) by visiting the",
+    destinationsPage: "destinations page",
+    later: "later.",
   },
 
   formPersistence: {
@@ -767,8 +886,12 @@ const en = {
     destinationAlreadyExists: "A destination named \"{name}\" already exists. Please choose a different destination.",
     experienceAlreadyExists: "An experience named \"{name}\" already exists. Please choose a different name.",
     titleRequired: "Please enter a title for the experience.",
+    experienceNameRequired: "Please enter an experience name",
     destinationRequired: "Please select a destination from the list or create a new destination first.",
+    selectDestinationRequired: "Please select a destination",
     checkPermissions: "Please check that you have the correct permissions and try again.",
+    missingRequiredData: "Missing required data",
+    noPreviewAvailable: "No preview available",
   },
 
   // Form field labels (additional)
@@ -832,6 +955,17 @@ const en = {
     edit: "Edit",
     delete: "Delete",
     moreInformation: "More information",
+    clickToViewNotes: "Click to view notes",
+    clickToViewDetails: "Click to view details",
+    clickToEditTitle: "Click to edit title",
+    clickToEditScheduledDate: "Click to edit scheduled date",
+    pinnedToTop: "Pinned to top",
+    pinnedToTopExpandCollapse: "Pinned to top - click to expand/collapse",
+    viewNotesAssignmentsDetails: "View notes, assignments, and other details",
+    planActions: "Plan actions",
+    actions: "Actions",
+    removeFromQueue: "Remove from queue",
+    editYourProfile: "Edit Your Profile",
     // Experience form tooltips (friendly & playful)
     experienceName: "Give it a snappy title — make travelers curious!",
     overview: "Describe the experience in a few sentences: highlights, expectations, and must-knows.",
@@ -1318,6 +1452,11 @@ const en = {
     // Empty states
     noInviteCodesDescription: "Create invite codes to share Biensperience with friends and family.",
     shareToGetStarted: "No one has used this invite code yet. Share it to get started!",
+
+    // Modal tabs
+    tabAllInvites: "All Invites",
+    tabCreateSingle: "Create Single",
+    tabBulkUpload: "Bulk Upload",
 
     // Invite details section
     inviteCodeDetails: "Invite Code Details",

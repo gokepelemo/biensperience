@@ -1,13 +1,18 @@
 /**
  * PlanMetricsDisplay Component
  * Displays metrics for a plan (planned date, completion, cost)
+ *
+ * Wrapped with React.memo to prevent unnecessary re-renders - this component
+ * only needs to re-render when metrics (date, completion, cost) actually change.
  */
 
+import { memo } from 'react';
 import TagPill from '../../../components/Pill/TagPill';
 import { formatDateMetricCard } from '../../../utilities/date-utils';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
+import { lang } from '../../../lang.constants';
 
-export default function PlanMetricsDisplay({
+function PlanMetricsDisplay({
   plannedDate,
   completionPercentage,
   totalCost,
@@ -40,7 +45,7 @@ export default function PlanMetricsDisplay({
                 color="neutral" 
                 className="metric-badge" 
                 onClick={onEditDate}
-                title="Click to set a planned date"
+                title={lang.current.tooltip.setPlannedDate}
               >
                 Not set
               </TagPill>
@@ -92,3 +97,5 @@ export default function PlanMetricsDisplay({
     </div>
   );
 }
+
+export default memo(PlanMetricsDisplay);

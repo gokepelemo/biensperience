@@ -152,7 +152,7 @@ export default function NewExperience() {
 
     // Basic client-side validation to avoid server-side CastErrors (400 Bad Request)
     if (!newExperience.name || String(newExperience.name).trim().length === 0) {
-      setError('Please enter a title for the experience.');
+      setError(lang.current.validation.titleRequired);
       return;
     }
 
@@ -160,7 +160,7 @@ export default function NewExperience() {
     const dest = newExperience.destination;
     const isObjectId = typeof dest === 'string' && /^[0-9a-fA-F]{24}$/.test(dest);
     if (!dest || !isObjectId) {
-      setError('Please select a destination from the list or create a new destination first.');
+      setError(lang.current.validation.destinationRequired);
       return;
     }
 

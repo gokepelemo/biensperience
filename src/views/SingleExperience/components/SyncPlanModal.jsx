@@ -356,7 +356,7 @@ export default function SyncPlanModal({
         <Alert
           type="warning"
           className="mt-3"
-          title="Note:"
+          title={lang.current.label.note}
           message={lang.current.alert.syncPreserveNote}
         />
       </>

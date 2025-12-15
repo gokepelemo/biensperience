@@ -145,8 +145,8 @@ export default function DestinationExperienceGrid({
       ) : (
         <EmptyState
           variant="experiences"
-          title="No experiences in this destination yet"
-          description="Be the first to add one and help others discover amazing activities here."
+          title={lang.current.emptyState.noExperiencesInDestination}
+          description={lang.current.emptyState.noExperiencesInDestinationDescription}
           primaryAction="Add Experience"
           onPrimaryAction={onAddExperience}
           size="md"

@@ -912,7 +912,7 @@ export default function PlanItemDetailsModal({
         onChange={(e) => setTitleText(e.target.value)}
         onBlur={handleTitleBlur}
         onKeyDown={handleTitleKeyDown}
-        aria-label="Edit plan item title"
+        aria-label={lang.current.aria.editPlanItemTitle}
       />
     ) : (
       <span
@@ -921,7 +921,7 @@ export default function PlanItemDetailsModal({
         role="button"
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && handleTitleClick()}
-        title="Click to edit title"
+        title={lang.current.tooltip.clickToEditTitle}
       >
         {planItem.text || 'Plan Item'}
       </span>
@@ -1054,7 +1054,7 @@ export default function PlanItemDetailsModal({
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowDateModal(true); }}
-                title="Click to edit scheduled date"
+                title={lang.current.tooltip.clickToEditScheduledDate}
               >
                 <span className={styles.infoIcon}>📅</span>
                 <div className={styles.infoContent}>
@@ -1142,11 +1142,11 @@ export default function PlanItemDetailsModal({
                             ref={addDropdownFilterRef}
                             type="text"
                             className={styles.addDropdownFilterInput}
-                            placeholder="Search..."
+                            placeholder={lang.current.placeholder.search}
                             value={addDropdownFilter}
                             onChange={(e) => setAddDropdownFilter(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
-                            aria-label="Filter detail types"
+                            aria-label={lang.current.aria.filterDetailTypes}
                           />
                         </div>
                         {/* Filtered list of detail types */}
@@ -1539,7 +1539,7 @@ export default function PlanItemDetailsModal({
                       type="button"
                       className={`${styles.copyableAddressBar} ${addressCopied ? styles.copied : ''}`}
                       onClick={handleCopyAddress}
-                      aria-label="Copy address to clipboard"
+                      aria-label={lang.current.aria.copyAddressToClipboard}
                     >
                       <span className={styles.copyableAddressText}>
                         {getFullCopyableAddress()}

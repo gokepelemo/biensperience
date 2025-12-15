@@ -382,6 +382,13 @@ const backendLogger = {
   unsubscribe: unsubscribeFromLogs,
 
   /**
+   * Check if debug logging is enabled
+   * Useful for gating expensive debug operations
+   * @returns {boolean}
+   */
+  isDebugEnabled: () => backendConfig.logLevel >= LOG_LEVELS.DEBUG,
+
+  /**
    * Get current configuration
    */
   getConfig: () => ({ ...backendConfig }),

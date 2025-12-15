@@ -199,47 +199,57 @@ export function ProfileContentGridSkeleton({ type = 'experiences', count = 6 }) 
 }
 
 /**
+ * Single tab skeleton item matching TabNav's TabItem structure
+ * Shows icon circle + text rectangle
+ */
+function TabSkeletonItem({ width }) {
+  return (
+    <div style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 'var(--space-2)',
+      padding: 'var(--space-3) var(--space-4)',
+    }}>
+      {/* Icon skeleton */}
+      <SkeletonLoader
+        variant="circle"
+        width="16px"
+        height="16px"
+      />
+      {/* Label skeleton */}
+      <SkeletonLoader
+        variant="rectangle"
+        width={width}
+        height="14px"
+        style={{ borderRadius: 'var(--radius-xs)' }}
+      />
+    </div>
+  );
+}
+
+/**
  * Tabs skeleton for Profile navigation
  * Shows 5 tabs: Activity, Follows, Planned, Created, Destinations
+ * Matches TabNav component structure with centered layout
  */
 export function ProfileTabsSkeleton() {
   return (
-    <div className={styles.profileTabs}>
-      {/* Activity tab */}
-      <SkeletonLoader
-        variant="rectangle"
-        width="75px"
-        height="32px"
-        style={{ borderRadius: 'var(--radius-sm)' }}
-      />
-      {/* Follows tab */}
-      <SkeletonLoader
-        variant="rectangle"
-        width="70px"
-        height="32px"
-        style={{ borderRadius: 'var(--radius-sm)' }}
-      />
-      {/* Planned tab */}
-      <SkeletonLoader
-        variant="rectangle"
-        width="75px"
-        height="32px"
-        style={{ borderRadius: 'var(--radius-sm)' }}
-      />
-      {/* Created tab */}
-      <SkeletonLoader
-        variant="rectangle"
-        width="70px"
-        height="32px"
-        style={{ borderRadius: 'var(--radius-sm)' }}
-      />
-      {/* Destinations tab */}
-      <SkeletonLoader
-        variant="rectangle"
-        width="100px"
-        height="32px"
-        style={{ borderRadius: 'var(--radius-sm)' }}
-      />
+    <div className={styles.profileTabs} style={{
+      display: 'flex',
+      justifyContent: 'center',
+      gap: 'var(--space-1)',
+      borderBottom: '1px solid var(--color-border-light)',
+    }}>
+      {/* Activity tab - "Activity" ~50px */}
+      <TabSkeletonItem width="50px" />
+      {/* Follows tab - "Follows" ~45px */}
+      <TabSkeletonItem width="45px" />
+      {/* Planned tab - "Planned" ~48px */}
+      <TabSkeletonItem width="48px" />
+      {/* Created tab - "Created" ~48px */}
+      <TabSkeletonItem width="48px" />
+      {/* Destinations tab - "Destinations" ~72px */}
+      <TabSkeletonItem width="72px" />
     </div>
   );
 }

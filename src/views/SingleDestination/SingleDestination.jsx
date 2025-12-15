@@ -335,6 +335,55 @@ export default function SingleDestination() {
     };
   }, [destinationId, destinationExperiences, directDestinationExperiences]);
 
+  // Listen for photo events (destination photos)
+  useEffect(() => {
+    if (!destinationId) return;
+
+    const handlePhotoCreated = (event) => {
+      const photo = event.photo;
+      if (!photo) return;
+      // Refresh destination to get updated photos
+      fetchDestination();
+    };
+
+    const handlePhotoUpdated = (event) => {
+      const photo = event.photo;
+      if (!photo || !photo._id) return;
+      // Update photo in destination if it exists
+      setDestination(prev => {
+        if (!prev?.photos) return prev;
+        const photoIndex = prev.photos.findIndex(p => p._id === photo._id || p === photo._id);
+        if (photoIndex === -1) return prev;
+        const updatedPhotos = [...prev.photos];
+        updatedPhotos[photoIndex] = photo;
+        return { ...prev, photos: updatedPhotos };
+      });
+    };
+
+    const handlePhotoDeleted = (event) => {
+      const photoId = event.photoId;
+      if (!photoId) return;
+      // Remove photo from destination
+      setDestination(prev => {
+        if (!prev?.photos) return prev;
+        const updatedPhotos = prev.photos.filter(p => 
+          (p._id || p).toString() !== photoId.toString()
+        );
+        return { ...prev, photos: updatedPhotos };
+      });
+    };
+
+    const unsubCreate = eventBus.subscribe('photo:created', handlePhotoCreated);
+    const unsubUpdate = eventBus.subscribe('photo:updated', handlePhotoUpdated);
+    const unsubDelete = eventBus.subscribe('photo:deleted', handlePhotoDeleted);
+
+    return () => {
+      unsubCreate();
+      unsubUpdate();
+      unsubDelete();
+    };
+  }, [destinationId, fetchDestination]);
+
   useEffect(() => {
     const filteredExperiences = experiences.filter((experience) => {
       // destination may be an ObjectId string or a populated object
@@ -709,7 +758,11 @@ export default function SingleDestination() {
                     Location
                   </h3>
                   <GoogleMap
-                    location={destination.map_location || `${destination.name}, ${destination.state ? destination.state + ', ' : ''}${destination.country}`}
+                    location={
+                      destination.location?.address || 
+                      destination.map_location || 
+                      `${destination.name}, ${destination.state ? destination.state + ', ' : ''}${destination.country}`
+                    }
                     height={350}
                     title={`Map of ${destination.name}`}
                     className={styles.destinationMap}
@@ -838,7 +891,7 @@ export default function SingleDestination() {
         show={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDeleteDestination}
-        title="Delete Destination?"
+        title={lang.current.modal.deleteDestination}
         message="You are about to permanently delete"
         itemName={destination?.name}
         additionalInfo={[
@@ -886,7 +939,7 @@ export default function SingleDestination() {
                 fetchDestinations();
               }
 
-              success('Photos updated successfully');
+              success(lang.current.success.photosUpdated);
             }
           } catch (err) {
             logger.error('[SingleDestination] Failed to save photos', { error: err.message });

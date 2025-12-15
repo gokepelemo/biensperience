@@ -22,6 +22,13 @@
     font-size: $font-size-lg;
     color: var(--color-text-secondary);
   }
+
+  // Skeleton placeholder for stats subtitle - matches subtitle line-height
+  .subtitleSkeleton {
+    display: flex;
+    justify-content: center;
+    height: calc($font-size-lg * 1.5); // Match line-height of subtitle
+  }
 }
 
 // View Toggle (List/Map)
@@ -88,8 +95,13 @@
 // Map View Container
 .mapViewContainer {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
+  padding: 0 $space-4;
+
+  @include breakpoint-max(md) {
+    padding: 0;
+  }
 }
 
 .mapViewInfo {
@@ -99,6 +111,13 @@
   margin-bottom: $space-3;
 }
 
+.mapLoadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-3;
+}
+
 .sectionTitle {
   font-size: $font-size-2xl;
   font-weight: $font-weight-semibold;
@@ -106,30 +125,44 @@
   color: var(--color-text-primary);
 }
 
-// Destinations Grid - use auto-fill to prevent stretching with few items
+// Destinations Grid - CSS Grid with fixed columns
 .destinationsList {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 250px));
-  gap: $space-3;
+  grid-template-columns: repeat(4, 1fr);
+  gap: $space-4;
   width: 100%;
   max-width: 1200px;
-  justify-content: center;
-  justify-items: center;
+  margin: 0 auto;
 
-  // On mobile/tablet, center single column layout
+  // 3 columns on medium screens
+  @include breakpoint-max(lg) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  // 2 columns on tablets
   @include breakpoint-max(md) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  // Single column on mobile
+  @include breakpoint-max(sm) {
     grid-template-columns: 1fr;
-    justify-items: center;
+    max-width: 400px;
   }
 }
 
-// Destination Skeleton - matches DestinationCard: 12rem × 8rem
+// Destination Skeleton - matches DestinationCard layout exactly
+// Card: aspect-ratio 3/2 (fluid), border-radius 2xl, centered title overlay with blur
 .destinationSkeleton {
-  width: 12rem;
-  height: 8rem;
+  width: 100%;
+  aspect-ratio: 3 / 2;
   border-radius: $radius-2xl;
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-3;
   background: linear-gradient(
     90deg,
     var(--color-bg-tertiary) 25%,
@@ -140,40 +173,46 @@
   animation: shimmer 1.5s infinite;
 }
 
+// Centered title overlay matching DestinationCard's .destinationCardTitle
+// The actual card has a centered blur overlay with text
 .destinationSkeletonOverlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: $space-3;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent);
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: $space-1;
+  align-items: center;
+  justify-content: center;
+  padding: $space-2 $space-3;
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: $radius-md;
+  width: auto;
+  max-width: 80%;
 }
 
 .destinationSkeletonTitle {
-  height: 1rem;
-  width: 70%;
-  background: rgba(255, 255, 255, 0.3);
+  height: $font-size-lg;
+  width: 6rem;
+  background: rgba(255, 255, 255, 0.25);
   border-radius: $radius-sm;
 }
 
-// Experiences Grid - use auto-fill to prevent stretching with few items
+// Experiences Grid - CSS Grid with fixed columns
 .experiencesList {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 350px));
-  gap: $space-3;
+  grid-template-columns: repeat(3, 1fr);
+  gap: $space-4;
   width: 100%;
   max-width: 1200px;
-  justify-content: center;
-  justify-items: center;
+  margin: 0 auto;
 
-  // On mobile/tablet, center single column layout
+  // 2 columns on medium screens
   @include breakpoint-max(md) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  // Single column on mobile
+  @include breakpoint-max(sm) {
     grid-template-columns: 1fr;
-    justify-items: center;
+    max-width: 400px;
   }
 }
 
@@ -189,15 +228,19 @@
   min-width: 200px;
 }
 
-// Experience Skeleton - matches ExperienceCard: 20rem × 12rem min-height
+// Experience Skeleton - matches ExperienceCard layout exactly
+// Card: min-height 12rem, border-radius md, centered title + bottom actions row
 .experienceSkeleton {
-  width: 20rem;
+  width: 100%;
   min-height: 12rem;
   border-radius: $radius-md;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-3;
   background: linear-gradient(
     90deg,
     var(--color-bg-tertiary) 25%,
@@ -208,35 +251,58 @@
   animation: shimmer 1.5s infinite;
 }
 
+// Content area matching ExperienceCard's .experienceCardLink (flex-grow-1, centered)
 .experienceSkeletonContent {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: $space-4;
+  width: 100%;
 }
 
+// Title overlay matching ExperienceCard's .experienceCardTitle (blur background, centered)
 .experienceSkeletonTitle {
-  width: 75%;
-  height: 1.25rem;
-  background: rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-3 $space-4;
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border-radius: $radius-md;
+  width: auto;
+  max-width: 85%;
+
+  // Inner shimmer bar for text
+  &::after {
+    content: '';
+    display: block;
+    height: $font-size-lg;
+    width: 8rem;
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: $radius-sm;
+  }
 }
 
+// Actions row matching ExperienceCard's .experienceCardActions
 .experienceSkeletonActions {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: $space-2;
   padding: $space-3;
-  background: rgba(0, 0, 0, 0.2);
+  width: 100%;
+  flex-shrink: 0;
 }
 
+// Round buttons matching ExperienceCard's btn-icon (--btn-height-md = 44px)
 .experienceSkeletonButton {
   width: var(--btn-height-md, 44px);
   height: var(--btn-height-md, 44px);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 // Shimmer animation

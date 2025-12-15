@@ -127,7 +127,7 @@ export default function TravelTipsManager({
         >
           <div className={styles.tipCardContent}>
             {onReorder && (
-              <span className={styles.dragHandle} title="Drag to reorder">
+              <span className={styles.dragHandle} title={lang.current.travelTip.dragToReorder}>
                 <FaGripVertical />
               </span>
             )}
@@ -167,7 +167,7 @@ export default function TravelTipsManager({
       >
         <div className={styles.tipCardHeader}>
           {onReorder && (
-            <span className={styles.dragHandle} title="Drag to reorder">
+            <span className={styles.dragHandle} title={lang.current.travelTip.dragToReorder}>
               <FaGripVertical />
             </span>
           )}

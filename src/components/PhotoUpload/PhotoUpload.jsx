@@ -521,7 +521,7 @@ export default function PhotoUpload({ data, setData }) {
               onClick={() => setShowCreditFields(true)}
               aria-expanded={showCreditFields}
             >
-              + Add Photo Credits
+              {lang.current.button.addPhotoCredits}
             </button>
           </div>
         )}
@@ -625,7 +625,7 @@ export default function PhotoUpload({ data, setData }) {
                           handleRemoveUrlFromQueue(index);
                         }}
                         aria-label={`Remove URL ${index + 1} from queue`}
-                        title="Remove from queue"
+                        title={lang.current.tooltip.removeFromQueue}
                       >
                         ×
                       </button>

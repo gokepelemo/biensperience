@@ -8,6 +8,7 @@ import { useState, useCallback, useEffect, useId, useMemo } from 'react';
 import { Form } from 'react-bootstrap';
 import Modal from '../../../components/Modal/Modal';
 import ActivityTypeSelect from '../../../components/ActivityTypeSelect';
+import { lang } from '../../../lang.constants';
 import { getAddressSuggestions, getPlaceDetails } from '../../../utilities/address-utils';
 import { logger } from '../../../utilities/logger';
 import { useFormPersistence } from '../../../hooks/useFormPersistence';
@@ -209,13 +210,14 @@ export default function PlanItemModal({
   }, [setEditingPlanItem]);
 
   // Wrap submit handlers to clear persistence on success
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (e) => {
+    // Pass event to parent handler which expects it for preventDefault
     const submitFn = activeTab === "experience"
       ? onSaveExperiencePlanItem
       : onSavePlanInstanceItem;
 
     try {
-      await submitFn();
+      await submitFn(e);
       // Clear persistence after successful save (only in add mode)
       if (isAddMode && persistence) {
         persistence.clear();
@@ -422,7 +424,7 @@ export default function PlanItemModal({
                   type="button"
                   className="btn btn-outline-secondary"
                   onClick={handleClearAddress}
-                  aria-label="Clear address"
+                  aria-label={lang.current.aria.clearAddress}
                 >
                   ×
                 </button>

@@ -23,7 +23,11 @@ export async function signUp(userData) {
 
 export async function login(credentials) {
   const response = await sendRequest(`${BASE_URL}login`, "POST", credentials);
-  // Backend now returns { success: true, token, user } - extract token
+  // Backend returns { success: true, data: { token, user } } - extract token from data
+  if (response && response.success && response.data && response.data.token) {
+    return response.data.token;
+  }
+  // Fallback for legacy response format
   return response.token || response;
 }
 
@@ -32,24 +36,35 @@ export function checkToken() {
 }
 
 export async function getUserData(id) {
-  return await sendRequest(`${BASE_URL}${id}`, "GET");
+  const response = await sendRequest(`${BASE_URL}${id}`, "GET");
+  // Handle standardized API response: { success: true, data: user }
+  if (response && response.success && response.data) {
+    return response.data;
+  }
+  return response;
 }
 
 // OPTIMIZATION: Bulk fetch multiple users in one request
 export async function getBulkUserData(ids) {
   if (!ids || ids.length === 0) return [];
-  return await sendRequest(`${BASE_URL}bulk?ids=${ids.join(',')}`, "GET");
+  const response = await sendRequest(`${BASE_URL}bulk?ids=${ids.join(',')}`, "GET");
+  // Extract data from standardized response format { success: true, data: [] }
+  return response?.data || [];
 }
 
 export async function updateUser(id, userData) {
-  const result = await sendRequest(`${BASE_URL}${id}`, "PUT", userData);
+  const response = await sendRequest(`${BASE_URL}${id}`, "PUT", userData);
+  // Handle standardized API response: { success: true, data: { user, token } }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   // Standardized payload: { entity, entityId } for updated events
+  // Backend returns { user, token } so extract user for event
+  const user = result?.user || result;
   try {
-    if (result) {
-      broadcastEvent('user:updated', { user: result, userId: result._id });
-      logger.debug('[users-api] User updated event dispatched', { id: result._id });
+    if (user) {
+      broadcastEvent('user:updated', { user, userId: user._id });
+      logger.debug('[users-api] User updated event dispatched', { id: user._id });
     }
   } catch (e) {
     // ignore
@@ -59,14 +74,18 @@ export async function updateUser(id, userData) {
 }
 
 export async function updateUserAsAdmin(id, userData) {
-  const result = await sendRequest(`${BASE_URL}${id}/admin`, "PUT", userData);
+  const response = await sendRequest(`${BASE_URL}${id}/admin`, "PUT", userData);
+  // Handle standardized API response: { success: true, data: { user } }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   // Standardized payload: { entity, entityId } for updated events
+  // Backend returns { user } so extract user for event
+  const user = result?.user || result;
   try {
-    if (result) {
-      broadcastEvent('user:updated', { user: result, userId: result._id });
-      logger.debug('[users-api] User updated (admin) event dispatched', { id: result._id });
+    if (user) {
+      broadcastEvent('user:updated', { user, userId: user._id });
+      logger.debug('[users-api] User updated (admin) event dispatched', { id: user._id });
     }
   } catch (e) {
     // ignore
@@ -80,14 +99,18 @@ export async function searchUsers(query) {
 }
 
 export async function updateUserRole(userId, roleData) {
-  const result = await sendRequest(`${BASE_URL}${userId}/role`, "PUT", roleData);
+  const response = await sendRequest(`${BASE_URL}${userId}/role`, "PUT", roleData);
+  // Handle standardized API response: { success: true, data: { user } }
+  const result = (response && response.success && response.data) ? response.data : response;
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   // Standardized payload: { entity, entityId } for updated events
+  // Backend returns { user } so extract user for event
+  const user = result?.user || result;
   try {
-    if (result) {
-      broadcastEvent('user:updated', { user: result, userId: result._id });
-      logger.debug('[users-api] User role updated event dispatched', { id: result._id });
+    if (user) {
+      broadcastEvent('user:updated', { user, userId: user._id });
+      logger.debug('[users-api] User role updated event dispatched', { id: user._id });
     }
   } catch (e) {
     // ignore

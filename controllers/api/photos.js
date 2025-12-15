@@ -4,6 +4,8 @@ const User = require("../../models/user");
 const { s3Upload, s3Delete } = require("../../uploads/aws-s3");
 const { getEnforcer } = require("../../utilities/permission-enforcer");
 const { isOwner } = require("../../utilities/permissions");
+const { successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
+const { broadcastEvent } = require('../../utilities/websocket-server');
 const backendLogger = require("../../utilities/backend-logger");
 const fs = require("fs");
 const path = require("path");
@@ -25,7 +27,7 @@ async function createPhoto(req, res) {
 
     // Check if file exists
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return errorResponse(res, null, 'No file uploaded', 400);
     }
 
     // S3 prefix: photos/ for photos uploaded to entities
@@ -60,15 +62,24 @@ async function createPhoto(req, res) {
         return Photo.create(photoData);
       })
       .then((upload) => {
-        res.status(201).json({ upload: upload.toObject() });
+        // Broadcast photo:created event
+        try {
+          broadcastEvent('photo', upload._id.toString(), {
+            type: 'photo:created',
+            payload: { photo: upload.toObject() }
+          });
+        } catch (err) {
+          backendLogger.error('Failed to broadcast photo:created event', { error: err.message, photoId: upload._id });
+        }
+        return successResponse(res, upload.toObject(), 'Photo uploaded successfully', 201);
       })
       .catch((error) => {
         backendLogger.error("Photo upload error", { error: error.message, userId: req.user._id });
-        res.status(500).json({ error: 'Failed to upload photo' });
+        return errorResponse(res, error, 'Failed to upload photo', 500);
       });
   } catch (err) {
     backendLogger.error("Photo creation error", { error: err.message, userId: req.user._id });
-    res.status(400).json({ error: 'Failed to create photo' });
+    return errorResponse(res, err, 'Failed to create photo', 400);
   }
 }
 
@@ -81,7 +92,7 @@ async function updatePhoto(req, res) {
 
     let photo = await Photo.findById(req.params.id);
     if (!photo) {
-      return res.status(404).json({ error: 'Photo not found' });
+      return errorResponse(res, null, 'Photo not found', 404);
     }
     
     // Check if user can edit using PermissionEnforcer
@@ -92,10 +103,7 @@ async function updatePhoto(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(403).json({
-        error: 'Not authorized to update this photo',
-        message: permCheck.reason
-      });
+      return errorResponse(res, null, 'Not authorized to update this photo', 403);
     }
 
     // Update only allowed fields (prevent modification of permissions via this endpoint)
@@ -107,7 +115,18 @@ async function updatePhoto(req, res) {
     });
 
     await photo.save();
-    return res.status(200).json(photo);
+    
+    // Broadcast photo:updated event
+    try {
+      broadcastEvent('photo', photo._id.toString(), {
+        type: 'photo:updated',
+        payload: { photo: photo.toObject() }
+      });
+    } catch (err) {
+      backendLogger.error('Failed to broadcast photo:updated event', { error: err.message, photoId: photo._id });
+    }
+    
+    return successResponse(res, photo, 'Photo updated successfully');
   } catch (err) {
     backendLogger.error('Update photo error', {
       error: err.message,
@@ -116,7 +135,7 @@ async function updatePhoto(req, res) {
       photoId: req.params.id,
       validationErrors: err.errors
     });
-    res.status(400).json({ error: 'Failed to update photo', details: err.message });
+    return errorResponse(res, err, 'Failed to update photo', 400);
   }
 }
 
@@ -140,10 +159,7 @@ async function deletePhoto(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(403).json({
-        error: 'Not authorized to delete this photo',
-        message: permCheck.reason
-      });
+      return errorResponse(res, null, 'Not authorized to delete this photo', 403);
     }
 
     // Delete from S3 if the photo URL is an S3 URL
@@ -187,13 +203,24 @@ async function deletePhoto(req, res) {
     }
 
     // Delete from database
+    const photoId = photo._id.toString();
     await photo.deleteOne();
     // Photo deleted from database successfully
     
-    return res.status(200).json({ message: 'Photo deleted successfully' });
+    // Broadcast photo:deleted event
+    try {
+      broadcastEvent('photo', photoId, {
+        type: 'photo:deleted',
+        payload: { photoId }
+      });
+    } catch (err) {
+      backendLogger.error('Failed to broadcast photo:deleted event', { error: err.message, photoId });
+    }
+    
+    return successResponse(res, null, 'Photo deleted successfully');
   } catch (err) {
     backendLogger.error('Delete photo error', { error: err.message, userId: req.user._id, photoId: req.params.id });
-    res.status(400).json({ error: 'Failed to delete photo' });
+    return errorResponse(res, err, 'Failed to delete photo', 400);
   }
 }
 
@@ -202,7 +229,7 @@ async function createPhotoFromUrl(req, res) {
     const { url, photo_credit, photo_credit_url, width, height } = req.body;
 
     if (!url) {
-      return res.status(400).json({ error: 'Photo URL is required' });
+      return errorResponse(res, null, 'Photo URL is required', 400);
     }
 
     const photoData = {
@@ -227,10 +254,10 @@ async function createPhotoFromUrl(req, res) {
 
     const photo = await Photo.create(photoData);
 
-    res.status(201).json({ upload: photo.toObject() });
+    return successResponse(res, photo.toObject(), 'Photo created from URL successfully', 201);
   } catch (err) {
     backendLogger.error("Photo URL creation error", { error: err.message, userId: req.user._id, url: req.body.url });
-    res.status(400).json({ error: 'Failed to create photo from URL' });
+    return errorResponse(res, err, 'Failed to create photo from URL', 400);
   }
 }
 
@@ -238,7 +265,7 @@ async function createPhotoBatch(req, res) {
   try {
     // Check if files exist
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: 'No files uploaded' });
+      return errorResponse(res, null, 'No files uploaded', 400);
     }
 
     // Parse dimensions array if provided (sent as JSON string from frontend)
@@ -290,10 +317,10 @@ async function createPhotoBatch(req, res) {
     const photos = await Promise.all(uploadPromises);
     const photoObjects = photos.map(photo => photo.toObject());
 
-    res.status(201).json({ uploads: photoObjects });
+    return successResponse(res, photoObjects, 'Batch photo upload successful', 201);
   } catch (err) {
     backendLogger.error("Batch photo upload error", { error: err.message, userId: req.user._id, fileCount: req.files?.length });
-    res.status(500).json({ error: 'Failed to upload photos' });
+    return errorResponse(res, err, 'Failed to upload photos', 500);
   }
 }
 
@@ -303,16 +330,16 @@ async function createPhotoBatch(req, res) {
 async function addCollaborator(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid photo ID format' });
+      return errorResponse(res, null, 'Invalid photo ID format', 400);
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.body.userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     const photo = await Photo.findById(req.params.id);
     if (!photo) {
-      return res.status(404).json({ error: 'Photo not found' });
+      return errorResponse(res, null, 'Photo not found', 404);
     }
 
     // Only owners can manage permissions
@@ -323,10 +350,7 @@ async function addCollaborator(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(403).json({
-        error: 'Only owners can add collaborators',
-        message: permCheck.reason
-      });
+      return errorResponse(res, null, 'Only owners can add collaborators', 403);
     }
 
     // Check if user already has a permission
@@ -335,7 +359,7 @@ async function addCollaborator(req, res) {
     );
 
     if (existingPermission) {
-      return res.status(400).json({ error: 'User already has permission on this photo' });
+      return errorResponse(res, null, 'User already has permission on this photo', 400);
     }
 
     // Add collaborator permission using enforcer (SECURE)
@@ -361,14 +385,14 @@ async function addCollaborator(req, res) {
     });
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return errorResponse(res, null, result.error, 400);
     }
 
     // Permission saved by enforcer, no need to save again
-    res.json({ message: 'Collaborator added successfully', photo });
+    return successResponse(res, photo, 'Collaborator added successfully');
   } catch (err) {
     backendLogger.error('Add collaborator error', { error: err.message, userId: req.user._id, photoId: req.params.id, collaboratorId: req.body.userId });
-    res.status(500).json({ error: 'Failed to add collaborator' });
+    return errorResponse(res, err, 'Failed to add collaborator', 500);
   }
 }
 
@@ -378,21 +402,21 @@ async function addCollaborator(req, res) {
 async function removeCollaborator(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid photo ID format' });
+      return errorResponse(res, null, 'Invalid photo ID format', 400);
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     const photo = await Photo.findById(req.params.id);
     if (!photo) {
-      return res.status(404).json({ error: 'Photo not found' });
+      return errorResponse(res, null, 'Photo not found', 404);
     }
 
     // Only owners can remove collaborators
     if (!isOwner(req.user._id, photo)) {
-      return res.status(403).json({ error: 'Only owners can remove collaborators' });
+      return errorResponse(res, null, 'Only owners can remove collaborators', 403);
     }
 
     // Find the permission
@@ -403,7 +427,7 @@ async function removeCollaborator(req, res) {
     );
 
     if (permissionIndex === -1 || permissionIndex === undefined) {
-      return res.status(404).json({ error: 'Collaborator not found' });
+      return errorResponse(res, null, 'Collaborator not found', 404);
     }
 
     // Remove permission using enforcer (SECURE)
@@ -425,15 +449,15 @@ async function removeCollaborator(req, res) {
     });
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return errorResponse(res, null, result.error, 400);
     }
 
     await photo.save();
 
-    res.json({ message: 'Collaborator removed successfully', photo });
+    return successResponse(res, photo, 'Collaborator removed successfully');
   } catch (err) {
     backendLogger.error('Remove collaborator error', { error: err.message, userId: req.user._id, photoId: req.params.id, collaboratorId: req.params.userId });
-    res.status(500).json({ error: 'Failed to remove collaborator' });
+    return errorResponse(res, err, 'Failed to remove collaborator', 500);
   }
 }
 
@@ -443,21 +467,21 @@ async function removeCollaborator(req, res) {
 async function addContributor(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid photo ID format' });
+      return errorResponse(res, null, 'Invalid photo ID format', 400);
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.body.userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     const photo = await Photo.findById(req.params.id);
     if (!photo) {
-      return res.status(404).json({ error: 'Photo not found' });
+      return errorResponse(res, null, 'Photo not found', 404);
     }
 
     // Only owners can add contributors
     if (!isOwner(req.user._id, photo)) {
-      return res.status(403).json({ error: 'Only owners can add contributors' });
+      return errorResponse(res, null, 'Only owners can add contributors', 403);
     }
 
     // Check if user already has a permission
@@ -466,7 +490,7 @@ async function addContributor(req, res) {
     );
 
     if (existingPermission) {
-      return res.status(400).json({ error: 'User already has permission on this photo' });
+      return errorResponse(res, null, 'User already has permission on this photo', 400);
     }
 
     // Add contributor permission using enforcer (SECURE)
@@ -495,14 +519,14 @@ async function addContributor(req, res) {
     });
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return errorResponse(res, null, result.error, 400);
     }
 
     // Permission saved by enforcer, no need to save again
-    res.json({ message: 'Contributor added successfully', photo });
+    return successResponse(res, photo, 'Contributor added successfully');
   } catch (err) {
     backendLogger.error('Add contributor error', { error: err.message, userId: req.user._id, photoId: req.params.id, contributorId: req.params.userId });
-    res.status(500).json({ error: 'Failed to add contributor' });
+    return errorResponse(res, err, 'Failed to add contributor', 500);
   }
 }
 
@@ -512,21 +536,21 @@ async function addContributor(req, res) {
 async function removeContributor(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid photo ID format' });
+      return errorResponse(res, null, 'Invalid photo ID format', 400);
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     const photo = await Photo.findById(req.params.id);
     if (!photo) {
-      return res.status(404).json({ error: 'Photo not found' });
+      return errorResponse(res, null, 'Photo not found', 404);
     }
 
     // Only owners can remove contributors
     if (!isOwner(req.user._id, photo)) {
-      return res.status(403).json({ error: 'Only owners can remove contributors' });
+      return errorResponse(res, null, 'Only owners can remove contributors', 403);
     }
 
     // Find the permission
@@ -537,7 +561,7 @@ async function removeContributor(req, res) {
     );
 
     if (permissionIndex === -1 || permissionIndex === undefined) {
-      return res.status(404).json({ error: 'Contributor not found' });
+      return errorResponse(res, null, 'Contributor not found', 404);
     }
 
     // Remove permission using enforcer (SECURE)
@@ -559,15 +583,15 @@ async function removeContributor(req, res) {
     });
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return errorResponse(res, null, result.error, 400);
     }
 
     await photo.save();
 
-    res.json({ message: 'Contributor removed successfully', photo });
+    return successResponse(res, photo, 'Contributor removed successfully');
   } catch (err) {
     backendLogger.error('Remove contributor error', { error: err.message, userId: req.user._id, photoId: req.params.id, contributorId: req.params.userId });
-    res.status(500).json({ error: 'Failed to remove contributor' });
+    return errorResponse(res, err, 'Failed to remove contributor', 500);
   }
 }
 

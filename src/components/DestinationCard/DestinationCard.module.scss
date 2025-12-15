@@ -15,7 +15,7 @@
   border-radius: $radius-2xl;
   position: relative;
   transition: transform $transition-normal, box-shadow $transition-normal;
-  
+
   /* Subtle hover lift */
   @media (hover: hover) {
     &:hover {
@@ -23,6 +23,13 @@
       box-shadow: var(--shadow-md);
     }
   }
+}
+
+/* Fluid variant - fills parent container in grid layouts */
+.destinationCardFluid {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  height: auto;
 }
 
 .destinationCardLink {

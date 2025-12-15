@@ -1,19 +1,23 @@
 /**
  * ActionButtonsRow Component
  * Displays action buttons for SingleExperience: Plan It, Edit Date, Edit Experience, Delete
+ *
+ * Wrapped with React.memo to prevent unnecessary re-renders when parent state changes
+ * that don't affect this component's props.
  */
 
+import { memo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useRef } from 'react';
 import { FaCalendarAlt, FaPencilAlt, FaTrash, FaShareAlt } from 'react-icons/fa';
 import { FadeIn } from '../../../components/design-system';
 import Loading from '../../../components/Loading/Loading';
 import { isOwner } from '../../../utilities/permissions';
 import { formatDateForInput, formatDateOrdinal } from '../../../utilities/date-utils';
 import useButtonWidth from '../../../hooks/useButtonWidth';
+import { idEquals } from '../../../utilities/id-utils';
 import styles from './ActionButtonsRow.module.scss';
 
-export default function ActionButtonsRow({
+function ActionButtonsRow({
   // User & Experience data
   user,
   experience,
@@ -58,17 +62,20 @@ export default function ActionButtonsRow({
 }) {
   const navigate = useNavigate();
 
+  // Internal ref for button width measurement (always created, used as fallback)
+  const internalPlanRef = useRef(null);
+
+  // Use provided ref or fallback to internal ref
+  const buttonRef = planButtonRef || internalPlanRef;
+
   // Check if user owns the selected plan
-  const userOwnsSelectedPlan = selectedPlan && (
-    selectedPlan.user?._id?.toString() === user?._id?.toString() ||
-    selectedPlan.user?.toString() === user?._id?.toString()
+  const userOwnsSelectedPlan = selectedPlan && idEquals(
+    selectedPlan.user?._id || selectedPlan.user,
+    user?._id
   );
 
-  // Ensure we have a ref for measuring the plan button width
-  const internalPlanRef = planButtonRef || useRef(null);
-
   // Compute the max width for the plan button using possible text states
-  useButtonWidth(internalPlanRef, [
+  useButtonWidth(buttonRef, [
     lang.current.button.addFavoriteExp,
     lang.current.button.expPlanAdded,
     lang.current.button.removeFavoriteExp
@@ -343,3 +350,5 @@ export default function ActionButtonsRow({
     </div>
   );
 }
+
+export default memo(ActionButtonsRow);

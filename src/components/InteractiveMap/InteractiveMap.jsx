@@ -6,11 +6,11 @@
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
-import { MarkerClusterer } from '@googlemaps/markerclusterer';
+import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { FaStar, FaMapMarkerAlt } from 'react-icons/fa';
 import MapInfoCard from './MapInfoCard';
 import styles from './InteractiveMap.module.scss';
+import { logger } from '../../utilities/logger';
 
 // Google Maps API Key (same as used in GoogleMap component)
 const GOOGLE_MAPS_API_KEY = 'AIzaSyDqWtvNnjYES1pd6ssnZ7gvddUVHrlNaR0';
@@ -42,22 +42,28 @@ const DEFAULT_ZOOM = 2;
  * @param {Object} props.center - Optional center point { lat, lng }
  * @param {number} props.zoom - Optional initial zoom level
  * @param {Function} props.onMarkerClick - Optional callback when marker is clicked
+ * @param {Function} props.onMarkerHover - Optional callback when marker is hovered (for external sync)
+ * @param {string} props.hoveredMarkerId - External hovered marker ID (for sync with listings)
  * @param {string} props.height - Optional map height (default: 500px)
  * @param {boolean} props.fitBounds - Whether to auto-fit bounds to markers (default: true)
+ * @param {boolean} props.showLegend - Whether to show the legend (default: true)
  */
 export default function InteractiveMap({
   markers = [],
   center = DEFAULT_CENTER,
   zoom = DEFAULT_ZOOM,
   onMarkerClick,
+  onMarkerHover,
+  hoveredMarkerId,
   height = '500px',
-  fitBounds = true
+  fitBounds = true,
+  showLegend = true
 }) {
   const [selectedMarker, setSelectedMarker] = useState(null);
-  const [hoveredMarker, setHoveredMarker] = useState(null);
+  const [internalHoveredMarker, setInternalHoveredMarker] = useState(null);
+  const [isHoveringInfoWindow, setIsHoveringInfoWindow] = useState(false);
   const mapRef = useRef(null);
-  const clustererRef = useRef(null);
-  const markersRef = useRef([]);
+  const hoverTimeoutRef = useRef(null);
 
   // Load Google Maps API
   const { isLoaded, loadError } = useJsApiLoader({
@@ -71,45 +77,56 @@ export default function InteractiveMap({
     height
   }), [height]);
 
-  // Calculate bounds from markers
-  const bounds = useMemo(() => {
-    if (!isLoaded || !markers.length || !window.google) return null;
+  // Calculate and fit bounds when map loads and markers are ready
+  const fitMapBounds = useCallback(() => {
+    if (!mapRef.current || !isLoaded || !window.google) return;
 
-    const newBounds = new window.google.maps.LatLngBounds();
-    markers.forEach(marker => {
-      if (marker.lat && marker.lng) {
-        newBounds.extend({ lat: marker.lat, lng: marker.lng });
+    // Get valid markers for bounds calculation
+    const seen = new Set();
+    const validForBounds = markers.filter(marker => {
+      if (typeof marker.lat !== 'number' || typeof marker.lng !== 'number' ||
+          isNaN(marker.lat) || isNaN(marker.lng)) return false;
+      if (marker.lat < -90 || marker.lat > 90 || marker.lng < -180 || marker.lng > 180) return false;
+      if (seen.has(marker.id)) return false;
+      seen.add(marker.id);
+      return true;
+    });
+
+    if (validForBounds.length === 0) return;
+
+    const bounds = new window.google.maps.LatLngBounds();
+    validForBounds.forEach(marker => {
+      bounds.extend({ lat: marker.lat, lng: marker.lng });
+    });
+
+    mapRef.current.fitBounds(bounds, { padding: 50 });
+
+    // Set max zoom to prevent over-zoom on single marker
+    window.google.maps.event.addListenerOnce(mapRef.current, 'idle', () => {
+      if (mapRef.current && mapRef.current.getZoom() > 15) {
+        mapRef.current.setZoom(15);
       }
     });
-    return newBounds;
   }, [markers, isLoaded]);
 
   // Fit map to bounds when markers change
   useEffect(() => {
-    if (fitBounds && mapRef.current && bounds && markers.length > 0) {
-      mapRef.current.fitBounds(bounds, { padding: 50 });
-
-      // Set max zoom to prevent over-zoom on single marker
-      const listener = window.google.maps.event.addListenerOnce(mapRef.current, 'idle', () => {
-        if (mapRef.current.getZoom() > 15) {
-          mapRef.current.setZoom(15);
-        }
-      });
-      return () => window.google.maps.event.removeListener(listener);
+    if (fitBounds && mapRef.current && markers.length > 0) {
+      fitMapBounds();
     }
-  }, [bounds, fitBounds, markers.length]);
+  }, [fitBounds, markers, fitMapBounds]);
 
   // Map load handler
   const onLoad = useCallback((map) => {
     mapRef.current = map;
-  }, []);
+    // Fit bounds after map loads
+    if (fitBounds && markers.length > 0) {
+      setTimeout(fitMapBounds, 100);
+    }
+  }, [fitBounds, markers.length, fitMapBounds]);
 
   // Map unmount handler
   const onUnmount = useCallback(() => {
-    if (clustererRef.current) {
-      clustererRef.current.clearMarkers();
-      clustererRef.current = null;
-    }
     mapRef.current = null;
   }, []);
 
@@ -121,48 +138,121 @@ export default function InteractiveMap({
     }
   }, [onMarkerClick]);
 
-  // Handle marker hover
+  // Handle marker hover - with delay on mouseout to allow hover on info window
   const handleMarkerHover = useCallback((marker) => {
-    setHoveredMarker(marker);
+    // Clear any pending timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setInternalHoveredMarker(marker);
+    // Notify parent for external sync
+    if (onMarkerHover) {
+      onMarkerHover(marker);
+    }
+  }, [onMarkerHover]);
+
+  // Handle marker mouse out - delay hiding to allow moving to info window
+  const handleMarkerMouseOut = useCallback(() => {
+    // Don't hide immediately - give time to move to info window
+    hoverTimeoutRef.current = setTimeout(() => {
+      if (!isHoveringInfoWindow) {
+        setInternalHoveredMarker(null);
+        if (onMarkerHover) {
+          onMarkerHover(null);
+        }
+      }
+    }, 200);
+  }, [isHoveringInfoWindow, onMarkerHover]);
+
+  // Handle info window hover
+  const handleInfoWindowMouseEnter = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setIsHoveringInfoWindow(true);
   }, []);
+
+  const handleInfoWindowMouseLeave = useCallback(() => {
+    setIsHoveringInfoWindow(false);
+    setInternalHoveredMarker(null);
+    if (onMarkerHover) {
+      onMarkerHover(null);
+    }
+  }, [onMarkerHover]);
 
   // Handle info window close
   const handleInfoWindowClose = useCallback(() => {
     setSelectedMarker(null);
-    setHoveredMarker(null);
-  }, []);
+    setInternalHoveredMarker(null);
+    setIsHoveringInfoWindow(false);
+    if (onMarkerHover) {
+      onMarkerHover(null);
+    }
+  }, [onMarkerHover]);
 
-  // Get marker icon based on type
+  // Get marker icon based on type - using SVG data URIs for reliable coloring
   const getMarkerIcon = useCallback((type) => {
-    if (!isLoaded || !window.google) return null;
-
-    const iconBase = {
-      scaledSize: new window.google.maps.Size(32, 32),
-      anchor: new window.google.maps.Point(16, 32),
-      labelOrigin: new window.google.maps.Point(16, -8)
-    };
-
+    // Experience markers: amber/orange color
     if (type === 'experience') {
       return {
-        ...iconBase,
-        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+        url: 'data:image/svg+xml,' + encodeURIComponent(`
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
-            <path fill="#F59E0B" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            <path fill="#F59E0B" stroke="#B45309" stroke-width="1" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+            <circle fill="#FEF3C7" cx="12" cy="9" r="3"/>
           </svg>
-        `)
+        `),
+        scaledSize: new window.google.maps.Size(32, 32),
+        anchor: new window.google.maps.Point(16, 32)
       };
     }
-
-    // Default destination marker
+    // Destination markers: blue color
     return {
-      ...iconBase,
-      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+      url: 'data:image/svg+xml,' + encodeURIComponent(`
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
-          <path fill="#3B82F6" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+          <path fill="#3B82F6" stroke="#1D4ED8" stroke-width="1" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+          <circle fill="#DBEAFE" cx="12" cy="9" r="3"/>
         </svg>
-      `)
+      `),
+      scaledSize: new window.google.maps.Size(32, 32),
+      anchor: new window.google.maps.Point(16, 32)
     };
-  }, [isLoaded]);
+  }, []);
+
+  // Filter to only valid markers with proper coordinates
+  // NOTE: This must be called before any early returns to follow React hooks rules
+  const validMarkers = useMemo(() => {
+    const seen = new Set();
+    return markers.filter(marker => {
+      // Check for valid coordinates
+      if (typeof marker.lat !== 'number' || typeof marker.lng !== 'number' ||
+          isNaN(marker.lat) || isNaN(marker.lng)) {
+        logger.warn('[InteractiveMap] Skipping marker with invalid coordinates', { id: marker.id, lat: marker.lat, lng: marker.lng });
+        return false;
+      }
+      // Check for valid lat/lng ranges
+      if (marker.lat < -90 || marker.lat > 90 || marker.lng < -180 || marker.lng > 180) {
+        logger.warn('[InteractiveMap] Skipping marker with out-of-range coordinates', { id: marker.id, lat: marker.lat, lng: marker.lng });
+        return false;
+      }
+      // Check for duplicate IDs
+      if (seen.has(marker.id)) {
+        logger.warn('[InteractiveMap] Skipping duplicate marker', { id: marker.id });
+        return false;
+      }
+      seen.add(marker.id);
+      return true;
+    });
+  }, [markers]);
+
+  // Determine hovered marker - external ID takes priority, then internal state
+  const hoveredMarker = useMemo(() => {
+    if (hoveredMarkerId) {
+      return validMarkers.find(m => m.id === hoveredMarkerId) || null;
+    }
+    return internalHoveredMarker;
+  }, [hoveredMarkerId, validMarkers, internalHoveredMarker]);
 
   // Active marker for info window (selected takes priority over hovered)
   const activeMarker = selectedMarker || hoveredMarker;
@@ -196,6 +286,19 @@ export default function InteractiveMap({
     );
   }
 
+  // Log marker data for debugging
+  logger.debug('[InteractiveMap] Rendering markers', {
+    total: markers.length,
+    valid: validMarkers.length,
+    sample: validMarkers.slice(0, 3).map(m => ({
+      id: m.id,
+      lat: m.lat,
+      lng: m.lng,
+      type: m.type,
+      name: m.name
+    }))
+  });
+
   return (
     <div className={styles.mapContainer}>
       <GoogleMap
@@ -206,47 +309,56 @@ export default function InteractiveMap({
         onUnmount={onUnmount}
         options={DEFAULT_MAP_OPTIONS}
       >
-        {markers.map((marker) => (
-          <Marker
+        {validMarkers.map((marker) => (
+          <MarkerF
             key={marker.id}
             position={{ lat: marker.lat, lng: marker.lng }}
             icon={getMarkerIcon(marker.type)}
             onClick={() => handleMarkerClick(marker)}
             onMouseOver={() => handleMarkerHover(marker)}
-            onMouseOut={() => setHoveredMarker(null)}
+            onMouseOut={handleMarkerMouseOut}
           />
         ))}
 
         {activeMarker && (
-          <InfoWindow
+          <InfoWindowF
             position={{ lat: activeMarker.lat, lng: activeMarker.lng }}
             onCloseClick={handleInfoWindowClose}
             options={{
               pixelOffset: new window.google.maps.Size(0, -32),
-              maxWidth: 280
+              maxWidth: 300,
+              disableAutoPan: false
             }}
           >
-            <MapInfoCard
-              name={activeMarker.name}
-              photo={activeMarker.photo}
-              type={activeMarker.type}
-              link={activeMarker.link}
-            />
-          </InfoWindow>
+            <div
+              onMouseEnter={handleInfoWindowMouseEnter}
+              onMouseLeave={handleInfoWindowMouseLeave}
+            >
+              <MapInfoCard
+                name={activeMarker.name}
+                photo={activeMarker.photo}
+                type={activeMarker.type}
+                link={activeMarker.link}
+                onClose={handleInfoWindowClose}
+              />
+            </div>
+          </InfoWindowF>
         )}
       </GoogleMap>
 
       {/* Legend */}
-      <div className={styles.legend}>
-        <div className={styles.legendItem}>
-          <FaStar className={styles.legendIconExperience} />
-          <span>Experience</span>
+      {showLegend && (
+        <div className={styles.legend}>
+          <div className={styles.legendItem}>
+            <FaStar className={styles.legendIconExperience} />
+            <span>Experience</span>
+          </div>
+          <div className={styles.legendItem}>
+            <FaMapMarkerAlt className={styles.legendIconDestination} />
+            <span>Destination</span>
+          </div>
         </div>
-        <div className={styles.legendItem}>
-          <FaMapMarkerAlt className={styles.legendIconDestination} />
-          <span>Destination</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -267,6 +379,9 @@ InteractiveMap.propTypes = {
   }),
   zoom: PropTypes.number,
   onMarkerClick: PropTypes.func,
+  onMarkerHover: PropTypes.func,
+  hoveredMarkerId: PropTypes.string,
   height: PropTypes.string,
-  fitBounds: PropTypes.bool
+  fitBounds: PropTypes.bool,
+  showLegend: PropTypes.bool
 };

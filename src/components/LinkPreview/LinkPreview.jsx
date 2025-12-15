@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { fetchUrlPreview, isOEmbedUrl, getProviderName } from '../../utilities/oembed-service';
 import { logger } from '../../utilities/logger';
+import { lang } from '../../lang.constants';
 import styles from './LinkPreview.module.scss';
 
 /**
@@ -51,8 +52,8 @@ export default function LinkPreview({
           setPreview(data);
           onLoad?.(data);
         } else {
-          setError('No preview available');
-          onError?.('No preview available');
+          setError(lang.current.validation.noPreviewAvailable);
+          onError?.(lang.current.validation.noPreviewAvailable);
         }
       } catch (err) {
         logger.error('[LinkPreview] Failed to load', { url, error: err.message });

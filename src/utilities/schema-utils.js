@@ -20,23 +20,34 @@ export function buildDestinationSchema(destination, siteBaseUrl = '') {
   };
 
   try {
-    const loc = destination.map_location;
-    if (loc && typeof loc === 'object' && (loc.lat || loc.latitude) && (loc.lng || loc.longitude)) {
+    // Try new location.geo structure first
+    if (destination.location?.geo?.coordinates?.length === 2) {
+      const [lng, lat] = destination.location.geo.coordinates;
       schema.geo = {
         "@type": "GeoCoordinates",
-        latitude: Number(loc.lat || loc.latitude),
-        longitude: Number(loc.lng || loc.longitude),
+        latitude: lat,
+        longitude: lng,
       };
-    } else if (typeof loc === 'string' && loc.includes(',')) {
-      const [latStr, lngStr] = loc.split(',').map(s => s.trim());
-      const lat = Number(latStr);
-      const lng = Number(lngStr);
-      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+    } else {
+      // Fallback to legacy map_location
+      const loc = destination.map_location;
+      if (loc && typeof loc === 'object' && (loc.lat || loc.latitude) && (loc.lng || loc.longitude)) {
         schema.geo = {
           "@type": "GeoCoordinates",
-          latitude: lat,
-          longitude: lng,
+          latitude: Number(loc.lat || loc.latitude),
+          longitude: Number(loc.lng || loc.longitude),
         };
+      } else if (typeof loc === 'string' && loc.includes(',')) {
+        const [latStr, lngStr] = loc.split(',').map(s => s.trim());
+        const lat = Number(latStr);
+        const lng = Number(lngStr);
+        if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+          schema.geo = {
+            "@type": "GeoCoordinates",
+            latitude: lat,
+            longitude: lng,
+          };
+        }
       }
     }
   } catch (err) {

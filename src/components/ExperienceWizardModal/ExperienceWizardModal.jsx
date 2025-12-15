@@ -323,13 +323,13 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
 
     // Validation
     if (!experienceData.name?.trim()) {
-      setError('Please enter an experience name');
+      setError(lang.current.validation.experienceNameRequired);
       setLoading(false);
       return;
     }
 
     if (!experienceData.destination) {
-      setError('Please select a destination');
+      setError(lang.current.validation.selectDestinationRequired);
       setLoading(false);
       return;
     }
@@ -362,7 +362,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
       const plan = await createPlan(experience._id);
       setCreatedPlan(plan);
 
-      success('Experience created successfully!');
+      success(lang.current.success.experienceCreatedExcited);
       setCurrentStep(STEPS.PLAN_ITEMS);
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message || 'Failed to create experience';

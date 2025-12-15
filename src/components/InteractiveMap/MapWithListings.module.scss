@@ -1,0 +1,111 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * MapWithListings Styles
+ * Full-featured map view with sidebar listings panel
+ * Full viewport height, responsive with map on top on mobile
+ */
+
+.container {
+  display: flex;
+  width: 100%;
+  // Fill exactly 100% of viewport below header (no scrolling on page)
+  height: calc(100vh - 180px); // Viewport minus header + page title area
+  max-height: calc(100vh - 180px);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  overflow: hidden; // Prevent content from extending page
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+
+  @media (prefers-color-scheme: dark) {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  // Mobile/Tablet: Stack vertically with map on top
+  @include breakpoint-max(lg) {
+    flex-direction: column-reverse; // Map on top, listings at bottom
+    height: calc(100vh - 160px);
+    max-height: calc(100vh - 160px);
+    border-radius: var(--radius-md);
+  }
+}
+
+.panelContainer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border-light);
+  overflow: hidden; // Panel itself doesn't scroll, inner .listings does
+
+  // Mobile/Tablet: Panel at bottom
+  @include breakpoint-max(lg) {
+    width: 100%;
+    height: 45%;
+    min-height: 200px;
+    max-height: 350px;
+    border-right: none;
+    border-top: 1px solid var(--color-border-light);
+    order: 2; // Ensure listings are at bottom
+  }
+}
+
+.mapContainer {
+  flex: 1;
+  position: relative;
+  min-height: 300px;
+
+  // Ensure map fills container
+  > * {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  // Mobile/Tablet: Map takes more space on top
+  @include breakpoint-max(lg) {
+    flex: 1;
+    min-height: 250px;
+    order: 1; // Ensure map is on top
+  }
+}
+
+// Split ratio variants
+.split3070 {
+  .panelContainer {
+    width: 30%;
+    min-width: 280px;
+    max-width: 400px;
+
+    @include breakpoint-max(lg) {
+      width: 100%;
+      max-width: none;
+    }
+  }
+}
+
+.split3565 {
+  .panelContainer {
+    width: 35%;
+    min-width: 300px;
+    max-width: 450px;
+
+    @include breakpoint-max(lg) {
+      width: 100%;
+      max-width: none;
+    }
+  }
+}
+
+.split4060 {
+  .panelContainer {
+    width: 40%;
+    min-width: 320px;
+    max-width: 500px;
+
+    @include breakpoint-max(lg) {
+      width: 100%;
+      max-width: none;
+    }
+  }
+}

@@ -7,6 +7,21 @@ import { createOperation, OperationType } from "./plan-operations";
 const BASE_URL = "/api/plans";
 
 /**
+ * Extract data from API response
+ * Handles responses that may be wrapped in { data, meta } or already unwrapped
+ * @param {Object|Array} response - API response
+ * @returns {Object|Array} Extracted data
+ */
+function extractData(response) {
+  // If response has a 'data' property, unwrap it
+  if (response && typeof response === 'object' && 'data' in response) {
+    return response.data;
+  }
+  // Otherwise return as-is (already unwrapped)
+  return response;
+}
+
+/**
  * Helper to emit an operation via event bus
  * Operations are emitted alongside state-based events for backward compatibility
  * @param {string} planId - Plan ID

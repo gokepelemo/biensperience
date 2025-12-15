@@ -126,8 +126,8 @@ async function getByCountry(req, res) {
           .sort({ name: 1 })
           .skip(experiencesSkip)
           .limit(experiencesLimit)
-          .select('name destination photos default_photo_id permissions experience_type overview location createdAt updatedAt')
-          .populate('destination', 'name country city')
+          .select('name destination photos default_photo_id permissions experience_type overview location plan_items.location createdAt updatedAt')
+          .populate('destination', 'name country city location')
           .populate('photos', 'url caption photo_credit photo_credit_url width height')
           .populate('default_photo_id', 'url caption photo_credit photo_credit_url width height')
           .lean({ virtuals: true })
@@ -162,6 +162,25 @@ async function getByCountry(req, res) {
       experiencesCount: experiences.length,
       totalExperiences
     });
+
+    // Debug: Log location data statistics (only at debug level to avoid production overhead)
+    if (backendLogger.isDebugEnabled()) {
+      const destWithLocation = destinations.filter(d => d.location);
+      const destWithGeo = destinations.filter(d => d.location?.geo);
+      const destWithCoords = destinations.filter(d => d.location?.geo?.coordinates?.length === 2);
+      const expWithLocation = experiences.filter(e => e.location);
+      const expWithGeo = experiences.filter(e => e.location?.geo);
+      const expWithCoords = experiences.filter(e => e.location?.geo?.coordinates?.length === 2);
+
+      backendLogger.debug('[countries] Location data statistics', {
+        destinationsWithLocation: destWithLocation.length,
+        destinationsWithGeo: destWithGeo.length,
+        destinationsWithCoordinates: destWithCoords.length,
+        experiencesWithLocation: expWithLocation.length,
+        experiencesWithGeo: expWithGeo.length,
+        experiencesWithCoordinates: expWithCoords.length
+      });
+    }
 
     return successResponse(res, {
       country: canonicalCountryName,

@@ -276,8 +276,8 @@ export default function AllUsers() {
   return (
     <>
       <PageOpenGraph
-        title="All Users - Admin Panel"
-        description="Super admin panel for managing all users and their roles."
+        title={lang.current.page.allUsers.title}
+        description={lang.current.page.allUsers.description}
         keywords="admin panel, user management, super admin, user roles"
       />
 

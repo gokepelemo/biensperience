@@ -209,7 +209,7 @@ export default function DocumentUploadStep({
               type="button"
               className={styles.removeFileButton}
               onClick={handleRemoveFile}
-              aria-label="Remove file"
+              aria-label={lang.current.aria.removeFile}
             >
               ×
             </button>

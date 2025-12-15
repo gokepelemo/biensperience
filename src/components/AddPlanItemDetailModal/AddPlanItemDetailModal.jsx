@@ -89,7 +89,7 @@ export default function AddPlanItemDetailModal({
   // Save the detail
   const handleSave = useCallback(async () => {
     if (!selectedType || !planItem) {
-      setError('Missing required data');
+      setError(lang.current.validation.missingRequiredData);
       return;
     }
 

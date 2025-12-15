@@ -4,6 +4,7 @@
 
 .tabNav {
   display: flex;
+  justify-content: center; /* Center tabs by default */
   gap: var(--space-1);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -13,13 +14,8 @@
     display: none;
   }
 
-  @media (max-width: 991px) {
-    justify-content: center;
-  }
-
   @media (max-width: 768px) {
     gap: 0;
-    justify-content: center;
   }
 }
 

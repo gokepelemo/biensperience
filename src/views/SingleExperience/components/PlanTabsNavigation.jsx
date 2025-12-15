@@ -2,22 +2,26 @@
  * PlanTabsNavigation Component
  * Displays tab navigation for Experience Plan vs My Plan with dropdown for multiple plans
  * Design inspired by GitHub-style tab navigation
+ *
+ * Wrapped with React.memo to prevent unnecessary re-renders - this component
+ * only needs to re-render when tab/plan selection or plans list changes.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { FaListAlt, FaUser, FaChevronDown, FaChevronUp, FaCheck } from 'react-icons/fa';
 import Loading from '../../../components/Loading/Loading';
 import debug from '../../../utilities/debug';
+import { lang } from '../../../lang.constants';
+import { idEquals, normalizeId } from '../../../utilities/id-utils';
 import styles from './PlanTabsNavigation.module.scss';
 
-export default function PlanTabsNavigation({
+function PlanTabsNavigation({
   // Tab state
   activeTab,
   setActiveTab,
 
   // User data
   user,
-  idEquals,
 
   // Plan data
   sharedPlans,
@@ -26,10 +30,7 @@ export default function PlanTabsNavigation({
   setSelectedPlanId,
 
   // Handlers
-  handlePlanChange,
-
-  // Language strings
-  lang
+  handlePlanChange
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -50,7 +51,7 @@ export default function PlanTabsNavigation({
     }
   }, [dropdownOpen]);
   return (
-    <div className={styles.planTabsNav} role="tablist" aria-label="Plan tabs">
+    <div className={styles.planTabsNav} role="tablist" aria-label={lang.current.aria.planTabs}>
       {/* The Plan Tab - Always visible */}
       <button
         type="button"
@@ -89,10 +90,7 @@ export default function PlanTabsNavigation({
           // If there are multiple plans (user + collaborators OR multiple collaborators), show a custom dropdown
           if (sharedPlans.length > 1 || otherPlansCount > 0) {
             // Get the selected plan's display name
-            const selectedPlan = sharedPlans.find(p => {
-              const planId = p._id && p._id.toString ? p._id.toString() : p._id;
-              return planId === selectedPlanId;
-            });
+            const selectedPlan = sharedPlans.find(p => idEquals(p._id, selectedPlanId));
 
             let selectedDisplayName = "Plans";
             if (selectedPlan) {
@@ -136,7 +134,7 @@ export default function PlanTabsNavigation({
                     e.stopPropagation();
                     setDropdownOpen(!dropdownOpen);
                   }}
-                  aria-label="Toggle plans dropdown"
+                  aria-label={lang.current.aria.togglePlansDropdown}
                   aria-expanded={dropdownOpen}
                 >
                   {dropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
@@ -157,9 +155,9 @@ export default function PlanTabsNavigation({
                         displayName = `${firstName}'s Plan`;
                       }
 
-                      const planId = plan._id && plan._id.toString ? plan._id.toString() : plan._id;
+                      const planId = normalizeId(plan._id);
                       const optionKey = planId != null ? planId : `plan-${ci}`;
-                      const isSelected = planId === selectedPlanId;
+                      const isSelected = idEquals(planId, selectedPlanId);
 
                       return (
                         <button
@@ -195,7 +193,7 @@ export default function PlanTabsNavigation({
                   type="button"
                   className={`${styles.tabItem} ${activeTab === "myplan" ? styles.tabItemActive : ""}`}
                   onClick={() => {
-                    const planId = onlyPlan._id && onlyPlan._id.toString ? onlyPlan._id.toString() : onlyPlan._id;
+                    const planId = normalizeId(onlyPlan._id);
                     setSelectedPlanId(planId);
                     handlePlanChange(planId); // Ensure plan is set before switching tabs
                     setActiveTab("myplan");
@@ -218,3 +216,5 @@ export default function PlanTabsNavigation({
     </div>
   );
 }
+
+export default memo(PlanTabsNavigation);

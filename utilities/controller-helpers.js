@@ -194,24 +194,38 @@ function asyncHandler(fn) {
   return (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch((err) => {
       backendLogger.error('Controller error', { error: err.message, method: req.method, url: req.url, userId: req.user?._id });
-      
-      // Handle specific error types
+
+      // Handle specific error types with standardized format
       if (err.name === 'CastError') {
-        return res.status(400).json({ error: 'Invalid ID format' });
+        return res.status(400).json({ success: false, error: 'Invalid ID format' });
       }
-      
+
       if (err.name === 'ValidationError') {
-        return res.status(400).json({ error: 'Validation failed', details: err.message });
+        return res.status(400).json({ success: false, error: 'Validation failed', details: err.message });
       }
-      
+
       if (err.code === 11000) {
-        return res.status(409).json({ error: 'Duplicate entry' });
+        return res.status(409).json({ success: false, error: 'Duplicate entry' });
       }
-      
-      // Default error response
-      res.status(500).json({ error: 'Internal server error' });
+
+      // Default error response with standardized format
+      res.status(500).json({ success: false, error: 'Internal server error' });
     });
   };
+}
+
+/**
+ * Standard paginated response for API controllers
+ * @param {Object} res - Express response
+ * @param {Array} data - Array of items
+ * @param {Object} meta - Pagination metadata { page, limit, total, totalPages, hasMore }
+ * @param {string} [message] - Optional message
+ * @param {number} [statusCode=200]
+ */
+function paginatedResponse(res, data, meta, message = null, statusCode = 200) {
+  const payload = { success: true, data, meta };
+  if (message) payload.message = message;
+  return res.status(statusCode).json(payload);
 }
 
 /**
@@ -285,6 +299,7 @@ module.exports = {
   createErrorResponse,
   successResponse,
   errorResponse,
+  paginatedResponse,
   asyncHandler,
   findByIdWithValidation,
   checkAuthorization

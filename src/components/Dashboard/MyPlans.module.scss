@@ -73,6 +73,11 @@
       order: 1;
     }
 
+    .viewToggle {
+      // Center the toggle buttons on tablet without full width
+      align-self: center;
+    }
+
     .planFilterDropdown {
       width: 100%;
       display: flex;
@@ -93,13 +98,15 @@
     }
 
     .viewToggle {
-      width: 100%;
+      // Center the toggle buttons without full width
+      align-self: center;
       justify-content: center;
     }
 
     .viewToggleButton {
-      flex: 1;
-      max-width: 80px;
+      // Keep fixed width for icon buttons
+      width: 36px;
+      height: 36px;
     }
   }
 }

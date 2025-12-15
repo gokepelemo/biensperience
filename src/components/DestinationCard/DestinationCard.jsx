@@ -14,9 +14,10 @@ import imagePreloader from '../../utilities/image-preloader';
  * @param {string} props.destination._id - Unique identifier for the destination
  * @param {string} props.destination.name - Display name of the destination
  * @param {string} [props.destination.photo] - Background image URL for the destination
+ * @param {boolean} [props.fluid] - Whether the card should fill its parent container width (for grid layouts)
  * @returns {JSX.Element} Destination card component
  */
-function DestinationCard({ destination, includeSchema = false, forcePreload = false }) {
+function DestinationCard({ destination, includeSchema = false, forcePreload = false, fluid = false }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const titleRef = useRef(null);
   const containerRef = useRef(null);
@@ -134,16 +135,22 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
     return () => window.removeEventListener('resize', adjustFontSize);
   }, [destination]);
 
+  // Build card class names based on props
+  const cardClasses = `${styles.destinationCard} ${fluid ? styles.destinationCardFluid : ''} d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden`;
+
+  // Derive link and title from destination or use fallback
+  const linkTo = destination ? `/destinations/${destination._id}` : '/';
+  const title = destination?.name || 'New York';
+
   return (
     <>
       {includeSchema && destination && (
         <EntitySchema entity={destination} entityType="destination" />
       )}
-      <div className="d-block m-2" style={{ verticalAlign: 'top' }}>
-      {destination ? (
+      <div className={fluid ? '' : 'd-block m-2'} style={fluid ? undefined : { verticalAlign: 'top' }}>
         <div
           ref={containerRef}
-          className={`${styles.destinationCard} d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden`}
+          className={cardClasses}
           style={{ backgroundImage: backgroundImage }}
         >
           <div
@@ -159,39 +166,13 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
           >
             <SkeletonLoader variant="rectangle" width="100%" height="100%" />
           </div>
-          <Link to={`/destinations/${destination._id}`} className={`${styles.destinationCardLink} d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none`}>
+          <Link to={linkTo} className={`${styles.destinationCardLink} d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none`}>
             <span ref={titleRef} className={`h3 fw-bold ${styles.destinationCardTitle} d-flex align-items-center justify-content-center text-center p-3 w-100`}>
-              {destination.name}
+              {title}
             </span>
           </Link>
         </div>
-      ) : (
-        <div
-          ref={containerRef}
-          className={`${styles.destinationCard} d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden`}
-          style={{ backgroundImage: backgroundImage }}
-        >
-          <div
-            aria-hidden="true"
-            className="position-absolute w-100 h-100 start-0 top-0"
-            style={{
-              zIndex: 5,
-              pointerEvents: 'none',
-              transition: 'opacity 180ms ease-out',
-              opacity: imageLoaded ? 0 : 1,
-              willChange: 'opacity'
-            }}
-          >
-            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-          </div>
-          <Link to="/" className={`${styles.destinationCardLink} d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none`}>
-            <span ref={titleRef} className={`h3 fw-bold ${styles.destinationCardTitle} d-flex align-items-center justify-content-center text-center p-3 w-100`}>
-              New York
-            </span>
-          </Link>
-        </div>
-      )}
-    </div>
+      </div>
     </>
   );
 }

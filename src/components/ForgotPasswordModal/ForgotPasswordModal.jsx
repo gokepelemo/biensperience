@@ -74,7 +74,7 @@ export default function ForgotPasswordModal({ show, onClose }) {
 
           <FormField
             name="email"
-            label="Email Address"
+            label={lang.current.aria.emailAddress}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}

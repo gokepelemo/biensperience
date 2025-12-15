@@ -142,7 +142,11 @@ export function generateSchemaData(entity, entityType) {
           addressRegion: entity.state,
           addressLocality: entity.name
         },
-        geo: entity.map_location ? {
+        geo: entity.location?.geo?.coordinates?.length === 2 ? {
+          '@type': 'GeoCoordinates',
+          latitude: entity.location.geo.coordinates[1],
+          longitude: entity.location.geo.coordinates[0]
+        } : entity.map_location ? {
           '@type': 'GeoCoordinates',
           latitude: entity.map_location.lat,
           longitude: entity.map_location.lng

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { Heading } from '../design-system';
 import { useExperienceWizard } from '../../contexts/ExperienceWizardContext';
+import { lang } from '../../lang.constants';
 
 /**
  * QuickActions component for displaying common user actions
@@ -17,9 +18,9 @@ export default function QuickActions({
   const { openExperienceWizard } = useExperienceWizard();
 
   const defaultActions = [
-    { label: 'Create New Experience', variant: 'primary', onClick: () => openExperienceWizard() },
-    { label: 'Add Destination', variant: 'outline-secondary', onClick: () => navigate('/destinations/new') },
-    { label: 'Browse Experiences', variant: 'outline-secondary', onClick: () => navigate('/experiences') },
+    { label: lang.current.button.createNewExperience, variant: 'primary', onClick: () => openExperienceWizard() },
+    { label: lang.current.button.addDestination, variant: 'outline-secondary', onClick: () => navigate('/destinations/new') },
+    { label: lang.current.button.browseExperiences, variant: 'outline-secondary', onClick: () => navigate('/experiences') },
   ];
 
   const actionsToShow = actions.length > 0 ? actions : defaultActions;

@@ -9,7 +9,8 @@ const { isSuperAdmin } = require("../../utilities/permissions");
 const { isSystemUser } = require("../../utilities/system-users");
 const backendLogger = require("../../utilities/backend-logger");
 const { geocodeAddress } = require("../../utilities/geocoding-utils");
-const { invalidateVisibilityCache } = require("../../utilities/websocket-server");
+const { invalidateVisibilityCache, broadcastEvent } = require("../../utilities/websocket-server");
+const { successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
 
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
@@ -19,18 +20,18 @@ async function create(req, res) {
   try {
     // Validate required fields
     if (!req.body.email || !req.body.password || !req.body.name) {
-      return res.status(400).json({ error: 'Email, password, and name are required' });
+      return errorResponse(res, null, 'Email, password, and name are required', 400);
     }
 
     // Validate password strength
     if (typeof req.body.password !== 'string' || req.body.password.length < 3) {
-      return res.status(400).json({ error: 'Password must be at least 3 characters long' });
+      return errorResponse(res, null, 'Password must be at least 3 characters long', 400);
     }
 
     // Validate email format
     const email = req.body.email;
     if (typeof email !== 'string' || email.length > 254 || email.length < 3) {
-      return res.status(400).json({ error: 'Invalid email format' });
+      return errorResponse(res, null, 'Invalid email format', 400);
     }
 
     const hasAt = email.includes('@');
@@ -64,14 +65,14 @@ async function create(req, res) {
     }
 
     const token = createJWT(user);
-    res.status(201).json(token);
+    return successResponse(res, token, 'User created successfully', 201);
   } catch (err) {
     backendLogger.error('Error creating user', { error: err.message, email: req.body.email, name: req.body.name });
     // Check for duplicate email error
     if (err.code === 11000) {
-      return res.status(409).json({ error: 'Email already exists' });
+      return errorResponse(res, null, 'Email already exists', 409);
     }
-    res.status(400).json({ error: 'Failed to create user' });
+    return errorResponse(res, err, 'Failed to create user', 400);
   }
 }
 
@@ -80,7 +81,7 @@ async function login(req, res) {
     // Validate email format to prevent injection - use safer validation
     const email = req.body.email;
     if (!email || typeof email !== 'string' || email.length > 254 || email.length < 3) {
-      return res.status(400).json({ error: 'Invalid email format' });
+      return errorResponse(res, null, 'Invalid email format', 400);
     }
 
     // Basic email validation - check for @ and . with reasonable positioning
@@ -90,7 +91,7 @@ async function login(req, res) {
     const lastDotPosition = email.lastIndexOf('.');
 
     if (!hasAt || !hasDot || atPosition < 1 || lastDotPosition < atPosition + 2 || lastDotPosition >= email.length - 1) {
-      return res.status(400).json({ error: 'Invalid email format' });
+      return errorResponse(res, null, 'Invalid email format', 400);
     }
 
     const user = await User.findOne({ email: email })
@@ -98,13 +99,13 @@ async function login(req, res) {
 
     // Check if user exists before attempting password comparison
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return errorResponse(res, null, 'Invalid credentials', 401);
     }
 
     const passwordTest = await bcrypt.compare(req.body.password, user.password);
     
     if (!passwordTest) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return errorResponse(res, null, 'Invalid credentials', 401);
     }
     
     // Create new session for user
@@ -116,8 +117,7 @@ async function login(req, res) {
     
     // Add session ID to response
     res.setHeader('bien-session-id', sessionId);
-    res.status(200).json({ 
-      success: true,
+    return successResponse(res, {
       token,
       user: {
         _id: user._id,
@@ -126,29 +126,29 @@ async function login(req, res) {
         role: user.role,
         photos: user.photos
       }
-    });
+    }, 'Login successful');
   } catch (err) {
     backendLogger.error('Error logging in user', { error: err.message, email: req.body.email });
-    res.status(400).json({ error: 'Failed to login' });
+    return errorResponse(res, err, 'Failed to login', 400);
   }
 }
 
 function checkToken(req, res) {
-  res.status(200).json(req.exp);
+  return successResponse(res, req.exp, 'Token valid');
 }
 
 async function getUser(req, res) {
   try {
     // Validate ObjectId format and convert to prevent injection
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
     const userId = new mongoose.Types.ObjectId(req.params.id);
 
     // Block access to system user profiles (e.g., Archive User)
     // These are internal system accounts that should never be publicly viewable
     if (isSystemUser(userId)) {
-      return res.status(404).json({ error: 'User not found' });
+      return errorResponse(res, null, 'User not found', 404);
     }
 
     const user = await User.findOne({ _id: userId })
@@ -157,7 +157,7 @@ async function getUser(req, res) {
 
     // Return 404 if user doesn't exist
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return errorResponse(res, null, 'User not found', 404);
     }
 
     // Check if profile is private (from preferences.profileVisibility)
@@ -169,18 +169,18 @@ async function getUser(req, res) {
 
     if (profileVisibility === 'private' && !isOwnProfile && !isAdmin) {
       // Return limited profile data for private profiles
-      return res.status(200).json({
+      return successResponse(res, {
         _id: user._id,
         name: user.name,
         visibility: 'private',
         isPrivate: true
-      });
+      }, 'Private profile');
     }
 
-    res.status(200).json(user);
+    return successResponse(res, user, 'User retrieved successfully');
   } catch (err) {
     backendLogger.error('Error fetching user', { error: err.message, userId: req.params.id });
-    res.status(400).json({ error: 'Failed to fetch user' });
+    return errorResponse(res, err, 'Failed to fetch user', 400);
   }
 }
 
@@ -190,7 +190,7 @@ async function getBulkUsers(req, res) {
     const idsParam = req.query.ids;
     
     if (!idsParam) {
-      return res.status(400).json({ error: 'ids query parameter is required' });
+      return errorResponse(res, null, 'ids query parameter is required', 400);
     }
 
     // Parse comma-separated IDs
@@ -200,7 +200,7 @@ async function getBulkUsers(req, res) {
     const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));
     
     if (validIds.length === 0) {
-      return res.json([]); // Return empty array if no valid IDs
+      return successResponse(res, [], 'No valid user IDs provided');
     }
 
     // Fetch all users in one query
@@ -210,10 +210,10 @@ async function getBulkUsers(req, res) {
       .populate("photos", "url caption")
       .lean();
 
-    res.status(200).json(users);
+    return successResponse(res, users, 'Users retrieved successfully');
   } catch (err) {
     backendLogger.error('Error fetching bulk users', { error: err.message, ids: req.query.ids });
-    res.status(400).json({ error: 'Failed to fetch users' });
+    return errorResponse(res, err, 'Failed to fetch users', 400);
   }
 }
 
@@ -224,13 +224,13 @@ async function getProfile(req, res) {
       .lean();
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return errorResponse(res, null, 'User not found', 404);
     }
 
-    res.status(200).json(user);
+    return successResponse(res, user, 'Profile retrieved successfully');
   } catch (err) {
     backendLogger.error('Error fetching user profile', { error: err.message, userId: req.user._id });
-    res.status(400).json({ error: 'Failed to fetch user profile' });
+    return errorResponse(res, err, 'Failed to fetch user profile', 400);
   }
 }
 
@@ -239,13 +239,13 @@ async function updateUser(req, res, next) {
   try {
     // Validate ObjectId format and convert to prevent injection
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
     const userId = new mongoose.Types.ObjectId(req.params.id);
 
     // Check if user is updating their own profile or is a super admin
     if (req.user._id.toString() !== userId.toString() && !isSuperAdmin(req.user)) {
-      return res.status(403).json({ error: 'You can only update your own profile' });
+      return errorResponse(res, null, 'You can only update your own profile', 403);
     }
 
     // Whitelist allowed fields to prevent mass assignment vulnerabilities
@@ -287,20 +287,20 @@ async function updateUser(req, res, next) {
     // Handle password update if provided
     if (updateData.password !== undefined && updateData.password !== null && updateData.password !== '') {
       if (!updateData.oldPassword) {
-        return res.status(400).json({ error: 'Old password is required to change password' });
+        return errorResponse(res, null, 'Old password is required to change password', 400);
       }
 
       // Get the user to verify old password
       const userToUpdate = await User.findOne({ _id: userId });
       if (!userToUpdate) {
-        return res.status(404).json({ error: 'User not found' });
+        return errorResponse(res, null, 'User not found', 404);
       }
 
       // Verify old password
       const bcrypt = require('bcrypt');
       const isMatch = await bcrypt.compare(updateData.oldPassword, userToUpdate.password);
       if (!isMatch) {
-        return res.status(401).json({ error: 'Current password is incorrect' });
+        return errorResponse(res, null, 'Current password is incorrect', 401);
       }
 
       // Validate new password
@@ -321,7 +321,7 @@ async function updateUser(req, res, next) {
     // Validate emailConfirmed field if provided (super admin only)
     if (updateData.emailConfirmed !== undefined) {
       if (typeof updateData.emailConfirmed !== 'boolean') {
-        return res.status(400).json({ error: 'emailConfirmed must be a boolean' });
+        return errorResponse(res, null, 'emailConfirmed must be a boolean', 400);
       }
       validatedUpdateData.emailConfirmed = updateData.emailConfirmed;
     }
@@ -582,13 +582,35 @@ async function updateUser(req, res, next) {
     if (validatedUpdateData.preferences?.profileVisibility) {
       invalidateVisibilityCache(userId.toString());
     }
+    
+    // Broadcast user:updated event to user's profile room
+    try {
+      broadcastEvent('user', userId.toString(), {
+        type: 'user:updated',
+        payload: { 
+          user: {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            photos: user.photos,
+            default_photo_id: user.default_photo_id,
+            preferences: user.preferences,
+            location: user.location,
+            bio: user.bio,
+            links: user.links
+          }
+        }
+      });
+    } catch (err) {
+      backendLogger.error('Failed to broadcast user:updated event', { error: err.message, userId: userId.toString() });
+    }
 
     // Generate new JWT token with updated user data
     const token = createJWT(user);
-    res.status(200).json({ user, token });
+    return successResponse(res, { user, token }, 'User updated successfully');
   } catch (err) {
     backendLogger.error('Error updating user', { error: err.message, userId: req.params.id });
-    res.status(400).json({ error: 'Failed to update user' });
+    return errorResponse(res, err, 'Failed to update user', 400);
   }
 }
 
@@ -596,7 +618,7 @@ async function updateUserAsAdmin(req, res) {
   try {
     // Check if requester is a super admin
     if (!isSuperAdmin(req.user)) {
-      return res.status(403).json({ error: 'Super admin access required' });
+      return errorResponse(res, null, 'Super admin access required', 403);
     }
 
     // Validate ObjectId format and convert to prevent injection
@@ -619,7 +641,7 @@ async function updateUserAsAdmin(req, res) {
     if (updateData.email) {
       const email = updateData.email;
       if (typeof email !== 'string' || email.length > 254 || email.length < 3) {
-        return res.status(400).json({ error: 'Invalid email format' });
+        return errorResponse(res, null, 'Invalid email format', 400);
       }
       const hasAt = email.includes('@');
       const hasDot = email.includes('.');
@@ -627,14 +649,14 @@ async function updateUserAsAdmin(req, res) {
       const lastDotPosition = email.lastIndexOf('.');
 
       if (!hasAt || !hasDot || atPosition < 1 || lastDotPosition < atPosition + 2 || lastDotPosition >= email.length - 1) {
-        return res.status(400).json({ error: 'Invalid email format' });
+        return errorResponse(res, null, 'Invalid email format', 400);
       }
     }
 
     // Validate emailConfirmed field
     if (updateData.emailConfirmed !== undefined) {
       if (typeof updateData.emailConfirmed !== 'boolean') {
-        return res.status(400).json({ error: 'emailConfirmed must be a boolean' });
+        return errorResponse(res, null, 'emailConfirmed must be a boolean', 400);
       }
     }
 
@@ -642,7 +664,7 @@ async function updateUserAsAdmin(req, res) {
     if (updateData.password) {
       // Validate new password
       if (typeof updateData.password !== 'string' || updateData.password.length < 3) {
-        return res.status(400).json({ error: 'New password must be at least 3 characters' });
+        return errorResponse(res, null, 'New password must be at least 3 characters', 400);
       }
     }
 
@@ -754,7 +776,7 @@ async function updateUserAsAdmin(req, res) {
       .populate("photos", "url caption photo_credit photo_credit_url width height");
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return errorResponse(res, null, 'User not found', 404);
     }
 
     backendLogger.info('User updated by admin', {
@@ -765,33 +787,33 @@ async function updateUserAsAdmin(req, res) {
       changes: Object.keys(validatedUpdateData)
     });
 
-    res.status(200).json({ user });
+    return successResponse(res, { user }, 'User updated by admin successfully');
   } catch (err) {
     backendLogger.error('Error updating user as admin', { error: err.message, userId: req.params.id, adminId: req.user._id });
-    res.status(400).json({ error: 'Failed to update user' });
+    return errorResponse(res, err, 'Failed to update user', 400);
   }
 }
 
 async function addPhoto(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return errorResponse(res, null, 'User not found', 404);
     }
 
     if (req.user._id.toString() !== user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to modify this user profile' });
+      return errorResponse(res, null, 'Not authorized to modify this user profile', 401);
     }
 
     const { url, photo_credit, photo_credit_url } = req.body;
 
     if (!url) {
-      return res.status(400).json({ error: 'Photo URL is required' });
+      return errorResponse(res, null, 'Photo URL is required', 400);
     }
 
     // Add photo to photos array
@@ -805,33 +827,33 @@ async function addPhoto(req, res) {
 
     // Generate new JWT token with updated user data
     const token = createJWT(user);
-    res.status(201).json({ user, token });
+    return successResponse(res, { user, token }, 'Photo added successfully', 201);
   } catch (err) {
     backendLogger.error('Error adding photo to user', { error: err.message, userId: req.params.id, url: req.body.url });
-    res.status(400).json({ error: 'Failed to add photo' });
+    return errorResponse(res, err, 'Failed to add photo', 400);
   }
 }
 
 async function removePhoto(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return errorResponse(res, null, 'User not found', 404);
     }
 
     if (req.user._id.toString() !== user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to modify this user profile' });
+      return errorResponse(res, null, 'Not authorized to modify this user profile', 401);
     }
 
     const photoIndex = parseInt(req.params.photoIndex);
 
     if (photoIndex < 0 || photoIndex >= user.photos.length) {
-      return res.status(400).json({ error: 'Invalid photo index' });
+      return errorResponse(res, null, 'Invalid photo index', 400);
     }
 
     // Remove photo from array
@@ -847,33 +869,33 @@ async function removePhoto(req, res) {
 
     // Generate new JWT token with updated user data
     const token = createJWT(user);
-    res.status(200).json({ user, token });
+    return successResponse(res, { user, token }, 'Photo removed successfully');
   } catch (err) {
     backendLogger.error('Error removing photo from user', { error: err.message, userId: req.params.id, photoIndex: req.params.photoIndex });
-    res.status(400).json({ error: 'Failed to remove photo' });
+    return errorResponse(res, err, 'Failed to remove photo', 400);
   }
 }
 
 async function setDefaultPhoto(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return errorResponse(res, null, 'User not found', 404);
     }
 
     if (req.user._id.toString() !== user._id.toString()) {
-      return res.status(401).json({ error: 'Not authorized to modify this user profile' });
+      return errorResponse(res, null, 'Not authorized to modify this user profile', 401);
     }
 
     const photoIndex = parseInt(req.body.photoIndex);
 
     if (photoIndex < 0 || photoIndex >= user.photos.length) {
-      return res.status(400).json({ error: 'Invalid photo index' });
+      return errorResponse(res, null, 'Invalid photo index', 400);
     }
 
     user.default_photo_id = user.photos[photoIndex]._id;
@@ -881,10 +903,10 @@ async function setDefaultPhoto(req, res) {
 
     // Generate new JWT token with updated user data
     const token = createJWT(user);
-    res.status(200).json({ user, token });
+    return successResponse(res, { user, token }, 'Default photo set successfully');
   } catch (err) {
     backendLogger.error('Error setting default photo', { error: err.message, userId: req.params.id, photoIndex: req.body.photoIndex });
-    res.status(400).json({ error: 'Failed to set default photo' });
+    return errorResponse(res, err, 'Failed to set default photo', 400);
   }
 }
 
@@ -893,7 +915,7 @@ async function searchUsers(req, res) {
     const { q } = req.query;
     
     if (!q || typeof q !== 'string' || q.length < 2) {
-      return res.status(400).json({ error: 'Search query must be at least 2 characters' });
+      return errorResponse(res, null, 'Search query must be at least 2 characters', 400);
     }
 
     // Escape special regex characters to prevent regex injection
@@ -928,10 +950,10 @@ async function getAllUsers(req, res) {
       .select('name email role createdAt')
       .sort({ createdAt: -1 });
 
-    res.json(users);
+    return successResponse(res, users, 'Users retrieved successfully');
   } catch (err) {
     backendLogger.error('Error getting all users', { error: err.message, userId: req.user._id });
-    res.status(500).json({ error: 'Failed to get users' });
+    return errorResponse(res, err, 'Failed to get users', 500);
   }
 }
 
@@ -939,7 +961,7 @@ async function updateUserRole(req, res) {
   try {
     // Only super admins can update user roles
     if (!isSuperAdmin(req.user)) {
-      return res.status(403).json({ error: 'Only super admins can update user roles' });
+      return errorResponse(res, null, 'Only super admins can update user roles', 403);
     }
 
     const { id } = req.params;
@@ -947,18 +969,18 @@ async function updateUserRole(req, res) {
 
     // Validate role
     if (!Object.values(USER_ROLES).includes(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
+      return errorResponse(res, null, 'Invalid role', 400);
     }
 
     // Prevent super admin from removing their own super admin status
     if (req.user._id.toString() === id && role !== USER_ROLES.SUPER_ADMIN) {
-      return res.status(400).json({ error: 'Cannot remove super admin status from yourself' });
+      return errorResponse(res, null, 'Cannot remove super admin status from yourself', 400);
     }
 
     // Find and update user
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return errorResponse(res, null, 'User not found', 404);
     }
 
     // Update role and isSuperAdmin flag
@@ -966,10 +988,10 @@ async function updateUserRole(req, res) {
     user.isSuperAdmin = role === USER_ROLES.SUPER_ADMIN;
     await user.save();
 
-    res.json({ message: 'User role updated successfully', user: { _id: user._id, name: user.name, email: user.email, role: user.role, isSuperAdmin: user.isSuperAdmin } });
+    return successResponse(res, { user: { _id: user._id, name: user.name, email: user.email, role: user.role, isSuperAdmin: user.isSuperAdmin } }, 'User role updated successfully');
   } catch (err) {
     backendLogger.error('Error updating user role', { error: err.message, userId: req.user._id, targetUserId: req.params.id, newRole: req.body.role });
-    res.status(500).json({ error: 'Failed to update user role' });
+    return errorResponse(res, err, 'Failed to update user role', 500);
   }
 }
 
@@ -991,13 +1013,13 @@ async function requestPasswordReset(req, res) {
     // Always return success to prevent email enumeration attacks
     if (!user) {
       backendLogger.info('Password reset requested for non-existent email', { email });
-      return res.json({ message: 'If an account exists, a reset email has been sent' });
+      return successResponse(res, {}, 'If an account exists, a reset email has been sent');
     }
 
     // Check if user uses OAuth (no password to reset)
     if (user.provider !== 'local') {
       backendLogger.info('Password reset requested for OAuth user', { email, provider: user.provider });
-      return res.json({ message: 'If an account exists, a reset email has been sent' });
+      return successResponse(res, {}, 'If an account exists, a reset email has been sent');
     }
 
     // Generate reset token (32 bytes = 64 hex characters)
@@ -1024,13 +1046,13 @@ async function requestPasswordReset(req, res) {
       user.resetPasswordToken = undefined;
       user.resetPasswordExpires = undefined;
       await user.save();
-      return res.status(500).json({ error: 'Failed to send reset email. Please try again.' });
+      return errorResponse(res, emailError, 'Failed to send reset email. Please try again.', 500);
     }
 
-    res.json({ message: 'If an account exists, a reset email has been sent' });
+    return successResponse(res, {}, 'If an account exists, a reset email has been sent');
   } catch (err) {
     backendLogger.error('Error requesting password reset', { error: err.message });
-    res.status(500).json({ error: 'Failed to process password reset request' });
+    return errorResponse(res, err, 'Failed to process password reset request', 500);
   }
 }
 
@@ -1042,12 +1064,12 @@ async function resetPassword(req, res) {
     const { token, password } = req.body;
 
     if (!token || !password) {
-      return res.status(400).json({ error: 'Token and new password are required' });
+      return errorResponse(res, null, 'Token and new password are required', 400);
     }
 
     // Validate password strength
     if (typeof password !== 'string' || password.length < 3) {
-      return res.status(400).json({ error: 'Password must be at least 3 characters long' });
+      return errorResponse(res, null, 'Password must be at least 3 characters long', 400);
     }
 
     // Hash the token to match what's stored
@@ -1061,7 +1083,7 @@ async function resetPassword(req, res) {
 
     if (!user) {
       backendLogger.warn('Invalid or expired password reset token');
-      return res.status(400).json({ error: 'Password reset token is invalid or has expired' });
+      return errorResponse(res, null, 'Password reset token is invalid or has expired', 400);
     }
 
     // Update password (will be hashed by pre-save hook)
@@ -1081,10 +1103,10 @@ async function resetPassword(req, res) {
       // Don't fail the request if confirmation email fails
     }
 
-    res.json({ message: 'Password has been reset successfully' });
+    return successResponse(res, {}, 'Password has been reset successfully');
   } catch (err) {
     backendLogger.error('Error resetting password', { error: err.message });
-    res.status(500).json({ error: 'Failed to reset password' });
+    return errorResponse(res, err, 'Failed to reset password', 500);
   }
 }
 
@@ -1096,7 +1118,7 @@ async function confirmEmail(req, res) {
     const { token } = req.params;
 
     if (!token) {
-      return res.status(400).json({ error: 'Token is required' });
+      return errorResponse(res, null, 'Token is required', 400);
     }
 
     // Hash the token to match what's stored
@@ -1110,7 +1132,7 @@ async function confirmEmail(req, res) {
 
     if (!user) {
       backendLogger.warn('Invalid or expired email confirmation token');
-      return res.status(400).json({ error: 'Email confirmation token is invalid or has expired' });
+      return errorResponse(res, null, 'Email confirmation token is invalid or has expired', 400);
     }
 
     // Confirm email
@@ -1121,10 +1143,10 @@ async function confirmEmail(req, res) {
 
     backendLogger.info('Email confirmed successfully', { userId: user._id, email: user.email });
 
-    res.json({ message: 'Email confirmed successfully' });
+    return successResponse(res, {}, 'Email confirmed successfully');
   } catch (err) {
     backendLogger.error('Error confirming email', { error: err.message });
-    res.status(500).json({ error: 'Failed to confirm email' });
+    return errorResponse(res, err, 'Failed to confirm email', 500);
   }
 }
 
@@ -1136,7 +1158,7 @@ async function resendConfirmation(req, res) {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+      return errorResponse(res, null, 'Email is required', 400);
     }
 
     // Find user by email
@@ -1145,18 +1167,18 @@ async function resendConfirmation(req, res) {
     // Always return success to prevent email enumeration
     if (!user) {
       backendLogger.info('Confirmation resend requested for non-existent email', { email });
-      return res.json({ message: 'If an account exists, a confirmation email has been sent' });
+      return successResponse(res, {}, 'If an account exists, a confirmation email has been sent');
     }
 
     // Check if already confirmed
     if (user.emailConfirmed) {
-      return res.json({ message: 'Email is already confirmed' });
+      return successResponse(res, {}, 'Email is already confirmed');
     }
 
     // Check if user uses OAuth (no email confirmation needed)
     if (user.provider !== 'local') {
       backendLogger.info('Confirmation resend requested for OAuth user', { email, provider: user.provider });
-      return res.json({ message: 'If an account exists, a confirmation email has been sent' });
+      return successResponse(res, {}, 'If an account exists, a confirmation email has been sent');
     }
 
     // Generate new confirmation token
@@ -1175,13 +1197,13 @@ async function resendConfirmation(req, res) {
       backendLogger.info('Confirmation email resent', { email: user.email, userId: user._id });
     } catch (emailError) {
       backendLogger.error('Failed to resend confirmation email', { error: emailError.message, email: user.email });
-      return res.status(500).json({ error: 'Failed to send confirmation email. Please try again.' });
+      return errorResponse(res, emailError, 'Failed to send confirmation email. Please try again.', 500);
     }
 
-    res.json({ message: 'If an account exists, a confirmation email has been sent' });
+    return successResponse(res, {}, 'If an account exists, a confirmation email has been sent');
   } catch (err) {
     backendLogger.error('Error resending confirmation', { error: err.message });
-    res.status(500).json({ error: 'Failed to resend confirmation email' });
+    return errorResponse(res, err, 'Failed to resend confirmation email', 500);
   }
 }
 
@@ -1200,9 +1222,7 @@ async function deleteAccount(req, res) {
 
     // Validate confirmation
     if (confirmDelete !== 'DELETE') {
-      return res.status(400).json({
-        error: 'Please type DELETE to confirm account deletion'
-      });
+      return errorResponse(res, null, 'Please type DELETE to confirm account deletion', 400);
     }
 
     // Check if user is deleting their own account or is super admin
@@ -1210,22 +1230,18 @@ async function deleteAccount(req, res) {
     const isAdmin = isSuperAdmin(req.user);
 
     if (!isOwnAccount && !isAdmin) {
-      return res.status(403).json({
-        error: 'You can only delete your own account'
-      });
+      return errorResponse(res, null, 'You can only delete your own account', 403);
     }
 
     // Find the user to delete
     const userToDelete = await User.findById(id);
     if (!userToDelete) {
-      return res.status(404).json({ error: 'User not found' });
+      return errorResponse(res, null, 'User not found', 404);
     }
 
     // Prevent deleting super admin accounts (extra safety)
     if (userToDelete.role === 'super_admin' && !isAdmin) {
-      return res.status(403).json({
-        error: 'Super admin accounts cannot be deleted this way'
-      });
+      return errorResponse(res, null, 'Super admin accounts cannot be deleted this way', 403);
     }
 
     // Prevent deleting demo user account in demo mode
@@ -1236,22 +1252,18 @@ async function deleteAccount(req, res) {
         userId: id,
         attemptedBy: req.user._id
       });
-      return res.status(403).json({
-        error: 'The demo user account cannot be deleted in demo mode. This account is used for demonstration purposes.'
-      });
+      return errorResponse(res, null, 'The demo user account cannot be deleted in demo mode. This account is used for demonstration purposes.', 403);
     }
 
     // For own account deletion, require password verification
     if (isOwnAccount && userToDelete.password) {
       if (!password) {
-        return res.status(400).json({
-          error: 'Password is required to delete your account'
-        });
+        return errorResponse(res, null, 'Password is required to delete your account', 400);
       }
 
       const match = await bcrypt.compare(password, userToDelete.password);
       if (!match) {
-        return res.status(401).json({ error: 'Incorrect password' });
+        return errorResponse(res, null, 'Incorrect password', 401);
       }
     }
 
@@ -1259,17 +1271,17 @@ async function deleteAccount(req, res) {
     let transferTargetUser = null;
     if (transferToUserId) {
       if (!mongoose.Types.ObjectId.isValid(transferToUserId)) {
-        return res.status(400).json({ error: 'Invalid transfer target user ID' });
+        return errorResponse(res, null, 'Invalid transfer target user ID', 400);
       }
 
       // Cannot transfer to self
       if (transferToUserId === id) {
-        return res.status(400).json({ error: 'Cannot transfer data to yourself' });
+        return errorResponse(res, null, 'Cannot transfer data to yourself', 400);
       }
 
       transferTargetUser = await User.findById(transferToUserId);
       if (!transferTargetUser) {
-        return res.status(404).json({ error: 'Transfer target user not found' });
+        return errorResponse(res, null, 'Transfer target user not found', 404);
       }
 
       backendLogger.info('Data transfer requested during account deletion', {
@@ -1579,23 +1591,21 @@ async function deleteAccount(req, res) {
       ? `Your account has been deleted. All your data has been transferred to ${transferTargetUser.name}.`
       : 'Your account and all associated data have been permanently deleted';
 
-    res.json({
-      success: true,
-      message,
+    return successResponse(res, {
       dataTransferred: !!transferTargetUser,
       transferredTo: transferTargetUser ? {
         _id: transferTargetUser._id,
         name: transferTargetUser.name,
         email: transferTargetUser.email
       } : null
-    });
+    }, message);
 
   } catch (err) {
     backendLogger.error('Error deleting account', {
       error: err.message,
       userId: req.params.id
     });
-    res.status(500).json({ error: 'Failed to delete account' });
+    return errorResponse(res, err, 'Failed to delete account', 500);
   }
 }
 

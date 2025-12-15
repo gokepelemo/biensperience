@@ -116,7 +116,7 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
             onClick={handleCancel}
             disabled={submitting}
           >
-            Cancel
+            {lang.current.button.cancel}
           </button>
           <button
             type="submit"
@@ -181,8 +181,8 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
 
         <div className="alert alert-info mb-0">
           <small>
-            <strong>Quick Create:</strong> You can add more details (description, photos, travel tips)
-            by visiting the <a href="/destinations" target="_blank" rel="noopener noreferrer">destinations page</a> later.
+            <strong>Quick Create:</strong> {lang.current.message.quickCreateNote}{' '}
+            <a href="/destinations" target="_blank" rel="noopener noreferrer">{lang.current.message.destinationsPage}</a> {lang.current.message.later}
           </small>
         </div>
       </Form>

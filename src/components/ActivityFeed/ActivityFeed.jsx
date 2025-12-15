@@ -4,8 +4,14 @@
  *
  * Filtering strategy:
  * - Client-side instant filtering on already-loaded data for immediate feedback
- * - Background API call with server-side filter for accurate results
- * - When filter changes: immediately filter DOM data, then refresh from API
+ * - Background API call with server-side filter for accurate/enriched results
+ * - When filter changes: immediately filter DOM data, then merge API results
+ *
+ * Merge strategy for background API responses:
+ * - Start with existing client-side filtered data as the base
+ * - Merge in new/updated activities from API by ID
+ * - Preserve existing items, add new ones, update changed ones
+ * - This prevents UI flashing and ensures smooth transitions
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -79,6 +85,53 @@ function filterActivitiesClientSide(activities, filterKey) {
 }
 
 /**
+ * Merge API activities into existing activities list
+ * - Preserves existing items that match the current filter
+ * - Adds new items from API that don't exist locally
+ * - Updates existing items with fresh data from API
+ * - Maintains order based on API response (which has correct server ordering)
+ *
+ * @param {Array} existing - Existing activities (client-side filtered)
+ * @param {Array} incoming - Incoming activities from API
+ * @returns {Array} Merged activities list
+ */
+function mergeActivities(existing, incoming) {
+  if (!incoming || incoming.length === 0) return existing || [];
+  if (!existing || existing.length === 0) return incoming;
+
+  // Create a map of existing activities by ID for O(1) lookup
+  const existingMap = new Map();
+  existing.forEach(activity => {
+    if (activity.id) {
+      existingMap.set(activity.id, activity);
+    }
+  });
+
+  // Build merged list starting with API order (authoritative ordering)
+  const merged = [];
+  const seenIds = new Set();
+
+  // First, add all incoming items (updating with fresh data)
+  incoming.forEach(activity => {
+    if (activity.id) {
+      seenIds.add(activity.id);
+      // Use incoming data (fresher from API)
+      merged.push(activity);
+    }
+  });
+
+  // Then, add any existing items not in the API response
+  // (these might be items from a previous page or filtered out by API pagination)
+  existing.forEach(activity => {
+    if (activity.id && !seenIds.has(activity.id)) {
+      merged.push(activity);
+    }
+  });
+
+  return merged;
+}
+
+/**
  * ActivityFeed component
  * @param {Object} props
  * @param {string} props.userId - User ID to fetch activity for
@@ -137,9 +190,21 @@ export default function ActivityFeed({ userId, feedType = 'own' }) {
         const feedItems = response.feed || [];
 
         if (append) {
+          // Appending more items (load more)
           setAllActivities(prev => [...prev, ...feedItems]);
           setDisplayedActivities(prev => [...prev, ...feedItems]);
+        } else if (isBackground) {
+          // Background refresh: merge API results with existing client-side filtered data
+          // This enriches the optimistic client-side filter with accurate server data
+          setDisplayedActivities(prev => mergeActivities(prev, feedItems));
+          // Also update allActivities with the fresh data for future client-side filtering
+          setAllActivities(prev => {
+            // When filter is 'all', just use API data; otherwise merge
+            if (filter === 'all') return feedItems;
+            return mergeActivities(prev, feedItems);
+          });
         } else {
+          // Initial load or explicit refresh: replace entirely
           setAllActivities(feedItems);
           setDisplayedActivities(feedItems);
         }
@@ -162,9 +227,21 @@ export default function ActivityFeed({ userId, feedType = 'own' }) {
         const activityItems = response.activities || [];
 
         if (append) {
+          // Appending more items (load more)
           setAllActivities(prev => [...prev, ...activityItems]);
           setDisplayedActivities(prev => [...prev, ...activityItems]);
+        } else if (isBackground) {
+          // Background refresh: merge API results with existing client-side filtered data
+          // This enriches the optimistic client-side filter with accurate server data
+          setDisplayedActivities(prev => mergeActivities(prev, activityItems));
+          // Also update allActivities with the fresh data for future client-side filtering
+          setAllActivities(prev => {
+            // When filter is 'all', just use API data; otherwise merge
+            if (filter === 'all') return activityItems;
+            return mergeActivities(prev, activityItems);
+          });
         } else {
+          // Initial load or explicit refresh: replace entirely
           setAllActivities(activityItems);
           setDisplayedActivities(activityItems);
         }

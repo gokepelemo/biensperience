@@ -37,6 +37,7 @@ const UsersListDisplay = ({
   onlineUserIds = null,
   showPresence = false
 }) => {
+
   // Helper to check if a user is online
   const isUserOnline = (userId) => {
     if (!showPresence || !onlineUserIds || !userId) return false;
@@ -49,7 +50,7 @@ const UsersListDisplay = ({
     return false;
   };
   // Reserve space if requested and no users (and not loading)
-  if (!loading && reserveSpace && !owner && (!users || users.length === 0)) {
+  if (!loading && reserveSpace && !owner && users.length === 0) {
     return (
       <div className={`${styles.usersListDisplay} ${className}`} style={{ minHeight: '40px', minWidth: '200px' }}>
         {/* Always show heading to prevent layout shift */}
@@ -59,7 +60,7 @@ const UsersListDisplay = ({
   }
 
   // Don't render if there's no owner and no users (0 people total) and not loading
-  if (!loading && !owner && (!users || users.length === 0)) {
+  if (!loading && !owner && users.length === 0) {
     return null;
   }
 
@@ -81,7 +82,7 @@ const UsersListDisplay = ({
   }
 
   // Calculate expected count for loading placeholders
-  const expectedCount = loading ? Math.max(1, (users?.length || 0) + (owner ? 1 : 0)) : (users?.length || 0) + (owner ? 1 : 0);
+  const expectedCount = loading ? Math.max(1, users.length + (owner ? 1 : 0)) : (users.length + (owner ? 1 : 0));
   const totalCount = expectedCount;
   const remainingCount = Math.max(0, expectedCount - maxVisible);
   
@@ -91,7 +92,7 @@ const UsersListDisplay = ({
 
   // Get message from lang constants
   const message = loading
-    ? "Loading..." // Show loading message when loading
+    ? lang.current.loading.default // Show loading message when loading
     : totalCount === 1
     ? lang.current.message[singularKey]?.replace('{count}', totalCount)
     : lang.current.message[pluralKey]?.replace('{count}', totalCount);

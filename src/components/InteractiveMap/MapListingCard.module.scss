@@ -1,0 +1,163 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * MapListingCard Styles
+ * Card for displaying destination/experience in map sidebar listing
+ */
+
+.listingCard {
+  display: flex;
+  gap: $space-3;
+  padding: $space-3;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--color-border-medium);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+
+  &.active {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
+    background: rgba(var(--color-primary-rgb), 0.02);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    &.active {
+      background: rgba(var(--color-primary-rgb), 0.08);
+    }
+  }
+}
+
+.imageContainer {
+  position: relative;
+  flex-shrink: 0;
+  width: 100px;
+  height: 80px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+
+  @media (prefers-color-scheme: dark) {
+    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+  }
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+
+  .listingCard:hover & {
+    transform: scale(1.05);
+  }
+}
+
+.noImage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #adb5bd;
+  font-size: 1.5rem;
+
+  @media (prefers-color-scheme: dark) {
+    color: #4a5568;
+  }
+}
+
+.typeBadge {
+  position: absolute;
+  top: $space-1;
+  left: $space-1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 9px;
+  font-weight: $font-weight-semibold;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+
+  &.experience {
+    background: rgba(251, 191, 36, 0.95);
+    color: #78350f;
+  }
+
+  &.destination {
+    background: rgba(96, 165, 250, 0.95);
+    color: #1e3a5f;
+  }
+}
+
+.badgeIcon {
+  font-size: 8px;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: $space-1;
+}
+
+.name {
+  margin: 0;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+
+  // Truncate long names
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.nameLink {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-primary);
+  }
+}
+
+.location {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: $space-1;
+  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+
+  // Truncate
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.locationIcon {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}

@@ -2,13 +2,26 @@ import { sendRequest, sendQueuedRequest, PRIORITY } from './send-request.js';
 import { logger } from './logger';
 import { broadcastEvent } from './event-bus';
 
-const BASE_URL = `/api/destinations/`
+const BASE_URL = `/api/destinations/`;
+
+/**
+ * Extracts data from standardized API response format.
+ * Handles both new format { success: true, data: ... } and legacy format (direct data).
+ * @param {Object} response - API response
+ * @returns {*} Extracted data or original response
+ */
+function extractData(response) {
+    if (response && typeof response === 'object' && 'success' in response) {
+        return response.data;
+    }
+    return response;
+}
 
 /**
  * Fetches all destinations from the API.
  *
  * @async
- * @returns {Promise<Array>} Array of destination objects
+ * @returns {Promise<Object>} Response with { data: Array, meta: Object } for pagination
  */
 export async function getDestinations (filters = {}) {
     // Fetch first page of destinations (default limit=30)
@@ -18,7 +31,12 @@ export async function getDestinations (filters = {}) {
     });
     // Use queued request for rate limiting and coalescing
     const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/list' });
-    // Return full response with { data, meta } for pagination support
+    // Handle standardized response format { success, data, meta }
+    // Return { data, meta } for pagination support
+    if (resp && resp.success !== undefined) {
+        return { data: resp.data, meta: resp.meta };
+    }
+    // Legacy format support
     return resp;
 }
 
@@ -31,10 +49,9 @@ export async function getFavorites(userId) {
     const params = new URLSearchParams({ favorited_by: String(userId) });
     const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/favorites' });
 
-    // Controller returns an array when favorited_by is used
-    if (Array.isArray(resp)) return resp;
-    // Support possible { data } envelope
-    if (resp && resp.data) return resp.data;
+    // Handle standardized response format { success, data }
+    const data = extractData(resp);
+    if (Array.isArray(data)) return data;
     return [];
 }
 
@@ -43,7 +60,12 @@ export async function getDestinationsPage(page = 1, limit = 30, filters = {}) {
     Object.entries(filters || {}).forEach(([k, v]) => {
         if (v !== undefined && v !== null) params.append(k, v);
     });
-    return await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/page' });
+    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/page' });
+    // Handle standardized response format { success, data, meta }
+    if (resp && resp.success !== undefined) {
+        return { data: resp.data, meta: resp.meta };
+    }
+    return resp;
 }
 
 /**
@@ -56,7 +78,8 @@ export async function getDestinationsPage(page = 1, limit = 30, filters = {}) {
  * @returns {Promise<Object>} Created destination object
  */
 export async function createDestination (destinationData) {
-    const result = await sendRequest(`${BASE_URL}`, "POST", destinationData);
+    const resp = await sendRequest(`${BASE_URL}`, "POST", destinationData);
+    const result = extractData(resp);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     // Standardized payload: { entity, entityId } for created events
@@ -81,10 +104,11 @@ export async function createDestination (destinationData) {
  */
 export async function showDestination (id) {
     // Critical navigation - use high priority for instant perception
-    return await sendQueuedRequest(`${BASE_URL}${id}`, "GET", null, {
+    const resp = await sendQueuedRequest(`${BASE_URL}${id}`, "GET", null, {
         priority: PRIORITY.HIGH,
         label: `destination/${id}`
     });
+    return extractData(resp);
 }
 
 /**
@@ -96,7 +120,8 @@ export async function showDestination (id) {
  * @returns {Promise<Object>} Updated destination object
  */
 export async function updateDestination (id, destinationData) {
-    const result = await sendRequest(`${BASE_URL}${id}`, "PUT", destinationData);
+    const resp = await sendRequest(`${BASE_URL}${id}`, "PUT", destinationData);
+    const result = extractData(resp);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     // Standardized payload: { entity, entityId } for updated events
@@ -120,7 +145,8 @@ export async function updateDestination (id, destinationData) {
  * @returns {Promise<Object>} Deletion response
  */
 export async function deleteDestination (id) {
-    const result = await sendRequest(`${BASE_URL}${id}`, "DELETE");
+    const resp = await sendRequest(`${BASE_URL}${id}`, "DELETE");
+    const result = extractData(resp);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     try {
@@ -142,7 +168,8 @@ export async function deleteDestination (id) {
  * @returns {Promise<Object>} Updated destination object
  */
 export async function toggleUserFavoriteDestination (destinationId, userId) {
-    const result = await sendRequest(`${BASE_URL}${destinationId}/user/${userId}`, "POST");
+    const resp = await sendRequest(`${BASE_URL}${destinationId}/user/${userId}`, "POST");
+    const result = extractData(resp);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     // Standardized payload: { entity, entityId } for updated events

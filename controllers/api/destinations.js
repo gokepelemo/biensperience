@@ -9,6 +9,8 @@ const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require("../../utilities/backend-logger");
 const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activity-tracker');
 const { broadcastEvent } = require('../../utilities/websocket-server');
+const { createPlanItemLocation } = require('../../utilities/address-utils');
+const { successResponse, errorResponse, paginatedResponse } = require('../../utilities/controller-helpers');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -41,7 +43,7 @@ async function index(req, res) {
     if (req.query.favorited_by) {
       const userId = req.query.favorited_by;
       if (!mongoose.Types.ObjectId.isValid(userId)) {
-        return res.status(400).json({ error: 'Invalid user id for favorited_by' });
+        return errorResponse(res, null, 'Invalid user id for favorited_by', 400);
       }
 
       const favDestinations = await Destination.find({ users_favorite: userId })
@@ -49,8 +51,7 @@ async function index(req, res) {
         .lean()
         .exec();
 
-      // Return array for compatibility with existing client fallback
-      return res.status(200).json(favDestinations);
+      return successResponse(res, favDestinations);
     }
 
     // If ?all=true requested, return full array for compatibility
@@ -59,7 +60,7 @@ async function index(req, res) {
         .populate("photos", "url caption photo_credit photo_credit_url width height")
         .lean()
         .exec();
-      return res.status(200).json(allDestinations);
+      return successResponse(res, allDestinations);
     }
 
     // Build optional search filter (q=search term)
@@ -83,33 +84,62 @@ async function index(req, res) {
       .exec();
 
     const totalPages = Math.ceil(total / l);
-    return res.status(200).json({
-      data: destinations,
-      meta: {
-        page: p,
-        limit: l,
-        total,
-        totalPages,
-        hasMore: p < totalPages
-      }
+    return paginatedResponse(res, destinations, {
+      page: p,
+      limit: l,
+      total,
+      totalPages,
+      hasMore: p < totalPages
     });
   } catch (err) {
     backendLogger.error('Error fetching destinations', { error: err.message });
-    res.status(400).json({ error: 'Failed to fetch destinations' });
+    return errorResponse(res, err, 'Failed to fetch destinations', 400);
   }
 }
 
 async function createDestination(req, res) {
   try {
     // Whitelist allowed fields to prevent mass assignment
-    const allowedFields = ['name', 'country', 'state', 'overview', 'photos', 'default_photo_id', 'travel_tips', 'tags'];
+    const allowedFields = ['name', 'country', 'state', 'overview', 'photos', 'default_photo_id', 'travel_tips', 'tags', 'map_location', 'location'];
     const destinationData = {};
-    
+
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) {
         destinationData[field] = req.body[field];
       }
     });
+
+    // Handle location geocoding
+    // If location is provided as a string or object, geocode it
+    if (req.body.location) {
+      try {
+        const geocodedLocation = await createPlanItemLocation(req.body.location);
+        if (geocodedLocation) {
+          destinationData.location = geocodedLocation;
+          // Also set map_location for backward compatibility if not already set
+          if (!destinationData.map_location && geocodedLocation.address) {
+            destinationData.map_location = geocodedLocation.address;
+          }
+        }
+      } catch (geoErr) {
+        backendLogger.warn('[createDestination] Geocoding failed, using raw location', { error: geoErr.message });
+        // If geocoding fails but location has address, store it anyway
+        if (typeof req.body.location === 'object' && req.body.location.address) {
+          destinationData.location = req.body.location;
+        }
+      }
+    }
+    // If only map_location string is provided, try to geocode it
+    else if (req.body.map_location && !destinationData.location) {
+      try {
+        const geocodedLocation = await createPlanItemLocation(req.body.map_location);
+        if (geocodedLocation) {
+          destinationData.location = geocodedLocation;
+        }
+      } catch (geoErr) {
+        backendLogger.warn('[createDestination] map_location geocoding failed', { error: geoErr.message });
+      }
+    }
 
     // Add required fields
     destinationData.user = req.user._id;
@@ -135,10 +165,7 @@ async function createDestination(req, res) {
     );
 
     if (exactDuplicate) {
-      return res.status(409).json({
-        error: 'Duplicate destination',
-        message: `A destination with this name and country already exists. Please choose a different destination.`
-      });
+      return errorResponse(res, null, 'A destination with this name and country already exists. Please choose a different destination.', 409);
     }
 
     // Check for fuzzy duplicate on name with same country
@@ -154,10 +181,7 @@ async function createDestination(req, res) {
     );
 
     if (fuzzyDuplicate) {
-      return res.status(409).json({
-        error: 'Similar destination exists',
-        message: `A similar destination already exists. Did you mean to use that instead?`
-      });
+      return errorResponse(res, null, 'A similar destination already exists. Did you mean to use that instead?', 409);
     }
 
     const destination = await Destination.create(destinationData);
@@ -181,10 +205,10 @@ async function createDestination(req, res) {
       backendLogger.warn('[WebSocket] Failed to broadcast destination creation', { error: wsErr.message });
     }
 
-    res.json(destination);
+    return successResponse(res, destination, 'Destination created successfully', 201);
   } catch (err) {
     backendLogger.error('Error creating destination', { error: err.message, userId: req.user._id, name: req.body.name, country: req.body.country });
-    res.status(400).json({ error: 'Failed to create destination' });
+    return errorResponse(res, err, 'Failed to create destination', 400);
   }
 }
 
@@ -193,10 +217,13 @@ async function showDestination(req, res) {
     const destination = await Destination.findById(req.params.id).populate(
       "photos"
     );
-    res.status(200).json(destination);
+    if (!destination) {
+      return errorResponse(res, null, 'Destination not found', 404);
+    }
+    return successResponse(res, destination);
   } catch (err) {
     backendLogger.error('Error fetching destination', { error: err.message, destinationId: req.params.id });
-    res.status(400).json({ error: 'Failed to fetch destination' });
+    return errorResponse(res, err, 'Failed to fetch destination', 400);
   }
 }
 
@@ -204,15 +231,15 @@ async function updateDestination(req, res) {
   try {
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid destination ID format' });
+      return errorResponse(res, null, 'Invalid destination ID format', 400);
     }
 
     let destination = await Destination.findById(req.params.id);
-    
+
     if (!destination) {
-      return res.status(404).json({ error: 'Destination not found' });
+      return errorResponse(res, null, 'Destination not found', 404);
     }
-    
+
     // Check if user has permission to edit using PermissionEnforcer (handles super admin correctly)
     const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canEdit({
@@ -221,10 +248,7 @@ async function updateDestination(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(403).json({
-        error: 'Not authorized to update this destination',
-        message: permCheck.reason || 'You must be the owner or a collaborator to edit this destination.'
-      });
+      return errorResponse(res, null, permCheck.reason || 'You must be the owner or a collaborator to edit this destination.', 403);
     }
 
     // Check for duplicate destination if name or country is being updated
@@ -241,10 +265,7 @@ async function updateDestination(req, res) {
       });
 
       if (exactDuplicate) {
-        return res.status(409).json({
-          error: 'Duplicate destination',
-          message: `A destination named "${checkName}, ${checkCountry}" already exists. Please choose a different destination.`
-        });
+        return errorResponse(res, null, `A destination named "${checkName}, ${checkCountry}" already exists. Please choose a different destination.`, 409);
       }
 
       // Check for fuzzy duplicate
@@ -261,16 +282,47 @@ async function updateDestination(req, res) {
       );
 
       if (fuzzyDuplicate) {
-        return res.status(409).json({
-          error: 'Similar destination exists',
-          message: `A similar destination "${fuzzyDuplicate.name}, ${fuzzyDuplicate.country}" already exists. Did you mean to use that instead?`
-        });
+        return errorResponse(res, null, `A similar destination "${fuzzyDuplicate.name}, ${fuzzyDuplicate.country}" already exists. Did you mean to use that instead?`, 409);
+      }
+    }
+
+    // Handle location geocoding on update
+    if (req.body.location !== undefined) {
+      try {
+        const geocodedLocation = await createPlanItemLocation(req.body.location);
+        if (geocodedLocation) {
+          req.body.location = geocodedLocation;
+          // Also update map_location for backward compatibility
+          if (!req.body.map_location && geocodedLocation.address) {
+            req.body.map_location = geocodedLocation.address;
+          }
+        }
+      } catch (geoErr) {
+        backendLogger.warn('[updateDestination] Geocoding failed, using raw location', { error: geoErr.message });
+        // If geocoding fails but location has address, use it anyway
+        if (typeof req.body.location === 'object' && req.body.location.address) {
+          // Keep the provided location object
+        } else if (typeof req.body.location === 'string') {
+          // Convert string to location object without geocoding
+          req.body.location = { address: req.body.location };
+        }
+      }
+    }
+    // If only map_location is being updated, try to geocode it to update location too
+    else if (req.body.map_location && !destination.location?.address) {
+      try {
+        const geocodedLocation = await createPlanItemLocation(req.body.map_location);
+        if (geocodedLocation) {
+          req.body.location = geocodedLocation;
+        }
+      } catch (geoErr) {
+        backendLogger.warn('[updateDestination] map_location geocoding failed', { error: geoErr.message });
       }
     }
 
     // Capture previous state for activity tracking
     const previousState = destination.toObject();
-    
+
     destination = Object.assign(destination, req.body);
     await destination.save();
     
@@ -303,10 +355,10 @@ async function updateDestination(req, res) {
       backendLogger.warn('[WebSocket] Failed to broadcast destination update', { error: wsErr.message });
     }
 
-    res.status(200).json(destination);
+    return successResponse(res, destination, 'Destination updated successfully');
   } catch (err) {
     backendLogger.error('Error updating destination', { error: err.message, userId: req.user._id, destinationId: req.params.id });
-    res.status(400).json({ error: 'Failed to update destination' });
+    return errorResponse(res, err, 'Failed to update destination', 400);
   }
 }
 
@@ -314,15 +366,15 @@ async function deleteDestination(req, res) {
   try {
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid destination ID format' });
+      return errorResponse(res, null, 'Invalid destination ID format', 400);
     }
 
     let destination = await Destination.findById(req.params.id);
-    
+
     if (!destination) {
-      return res.status(404).json({ error: 'Destination not found' });
+      return errorResponse(res, null, 'Destination not found', 404);
     }
-    
+
     // Check if user can delete using PermissionEnforcer (handles super admin correctly)
     const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canDelete({
@@ -331,10 +383,7 @@ async function deleteDestination(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(403).json({
-        error: 'Not authorized to delete this destination',
-        message: permCheck.reason || 'You must be the owner to delete this destination.'
-      });
+      return errorResponse(res, null, permCheck.reason || 'You must be the owner to delete this destination.', 403);
     }
     
     // Track deletion (non-blocking) - must happen before deleteOne()
@@ -361,10 +410,10 @@ async function deleteDestination(req, res) {
       backendLogger.warn('[WebSocket] Failed to broadcast destination deletion', { error: wsErr.message });
     }
 
-    res.status(200).json({ message: 'Destination deleted successfully', destination });
+    return successResponse(res, { destinationId: req.params.id }, 'Destination deleted successfully');
   } catch (err) {
     backendLogger.error('Error deleting destination', { error: err.message, userId: req.user._id, destinationId: req.params.id });
-    res.status(400).json({ error: 'Failed to delete destination' });
+    return errorResponse(res, err, 'Failed to delete destination', 400);
   }
 }
 
@@ -372,22 +421,22 @@ async function toggleUserFavoriteDestination(req, res) {
   try {
     // Validate ObjectId formats
     if (!mongoose.Types.ObjectId.isValid(req.params.destinationId)) {
-      return res.status(400).json({ error: 'Invalid destination ID format' });
+      return errorResponse(res, null, 'Invalid destination ID format', 400);
     }
     if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     let destination = await Destination.findById(req.params.destinationId);
-    
+
     if (!destination) {
-      return res.status(404).json({ error: 'Destination not found' });
+      return errorResponse(res, null, 'Destination not found', 404);
     }
-    
+
     const user = await User.findById(req.params.userId);
-    
+
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return errorResponse(res, null, 'User not found', 404);
     }
     
     const idx = destination.users_favorite.findIndex(id => id.toString() === user._id.toString());
@@ -395,9 +444,8 @@ async function toggleUserFavoriteDestination(req, res) {
     
     // Check if user is already a collaborator (includes super admin check)
     const isCollaborator = await permissions.isCollaborator(user._id, destination, { Destination, Experience });
-    
+
     // Get enforcer for secure permission mutations
-    const { getEnforcer } = require('../../utilities/permission-enforcer');
     const enforcer = getEnforcer({ Destination, Experience, User });
     
     if (idx === -1) {
@@ -434,11 +482,11 @@ async function toggleUserFavoriteDestination(req, res) {
       await destination.save();
       // Populate photos before returning to ensure frontend has complete data
       await destination.populate("photos", "url caption photo_credit photo_credit_url width height");
-      res.status(201).json(destination);
+      return successResponse(res, destination, 'Destination added to favorites', 201);
     } else {
       // Removing from favorites
       destination.users_favorite.splice(idx, 1);
-      
+
       // Remove contributor permission if not owner or collaborator
       if (!isOwner && !isCollaborator) {
         await enforcer.removePermission({
@@ -459,11 +507,11 @@ async function toggleUserFavoriteDestination(req, res) {
       await destination.save();
       // Populate photos before returning to ensure frontend has complete data
       await destination.populate("photos", "url caption photo_credit photo_credit_url width height");
-      res.status(200).json(destination);
+      return successResponse(res, destination, 'Destination removed from favorites');
     }
   } catch (err) {
     backendLogger.error('Error toggling favorite destination', { error: err.message, userId: req.user._id, destinationId: req.params.destinationId });
-    res.status(400).json({ error: 'Failed to toggle favorite destination' });
+    return errorResponse(res, err, 'Failed to toggle favorite destination', 400);
   }
 }
 
@@ -472,7 +520,7 @@ async function addPhoto(req, res) {
     const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
-      return res.status(404).json({ error: 'Destination not found' });
+      return errorResponse(res, null, 'Destination not found', 404);
     }
 
     // Check if user has permission to edit
@@ -483,16 +531,13 @@ async function addPhoto(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(401).json({
-        error: 'Not authorized to modify this destination',
-        message: permCheck.reason
-      });
+      return errorResponse(res, null, permCheck.reason || 'Not authorized to modify this destination', 403);
     }
 
     const { url, photo_credit, photo_credit_url } = req.body;
 
     if (!url) {
-      return res.status(400).json({ error: 'Photo URL is required' });
+      return errorResponse(res, null, 'Photo URL is required', 400);
     }
 
     // Add photo to photos array
@@ -504,10 +549,10 @@ async function addPhoto(req, res) {
 
     await destination.save();
 
-    res.status(201).json(destination);
+    return successResponse(res, destination, 'Photo added successfully', 201);
   } catch (err) {
     backendLogger.error('Error adding photo to destination', { error: err.message, userId: req.user._id, destinationId: req.params.id, url: req.body.url });
-    res.status(400).json({ error: 'Failed to add photo' });
+    return errorResponse(res, err, 'Failed to add photo', 400);
   }
 }
 
@@ -516,7 +561,7 @@ async function removePhoto(req, res) {
     const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
-      return res.status(404).json({ error: 'Destination not found' });
+      return errorResponse(res, null, 'Destination not found', 404);
     }
 
     // Check if user has permission to edit
@@ -527,16 +572,13 @@ async function removePhoto(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(401).json({
-        error: 'Not authorized to modify this destination',
-        message: permCheck.reason
-      });
+      return errorResponse(res, null, permCheck.reason || 'Not authorized to modify this destination', 403);
     }
 
     const photoIndex = parseInt(req.params.photoIndex);
 
     if (photoIndex < 0 || photoIndex >= destination.photos.length) {
-      return res.status(400).json({ error: 'Invalid photo index' });
+      return errorResponse(res, null, 'Invalid photo index', 400);
     }
 
     // Remove photo from array
@@ -550,10 +592,10 @@ async function removePhoto(req, res) {
 
     await destination.save();
 
-    res.status(200).json(destination);
+    return successResponse(res, destination, 'Photo removed successfully');
   } catch (err) {
     backendLogger.error('Error removing photo from destination', { error: err.message, userId: req.user._id, destinationId: req.params.id, photoIndex: req.params.photoIndex });
-    res.status(400).json({ error: 'Failed to remove photo' });
+    return errorResponse(res, err, 'Failed to remove photo', 400);
   }
 }
 
@@ -562,7 +604,7 @@ async function setDefaultPhoto(req, res) {
     const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
-      return res.status(404).json({ error: 'Destination not found' });
+      return errorResponse(res, null, 'Destination not found', 404);
     }
 
     // Check if user has permission to edit
@@ -573,25 +615,22 @@ async function setDefaultPhoto(req, res) {
     });
 
     if (!permCheck.allowed) {
-      return res.status(401).json({
-        error: 'Not authorized to modify this destination',
-        message: permCheck.reason
-      });
+      return errorResponse(res, null, permCheck.reason || 'Not authorized to modify this destination', 403);
     }
 
     const photoIndex = parseInt(req.body.photoIndex);
 
     if (photoIndex < 0 || photoIndex >= destination.photos.length) {
-      return res.status(400).json({ error: 'Invalid photo index' });
+      return errorResponse(res, null, 'Invalid photo index', 400);
     }
 
     destination.default_photo_id = destination.photos[photoIndex]._id;
     await destination.save();
 
-    res.status(200).json(destination);
+    return successResponse(res, destination, 'Default photo set successfully');
   } catch (err) {
     backendLogger.error('Error setting default photo', { error: err.message, userId: req.user._id, destinationId: req.params.id, photoIndex: req.params.photoIndex });
-    res.status(400).json({ error: 'Failed to set default photo' });
+    return errorResponse(res, err, 'Failed to set default photo', 400);
   }
 }
 
@@ -607,37 +646,37 @@ async function addDestinationPermission(req, res) {
   try {
     // Validate destination ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid destination ID format' });
+      return errorResponse(res, null, 'Invalid destination ID format', 400);
     }
 
     const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
-      return res.status(404).json({ error: 'Destination not found' });
+      return errorResponse(res, null, 'Destination not found', 404);
     }
 
     // Only owner can modify permissions
     if (!permissions.isOwner(req.user, destination)) {
-      return res.status(401).json({ error: 'Only the destination owner can manage permissions' });
+      return errorResponse(res, null, 'Only the destination owner can manage permissions', 403);
     }
 
     const { _id, entity, type } = req.body;
 
     // Validate required fields
     if (!_id || !entity) {
-      return res.status(400).json({ error: 'Permission must have _id and entity fields' });
+      return errorResponse(res, null, 'Permission must have _id and entity fields', 400);
     }
 
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(_id)) {
-      return res.status(400).json({ error: 'Invalid permission _id format' });
+      return errorResponse(res, null, 'Invalid permission _id format', 400);
     }
 
     // Validate entity exists
     if (entity === permissions.ENTITY_TYPES.USER) {
       const user = await User.findById(_id);
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return errorResponse(res, null, 'User not found', 404);
       }
 
       // Prevent owner from being added as permission (already has owner role)
@@ -645,58 +684,53 @@ async function addDestinationPermission(req, res) {
         p.entity === 'user' && p.type === 'owner'
       );
       if (ownerPermission && _id === ownerPermission._id.toString()) {
-        return res.status(400).json({ error: 'Owner already has full permissions' });
+        return errorResponse(res, null, 'Owner already has full permissions', 400);
       }
 
       if (!type) {
-        return res.status(400).json({ error: 'User permissions must have a type field' });
+        return errorResponse(res, null, 'User permissions must have a type field', 400);
       }
     } else if (entity === permissions.ENTITY_TYPES.DESTINATION) {
       const targetDest = await Destination.findById(_id);
       if (!targetDest) {
-        return res.status(404).json({ error: 'Target destination not found' });
+        return errorResponse(res, null, 'Target destination not found', 404);
       }
 
       // Check for circular dependency
       const models = { Destination, Experience };
       const wouldBeCircular = await permissions.wouldCreateCircularDependency(
-        destination, 
-        _id, 
-        entity, 
+        destination,
+        _id,
+        entity,
         models
       );
 
       if (wouldBeCircular) {
-        return res.status(400).json({ 
-          error: 'Cannot add permission: would create circular dependency' 
-        });
+        return errorResponse(res, null, 'Cannot add permission: would create circular dependency', 400);
       }
     } else if (entity === permissions.ENTITY_TYPES.EXPERIENCE) {
       const experience = await Experience.findById(_id);
       if (!experience) {
-        return res.status(404).json({ error: 'Target experience not found' });
+        return errorResponse(res, null, 'Target experience not found', 404);
       }
 
       // Check for circular dependency
       const models = { Destination, Experience };
       const wouldBeCircular = await permissions.wouldCreateCircularDependency(
-        destination, 
-        _id, 
-        entity, 
+        destination,
+        _id,
+        entity,
         models
       );
 
       if (wouldBeCircular) {
-        return res.status(400).json({ 
-          error: 'Cannot add permission: would create circular dependency' 
-        });
+        return errorResponse(res, null, 'Cannot add permission: would create circular dependency', 400);
       }
     }
 
     // Add permission using enforcer (SECURE)
-    const { getEnforcer } = require('../../utilities/permission-enforcer');
     const enforcer = getEnforcer({ Destination, Experience, User });
-    
+
     const permission = { _id, entity };
     if (type) {
       permission.type = type;
@@ -716,19 +750,16 @@ async function addDestinationPermission(req, res) {
     });
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return errorResponse(res, null, result.error, 400);
     }
 
     // Permission saved by enforcer, no need to save again
 
-    res.status(201).json({
-      message: 'Permission added successfully',
-      destination
-    });
+    return successResponse(res, destination, 'Permission added successfully', 201);
 
   } catch (err) {
     backendLogger.error('Error adding destination permission', { error: err.message, userId: req.user._id, destinationId: req.params.id, entityId: req.body.entityId, entityType: req.body.entityType, type: req.body.type });
-    res.status(400).json({ error: 'Failed to add permission' });
+    return errorResponse(res, err, 'Failed to add permission', 400);
   }
 }
 
@@ -740,36 +771,33 @@ async function removeDestinationPermission(req, res) {
   try {
     // Validate destination ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid destination ID format' });
+      return errorResponse(res, null, 'Invalid destination ID format', 400);
     }
 
     // Validate entity ID
     if (!mongoose.Types.ObjectId.isValid(req.params.entityId)) {
-      return res.status(400).json({ error: 'Invalid entity ID format' });
+      return errorResponse(res, null, 'Invalid entity ID format', 400);
     }
 
     const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
-      return res.status(404).json({ error: 'Destination not found' });
+      return errorResponse(res, null, 'Destination not found', 404);
     }
 
     // Only owner can modify permissions
     if (!permissions.isOwner(req.user, destination)) {
-      return res.status(401).json({ error: 'Only the destination owner can manage permissions' });
+      return errorResponse(res, null, 'Only the destination owner can manage permissions', 403);
     }
 
     const { entityId, entityType } = req.params;
 
     // Validate entity type
     if (!Object.values(permissions.ENTITY_TYPES).includes(entityType)) {
-      return res.status(400).json({ 
-        error: `Invalid entity type. Must be one of: ${Object.values(permissions.ENTITY_TYPES).join(', ')}` 
-      });
+      return errorResponse(res, null, `Invalid entity type. Must be one of: ${Object.values(permissions.ENTITY_TYPES).join(', ')}`, 400);
     }
 
     // Remove permission using enforcer (SECURE)
-    const { getEnforcer } = require('../../utilities/permission-enforcer');
     const enforcer = getEnforcer({ Destination, Experience, User });
 
     const result = await enforcer.removePermission({
@@ -787,20 +815,16 @@ async function removeDestinationPermission(req, res) {
     });
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return errorResponse(res, null, result.error, 400);
     }
 
     await destination.save();
 
-    res.status(200).json({
-      message: 'Permission removed successfully',
-      removed: result.removed,
-      destination
-    });
+    return successResponse(res, { removed: result.removed, destination }, 'Permission removed successfully');
 
   } catch (err) {
     backendLogger.error('Error removing destination permission', { error: err.message, userId: req.user._id, destinationId: req.params.id, entityId: req.params.entityId, entityType: req.params.entityType });
-    res.status(400).json({ error: 'Failed to remove permission' });
+    return errorResponse(res, err, 'Failed to remove permission', 400);
   }
 }
 
@@ -812,33 +836,32 @@ async function updateDestinationPermission(req, res) {
   try {
     // Validate destination ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid destination ID format' });
+      return errorResponse(res, null, 'Invalid destination ID format', 400);
     }
 
     // Validate user ID
     if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
+      return errorResponse(res, null, 'Invalid user ID format', 400);
     }
 
     const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
-      return res.status(404).json({ error: 'Destination not found' });
+      return errorResponse(res, null, 'Destination not found', 404);
     }
 
     // Only owner can modify permissions
     if (!permissions.isOwner(req.user, destination)) {
-      return res.status(401).json({ error: 'Only the destination owner can manage permissions' });
+      return errorResponse(res, null, 'Only the destination owner can manage permissions', 403);
     }
 
     const { type } = req.body;
 
     if (!type) {
-      return res.status(400).json({ error: 'Permission type is required' });
+      return errorResponse(res, null, 'Permission type is required', 400);
     }
 
     // Update permission using enforcer (SECURE)
-    const { getEnforcer } = require('../../utilities/permission-enforcer');
     const enforcer = getEnforcer({ Destination, Experience, User });
 
     const result = await enforcer.updatePermission({
@@ -857,19 +880,16 @@ async function updateDestinationPermission(req, res) {
     });
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return errorResponse(res, null, result.error, 400);
     }
 
     await destination.save();
 
-    res.status(200).json({
-      message: 'Permission updated successfully',
-      destination
-    });
+    return successResponse(res, destination, 'Permission updated successfully');
 
   } catch (err) {
     backendLogger.error('Error updating destination permission', { error: err.message, userId: req.user._id, destinationId: req.params.id, userIdParam: req.params.userId, type: req.body.type });
-    res.status(400).json({ error: 'Failed to update permission' });
+    return errorResponse(res, err, 'Failed to update permission', 400);
   }
 }
 
@@ -881,13 +901,13 @@ async function getDestinationPermissions(req, res) {
   try {
     // Validate destination ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid destination ID format' });
+      return errorResponse(res, null, 'Invalid destination ID format', 400);
     }
 
     const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
-      return res.status(404).json({ error: 'Destination not found' });
+      return errorResponse(res, null, 'Destination not found', 404);
     }
 
     const models = { Destination, Experience };
@@ -910,7 +930,7 @@ async function getDestinationPermissions(req, res) {
       }
     }
 
-    res.status(200).json({
+    return successResponse(res, {
       owner: ownerInfo,
       permissions: allPermissions,
       directPermissions: destination.permissions || []
@@ -918,7 +938,7 @@ async function getDestinationPermissions(req, res) {
 
   } catch (err) {
     backendLogger.error('Error getting destination permissions', { error: err.message, destinationId: req.params.id });
-    res.status(400).json({ error: 'Failed to get permissions' });
+    return errorResponse(res, err, 'Failed to get permissions', 400);
   }
 }
 

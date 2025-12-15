@@ -17,7 +17,7 @@ import { useUser } from "../../contexts/UserContext";
 import EntitySchema from "../OpenGraph/EntitySchema";
 import imagePreloader from '../../utilities/image-preloader';
 
-function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false, onOptimisticDelete }) {
+function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false, onOptimisticDelete, fluid = false }) {
   const { user } = useUser();
   const { fetchPlans, plans: globalPlans } = useData();
   const { error: showError } = useToast();
@@ -430,13 +430,16 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     setIsExpanded(prev => !prev);
   }, [isMobile]);
 
+  // Build card class names based on props
+  const cardClasses = `${styles.experienceCard} ${fluid ? styles.experienceCardFluid : ''} d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden ${isMobile ? 'mobile' : ''} ${isExpanded ? 'expanded' : ''}`;
+
   return (
-    <div className="d-block m-2" style={{ width: '20rem', verticalAlign: 'top' }}>
+    <div className={fluid ? '' : 'd-block m-2'} style={fluid ? undefined : { width: '20rem', verticalAlign: 'top' }}>
       {experience && !isDeleted ? (
         <div
           ref={containerRef}
-          className={`${styles.experienceCard} d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden ${isMobile ? 'mobile' : ''} ${isExpanded ? 'expanded' : ''}`}
-          style={{ backgroundImage: backgroundImage, minHeight: '12rem', width: '20rem' }}
+          className={cardClasses}
+          style={{ backgroundImage: backgroundImage, minHeight: '12rem', ...(fluid ? {} : { width: '20rem' }) }}
           onClick={handleCardClick}
         >
           <div

@@ -49,7 +49,7 @@ export default function PlanItemDetailsButton({ onSelectDetailType, disabled = f
         }}
         disabled={disabled}
         type="button"
-        aria-label="Add details to plan item"
+        aria-label={lang.current.aria.addDetailsToPlanItem}
         aria-expanded={dropdownOpen}
       >
         ✚ Add

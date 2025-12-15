@@ -6,6 +6,7 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
+import { lang } from '../../lang.constants';
 import styles from './TabNav.module.scss';
 
 /**
@@ -67,7 +68,7 @@ export default function TabNav({ tabs, activeTab, onTabChange, className, border
     <div
       className={`${styles.tabNav} ${borderBottom ? styles.tabNavBordered : ''} ${className || ''}`}
       role="tablist"
-      aria-label="Navigation tabs"
+      aria-label={lang.current.aria.navigationTabs}
     >
       {tabs.map((tab) => (
         <TabItem

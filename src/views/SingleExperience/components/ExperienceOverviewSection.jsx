@@ -1,8 +1,13 @@
 /**
  * ExperienceOverviewSection Component
  * Displays experience photos, destination info, experience type tags, description, and map
+ *
+ * Wrapped with React.memo to prevent unnecessary re-renders - this component
+ * displays mostly static experience content and only needs to re-render when
+ * the experience data actually changes.
  */
 
+import { memo } from 'react';
 import PhotoCard from '../../../components/PhotoCard/PhotoCard';
 import InfoCard from '../../../components/InfoCard/InfoCard';
 import GoogleMap from '../../../components/GoogleMap/GoogleMap';
@@ -10,7 +15,7 @@ import TagPill from '../../../components/Pill/TagPill';
 import { createUrlSlug } from '../../../utilities/url-utils';
 import styles from '../SingleExperience.module.scss';
 
-export default function ExperienceOverviewSection({
+function ExperienceOverviewSection({
   // Experience data
   experience,
 
@@ -98,3 +103,5 @@ export default function ExperienceOverviewSection({
     </div>
   );
 }
+
+export default memo(ExperienceOverviewSection);

@@ -36,7 +36,7 @@ export default function TagPill({
       {removable && (
         <button
           type="button"
-          aria-label="remove"
+          aria-label={lang.current.aria.remove}
           className={styles.tagPillRemove}
           onClick={(e) => { e.stopPropagation(); onRemove && onRemove(e); }}
         >

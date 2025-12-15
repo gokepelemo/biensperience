@@ -5,7 +5,7 @@ const User = require("../../models/user");
 const Photo = require("../../models/photo");
 const permissions = require("../../utilities/permissions");
 const { getEnforcer } = require("../../utilities/permission-enforcer");
-const { asyncHandler } = require("../../utilities/controller-helpers");
+const { asyncHandler, successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
 const backendLogger = require("../../utilities/backend-logger");
 const mongoose = require("mongoose");
 const Activity = require('../../models/activity');
@@ -151,7 +151,7 @@ const createPlan = asyncHandler(async (req, res) => {
   // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(experienceId)) {
     backendLogger.warn('Invalid experience ID format', { experienceId });
-    return res.status(400).json({ error: "Invalid experience ID" });
+    return errorResponse(res, null, "Invalid experience ID", 400);
   }
 
   if (!req.user || !req.user._id) {
@@ -159,12 +159,12 @@ const createPlan = asyncHandler(async (req, res) => {
       hasUser: !!req.user,
       hasUserId: !!(req.user?._id)
     });
-    return res.status(401).json({ error: "Authentication required" });
+    return errorResponse(res, null, "Authentication required", 401);
   }
 
   if (!mongoose.Types.ObjectId.isValid(req.user._id)) {
     backendLogger.warn('Invalid user ID format', { userId: req.user._id });
-    return res.status(400).json({ error: "Invalid user ID" });
+    return errorResponse(res, null, "Invalid user ID", 400);
   }
 
   // Check if experience exists
@@ -172,7 +172,7 @@ const createPlan = asyncHandler(async (req, res) => {
   const experience = await Experience.findById(experienceId);
   if (!experience) {
     backendLogger.warn('Experience not found', { experienceId });
-    return res.status(404).json({ error: "Experience not found" });
+    return errorResponse(res, null, "Experience not found", 404);
   }
   backendLogger.debug('Experience found', { 
     experienceId, 
@@ -193,11 +193,7 @@ const createPlan = asyncHandler(async (req, res) => {
       userId: req.user._id.toString(),
       existingPlanId: existingPlan._id.toString()
     });
-    return res.status(409).json({
-      error: "Plan already exists for this experience",
-      message: "You already have a plan for this experience. Use the checkmark button to view it.",
-      planId: existingPlan._id
-    });
+    return errorResponse(res, null, "Plan already exists for this experience. Use the checkmark button to view it.", 409);
   }
   backendLogger.debug('No existing plan found, proceeding with creation');
 
@@ -296,7 +292,7 @@ const createPlan = asyncHandler(async (req, res) => {
   };
 
   // Return immediately for fast response
-  res.status(201).json(quickPopulatedPlan);
+  successResponse(res, quickPopulatedPlan, 'Plan created successfully', 201);
 
   // Broadcast plan creation via WebSocket (async, non-blocking)
   try {
@@ -506,7 +502,7 @@ const getPlanById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: "Invalid plan ID" });
+    return errorResponse(res, null, "Invalid plan ID", 400);
   }
 
   const plan = await Plan.findById(id)
@@ -568,7 +564,7 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
   const { experienceId } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(experienceId)) {
-    return res.status(400).json({ error: "Invalid experience ID" });
+    return errorResponse(res, null, "Invalid experience ID", 400);
   }
 
   // Single optimized query: get user's own plan OR plans where user is collaborator/owner
@@ -675,7 +671,7 @@ const checkUserPlanForExperience = asyncHandler(async (req, res) => {
   const { experienceId } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(experienceId)) {
-    return res.status(400).json({ error: "Invalid experience ID" });
+    return errorResponse(res, null, "Invalid experience ID", 400);
   }
 
   // Find all plans where user is owner OR collaborator
@@ -734,13 +730,13 @@ const updatePlan = asyncHandler(async (req, res) => {
   const updates = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: "Invalid plan ID" });
+    return errorResponse(res, null, "Invalid plan ID", 400);
   }
 
   const plan = await Plan.findById(id);
 
   if (!plan) {
-    return res.status(404).json({ error: "Plan not found" });
+    return errorResponse(res, null, "Plan not found", 404);
   }
 
   // Check permissions - must be owner or collaborator
@@ -751,10 +747,7 @@ const updatePlan = asyncHandler(async (req, res) => {
   });
 
   if (!permCheck.allowed) {
-    return res.status(403).json({
-      error: "Insufficient permissions to edit this plan",
-      message: permCheck.reason
-    });
+    return errorResponse(res, null, permCheck.reason || "Insufficient permissions to edit this plan", 403);
   }
 
   // Validate update fields
@@ -796,7 +789,7 @@ const updatePlan = asyncHandler(async (req, res) => {
   if (requestedAllowed.length === 1 && requestedAllowed[0] === 'planned_date') {
     // Validate the planned_date value
     if (!validateUpdate('planned_date', updates.planned_date)) {
-      return res.status(400).json({ error: 'Validation error', message: 'Invalid value for field: planned_date' });
+      return errorResponse(res, null, 'Invalid value for field: planned_date', 400);
     }
 
     // Normalize value into Date or null
@@ -850,10 +843,7 @@ const updatePlan = asyncHandler(async (req, res) => {
   for (const field of allowedUpdates) {
     if (updates[field] !== undefined) {
       if (!validateUpdate(field, updates[field])) {
-        return res.status(400).json({ 
-          error: "Validation error",
-          message: `Invalid value for field: ${field}` 
-        });
+        return errorResponse(res, null, `Invalid value for field: ${field}`, 400);
       }
       // Coerce empty strings for planned_date to null to avoid storing empty strings
       if (field === 'planned_date') {
@@ -951,7 +941,7 @@ const deletePlan = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: "Invalid plan ID" });
+    return errorResponse(res, null, "Invalid plan ID", 400);
   }
 
   const plan = await Plan.findById(id)
@@ -1069,13 +1059,13 @@ const addCollaborator = asyncHandler(async (req, res) => {
   const { userId } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
-    return res.status(400).json({ error: "Invalid ID" });
+    return errorResponse(res, null, "Invalid ID", 400);
   }
 
   const plan = await Plan.findById(id);
 
   if (!plan) {
-    return res.status(404).json({ error: "Plan not found" });
+    return errorResponse(res, null, "Plan not found", 404);
   }
 
   // Only owner can add collaborators
@@ -1096,15 +1086,12 @@ const addCollaborator = asyncHandler(async (req, res) => {
       });
 
       if (!permCheck.allowed) {
-        return res.status(403).json({
-          error: "Only the plan owner can add collaborators",
-          message: permCheck.reason
-        });
+        return errorResponse(res, null, permCheck.reason || "Only the plan owner can add collaborators", 403);
       }
     }
   } catch (err) {
     backendLogger.error('Error checking permissions for addCollaborator', { error: err?.message, stack: err?.stack });
-    return res.status(500).json({ error: 'Error checking permissions' });
+    return errorResponse(res, err, 'Error checking permissions', 500);
   }
 
   // Check if user already has permission

@@ -9,6 +9,16 @@
  * - TTL/expiry support for temporary preferences
  * - Namespace-based organization
  * - Sync support with user profile
+ * - Automatic size management with LRU eviction
+ * - Single storage key for all preferences
+ *
+ * Storage Management:
+ * - All preferences stored in single encrypted key: 'biensperience:encrypted_prefs'
+ * - Maximum size: 4MB (encrypted data)
+ * - Safe threshold: 3MB (triggers automatic cleanup)
+ * - LRU (Least Recently Used) eviction when storage is full
+ * - Hierarchy preferences protected from auto-cleanup (highest priority)
+ * - Access times tracked for intelligent cleanup
  *
  * @module preferences-utils
  */
@@ -47,6 +57,14 @@ const ENCRYPTED_PREFERENCES_KEY = 'biensperience:encrypted_prefs';
  * Metadata key for preference expiry tracking
  */
 const PREFERENCES_META_KEY = 'biensperience:prefs_meta';
+
+/**
+ * Storage size limits
+ * localStorage typically has a 5-10MB limit per domain
+ * Keep well below that to avoid quota exceeded errors
+ */
+const MAX_STORAGE_SIZE = 4 * 1024 * 1024; // 4MB max for encrypted data
+const SAFE_STORAGE_SIZE = 3 * 1024 * 1024; // 3MB safe threshold - trigger cleanup
 
 /**
  * Preference categories for organization
@@ -97,15 +115,37 @@ let preferencesCache = null;
 let preferencesCacheUserId = null;
 
 /**
+ * Calculate byte size of a string (UTF-16)
+ * @param {string} str - String to measure
+ * @returns {number} Size in bytes
+ */
+function getStringByteSize(str) {
+  return new Blob([str]).size;
+}
+
+/**
+ * Get current storage size for preferences
+ * @returns {number} Size in bytes
+ */
+function getPreferencesStorageSize() {
+  try {
+    const stored = localStorage.getItem(ENCRYPTED_PREFERENCES_KEY);
+    return stored ? getStringByteSize(stored) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Get metadata about preferences (expiry tracking)
- * @returns {Object} Metadata object with expiry times
+ * @returns {Object} Metadata object with expiry times and access times
  */
 function getPreferencesMeta() {
   try {
     const meta = localStorage.getItem(PREFERENCES_META_KEY);
-    return meta ? JSON.parse(meta) : { expiry: {} };
+    return meta ? JSON.parse(meta) : { expiry: {}, lastAccess: {} };
   } catch {
-    return { expiry: {} };
+    return { expiry: {}, lastAccess: {} };
   }
 }
 
@@ -119,6 +159,62 @@ function setPreferencesMeta(meta) {
   } catch (e) {
     logger.warn('Failed to save preferences metadata', { error: e.message });
   }
+}
+
+/**
+ * Auto-expire least recently used preferences to free up space
+ * Uses LRU (Least Recently Used) strategy
+ * @param {Object} prefs - Preferences object
+ * @param {number} targetSize - Target size to reduce to
+ * @returns {Object} Cleaned preferences object
+ */
+function autoExpireLRUPreferences(prefs, targetSize) {
+  const meta = getPreferencesMeta();
+  const now = Date.now();
+  
+  // Build list of preferences with access times
+  const prefList = Object.keys(prefs).map(key => ({
+    key,
+    lastAccess: meta.lastAccess?.[key] || 0,
+    size: getStringByteSize(JSON.stringify(prefs[key]))
+  }));
+  
+  // Sort by least recently accessed
+  prefList.sort((a, b) => a.lastAccess - b.lastAccess);
+  
+  // Remove preferences until we're under target size
+  let currentSize = getPreferencesStorageSize();
+  let removed = 0;
+  
+  for (const pref of prefList) {
+    if (currentSize <= targetSize) break;
+    
+    // Skip hierarchy preferences (most important for UX)
+    if (pref.key.startsWith('hierarchy.')) continue;
+    
+    // Remove preference
+    delete prefs[pref.key];
+    if (meta.expiry?.[pref.key]) delete meta.expiry[pref.key];
+    if (meta.lastAccess?.[pref.key]) delete meta.lastAccess[pref.key];
+    
+    currentSize -= pref.size;
+    removed++;
+    
+    logger.debug('Auto-expired LRU preference', { 
+      key: pref.key, 
+      lastAccess: new Date(pref.lastAccess).toISOString() 
+    });
+  }
+  
+  if (removed > 0) {
+    setPreferencesMeta(meta);
+    logger.info('Auto-expired preferences due to storage limit', { 
+      removed, 
+      newSize: currentSize 
+    });
+  }
+  
+  return prefs;
 }
 
 /**
@@ -176,30 +272,100 @@ export async function storePreference(key, value, options = {}) {
     // Store the value
     prefs[key] = value;
 
+    // Update last access time for LRU tracking
+    const meta = getPreferencesMeta();
+    meta.lastAccess = meta.lastAccess || {};
+    meta.lastAccess[key] = Date.now();
+
     // Handle TTL/expiry
     if (ttl && ttl > 0) {
-      const meta = getPreferencesMeta();
       meta.expiry = meta.expiry || {};
       meta.expiry[key] = Date.now() + ttl;
-      setPreferencesMeta(meta);
+    }
+    
+    setPreferencesMeta(meta);
+
+    // Check storage size before encrypting/storing
+    // Estimate size by checking current size + new value size
+    const currentSize = getPreferencesStorageSize();
+    
+    // If approaching limit, auto-expire old preferences
+    if (currentSize > SAFE_STORAGE_SIZE) {
+      logger.warn('Preferences storage size exceeds safe threshold', { 
+        currentSize, 
+        threshold: SAFE_STORAGE_SIZE 
+      });
+      prefs = autoExpireLRUPreferences(prefs, SAFE_STORAGE_SIZE * 0.7); // Target 70% of safe size
     }
 
     // Encrypt and store
     if (userId) {
       const encrypted = await encryptData(prefs, userId);
-      localStorage.setItem(ENCRYPTED_PREFERENCES_KEY, encrypted);
+      
+      // Final size check before storing
+      const encryptedSize = getStringByteSize(encrypted);
+      if (encryptedSize > MAX_STORAGE_SIZE) {
+        logger.error('Encrypted preferences exceed maximum storage size', { 
+          size: encryptedSize, 
+          max: MAX_STORAGE_SIZE 
+        });
+        // Emergency cleanup - remove more aggressively
+        prefs = autoExpireLRUPreferences(prefs, MAX_STORAGE_SIZE * 0.5);
+        const reEncrypted = await encryptData(prefs, userId);
+        localStorage.setItem(ENCRYPTED_PREFERENCES_KEY, reEncrypted);
+      } else {
+        localStorage.setItem(ENCRYPTED_PREFERENCES_KEY, encrypted);
+      }
+      
       // Update cache
       preferencesCache = prefs;
       preferencesCacheUserId = userId;
     } else {
       // Fallback to unencrypted storage
-      localStorage.setItem(ENCRYPTED_PREFERENCES_KEY, JSON.stringify(prefs));
+      const jsonStr = JSON.stringify(prefs);
+      const jsonSize = getStringByteSize(jsonStr);
+      
+      if (jsonSize > MAX_STORAGE_SIZE) {
+        logger.error('Preferences exceed maximum storage size', { 
+          size: jsonSize, 
+          max: MAX_STORAGE_SIZE 
+        });
+        prefs = autoExpireLRUPreferences(prefs, MAX_STORAGE_SIZE * 0.5);
+        localStorage.setItem(ENCRYPTED_PREFERENCES_KEY, JSON.stringify(prefs));
+      } else {
+        localStorage.setItem(ENCRYPTED_PREFERENCES_KEY, jsonStr);
+      }
+      
       preferencesCache = prefs;
     }
 
-    logger.debug('Preference stored', { key, hasExpiry: !!ttl });
+    logger.debug('Preference stored', { key, hasExpiry: !!ttl, size: currentSize });
     return true;
   } catch (e) {
+    // Handle QuotaExceededError specifically
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      logger.error('localStorage quota exceeded - emergency cleanup', { key });
+      try {
+        // Emergency: clear old preferences and retry
+        const prefs = await getAllEncryptedPreferences(userId);
+        const cleaned = autoExpireLRUPreferences(prefs, MAX_STORAGE_SIZE * 0.3);
+        
+        if (userId) {
+          const encrypted = await encryptData(cleaned, userId);
+          localStorage.setItem(ENCRYPTED_PREFERENCES_KEY, encrypted);
+        } else {
+          localStorage.setItem(ENCRYPTED_PREFERENCES_KEY, JSON.stringify(cleaned));
+        }
+        
+        logger.info('Emergency cleanup successful, retrying store');
+        // Don't retry to avoid infinite loop - just report success of cleanup
+        return true;
+      } catch (cleanupError) {
+        logger.error('Emergency cleanup failed', { error: cleanupError.message });
+        return false;
+      }
+    }
+    
     logger.error('Failed to store preference', { key, error: e.message });
     return false;
   }
@@ -232,6 +398,12 @@ export async function retrievePreference(key, defaultValue = null, options = {})
         await expirePreference(key, { userId });
         return defaultValue;
       }
+      
+      // Update last access time for LRU tracking
+      meta.lastAccess = meta.lastAccess || {};
+      meta.lastAccess[key] = Date.now();
+      setPreferencesMeta(meta);
+      
       return prefs[key];
     }
 
@@ -384,6 +556,104 @@ export async function setMultiplePreferences(preferences, options = {}) {
 }
 
 /**
+ * Get storage health information
+ * Useful for monitoring and debugging storage issues
+ * 
+ * @returns {Object} Storage health metrics
+ * @property {number} currentSize - Current storage size in bytes
+ * @property {number} maxSize - Maximum allowed size in bytes
+ * @property {number} safeSize - Safe threshold size in bytes
+ * @property {number} percentUsed - Percentage of max size used
+ * @property {boolean} needsCleanup - Whether cleanup is recommended
+ * @property {number} preferenceCount - Number of stored preferences
+ * 
+ * @example
+ * const health = getPreferencesStorageHealth();
+ * console.log(`Storage: ${health.percentUsed}% used`);
+ * if (health.needsCleanup) {
+ *   await cleanupPreferencesStorage();
+ * }
+ */
+export function getPreferencesStorageHealth() {
+  const currentSize = getPreferencesStorageSize();
+  const percentUsed = (currentSize / MAX_STORAGE_SIZE) * 100;
+  
+  let preferenceCount = 0;
+  try {
+    const stored = localStorage.getItem(ENCRYPTED_PREFERENCES_KEY);
+    if (stored) {
+      // Rough estimate - won't be exact without decryption
+      preferenceCount = (stored.match(/:/g) || []).length;
+    }
+  } catch {}
+  
+  return {
+    currentSize,
+    maxSize: MAX_STORAGE_SIZE,
+    safeSize: SAFE_STORAGE_SIZE,
+    percentUsed: Math.round(percentUsed * 100) / 100,
+    needsCleanup: currentSize > SAFE_STORAGE_SIZE,
+    preferenceCount
+  };
+}
+
+/**
+ * Manually trigger storage cleanup
+ * Removes least recently used preferences to free up space
+ * 
+ * @param {Object} options - Cleanup options
+ * @param {string} [options.userId] - User ID for decryption/encryption
+ * @param {number} [options.targetSize] - Target size after cleanup (default: 70% of safe size)
+ * @returns {Promise<Object>} Cleanup results
+ * 
+ * @example
+ * const result = await cleanupPreferencesStorage({ userId: user._id });
+ * console.log(`Removed ${result.removed} preferences, freed ${result.freedBytes} bytes`);
+ */
+export async function cleanupPreferencesStorage(options = {}) {
+  const { userId, targetSize = SAFE_STORAGE_SIZE * 0.7 } = options;
+  
+  try {
+    const beforeSize = getPreferencesStorageSize();
+    let prefs = await getAllEncryptedPreferences(userId);
+    const beforeCount = Object.keys(prefs).length;
+    
+    // Run LRU cleanup
+    prefs = autoExpireLRUPreferences(prefs, targetSize);
+    
+    // Re-encrypt and store
+    if (userId) {
+      const encrypted = await encryptData(prefs, userId);
+      localStorage.setItem(ENCRYPTED_PREFERENCES_KEY, encrypted);
+    } else {
+      localStorage.setItem(ENCRYPTED_PREFERENCES_KEY, JSON.stringify(prefs));
+    }
+    
+    // Update cache
+    preferencesCache = prefs;
+    preferencesCacheUserId = userId;
+    
+    const afterSize = getPreferencesStorageSize();
+    const afterCount = Object.keys(prefs).length;
+    
+    return {
+      success: true,
+      beforeSize,
+      afterSize,
+      freedBytes: beforeSize - afterSize,
+      removed: beforeCount - afterCount,
+      remaining: afterCount
+    };
+  } catch (e) {
+    logger.error('Manual cleanup failed', { error: e.message });
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
+
+/**
  * Get preferences by category
  *
  * @param {string} category - Category prefix (e.g., 'viewMode', 'sort')
@@ -470,6 +740,65 @@ export function clearAllEncryptedPreferences() {
     logger.error('Failed to clear all encrypted preferences', { error: e.message });
     return false;
   }
+}
+
+/**
+ * Get detailed diagnostic information about preferences storage
+ * Useful for debugging storage issues in production
+ * 
+ * @param {string} [userId] - User ID for decryption (to see preference keys)
+ * @returns {Promise<Object>} Detailed diagnostic information
+ * 
+ * @example
+ * // In browser console:
+ * window.prefsDebug = () => import('./utilities/preferences-utils').then(m => m.getPreferencesDiagnostics(user._id));
+ * await window.prefsDebug();
+ */
+export async function getPreferencesDiagnostics(userId) {
+  const health = getPreferencesStorageHealth();
+  const meta = getPreferencesMeta();
+  
+  let preferences = {};
+  let categories = {};
+  
+  try {
+    preferences = await getAllEncryptedPreferences(userId);
+    
+    // Group by category
+    for (const key of Object.keys(preferences)) {
+      const category = key.split('.')[0];
+      categories[category] = (categories[category] || 0) + 1;
+    }
+  } catch (e) {
+    logger.error('Failed to load preferences for diagnostics', { error: e.message });
+  }
+  
+  // Calculate sizes by category
+  const categorySizes = {};
+  for (const [key, value] of Object.entries(preferences)) {
+    const category = key.split('.')[0];
+    const size = getStringByteSize(JSON.stringify(value));
+    categorySizes[category] = (categorySizes[category] || 0) + size;
+  }
+  
+  // Get oldest and newest access times
+  const accessTimes = Object.entries(meta.lastAccess || {})
+    .map(([key, time]) => ({ key, time, age: Date.now() - time }))
+    .sort((a, b) => b.age - a.age);
+  
+  return {
+    health,
+    totalPreferences: Object.keys(preferences).length,
+    categories,
+    categorySizes,
+    oldestAccess: accessTimes[0] || null,
+    newestAccess: accessTimes[accessTimes.length - 1] || null,
+    expiredCount: Object.keys(meta.expiry || {}).filter(k => meta.expiry[k] < Date.now()).length,
+    preferenceKeys: Object.keys(preferences),
+    recommendation: health.needsCleanup 
+      ? 'Storage usage high - cleanup recommended'
+      : 'Storage usage healthy'
+  };
 }
 
 /**

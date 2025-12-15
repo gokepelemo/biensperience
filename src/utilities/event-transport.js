@@ -186,9 +186,15 @@ export class LocalStorageTransport extends EventTransport {
       const parsed = JSON.parse(stored);
       return Array.isArray(parsed) ? parsed : [];
     } catch (error) {
-      logger.warn('[LocalStorageTransport] Error reading events list', {
+      logger.warn('[LocalStorageTransport] Error reading events list - clearing corrupted data', {
         error: error.message
       });
+      // Clear corrupted data to prevent persistent errors
+      try {
+        localStorage.removeItem(this.storageKey);
+      } catch (clearError) {
+        // Ignore clear errors
+      }
       return [];
     }
   }
