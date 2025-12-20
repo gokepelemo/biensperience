@@ -5,6 +5,10 @@
  * with pagination support. Used by the Countries view for displaying all destinations
  * and experiences within a specific country.
  *
+ * NOTE: This is a read-only API - no mutation events are emitted since all functions
+ * only perform GET requests. For destination/experience mutations, use the respective
+ * destinations-api.js and experiences-api.js which emit events via eventBus.
+ *
  * @module countries-api
  */
 

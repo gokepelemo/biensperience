@@ -86,7 +86,7 @@ export default function Countries() {
         error: err.message,
         country: countryName
       });
-      setError(err.message || 'Failed to load country data');
+      setError(err.message || lang.current.countriesView.failedToLoadData);
     } finally {
       setLoading(false);
     }
@@ -254,7 +254,7 @@ export default function Countries() {
   // Memoized page metadata
   const { pageTitle, pageDescription } = useMemo(() => ({
     pageTitle: `${displayCountryName} - ${lang.current.viewMeta.defaultTitle}`,
-    pageDescription: `Explore destinations and experiences in ${displayCountryName}. Discover travel plans, activities, and adventures.`
+    pageDescription: lang.current.countriesView.pageDescription.replace('{country}', displayCountryName)
   }), [displayCountryName]);
 
   // Memoized subtitle using total counts from meta
@@ -378,7 +378,7 @@ export default function Countries() {
                 {loading ? (
                   <SkeletonLoader variant="text" width="200px" height="24px" />
                 ) : (
-                  lang.current.heading.destinations || 'Destinations'
+                  lang.current.heading.destinations
                 )}
               </h2>
               <FlexCenter>
@@ -433,7 +433,7 @@ export default function Countries() {
                 {loading ? (
                   <SkeletonLoader variant="text" width="200px" height="24px" />
                 ) : (
-                  lang.current.heading.experiences || 'Experiences'
+                  lang.current.heading.experiences
                 )}
               </h2>
               <FlexCenter>
