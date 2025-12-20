@@ -8,6 +8,7 @@
 import { lang } from '../../lang.constants';
 import styles from './TravelTipsManager.module.scss';
 import { useState } from 'react';
+import { sanitizeUrl } from '../../utilities/sanitize';
 import { Button } from '../design-system';
 import {
   FaLanguage, FaMoneyBillWave, FaBus, FaShieldAlt,
@@ -196,17 +197,20 @@ export default function TravelTipsManager({
               {exchangeRate}
             </p>
           )}
-          {callToAction?.url && (
-            <a
-              href={callToAction.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.tipCtaLink}
-            >
-              <FaExternalLinkAlt size="0.75em" />
-              {callToAction.label || 'Learn More'}
-            </a>
-          )}
+          {callToAction?.url && (() => {
+            const safeUrl = sanitizeUrl(callToAction.url);
+            return safeUrl ? (
+              <a
+                href={safeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.tipCtaLink}
+              >
+                <FaExternalLinkAlt size="0.75em" />
+                {callToAction.label || 'Learn More'}
+              </a>
+            ) : null;
+          })()}
         </div>
       </div>
     );

@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fa';
 import { Button, Pill } from '../design-system';
 import EntitySchema from "../OpenGraph/EntitySchema";
+import { sanitizeUrl } from '../../utilities/sanitize';
 
 // Emoji icons for colorful display
 const TIP_EMOJIS = {
@@ -204,22 +205,25 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
             </div>
           )}
 
-          {callToAction && callToAction.url && (
-            <div className={styles.travelTipCta} style={{ marginTop: 'var(--space-2)' }}>
-              <Button
-                as="a"
-                href={callToAction.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                size="sm"
-                variant="outline"
-                className={styles.travelTipCtaButton}
-              >
-                {callToAction.label || 'Learn More'}
-                <FaExternalLinkAlt style={{ marginLeft: 'var(--space-1)' }} size="0.8em" />
-              </Button>
-            </div>
-          )}
+          {callToAction && callToAction.url && (() => {
+            const safeUrl = sanitizeUrl(callToAction.url);
+            return safeUrl ? (
+              <div className={styles.travelTipCta} style={{ marginTop: 'var(--space-2)' }}>
+                <Button
+                  as="a"
+                  href={safeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="sm"
+                  variant="outline"
+                  className={styles.travelTipCtaButton}
+                >
+                  {callToAction.label || 'Learn More'}
+                  <FaExternalLinkAlt style={{ marginLeft: 'var(--space-1)' }} size="0.8em" />
+                </Button>
+              </div>
+            ) : null;
+          })()}
         </div>
       </div>
       {includeSchema && tip && (

@@ -59,6 +59,7 @@ import { formatDateMetricCard, formatDateForInput } from '../../../utilities/dat
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { formatCostEstimate } from '../../../utilities/cost-utils';
 import { lang } from '../../../lang.constants';
+import { sanitizeUrl, sanitizeText } from '../../../utilities/sanitize';
 import debug from '../../../utilities/debug';
 import {
   getActivityType,
@@ -832,17 +833,20 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
           }
         }}
       >
-        {planItem.url ? (
-          <a
-            href={planItem.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {planItem.text}
-          </a>
-        ) : (
-          planItem.text
+        {planItem.url ? (() => {
+          const safeUrl = sanitizeUrl(planItem.url);
+          return safeUrl ? (
+            <a
+              href={safeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {sanitizeText(planItem.text)}
+            </a>
+          ) : sanitizeText(planItem.text);
+        })() : (
+          sanitizeText(planItem.text)
         )}
         {/* Activity type badge for child items with different type than parent */}
         {(() => {
@@ -1411,17 +1415,20 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
           }
         }}
       >
-        {planItem.url ? (
-          <a
-            href={planItem.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {planItem.text}
-          </a>
-        ) : (
-          planItem.text
+        {planItem.url ? (() => {
+          const safeUrl = sanitizeUrl(planItem.url);
+          return safeUrl ? (
+            <a
+              href={safeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {sanitizeText(planItem.text)}
+            </a>
+          ) : sanitizeText(planItem.text);
+        })() : (
+          sanitizeText(planItem.text)
         )}
         {/* Activity type badge for child items with different type than parent */}
         {(() => {

@@ -11,6 +11,7 @@ import PlanningTime from '../../../components/PlanningTime/PlanningTime';
 import { FormCheck } from '../../../components/design-system';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
+import { sanitizeUrl, sanitizeText } from '../../../utilities/sanitize';
 
 export default function SyncPlanModal({
   // Modal state
@@ -118,18 +119,22 @@ export default function SyncPlanModal({
                     </div>
                     <div className="flex-grow-1">
                       <strong>{item.text}</strong>
-                      {item.url && (
-                        <div className="small" style={{ color: 'var(--bs-gray-600)' }}>
-                          URL:{" "}
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {item.url}
-                          </a>
-                        </div>
-                      )}
+                      {item.url && (() => {
+                        const safeUrl = sanitizeUrl(item.url);
+                        const displayUrl = sanitizeText(item.url);
+                        return safeUrl && displayUrl ? (
+                          <div className="small" style={{ color: 'var(--bs-gray-600)' }}>
+                            URL:{" "}
+                            <a
+                              href={safeUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {displayUrl}
+                            </a>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                     <div className="ms-2" style={{ textAlign: 'end' }}>
                       {item.cost > 0 && (

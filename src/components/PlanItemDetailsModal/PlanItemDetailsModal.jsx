@@ -21,6 +21,7 @@ import { convertCostToTarget, fetchRates } from '../../utilities/currency-conver
 import { updatePlanItem } from '../../utilities/plans-api';
 import { broadcastEvent } from '../../utilities/event-bus';
 import { lang } from '../../lang.constants';
+import { sanitizeUrl } from '../../utilities/sanitize';
 import Tooltip from '../Tooltip/Tooltip';
 
 export default function PlanItemDetailsModal({
@@ -1033,20 +1034,23 @@ export default function PlanItemDetailsModal({
           )}
 
           {/* Link to external URL if available */}
-          {planItem.url && (
-            <div className={styles.completionToggle}>
-              <a
-                href={planItem.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.completeButton}
-                title="Open external link"
-              >
-                <span className={styles.completeIcon}>🔗</span>
-                <span className={styles.completeText}>View Link</span>
-              </a>
-            </div>
-          )}
+          {planItem.url && (() => {
+            const safeUrl = sanitizeUrl(planItem.url);
+            return safeUrl ? (
+              <div className={styles.completionToggle}>
+                <a
+                  href={safeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.completeButton}
+                  title="Open external link"
+                >
+                  <span className={styles.completeIcon}>🔗</span>
+                  <span className={styles.completeText}>View Link</span>
+                </a>
+              </div>
+            ) : null;
+          })()}
         </div>
 
         {/* Cost & Planning Info Section */}
