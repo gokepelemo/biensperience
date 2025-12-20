@@ -1807,6 +1807,8 @@ const en = {
     viewOnMapTitle: "View on map",
     showMoreDestinations: "Show More Destinations ({current} of {total})",
     showMoreExperiences: "Show More Experiences ({current} of {total})",
+    pageDescription: "Explore destinations and experiences in {country}. Discover travel plans, activities, and adventures.",
+    failedToLoadData: "Failed to load country data",
   },
 
   // PhotoCard component strings
