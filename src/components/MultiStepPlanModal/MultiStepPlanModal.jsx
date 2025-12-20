@@ -10,7 +10,7 @@ import { createExperience, updateExperience, addPlanItem } from '../../utilities
 import { createPlan } from '../../utilities/plans-api';
 import { isDuplicateName } from '../../utilities/deduplication';
 import { createFilter } from '../../utilities/trie';
-import { sanitizeUrl } from '../../utilities/sanitize';
+import { sanitizeUrl, sanitizeText } from '../../utilities/sanitize';
 import { lang } from '../../lang.constants';
 import { Button } from '../design-system';
 import FormField from '../FormField/FormField';
@@ -484,10 +484,12 @@ export default function MultiStepPlanModal() {
           </div>
           {item.url && (() => {
             const safeUrl = sanitizeUrl(item.url);
-            return safeUrl ? (
+            // Display sanitized URL text to prevent XSS via DOM text injection
+            const displayUrl = sanitizeText(item.url);
+            return safeUrl && displayUrl ? (
               <div className={styles.planItemUrl}>
                 <a href={safeUrl} target="_blank" rel="noopener noreferrer">
-                  {item.url}
+                  {displayUrl}
                 </a>
               </div>
             ) : null;

@@ -36,6 +36,7 @@ import { useUIPreference } from '../../../hooks/useUIPreference';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { isOwner } from '../../../utilities/permissions';
+import { sanitizeUrl, sanitizeText } from '../../../utilities/sanitize';
 import debug from '../../../utilities/debug';
 
 // View options for experience plan items display
@@ -345,16 +346,19 @@ const SortableCompactExperiencePlanItem = memo(function SortableCompactExperienc
 
       {/* Item text */}
       <span className="compact-item-text">
-        {planItem.url ? (
-          <a
-            href={planItem.url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {planItem.text}
-          </a>
-        ) : (
-          planItem.text
+        {planItem.url ? (() => {
+          const safeUrl = sanitizeUrl(planItem.url);
+          return safeUrl ? (
+            <a
+              href={safeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {sanitizeText(planItem.text)}
+            </a>
+          ) : sanitizeText(planItem.text);
+        })() : (
+          sanitizeText(planItem.text)
         )}
       </span>
 
