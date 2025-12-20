@@ -139,7 +139,11 @@ export default function ActivityTypeSelect({
     if (!open) return;
 
     const handler = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
+      // Check if click is inside the container OR inside the portal-rendered dropdown
+      const isInsideContainer = containerRef.current && containerRef.current.contains(e.target);
+      const isInsideDropdown = dropdownRef.current && dropdownRef.current.contains(e.target);
+
+      if (!isInsideContainer && !isInsideDropdown) {
         setOpen(false);
         setQuery('');
         setHighlight(-1);
@@ -303,8 +307,12 @@ export default function ActivityTypeSelect({
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => {
+            // Delay to allow click events on dropdown options to fire first
             setTimeout(() => {
-              if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
+              const isInsideContainer = containerRef.current && containerRef.current.contains(document.activeElement);
+              const isInsideDropdown = dropdownRef.current && dropdownRef.current.contains(document.activeElement);
+
+              if (!isInsideContainer && !isInsideDropdown) {
                 setOpen(false);
                 setQuery('');
                 setHighlight(-1);
