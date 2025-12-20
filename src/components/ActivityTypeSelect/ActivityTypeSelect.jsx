@@ -112,14 +112,17 @@ export default function ActivityTypeSelect({
   const navLen = navItems.length;
 
   // Calculate dropdown position when opening
+  // Use viewport-relative coordinates (fixed positioning) for proper display inside modals
   useEffect(() => {
     if (!open || !containerRef.current) return;
 
     const updatePosition = () => {
       const rect = containerRef.current.getBoundingClientRect();
+      // Use viewport-relative coordinates directly (for fixed positioning)
+      // This works correctly inside modals which have their own scroll context
       setDropdownPosition({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
+        top: rect.bottom,
+        left: rect.left,
         width: rect.width
       });
     };
@@ -349,13 +352,13 @@ export default function ActivityTypeSelect({
         </div>
       </div>
 
-      {/* Dropdown - rendered via portal to float above modals */}
+      {/* Dropdown - rendered via portal with fixed positioning to float above modals */}
       {open && createPortal(
         <div
           ref={dropdownRef}
           className={styles.dropdown}
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
             width: `${dropdownPosition.width}px`
