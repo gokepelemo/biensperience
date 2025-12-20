@@ -1892,7 +1892,7 @@ export default function Profile() {
                 })()}
               </div>
             )}
-            {/* Planned Experiences Tab - API-level pagination */}
+            {/* Planned Experiences Tab - client-side pagination for own profile, API-level for others */}
             {uiState.experiences && (
               <div className={styles.profileGrid} style={experiencesLoading && uniqueUserExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
                 {(() => {
@@ -1909,9 +1909,18 @@ export default function Profile() {
                     ));
                   }
 
-                  // API returns the current page directly - no client-side slicing needed
-                  // Keep existing content visible during page transitions (experiencesLoading)
-                  const displayedExperiences = uniqueUserExperiences;
+                  // For own profile: plans are fully loaded, use client-side pagination
+                  // For other profiles: API returns paginated data directly
+                  const displayedExperiences = isOwnProfile && !showAllPlanned
+                    ? uniqueUserExperiences.slice(
+                        (experiencesPage - 1) * itemsPerPageComputed,
+                        experiencesPage * itemsPerPageComputed
+                      )
+                    : uniqueUserExperiences;
+
+                  const expTotalPages = isOwnProfile
+                    ? Math.max(1, Math.ceil(uniqueUserExperiences.length / itemsPerPageComputed))
+                    : (userExperiencesMeta?.totalPages || 1);
 
                   return displayedExperiences.length > 0 ? (
                     <>
@@ -1923,6 +1932,16 @@ export default function Profile() {
                           showSharedIcon={experience._isCollaborative || false}
                         />
                       ))}
+                      {/* Show placeholders on non-last pages to reserve space (own profile only) */}
+                      {isOwnProfile && !showAllPlanned && experiencesPage < expTotalPages && displayedExperiences.length < itemsPerPageComputed && (
+                        Array.from({ length: Math.max(0, itemsPerPageComputed - displayedExperiences.length) }).map((_, i) => (
+                          <div key={`placeholder-exp-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
+                            <div className="position-relative" style={{ minHeight: '12rem', borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
+                              <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </>
                   ) : (
                     <EmptyState
@@ -1998,15 +2017,23 @@ export default function Profile() {
                 />
               )}
 
-              {/* Experiences - API-level pagination */}
-              {uiState.experiences && !showAllPlanned && userExperiencesMeta && userExperiencesMeta.totalPages > 1 && (
-                <Pagination
-                  currentPage={experiencesPage}
-                  totalPages={userExperiencesMeta.totalPages}
-                  onPageChange={setExperiencesPage}
-                  disabled={experiencesLoading}
-                />
-              )}
+              {/* Experiences - client-side pagination for own profile, API-level for others */}
+              {uiState.experiences && !showAllPlanned && (() => {
+                // For own profile: calculate total pages from plans array
+                // For other profiles: use API metadata
+                const expTotalPages = isOwnProfile
+                  ? Math.max(1, Math.ceil((uniqueUserExperiences?.length || 0) / itemsPerPageComputed))
+                  : (userExperiencesMeta?.totalPages || 1);
+
+                return expTotalPages > 1 ? (
+                  <Pagination
+                    currentPage={experiencesPage}
+                    totalPages={expTotalPages}
+                    onPageChange={setExperiencesPage}
+                    disabled={experiencesLoading}
+                  />
+                ) : null;
+              })()}
 
               {/* Created - API-level pagination */}
               {uiState.created && !showAllCreated && createdExperiencesMeta && createdExperiencesMeta.totalPages > 1 && (
