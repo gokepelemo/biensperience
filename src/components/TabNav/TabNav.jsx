@@ -2,10 +2,12 @@
  * TabNav Component
  * A horizontal tab navigation with icons, underline indicator, and optional badges
  * Design inspired by GitHub-style tab navigation
+ * On mobile, displays as a dropdown for better usability
  */
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { FaChevronDown } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 import styles from './TabNav.module.scss';
 
@@ -55,6 +57,91 @@ TabItem.propTypes = {
 };
 
 /**
+ * Mobile dropdown for tab navigation
+ */
+function MobileTabDropdown({ tabs, activeTab, onTabChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const activeTabData = tabs.find(tab => tab.id === activeTab) || tabs[0];
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const handleTabSelect = (tabId) => {
+    onTabChange(tabId);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className={styles.mobileDropdown} ref={dropdownRef}>
+      <button
+        type="button"
+        className={styles.dropdownTrigger}
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+      >
+        <span className={styles.dropdownTriggerContent}>
+          {activeTabData.icon && <span className={styles.tabIcon}>{activeTabData.icon}</span>}
+          <span className={styles.tabLabel}>{activeTabData.label}</span>
+          {activeTabData.badge !== undefined && activeTabData.badge !== null && (
+            <span className={styles.tabBadge}>{activeTabData.badge}</span>
+          )}
+        </span>
+        <FaChevronDown className={`${styles.dropdownChevron} ${isOpen ? styles.dropdownChevronOpen : ''}`} />
+      </button>
+
+      {isOpen && (
+        <ul className={styles.dropdownMenu} role="listbox">
+          {tabs.map((tab) => (
+            <li key={tab.id}>
+              <button
+                type="button"
+                className={`${styles.dropdownItem} ${tab.id === activeTab ? styles.dropdownItemActive : ''} ${tab.disabled ? styles.dropdownItemDisabled : ''}`}
+                onClick={() => !tab.disabled && handleTabSelect(tab.id)}
+                disabled={tab.disabled}
+                role="option"
+                aria-selected={tab.id === activeTab}
+              >
+                {tab.icon && <span className={styles.tabIcon}>{tab.icon}</span>}
+                <span className={styles.tabLabel}>{tab.label}</span>
+                {tab.badge !== undefined && tab.badge !== null && (
+                  <span className={`${styles.tabBadge} ${tab.variant ? styles[`tabBadge${tab.variant.charAt(0).toUpperCase() + tab.variant.slice(1)}`] : ''}`}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+MobileTabDropdown.propTypes = {
+  tabs: PropTypes.array.isRequired,
+  activeTab: PropTypes.string.isRequired,
+  onTabChange: PropTypes.func.isRequired,
+};
+
+/**
  * TabNav Component
  * @param {Object} props
  * @param {Array} props.tabs - Array of tab configurations
@@ -65,25 +152,35 @@ TabItem.propTypes = {
  */
 export default function TabNav({ tabs, activeTab, onTabChange, className, borderBottom = true }) {
   return (
-    <div
-      className={`${styles.tabNav} ${borderBottom ? styles.tabNavBordered : ''} ${className || ''}`}
-      role="tablist"
-      aria-label={lang.current.aria.navigationTabs}
-    >
-      {tabs.map((tab) => (
-        <TabItem
-          key={tab.id}
-          id={tab.id}
-          label={tab.label}
-          icon={tab.icon}
-          badge={tab.badge}
-          isActive={activeTab === tab.id}
-          onClick={onTabChange}
-          disabled={tab.disabled}
-          variant={tab.variant}
-        />
-      ))}
-    </div>
+    <>
+      {/* Desktop: Horizontal tabs */}
+      <div
+        className={`${styles.tabNav} ${borderBottom ? styles.tabNavBordered : ''} ${className || ''}`}
+        role="tablist"
+        aria-label={lang.current.aria.navigationTabs}
+      >
+        {tabs.map((tab) => (
+          <TabItem
+            key={tab.id}
+            id={tab.id}
+            label={tab.label}
+            icon={tab.icon}
+            badge={tab.badge}
+            isActive={activeTab === tab.id}
+            onClick={onTabChange}
+            disabled={tab.disabled}
+            variant={tab.variant}
+          />
+        ))}
+      </div>
+
+      {/* Mobile: Dropdown */}
+      <MobileTabDropdown
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={onTabChange}
+      />
+    </>
   );
 }
 

@@ -117,13 +117,13 @@
   }
 
   .pillVariantNeutral {
-    background: var(--color-bg-tertiary-dark);
-    color: var(--color-text-secondary-dark);
-    border-color: var(--color-border-light-dark);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-medium);
 
     &.pillOutline {
-      color: var(--color-text-secondary-dark);
-      border-color: var(--color-border-light-dark);
+      color: var(--color-text-primary);
+      border-color: var(--color-border-medium);
     }
   }
 }

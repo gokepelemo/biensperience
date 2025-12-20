@@ -155,7 +155,11 @@
   display: flex;
   align-items: center; /* Vertical center alignment */
   height: 100%; /* Match navbar height for consistent alignment */
-  gap: $space-2; /* Consistent gap between logo and text */
+  gap: $space-1; /* Tight gap between logo and text */
+
+  @media (max-width: 991.98px) {
+    gap: 0; /* No gap on mobile */
+  }
 }
 
 /* Logo link wrapper - separate from brand text */
@@ -182,8 +186,8 @@
 .brandTextButton {
   background: none;
   border: none;
-  padding: $space-3 $space-4; /* Same padding as nav-link */
-  margin: 0 $space-1; /* Same margin as nav-link */
+  padding: $space-2 $space-2; /* Reduced padding to bring closer to logo */
+  margin: 0; /* No margin - gap handled by wrapper */
   cursor: pointer;
   font-size: var(--font-size-base); /* Same as nav-links */
   font-family: inherit;
@@ -203,6 +207,11 @@
     outline-offset: 2px;
     border-radius: $radius-sm;
   }
+
+  @media (max-width: 991.98px) {
+    padding: $space-2 $space-1; /* Minimal padding on mobile */
+    margin: 0; /* No margin on mobile */
+  }
 }
 
 /* Mobile: Center brand, keep hamburger aligned right */
@@ -220,20 +229,28 @@
     min-width: 0;
     margin: 0 auto; /* Center the brand wrapper */
     text-align: center;
-    /* Account for hamburger on the right */
-    padding-right: calc(44px + #{$space-3}); /* Hamburger width + spacing */
-    padding-left: calc(44px + #{$space-3}); /* Balance on left for true centering */
+    /* Reduced padding - just enough to not overlap with hamburger */
+    padding-right: calc(44px + #{$space-2}); /* Hamburger width + small spacing */
+    padding-left: calc(44px + #{$space-2}); /* Balance on left for true centering */
+    gap: $space-1; /* Tight gap between logo and text on mobile */
   }
 
   :global(.navbar-brand) {
     max-width: 100%; /* Prevent overflow */
     justify-content: center; /* Center logo and text within brand */
+    gap: $space-1; /* Tight gap on mobile */
+    padding: $space-1; /* Minimal padding on mobile */
   }
 
   .brandText {
     white-space: nowrap; /* Prevent text from wrapping */
     overflow: hidden; /* Hide overflow text */
     text-overflow: ellipsis; /* Show ellipsis for long text */
+    font-size: var(--font-size-lg); /* Larger, more legible font on mobile */
+  }
+
+  .logoLink {
+    padding: 0; /* Remove any padding from logo link on mobile */
   }
 
   :global(.navbar-toggler) {

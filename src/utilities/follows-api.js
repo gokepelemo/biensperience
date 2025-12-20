@@ -64,6 +64,31 @@ export async function unfollowUser(userId) {
 }
 
 /**
+ * Remove a follower (someone who follows you)
+ * @param {string} followerId - ID of the follower to remove
+ * @returns {Promise<Object>} Success result
+ */
+export async function removeFollower(followerId) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/${followerId}/remove-follower`, 'DELETE');
+
+    logger.info('Follower removed successfully', { followerId });
+
+    // Emit event via event bus (handles local + cross-tab dispatch)
+    try {
+      broadcastEvent('follower:removed', { followerId });
+    } catch (e) {
+      // ignore
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('Error removing follower', { error: error.message, followerId });
+    throw error;
+  }
+}
+
+/**
  * Check if current user is following a specific user
  * @param {string} userId - ID of user to check
  * @returns {Promise<boolean>} Whether current user follows the specified user

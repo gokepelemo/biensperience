@@ -270,6 +270,12 @@
     box-shadow: var(--btn-shadow-hover);
 }
 
+/* Dropdown item active state - use purple gradient from design system */
+.dropdown-item.active {
+    background: var(--gradient-primary);
+    color: white;
+}
+
 /* Disabled state for all buttons */
 .btn:disabled,
 .btn.disabled {
@@ -702,6 +708,11 @@ a:not(.btn):not(.btn-custom):not(.nav-link):not(.dropdown-item):focus {
         color: var(--color-text-primary);
     }
 
+    .dropdown-item.active {
+        background: var(--gradient-primary);
+        color: white;
+    }
+
     .dropdown-divider {
         border-color: var(--color-border-medium);
     }
@@ -899,6 +910,11 @@ a:not(.btn):not(.btn-custom):not(.nav-link):not(.dropdown-item):focus {
     .dropdown-item:hover, .dropdown-item:focus {
         background-color: var(--color-bg-tertiary);
         color: var(--color-text-primary);
+    }
+
+    .dropdown-item.active {
+        background: var(--gradient-primary);
+        color: white;
     }
 
     .dropdown-divider {

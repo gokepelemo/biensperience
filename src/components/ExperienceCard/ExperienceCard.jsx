@@ -1,7 +1,7 @@
 import styles from "./ExperienceCard.module.scss";
 import { Link } from "react-router-dom";
 import { useState, useCallback, useMemo, memo, useEffect, useRef } from "react";
-import { FaEdit, FaTimes, FaPlus, FaMinus, FaCheck } from "react-icons/fa";
+import { FaEdit, FaTimes, FaPlus, FaMinus, FaCheck, FaUsers } from "react-icons/fa";
 import SkeletonLoader from "../SkeletonLoader/SkeletonLoader";
 import TagPill from '../Pill/TagPill';
 import { lang } from "../../lang.constants";
@@ -17,7 +17,7 @@ import { useUser } from "../../contexts/UserContext";
 import EntitySchema from "../OpenGraph/EntitySchema";
 import imagePreloader from '../../utilities/image-preloader';
 
-function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false, onOptimisticDelete, fluid = false }) {
+function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false, onOptimisticDelete, fluid = false, showSharedIcon = false }) {
   const { user } = useUser();
   const { fetchPlans, plans: globalPlans } = useData();
   const { error: showError } = useToast();
@@ -536,6 +536,16 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
           >
             <SkeletonLoader variant="rectangle" width="100%" height="100%" />
           </div>
+          {/* Shared/Collaborative Plan Badge - shown in top-right corner */}
+          {showSharedIcon && (
+            <div
+              className={styles.sharedBadge}
+              title={lang.current.label?.sharedPlan || 'Shared Plan'}
+              aria-label={lang.current.label?.sharedPlan || 'Shared Plan'}
+            >
+              <FaUsers className={styles.sharedIcon} />
+            </div>
+          )}
           <Link to={`/experiences/${experience._id}`} className={`${styles.experienceCardLink} flex-grow-1 d-flex align-items-center justify-content-center w-100`} style={{ textDecoration: 'none' }}>
             <span className={`h4 fw-bold ${styles.experienceCardTitle} d-flex align-items-center justify-content-center p-3 w-100`} style={{ textAlign: 'center' }}>
               {experience.name}

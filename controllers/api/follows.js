@@ -353,6 +353,79 @@ async function getFeed(req, res) {
 }
 
 /**
+ * Remove a follower (the person following the current user)
+ * DELETE /api/follows/:userId/remove-follower
+ * This allows a user to remove someone from their followers list
+ */
+async function removeFollower(req, res) {
+  try {
+    const userId = req.user._id;
+    const followerToRemoveId = req.params.userId;
+
+    // Prevent self-removal
+    if (userId.toString() === followerToRemoveId) {
+      return res.status(400).json({ error: 'Cannot remove yourself as a follower' });
+    }
+
+    // Remove the follow relationship where followerToRemoveId follows the current user
+    const result = await Follow.removeFollow(followerToRemoveId, userId);
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.error || 'This user is not following you' });
+    }
+
+    // Log activity
+    try {
+      const removedUser = await User.findById(followerToRemoveId).select('name');
+      await Activity.log({
+        action: 'follower_removed',
+        actor: {
+          _id: req.user._id,
+          email: req.user.email,
+          name: req.user.name,
+          role: req.user.role
+        },
+        resource: {
+          id: followerToRemoveId,
+          type: 'User',
+          name: removedUser?.name || 'Unknown'
+        },
+        reason: 'Removed a follower',
+        tags: ['social', 'follower-removed']
+      });
+    } catch (activityError) {
+      backendLogger.warn('Failed to log follower removal activity', { error: activityError.message });
+    }
+
+    backendLogger.info('Follower removed', {
+      userId: userId.toString(),
+      removedFollowerId: followerToRemoveId
+    });
+
+    // Broadcast WebSocket event to the removed follower
+    // This enables real-time UI updates on their end
+    try {
+      broadcastEvent('user', followerToRemoveId.toString(), {
+        type: 'follower:removed',
+        payload: {
+          removedById: userId.toString(),
+          removedByName: req.user.name,
+          removedFollowerId: followerToRemoveId.toString(),
+          userId: followerToRemoveId.toString()
+        }
+      }, userId.toString()); // Exclude the user who removed the follower
+    } catch (wsError) {
+      backendLogger.warn('Failed to broadcast follower removal event', { error: wsError.message });
+    }
+
+    res.json({ success: true, message: 'Follower removed' });
+  } catch (error) {
+    backendLogger.error('Error removing follower', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Failed to remove follower' });
+  }
+}
+
+/**
  * Block a follower
  * POST /api/follows/:userId/block
  */
@@ -419,6 +492,7 @@ module.exports = {
   getFollowing,
   getFollowCounts,
   getFollowStatus,
+  removeFollower,
   blockFollower,
   unblockFollower
 };

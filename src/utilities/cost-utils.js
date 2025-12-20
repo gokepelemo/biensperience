@@ -147,6 +147,7 @@ export function formatCostEstimate(cost, options = {}) {
 /**
  * Get the cost estimate tooltip text showing the exact amount.
  * Cost estimates are forecasts from the experience creator/curator.
+ * All cost estimates are per person.
  *
  * @param {number} exactCost - The exact cost value for display in tooltip
  * @param {Object} options - Formatting options
@@ -158,7 +159,7 @@ export function getCostEstimateTooltip(exactCost, options = {}) {
   const symbol = getCurrencySymbol(currency);
 
   if (!exactCost || exactCost <= 0) {
-    return 'Forecasted budget from the experience creator. Your costs may vary.';
+    return 'Estimated cost per person. Forecasted budget from the experience creator. Your costs may vary.';
   }
 
   const formatted = exactCost.toLocaleString('en-US', {
@@ -166,7 +167,7 @@ export function getCostEstimateTooltip(exactCost, options = {}) {
     maximumFractionDigits: 2
   });
 
-  return `Estimated: ${symbol}${formatted} — Forecasted budget from the experience creator.`;
+  return `Estimated: ${symbol}${formatted} per person — Forecasted budget from the experience creator.`;
 }
 
 /**
@@ -198,11 +199,12 @@ export function getTrackedCostTooltip(totalCost, costCount = 0, options = {}) {
 
 /**
  * Get the cost estimate label.
+ * Cost estimates are per person.
  *
  * @returns {string} Label for cost estimate field
  */
 export function getCostEstimateLabel() {
-  return 'Est. Cost';
+  return 'Est. Cost/Person';
 }
 
 /**

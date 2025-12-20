@@ -1,4 +1,4 @@
-import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera, FaStar, FaGlobe, FaExternalLinkAlt, FaCode, FaExclamationTriangle, FaCodeBranch, FaCog, FaShieldAlt, FaChartLine, FaUsers, FaCalendarAlt, FaPlusCircle } from "react-icons/fa";
+import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera, FaStar, FaGlobe, FaExternalLinkAlt, FaCode, FaExclamationTriangle, FaCodeBranch, FaCog, FaShieldAlt, FaChartLine, FaUsers, FaCalendarAlt, FaPlusCircle, FaUserMinus } from "react-icons/fa";
 import { getSocialNetwork, getLinkIcon, getLinkDisplayText, buildLinkUrl } from "../../utilities/social-links";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
@@ -39,7 +39,7 @@ import { broadcastEvent } from "../../utilities/event-bus";
 import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
 import { isSystemUser } from "../../utilities/system-users";
-import { followUser, unfollowUser, getFollowStatus, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
+import { followUser, unfollowUser, removeFollower, getFollowStatus, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
 import { getActivityFeed } from "../../utilities/dashboard-api";
 import ActivityFeed from "../../components/ActivityFeed/ActivityFeed";
 import TabNav from "../../components/TabNav/TabNav";
@@ -135,6 +135,19 @@ export default function Profile() {
         return;
       }
 
+      // Handle follows sub-hashes (e.g., #followers, #following)
+      if (hash === 'followers' || hash === 'following') {
+        setUiState({
+          activity: false,
+          follows: true,
+          experiences: false,
+          created: false,
+          destinations: false,
+        });
+        setFollowsFilter(hash);
+        return;
+      }
+
       // If hash targets dashboard tabs, navigate there preserving hash
       if (hash === 'plans' || hash === 'preferences') {
         // push a navigation entry so users can go back
@@ -179,6 +192,19 @@ export default function Profile() {
             created: hash === 'created',
             destinations: hash === 'destinations',
           });
+          return;
+        }
+
+        // Handle follows sub-hashes (e.g., #followers, #following)
+        if (hash === 'followers' || hash === 'following') {
+          setUiState({
+            activity: false,
+            follows: true,
+            experiences: false,
+            created: false,
+            destinations: false,
+          });
+          setFollowsFilter(hash);
           return;
         }
 
@@ -336,12 +362,46 @@ export default function Profile() {
     }
   }, [currentProfile]);
 
-  // Deduplicate user experiences by ID
+  // Build planned experiences list - one entry per plan (not per experience)
+  // This allows showing both owned and collaborative plans for the same experience separately
+  // Each entry includes the experience data and whether it's a collaborative plan
   // Returns null if userExperiences is null (loading state), empty array if loaded but no data
   const uniqueUserExperiences = useMemo(() => {
     if (userExperiences === null) return null; // Loading state
+
+    // For own profile, build the list from plans (which includes collaborative plans)
+    // Each plan becomes a separate card entry
+    if (isOwnProfile && plans && plans.length > 0) {
+      const experienceEntries = plans
+        .filter(plan => plan.experience)
+        .map(plan => {
+          // plan.experience may be populated object or just an ID
+          const exp = plan.experience;
+          if (exp && typeof exp === 'object' && exp._id) {
+            // Return the experience with plan-specific metadata
+            // Use planId as unique key instead of experience._id
+            return {
+              ...exp,
+              _planId: plan._id, // Track which plan this entry is for
+              _isCollaborative: plan.isCollaborative || false
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      logger.debug('[Profile] Built experience entries from plans', {
+        totalPlans: plans.length,
+        experienceEntries: experienceEntries.length,
+        collaborative: experienceEntries.filter(e => e._isCollaborative).length
+      });
+
+      return experienceEntries;
+    }
+
+    // For other users' profiles, use the API response (only their owned plans)
     return deduplicateById(userExperiences) || [];
-  }, [userExperiences]);
+  }, [userExperiences, isOwnProfile, plans]);
 
   // Deduplicate created experiences by ID
   // Returns null if createdExperiences is null (loading state), empty array if loaded but no data
@@ -942,6 +1002,65 @@ export default function Profile() {
     }
   }, [userId, user._id, followLoading, success, showError]);
 
+  // Track which follow actions are in progress (by user ID)
+  const [followActionInProgress, setFollowActionInProgress] = useState({});
+
+  // Handle removing a follower from the followers list (when viewing own profile)
+  const handleRemoveFollower = useCallback(async (followerId, e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    if (followActionInProgress[followerId]) return;
+
+    setFollowActionInProgress(prev => ({ ...prev, [followerId]: true }));
+
+    // Optimistic update - remove from list immediately
+    const prevFollowsList = [...followsList];
+    setFollowsList(prev => prev.filter(u => u._id !== followerId));
+    setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+
+    try {
+      await removeFollower(followerId);
+      success(lang.current.success?.followerRemoved || 'Follower removed');
+    } catch (err) {
+      // Rollback on error
+      setFollowsList(prevFollowsList);
+      setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
+      const message = handleError(err, { context: 'Remove follower' });
+      showError(message || 'Failed to remove follower');
+    } finally {
+      setFollowActionInProgress(prev => ({ ...prev, [followerId]: false }));
+    }
+  }, [followsList, followActionInProgress, success, showError]);
+
+  // Handle unfollowing a user from the following list (when viewing own profile)
+  const handleUnfollowFromList = useCallback(async (followingId, e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    if (followActionInProgress[followingId]) return;
+
+    setFollowActionInProgress(prev => ({ ...prev, [followingId]: true }));
+
+    // Optimistic update - remove from list immediately
+    const prevFollowsList = [...followsList];
+    setFollowsList(prev => prev.filter(u => u._id !== followingId));
+    setFollowCounts(prev => ({ ...prev, following: Math.max(0, prev.following - 1) }));
+
+    try {
+      await unfollowUser(followingId);
+      success(lang.current.success?.unfollowed || 'Unfollowed');
+    } catch (err) {
+      // Rollback on error
+      setFollowsList(prevFollowsList);
+      setFollowCounts(prev => ({ ...prev, following: prev.following + 1 }));
+      const message = handleError(err, { context: 'Unfollow user' });
+      showError(message || 'Failed to unfollow user');
+    } finally {
+      setFollowActionInProgress(prev => ({ ...prev, [followingId]: false }));
+    }
+  }, [followsList, followActionInProgress, success, showError]);
+
   // Fetch followers or following list for Follows tab
   const fetchFollowsList = useCallback(async (filter = followsFilter, reset = false) => {
     if (!userId) return;
@@ -1051,6 +1170,27 @@ export default function Profile() {
     // Update URL hash for deep linking
     try { window.history.pushState(null, '', `${window.location.pathname}#${view}`); } catch (e) {}
     // Note: Do NOT reset pagination on tab switch - preserve user's place in each tab
+  }, []);
+
+  // Handle clicking on profile metrics to navigate to corresponding tab
+  const handleMetricClick = useCallback((hash, filter) => {
+    // Set the tab state
+    const tabName = filter ? 'follows' : hash;
+    setUiState({
+      activity: tabName === 'activity',
+      follows: tabName === 'follows',
+      experiences: tabName === 'experiences',
+      created: tabName === 'created',
+      destinations: tabName === 'destinations',
+    });
+
+    // Set filter if provided (for followers/following)
+    if (filter) {
+      setFollowsFilter(filter);
+    }
+
+    // Update URL hash for deep linking
+    try { window.history.pushState(null, '', `${window.location.pathname}#${hash}`); } catch (e) {}
   }, []);
 
   // Get the active tab key from uiState
@@ -1382,30 +1522,60 @@ export default function Profile() {
                     </div>
                   )}
 
-                  {/* Compact Metrics Bar */}
+                  {/* Compact Metrics Bar - Clickable metrics navigate to corresponding tabs */}
                   <div className={styles.profileMetricsBar}>
-                    <span className={styles.profileMetric}>
+                    <span
+                      className={styles.profileMetricClickable}
+                      onClick={() => handleMetricClick('followers', 'followers')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMetricClick('followers', 'followers'); } }}
+                    >
                       <strong>{followCounts.followers}</strong> {followCounts.followers === 1 ? 'Follower' : 'Followers'}
                     </span>
                     <span className={styles.profileMetricDivider}>·</span>
-                    <span className={styles.profileMetric}>
+                    <span
+                      className={styles.profileMetricClickable}
+                      onClick={() => handleMetricClick('following', 'following')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMetricClick('following', 'following'); } }}
+                    >
                       <strong>{followCounts.following}</strong> Following
                     </span>
                     <span className={styles.profileMetricDivider}>·</span>
-                    <span className={styles.profileMetric}>
+                    <span
+                      className={styles.profileMetricClickable}
+                      onClick={() => handleMetricClick('experiences')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMetricClick('experiences'); } }}
+                    >
                       <strong>{planCounts.total}</strong> {planCounts.total === 1 ? 'Plan' : 'Plans'}
                       {planCounts.shared > 0 && (
                         <span className={styles.profileMetricSecondary}>
-                          {' '}({planCounts.shared} {planCounts.shared === 1 ? 'shared' : 'shared'})
+                          {' '}({planCounts.shared} shared)
                         </span>
                       )}
                     </span>
                     <span className={styles.profileMetricDivider}>·</span>
-                    <span className={styles.profileMetric}>
+                    <span
+                      className={styles.profileMetricClickable}
+                      onClick={() => handleMetricClick('created')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMetricClick('created'); } }}
+                    >
                       <strong>{uniqueCreatedExperiencesCount}</strong> {uniqueCreatedExperiencesCount === 1 ? 'Experience' : 'Experiences'}
                     </span>
                     <span className={styles.profileMetricDivider}>·</span>
-                    <span className={styles.profileMetric}>
+                    <span
+                      className={styles.profileMetricClickable}
+                      onClick={() => handleMetricClick('destinations')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMetricClick('destinations'); } }}
+                    >
                       <strong>{favoriteDestinationsCount}</strong> {favoriteDestinationsCount === 1 ? 'Destination' : 'Destinations'}
                     </span>
                   </div>
@@ -1607,30 +1777,49 @@ export default function Profile() {
                     />
                   ) : (
                     <>
-                      {followsList.map((followUser) => (
-                        <Link
-                          key={followUser._id}
-                          to={`/profile/${followUser._id}`}
-                          className={styles.followsItem}
-                        >
-                          <div className={styles.followsItemAvatar}>
-                            {followUser.photos?.[0]?.url ? (
-                              <img src={followUser.photos[0].url} alt={followUser.name} />
-                            ) : (
-                              <div className={styles.followsItemAvatarPlaceholder}>
-                                <FaUser />
-                              </div>
-                            )}
-                          </div>
-                          <div className={styles.followsItemInfo}>
-                            <span className={styles.followsItemName}>{followUser.name}</span>
-                            {followUser.location && (
-                              <span className={styles.followsItemLocation}>
-                                <FaMapMarkerAlt /> {formatLocation(followUser.location)}
-                              </span>
-                            )}
-                          </div>
-                        </Link>
+                      {followsList.map((followUserItem) => (
+                        <div key={followUserItem._id} className={styles.followsItemWrapper}>
+                          <Link
+                            to={`/profile/${followUserItem._id}`}
+                            className={styles.followsItem}
+                          >
+                            <div className={styles.followsItemAvatar}>
+                              {followUserItem.photos?.[0]?.url ? (
+                                <img src={followUserItem.photos[0].url} alt={followUserItem.name} />
+                              ) : (
+                                <div className={styles.followsItemAvatarPlaceholder}>
+                                  <FaUser />
+                                </div>
+                              )}
+                            </div>
+                            <div className={styles.followsItemInfo}>
+                              <span className={styles.followsItemName}>{followUserItem.name}</span>
+                              {followUserItem.location && (
+                                <span className={styles.followsItemLocation}>
+                                  <FaMapMarkerAlt /> {formatLocation(followUserItem.location)}
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                          {isOwnProfile && (
+                            <button
+                              className={styles.followsItemAction}
+                              onClick={(e) => followsFilter === 'followers'
+                                ? handleRemoveFollower(followUserItem._id, e)
+                                : handleUnfollowFromList(followUserItem._id, e)
+                              }
+                              disabled={followActionInProgress[followUserItem._id]}
+                              title={followsFilter === 'followers' ? 'Remove follower' : 'Unfollow'}
+                              aria-label={followsFilter === 'followers' ? `Remove ${followUserItem.name} as follower` : `Unfollow ${followUserItem.name}`}
+                            >
+                              {followActionInProgress[followUserItem._id] ? (
+                                <span className={styles.followsItemActionSpinner} />
+                              ) : (
+                                <FaUserMinus />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       ))}
 
                       {/* Load More Button */}
@@ -1729,8 +1918,9 @@ export default function Profile() {
                       {displayedExperiences.map((experience, index) => (
                         <ExperienceCard
                           experience={experience}
-                          key={experience._id || index}
+                          key={experience._planId || experience._id || index}
                           userPlans={plans}
+                          showSharedIcon={experience._isCollaborative || false}
                         />
                       ))}
                     </>

@@ -1768,9 +1768,10 @@
     white-space: nowrap;
     max-width: 100%;
 
-    a {
+    a,
+    span {
       font-size: inherit;
-      /* Ensure anchor also truncates properly */
+      /* Ensure anchor and span also truncate properly */
       display: inline-block;
       max-width: 100%;
       overflow: hidden;

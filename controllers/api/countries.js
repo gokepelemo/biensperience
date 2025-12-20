@@ -91,35 +91,31 @@ async function getByCountry(req, res) {
     // Build a flexible regex that matches variations
     const countryRegex = buildCountryRegex(normalizedCountryName);
 
-    // Count total destinations for pagination metadata
-    const totalDestinations = await Destination.countDocuments({ country: countryRegex });
-
-    // Fetch paginated destinations for this country (indexed query)
-    const destinationsSkip = (destinationsPage - 1) * destinationsLimit;
-    const destinations = await Destination.find({
-      country: countryRegex
-    })
+    // Get ALL destination IDs upfront in a single query (for experience lookup)
+    // This avoids the N+1 query pattern of fetching destinations twice
+    const allDestinationDocs = await Destination.find({ country: countryRegex })
+      .select('_id name country state photos default_photo_id location map_location')
       .sort({ name: 1 })
-      .skip(destinationsSkip)
-      .limit(destinationsLimit)
       .populate('default_photo_id')
       .populate('photos')
       .lean();
 
-    // Get ALL destination IDs for experience lookup (not just current page)
-    const allDestinationIds = await Destination.find({ country: countryRegex })
-      .select('_id')
-      .lean()
-      .then(docs => docs.map(d => d._id));
+    const allDestinationIds = allDestinationDocs.map(d => d._id);
+    const totalDestinations = allDestinationDocs.length;
 
-    // Count total experiences for pagination metadata
-    const totalExperiences = allDestinationIds.length > 0
+    // Paginate destinations from the already-fetched array (no additional query)
+    const destinationsSkip = (destinationsPage - 1) * destinationsLimit;
+    const destinations = allDestinationDocs.slice(destinationsSkip, destinationsSkip + destinationsLimit);
+
+    // Count total experiences for pagination metadata (skip if experiencesLimit is 0)
+    const totalExperiences = experiencesLimit > 0 && allDestinationIds.length > 0
       ? await Experience.countDocuments({ destination: { $in: allDestinationIds } })
       : 0;
 
     // Fetch paginated experiences efficiently using destination IDs (indexed query)
+    // Skip the query entirely if experiencesLimit is 0 (optimization for Load More destinations)
     const experiencesSkip = (experiencesPage - 1) * experiencesLimit;
-    const experiences = allDestinationIds.length > 0
+    const experiences = experiencesLimit > 0 && allDestinationIds.length > 0
       ? await Experience.find({
           destination: { $in: allDestinationIds }
         })

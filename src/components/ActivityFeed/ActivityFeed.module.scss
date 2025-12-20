@@ -29,9 +29,9 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: $space-3;
+    padding: 0 $space-2 $space-2;
     margin-bottom: $space-3;
-    gap: $space-2;
+    gap: $space-1;
 
     /* Show scrollbar on mobile for discoverability */
     scrollbar-width: thin;
@@ -78,8 +78,10 @@
   }
 
   @media (max-width: 480px) {
-    padding: $space-2 $space-3;
+    gap: $space-1;
+    padding: $space-1 $space-2;
     font-size: var(--font-size-xs);
+    min-height: 32px;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -95,6 +97,10 @@
 
 .filterIcon {
   font-size: 0.875rem;
+
+  @media (max-width: 480px) {
+    font-size: 0.75rem;
+  }
 }
 
 .filterPillSkeleton {

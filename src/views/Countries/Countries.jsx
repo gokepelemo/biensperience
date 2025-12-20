@@ -1,11 +1,11 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { FaTh, FaMap } from "react-icons/fa";
 import { lang } from "../../lang.constants";
 import { getCountryData } from "../../utilities/countries-api";
 import { eventBus } from "../../utilities/event-bus";
 import { useViewModePreference } from "../../hooks/useUIPreference";
-import { geocodeAddressViaAPI } from "../../utilities/geocode-api";
+import useGeocodedMarkers from "../../hooks/useGeocodedMarkers";
 import DestinationCard from "../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import { MapWithListings } from "../../components/InteractiveMap";
@@ -49,10 +49,12 @@ export default function Countries() {
   const [loadingMoreExperiences, setLoadingMoreExperiences] = useState(false);
   const [error, setError] = useState(null);
 
-  // Map markers state (populated via geocoding)
-  const [mapMarkers, setMapMarkers] = useState([]);
-  const [isGeocodingMarkers, setIsGeocodingMarkers] = useState(false);
-  const geocodeCacheRef = useRef(new Map()); // Cache geocoded results
+  // Map markers from geocoding hook
+  const { markers: mapMarkers, isLoading: isGeocodingMarkers, hasData: hasMapData } = useGeocodedMarkers({
+    destinations,
+    experiences,
+    loading
+  });
 
   // Convert slug to display name for initial render, API will return canonical name
   const displayCountryName = country || slugToDisplayName(countryName);
@@ -159,6 +161,21 @@ export default function Countries() {
 
   // Subscribe to destination events for real-time updates
   useEffect(() => {
+    const handleDestinationCreated = (event) => {
+      const created = event.destination || event.detail?.destination;
+      if (!created?._id) return;
+
+      // Check if the destination belongs to this country (case-insensitive comparison)
+      const destinationCountry = created.country?.toLowerCase().replace(/[\s-]+/g, '-');
+      const currentCountry = countryName?.toLowerCase().replace(/[\s-]+/g, '-');
+      if (destinationCountry !== currentCountry) return;
+
+      // Add to the beginning of the list
+      setDestinations(prev => [created, ...prev]);
+      // Update meta count
+      setDestinationsMeta(prev => prev ? { ...prev, total: prev.total + 1 } : prev);
+    };
+
     const handleDestinationUpdated = (event) => {
       const updated = event.destination || event.detail?.destination;
       if (!updated?._id) return;
@@ -177,17 +194,34 @@ export default function Countries() {
       setDestinationsMeta(prev => prev ? { ...prev, total: Math.max(0, prev.total - 1) } : prev);
     };
 
+    const unsubCreate = eventBus.subscribe('destination:created', handleDestinationCreated);
     const unsubUpdate = eventBus.subscribe('destination:updated', handleDestinationUpdated);
     const unsubDelete = eventBus.subscribe('destination:deleted', handleDestinationDeleted);
 
     return () => {
+      unsubCreate();
       unsubUpdate();
       unsubDelete();
     };
-  }, []);
+  }, [countryName]);
 
   // Subscribe to experience events for real-time updates
   useEffect(() => {
+    const handleExperienceCreated = (event) => {
+      const created = event.experience || event.detail?.experience;
+      if (!created?._id) return;
+
+      // Check if the experience's destination belongs to this country
+      const destCountry = created.destination?.country?.toLowerCase().replace(/[\s-]+/g, '-');
+      const currentCountry = countryName?.toLowerCase().replace(/[\s-]+/g, '-');
+      if (destCountry !== currentCountry) return;
+
+      // Add to the beginning of the list
+      setExperiences(prev => [created, ...prev]);
+      // Update meta count
+      setExperiencesMeta(prev => prev ? { ...prev, total: prev.total + 1 } : prev);
+    };
+
     const handleExperienceUpdated = (event) => {
       const updated = event.experience || event.detail?.experience;
       if (!updated?._id) return;
@@ -206,14 +240,16 @@ export default function Countries() {
       setExperiencesMeta(prev => prev ? { ...prev, total: Math.max(0, prev.total - 1) } : prev);
     };
 
+    const unsubCreate = eventBus.subscribe('experience:created', handleExperienceCreated);
     const unsubUpdate = eventBus.subscribe('experience:updated', handleExperienceUpdated);
     const unsubDelete = eventBus.subscribe('experience:deleted', handleExperienceDeleted);
 
     return () => {
+      unsubCreate();
       unsubUpdate();
       unsubDelete();
     };
-  }, []);
+  }, [countryName]);
 
   // Memoized page metadata
   const { pageTitle, pageDescription } = useMemo(() => ({
@@ -229,220 +265,12 @@ export default function Countries() {
     return `${destCount} ${destCount === 1 ? 'destination' : 'destinations'} • ${expCount} ${expCount === 1 ? 'experience' : 'experiences'}`;
   }, [loading, destinationsMeta?.total, experiencesMeta?.total, destinations.length, experiences.length]);
 
-  // Helper function to validate and extract coordinates from location object
-  const extractCoords = useCallback((location) => {
-    const geoData = location?.geo;
-    if (!geoData?.coordinates || !Array.isArray(geoData.coordinates) || geoData.coordinates.length !== 2) {
-      return null;
-    }
-    const [lng, lat] = geoData.coordinates;
-    // Validate coordinates are valid numbers and not zero (which would indicate no data)
-    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
-      return null;
-    }
-    return { lat, lng };
-  }, []);
-
-  // Build address string for geocoding fallback
-  const buildAddressString = useCallback((item, type) => {
-    if (type === 'destination') {
-      // Use map_location if available, otherwise build from name + country
-      if (item.map_location) return item.map_location;
-      const parts = [item.name];
-      if (item.state) parts.push(item.state);
-      if (item.country) parts.push(item.country);
-      return parts.join(', ');
-    } else {
-      // Experience: use destination name + country
-      if (item.destination?.name) {
-        const parts = [item.destination.name];
-        if (item.destination.country) parts.push(item.destination.country);
-        return parts.join(', ');
-      }
-      return item.name; // Fallback to experience name
-    }
-  }, []);
-
-  // Generate map markers with geocoding fallback
-  useEffect(() => {
-    if (loading || (destinations.length === 0 && experiences.length === 0)) {
-      setMapMarkers([]);
-      setIsGeocodingMarkers(false);
-      return;
-    }
-
-    let isCancelled = false;
-
-    async function generateMarkers() {
-      setIsGeocodingMarkers(true);
-      const markers = [];
-      const geocodeQueue = [];
-
-      // Process destinations
-      for (const dest of destinations) {
-        const coords = extractCoords(dest.location);
-
-        // Build location name for display
-        const destLocationName = dest.map_location || (dest.state ? `${dest.state}, ${dest.country}` : dest.country);
-
-        if (coords) {
-          markers.push({
-            id: dest._id,
-            lat: coords.lat,
-            lng: coords.lng,
-            type: 'destination',
-            name: dest.name,
-            photo: dest.default_photo_id?.url || dest.photos?.[0]?.url,
-            link: `/destinations/${dest._id}`,
-            locationName: destLocationName
-          });
-        } else {
-          // Queue for geocoding
-          const addressStr = buildAddressString(dest, 'destination');
-          if (addressStr) {
-            geocodeQueue.push({
-              id: dest._id,
-              type: 'destination',
-              name: dest.name,
-              photo: dest.default_photo_id?.url || dest.photos?.[0]?.url,
-              link: `/destinations/${dest._id}`,
-              locationName: destLocationName,
-              addressStr
-            });
-          }
-        }
-      }
-
-      // Process experiences
-      for (const exp of experiences) {
-        // Try experience's own location first
-        let coords = extractCoords(exp.location);
-
-        // If no experience location, try the destination's location
-        if (!coords && exp.destination?.location) {
-          coords = extractCoords(exp.destination.location);
-        }
-
-        // If still no coords, try plan_items
-        if (!coords && exp.plan_items?.length > 0) {
-          for (const item of exp.plan_items) {
-            coords = extractCoords(item.location);
-            if (coords) break;
-          }
-        }
-
-        // Build location name for display
-        const expLocationName = exp.destination?.name || null;
-
-        if (coords) {
-          markers.push({
-            id: exp._id,
-            lat: coords.lat,
-            lng: coords.lng,
-            type: 'experience',
-            name: exp.name,
-            photo: exp.default_photo_id?.url || exp.photos?.[0]?.url,
-            link: `/experiences/${exp._id}`,
-            locationName: expLocationName
-          });
-        } else {
-          // Queue for geocoding
-          const addressStr = buildAddressString(exp, 'experience');
-          if (addressStr) {
-            geocodeQueue.push({
-              id: exp._id,
-              type: 'experience',
-              name: exp.name,
-              photo: exp.default_photo_id?.url || exp.photos?.[0]?.url,
-              link: `/experiences/${exp._id}`,
-              locationName: expLocationName,
-              addressStr
-            });
-          }
-        }
-      }
-
-      // Log what we have before geocoding
-      logger.info('[Countries] Initial markers from coordinates', {
-        markersFromCoords: markers.length,
-        needGeocoding: geocodeQueue.length,
-        sampleMarker: markers[0] ? { id: markers[0].id, lat: markers[0].lat, lng: markers[0].lng, name: markers[0].name } : null
-      });
-
-      // Perform geocoding for items without coordinates (in batches)
-      const BATCH_SIZE = 5;
-      for (let i = 0; i < geocodeQueue.length; i += BATCH_SIZE) {
-        if (isCancelled) break;
-
-        const batch = geocodeQueue.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(
-          batch.map(async (item) => {
-            // Check cache first
-            const cached = geocodeCacheRef.current.get(item.addressStr);
-            if (cached) {
-              return { ...item, coords: cached };
-            }
-
-            try {
-              const result = await geocodeAddressViaAPI(item.addressStr);
-              if (result?.location) {
-                geocodeCacheRef.current.set(item.addressStr, result.location);
-                return { ...item, coords: result.location };
-              }
-            } catch (err) {
-              logger.warn('[Countries] Geocoding failed', { address: item.addressStr, error: err.message });
-            }
-            return null;
-          })
-        );
-
-        // Add successful geocoded items to markers
-        for (const result of results) {
-          if (result?.coords) {
-            markers.push({
-              id: result.id,
-              lat: result.coords.lat,
-              lng: result.coords.lng,
-              type: result.type,
-              name: result.name,
-              photo: result.photo,
-              link: result.link,
-              locationName: result.locationName
-            });
-          }
-        }
-      }
-
-      if (!isCancelled) {
-        // Log final markers
-        logger.info('[Countries] Final map markers', {
-          total: markers.length,
-          destinations: markers.filter(m => m.type === 'destination').length,
-          experiences: markers.filter(m => m.type === 'experience').length,
-          sampleMarkers: markers.slice(0, 3).map(m => ({ id: m.id, lat: m.lat, lng: m.lng, type: m.type }))
-        });
-        setMapMarkers(markers);
-        setIsGeocodingMarkers(false);
-      }
-    }
-
-    generateMarkers();
-
-    return () => {
-      isCancelled = true;
-      setIsGeocodingMarkers(false);
-    };
-  }, [destinations, experiences, loading, extractCoords, buildAddressString]);
-
-  // Handle marker click - navigate to experience
+  // Handle marker click - navigate to destination/experience
   const handleMarkerClick = useCallback((marker) => {
     if (marker.link) {
       navigate(marker.link);
     }
   }, [navigate]);
-
-  // Check if map view is available (has markers or is still geocoding)
-  const hasMapData = mapMarkers.length > 0 || isGeocodingMarkers;
 
   return (
     <PageWrapper title={pageTitle}>
@@ -479,17 +307,17 @@ export default function Countries() {
                     aria-label={lang.current.aria.cardsView}
                   >
                     <FaTh />
-                    <span>Cards</span>
+                    <span>{lang.current.countriesView.cards}</span>
                   </button>
                   <button
                     className={`${styles.viewToggleButton} ${viewMode === 'map' ? styles.viewToggleButtonActive : ''}`}
                     onClick={() => setViewMode('map')}
                     aria-label={lang.current.aria.mapView}
                     disabled={!hasMapData && viewMode !== 'map'}
-                    title={!hasMapData ? 'No destinations or experiences with location data' : 'View on map'}
+                    title={!hasMapData ? lang.current.countriesView.noLocationDataTitle : lang.current.countriesView.viewOnMapTitle}
                   >
                     <FaMap />
-                    <span>Map</span>
+                    <span>{lang.current.countriesView.map}</span>
                   </button>
                 </div>
               </FadeIn>
@@ -520,7 +348,7 @@ export default function Countries() {
                   {isGeocodingMarkers ? (
                     <div className={styles.mapLoadingContainer}>
                       <SkeletonLoader variant="rectangle" width="100%" height="600px" />
-                      <p className={styles.mapViewInfo}>Loading locations...</p>
+                      <p className={styles.mapViewInfo}>{lang.current.countriesView.loadingLocations}</p>
                     </div>
                   ) : mapMarkers.length > 0 ? (
                     <MapWithListings
@@ -591,7 +419,7 @@ export default function Countries() {
                     disabled={loadingMoreDestinations}
                     className={styles.showMoreButton}
                   >
-                    {loadingMoreDestinations ? lang.current.loading.default : `Show More Destinations (${destinations.length} of ${destinationsMeta.total})`}
+                    {loadingMoreDestinations ? lang.current.loading.default : lang.current.countriesView.showMoreDestinations.replace('{current}', destinations.length).replace('{total}', destinationsMeta.total)}
                   </Button>
                 </div>
               )}
@@ -651,7 +479,7 @@ export default function Countries() {
                     disabled={loadingMoreExperiences}
                     className={styles.showMoreButton}
                   >
-                    {loadingMoreExperiences ? lang.current.loading.default : `Show More Experiences (${experiences.length} of ${experiencesMeta.total})`}
+                    {loadingMoreExperiences ? lang.current.loading.default : lang.current.countriesView.showMoreExperiences.replace('{current}', experiences.length).replace('{total}', experiencesMeta.total)}
                   </Button>
                 </div>
               )}

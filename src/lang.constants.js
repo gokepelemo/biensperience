@@ -471,7 +471,7 @@ const en = {
     overview: "Overview",
     termsOfService: "Terms of Service",
     privacyPolicy: "Privacy Policy",
-    costEstimate: "Cost Estimate ($)",
+    costEstimate: "Cost Estimate per Person ($)",
     planningDays: "Planning Days",
     parentPlanItem: "Parent Plan Item",
     url: "URL",
@@ -714,11 +714,11 @@ const en = {
     planningTimeTooltip:
       "Recommended time to plan and prepare for this experience before your trip. Does not include travel time to the destination.",
     costEstimateTooltip:
-      "Forecasted budget from the experience creator. Your costs may vary based on your choices and circumstances.",
+      "Estimated cost per person. Forecasted budget from the experience creator. Your costs may vary based on your choices and circumstances.",
     trackedCostTooltip:
       "Real expenses you've incurred. Track receipts, bookings, and payments to compare against the estimate.",
     costEstimateOptional:
-      "Give future travelers a ballpark budget (completely optional).",
+      "Give future travelers a ballpark budget per person (completely optional).",
     profileName: "This is how you'll appear to other travelers.",
     profileEmail: "We'll use this for account stuff - we promise not to spam.",
     currentPassword: "We need your current password to make changes.",
@@ -732,7 +732,7 @@ const en = {
     travelTipsIconHelp: "Leave blank to use default icon for this type.",
     travelTipsCtaHelp: "Add a button with a link for more information.",
     planningDays: "Days needed to plan this without rushing",
-    costEstimate: "Estimated cost in your preferred currency",
+    costEstimate: "Estimated cost per person in your preferred currency",
     inviteEmailHelpText: "We'll send them an invitation to join",
   },
 
@@ -789,7 +789,7 @@ const en = {
 
   table: {
     title: "Title",
-    costEstimate: "Cost Estimate",
+    costEstimate: "Cost Estimate (per person)",
     planningDays: "Planning Days",
     actions: "",
   },
@@ -1798,6 +1798,17 @@ const en = {
     map: "Map",
   },
 
+  // Countries view strings
+  countriesView: {
+    cards: "Cards",
+    map: "Map",
+    loadingLocations: "Loading locations...",
+    noLocationDataTitle: "No destinations or experiences with location data",
+    viewOnMapTitle: "View on map",
+    showMoreDestinations: "Show More Destinations ({current} of {total})",
+    showMoreExperiences: "Show More Experiences ({current} of {total})",
+  },
+
   // PhotoCard component strings
   photoCard: {
     clickToViewFullSize: "Click to view full size photo",
@@ -1999,7 +2010,7 @@ const en = {
     detailsTitle: "Add More Details",
     experienceTypes: "Experience Types",
     experienceTypesPlaceholder: "e.g., Adventure, Food, Culture",
-    costEstimate: "Estimated Cost",
+    costEstimate: "Estimated Cost (per person)",
     costEstimatePlaceholder: "e.g., 500",
     planningDays: "Recommended Planning Days",
     planningDaysPlaceholder: "e.g., 14",

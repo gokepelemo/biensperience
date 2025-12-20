@@ -28,6 +28,9 @@ router.get('/:userId/counts', ensureLoggedIn, followsCtrl.getFollowCounts);
 // Check if current user is following a specific user
 router.get('/:userId/status', ensureLoggedIn, followsCtrl.getFollowStatus);
 
+// Remove a follower (someone who follows you)
+router.delete('/:userId/remove-follower', ensureLoggedIn, modificationLimiter, followsCtrl.removeFollower);
+
 // Block/unblock a follower
 router.post('/:userId/block', ensureLoggedIn, modificationLimiter, followsCtrl.blockFollower);
 router.delete('/:userId/block', ensureLoggedIn, modificationLimiter, followsCtrl.unblockFollower);

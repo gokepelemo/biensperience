@@ -34,6 +34,7 @@ export async function getInviteCodes() {
  * @param {number} inviteData.maxUses - Maximum uses (default: 1)
  * @param {Date} inviteData.expiresAt - Expiration date (optional)
  * @param {string} inviteData.customMessage - Custom message (optional)
+ * @param {boolean} inviteData.mutualFollow - Create mutual follow when redeemed (optional)
  * @returns {Promise<Object>} - Created invite object
  */
 export async function createInviteCode(inviteData) {

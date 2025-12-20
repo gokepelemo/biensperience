@@ -1,0 +1,98 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* User Invite Modal Styles */
+
+.formControl {
+  background-color: var(--form-field-control-bg);
+  border: var(--form-field-border);
+  color: var(--form-field-control-color);
+  font-size: var(--form-field-control-font-size);
+  padding: var(--form-field-control-padding);
+  min-height: var(--form-field-min-height);
+  outline: var(--form-field-control-outline);
+  box-shadow: var(--form-field-control-box-shadow);
+  border-radius: var(--form-field-border-radius);
+
+  &:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.15);
+  }
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+}
+
+.successState {
+  text-align: center;
+  padding: $space-6 $space-4;
+}
+
+.successIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark, var(--color-primary)));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin: 0 auto $space-4;
+}
+
+.codeDisplay {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.5rem;
+  font-weight: $font-weight-bold;
+  letter-spacing: var(--letter-spacing-wider);
+  color: var(--color-primary);
+  background: var(--color-bg-secondary);
+  padding: $space-4 $space-6;
+  border-radius: var(--radius-lg);
+  display: inline-block;
+  margin-bottom: $space-3;
+}
+
+.inviteLink {
+  code {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    word-break: break-all;
+    background: var(--color-bg-tertiary);
+    padding: $space-2 $space-3;
+    border-radius: var(--radius-md);
+    display: inline-block;
+    max-width: 100%;
+  }
+}
+
+.mutualFollowNote {
+  margin-top: $space-4;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .successIcon {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .codeDisplay {
+    background: var(--color-bg-tertiary);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .codeDisplay {
+    font-size: 1.25rem;
+    padding: $space-3 $space-4;
+  }
+
+  .inviteLink code {
+    font-size: 0.75rem;
+  }
+}

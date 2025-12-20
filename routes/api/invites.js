@@ -16,9 +16,11 @@ const router = express.Router();
 const InviteCode = require('../../models/inviteCode');
 const User = require('../../models/user');
 const Plan = require('../../models/plan');
+const Follow = require('../../models/follow');
 const backendLogger = require('../../utilities/backend-logger');
 const { isSuperAdmin } = require('../../utilities/permissions');
 const { sendInviteEmail } = require('../../utilities/email-service');
+const { broadcastEvent } = require('../../utilities/websocket-server');
 
 /**
  * Middleware to ensure user is authenticated
@@ -94,7 +96,8 @@ router.post('/', requireAuth, async (req, res) => {
       maxUses,
       expiresAt,
       customMessage,
-      sendEmail = false
+      sendEmail = false,
+      mutualFollow = false
     } = req.body;
 
     const invite = await InviteCode.createInvite({
@@ -105,7 +108,8 @@ router.post('/', requireAuth, async (req, res) => {
       destinations: destinations || [],
       maxUses: maxUses !== undefined ? maxUses : 1,
       expiresAt: expiresAt ? new Date(expiresAt) : undefined,
-      customMessage
+      customMessage,
+      mutualFollow
     });
 
     backendLogger.info('Invite code created', {
@@ -434,12 +438,79 @@ router.post('/redeem', requireAuth, async (req, res) => {
     // Destinations are handled by the frontend (add to favorites)
     // We just return them here
 
+    // Handle mutual follow if enabled
+    let mutualFollowCreated = false;
+    if (invite.mutualFollow && invite.createdBy) {
+      try {
+        const inviterId = invite.createdBy.toString();
+        const inviteeId = req.user._id.toString();
+
+        // Don't create follow if inviter and invitee are the same user
+        if (inviterId !== inviteeId) {
+          // Create follow: inviter follows invitee
+          const inviterFollowsInvitee = await Follow.createFollow(inviterId, inviteeId);
+
+          // Create follow: invitee follows inviter
+          const inviteeFollowsInviter = await Follow.createFollow(inviteeId, inviterId);
+
+          if (inviterFollowsInvitee.success || inviteeFollowsInviter.success) {
+            mutualFollowCreated = true;
+
+            // Broadcast follow events for real-time UI updates
+            if (inviterFollowsInvitee.success) {
+              try {
+                broadcastEvent('user', inviteeId, {
+                  type: 'follow:created',
+                  payload: {
+                    followerId: inviterId,
+                    followingId: inviteeId,
+                    userId: inviteeId
+                  }
+                }, inviterId);
+              } catch (e) {
+                // Silently ignore broadcast errors
+              }
+            }
+
+            if (inviteeFollowsInviter.success) {
+              try {
+                broadcastEvent('user', inviterId, {
+                  type: 'follow:created',
+                  payload: {
+                    followerId: inviteeId,
+                    followingId: inviterId,
+                    userId: inviterId
+                  }
+                }, inviteeId);
+              } catch (e) {
+                // Silently ignore broadcast errors
+              }
+            }
+
+            backendLogger.info('Mutual follow created from invite redemption', {
+              inviterId,
+              inviteeId,
+              inviteId: invite._id.toString(),
+              audit: true
+            });
+          }
+        }
+      } catch (followError) {
+        // Don't fail redemption if follow creation fails
+        backendLogger.warn('Failed to create mutual follow on invite redemption', {
+          inviteId: invite._id.toString(),
+          error: followError.message
+        });
+      }
+    }
+
     backendLogger.info('Invite code redeemed', {
       userId: req.user._id,
       inviteId: invite._id,
       code: invite.code,
       experiencesAdded: experiencesAdded.length,
       destinationsProvided: invite.destinations.length,
+      mutualFollowCreated,
       audit: true
     });
 
@@ -447,7 +518,8 @@ router.post('/redeem', requireAuth, async (req, res) => {
       success: true,
       experiencesAdded,
       destinations: invite.destinations,
-      customMessage: invite.customMessage
+      customMessage: invite.customMessage,
+      mutualFollowCreated
     });
   } catch (error) {
     backendLogger.error('Error redeeming invite code', {

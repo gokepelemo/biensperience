@@ -11,17 +11,20 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Tabs, Tab, Badge, Row, Col } from 'react-bootstrap';
-import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar } from 'react-icons/fa';
+import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar, FaUserPlus } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 import { getMyInvites, getInviteDetails, getInviteAnalytics } from '../../utilities/invite-tracking-service';
 import { eventBus } from '../../utilities/event-bus';
 import { useToast } from '../../contexts/ToastContext';
+import { useUser } from '../../contexts/UserContext';
 import { logger } from '../../utilities/logger';
 import { getDefaultPhoto } from '../../utilities/photo-utils';
+import { getFirstName } from '../../utilities/name-utils';
 import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
 import Pagination from '../../components/Pagination/Pagination';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
+import UserInviteModal from '../../components/UserInviteModal/UserInviteModal';
 import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, SpaceY, Pill, EmptyState } from '../../components/design-system';
 import styles from './InviteTracking.module.scss';
 
@@ -33,7 +36,12 @@ export default function InviteTracking() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const { error: showError } = useToast();
+  const { user } = useUser();
+
+  // Get the first name suffix for personalized messages (e.g., ", John")
+  const firstNameSuffix = user?.name ? `, ${getFirstName(user.name)}` : '';
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -251,7 +259,7 @@ export default function InviteTracking() {
           {invites.length === 0 ? (
             <EmptyState
               variant="invites"
-              title={lang.current.message.noInviteCodes}
+              title={lang.current.message.noInviteCodes.replace('{first_name_suffix}', firstNameSuffix)}
               description={lang.current.inviteTracking.noInviteCodesDescription}
               size="md"
               compact
@@ -633,7 +641,16 @@ export default function InviteTracking() {
           <div className="view-header">
             <div className="row">
               <div className="col-12">
-                <h1><FaQrcode /> {lang.current.inviteTracking.heading}</h1>
+                <FlexBetween className="mb-2">
+                  <h1 className="mb-0"><FaQrcode /> {lang.current.inviteTracking.heading}</h1>
+                  <Button
+                    variant="primary"
+                    onClick={() => setShowInviteModal(true)}
+                  >
+                    <FaUserPlus className="me-2" />
+                    {lang.current.invite?.heading || 'Invite Users'}
+                  </Button>
+                </FlexBetween>
                 <p className="header-description">
                   {lang.current.inviteTracking.headerDescription}
                 </p>
@@ -664,6 +681,21 @@ export default function InviteTracking() {
         )}
       </div>
     </div>
+
+    {/* User Invite Modal */}
+    <UserInviteModal
+      show={showInviteModal}
+      onHide={() => setShowInviteModal(false)}
+      onInviteCreated={(invite) => {
+        // Add the new invite to the list and update stats
+        setInvites(prev => [invite, ...prev]);
+        setStats(prev => prev ? {
+          ...prev,
+          totalInvites: (prev.totalInvites || 0) + 1,
+          activeInvites: (prev.activeInvites || 0) + 1
+        } : prev);
+      }}
+    />
     </>
   );
 }

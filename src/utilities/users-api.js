@@ -120,7 +120,13 @@ export async function updateUserRole(userId, roleData) {
 }
 
 export async function getAllUsers() {
-  return await sendRequest(`${BASE_URL}all`, "GET");
+  const response = await sendRequest(`${BASE_URL}all`, "GET");
+  // Handle standardized API response: { success: true, data: users[] }
+  if (response && response.success && response.data) {
+    return response.data;
+  }
+  // Fallback for legacy response format (direct array)
+  return Array.isArray(response) ? response : [];
 }
 
 export async function requestPasswordReset(email) {

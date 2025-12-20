@@ -159,6 +159,16 @@ const inviteCodeSchema = new Schema(
       sentAt: Date,
       sentFrom: String, // IP address
       emailSent: { type: Boolean, default: false }
+    },
+
+    /**
+     * Whether to create mutual follow relationship when invite is redeemed
+     * When true, the inviter and invitee will automatically follow each other
+     * @type {boolean}
+     */
+    mutualFollow: {
+      type: Boolean,
+      default: false
     }
   },
   {
@@ -229,7 +239,8 @@ inviteCodeSchema.statics.createInvite = async function(options) {
     permissionType: options.permissionType || 'owner',
     maxUses: options.maxUses !== undefined ? options.maxUses : 1,
     expiresAt: options.expiresAt,
-    customMessage: options.customMessage
+    customMessage: options.customMessage,
+    mutualFollow: options.mutualFollow || false
   });
 
   return invite;

@@ -263,3 +263,29 @@
     text-overflow: ellipsis;
   }
 }
+
+/* Shared/Collaborative Plan Badge - top-right corner */
+.sharedBadge {
+  position: absolute;
+  top: $space-2;
+  right: $space-2;
+  z-index: 10;
+  background: var(--color-bg-overlay);
+  color: white;
+  padding: $space-2;
+  border-radius: $radius-full;
+  font-size: $font-size-sm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: var(--shadow-sm);
+  width: 32px;
+  height: 32px;
+
+  .sharedIcon {
+    flex-shrink: 0;
+    font-size: $font-size-base;
+  }
+}

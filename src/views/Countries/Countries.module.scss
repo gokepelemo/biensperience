@@ -59,6 +59,11 @@
     color: var(--color-text-primary);
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -170,7 +175,7 @@
     var(--color-bg-tertiary) 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: countriesShimmer 1.5s infinite;
 }
 
 // Centered title overlay matching DestinationCard's .destinationCardTitle
@@ -248,7 +253,7 @@
     var(--color-bg-tertiary) 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: countriesShimmer 1.5s infinite;
 }
 
 // Content area matching ExperienceCard's .experienceCardLink (flex-grow-1, centered)
@@ -305,8 +310,8 @@
   -webkit-backdrop-filter: blur(4px);
 }
 
-// Shimmer animation
-@keyframes shimmer {
+// Shimmer animation for skeleton loaders
+@keyframes countriesShimmer {
   0% {
     background-position: 200% 0;
   }
