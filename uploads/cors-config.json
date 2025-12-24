@@ -1,0 +1,30 @@
+{
+  "CORSRules": [
+    {
+      "AllowedHeaders": [
+        "*"
+      ],
+      "AllowedMethods": [
+        "GET",
+        "HEAD",
+        "PUT",
+        "POST"
+      ],
+      "AllowedOrigins": [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://biensperience.goke.tech",
+        "https://www.biensperience.goke.tech"
+      ],
+      "ExposeHeaders": [
+        "ETag",
+        "Content-Type",
+        "Content-Length",
+        "Content-Disposition"
+      ],
+      "MaxAgeSeconds": 3600
+    }
+  ]
+}

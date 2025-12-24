@@ -11,22 +11,41 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Tabs, Tab, Badge, Row, Col } from 'react-bootstrap';
-import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar, FaUserPlus } from 'react-icons/fa';
+import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar, FaUserPlus, FaCopy, FaSearch, FaFilter, FaTimes, FaBan, FaFileDownload, FaExclamationTriangle } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 import { getMyInvites, getInviteDetails, getInviteAnalytics } from '../../utilities/invite-tracking-service';
+import { deactivateInvite } from '../../utilities/invites-api';
 import { eventBus } from '../../utilities/event-bus';
 import { useToast } from '../../contexts/ToastContext';
 import { useUser } from '../../contexts/UserContext';
 import { logger } from '../../utilities/logger';
 import { getDefaultPhoto } from '../../utilities/photo-utils';
 import { getFirstName } from '../../utilities/name-utils';
+import { createFilter } from '../../utilities/trie';
+import { exportToCsv, formatDateForCsv } from '../../utilities/csv-utils';
 import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
+import Modal from '../../components/Modal/Modal';
 import Pagination from '../../components/Pagination/Pagination';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
 import UserInviteModal from '../../components/UserInviteModal/UserInviteModal';
 import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, SpaceY, Pill, EmptyState } from '../../components/design-system';
 import styles from './InviteTracking.module.scss';
+
+// Status filter options
+const STATUS_FILTERS = {
+  ALL: 'all',
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  EXPIRED: 'expired',
+  EXPIRING_SOON: 'expiringSoon',
+  FULLY_USED: 'fullyUsed',
+  IN_USE: 'inUse',
+  AVAILABLE: 'available'
+};
+
+// Number of days before expiration to show "Expiring Soon" status
+const EXPIRING_SOON_DAYS = 7;
 
 export default function InviteTracking() {
   const [invites, setInvites] = useState([]);
@@ -34,29 +53,122 @@ export default function InviteTracking() {
   const [analytics, setAnalytics] = useState(null);
   const [selectedInvite, setSelectedInvite] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const { error: showError } = useToast();
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [inviteToDeactivate, setInviteToDeactivate] = useState(null);
+  const [isDeactivating, setIsDeactivating] = useState(false);
+  const { success, error: showError } = useToast();
   const { user } = useUser();
 
   // Get the first name suffix for personalized messages (e.g., ", John")
   const firstNameSuffix = user?.name ? `, ${getFirstName(user.name)}` : '';
 
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState(STATUS_FILTERS.ALL);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
-  // Compute paginated invites
+  // Build trie filter for fast search on code and email fields
+  const inviteTrieFilter = useMemo(() => {
+    if (!invites || invites.length === 0) return null;
+    return createFilter({
+      fields: [
+        { path: 'code', score: 100 },  // Higher score for code matches
+        { path: 'email', score: 75 }
+      ]
+    }).buildIndex(invites);
+  }, [invites]);
+
+  // Get computed status for an invite (for filtering)
+  const getInviteStatus = useCallback((invite) => {
+    const now = new Date();
+    const isExpired = invite.expiresAt && new Date(invite.expiresAt) < now;
+    const isFullyUsed = invite.maxUses && invite.usedCount >= invite.maxUses;
+
+    // Check if expiring within EXPIRING_SOON_DAYS
+    let isExpiringSoon = false;
+    if (invite.expiresAt && !isExpired) {
+      const expiresAt = new Date(invite.expiresAt);
+      const daysUntilExpiry = (expiresAt - now) / (1000 * 60 * 60 * 24);
+      isExpiringSoon = daysUntilExpiry <= EXPIRING_SOON_DAYS;
+    }
+
+    if (!invite.isActive) return STATUS_FILTERS.INACTIVE;
+    if (isExpired) return STATUS_FILTERS.EXPIRED;
+    if (isFullyUsed) return STATUS_FILTERS.FULLY_USED;
+    if (isExpiringSoon) return STATUS_FILTERS.EXPIRING_SOON;
+    if (invite.usedCount > 0) return STATUS_FILTERS.IN_USE;
+    return STATUS_FILTERS.AVAILABLE;
+  }, []);
+
+  // Filter invites by search query and status filter
+  const filteredInvites = useMemo(() => {
+    let result = invites;
+
+    // Apply status filter first
+    if (statusFilter !== STATUS_FILTERS.ALL) {
+      if (statusFilter === STATUS_FILTERS.ACTIVE) {
+        // Active = isActive is true AND not expired AND not fully used
+        result = result.filter(invite => {
+          const status = getInviteStatus(invite);
+          return status === STATUS_FILTERS.IN_USE || status === STATUS_FILTERS.AVAILABLE;
+        });
+      } else {
+        result = result.filter(invite => getInviteStatus(invite) === statusFilter);
+      }
+    }
+
+    // Apply search query using Trie
+    if (searchQuery.trim()) {
+      if (inviteTrieFilter) {
+        // Use trie for fast search
+        const searchResults = inviteTrieFilter.filter(searchQuery, { rankResults: true });
+        // Filter to only include results that also match status filter
+        const resultIds = new Set(result.map(i => i._id));
+        result = searchResults.filter(invite => resultIds.has(invite._id));
+      } else {
+        // Fallback linear search
+        const query = searchQuery.toLowerCase();
+        result = result.filter(invite =>
+          invite.code?.toLowerCase().includes(query) ||
+          invite.email?.toLowerCase().includes(query)
+        );
+      }
+    }
+
+    return result;
+  }, [invites, searchQuery, statusFilter, inviteTrieFilter, getInviteStatus]);
+
+  // Compute paginated invites from filtered results
   const paginatedInvites = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return invites.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [invites, currentPage]);
+    return filteredInvites.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredInvites, currentPage]);
 
-  // Calculate total pages
+  // Calculate total pages from filtered results
   const totalPages = useMemo(() => {
-    return Math.ceil(invites.length / ITEMS_PER_PAGE);
-  }, [invites.length]);
+    return Math.ceil(filteredInvites.length / ITEMS_PER_PAGE);
+  }, [filteredInvites.length]);
+
+  // Reset to page 1 when search/filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  // Clear search and filters
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery('');
+    setStatusFilter(STATUS_FILTERS.ALL);
+  }, []);
+
+  // Check if any filters are active
+  const hasActiveFilters = searchQuery.trim() || statusFilter !== STATUS_FILTERS.ALL;
 
   // Event handlers for real-time invite updates
   const handleInviteCreated = useCallback((event) => {
@@ -69,11 +181,11 @@ export default function InviteTracking() {
         }
         return [invite, ...prev];
       });
-      // Update stats
+      // Update stats - use same field names as API response
       setStats(prev => prev ? {
         ...prev,
-        total: (prev.total || 0) + 1,
-        pending: (prev.pending || 0) + 1
+        totalInvites: (prev.totalInvites || 0) + 1,
+        activeInvites: (prev.activeInvites || 0) + 1
       } : prev);
       logger.debug('[InviteTracking] Invite created event received', { inviteId: invite._id });
     }
@@ -89,11 +201,10 @@ export default function InviteTracking() {
         }
         return i;
       }));
-      // Update stats
+      // Update stats - use same field names as API response
       setStats(prev => prev ? {
         ...prev,
-        redeemed: (prev.redeemed || 0) + 1,
-        pending: Math.max(0, (prev.pending || 0) - 1)
+        totalRedemptions: (prev.totalRedemptions || 0) + 1
       } : prev);
       logger.debug('[InviteTracking] Invite redeemed event received', { inviteId });
     }
@@ -105,11 +216,12 @@ export default function InviteTracking() {
       setInvites(prev => {
         const deleted = prev.find(i => i._id === inviteId);
         if (deleted) {
-          // Update stats based on deleted invite status
+          // Update stats - use same field names as API response
           setStats(s => s ? {
             ...s,
-            total: Math.max(0, (s.total || 0) - 1),
-            pending: deleted.usedCount === 0 ? Math.max(0, (s.pending || 0) - 1) : s.pending
+            totalInvites: Math.max(0, (s.totalInvites || 0) - 1),
+            activeInvites: deleted.isActive ? Math.max(0, (s.activeInvites || 0) - 1) : s.activeInvites,
+            totalRedemptions: Math.max(0, (s.totalRedemptions || 0) - deleted.usedCount)
           } : s);
         }
         return prev.filter(i => i._id !== inviteId);
@@ -131,22 +243,33 @@ export default function InviteTracking() {
     };
   }, [handleInviteCreated, handleInviteRedeemed, handleInviteDeleted]);
 
-  useEffect(() => {
-    loadInvites();
-    loadAnalytics();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Load initial data (invites and analytics) in parallel
+  const loadInitialData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-  const loadInvites = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-      const response = await getMyInvites();
-      setInvites(response.invites);
-      setStats(response.stats);
+      // Fetch invites and analytics in parallel
+      const [invitesResponse, analyticsData] = await Promise.all([
+        getMyInvites(),
+        getInviteAnalytics().catch(err => {
+          // Don't fail the whole load for analytics - it's secondary data
+          logger.error('Failed to load analytics', {}, err);
+          return null;
+        })
+      ]);
+
+      // Set invites and stats
+      setInvites(invitesResponse.invites);
+      setStats(invitesResponse.stats);
       logger.info('Invites loaded successfully', {
-        count: response.invites.length
+        count: invitesResponse.invites.length
       });
+
+      // Set analytics if available
+      if (analyticsData) {
+        setAnalytics(analyticsData);
+      }
     } catch (err) {
       logger.error('Failed to load invites', {}, err);
       setError(lang.current.alert.failedToLoadInviteCodes);
@@ -154,26 +277,25 @@ export default function InviteTracking() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showError]);
 
-  const loadAnalytics = async () => {
-    try {
-      const data = await getInviteAnalytics();
-      setAnalytics(data);
-    } catch (err) {
-      logger.error('Failed to load analytics', {}, err);
-      // Don't show error for analytics - it's secondary data
-    }
-  };
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
 
   const loadInviteDetails = async (code) => {
+    setIsLoadingDetails(true);
+    setActiveTab('details');
     try {
       const details = await getInviteDetails(code);
       setSelectedInvite(details);
-      setActiveTab('details');
     } catch (err) {
       logger.error('Failed to load invite details', { code }, err);
       showError(lang.current.alert.failedToLoadInviteDetails);
+      // Go back to overview on error
+      setActiveTab('overview');
+    } finally {
+      setIsLoadingDetails(false);
     }
   };
 
@@ -181,6 +303,14 @@ export default function InviteTracking() {
     const now = new Date();
     const isExpired = invite.expiresAt && new Date(invite.expiresAt) < now;
     const isFullyUsed = invite.maxUses && invite.usedCount >= invite.maxUses;
+
+    // Check if expiring within EXPIRING_SOON_DAYS
+    let isExpiringSoon = false;
+    if (invite.expiresAt && !isExpired) {
+      const expiresAt = new Date(invite.expiresAt);
+      const daysUntilExpiry = (expiresAt - now) / (1000 * 60 * 60 * 24);
+      isExpiringSoon = daysUntilExpiry <= EXPIRING_SOON_DAYS;
+    }
 
     if (!invite.isActive) {
       return <Pill variant="secondary"><FaTimesCircle /> {lang.current.inviteTracking.inactive}</Pill>;
@@ -190,6 +320,9 @@ export default function InviteTracking() {
     }
     if (isFullyUsed) {
       return <Pill variant="warning"><FaCheckCircle /> {lang.current.inviteTracking.fullyUsed}</Pill>;
+    }
+    if (isExpiringSoon) {
+      return <Pill variant="warning"><FaExclamationTriangle /> {lang.current.inviteTracking?.expiringSoon || 'Expiring Soon'}</Pill>;
     }
     if (invite.usedCount > 0) {
       return <Pill variant="info"><FaUsers /> {lang.current.inviteTracking.inUse}</Pill>;
@@ -205,6 +338,109 @@ export default function InviteTracking() {
       day: 'numeric'
     });
   };
+
+  // Copy invite link to clipboard
+  const copyInviteLink = useCallback(async (code) => {
+    const signupUrl = `${window.location.origin}/signup?code=${code}`;
+    try {
+      await navigator.clipboard.writeText(signupUrl);
+      success(lang.current.inviteTracking?.linkCopied || 'Invite link copied to clipboard!');
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = signupUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      success(lang.current.inviteTracking?.linkCopied || 'Invite link copied to clipboard!');
+    }
+  }, [success]);
+
+  // Open deactivate confirmation modal
+  const handleDeactivateClick = useCallback((invite) => {
+    setInviteToDeactivate(invite);
+    setShowDeactivateModal(true);
+  }, []);
+
+  // Close deactivate confirmation modal
+  const handleDeactivateCancel = useCallback(() => {
+    setShowDeactivateModal(false);
+    setInviteToDeactivate(null);
+  }, []);
+
+  // Confirm and execute deactivation
+  const handleDeactivateConfirm = useCallback(async () => {
+    if (!inviteToDeactivate) return;
+
+    setIsDeactivating(true);
+    try {
+      await deactivateInvite(inviteToDeactivate._id);
+      success(lang.current.inviteTracking?.inviteDeactivated || 'Invite code deactivated successfully');
+      // The event bus will handle removing from state via handleInviteDeleted
+      handleDeactivateCancel();
+    } catch (err) {
+      logger.error('Failed to deactivate invite', { inviteId: inviteToDeactivate._id }, err);
+      showError(lang.current.inviteTracking?.failedToDeactivate || 'Failed to deactivate invite code');
+    } finally {
+      setIsDeactivating(false);
+    }
+  }, [inviteToDeactivate, success, showError, handleDeactivateCancel]);
+
+  // Export invites to CSV
+  const handleExportCsv = useCallback(() => {
+    if (filteredInvites.length === 0) {
+      showError(lang.current.inviteTracking?.noInvitesToExport || 'No invites to export');
+      return;
+    }
+
+    const getStatusLabel = (invite) => {
+      const now = new Date();
+      const isExpired = invite.expiresAt && new Date(invite.expiresAt) < now;
+      const isFullyUsed = invite.maxUses && invite.usedCount >= invite.maxUses;
+
+      // Check if expiring within EXPIRING_SOON_DAYS
+      let isExpiringSoon = false;
+      if (invite.expiresAt && !isExpired) {
+        const expiresAt = new Date(invite.expiresAt);
+        const daysUntilExpiry = (expiresAt - now) / (1000 * 60 * 60 * 24);
+        isExpiringSoon = daysUntilExpiry <= EXPIRING_SOON_DAYS;
+      }
+
+      if (!invite.isActive) return lang.current.inviteTracking.inactive;
+      if (isExpired) return lang.current.inviteTracking.expired;
+      if (isFullyUsed) return lang.current.inviteTracking.fullyUsed;
+      if (isExpiringSoon) return lang.current.inviteTracking?.expiringSoon || 'Expiring Soon';
+      if (invite.usedCount > 0) return lang.current.inviteTracking.inUse;
+      return lang.current.inviteTracking.available;
+    };
+
+    try {
+      exportToCsv(filteredInvites, 'invites', {
+        columns: ['code', 'email', 'status', 'usedCount', 'maxUses', 'createdAt', 'expiresAt'],
+        headers: {
+          code: lang.current.tableHeaders.code,
+          email: lang.current.tableHeaders.email,
+          status: lang.current.tableHeaders.status,
+          usedCount: lang.current.inviteTracking?.usedHeader || 'Used',
+          maxUses: lang.current.inviteTracking?.maxUsesHeader || 'Max Uses',
+          createdAt: lang.current.tableHeaders.created,
+          expiresAt: lang.current.tableHeaders.expires
+        },
+        formatters: {
+          email: (value) => value || (lang.current.inviteTracking.any),
+          status: (_, invite) => getStatusLabel(invite),
+          maxUses: (value) => value || '∞',
+          createdAt: (value) => formatDateForCsv(value),
+          expiresAt: (value) => value ? formatDateForCsv(value) : (lang.current.inviteTracking.never)
+        }
+      });
+      success(lang.current.inviteTracking?.csvExported || 'Invites exported to CSV');
+    } catch (err) {
+      logger.error('Failed to export invites to CSV', {}, err);
+      showError(lang.current.inviteTracking?.exportFailed || 'Failed to export invites');
+    }
+  }, [filteredInvites, success, showError]);
 
   const renderOverview = () => (
     <div>
@@ -255,70 +491,277 @@ export default function InviteTracking() {
         <Card.Header>
           <h2><FaQrcode /> {lang.current.inviteTracking.myInviteCodes}</h2>
         </Card.Header>
+
+        {/* Search and Filter Bar */}
+        {invites.length > 0 && (
+          <div className={styles.searchFilterBar}>
+            <div className={styles.searchInputWrapper}>
+              <FaSearch className={styles.searchIcon} />
+              <input
+                type="text"
+                className={styles.searchInput}
+                placeholder={lang.current.inviteTracking?.searchPlaceholder || 'Search by code or email...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search invites"
+              />
+              {searchQuery && (
+                <button
+                  className={styles.clearSearchButton}
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                >
+                  <FaTimes />
+                </button>
+              )}
+            </div>
+
+            <div className={styles.filterWrapper}>
+              <FaFilter className={styles.filterIcon} />
+              <select
+                className={styles.filterSelect}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                aria-label="Filter by status"
+              >
+                <option value={STATUS_FILTERS.ALL}>{lang.current.inviteTracking?.filterAll || 'All Statuses'}</option>
+                <option value={STATUS_FILTERS.ACTIVE}>{lang.current.inviteTracking?.filterActive || 'Active'}</option>
+                <option value={STATUS_FILTERS.AVAILABLE}>{lang.current.inviteTracking?.filterAvailable || 'Available'}</option>
+                <option value={STATUS_FILTERS.IN_USE}>{lang.current.inviteTracking?.filterInUse || 'In Use'}</option>
+                <option value={STATUS_FILTERS.EXPIRED}>{lang.current.inviteTracking?.filterExpired || 'Expired'}</option>
+                <option value={STATUS_FILTERS.EXPIRING_SOON}>{lang.current.inviteTracking?.filterExpiringSoon || 'Expiring Soon'}</option>
+                <option value={STATUS_FILTERS.FULLY_USED}>{lang.current.inviteTracking?.filterFullyUsed || 'Fully Used'}</option>
+                <option value={STATUS_FILTERS.INACTIVE}>{lang.current.inviteTracking?.filterInactive || 'Inactive'}</option>
+              </select>
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                className={styles.clearFiltersButton}
+                onClick={handleClearFilters}
+                aria-label="Clear all filters"
+              >
+                <FaTimes className="me-1" />
+                {lang.current.inviteTracking?.clearFilters || 'Clear'}
+              </button>
+            )}
+
+            <button
+              className={styles.exportButton}
+              onClick={handleExportCsv}
+              disabled={filteredInvites.length === 0}
+              title={lang.current.inviteTracking?.exportCsv || 'Export CSV'}
+              aria-label="Export invites to CSV"
+            >
+              <FaFileDownload className="me-1" />
+              {lang.current.inviteTracking?.exportCsv || 'Export CSV'}
+            </button>
+          </div>
+        )}
+
+        {/* Filter results info */}
+        {hasActiveFilters && invites.length > 0 && (
+          <div className={styles.filterResultsInfo}>
+            {lang.current.inviteTracking?.showingResults
+              ? lang.current.inviteTracking.showingResults
+                  .replace('{count}', filteredInvites.length)
+                  .replace('{total}', invites.length)
+              : `Showing ${filteredInvites.length} of ${invites.length} invites`}
+          </div>
+        )}
+
         <Card.Body className="p-0">
           {invites.length === 0 ? (
             <EmptyState
               variant="invites"
               title={lang.current.message.noInviteCodes.replace('{first_name_suffix}', firstNameSuffix)}
               description={lang.current.inviteTracking.noInviteCodesDescription}
+              primaryAction={lang.current.inviteTracking?.createFirstInvite || 'Create Your First Invite'}
+              onPrimaryAction={() => setShowInviteModal(true)}
               size="md"
               compact
             />
+          ) : filteredInvites.length === 0 ? (
+            <EmptyState
+              variant="search"
+              icon="🔍"
+              title={lang.current.inviteTracking?.noMatchingInvites || 'No matching invites'}
+              description={lang.current.inviteTracking?.tryDifferentSearch || 'Try adjusting your search or filter criteria'}
+              primaryAction={lang.current.inviteTracking?.clearFilters || 'Clear Filters'}
+              onPrimaryAction={handleClearFilters}
+              size="sm"
+              compact
+            />
           ) : (
-            <Table hover striped responsive>
-              <TableHead>
-                <TableRow>
-                  <th>{lang.current.tableHeaders.code}</th>
-                  <th>{lang.current.tableHeaders.status}</th>
-                  <th>{lang.current.tableHeaders.email}</th>
-                  <th>{lang.current.tableHeaders.used}</th>
-                  <th>{lang.current.tableHeaders.created}</th>
-                  <th>{lang.current.tableHeaders.expires}</th>
-                  <th>{lang.current.tableHeaders.actions}</th>
-                </TableRow>
-              </TableHead>
-              <TableBody>
+            <>
+              {/* Desktop Table View */}
+              <div className={styles.desktopTable}>
+                <Table hover striped responsive>
+                  <TableHead>
+                    <TableRow>
+                      <th>{lang.current.tableHeaders.code}</th>
+                      <th>{lang.current.tableHeaders.status}</th>
+                      <th>{lang.current.tableHeaders.email}</th>
+                      <th>{lang.current.tableHeaders.used}</th>
+                      <th>{lang.current.tableHeaders.created}</th>
+                      <th>{lang.current.tableHeaders.expires}</th>
+                      <th>{lang.current.tableHeaders.actions}</th>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {paginatedInvites.map((invite) => (
+                      <TableRow key={invite._id}>
+                        <TableCell>
+                          <div className={styles.inviteCodeCell}>
+                            <code className={styles.inviteCode}>{invite.code}</code>
+                            <button
+                              className={styles.copyButton}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyInviteLink(invite.code);
+                              }}
+                              title={lang.current.inviteTracking?.copyLink || 'Copy invite link'}
+                              aria-label={`Copy invite link for ${invite.code}`}
+                            >
+                              <FaCopy />
+                            </button>
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(invite)}</TableCell>
+                        <TableCell>
+                          {invite.email ? (
+                            <span>
+                              <FaEnvelope className="me-1" />
+                              {invite.email}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.any}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="badge badge-secondary">
+                            {invite.usedCount}/{invite.maxUses || '∞'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate(invite.createdAt)}</TableCell>
+                        <TableCell>
+                          {invite.expiresAt ? (
+                            formatDate(invite.expiresAt)
+                          ) : (
+                            <span style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.never}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className={styles.actionButtons}>
+                            <button
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={() => loadInviteDetails(invite.code)}
+                            >
+                              {lang.current.button.viewDetails}
+                            </button>
+                            {invite.isActive && (
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleDeactivateClick(invite)}
+                                title={lang.current.inviteTracking?.deactivate || 'Deactivate'}
+                                aria-label={`Deactivate invite ${invite.code}`}
+                              >
+                                <FaBan />
+                              </button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className={styles.mobileCards}>
                 {paginatedInvites.map((invite) => (
-                  <TableRow key={invite._id}>
-                    <TableCell>
-                      <code className={styles.inviteCode}>{invite.code}</code>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(invite)}</TableCell>
-                    <TableCell>
-                      {invite.email ? (
-                        <span>
-                          <FaEnvelope className="me-1" />
-                          {invite.email}
+                  <div key={invite._id} className={styles.inviteCard}>
+                    <div className={styles.inviteCardHeader}>
+                      <div className={styles.inviteCodeCell}>
+                        <code className={styles.inviteCode}>{invite.code}</code>
+                        <button
+                          className={styles.copyButton}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyInviteLink(invite.code);
+                          }}
+                          title={lang.current.inviteTracking?.copyLink || 'Copy invite link'}
+                          aria-label={`Copy invite link for ${invite.code}`}
+                        >
+                          <FaCopy />
+                        </button>
+                      </div>
+                      {getStatusBadge(invite)}
+                    </div>
+
+                    <div className={styles.inviteCardBody}>
+                      <div className={styles.inviteCardRow}>
+                        <span className={styles.inviteCardLabel}>{lang.current.tableHeaders.email}</span>
+                        <span className={styles.inviteCardValue}>
+                          {invite.email ? (
+                            <>
+                              <FaEnvelope className="me-1" />
+                              {invite.email}
+                            </>
+                          ) : (
+                            <span className={styles.inviteCardMuted}>{lang.current.inviteTracking.any}</span>
+                          )}
                         </span>
-                      ) : (
-                        <span style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.any}</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="badge badge-secondary">
-                        {invite.usedCount}/{invite.maxUses || '∞'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatDate(invite.createdAt)}</TableCell>
-                    <TableCell>
-                      {invite.expiresAt ? (
-                        formatDate(invite.expiresAt)
-                      ) : (
-                        <span style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.never}</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
+                      </div>
+
+                      <div className={styles.inviteCardRow}>
+                        <span className={styles.inviteCardLabel}>{lang.current.tableHeaders.used}</span>
+                        <span className={styles.inviteCardValue}>
+                          <Badge className="badge badge-secondary">
+                            {invite.usedCount}/{invite.maxUses || '∞'}
+                          </Badge>
+                        </span>
+                      </div>
+
+                      <div className={styles.inviteCardRow}>
+                        <span className={styles.inviteCardLabel}>{lang.current.tableHeaders.created}</span>
+                        <span className={styles.inviteCardValue}>{formatDate(invite.createdAt)}</span>
+                      </div>
+
+                      <div className={styles.inviteCardRow}>
+                        <span className={styles.inviteCardLabel}>{lang.current.tableHeaders.expires}</span>
+                        <span className={styles.inviteCardValue}>
+                          {invite.expiresAt ? (
+                            formatDate(invite.expiresAt)
+                          ) : (
+                            <span className={styles.inviteCardMuted}>{lang.current.inviteTracking.never}</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className={styles.inviteCardActions}>
                       <button
-                        className="btn btn-sm btn-outline-primary"
+                        className="btn btn-sm btn-outline-primary flex-grow-1"
                         onClick={() => loadInviteDetails(invite.code)}
                       >
                         {lang.current.button.viewDetails}
                       </button>
-                    </TableCell>
-                  </TableRow>
+                      {invite.isActive && (
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => handleDeactivateClick(invite)}
+                          title={lang.current.inviteTracking?.deactivate || 'Deactivate'}
+                          aria-label={`Deactivate invite ${invite.code}`}
+                        >
+                          <FaBan />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
           {/* Pagination */}
           {totalPages > 1 && (
@@ -327,7 +770,7 @@ export default function InviteTracking() {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
-                totalResults={invites.length}
+                totalResults={filteredInvites.length}
                 resultsPerPage={ITEMS_PER_PAGE}
                 variant="numbers"
               />
@@ -339,6 +782,10 @@ export default function InviteTracking() {
   );
 
   const renderDetails = () => {
+    if (isLoadingDetails) {
+      return <Loading size="lg" message={lang.current.alert?.loadingInviteDetails || 'Loading invite details...'} />;
+    }
+
     if (!selectedInvite) {
       return <Alert type="info" message={lang.current.message.selectInviteCode} />;
     }
@@ -696,6 +1143,42 @@ export default function InviteTracking() {
         } : prev);
       }}
     />
+
+    {/* Deactivate Confirmation Modal */}
+    <Modal
+      show={showDeactivateModal}
+      onClose={handleDeactivateCancel}
+      title={lang.current.inviteTracking?.deactivateConfirmTitle || 'Deactivate Invite Code'}
+      size="sm"
+      footer={
+        <div className={styles.deactivateModalFooter}>
+          <Button
+            variant="outline"
+            onClick={handleDeactivateCancel}
+            disabled={isDeactivating}
+          >
+            {lang.current.button?.cancel || 'Cancel'}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleDeactivateConfirm}
+            disabled={isDeactivating}
+          >
+            {isDeactivating
+              ? (lang.current.inviteTracking?.deactivating || 'Deactivating...')
+              : (lang.current.inviteTracking?.deactivate || 'Deactivate')
+            }
+          </Button>
+        </div>
+      }
+    >
+      <div className={styles.deactivateModalContent}>
+        <p>
+          {(lang.current.inviteTracking?.deactivateConfirmMessage || 'Are you sure you want to deactivate the invite code "{code}"? This action cannot be undone and the code will no longer be usable.')
+            .replace('{code}', inviteToDeactivate?.code || '')}
+        </p>
+      </div>
+    </Modal>
     </>
   );
 }

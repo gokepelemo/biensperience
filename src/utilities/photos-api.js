@@ -85,3 +85,54 @@ export async function deletePhoto(id) {
 
     return result;
 }
+
+/**
+ * Normalize an ID to string format
+ * Handles MongoDB ObjectIds which could be strings, objects with $oid, or toString()
+ * @param {string|object} id - The ID to normalize
+ * @returns {string|null} The normalized string ID or null
+ */
+function normalizePhotoId(id) {
+    if (!id) return null;
+    if (typeof id === 'string') return id;
+    // MongoDB ObjectId serialized as { $oid: "..." }
+    if (typeof id === 'object' && id.$oid) return id.$oid;
+    // ObjectId with toString method
+    if (typeof id === 'object' && typeof id.toString === 'function') {
+        const str = id.toString();
+        // Check if it's a valid ObjectId string (24 hex chars)
+        if (/^[a-f\d]{24}$/i.test(str)) return str;
+    }
+    // ObjectId with _id property
+    if (typeof id === 'object' && id._id) return normalizePhotoId(id._id);
+    return null;
+}
+
+/**
+ * Fetch photos by array of IDs
+ * @param {string[]|object[]} ids - Array of photo IDs to fetch (strings or ObjectId-like objects)
+ * @returns {Promise<Array>} Array of photo objects
+ */
+export async function getPhotosByIds(ids) {
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return [];
+    }
+
+    // Normalize all IDs to strings, handling ObjectIds
+    const validIds = ids.map(normalizePhotoId).filter(Boolean);
+    if (validIds.length === 0) {
+        logger.debug('[photos-api] No valid photo IDs to fetch', { rawIds: ids });
+        return [];
+    }
+
+    try {
+        const result = await sendRequest(`${BASE_URL}batch-get`, "POST", { ids: validIds });
+        // API returns { success: true, data: [...] }
+        const photos = result?.data || result || [];
+        logger.debug('[photos-api] Photos fetched by IDs', { count: photos?.length, requestedCount: validIds.length });
+        return photos;
+    } catch (e) {
+        logger.error('[photos-api] Failed to fetch photos by IDs', { error: e.message, idsCount: validIds.length });
+        return [];
+    }
+}

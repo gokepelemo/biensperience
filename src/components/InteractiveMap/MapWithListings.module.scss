@@ -3,109 +3,108 @@
 /**
  * MapWithListings Styles
  * Full-featured map view with sidebar listings panel
- * Full viewport height, responsive with map on top on mobile
+ * Mobile-first CSS Grid layout
  */
 
+// =============================================================================
+// MOBILE-FIRST BASE STYLES (default = mobile)
+// =============================================================================
+
 .container {
-  display: flex;
+  display: grid;
   width: 100%;
-  // Fill exactly 100% of viewport below header (no scrolling on page)
-  height: calc(100vh - 180px); // Viewport minus header + page title area
-  max-height: calc(100vh - 180px);
+  height: calc(100vh - 140px);
+  min-height: 400px; // Ensure minimum usable height
   background: var(--color-bg-primary);
-  border-radius: var(--radius-lg);
-  overflow: hidden; // Prevent content from extending page
+  border-radius: var(--radius-sm);
+  overflow: hidden;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+
+  // Mobile: Map on top (55%), panel below (45%) - both scroll independently
+  grid-template-rows: 55% 45%;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    'map'
+    'panel';
 
   @media (prefers-color-scheme: dark) {
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   }
 
-  // Mobile/Tablet: Stack vertically with map on top
-  @include breakpoint-max(lg) {
-    flex-direction: column-reverse; // Map on top, listings at bottom
+  // Tablet (768px+): Slightly taller container, adjust split
+  @include breakpoint-min(md) {
     height: calc(100vh - 160px);
-    max-height: calc(100vh - 160px);
+    min-height: 500px;
     border-radius: var(--radius-md);
+    grid-template-rows: 60% 40%;
+  }
+
+  // Desktop (1024px+): Side-by-side layout
+  @include breakpoint-min(lg) {
+    height: calc(100vh - 180px);
+    min-height: 500px;
+    border-radius: var(--radius-lg);
+    grid-template-rows: 1fr;
+    grid-template-columns: minmax(300px, 35%) 1fr;
+    grid-template-areas: 'panel map';
   }
 }
 
 .panelContainer {
-  flex-shrink: 0;
+  grid-area: panel;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--color-border-light);
-  overflow: hidden; // Panel itself doesn't scroll, inner .listings does
+  min-height: 0; // Allow shrinking in grid
+  overflow: hidden;
+  border-top: 1px solid var(--color-border-light);
 
-  // Mobile/Tablet: Panel at bottom
-  @include breakpoint-max(lg) {
-    width: 100%;
-    height: 45%;
-    min-height: 200px;
-    max-height: 350px;
-    border-right: none;
-    border-top: 1px solid var(--color-border-light);
-    order: 2; // Ensure listings are at bottom
+  // Ensure child panel fills container
+  > * {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+  }
+
+  // Desktop: Border on right instead of top
+  @include breakpoint-min(lg) {
+    border-top: none;
+    border-right: 1px solid var(--color-border-light);
   }
 }
 
 .mapContainer {
-  flex: 1;
+  grid-area: map;
   position: relative;
-  min-height: 300px;
+  min-height: 0; // Allow grid to control size
+  overflow: hidden;
 
-  // Ensure map fills container
+  // Map child must fill the grid cell
   > * {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
   }
-
-  // Mobile/Tablet: Map takes more space on top
-  @include breakpoint-max(lg) {
-    flex: 1;
-    min-height: 250px;
-    order: 1; // Ensure map is on top
-  }
 }
 
-// Split ratio variants
-.split3070 {
-  .panelContainer {
-    width: 30%;
-    min-width: 280px;
-    max-width: 400px;
+// =============================================================================
+// SPLIT RATIO VARIANTS (desktop only)
+// =============================================================================
 
-    @include breakpoint-max(lg) {
-      width: 100%;
-      max-width: none;
-    }
+.split3070 {
+  @include breakpoint-min(lg) {
+    grid-template-columns: minmax(280px, 30%) 1fr;
   }
 }
 
 .split3565 {
-  .panelContainer {
-    width: 35%;
-    min-width: 300px;
-    max-width: 450px;
-
-    @include breakpoint-max(lg) {
-      width: 100%;
-      max-width: none;
-    }
+  @include breakpoint-min(lg) {
+    grid-template-columns: minmax(300px, 35%) 1fr;
   }
 }
 
 .split4060 {
-  .panelContainer {
-    width: 40%;
-    min-width: 320px;
-    max-width: 500px;
-
-    @include breakpoint-max(lg) {
-      width: 100%;
-      max-width: none;
-    }
+  @include breakpoint-min(lg) {
+    grid-template-columns: minmax(320px, 40%) 1fr;
   }
 }

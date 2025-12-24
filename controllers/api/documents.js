@@ -18,7 +18,7 @@ const http = require('http');
 const Document = require('../../models/document');
 const Plan = require('../../models/plan');
 const User = require('../../models/user');
-const { s3Upload, s3Delete } = require('../../uploads/aws-s3');
+const { s3Upload, s3Delete, s3GetSignedUrl } = require('../../uploads/aws-s3');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const { isOwner, isCollaborator } = require('../../utilities/permissions');
 const { broadcastEvent } = require('../../utilities/websocket-server');
@@ -33,15 +33,26 @@ const {
 
 // Temporary directory for processing
 const TEMP_DIR = path.resolve(__dirname, '../../uploads/temp');
+// Upload directory for incoming documents (matches multer config in routes/api/documents.js)
+const UPLOAD_DIR = path.resolve(__dirname, '../../uploads/documents');
 
-// Ensure temp directory exists
+// Ensure directories exist
 if (!fs.existsSync(TEMP_DIR)) {
   fs.mkdirSync(TEMP_DIR, { recursive: true });
 }
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+// Allowed directories for file operations
+const ALLOWED_DIRS = [
+  path.resolve(TEMP_DIR),
+  path.resolve(UPLOAD_DIR)
+];
 
 /**
  * Sanitize file path to prevent path traversal attacks
- * Only allows paths within the uploads/temp directory
+ * Only allows paths within the uploads/temp or uploads/documents directories
  * Uses path.join with relative path extraction to ensure path is within allowed directory
  * @param {string} filePath - Path to validate
  * @returns {string} Sanitized absolute path
@@ -62,23 +73,27 @@ function sanitizeFilePath(filePath) {
   const normalizedPath = path.normalize(filePath);
   const absolutePath = path.resolve(normalizedPath);
 
-  // Resolve TEMP_DIR to absolute path for comparison
-  const resolvedTempDir = path.resolve(TEMP_DIR);
+  // Find which allowed directory this path belongs to
+  let matchedDir = null;
+  for (const allowedDir of ALLOWED_DIRS) {
+    if (absolutePath === allowedDir || absolutePath.startsWith(allowedDir + path.sep)) {
+      matchedDir = allowedDir;
+      break;
+    }
+  }
 
-  // Verify path is within TEMP_DIR using secure startsWith check
-  if (absolutePath !== resolvedTempDir &&
-      !absolutePath.startsWith(resolvedTempDir + path.sep)) {
-    backendLogger.warn('[Document] Access outside temp directory blocked', {
+  if (!matchedDir) {
+    backendLogger.warn('[Document] Access outside allowed directories blocked', {
       requestedPath: filePath,
       resolvedPath: absolutePath,
-      allowedDir: resolvedTempDir
+      allowedDirs: ALLOWED_DIRS
     });
     throw new Error('Invalid file path: access denied');
   }
 
   // Double-check: extract relative path from base and reconstruct
   // This ensures no traversal sequences remain after normalization
-  const relativePath = path.relative(resolvedTempDir, absolutePath);
+  const relativePath = path.relative(matchedDir, absolutePath);
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
     backendLogger.warn('[Document] Path traversal attempt blocked', {
       path: filePath,
@@ -88,7 +103,7 @@ function sanitizeFilePath(filePath) {
   }
 
   // Reconstruct the safe absolute path from base + relative
-  const safePath = path.join(resolvedTempDir, relativePath);
+  const safePath = path.join(matchedDir, relativePath);
 
   // Final validation: ensure reconstructed path matches original resolution
   if (safePath !== absolutePath) {
@@ -130,7 +145,7 @@ async function uploadDocument(req, res) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const { entityType, entityId, planId, planItemId, aiParsingEnabled = true, documentTypeHint } = req.body;
+    const { entityType, entityId, planId, planItemId, aiParsingEnabled = true, documentTypeHint, visibility = 'collaborators' } = req.body;
 
     // Validate entity type
     if (!entityType || !['plan', 'plan_item', 'experience', 'destination'].includes(entityType)) {
@@ -243,7 +258,8 @@ async function uploadDocument(req, res) {
       }
     }
 
-    // Step 3: Upload to S3
+    // Step 3: Upload to S3 protected bucket
+    // All plan item documents are stored in the protected bucket for security
     // S3 prefix based on document type:
     // - documents/ for PDF, Word, Text files
     // - images/ for images uploaded as documents for processing
@@ -252,7 +268,8 @@ async function uploadDocument(req, res) {
     const s3Prefix = validation.type === 'image' ? 'images' : 'documents';
     const s3Key = `${s3Prefix}/${req.user._id}/${timestamp}-${sanitizedName}`;
 
-    const uploadResult = await s3Upload(localFilePath, req.file.originalname, s3Key);
+    // Upload to protected bucket - documents require signed URLs to access
+    const uploadResult = await s3Upload(localFilePath, req.file.originalname, s3Key, { protected: true });
     const s3Url = uploadResult.Location;
 
     backendLogger.info('[Document] Uploaded to S3', { s3Url, s3Key });
@@ -270,12 +287,15 @@ async function uploadDocument(req, res) {
       documentType: validation.type,
       s3Key,
       s3Url,
-      s3Bucket: process.env.BUCKET_NAME,
+      s3Bucket: uploadResult.bucket,
+      isProtected: true,
+      bucketType: 'protected',
       status: processingResult.method === 'failed' ? 'failed' : 'completed',
       extractedText,
       processingResult,
       aiParsedData,
       aiParsingEnabled: aiParsingEnabled !== 'false',
+      visibility: ['collaborators', 'private'].includes(visibility) ? visibility : 'collaborators',
       permissions: [{
         _id: req.user._id,
         entity: 'user',
@@ -381,10 +401,16 @@ async function getDocument(req, res) {
 /**
  * Get documents for an entity
  * GET /api/documents/entity/:entityType/:entityId
+ * Query params:
+ *   - planId: Plan ID (required for plan_item entity type)
+ *   - includeDisabled: Include disabled documents (super admin only)
+ *   - page: Page number (1-based, default: 1)
+ *   - limit: Documents per page (default: 10, max: 50)
  */
 async function getDocumentsByEntity(req, res) {
   try {
     const { entityType, entityId } = req.params;
+    const { planId, includeDisabled, page = 1, limit = 10 } = req.query;
 
     if (!['plan', 'plan_item', 'experience', 'destination'].includes(entityType)) {
       return res.status(400).json({ error: 'Invalid entity type' });
@@ -394,18 +420,61 @@ async function getDocumentsByEntity(req, res) {
       return res.status(400).json({ error: 'Invalid entity ID' });
     }
 
-    // Verify access to entity
-    const hasAccess = await verifyEntityAccess(req.user._id, entityType, entityId);
+    // Validate planId if provided
+    if (planId && !mongoose.Types.ObjectId.isValid(planId)) {
+      return res.status(400).json({ error: 'Invalid plan ID' });
+    }
+
+    // Verify access to entity (pass planId for plan_item access checks)
+    const hasAccess = await verifyEntityAccess(req.user._id, entityType, entityId, planId);
     if (!hasAccess) {
       return res.status(403).json({ error: 'You do not have access to this entity' });
     }
 
-    const documents = await Document.find({ entityType, entityId })
+    // Parse pagination params
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Determine if user is super admin
+    const isSuperAdmin = req.user.role === 'super_admin';
+
+    // Build query: show all documents visible to collaborators, plus user's private documents
+    const query = {
+      entityType,
+      entityId,
+      $or: [
+        { visibility: 'collaborators' },
+        { visibility: 'private', user: req.user._id }
+      ]
+    };
+
+    // Only include disabled documents if super admin AND explicitly requested
+    if (!isSuperAdmin || includeDisabled !== 'true') {
+      query.isDisabled = { $ne: true };
+    }
+
+    // Count total for pagination
+    const total = await Document.countDocuments(query);
+
+    const documents = await Document.find(query)
       .populate('user', 'name email')
+      .populate('disabledBy', 'name email')
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
       .lean();
 
-    res.json({ documents });
+    res.json({
+      documents,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+        hasMore: skip + documents.length < total
+      }
+    });
   } catch (error) {
     backendLogger.error('[Document] Get by entity failed', {
       error: error.message,
@@ -553,8 +622,12 @@ async function reprocessDocument(req, res) {
 }
 
 /**
- * Delete a document
+ * Delete a document (soft delete - disables the document)
  * DELETE /api/documents/:id
+ * 
+ * This performs a soft delete by setting isDisabled=true.
+ * The document remains in S3 and can be restored by a super admin.
+ * Use permanentDelete for actual S3 and DB deletion (super admin only).
  */
 async function deleteDocument(req, res) {
   try {
@@ -573,9 +646,75 @@ async function deleteDocument(req, res) {
       return res.status(403).json({ error: 'Only the owner can delete this document' });
     }
 
-    backendLogger.info('[Document] Deleting', {
+    // Check if already disabled
+    if (document.isDisabled) {
+      return res.status(400).json({ error: 'Document is already disabled' });
+    }
+
+    backendLogger.info('[Document] Soft deleting (disabling)', {
       documentId: document._id,
-      s3Key: document.s3Key
+      userId: req.user._id
+    });
+
+    // Soft delete - disable the document
+    await document.disable(req.user._id, req.body.reason || 'Deleted by user');
+
+    // Broadcast document:deleted event to relevant room
+    const documentId = document._id.toString();
+    const entityType = document.entityType;
+    const entityId = document.entityId.toString();
+    const planId = document.planId ? document.planId.toString() : null;
+
+    try {
+      const roomType = entityType === 'plan' || entityType === 'plan_item' ? 'plan' : entityType;
+      const roomId = entityType === 'plan_item' ? planId : entityId;
+      broadcastEvent(roomType, roomId, {
+        type: 'document:deleted',
+        payload: { documentId, entityType, entityId, isDisabled: true }
+      });
+    } catch (err) {
+      backendLogger.error('Failed to broadcast document:deleted event', { error: err.message, documentId });
+    }
+
+    res.json({ success: true, message: 'Document disabled successfully' });
+
+  } catch (error) {
+    backendLogger.error('[Document] Delete (soft) failed', {
+      error: error.message,
+      documentId: req.params.id
+    });
+    res.status(500).json({ error: 'Failed to delete document' });
+  }
+}
+
+/**
+ * Permanently delete a document (super admin only)
+ * DELETE /api/documents/:id/permanent
+ * 
+ * This permanently removes the document from S3 and database.
+ * Only super admins can perform this action.
+ */
+async function permanentDeleteDocument(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid document ID' });
+    }
+
+    // Only super admin can permanently delete
+    if (req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Only super admins can permanently delete documents' });
+    }
+
+    const document = await Document.findById(req.params.id);
+
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    backendLogger.info('[Document] Permanently deleting', {
+      documentId: document._id,
+      s3Key: document.s3Key,
+      adminUserId: req.user._id
     });
 
     // Delete from S3
@@ -595,26 +734,86 @@ async function deleteDocument(req, res) {
     
     await document.deleteOne();
     
-    // Broadcast document:deleted event to relevant room
+    // Broadcast document:permanentlyDeleted event
     try {
       const roomType = entityType === 'plan' || entityType === 'plan_item' ? 'plan' : entityType;
       const roomId = entityType === 'plan_item' ? planId : entityId;
       broadcastEvent(roomType, roomId, {
-        type: 'document:deleted',
+        type: 'document:permanentlyDeleted',
         payload: { documentId, entityType, entityId }
       });
     } catch (err) {
-      backendLogger.error('Failed to broadcast document:deleted event', { error: err.message, documentId });
+      backendLogger.error('Failed to broadcast document:permanentlyDeleted event', { error: err.message, documentId });
     }
 
-    res.json({ success: true, message: 'Document deleted successfully' });
+    res.json({ success: true, message: 'Document permanently deleted' });
 
   } catch (error) {
-    backendLogger.error('[Document] Delete failed', {
+    backendLogger.error('[Document] Permanent delete failed', {
       error: error.message,
       documentId: req.params.id
     });
-    res.status(500).json({ error: 'Failed to delete document' });
+    res.status(500).json({ error: 'Failed to permanently delete document' });
+  }
+}
+
+/**
+ * Restore a disabled document (super admin only)
+ * POST /api/documents/:id/restore
+ */
+async function restoreDocument(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid document ID' });
+    }
+
+    // Only super admin can restore
+    if (req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Only super admins can restore documents' });
+    }
+
+    const document = await Document.findById(req.params.id);
+
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    if (!document.isDisabled) {
+      return res.status(400).json({ error: 'Document is not disabled' });
+    }
+
+    backendLogger.info('[Document] Restoring disabled document', {
+      documentId: document._id,
+      adminUserId: req.user._id
+    });
+
+    // Restore the document
+    await document.restore();
+
+    // Broadcast document:restored event
+    const entityType = document.entityType;
+    const entityId = document.entityId.toString();
+    const planId = document.planId ? document.planId.toString() : null;
+
+    try {
+      const roomType = entityType === 'plan' || entityType === 'plan_item' ? 'plan' : entityType;
+      const roomId = entityType === 'plan_item' ? planId : entityId;
+      broadcastEvent(roomType, roomId, {
+        type: 'document:restored',
+        payload: { document: document.toObject() }
+      });
+    } catch (err) {
+      backendLogger.error('Failed to broadcast document:restored event', { error: err.message, documentId: document._id });
+    }
+
+    res.json({ success: true, document: document.toObject() });
+
+  } catch (error) {
+    backendLogger.error('[Document] Restore failed', {
+      error: error.message,
+      documentId: req.params.id
+    });
+    res.status(500).json({ error: 'Failed to restore document' });
   }
 }
 
@@ -628,6 +827,122 @@ async function getSupportedTypes(req, res) {
     maxSizes: MAX_FILE_SIZES,
     accept: Object.values(SUPPORTED_DOCUMENT_TYPES).flat().join(',')
   });
+}
+
+/**
+ * Update document visibility
+ * PATCH /api/documents/:id/visibility
+ */
+async function updateVisibility(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid document ID' });
+    }
+
+    const { visibility } = req.body;
+
+    if (!visibility || !['collaborators', 'private'].includes(visibility)) {
+      return res.status(400).json({ error: 'Invalid visibility. Must be: collaborators or private' });
+    }
+
+    const document = await Document.findById(req.params.id);
+
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Only owner can change visibility
+    if (!isOwner(req.user._id, document)) {
+      return res.status(403).json({ error: 'Only the owner can change document visibility' });
+    }
+
+    document.visibility = visibility;
+    await document.save();
+
+    backendLogger.info('[Document] Visibility updated', {
+      documentId: document._id,
+      visibility,
+      userId: req.user._id
+    });
+
+    // Broadcast document:updated event
+    try {
+      const roomType = document.entityType === 'plan' || document.entityType === 'plan_item' ? 'plan' : document.entityType;
+      const roomId = document.entityType === 'plan_item' ? document.planId?.toString() : document.entityId.toString();
+      if (roomId) {
+        broadcastEvent(roomType, roomId, {
+          type: 'document:updated',
+          payload: { document: document.toObject() }
+        }, req.user._id.toString());
+      }
+    } catch (err) {
+      backendLogger.error('Failed to broadcast document:updated event', { error: err.message, documentId: document._id });
+    }
+
+    res.json({ success: true, document: document.toObject() });
+  } catch (error) {
+    backendLogger.error('[Document] Update visibility failed', {
+      error: error.message,
+      documentId: req.params.id
+    });
+    res.status(500).json({ error: 'Failed to update document visibility' });
+  }
+}
+
+/**
+ * Get a signed URL for document preview/download
+ * GET /api/documents/:id/preview
+ * Returns a temporary signed URL (valid for 1 hour) to access protected documents
+ */
+async function getDocumentPreviewUrl(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid document ID' });
+    }
+
+    const document = await Document.findById(req.params.id);
+
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Check access permissions
+    const hasAccess = await canAccessDocument(req.user._id, document);
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'You do not have access to this document' });
+    }
+
+    // Check visibility - private documents only accessible by owner
+    if (document.visibility === 'private' && !isOwner(req.user._id, document)) {
+      return res.status(403).json({ error: 'This document is private' });
+    }
+
+    // Generate signed URL for the protected document
+    // URL is valid for 1 hour (3600 seconds)
+    const signedUrl = await s3GetSignedUrl(document.s3Key, {
+      protected: document.isProtected,
+      bucket: document.s3Bucket,
+      expiresIn: 3600
+    });
+
+    backendLogger.info('[Document] Preview URL generated', {
+      documentId: document._id,
+      userId: req.user._id
+    });
+
+    res.json({
+      url: signedUrl,
+      filename: document.originalFilename,
+      mimeType: document.mimeType,
+      expiresIn: 3600
+    });
+  } catch (error) {
+    backendLogger.error('[Document] Get preview URL failed', {
+      error: error.message,
+      documentId: req.params.id
+    });
+    res.status(500).json({ error: 'Failed to get document preview URL' });
+  }
 }
 
 // ============================================
@@ -742,5 +1057,9 @@ module.exports = {
   getByEntity: getDocumentsByEntity,
   reprocess: reprocessDocument,
   delete: deleteDocument,
-  getSupportedTypes
+  permanentDelete: permanentDeleteDocument,
+  restore: restoreDocument,
+  getSupportedTypes,
+  updateVisibility,
+  getPreviewUrl: getDocumentPreviewUrl
 };

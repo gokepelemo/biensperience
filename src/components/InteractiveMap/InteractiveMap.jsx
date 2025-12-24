@@ -9,11 +9,12 @@ import PropTypes from 'prop-types';
 import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { FaStar, FaMapMarkerAlt } from 'react-icons/fa';
 import MapInfoCard from './MapInfoCard';
+import { createMarkerIcon } from './markerIcons';
 import styles from './InteractiveMap.module.scss';
 import { logger } from '../../utilities/logger';
 
-// Google Maps API Key (same as used in GoogleMap component)
-const GOOGLE_MAPS_API_KEY = 'AIzaSyDqWtvNnjYES1pd6ssnZ7gvddUVHrlNaR0';
+// Google Maps API Key from environment variable (Vite)
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
 // Default map options
 const DEFAULT_MAP_OPTIONS = {
@@ -192,32 +193,9 @@ export default function InteractiveMap({
     }
   }, [onMarkerHover]);
 
-  // Get marker icon based on type - using SVG data URIs for reliable coloring
+  // Get marker icon based on type - uses extracted SVG constants
   const getMarkerIcon = useCallback((type) => {
-    // Experience markers: amber/orange color
-    if (type === 'experience') {
-      return {
-        url: 'data:image/svg+xml,' + encodeURIComponent(`
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
-            <path fill="#F59E0B" stroke="#B45309" stroke-width="1" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-            <circle fill="#FEF3C7" cx="12" cy="9" r="3"/>
-          </svg>
-        `),
-        scaledSize: new window.google.maps.Size(32, 32),
-        anchor: new window.google.maps.Point(16, 32)
-      };
-    }
-    // Destination markers: blue color
-    return {
-      url: 'data:image/svg+xml,' + encodeURIComponent(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
-          <path fill="#3B82F6" stroke="#1D4ED8" stroke-width="1" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-          <circle fill="#DBEAFE" cx="12" cy="9" r="3"/>
-        </svg>
-      `),
-      scaledSize: new window.google.maps.Size(32, 32),
-      anchor: new window.google.maps.Point(16, 32)
-    };
+    return createMarkerIcon(type);
   }, []);
 
   // Filter to only valid markers with proper coordinates

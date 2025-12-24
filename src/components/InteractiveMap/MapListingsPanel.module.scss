@@ -9,9 +9,9 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-height: 100%; // Ensure it doesn't exceed container
+  min-height: 0; // Critical for flexbox - allows panel to shrink below content size
   background: var(--color-bg-primary);
-  overflow: hidden; // Prevent panel from growing
+  overflow: hidden;
 }
 
 .searchContainer {
@@ -144,8 +144,8 @@
 }
 
 .listings {
-  flex: 1;
-  min-height: 0; // Critical for flexbox scrolling - allows flex item to shrink below content size
+  flex: 1 1 0; // Grow, shrink, and start from 0 basis to fill available space
+  min-height: 0; // Critical for flexbox scrolling
   overflow-y: auto;
   padding: $space-3 $space-4;
 }
@@ -154,6 +154,7 @@
   display: flex;
   flex-direction: column;
   gap: $space-3;
+  min-height: 100%; // Fill container height
 }
 
 // Loading state
@@ -185,41 +186,4 @@
   }
 }
 
-// Empty state
-.emptyState {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: $space-8 $space-4;
-  text-align: center;
-  color: var(--color-text-tertiary);
-}
-
-.emptyIcon {
-  font-size: 2.5rem;
-  margin-bottom: $space-3;
-  opacity: 0.5;
-}
-
-.emptyState p {
-  margin: 0 0 $space-4 0;
-  font-size: $font-size-sm;
-}
-
-.resetButton {
-  padding: $space-2 $space-4;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  font-size: $font-size-sm;
-  font-weight: $font-weight-medium;
-  color: var(--color-primary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: var(--color-bg-hover);
-    border-color: var(--color-primary);
-  }
-}
+// Empty state styles removed - now uses EmptyState component

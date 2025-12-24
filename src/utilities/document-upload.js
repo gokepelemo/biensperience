@@ -5,7 +5,7 @@
  * Works with: utilities/ai-document-utils.js (backend)
  */
 
-import { sendRequest } from './send-request';
+import { sendRequest, uploadFile } from './send-request';
 import { logger } from './logger';
 
 // Supported document types (must match backend)
@@ -243,6 +243,211 @@ export function createDocumentPreview(file) {
     reader.onerror = (e) => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Get documents for an entity (plan, plan_item, experience, destination)
+ * Uses the /api/documents/entity endpoint with visibility filtering
+ * @param {string} entityType - Entity type: 'plan', 'plan_item', 'experience', 'destination'
+ * @param {string} entityId - Entity ID
+ * @param {Object} options - Options
+ * @param {string} options.planId - Plan ID (required for plan_item entity type)
+ * @param {boolean} options.includeDisabled - Include disabled documents (super admin only)
+ * @param {number} options.page - Page number (1-based, default: 1)
+ * @param {number} options.limit - Documents per page (default: 10)
+ * @returns {Promise<Object>} { documents: Array, pagination: Object }
+ */
+export async function getDocumentsByEntity(entityType, entityId, options = {}) {
+  logger.debug('[document-upload] Getting documents by entity', { entityType, entityId, options });
+
+  // Build URL with query params
+  let url = `/api/documents/entity/${entityType}/${entityId}`;
+  const params = new URLSearchParams();
+
+  if (options.planId) {
+    params.append('planId', options.planId);
+  }
+  if (options.includeDisabled) {
+    params.append('includeDisabled', 'true');
+  }
+  if (options.page) {
+    params.append('page', String(options.page));
+  }
+  if (options.limit) {
+    params.append('limit', String(options.limit));
+  }
+
+  const queryString = params.toString();
+  if (queryString) {
+    url += `?${queryString}`;
+  }
+
+  const response = await sendRequest(url, 'GET');
+  
+  // Return both documents and pagination info
+  return {
+    documents: response.documents || [],
+    pagination: response.pagination || {
+      page: 1,
+      limit: options.limit || 10,
+      total: response.documents?.length || 0,
+      totalPages: 1,
+      hasMore: false
+    }
+  };
+}
+
+/**
+ * Upload a document for any entity type
+ * Uses the /api/documents endpoint
+ * @param {File} file - File to upload
+ * @param {Object} options - Upload options
+ * @param {string} options.entityType - Entity type: 'plan', 'plan_item', 'experience', 'destination'
+ * @param {string} options.entityId - Entity ID
+ * @param {string} options.planId - Plan ID (required for plan_item)
+ * @param {string} options.planItemId - Plan item ID (required for plan_item)
+ * @param {string} options.visibility - 'collaborators' or 'private' (default: 'collaborators')
+ * @param {boolean} options.aiParsingEnabled - Enable AI parsing (default: true)
+ * @param {string} options.documentTypeHint - Hint for document type
+ * @returns {Promise<Object>} Upload result with document data
+ */
+export async function uploadDocument(file, options = {}) {
+  const {
+    entityType,
+    entityId,
+    planId,
+    planItemId,
+    visibility = 'collaborators',
+    aiParsingEnabled = true,
+    documentTypeHint
+  } = options;
+
+  // Validate
+  const validation = validateDocument(file);
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  // Create FormData
+  const formData = new FormData();
+  formData.append('document', file);
+  formData.append('entityType', entityType);
+  formData.append('entityId', entityId);
+  formData.append('visibility', visibility);
+  formData.append('aiParsingEnabled', String(aiParsingEnabled));
+
+  if (planId) formData.append('planId', planId);
+  if (planItemId) formData.append('planItemId', planItemId);
+  if (documentTypeHint) formData.append('documentTypeHint', documentTypeHint);
+
+  logger.debug('[document-upload] Uploading document', {
+    entityType,
+    entityId,
+    fileName: file.name,
+    fileSize: formatFileSize(file.size),
+    visibility
+  });
+
+  try {
+    // Use uploadFile to handle CSRF token and authentication
+    const result = await uploadFile('/api/documents', 'POST', formData);
+
+    logger.info('[document-upload] Document uploaded successfully', {
+      entityType,
+      entityId,
+      documentId: result.document?._id,
+      visibility
+    });
+
+    return result.document;
+  } catch (error) {
+    logger.error('[document-upload] Upload failed', {
+      error: error.message,
+      entityType,
+      entityId
+    });
+    throw error;
+  }
+}
+
+/**
+ * Update document visibility
+ * @param {string} documentId - Document ID
+ * @param {string} visibility - 'collaborators' or 'private'
+ * @returns {Promise<Object>} Updated document
+ */
+export async function updateDocumentVisibility(documentId, visibility) {
+  logger.debug('[document-upload] Updating document visibility', { documentId, visibility });
+
+  const response = await sendRequest(`/api/documents/${documentId}/visibility`, 'PATCH', { visibility });
+
+  logger.info('[document-upload] Document visibility updated', { documentId, visibility });
+  return response.document;
+}
+
+/**
+ * Delete a document (soft delete - disables the document)
+ * @param {string} documentId - Document ID
+ * @param {string} reason - Optional reason for deletion
+ * @returns {Promise<void>}
+ */
+export async function deleteDocument(documentId, reason = '') {
+  logger.debug('[document-upload] Deleting document (soft)', { documentId });
+
+  await sendRequest(`/api/documents/${documentId}`, 'DELETE', reason ? { reason } : undefined);
+
+  logger.info('[document-upload] Document disabled', { documentId });
+}
+
+/**
+ * Permanently delete a document (super admin only)
+ * Removes from S3 and database
+ * @param {string} documentId - Document ID
+ * @returns {Promise<void>}
+ */
+export async function permanentDeleteDocument(documentId) {
+  logger.debug('[document-upload] Permanently deleting document', { documentId });
+
+  await sendRequest(`/api/documents/${documentId}/permanent`, 'DELETE');
+
+  logger.info('[document-upload] Document permanently deleted', { documentId });
+}
+
+/**
+ * Restore a disabled document (super admin only)
+ * @param {string} documentId - Document ID
+ * @returns {Promise<Object>} Restored document
+ */
+export async function restoreDocument(documentId) {
+  logger.debug('[document-upload] Restoring document', { documentId });
+
+  const response = await sendRequest(`/api/documents/${documentId}/restore`, 'POST');
+
+  logger.info('[document-upload] Document restored', { documentId });
+  return response.document;
+}
+
+/**
+ * Get a single document by ID
+ * @param {string} documentId - Document ID
+ * @returns {Promise<Object>} Document data
+ */
+export async function getDocument(documentId) {
+  const response = await sendRequest(`/api/documents/${documentId}`, 'GET');
+  return response.document;
+}
+
+/**
+ * Get a signed URL for document preview/download
+ * Protected documents require a signed URL to access
+ * @param {string} documentId - Document ID
+ * @returns {Promise<Object>} { url: string, filename: string, mimeType: string, expiresIn: number }
+ */
+export async function getDocumentPreviewUrl(documentId) {
+  logger.debug('[document-upload] Getting preview URL', { documentId });
+  const response = await sendRequest(`/api/documents/${documentId}/preview`, 'GET');
+  logger.info('[document-upload] Preview URL retrieved', { documentId, expiresIn: response.expiresIn });
+  return response;
 }
 
 /**

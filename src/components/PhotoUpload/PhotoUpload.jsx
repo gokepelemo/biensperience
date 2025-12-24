@@ -51,7 +51,7 @@ function sanitizeImageUrl(url) {
   return trimmedUrl;
 }
 
-export default function PhotoUpload({ data, setData }) {
+export default function PhotoUpload({ data, setData, hideUploadedPhotos = false, maxHeight = null }) {
   const [uploadForm, setUploadForm] = useState({});
   const [uploading, setUploading] = useState(false);
   const [useUrl, setUseUrl] = useState(false);
@@ -66,12 +66,14 @@ export default function PhotoUpload({ data, setData }) {
   const [showCreditFields, setShowCreditFields] = useState(false);
 
   const [photos, setPhotos] = useState(() => {
-    if (Array.isArray(data.photos_full) && data.photos_full.length > 0) return data.photos_full;
-    return data.photos || [];
+    if (Array.isArray(data.photos_full) && data.photos_full.length > 0) return data.photos_full.filter(Boolean);
+    return (data.photos || []).filter(Boolean);
   });
 
   const [defaultPhotoIndex, setDefaultPhotoIndex] = useState(() => {
-    const source = Array.isArray(data.photos_full) && data.photos_full.length > 0 ? data.photos_full : data.photos || [];
+    const source = Array.isArray(data.photos_full) && data.photos_full.length > 0 
+      ? data.photos_full.filter(Boolean) 
+      : (data.photos || []).filter(Boolean);
     if (data.default_photo_id && source) {
       const index = source.findIndex(photo =>
         (photo && photo._id && String(photo._id) === String(data.default_photo_id)) || String(photo) === String(data.default_photo_id)
@@ -92,8 +94,8 @@ export default function PhotoUpload({ data, setData }) {
   // This handles the case where data.photos_full is populated after the component mounts
   useEffect(() => {
     const externalPhotos = Array.isArray(data.photos_full) && data.photos_full.length > 0
-      ? data.photos_full
-      : (Array.isArray(data.photos) ? data.photos : []);
+      ? data.photos_full.filter(Boolean)
+      : (Array.isArray(data.photos) ? data.photos.filter(Boolean) : []);
 
     // Only sync if we have external photos AND we haven't initialized yet
     // OR if external photos changed significantly (e.g., modal reopened with different entity)
@@ -117,8 +119,8 @@ export default function PhotoUpload({ data, setData }) {
   // Reset initialized flag when photos are cleared (e.g., modal closed and reopened)
   useEffect(() => {
     const externalPhotos = Array.isArray(data.photos_full) && data.photos_full.length > 0
-      ? data.photos_full
-      : (Array.isArray(data.photos) ? data.photos : []);
+      ? data.photos_full.filter(Boolean)
+      : (Array.isArray(data.photos) ? data.photos.filter(Boolean) : []);
 
     if (externalPhotos.length === 0 && photos.length === 0) {
       initializedFromDataRef.current = false;
@@ -126,7 +128,9 @@ export default function PhotoUpload({ data, setData }) {
   }, [data.photos_full, data.photos, photos.length]);
 
   useEffect(() => {
-    const activePhotos = photos.filter((_, index) => !disabledPhotos.has(index));
+    // Filter out disabled photos AND any undefined/null values
+    const activePhotos = photos
+      .filter((photo, index) => photo && !disabledPhotos.has(index));
 
     let adjustedDefaultIndex = defaultPhotoIndex;
     if (disabledPhotos.has(defaultPhotoIndex)) {
@@ -148,7 +152,9 @@ export default function PhotoUpload({ data, setData }) {
       prevPhotosRef.current = activePhotos;
       prevDefaultIndexRef.current = newDefaultIndex;
 
-      const photoIds = activePhotos.map(photo => photo._id || photo);
+      const photoIds = activePhotos
+        .filter(Boolean)
+        .map(photo => photo?._id || photo);
 
       setData((prevData) => ({
         ...prevData,
@@ -291,7 +297,8 @@ export default function PhotoUpload({ data, setData }) {
       );
 
       const uploadResults = await Promise.all(uploadPromises);
-      const uploadedPhotos = uploadResults.map(result => result.upload);
+      // API returns { success: true, data: <photo object> }
+      const uploadedPhotos = uploadResults.map(result => result.data || result.upload || result);
 
       const newPhotos = [...photos, ...uploadedPhotos];
       setPhotos(newPhotos);
@@ -348,7 +355,8 @@ export default function PhotoUpload({ data, setData }) {
 
         const uploadedImage = await uploadPhotoUrl(urlData);
 
-        const newPhotos = [...photos, uploadedImage.upload];
+        // API returns { success: true, data: <photo object> }
+        const newPhotos = [...photos, uploadedImage.data || uploadedImage.upload || uploadedImage];
         setPhotos(newPhotos);
 
         if (newPhotos.length === 1) {
@@ -380,7 +388,8 @@ export default function PhotoUpload({ data, setData }) {
 
           const uploadedImage = await uploadPhoto(formData);
 
-          uploadedPhotos = [uploadedImage.upload];
+          // API returns { success: true, data: <photo object> }
+          uploadedPhotos = [uploadedImage.data || uploadedImage.upload || uploadedImage];
         } else {
           const dimensionsArray = await Promise.all(
             Array.from(files).map(file => getImageDimensionsSafe(file))
@@ -402,7 +411,8 @@ export default function PhotoUpload({ data, setData }) {
 
           const response = await uploadPhotoBatch(formData);
 
-          uploadedPhotos = response.uploads;
+          // API returns { success: true, data: [array of photos] }
+          uploadedPhotos = response.data || response.uploads || response;
         }
 
         const newPhotos = [...photos, ...uploadedPhotos];
@@ -478,8 +488,20 @@ export default function PhotoUpload({ data, setData }) {
     setDisabledPhotos(newDisabledPhotos);
   }
 
+  // Container style for scrollable content
+  const containerStyle = maxHeight ? {
+    maxHeight,
+    overflowY: 'auto',
+    overflowX: 'hidden'
+  } : {};
+
   return (
-    <div className={styles.uploadPhoto} role="region" aria-label={lang.current.aria.photoUpload}>
+    <div
+      className={styles.uploadPhoto}
+      role="region"
+      aria-label={lang.current.aria.photoUpload}
+      style={containerStyle}
+    >
       <div className={styles.uploadFormSection}>
         {showCreditFields ? (
           <>
@@ -638,17 +660,6 @@ export default function PhotoUpload({ data, setData }) {
         )}
 
         <div className="d-flex gap-2 align-items-center">
-          {!useUrl && (
-            <button
-              className="btn btn-primary btn-sm upload-btn"
-              onClick={handlePhotoAdd}
-              disabled={uploading}
-              aria-label={uploading ? lang.current.button.uploading : lang.current.button.upload}
-              aria-busy={uploading}
-            >
-              {uploading ? lang.current.button.uploading : lang.current.button.upload}
-            </button>
-          )}
           <button
             className="btn btn-light btn-sm upload-toggle-btn"
             onClick={() => {
@@ -665,7 +676,7 @@ export default function PhotoUpload({ data, setData }) {
         </div>
       </div>
 
-      {photos.length > 0 && (
+      {photos.length > 0 && !hideUploadedPhotos && (
         <div className={styles.uploadedPhotosList} role="region" aria-label={lang.current.aria.uploadedPhotos}>
           <div className={styles.photosHeader}>
             <h5>{lang.current.photo.photos}</h5>
@@ -719,9 +730,12 @@ export default function PhotoUpload({ data, setData }) {
               ]
             }>
               {photos.map((photo, index) => {
+                // Guard against undefined/null photo objects
+                if (!photo) return null;
+
                 const isDisabled = disabledPhotos.has(index);
                 const isDefault = index === defaultPhotoIndex && !isDisabled;
-                const sanitizedCredit = sanitizeText(photo.photo_credit);
+                const sanitizedCredit = sanitizeText(photo.photo_credit || 'Biensperience');
                 const safeUrl = sanitizeImageUrl(photo.url);
 
                 return (

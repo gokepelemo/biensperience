@@ -4,7 +4,7 @@
  * Provides hover synchronization between map markers and list items
  */
 
-import React, { useState, useCallback, useMemo, memo } from 'react';
+import React, { useState, useCallback, useMemo, memo, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import InteractiveMap from './InteractiveMap';
@@ -24,7 +24,7 @@ import styles from './MapWithListings.module.scss';
  */
 function MapWithListings({
   markers = [],
-  height = '100%',
+  height: propHeight,
   loading = false,
   showSearch = true,
   showFilters = true,
@@ -32,8 +32,38 @@ function MapWithListings({
   onMarkerClick
 }) {
   const navigate = useNavigate();
+  const containerRef = useRef(null);
   const [hoveredItemId, setHoveredItemId] = useState(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState(null);
+  const [calculatedHeight, setCalculatedHeight] = useState(null);
+
+  // Calculate available height based on container's position in viewport
+  useEffect(() => {
+    const calculateHeight = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        // Available height = viewport height - top position - some padding (16px)
+        const availableHeight = Math.max(400, viewportHeight - rect.top - 16);
+        setCalculatedHeight(`${availableHeight}px`);
+      }
+    };
+
+    // Calculate on mount and resize
+    calculateHeight();
+    window.addEventListener('resize', calculateHeight);
+
+    // Recalculate after a short delay to account for any layout shifts
+    const timeoutId = setTimeout(calculateHeight, 100);
+
+    return () => {
+      window.removeEventListener('resize', calculateHeight);
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
+  // Use prop height if provided, otherwise use calculated height
+  const height = propHeight || calculatedHeight || '100%';
 
   // Prepare items for the listing panel (add location string)
   const listingItems = useMemo(() => {
@@ -91,7 +121,7 @@ function MapWithListings({
   }[splitRatio] || styles.split3565;
 
   return (
-    <div className={`${styles.container} ${splitClass}`} style={{ height }}>
+    <div ref={containerRef} className={`${styles.container} ${splitClass}`} style={{ height }}>
       {/* Listings Panel */}
       <div className={styles.panelContainer}>
         <MapListingsPanel

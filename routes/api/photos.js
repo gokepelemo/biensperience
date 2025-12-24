@@ -8,6 +8,7 @@ const ensureLoggedIn = require('../../config/ensureLoggedIn')
 
 router.post('/', ensureLoggedIn, upload.single('image'), photosCtrl.create);
 router.post('/batch', ensureLoggedIn, upload.array('images', 10), photosCtrl.createBatch);
+router.post('/batch-get', ensureLoggedIn, photosCtrl.getByIds);
 router.post('/url', ensureLoggedIn, photosCtrl.createFromUrl);
 router.delete('/:id', ensureLoggedIn, photosCtrl.delete);
 router.put('/:id', ensureLoggedIn, photosCtrl.update);

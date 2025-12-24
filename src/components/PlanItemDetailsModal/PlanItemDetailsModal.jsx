@@ -12,6 +12,8 @@ import AddLocationModal from '../AddLocationModal';
 import AddDateModal from '../AddDateModal';
 import GoogleMap from '../GoogleMap/GoogleMap';
 import EmptyState from '../EmptyState/EmptyState';
+import DocumentsTab from './DocumentsTab';
+import PhotosTab from './PhotosTab';
 import styles from './PlanItemDetailsModal.module.scss';
 import { createSimpleFilter } from '../../utilities/trie';
 import { logger } from '../../utilities/logger';
@@ -95,9 +97,53 @@ export default function PlanItemDetailsModal({
       .catch(() => setRatesLoaded(true)); // Still render even if rates fail
   }, [targetCurrencyForRates]);
 
-  // Reset to specified initial tab when modal opens or plan item changes
+  // Helper to normalize ID to string for comparison - defined outside component or memoized
+  const normalizeId = (id) => {
+    if (!id) return null;
+    if (typeof id === 'string') return id;
+    if (typeof id === 'object' && id.toString) return id.toString();
+    return String(id);
+  };
+
+  // Compute stable plan item ID string
+  const planItemIdStr = normalizeId(planItem?._id);
+
+  // Track what we've initialized for - only reset on ACTUAL changes
+  const initializedForRef = useRef({ show: false, planItemId: null });
+
+  // Reset to specified initial tab when modal opens or a DIFFERENT plan item is selected
+  // This effect should ONLY run when show or planItemId actually changes value
   useEffect(() => {
-    if (show) {
+    const prevState = initializedForRef.current;
+    const isModalOpening = show && !prevState.show;
+    const isDifferentPlanItem = planItemIdStr && prevState.planItemId && planItemIdStr !== prevState.planItemId;
+    const isFirstPlanItem = show && planItemIdStr && !prevState.planItemId;
+
+    // Determine if we should reset BEFORE updating the ref
+    const shouldReset = isModalOpening || isDifferentPlanItem || isFirstPlanItem;
+
+    logger.debug('[PlanItemDetailsModal] Tab reset check', {
+      show,
+      planItemIdStr,
+      prevShow: prevState.show,
+      prevPlanItemId: prevState.planItemId,
+      isModalOpening,
+      isDifferentPlanItem,
+      isFirstPlanItem,
+      shouldReset,
+      currentTab: activeTab
+    });
+
+    // Update ref to current values
+    initializedForRef.current = { show, planItemId: planItemIdStr };
+
+    // Only reset state when modal opens or when switching to a different plan item
+    if (shouldReset) {
+      logger.info('[PlanItemDetailsModal] Resetting tab state', {
+        reason: isModalOpening ? 'modal_opening' : isDifferentPlanItem ? 'different_plan_item' : 'first_plan_item',
+        from: activeTab,
+        to: initialTab
+      });
       setActiveTab(initialTab);
       setIsEditingAssignment(false);
       setAssignmentSearch('');
@@ -106,11 +152,13 @@ export default function PlanItemDetailsModal({
       setShowAddDropdown(false);
       setShowLocationModal(false);
       setShowDateModal(false);
-      // Sync local scheduled date/time with prop values
       setLocalScheduledDate(planItem?.scheduled_date || null);
       setLocalScheduledTime(planItem?.scheduled_time || null);
     }
-  }, [show, planItem?._id, initialTab, planItem?.text, planItem?.scheduled_date, planItem?.scheduled_time]);
+    // NOTE: We intentionally exclude planItemIdStr from dependencies because we track it via ref
+    // This prevents the effect from running on every planItem prop update
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, initialTab]);
 
   // Handle click outside for add dropdown
   useEffect(() => {
@@ -1234,15 +1282,15 @@ export default function PlanItemDetailsModal({
             {lang.current.planItemDetailsModal.tabChat}
           </button>
           <button
-            className={`${styles.detailsTab} ${styles.disabled}`}
-            disabled
+            className={`${styles.detailsTab} ${activeTab === 'photos' ? styles.active : ''}`}
+            onClick={() => setActiveTab('photos')}
             type="button"
           >
             {lang.current.planItemDetailsModal.tabPhotos}
           </button>
           <button
-            className={`${styles.detailsTab} ${styles.disabled}`}
-            disabled
+            className={`${styles.detailsTab} ${activeTab === 'documents' ? styles.active : ''}`}
+            onClick={() => setActiveTab('documents')}
             type="button"
           >
             {lang.current.planItemDetailsModal.tabDocuments}
@@ -1590,17 +1638,24 @@ export default function PlanItemDetailsModal({
             </div>
           )}
 
-          {activeTab === 'photos' && (
-            <div className={styles.comingSoonMessage}>
-              Photo attachments will be available soon.
-            </div>
-          )}
+          {/* PhotosTab - keep mounted but hidden to preserve state during tab switches */}
+          <div style={{ display: activeTab === 'photos' ? 'block' : 'none' }}>
+            <PhotosTab
+              planItem={planItem}
+              plan={plan}
+              canEdit={canEdit}
+              currentUser={currentUser}
+            />
+          </div>
 
-          {activeTab === 'documents' && (
-            <div className={styles.comingSoonMessage}>
-              Document attachments will be available soon.
-            </div>
-          )}
+          {/* DocumentsTab - keep mounted but hidden to preserve state during tab switches */}
+          <div style={{ display: activeTab === 'documents' ? 'block' : 'none' }}>
+            <DocumentsTab
+              planItem={planItem}
+              plan={plan}
+              canEdit={canEdit}
+            />
+          </div>
         </div>
       </div>
 

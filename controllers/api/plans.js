@@ -1367,13 +1367,14 @@ const removeCollaborator = asyncHandler(async (req, res) => {
 /**
  * Update a specific plan item within a plan
  * Accepts: complete, cost, planning_days, text, url, activity_type, location, lat, lng, address,
- *          scheduled_date, scheduled_time
+ *          scheduled_date, scheduled_time, photos (array of photo ObjectIds)
  */
 const updatePlanItem = asyncHandler(async (req, res) => {
   const { id, itemId } = req.params;
   const {
     complete, cost, planning_days, text, url, activity_type,
-    location, lat, lng, address, scheduled_date, scheduled_time
+    location, lat, lng, address, scheduled_date, scheduled_time,
+    photos
   } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(itemId)) {
@@ -1438,7 +1439,8 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   const requestedKeys = Object.keys(req.body || {}).filter(k => k);
   const allowedScalarKeys = ['complete', 'cost', 'planning_days', 'text', 'url', 'activity_type', 'scheduled_date', 'scheduled_time'];
   const locationKeys = ['location', 'lat', 'lng', 'address'];
-  const allAllowedKeys = [...allowedScalarKeys, ...locationKeys];
+  const arrayKeys = ['photos'];
+  const allAllowedKeys = [...allowedScalarKeys, ...locationKeys, ...arrayKeys];
   const onlyAllowed = requestedKeys.length > 0 && requestedKeys.every(k => allAllowedKeys.includes(k));
 
   if (onlyAllowed) {
@@ -1504,6 +1506,23 @@ const updatePlanItem = asyncHandler(async (req, res) => {
         });
       }
       setObj['plan.$.location'] = locationData;
+    }
+
+    // Process photos array - validate ObjectIds and store references
+    if (photos !== undefined) {
+      if (Array.isArray(photos)) {
+        // Validate all photo IDs are valid ObjectIds
+        const validPhotoIds = photos.filter(id => mongoose.Types.ObjectId.isValid(id));
+        setObj['plan.$.photos'] = validPhotoIds.map(id => new mongoose.Types.ObjectId(id));
+        backendLogger.debug('Setting plan item photos', {
+          planId: id,
+          itemId,
+          photoCount: validPhotoIds.length
+        });
+      } else if (photos === null) {
+        // Allow clearing photos
+        setObj['plan.$.photos'] = [];
+      }
     }
 
     // Preserve previous state for tracking
@@ -1627,6 +1646,23 @@ const updatePlanItem = asyncHandler(async (req, res) => {
           coordinates: [lng, lat] // GeoJSON uses [lng, lat]
         };
       }
+    }
+  }
+
+  // Process photos array for in-memory update
+  if (photos !== undefined) {
+    if (Array.isArray(photos)) {
+      // Validate all photo IDs are valid ObjectIds
+      const validPhotoIds = photos.filter(id => mongoose.Types.ObjectId.isValid(id));
+      planItem.photos = validPhotoIds.map(id => new mongoose.Types.ObjectId(id));
+      backendLogger.debug('Setting plan item photos (in-memory)', {
+        planId: id,
+        itemId,
+        photoCount: validPhotoIds.length
+      });
+    } else if (photos === null) {
+      // Allow clearing photos
+      planItem.photos = [];
     }
   }
 

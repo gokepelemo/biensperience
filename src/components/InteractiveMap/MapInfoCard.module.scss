@@ -12,8 +12,9 @@
   overflow: hidden;
   font-family: var(--font-family-base);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  // Remove Google Maps InfoWindow default padding
-  margin: -13px -13px -15px -13px;
+  // Remove Google Maps InfoWindow default padding but ensure bottom content is visible
+  margin: -13px -13px -8px -13px;
+  padding-bottom: 4px; // Extra space for button visibility
 
   @media (prefers-color-scheme: dark) {
     background: var(--color-bg-secondary);

@@ -3,11 +3,18 @@
  * Scrollable panel for map listings with search and filters
  */
 
-import React, { memo, useMemo, useState, useCallback } from 'react';
+import React, { memo, useMemo, useState, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { FaSearch, FaStar, FaMapMarkerAlt, FaTimes } from 'react-icons/fa';
 import MapListingCard from './MapListingCard';
+import MapListingCardSkeleton from './MapListingCardSkeleton';
+import EmptyState from '../EmptyState/EmptyState';
+import { useDebounce } from '../../hooks/useDebounce';
+import { useGridNavigation } from '../../hooks/useKeyboardNavigation';
 import styles from './MapListingsPanel.module.scss';
+
+// Debounce delay for search input (ms)
+const SEARCH_DEBOUNCE_DELAY = 300;
 
 /**
  * MapListingsPanel component
@@ -35,8 +42,15 @@ function MapListingsPanel({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const listingsGridRef = useRef(null);
 
-  // Filter items based on search and type
+  // Debounce search query to reduce re-renders while typing
+  const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_DELAY);
+
+  // Show skeleton when search is pending (user is typing)
+  const isSearchPending = searchQuery !== debouncedSearchQuery;
+
+  // Filter items based on debounced search and type
   const filteredItems = useMemo(() => {
     let filtered = items;
 
@@ -45,9 +59,9 @@ function MapListingsPanel({
       filtered = filtered.filter(item => item.type === activeFilter);
     }
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
+    // Filter by debounced search query
+    if (debouncedSearchQuery.trim()) {
+      const query = debouncedSearchQuery.toLowerCase().trim();
       filtered = filtered.filter(item =>
         item.name.toLowerCase().includes(query) ||
         (item.location && item.location.toLowerCase().includes(query))
@@ -55,7 +69,7 @@ function MapListingsPanel({
     }
 
     return filtered;
-  }, [items, searchQuery, activeFilter]);
+  }, [items, debouncedSearchQuery, activeFilter]);
 
   // Count by type
   const counts = useMemo(() => ({
@@ -63,6 +77,11 @@ function MapListingsPanel({
     destination: items.filter(i => i.type === 'destination').length,
     experience: items.filter(i => i.type === 'experience').length
   }), [items]);
+
+  // Enable keyboard navigation between listing cards
+  // Uses arrow keys (up/down/left/right), Home, and End keys
+  const hasItems = !loading && !isSearchPending && filteredItems.length > 0;
+  useGridNavigation(listingsGridRef, '[role="option"]', hasItems);
 
   const handleSearchChange = useCallback((e) => {
     setSearchQuery(e.target.value);
@@ -130,22 +149,20 @@ function MapListingsPanel({
       )}
 
       {/* Results Info */}
-      {searchQuery || activeFilter !== 'all' ? (
+      {debouncedSearchQuery || activeFilter !== 'all' ? (
         <div className={styles.resultsInfo}>
-          Showing {filteredItems.length} of {items.length} locations
+          {isSearchPending ? 'Searching...' : `Showing ${filteredItems.length} of ${items.length} locations`}
         </div>
       ) : null}
 
       {/* Listings */}
       <div className={styles.listings}>
-        {loading ? (
+        {loading || isSearchPending ? (
           <div className={styles.loadingState}>
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className={styles.skeleton} />
-            ))}
+            <MapListingCardSkeleton count={4} />
           </div>
         ) : filteredItems.length > 0 ? (
-          <div className={styles.listingsGrid}>
+          <div ref={listingsGridRef} className={styles.listingsGrid} role="listbox" aria-label="Map listings">
             {filteredItems.map(item => (
               <MapListingCard
                 key={item.id}
@@ -163,22 +180,17 @@ function MapListingsPanel({
             ))}
           </div>
         ) : (
-          <div className={styles.emptyState}>
-            <FaMapMarkerAlt className={styles.emptyIcon} />
-            <p>{emptyMessage}</p>
-            {(searchQuery || activeFilter !== 'all') && (
-              <button
-                type="button"
-                className={styles.resetButton}
-                onClick={() => {
-                  setSearchQuery('');
-                  setActiveFilter('all');
-                }}
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
+          <EmptyState
+            variant="mapLocations"
+            title={emptyMessage}
+            size="sm"
+            compact
+            primaryAction={(debouncedSearchQuery || activeFilter !== 'all') ? 'Clear Filters' : undefined}
+            onPrimaryAction={(debouncedSearchQuery || activeFilter !== 'all') ? () => {
+              setSearchQuery('');
+              setActiveFilter('all');
+            } : undefined}
+          />
         )}
       </div>
     </div>

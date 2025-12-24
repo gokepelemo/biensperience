@@ -111,6 +111,7 @@ export default function Profile() {
       setFollowCounts({ followers: 0, following: 0 });
       setIsFollowing(false);
       setFollowsList([]);
+      setFollowsFilter('followers'); // Reset filter to default when navigating to new profile
       setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
       // Update ref to new value
       prevProfileIdRef.current = profileId;
@@ -1062,12 +1063,13 @@ export default function Profile() {
   }, [followsList, followActionInProgress, success, showError]);
 
   // Fetch followers or following list for Follows tab
-  const fetchFollowsList = useCallback(async (filter = followsFilter, reset = false) => {
+  // Uses currentSkip parameter to avoid stale closure issues with followsList.length
+  const fetchFollowsList = useCallback(async (filter, reset = false, currentSkip = 0) => {
     if (!userId) return;
 
     setFollowsLoading(true);
     try {
-      const skip = reset ? 0 : followsList.length;
+      const skip = reset ? 0 : currentSkip;
       const limit = 20;
       const options = { limit, skip };
 
@@ -1096,20 +1098,23 @@ export default function Profile() {
     } finally {
       setFollowsLoading(false);
     }
-  }, [userId, followsFilter, followsList.length]);
+  }, [userId]);
 
-  // Handle follows filter change
+  // Handle follows filter change (from filter pills)
   const handleFollowsFilterChange = useCallback((filter) => {
     setFollowsFilter(filter);
     setFollowsList([]);
     setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
-    fetchFollowsList(filter, true);
+    // Pass filter explicitly and reset=true with skip=0
+    fetchFollowsList(filter, true, 0);
+    // Update URL hash to reflect the selected filter
+    try { window.history.pushState(null, '', `${window.location.pathname}#${filter}`); } catch (e) {}
   }, [fetchFollowsList]);
 
   // Fetch follows list when tab becomes active
   useEffect(() => {
     if (uiState.follows && userId && followsList.length === 0) {
-      fetchFollowsList(followsFilter, true);
+      fetchFollowsList(followsFilter, true, 0);
     }
   }, [uiState.follows, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1184,14 +1189,17 @@ export default function Profile() {
       destinations: tabName === 'destinations',
     });
 
-    // Set filter if provided (for followers/following)
+    // Set filter if provided (for followers/following) and fetch the list
     if (filter) {
       setFollowsFilter(filter);
+      setFollowsList([]);
+      setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
+      fetchFollowsList(filter, true, 0);
     }
 
     // Update URL hash for deep linking
     try { window.history.pushState(null, '', `${window.location.pathname}#${hash}`); } catch (e) {}
-  }, []);
+  }, [fetchFollowsList]);
 
   // Get the active tab key from uiState
   const activeTab = useMemo(() => {
@@ -1314,15 +1322,33 @@ export default function Profile() {
   const favoriteDestinationsCount = favoriteDestinations ? favoriteDestinations.length : 0;
 
   // Calculate owned vs shared plans - MUST be before early returns
-  // Uses isCollaborative flag from API which indicates if user is NOT the owner
+  // For own profile: use plans from DataContext (includes collaborative plans)
+  // For other profiles: use the API response metadata (userExperiencesMeta.total)
   const planCounts = useMemo(() => {
-    if (!plans || !currentProfile) return { total: 0, owned: 0, shared: 0 };
-    const total = plans.length;
-    // shared = plans where isCollaborative is true (user is collaborator, not owner)
-    const shared = plans.filter(plan => plan.isCollaborative === true).length;
-    const owned = total - shared;
-    return { total, owned, shared };
-  }, [plans, currentProfile]);
+    if (!currentProfile) return { total: 0, owned: 0, shared: 0 };
+
+    // For own profile, use local plans data which includes isCollaborative flag
+    if (isOwnProfile && plans) {
+      const total = plans.length;
+      // shared = plans where isCollaborative is true (user is collaborator, not owner)
+      const shared = plans.filter(plan => plan.isCollaborative === true).length;
+      const owned = total - shared;
+      return { total, owned, shared };
+    }
+
+    // For other profiles, use the API metadata total
+    // API only returns plans owned by that user, so shared is always 0
+    if (userExperiencesMeta?.total !== undefined) {
+      return { total: userExperiencesMeta.total, owned: userExperiencesMeta.total, shared: 0 };
+    }
+
+    // Fallback: count loaded experiences (may not be accurate if paginated)
+    if (userExperiences) {
+      return { total: userExperiences.length, owned: userExperiences.length, shared: 0 };
+    }
+
+    return { total: 0, owned: 0, shared: 0 };
+  }, [currentProfile, isOwnProfile, plans, userExperiencesMeta, userExperiences]);
 
   // Show error state if profile not found
   if (profileError === lang.current.alert.userNotFound) {
@@ -1725,17 +1751,19 @@ export default function Profile() {
           className={styles.profileTabs}
         />
 
-        {/* Content Grid */}
+        {/* Content Grid - Each tab is keyed to prevent React reconciliation issues */}
         <Row>
           <Col lg={12}>
             {/* Activity Tab - Only shown on own profile */}
-            {uiState.activity && isOwnProfile && (
-              <ActivityFeed userId={userId} />
-            )}
+            {uiState.activity && isOwnProfile ? (
+              <div key="tab-activity">
+                <ActivityFeed userId={userId} />
+              </div>
+            ) : null}
 
             {/* Follows Tab */}
-            {uiState.follows && (
-              <div className={styles.followsTab}>
+            {uiState.follows ? (
+              <div key="tab-follows" className={styles.followsTab}>
                 {/* Filter Pills */}
                 <div className={styles.followsFilterPills}>
                   <button
@@ -1827,7 +1855,7 @@ export default function Profile() {
                         <div className={styles.followsLoadMore}>
                           <Button
                             variant="outline"
-                            onClick={() => fetchFollowsList(followsFilter, false)}
+                            onClick={() => fetchFollowsList(followsFilter, false, followsList.length)}
                             disabled={followsLoading}
                           >
                             {followsLoading ? lang.current.loading.default : lang.current.button.loadMore}
@@ -1838,11 +1866,11 @@ export default function Profile() {
                   )}
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Destinations Tab */}
-            {uiState.destinations && (
-              <div ref={reservedRef} className={styles.destinationsGrid}>
+            {uiState.destinations ? (
+              <div key="tab-destinations" ref={reservedRef} className={styles.destinationsGrid}>
                 {(() => {
                   if (favoriteDestinations === null) {
                     // Loading state - show skeleton loaders for one row of destinations (12rem x 8rem each)
@@ -1891,10 +1919,10 @@ export default function Profile() {
                   );
                 })()}
               </div>
-            )}
+            ) : null}
             {/* Planned Experiences Tab - client-side pagination for own profile, API-level for others */}
-            {uiState.experiences && (
-              <div className={styles.profileGrid} style={experiencesLoading && uniqueUserExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
+            {uiState.experiences ? (
+              <div key="tab-experiences" className={styles.profileGrid} style={experiencesLoading && uniqueUserExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
                 {(() => {
                   // Initial load - show skeleton loaders
                   if (uniqueUserExperiences === null) {
@@ -1957,10 +1985,10 @@ export default function Profile() {
                   );
                 })()}
               </div>
-            )}
+            ) : null}
             {/* Created Experiences Tab - API-level pagination */}
-            {uiState.created && (
-              <div className={styles.profileGrid} style={createdLoading && uniqueCreatedExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
+            {uiState.created ? (
+              <div key="tab-created" className={styles.profileGrid} style={createdLoading && uniqueCreatedExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
                 {(() => {
                   // Initial load - show skeleton loaders
                   if (uniqueCreatedExperiences === null) {
@@ -2004,7 +2032,7 @@ export default function Profile() {
                   );
                 })()}
               </div>
-            )}
+            ) : null}
 
             {/* Pagination - always rendered in centered container for consistent layout */}
             <div className={styles.paginationContainer}>

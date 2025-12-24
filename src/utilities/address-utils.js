@@ -16,8 +16,8 @@
 
 import { logger } from './logger';
 
-// Google Maps API key - uses the same key as GoogleMap component
-const DEFAULT_API_KEY = 'AIzaSyDqWtvNnjYES1pd6ssnZ7gvddUVHrlNaR0';
+// Google Maps API key from environment variable (Vite)
+const DEFAULT_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
 /**
  * Cache for geocoding results to avoid redundant API calls

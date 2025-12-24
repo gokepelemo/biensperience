@@ -92,7 +92,7 @@ import {
   unassignPlanItem,
   addPlanItemDetail,
 } from "../../utilities/plans-api";
-import { reconcileState, generateOptimisticId } from "../../utilities/event-bus";
+import { reconcileState, generateOptimisticId, subscribeToEvent } from "../../utilities/event-bus";
 import { searchUsers } from "../../utilities/search-api";
 import { sendEmailInvite } from "../../utilities/invites-api";
 import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
@@ -225,6 +225,11 @@ export default function SingleExperience() {
   // Refs
   const planButtonRef = useRef(null);
   const [planBtnWidth, setPlanBtnWidth] = useState(null);
+
+  // Ref for editingPlanItem to avoid stale closures in callbacks
+  // This prevents Chrome crashes from callback recreation on every form field change
+  const editingPlanItemRef = useRef(editingPlanItem);
+  editingPlanItemRef.current = editingPlanItem;
 
   // Ref to track processed URL hashes to prevent re-scrolling on state changes
   const processedHashRef = useRef(null);
@@ -1532,6 +1537,64 @@ export default function SingleExperience() {
     };
   }, [subscribeToEvents, experienceId, fetchSharedPlans, fetchAllData]);
 
+  // Subscribe to local event bus for plan item updates (photos, etc.)
+  // This ensures that when PhotosTab saves photos, the local state is updated
+  useEffect(() => {
+    // Handler for plan item updates from local event bus
+    const handlePlanItemUpdated = (event) => {
+      const { planId, planItemId, planItem, updatedFields } = event;
+
+      // Only handle events relevant to this experience's plans
+      if (!planId) return;
+
+      logger.debug('[SingleExperience] Plan item updated event received', {
+        planId,
+        planItemId,
+        updatedFields,
+        hasPhotos: planItem?.photos?.length > 0
+      });
+
+      // Update userPlan if it matches
+      if (userPlan?._id === planId) {
+        setUserPlan(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            plan: prev.plan.map(item =>
+              idEquals(item._id, planItemId)
+                ? { ...item, ...planItem }
+                : item
+            )
+          };
+        });
+      }
+
+      // Update sharedPlans if the plan is in there
+      setSharedPlans(prev => prev.map(plan => {
+        if (!idEquals(plan._id, planId)) return plan;
+        return {
+          ...plan,
+          plan: plan.plan.map(item =>
+            idEquals(item._id, planItemId)
+              ? { ...item, ...planItem }
+              : item
+          )
+        };
+      }));
+
+      // Update selectedDetailsItem if modal is open and showing this item
+      if (isModalOpen(MODAL_NAMES.PLAN_ITEM_DETAILS) && selectedDetailsItem && idEquals(selectedDetailsItem._id, planItemId)) {
+        setSelectedDetailsItem(prev => ({
+          ...prev,
+          ...planItem
+        }));
+      }
+    };
+
+    const unsubscribe = subscribeToEvent('plan:item:updated', handlePlanItemUpdated);
+    return () => unsubscribe();
+  }, [userPlan?._id, setUserPlan, setSharedPlans, isModalOpen, selectedDetailsItem, setSelectedDetailsItem]);
+
   // Sync tab changes to presence system
   useEffect(() => {
     if (setPresenceTab) {
@@ -1748,13 +1811,15 @@ export default function SingleExperience() {
   }, [selectedPlanId, addCost, selectedDetailsItem, setSharedPlans, success, showError]);
 
   const handleSavePlanInstanceItem = useCallback(
-    async (e) => {
-      e.preventDefault();
+    async (formData) => {
       if (!selectedPlanId) return;
+
+      // formData is passed directly from modal's internal state
+      const currentEditingPlanItem = formData;
 
       // Optimistic update for plan instance items
       const prevPlans = [...sharedPlans];
-  const planIndex = sharedPlans.findIndex((p) => idEquals(p._id, selectedPlanId));
+      const planIndex = sharedPlans.findIndex((p) => idEquals(p._id, selectedPlanId));
       const prevPlan = planIndex >= 0 ? { ...sharedPlans[planIndex], plan: [...sharedPlans[planIndex].plan] } : null;
 
       const isAdd = planItemFormState === 1;
@@ -1767,28 +1832,28 @@ export default function SingleExperience() {
         if (isAdd) {
           updatedPlan.plan.push({
             _id: tempId,
-            plan_item_id: editingPlanItem.plan_item_id || tempId,
-            text: editingPlanItem.text || "",
-            url: editingPlanItem.url || "",
-            cost: editingPlanItem.cost || 0,
-            planning_days: editingPlanItem.planning_days || 0,
-            parent: editingPlanItem.parent || null,
-            activity_type: editingPlanItem.activity_type || null,
-            location: editingPlanItem.location || null,
+            plan_item_id: currentEditingPlanItem.plan_item_id || tempId,
+            text: currentEditingPlanItem.text || "",
+            url: currentEditingPlanItem.url || "",
+            cost: currentEditingPlanItem.cost || 0,
+            planning_days: currentEditingPlanItem.planning_days || 0,
+            parent: currentEditingPlanItem.parent || null,
+            activity_type: currentEditingPlanItem.activity_type || null,
+            location: currentEditingPlanItem.location || null,
             complete: false,
           });
         } else {
-          const idx = findIndexById(updatedPlan.plan, editingPlanItem._id);
+          const idx = findIndexById(updatedPlan.plan, currentEditingPlanItem._id);
           if (idx >= 0) {
             updatedPlan.plan[idx] = {
               ...updatedPlan.plan[idx],
-              text: editingPlanItem.text || "",
-              url: editingPlanItem.url || "",
-              cost: editingPlanItem.cost || 0,
-              planning_days: editingPlanItem.planning_days || 0,
-              parent: editingPlanItem.parent || null,
-              activity_type: editingPlanItem.activity_type || null,
-              location: editingPlanItem.location || null,
+              text: currentEditingPlanItem.text || "",
+              url: currentEditingPlanItem.url || "",
+              cost: currentEditingPlanItem.cost || 0,
+              planning_days: currentEditingPlanItem.planning_days || 0,
+              parent: currentEditingPlanItem.parent || null,
+              activity_type: currentEditingPlanItem.activity_type || null,
+              location: currentEditingPlanItem.location || null,
             };
           }
         }
@@ -1800,9 +1865,9 @@ export default function SingleExperience() {
 
       const apiCall = async () => {
         if (isAdd) {
-          await addPlanItemToInstance(selectedPlanId, editingPlanItem);
+          await addPlanItemToInstance(selectedPlanId, currentEditingPlanItem);
         } else {
-          const { _id, plan_item_id, ...updates } = editingPlanItem;
+          const { _id, plan_item_id, ...updates } = currentEditingPlanItem;
           await updatePlanItem(selectedPlanId, _id, updates);
         }
       };
@@ -1810,7 +1875,7 @@ export default function SingleExperience() {
       const rollback = () => {
         setSharedPlans(prevPlans);
         openModal(MODAL_NAMES.ADD_EDIT_PLAN_ITEM);
-        setEditingPlanItem(isAdd ? (editingPlanItem || {}) : editingPlanItem);
+        setEditingPlanItem(isAdd ? (currentEditingPlanItem || {}) : currentEditingPlanItem);
       };
 
       const onSuccess = async () => {
@@ -1829,7 +1894,6 @@ export default function SingleExperience() {
     },
     [
       selectedPlanId,
-      editingPlanItem,
       planItemFormState,
       fetchSharedPlans,
       fetchUserPlan,
@@ -1919,8 +1983,9 @@ export default function SingleExperience() {
   }, [openModal]);
 
   const handleSaveExperiencePlanItem = useCallback(
-    async (e) => {
-      e.preventDefault();
+    async (formData) => {
+      // formData is passed directly from modal's internal state
+      const currentEditingPlanItem = formData;
 
       const isAdd = planItemFormState === 1;
       const prevExperience = experience ? { ...experience, plan_items: [...(experience.plan_items || [])] } : null;
@@ -1932,26 +1997,26 @@ export default function SingleExperience() {
         if (isAdd) {
           updated.plan_items.push({
             _id: tempId,
-            text: editingPlanItem.text,
-            url: editingPlanItem.url || "",
-            cost_estimate: editingPlanItem.cost || 0,
-            planning_days: editingPlanItem.planning_days || 0,
-            parent: editingPlanItem.parent || null,
-            activity_type: editingPlanItem.activity_type || null,
-            location: editingPlanItem.location || null,
+            text: currentEditingPlanItem.text,
+            url: currentEditingPlanItem.url || "",
+            cost_estimate: currentEditingPlanItem.cost || 0,
+            planning_days: currentEditingPlanItem.planning_days || 0,
+            parent: currentEditingPlanItem.parent || null,
+            activity_type: currentEditingPlanItem.activity_type || null,
+            location: currentEditingPlanItem.location || null,
           });
         } else {
-          const idx = findIndexById(updated.plan_items, editingPlanItem._id);
+          const idx = findIndexById(updated.plan_items, currentEditingPlanItem._id);
           if (idx >= 0) {
             updated.plan_items[idx] = {
               ...updated.plan_items[idx],
-              text: editingPlanItem.text,
-              url: editingPlanItem.url || "",
-              cost_estimate: editingPlanItem.cost || 0,
-              planning_days: editingPlanItem.planning_days || 0,
-              parent: editingPlanItem.parent || null,
-              activity_type: editingPlanItem.activity_type || null,
-              location: editingPlanItem.location || null,
+              text: currentEditingPlanItem.text,
+              url: currentEditingPlanItem.url || "",
+              cost_estimate: currentEditingPlanItem.cost || 0,
+              planning_days: currentEditingPlanItem.planning_days || 0,
+              parent: currentEditingPlanItem.parent || null,
+              activity_type: currentEditingPlanItem.activity_type || null,
+              location: currentEditingPlanItem.location || null,
             };
           }
         }
@@ -1963,24 +2028,24 @@ export default function SingleExperience() {
       const apiCall = async () => {
         if (isAdd) {
           await addExperiencePlanItem(experience._id, {
-            text: editingPlanItem.text,
-            url: editingPlanItem.url,
-            cost_estimate: editingPlanItem.cost || 0,
-            planning_days: editingPlanItem.planning_days || 0,
-            parent: editingPlanItem.parent || null,
-            activity_type: editingPlanItem.activity_type || null,
-            location: editingPlanItem.location || null,
+            text: currentEditingPlanItem.text,
+            url: currentEditingPlanItem.url,
+            cost_estimate: currentEditingPlanItem.cost || 0,
+            planning_days: currentEditingPlanItem.planning_days || 0,
+            parent: currentEditingPlanItem.parent || null,
+            activity_type: currentEditingPlanItem.activity_type || null,
+            location: currentEditingPlanItem.location || null,
           });
         } else {
           await updateExperiencePlanItem(experience._id, {
-            _id: editingPlanItem._id,
-            text: editingPlanItem.text,
-            url: editingPlanItem.url,
-            cost_estimate: editingPlanItem.cost || 0,
-            planning_days: editingPlanItem.planning_days || 0,
-            parent: editingPlanItem.parent || null,
-            activity_type: editingPlanItem.activity_type || null,
-            location: editingPlanItem.location || null,
+            _id: currentEditingPlanItem._id,
+            text: currentEditingPlanItem.text,
+            url: currentEditingPlanItem.url,
+            cost_estimate: currentEditingPlanItem.cost || 0,
+            planning_days: currentEditingPlanItem.planning_days || 0,
+            parent: currentEditingPlanItem.parent || null,
+            activity_type: currentEditingPlanItem.activity_type || null,
+            location: currentEditingPlanItem.location || null,
           });
         }
       };
@@ -1988,7 +2053,7 @@ export default function SingleExperience() {
       const rollback = () => {
         if (prevExperience) setExperience(prevExperience);
         openModal(MODAL_NAMES.ADD_EDIT_PLAN_ITEM);
-        setEditingPlanItem(isAdd ? (editingPlanItem || {}) : editingPlanItem);
+        setEditingPlanItem(isAdd ? (currentEditingPlanItem || {}) : currentEditingPlanItem);
       };
 
       const onSuccess = async () => {
@@ -2003,7 +2068,7 @@ export default function SingleExperience() {
       const run = useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context: isAdd ? 'Add experience plan item' : 'Update experience plan item' });
       await run();
     },
-    [experience, editingPlanItem, planItemFormState, fetchAllData]
+    [experience, planItemFormState, fetchAllData]
   );
 
   const handlePlanChange = useCallback(
@@ -3040,15 +3105,11 @@ export default function SingleExperience() {
           closeModal();
           setEditingPlanItem({});
         }}
-        editingPlanItem={editingPlanItem}
-        setEditingPlanItem={setEditingPlanItem}
-        planItemFormState={planItemFormState}
-        activeTab={activeTab}
-        experienceId={experienceId}
-        onSaveExperiencePlanItem={handleSaveExperiencePlanItem}
-        onSavePlanInstanceItem={handleSavePlanInstanceItem}
+        initialData={editingPlanItem}
+        mode={planItemFormState === 1 ? 'add' : 'edit'}
+        onSave={activeTab === "experience" ? handleSaveExperiencePlanItem : handleSavePlanInstanceItem}
         loading={loading}
-        lang={lang}
+        langStrings={lang}
       />
 
       {/* Plan Item Details Modal */}

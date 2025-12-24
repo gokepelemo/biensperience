@@ -1,0 +1,94 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * MapListingCardSkeleton Styles
+ * Loading skeleton matching MapListingCard layout
+ */
+
+// Shared shimmer animation
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+// Shimmer gradient mixin
+@mixin shimmer-bg {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-secondary) 25%,
+    var(--color-bg-tertiary) 50%,
+    var(--color-bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite ease-in-out;
+}
+
+.skeleton {
+  display: flex;
+  gap: $space-3;
+  padding: $space-3;
+  min-height: 44px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+}
+
+.imageContainer {
+  position: relative;
+  flex-shrink: 0;
+  width: 96px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+
+  @include breakpoint-max(md) {
+    width: 104px;
+    height: 70px;
+  }
+}
+
+.imagePlaceholder {
+  width: 100%;
+  height: 100%;
+  @include shimmer-bg;
+}
+
+.badgePlaceholder {
+  position: absolute;
+  top: $space-1;
+  left: $space-1;
+  width: 60px;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  @include shimmer-bg;
+  animation-delay: 0.1s;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: $space-2;
+}
+
+.namePlaceholder {
+  height: 16px;
+  width: 80%;
+  border-radius: var(--radius-sm);
+  @include shimmer-bg;
+  animation-delay: 0.2s;
+}
+
+.locationPlaceholder {
+  height: 12px;
+  width: 60%;
+  border-radius: var(--radius-sm);
+  @include shimmer-bg;
+  animation-delay: 0.3s;
+}

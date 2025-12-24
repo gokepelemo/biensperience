@@ -2494,12 +2494,12 @@ export default function MyPlanTabContent({
     },
     {
       id: 'total-cost',
-      title: (lang?.current?.label?.costEstimate || 'Estimated Cost').replace(':', '').replace(' ($)', ''),
+      title: lang?.current?.label?.costEstimate || 'Cost Estimate',
       type: 'cost',
       value: currentPlan.total_cost || 0,
       icon: <FaDollarSign />,
-      // Tooltip always shows the actual cost estimate value with prefix
-      tooltip: `${(lang.current.label.costEstimate || 'Cost Estimate').replace(' ($)', '')}: ${formatCurrency(currentPlan.total_cost || 0)}`
+      // Tooltip shows per-person context with the actual cost estimate value
+      tooltip: `${lang.current.label.costEstimatePerPersonTooltip || 'Estimated cost per person'}: ${formatCurrency(currentPlan.total_cost || 0)}`
     },
     {
       id: 'completion',

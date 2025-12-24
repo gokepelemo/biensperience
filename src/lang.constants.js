@@ -151,6 +151,7 @@ const en = {
     notAuthorizedToUpdateExperience: "You are not authorized to update this experience.",
     failedToLoadInviteCodes: "Failed to load invite codes. Please try again.",
     failedToLoadInviteDetails: "Failed to load invite details.",
+    loadingInviteDetails: "Loading invite details...",
     loadingInviteTracking: "Loading invite tracking data...",
     failedToLoadDashboardData: "Failed to load dashboard data",
     failedToLoadUpcomingPlans: "Failed to load upcoming plans",
@@ -471,7 +472,8 @@ const en = {
     overview: "Overview",
     termsOfService: "Terms of Service",
     privacyPolicy: "Privacy Policy",
-    costEstimate: "Cost Estimate per Person ($)",
+    costEstimate: "Cost Estimate",
+    costEstimatePerPersonTooltip: "Estimated cost per person",
     planningDays: "Planning Days",
     parentPlanItem: "Parent Plan Item",
     url: "URL",
@@ -851,6 +853,7 @@ const en = {
     deletePhotoTitle: "Delete Photo?",
     deletePhotoMessage: "You are about to permanently delete this photo",
     deletePhotoConfirm: "Delete Permanently",
+    deleteHint: "Click a photo below to delete it:",
   },
 
   // Search component strings
@@ -1432,6 +1435,7 @@ const en = {
     // Status badges
     inactive: "Inactive",
     expired: "Expired",
+    expiringSoon: "Expiring Soon",
     fullyUsed: "Fully Used",
     inUse: "In Use",
     available: "Available",
@@ -1497,6 +1501,36 @@ const en = {
     // Pre-configured resources analytics
     withExperiences: "With Experiences",
     withDestinations: "With Destinations",
+
+    // Search and filter
+    searchPlaceholder: "Search by code or email...",
+    filterAll: "All Statuses",
+    filterActive: "Active",
+    filterAvailable: "Available",
+    filterInUse: "In Use",
+    filterExpired: "Expired",
+    filterExpiringSoon: "Expiring Soon",
+    filterFullyUsed: "Fully Used",
+    filterInactive: "Inactive",
+    clearFilters: "Clear",
+    showingResults: "Showing {count} of {total} invites",
+    noMatchingInvites: "No matching invites",
+    tryDifferentSearch: "Try adjusting your search or filter criteria",
+
+    // Deactivation
+    deactivate: "Deactivate",
+    deactivateInvite: "Deactivate Invite",
+    deactivateConfirmTitle: "Deactivate Invite Code",
+    deactivateConfirmMessage: "Are you sure you want to deactivate the invite code \"{code}\"? This action cannot be undone and the code will no longer be usable.",
+    deactivating: "Deactivating...",
+    inviteDeactivated: "Invite code deactivated successfully",
+    failedToDeactivate: "Failed to deactivate invite code",
+
+    // CSV Export
+    exportCsv: "Export CSV",
+    exportingCsv: "Exporting...",
+    csvExported: "Invites exported to CSV",
+    noInvitesToExport: "No invites to export",
   },
 
   // Table header strings
@@ -1895,6 +1929,9 @@ const en = {
     noNotesDescription: "Add notes, reminders, or tips for this item.",
     noPhotos: "No Photos Yet",
     noPhotosDescription: "Add photos related to this item.",
+    currentPhotos: "Current Photos",
+    managePhotos: "Manage Photos",
+    noPhotosReadOnly: "No photos have been added to this item.",
     noDocuments: "No Documents Yet",
     noDocumentsDescription: "Upload documents like tickets, receipts, or confirmations.",
 

@@ -8,7 +8,7 @@ import { sanitizeText, sanitizeUrl } from "../../utilities/sanitize";
 import { calculateAspectRatio } from "../../utilities/image-utils";
 import EntitySchema from "../OpenGraph/EntitySchema";
 
-export default function PhotoCard({ photos, defaultPhotoId, altText, title, includeSchema = false }) {
+export default function PhotoCard({ photos, defaultPhotoId, altText, title, includeSchema = false, onPhotoChange }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const imageAlt = altText || title || lang.current.image.alt.photo;
 
@@ -34,6 +34,13 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
   // Ensure selected index is valid
   const currentIndex = selectedPhotoIndex < photoArray.length ? selectedPhotoIndex : defaultIndex;
   const currentPhoto = photoArray[currentIndex];
+
+  // Notify parent when selected photo changes
+  useEffect(() => {
+    if (onPhotoChange && currentPhoto) {
+      onPhotoChange(currentPhoto, currentIndex);
+    }
+  }, [currentPhoto, currentIndex, onPhotoChange]);
 
   // Create placeholder photo object when no photos available
   const placeholderPhoto = useMemo(() => ({

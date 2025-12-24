@@ -325,6 +325,48 @@ async function createPhotoBatch(req, res) {
 }
 
 /**
+ * Get photos by array of IDs
+ * POST /api/photos/batch-get
+ * Body: { ids: ['id1', 'id2', ...] }
+ */
+async function getPhotosByIds(req, res) {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return errorResponse(res, null, 'Photo IDs array is required', 400);
+    }
+
+    // Validate all IDs
+    const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));
+    if (validIds.length === 0) {
+      return successResponse(res, [], 'No valid photo IDs provided');
+    }
+
+    // Limit to prevent abuse
+    if (validIds.length > 50) {
+      return errorResponse(res, null, 'Maximum 50 photos can be fetched at once', 400);
+    }
+
+    // Fetch photos
+    const photos = await Photo.find({
+      _id: { $in: validIds.map(id => new mongoose.Types.ObjectId(id)) }
+    }).lean();
+
+    // Maintain original order
+    const photoMap = new Map(photos.map(p => [p._id.toString(), p]));
+    const orderedPhotos = validIds
+      .map(id => photoMap.get(id))
+      .filter(Boolean);
+
+    return successResponse(res, orderedPhotos, 'Photos fetched successfully');
+  } catch (err) {
+    backendLogger.error('Get photos by IDs error', { error: err.message, userId: req.user?._id, idsCount: req.body.ids?.length });
+    return errorResponse(res, err, 'Failed to fetch photos', 500);
+  }
+}
+
+/**
  * Add a collaborator to a photo
  */
 async function addCollaborator(req, res) {
@@ -601,6 +643,7 @@ module.exports = {
   createFromUrl: createPhotoFromUrl,
   delete: deletePhoto,
   update: updatePhoto,
+  getByIds: getPhotosByIds,
   addCollaborator,
   removeCollaborator,
   addContributor,
