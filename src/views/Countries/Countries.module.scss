@@ -128,32 +128,24 @@
   font-weight: $font-weight-semibold;
   margin-bottom: $space-4;
   color: var(--color-text-primary);
+  text-align: center;
 }
 
-// Destinations Grid - CSS Grid with fixed columns
-.destinationsList {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: $space-4;
+// Unified content container for symmetrical alignment
+.contentContainer {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+  padding: 0 $space-4;
+}
 
-  // 3 columns on medium screens
-  @include breakpoint-max(lg) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  // 2 columns on tablets
-  @include breakpoint-max(md) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  // Single column on mobile
-  @include breakpoint-max(sm) {
-    grid-template-columns: 1fr;
-    max-width: 400px;
-  }
+// Destinations Grid - fixed 12rem width cards, left-aligned to match experiences
+.destinationsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 12rem);
+  gap: $space-4;
+  width: 100%;
+  justify-content: center;
 }
 
 // Destination Skeleton - matches DestinationCard layout exactly
@@ -200,24 +192,20 @@
   border-radius: $radius-sm;
 }
 
-// Experiences Grid - CSS Grid with fixed columns
+// Experiences Grid - fixed 20rem (320px) width cards, centered
 .experiencesList {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, 20rem);
   gap: $space-4;
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-
-  // 2 columns on medium screens
-  @include breakpoint-max(md) {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  justify-content: center;
 
   // Single column on mobile
   @include breakpoint-max(sm) {
     grid-template-columns: 1fr;
-    max-width: 400px;
+    max-width: 320px;
   }
 }
 
@@ -328,6 +316,5 @@
 
   .sectionTitle {
     font-size: $font-size-xl;
-    text-align: center;
   }
 }

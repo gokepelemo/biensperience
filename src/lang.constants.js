@@ -439,7 +439,7 @@ const en = {
     estimatedCost: "Estimated Cost",
     trackedCosts: "Tracked Costs",
     planningTime: "Planning Time",
-    planYourExperience: "Plan Your Experience",
+    planYourExperience: "Plan It",
     editPlannedDate: "Update Planned Date",
     travelTips: "Travel Tips",
     favoriteDestinations: "Favorite Destinations",

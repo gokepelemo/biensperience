@@ -2,6 +2,7 @@ import * as usersAPI from "./users-api.js"
 import { debug } from "./debug.js"
 import { logger } from "./logger"
 import { clearSession } from "./session-utils.js"
+import { eventBus } from "./event-bus"
 
 /**
  * Signs up a new user and stores their authentication token.
@@ -18,6 +19,11 @@ export async function signUp(userData) {
     const token = await usersAPI.signUp(userData);
     try {
         localStorage.setItem('token', token);
+        
+        // Update EventBus with auth token to enable WebSocket connection
+        eventBus.setAuthToken(token).catch(err => {
+            logger.warn('Failed to update EventBus auth token after signup', { error: err.message });
+        });
     } catch (error) {
         logger.warn('Failed to store token in localStorage', { error: error.message });
     }
@@ -128,6 +134,12 @@ export async function login(credentials) {
     try {
         localStorage.setItem('token', token);
         debug.log('Token stored in localStorage');
+        
+        // Update EventBus with auth token to enable WebSocket connection
+        // This is necessary because EventBus initializes before user logs in
+        eventBus.setAuthToken(token).catch(err => {
+            logger.warn('Failed to update EventBus auth token', { error: err.message });
+        });
     } catch (error) {
         logger.warn('Failed to store token in localStorage', { error: error.message });
     }

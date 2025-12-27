@@ -100,7 +100,7 @@ export default function PhotosTab({
     }
 
     logger.info('[PhotosTab] Loading photos for plan item', { planItemIdStr });
-    
+
     // Mark that we're loading for this plan item
     loadedForPlanItemId.current = planItemIdStr;
     isInitialized.current = false;
@@ -109,12 +109,25 @@ export default function PhotosTab({
     const rawPhotos = planItem.photos || planItem.details?.photos || [];
     const photoArray = Array.isArray(rawPhotos) ? rawPhotos : [];
 
+    logger.debug('[PhotosTab] Raw photos from planItem', {
+      rawPhotosLength: rawPhotos?.length,
+      rawPhotosType: typeof rawPhotos,
+      firstPhoto: photoArray[0],
+      firstPhotoType: typeof photoArray[0]
+    });
+
     // Extract IDs - could be ObjectIds, strings, or populated objects
     const ids = photoArray.map(p => {
+      // String ID (most common case from JSON serialization)
       if (typeof p === 'string') return p;
-      if (typeof p === 'object') return normalizeId(p._id || p);
+      // Populated photo object with _id
+      if (typeof p === 'object' && p?._id) return normalizeId(p._id);
+      // Raw ObjectId-like object
+      if (typeof p === 'object') return normalizeId(p);
       return null;
     }).filter(Boolean);
+
+    logger.debug('[PhotosTab] Extracted photo IDs', { ids });
 
     if (ids.length > 0) {
       setLoading(true);
@@ -169,31 +182,33 @@ export default function PhotosTab({
   /**
    * Handle data changes from PhotoUpload component
    * PhotoUpload uses functional updates, so we need to handle both patterns
+   * 
+   * Note: We avoid nested setState by computing both new photos and IDs together,
+   * then setting them in separate (non-nested) calls.
    */
   const handlePhotoDataChange = useCallback((dataOrUpdater) => {
     if (typeof dataOrUpdater === 'function') {
       // Functional update from PhotoUpload
-      // We need to compute what PhotoUpload expects as "prev" state
+      // Compute new state based on current state via refs to avoid nested setState
       setPhotos(prevPhotos => {
-        setPhotoIds(prevIds => {
-          const prevData = { photos: prevIds, photos_full: prevPhotos };
-          const newData = dataOrUpdater(prevData);
-          
-          logger.debug('[PhotosTab] Photos updated (functional)', {
-            prevCount: prevPhotos.length,
-            newCount: newData.photos_full?.length || 0
-          });
-          
-          // Return new IDs for setPhotoIds
-          const newIds = (newData.photos || []).map(id => 
-            typeof id === 'object' ? normalizeId(id._id || id) : normalizeId(id)
-          ).filter(Boolean);
-          return newIds;
-        });
-        
-        // Return new photos for setPhotos
+        // Compute the new data using functional updater
         const prevData = { photos: photoIds, photos_full: prevPhotos };
         const newData = dataOrUpdater(prevData);
+        
+        // Extract new IDs
+        const newIds = (newData.photos || []).map(id => 
+          typeof id === 'object' ? normalizeId(id._id || id) : normalizeId(id)
+        ).filter(Boolean);
+        
+        logger.debug('[PhotosTab] Photos updated (functional)', {
+          prevCount: prevPhotos.length,
+          newCount: newData.photos_full?.length || 0
+        });
+        
+        // Schedule photoIds update outside of this setState
+        // Using setTimeout(0) to avoid nested setState anti-pattern
+        setTimeout(() => setPhotoIds(newIds), 0);
+        
         return newData.photos_full || [];
       });
     } else {
@@ -443,10 +458,10 @@ export default function PhotosTab({
               <div className={styles.photoDeleteActions}>
                 <button
                   type="button"
-                  className={`btn btn-danger ${styles.deletePhotoButton}`}
+                  className={`btn btn-outline-danger btn-sm ${styles.deletePhotoButton}`}
                   onClick={() => handleDeleteClick(selectedPhoto)}
                 >
-                  🗑️ {t.photo?.deletePhoto || 'Delete Photo'}
+                  {t.photo?.deletePhoto || 'Delete'}
                 </button>
               </div>
             )}

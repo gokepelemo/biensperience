@@ -127,14 +127,19 @@ export default function DocumentsTab({
     const handleDocumentCreated = (event) => {
       const doc = event.document;
       if (doc && doc.entityType === 'plan_item' && doc.entityId === planItem._id) {
+        let wasAdded = false;
         setDocuments(prev => {
           // Check if document already exists to prevent duplicates
           const exists = prev.some(d => d._id === doc._id);
           if (exists) return prev;
+          wasAdded = true;
           return [doc, ...prev];
         });
-        setPagination(prev => ({ ...prev, total: prev.total + 1 }));
-        logger.debug('[DocumentsTab] Document created event received', { documentId: doc._id });
+        // Only increment pagination if document was actually added (not duplicate)
+        if (wasAdded) {
+          setPagination(prev => ({ ...prev, total: prev.total + 1 }));
+        }
+        logger.debug('[DocumentsTab] Document created event received', { documentId: doc._id, wasAdded });
       }
     };
 

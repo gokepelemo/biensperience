@@ -16,7 +16,7 @@
  */
 
 import { logger } from './logger';
-import { getUser } from './users-service';
+import { getUser } from './users-service'; // Only import getUser (used in other methods)
 import * as VectorClock from './vector-clock';
 import { createTransport } from './event-transport';
 import { runStorageMigrations } from './storage-migration';
@@ -64,10 +64,46 @@ class EventBus {
    */
   async initTransport() {
     try {
+      // Get token directly from localStorage to avoid circular dependency
+      // users-service imports event-bus, so we can't import getToken at module level
+      let token = null;
+      try {
+        token = localStorage.getItem('token');
+        if (token) {
+          // Validate token format
+          const parts = token.split('.');
+          if (parts.length !== 3) {
+            logger.warn('[EventBus] Invalid token format in localStorage');
+            token = null;
+          } else {
+            // Check if expired
+            try {
+              const payload = JSON.parse(atob(parts[1]));
+              if (payload.exp < Date.now() / 1000) {
+                logger.debug('[EventBus] Token expired');
+                token = null;
+              }
+            } catch (e) {
+              logger.warn('[EventBus] Failed to decode token');
+              token = null;
+            }
+          }
+        }
+      } catch (e) {
+        logger.warn('[EventBus] Failed to read token from localStorage', { error: e.message });
+      }
+      
       const user = getUser();
+      
+      logger.debug('[EventBus] Initializing transport', { 
+        hasUser: !!user, 
+        hasToken: !!token,
+        tokenLength: token?.length || 0
+      });
+      
       this.transport = createTransport({
         sessionId: this.sessionId,
-        authToken: user?.token, // Pass auth token for WebSocket authentication
+        authToken: token, // Pass auth token for WebSocket authentication
         userId: user?._id // Pass userId for localStorage encryption
       });
 
@@ -106,6 +142,19 @@ class EventBus {
   }
 
   /**
+   * Update auth token and reconnect WebSocket (call after login)
+   * This is necessary because the EventBus initializes before user logs in.
+   * @param {string} authToken - JWT token for WebSocket authentication
+   * @returns {Promise<void>}
+   */
+  async setAuthToken(authToken) {
+    if (this.transport?.setAuthToken) {
+      await this.transport.setAuthToken(authToken);
+      logger.info('[EventBus] Auth token updated, WebSocket reconnecting');
+    }
+  }
+
+  /**
    * Handle incoming message from transport
    */
   handleTransportMessage(event) {
@@ -134,7 +183,10 @@ class EventBus {
         version: event.version,
         transportType: this.transport?.getType() || 'fallback'
       });
-      this.dispatchLocal(eventType, event.detail || event);
+      // Unwrap payload from WebSocket server messages (server sends { type, payload })
+      // Also handle localStorage events which may have { type, detail } or be flat
+      const eventData = event.payload || event.detail || event;
+      this.dispatchLocal(eventType, eventData);
     }
   }
 
@@ -208,9 +260,10 @@ class EventBus {
     };
 
     // Log for debugging (keep last 100 events)
+    // Use a higher threshold and slice to avoid O(n) shift on every emit
     this.eventLog.push(event);
-    if (this.eventLog.length > 100) {
-      this.eventLog.shift();
+    if (this.eventLog.length > 150) {
+      this.eventLog = this.eventLog.slice(-100);
     }
 
     logger.debug('[EventBus] Emitting event', {

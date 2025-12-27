@@ -373,7 +373,7 @@ export default function Countries() {
 
             {/* Cards View - Destinations Section */}
             {viewMode === 'list' && (
-            <section>
+            <section className={styles.contentContainer}>
               <h2 className={styles.sectionTitle}>
                 {loading ? (
                   <SkeletonLoader variant="text" width="200px" height="24px" />
@@ -381,33 +381,31 @@ export default function Countries() {
                   lang.current.heading.destinations
                 )}
               </h2>
-              <FlexCenter>
-                <div className={styles.destinationsList}>
-                  {loading ? (
-                    // Skeleton loaders matching DestinationCard dimensions (12rem × 8rem)
-                    Array.from({ length: 6 }).map((_, index) => (
-                      <div key={index} className={styles.destinationSkeleton}>
-                        <div className={styles.destinationSkeletonOverlay}>
-                          <div className={styles.destinationSkeletonTitle} />
-                        </div>
+              <div className={styles.destinationsList}>
+                {loading ? (
+                  // Skeleton loaders matching DestinationCard dimensions (12rem × 8rem)
+                  Array.from({ length: 6 }).map((_, index) => (
+                    <div key={index} className={styles.destinationSkeleton}>
+                      <div className={styles.destinationSkeletonOverlay}>
+                        <div className={styles.destinationSkeletonTitle} />
                       </div>
-                    ))
-                  ) : destinations.length > 0 ? (
-                    destinations.map((destination, index) => (
-                      <FadeIn key={destination._id || index} delay={index * 30}>
-                        <DestinationCard destination={destination} fluid />
-                      </FadeIn>
-                    ))
-                  ) : (
-                    <EmptyState
-                      variant="generic"
-                      title={lang.current.emptyState.noDestinationsYet}
-                      description={lang.current.emptyState.noDestinationsYetDescription.replace('{country}', displayCountryName)}
-                      size="sm"
-                    />
-                  )}
-                </div>
-              </FlexCenter>
+                    </div>
+                  ))
+                ) : destinations.length > 0 ? (
+                  destinations.map((destination, index) => (
+                    <FadeIn key={destination._id || index} delay={index * 30}>
+                      <DestinationCard destination={destination} fluid />
+                    </FadeIn>
+                  ))
+                ) : (
+                  <EmptyState
+                    variant="generic"
+                    title={lang.current.emptyState.noDestinationsYet}
+                    description={lang.current.emptyState.noDestinationsYetDescription.replace('{country}', displayCountryName)}
+                    size="sm"
+                  />
+                )}
+              </div>
 
               {/* Show More Destinations */}
               {!loading && destinationsMeta?.hasMore && (
@@ -428,7 +426,7 @@ export default function Countries() {
 
             {/* Cards View - Experiences Section */}
             {viewMode === 'list' && (
-            <section>
+            <section className={styles.contentContainer}>
               <h2 className={styles.sectionTitle}>
                 {loading ? (
                   <SkeletonLoader variant="text" width="200px" height="24px" />
@@ -436,38 +434,36 @@ export default function Countries() {
                   lang.current.heading.experiences
                 )}
               </h2>
-              <FlexCenter>
-                <div className={styles.experiencesList}>
-                  {loading ? (
-                    // Skeleton loaders matching ExperienceCard dimensions (20rem × 12rem min-height)
-                    Array.from({ length: 6 }).map((_, index) => (
-                      <div key={index} className={styles.experienceSkeleton}>
-                        <div className={styles.experienceSkeletonContent}>
-                          <div className={styles.experienceSkeletonTitle} />
-                        </div>
-                        <div className={styles.experienceSkeletonActions}>
-                          <div className={styles.experienceSkeletonButton} />
-                          <div className={styles.experienceSkeletonButton} />
-                          <div className={styles.experienceSkeletonButton} />
-                        </div>
+              <div className={styles.experiencesList}>
+                {loading ? (
+                  // Skeleton loaders matching ExperienceCard dimensions (20rem × 12rem min-height)
+                  Array.from({ length: 6 }).map((_, index) => (
+                    <div key={index} className={styles.experienceSkeleton}>
+                      <div className={styles.experienceSkeletonContent}>
+                        <div className={styles.experienceSkeletonTitle} />
                       </div>
-                    ))
-                  ) : experiences.length > 0 ? (
-                    experiences.map((experience, index) => (
-                      <FadeIn key={experience._id || index} delay={index * 30}>
-                        <ExperienceCard experience={experience} fluid />
-                      </FadeIn>
-                    ))
-                  ) : (
-                    <EmptyState
-                      variant="generic"
-                      title={lang.current.emptyState.noExperiencesYet}
-                      description={lang.current.emptyState.noExperiencesYetDescription.replace('{country}', displayCountryName)}
-                      size="sm"
-                    />
-                  )}
-                </div>
-              </FlexCenter>
+                      <div className={styles.experienceSkeletonActions}>
+                        <div className={styles.experienceSkeletonButton} />
+                        <div className={styles.experienceSkeletonButton} />
+                        <div className={styles.experienceSkeletonButton} />
+                      </div>
+                    </div>
+                  ))
+                ) : experiences.length > 0 ? (
+                  experiences.map((experience, index) => (
+                    <FadeIn key={experience._id || index} delay={index * 30}>
+                      <ExperienceCard experience={experience} fluid />
+                    </FadeIn>
+                  ))
+                ) : (
+                  <EmptyState
+                    variant="generic"
+                    title={lang.current.emptyState.noExperiencesYet}
+                    description={lang.current.emptyState.noExperiencesYetDescription.replace('{country}', displayCountryName)}
+                    size="sm"
+                  />
+                )}
+              </div>
 
               {/* Show More Experiences */}
               {!loading && experiencesMeta?.hasMore && (

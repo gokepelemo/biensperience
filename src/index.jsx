@@ -6,11 +6,16 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './index.scss';
 // Initialize cross-tab event bridge
 import './utilities/event-bus';
+// Initialize version system (exposes version.show() to console)
+import { initVersion } from './utilities/version';
 import App from './views/App/App';
 import { StrictMode } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ToastProvider } from './contexts/ToastContext';
 import themeManager from './utilities/theme-manager';
+
+// Initialize version display (shows in demo mode, always available via version.show())
+initVersion();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 

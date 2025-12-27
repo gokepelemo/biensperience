@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import styles from "./Modal.module.scss";
 import PropTypes from "prop-types";
 import { lang } from "../../lang.constants";
@@ -7,8 +8,8 @@ import { useModalEscape } from "../../hooks/useKeyboardNavigation";
 /**
  * Flexible modal component with customizable size, buttons, and content.
  *
- * REFACTORED: Removed createPortal and body style mutations to fix Chrome crashes.
- * Modal now renders inline with fixed positioning via CSS.
+ * Uses createPortal to render at document.body level to ensure proper z-index stacking.
+ * The body overflow is managed to prevent background scrolling.
  */
 export default function Modal({
   show,
@@ -95,8 +96,8 @@ export default function Modal({
     bodyClassName
   ].filter(Boolean).join(" ");
 
-  // Render inline with fixed positioning (no createPortal)
-  return (
+  // Render via createPortal to document.body for proper z-index stacking
+  const modalContent = (
     <div
       className={`${styles.modalShow} modal show d-block`}
       tabIndex="-1"
@@ -164,6 +165,8 @@ export default function Modal({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 Modal.propTypes = {

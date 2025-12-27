@@ -130,26 +130,23 @@
 // ============================================
 
 .photoDeleteActions {
-  margin-top: $space-4;
+  margin-top: $space-3;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .deletePhotoButton {
-  width: 100%;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: $space-2;
-  padding: $space-2 $space-4;
-  font-size: $font-size-sm;
+  gap: $space-1;
+  font-size: $font-size-xs;
   font-weight: $font-weight-medium;
-  border-radius: var(--radius-md);
   transition: all 0.2s ease;
-  
+
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
   }
-  
+
   &:active {
     transform: translateY(0);
   }

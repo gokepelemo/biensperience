@@ -127,6 +127,24 @@ export class LocalStorageTransport extends EventTransport {
     this.maxEvents = options.maxEvents || 50; // Max events to store
     this.handleStorageEvent = this.handleStorageEvent.bind(this);
     this.processedEventIds = new Set(); // Deduplication
+    this.maxProcessedIds = 100; // Max IDs to track for deduplication
+  }
+
+  /**
+   * Trim processedEventIds set to prevent unbounded growth
+   * Uses efficient LRU-style cleanup
+   */
+  trimProcessedIds() {
+    if (this.processedEventIds.size <= this.maxProcessedIds) return;
+
+    // Remove oldest entries (Set preserves insertion order)
+    const toRemove = this.processedEventIds.size - this.maxProcessedIds;
+    let removed = 0;
+    for (const id of this.processedEventIds) {
+      if (removed >= toRemove) break;
+      this.processedEventIds.delete(id);
+      removed++;
+    }
   }
 
   async connect() {
@@ -290,12 +308,7 @@ export class LocalStorageTransport extends EventTransport {
 
       // Track as processed to avoid self-notification
       this.processedEventIds.add(eventWithId._eventId);
-
-      // Cleanup processed IDs set (keep last 100)
-      if (this.processedEventIds.size > 100) {
-        const idsArray = Array.from(this.processedEventIds);
-        this.processedEventIds = new Set(idsArray.slice(-100));
-      }
+      this.trimProcessedIds();
 
       logger.debug('[LocalStorageTransport] Event sent', {
         eventType: event.type,
@@ -344,10 +357,7 @@ export class LocalStorageTransport extends EventTransport {
       }
 
       // Cleanup processed IDs set
-      if (this.processedEventIds.size > 100) {
-        const idsArray = Array.from(this.processedEventIds);
-        this.processedEventIds = new Set(idsArray.slice(-100));
-      }
+      this.trimProcessedIds();
     } catch (error) {
       logger.error('[LocalStorageTransport] Error processing storage event', {
         error: error.message
@@ -523,6 +533,36 @@ export class WebSocketTransport extends EventTransport {
     return this.connectionState === ConnectionState.FAILED;
   }
 
+  /**
+   * Update auth token and reconnect WebSocket
+   * Called after user logs in to establish authenticated connection.
+   * @param {string} authToken - JWT token for authentication
+   * @returns {Promise<void>}
+   */
+  async setAuthToken(authToken) {
+    logger.info('[WebSocketTransport] Updating auth token and reconnecting');
+    
+    // Update the client's auth token
+    this.client.updateAuthToken(authToken);
+    
+    // Disconnect current connection (if any)
+    await this.disconnect();
+    
+    // Reset reconnect attempts to allow fresh connection
+    this.client.reconnectAttempts = 0;
+    
+    // Reconnect with new auth token
+    try {
+      await this.connect();
+      logger.info('[WebSocketTransport] Reconnected with new auth token');
+    } catch (error) {
+      logger.error('[WebSocketTransport] Failed to reconnect with new auth token', {
+        error: error.message
+      }, error);
+      throw error;
+    }
+  }
+
   getType() {
     return 'websocket';
   }
@@ -659,6 +699,17 @@ export class HybridTransport extends EventTransport {
    */
   setUserId(userId) {
     this.localStorage.setUserId(userId);
+  }
+
+  /**
+   * Update auth token and reconnect WebSocket
+   * Called after user logs in to establish authenticated connection.
+   * @param {string} authToken - JWT token for authentication
+   * @returns {Promise<void>}
+   */
+  async setAuthToken(authToken) {
+    // Delegate to WebSocket transport
+    await this.webSocket.setAuthToken(authToken);
   }
 
   /**

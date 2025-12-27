@@ -108,11 +108,13 @@ export const WS_EVENTS = {
 export function useWebSocketEvents(options = {}) {
   const { autoConnect = true } = options;
 
-  // Connection state
-  const [isConnected, setIsConnected] = useState(false);
+  // Connection state - derive isConnected and isReconnecting from connectionState to avoid inconsistency
   const [connectionState, setConnectionState] = useState(ConnectionState.DISCONNECTED);
   const [connectionError, setConnectionError] = useState(null);
-  const [isReconnecting, setIsReconnecting] = useState(false);
+
+  // Derived connection states (computed, not stored)
+  const isConnected = connectionState === ConnectionState.CONNECTED;
+  const isReconnecting = connectionState === ConnectionState.RECONNECTING;
 
   // Room state (legacy - plan-based)
   const [currentRoom, setCurrentRoom] = useState(null);
@@ -142,15 +144,12 @@ export function useWebSocketEvents(options = {}) {
    */
   const checkConnection = useCallback(() => {
     const transport = eventBus.transport;
-    const connected = transport?.isConnected?.() || eventBus.transportReady || false;
-    setIsConnected(connected);
 
     // Get current connection state from transport
     const currentState = transport?.getConnectionState?.() || ConnectionState.DISCONNECTED;
     setConnectionState(currentState);
-    setIsReconnecting(currentState === ConnectionState.RECONNECTING);
 
-    return connected;
+    return currentState === ConnectionState.CONNECTED;
   }, []);
 
   /**
@@ -282,7 +281,7 @@ export function useWebSocketEvents(options = {}) {
       roomId,
       experienceId,
       tab,
-      type: 'experience'
+      roomType: 'experience'  // Use roomType instead of type to avoid conflict
     }, { localOnly: false });
 
     // Subscribe to presence updates for this experience
@@ -343,7 +342,7 @@ export function useWebSocketEvents(options = {}) {
     const roomId = `experience:${expToLeave}`;
     logger.info('[useWebSocketEvents] Leaving experience room', { experienceId: expToLeave, roomId });
 
-    emit('room:leave', { roomId, experienceId: expToLeave, type: 'experience' }, { localOnly: false });
+    emit('room:leave', { roomId, experienceId: expToLeave, roomType: 'experience' }, { localOnly: false });
 
     // Clean up subscriptions
     const expKeys = Array.from(subscriptionsRef.current.keys())
@@ -391,7 +390,7 @@ export function useWebSocketEvents(options = {}) {
     planRef.current = planId;
     setCurrentPlan(planId);
 
-    emit('room:join', { roomId, planId, type: 'plan' }, { localOnly: false });
+    emit('room:join', { roomId, planId, roomType: 'plan' }, { localOnly: false });
 
     const unsubJoined = subscribe(WS_EVENTS.ROOM_JOINED, (event) => {
       if (event.planId === planId || event.roomId === roomId) {
@@ -430,7 +429,7 @@ export function useWebSocketEvents(options = {}) {
     const roomId = `plan:${planToLeave}`;
     logger.info('[useWebSocketEvents] Leaving plan room', { planId: planToLeave, roomId });
 
-    emit('room:leave', { roomId, planId: planToLeave, type: 'plan' }, { localOnly: false });
+    emit('room:leave', { roomId, planId: planToLeave, roomType: 'plan' }, { localOnly: false });
 
     const planKeys = Array.from(subscriptionsRef.current.keys())
       .filter(key => key.startsWith(`plan_${planToLeave}`));
@@ -493,8 +492,6 @@ export function useWebSocketEvents(options = {}) {
     if (transport?.onStateChange) {
       stateUnsubRef.current = transport.onStateChange((state) => {
         setConnectionState(state);
-        setIsConnected(state === ConnectionState.CONNECTED);
-        setIsReconnecting(state === ConnectionState.RECONNECTING);
 
         if (state === ConnectionState.FAILED) {
           setConnectionError('Connection failed after maximum reconnection attempts');
@@ -508,13 +505,11 @@ export function useWebSocketEvents(options = {}) {
 
     // Subscribe to connection events (for backward compatibility)
     const unsubConnected = subscribe(WS_EVENTS.SYSTEM_CONNECTED, () => {
-      setIsConnected(true);
       setConnectionState(ConnectionState.CONNECTED);
       setConnectionError(null);
     });
 
     const unsubDisconnected = subscribe(WS_EVENTS.SYSTEM_DISCONNECTED, () => {
-      setIsConnected(false);
       setConnectionState(ConnectionState.DISCONNECTED);
     });
 
@@ -522,8 +517,8 @@ export function useWebSocketEvents(options = {}) {
       setConnectionError(event.error || 'Connection error');
     });
 
-    // Poll connection status periodically (less frequently since we have state subscription)
-    const interval = setInterval(checkConnection, 10000);
+    // Poll connection status periodically (increased interval since we have state subscriptions)
+    const interval = setInterval(checkConnection, 30000);
 
     return () => {
       if (stateUnsubRef.current) {

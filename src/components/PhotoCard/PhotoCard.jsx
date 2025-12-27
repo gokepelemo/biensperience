@@ -8,6 +8,19 @@ import { sanitizeText, sanitizeUrl } from "../../utilities/sanitize";
 import { calculateAspectRatio } from "../../utilities/image-utils";
 import EntitySchema from "../OpenGraph/EntitySchema";
 
+/**
+ * PhotoCard Component - Displays photos with thumbnail navigation and modal preview
+ * 
+ * @param {Object} props
+ * @param {Array} props.photos - Array of photo objects to display
+ * @param {string} [props.defaultPhotoId] - ID of photo to show by default
+ * @param {string} [props.altText] - Alt text for images
+ * @param {string} [props.title] - Title for the photo card
+ * @param {boolean} [props.includeSchema=false] - Whether to include structured data
+ * @param {Function} [props.onPhotoChange] - Callback when selected photo changes.
+ *   Called with (photo, index). IMPORTANT: Should be memoized with useCallback
+ *   to prevent excessive re-renders, as this callback is in a useEffect dependency array.
+ */
 export default function PhotoCard({ photos, defaultPhotoId, altText, title, includeSchema = false, onPhotoChange }) {
   const rand = useMemo(() => Math.floor(Math.random() * 50), []);
   const imageAlt = altText || title || lang.current.image.alt.photo;
