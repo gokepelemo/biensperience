@@ -138,7 +138,7 @@ export default defineConfig(({ mode }) => {
   },
 
   // Resolve aliases
-  resolve: {
+    resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@components': path.resolve(__dirname, './src/components'),

@@ -3,7 +3,7 @@
   "date": "2025-12-24",
   "description": "Fallback exchange rates for offline/error scenarios. These rates are updated periodically and should not be used for financial transactions.",
   "source": "Compiled from Frankfurter API, X-Rates, and Wise",
-  "lastUpdated": "2025-12-28T20:05:43.758Z",
+  "lastUpdated": "2025-12-28T20:13:25.633Z",
   "rates": {
     "USD": 1,
     "EUR": 0.84839,
