@@ -4,7 +4,8 @@
  * ViewNav Component Styles
  *
  * Responsive navigation:
- * - Mobile/Tablet (≤991px): Horizontal pill-style navigation
+ * - Mobile (≤575px): Dropdown select
+ * - Tablet (576px-991px): Horizontal pill-style navigation
  * - Desktop (>991px): Vertical sidebar-style navigation
  */
 
@@ -12,6 +13,156 @@
   width: 100%;
 }
 
+/* ===== MOBILE DROPDOWN (≤575px) ===== */
+.mobileDropdown {
+  display: none;
+  position: relative;
+  width: 100%;
+
+  @media (max-width: 575px) {
+    display: block;
+  }
+}
+
+.dropdownTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: $space-3 $space-4;
+  font-size: var(--font-size-base);
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
+}
+
+.dropdownTriggerOpen {
+  border-color: var(--color-primary);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.dropdownLabel {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.dropdownBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 $space-2;
+  font-size: var(--font-size-xs);
+  font-weight: $font-weight-semibold;
+  color: var(--color-white);
+  background: var(--gradient-primary);
+  border-radius: var(--radius-full);
+}
+
+.dropdownIcon {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  transition: transform var(--transition-fast);
+}
+
+.dropdownIconOpen {
+  transform: rotate(180deg);
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-primary);
+  border-top: none;
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: $z-index-dropdown;
+  overflow: hidden;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-3 $space-4;
+  font-size: var(--font-size-base);
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border-bottom: 1px solid var(--color-border-light);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--color-primary-light);
+  }
+
+  &:focus {
+    outline: none;
+    background: var(--color-primary-light);
+  }
+}
+
+.dropdownItemActive {
+  background: var(--gradient-primary);
+  color: var(--color-white);
+  font-weight: $font-weight-semibold;
+
+  &:hover {
+    background: var(--gradient-primary);
+    opacity: 0.95;
+  }
+}
+
+.dropdownItemLabel {
+  flex: 1;
+}
+
+.dropdownItemBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 $space-2;
+  font-size: var(--font-size-xs);
+  font-weight: $font-weight-semibold;
+  color: var(--color-primary);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-full);
+
+  .dropdownItemActive & {
+    color: var(--color-primary);
+    background: var(--color-white);
+  }
+}
+
+/* ===== TABLET/DESKTOP PILL NAV (>575px) ===== */
 .navContainer {
   display: flex;
   flex-direction: row;
@@ -27,6 +178,11 @@
   width: 100%;
   max-width: 500px;
   margin: 0 auto $space-6 auto;
+
+  /* Hide on mobile - show dropdown instead */
+  @media (max-width: 575px) {
+    display: none;
+  }
 }
 
 .navItem {
@@ -98,7 +254,7 @@
   }
 }
 
-/* Desktop: Vertical sidebar-style navigation */
+/* ===== DESKTOP: Vertical sidebar-style navigation (>991px) ===== */
 @media (min-width: 992px) {
   .navContainer {
     flex-direction: column;
@@ -131,24 +287,5 @@
 
   .navItemActive {
     box-shadow: var(--shadow-sm);
-  }
-}
-
-/* Mobile: Smaller padding for compact screens */
-@media (max-width: 575px) {
-  .navContainer {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .navItem {
-    padding: $space-2 $space-3;
-    font-size: var(--font-size-sm);
-  }
-
-  .navBadge {
-    min-width: 18px;
-    height: 18px;
-    font-size: 10px;
   }
 }

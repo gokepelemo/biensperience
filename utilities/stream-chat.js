@@ -198,7 +198,18 @@ async function syncChannelMembers({ channel, desiredMembers }) {
   }
 }
 
-function createUserToken(userId) {
+/**
+ * Create a Stream Chat token for a user with 1-hour expiry.
+ *
+ * Using token expiry limits the reuse window for potentially harvested tokens.
+ * Clients should handle token refresh when the token expires.
+ *
+ * @param {ObjectId|string} userId - User ID to create token for
+ * @param {Object} options - Options
+ * @param {number} options.expiresInSeconds - Token expiry in seconds (default: 3600 = 1 hour)
+ * @returns {string} JWT token for Stream Chat client
+ */
+function createUserToken(userId, options = {}) {
   if (!userId) {
     const err = new Error('Missing userId for Stream token');
     err.code = 'STREAM_CHAT_INVALID_USER_ID';
@@ -206,7 +217,15 @@ function createUserToken(userId) {
   }
 
   const client = getStreamServerClient();
-  return client.createToken(userId.toString());
+
+  // Default 1-hour expiry; configurable via options or env var
+  const defaultExpiry = parseInt(process.env.STREAM_CHAT_TOKEN_EXPIRY_SECONDS || '3600', 10);
+  const expiresInSeconds = options.expiresInSeconds || defaultExpiry;
+
+  // Stream Chat createToken accepts an optional expiry timestamp (Unix seconds)
+  const expiresAt = Math.floor(Date.now() / 1000) + expiresInSeconds;
+
+  return client.createToken(userId.toString(), expiresAt);
 }
 
 module.exports = {

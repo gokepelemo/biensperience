@@ -11,6 +11,7 @@ const Plan = require('../../models/plan');
 const User = require('../../models/user');
 const { restoreState, getHistory } = require('../../utilities/activity-tracker');
 const { isSuperAdmin, isOwner, isCollaborator } = require('../../utilities/permissions');
+const { hasFeatureFlag } = require('../../utilities/feature-flags');
 const { insufficientPermissionsError, sendErrorResponse } = require('../../utilities/error-responses');
 const backendLogger = require('../../utilities/backend-logger');
 const mongoose = require('mongoose');
@@ -477,10 +478,145 @@ async function getActivityStats(req, res) {
   }
 }
 
+/**
+ * Get users who have planned the curator's experiences
+ * Only available to users with the 'curator' feature flag
+ *
+ * Returns a list of unique users who have created plans for experiences
+ * owned by the requesting curator, enabling curators to reach out to their audience.
+ */
+async function getCuratorPlanners(req, res) {
+  try {
+    // Check if user has curator feature flag
+    if (!isSuperAdmin(req.user) && !hasFeatureFlag(req.user, 'curator', { allowSuperAdmin: false })) {
+      return res.status(403).json({
+        success: false,
+        error: 'Curator access required',
+        message: 'This feature is only available to curators.'
+      });
+    }
+
+    const { limit = 50, skip = 0 } = req.query;
+    const curatorId = req.user._id;
+
+    // Find experiences where curator is the owner
+    const curatorExperiences = await Experience.find({
+      'permissions': {
+        $elemMatch: {
+          _id: curatorId,
+          entity: 'user',
+          type: 'owner'
+        }
+      }
+    }).select('_id name').lean();
+
+    if (curatorExperiences.length === 0) {
+      return res.json({
+        success: true,
+        planners: [],
+        total: 0,
+        experiences: []
+      });
+    }
+
+    const experienceIds = curatorExperiences.map(e => e._id);
+
+    // Find all unique users who have planned these experiences
+    const planners = await Plan.aggregate([
+      {
+        $match: {
+          experience: { $in: experienceIds },
+          user: { $ne: curatorId } // Exclude curator's own plans
+        }
+      },
+      {
+        $group: {
+          _id: '$user',
+          planCount: { $sum: 1 },
+          experiences: { $addToSet: '$experience' },
+          latestPlan: { $max: '$createdAt' }
+        }
+      },
+      { $sort: { latestPlan: -1 } },
+      { $skip: parseInt(skip, 10) },
+      { $limit: parseInt(limit, 10) },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userDetails'
+        }
+      },
+      { $unwind: '$userDetails' },
+      {
+        $lookup: {
+          from: 'experiences',
+          localField: 'experiences',
+          foreignField: '_id',
+          as: 'experienceDetails'
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          planCount: 1,
+          latestPlan: 1,
+          user: {
+            _id: '$userDetails._id',
+            name: '$userDetails.name',
+            default_photo_id: '$userDetails.default_photo_id'
+          },
+          experiences: {
+            $map: {
+              input: '$experienceDetails',
+              as: 'exp',
+              in: { _id: '$$exp._id', name: '$$exp.name' }
+            }
+          }
+        }
+      }
+    ]);
+
+    // Get total count for pagination
+    const totalPlanners = await Plan.aggregate([
+      {
+        $match: {
+          experience: { $in: experienceIds },
+          user: { $ne: curatorId }
+        }
+      },
+      { $group: { _id: '$user' } },
+      { $count: 'total' }
+    ]);
+
+    res.json({
+      success: true,
+      planners: planners.map(p => ({
+        userId: p.user._id,
+        userName: p.user.name,
+        userPhotoId: p.user.default_photo_id,
+        planCount: p.planCount,
+        latestPlanDate: p.latestPlan,
+        experiences: p.experiences
+      })),
+      total: totalPlanners[0]?.total || 0,
+      curatorExperiences: curatorExperiences.map(e => ({ _id: e._id, name: e.name }))
+    });
+  } catch (error) {
+    backendLogger.error('Error fetching curator planners', {
+      error: error.message,
+      curatorId: req.user?._id
+    });
+    res.status(500).json({ error: 'Failed to fetch planners' });
+  }
+}
+
 module.exports = {
   getResourceHistory,
   getActorHistory,
   restoreResourceState,
   getAllActivities,
-  getActivityStats
+  getActivityStats,
+  getCuratorPlanners
 };

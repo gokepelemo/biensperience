@@ -140,30 +140,60 @@
 }
 
 .channelButton {
-  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-2;
+  width: calc(100% + 12px); /* Extend to cover the sidebar padding-right */
+  margin-left: 0;
+  margin-right: -12px;
   text-align: left;
-  border: 1px solid transparent;
+  border: none;
   background: transparent;
   color: var(--color-text-primary);
-  padding: 10px 8px;
-  border-radius: 8px;
+  padding: 12px 12px 12px 8px;
+  border-radius: 0; /* No rounded corners for full-width active state */
   cursor: pointer;
   transition: background-color 0.15s ease;
-}
 
-.channelButton:hover {
-  background: var(--color-bg-hover);
-}
+  &:hover:not(.active) {
+    background: var(--color-bg-hover);
+  }
 
-.active {
-  background: var(--color-bg-tertiary);
-  border-color: var(--color-border-medium);
+  &.active {
+    background: var(--color-bg-tertiary);
+  }
+
+  /* Unread state - bold text */
+  &.hasUnread .channelName {
+    font-weight: 700;
+  }
 }
 
 .channelName {
   display: block;
+  flex: 1;
   font-weight: 600;
   color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Unread badge */
+.unreadBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-white);
+  background: var(--color-primary);
+  border-radius: 10px;
+  flex-shrink: 0;
 }
 
 .pane {
@@ -258,7 +288,10 @@
 }
 
 .mobileDropdownItem {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-2;
   width: 100%;
   padding: $space-3 $space-4;
   background: transparent;
@@ -277,6 +310,18 @@
     background: var(--color-bg-tertiary);
     font-weight: 600;
   }
+
+  /* Unread state - bold text */
+  &.hasUnread .mobileDropdownItemLabel {
+    font-weight: 700;
+  }
+}
+
+.mobileDropdownItemLabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Stream Chat (scoped) token alignment */

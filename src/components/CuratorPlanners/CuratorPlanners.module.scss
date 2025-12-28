@@ -1,0 +1,226 @@
+/**
+ * CuratorPlanners Component Styles
+ */
+
+.curatorPlanners {
+  padding: var(--space-4);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+
+  h4 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+  }
+}
+
+.count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-elevated);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+}
+
+.subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.plannersList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.plannerItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.plannerInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.details {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  display: block;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  margin-bottom: var(--space-1);
+
+  &:hover {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.planCount {
+  font-weight: var(--font-weight-medium);
+}
+
+.lastActive {
+  &::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 3px;
+    background: var(--color-text-tertiary);
+    border-radius: 50%;
+    margin-right: var(--space-1);
+    vertical-align: middle;
+  }
+}
+
+.experiences {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-1);
+
+  span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.experienceIcon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.viewProfile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--color-text-tertiary);
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--color-primary);
+  }
+}
+
+.loadMore {
+  margin-top: var(--space-4);
+  text-align: center;
+}
+
+.empty {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--color-text-secondary);
+
+  p {
+    margin: var(--space-2) 0 var(--space-1);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+  }
+
+  small {
+    display: block;
+    font-size: var(--font-size-sm);
+  }
+}
+
+.emptyIcon {
+  font-size: 2rem;
+  color: var(--color-text-tertiary);
+}
+
+.error {
+  text-align: center;
+  padding: var(--space-4);
+  color: var(--color-danger);
+
+  p {
+    margin-bottom: var(--space-3);
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .curatorPlanners {
+    background: var(--color-bg-surface-dark, var(--color-bg-surface));
+  }
+
+  .plannerItem {
+    background: var(--color-bg-elevated-dark, var(--color-bg-elevated));
+  }
+}
+
+// Responsive
+@media (max-width: 576px) {
+  .plannerItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

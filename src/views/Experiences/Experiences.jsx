@@ -338,9 +338,10 @@ export default function Experiences() {
     const uniqueById = deduplicateById(experiences);
     // Then apply fuzzy deduplication to catch similar names
     const uniqueFuzzy = deduplicateFuzzy(uniqueById, 'title', 90);
-    const filtered = filterExperiences(uniqueFuzzy, filterBy, user?._id);
+    // Pass plans to filterExperiences for "planned"/"unplanned" filters to work
+    const filtered = filterExperiences(uniqueFuzzy, filterBy, user?._id, plans || []);
     return sortItems(filtered, sortBy);
-  }, [experiences, sortBy, filterBy, user?._id]);
+  }, [experiences, sortBy, filterBy, user?._id, plans]);
   
   // Ensure this view always requests a fresh, complete experiences list
   // when mounted so it doesn't accidentally show a subset loaded by other views.

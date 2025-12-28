@@ -14,7 +14,7 @@ const BASE_URL = '/api/follows';
  * @param {string} userId - ID of user to follow
  * @returns {Promise<Object>} Result with follow details
  */
-export async function followUser(userId) {
+export async function followUser(userId, currentUserId = null) {
   try {
     const result = await sendRequest(`${BASE_URL}/${userId}`, 'POST');
 
@@ -25,7 +25,8 @@ export async function followUser(userId) {
       broadcastEvent('follow:created', {
         follow: result.follow,
         followId: result.follow?._id,
-        followingId: userId
+        followingId: userId,
+        followerId: currentUserId || result.follow?.follower
       });
     } catch (e) {
       // ignore
@@ -43,7 +44,7 @@ export async function followUser(userId) {
  * @param {string} userId - ID of user to unfollow
  * @returns {Promise<Object>} Success result
  */
-export async function unfollowUser(userId) {
+export async function unfollowUser(userId, currentUserId = null) {
   try {
     const result = await sendRequest(`${BASE_URL}/${userId}`, 'DELETE');
 
@@ -51,7 +52,10 @@ export async function unfollowUser(userId) {
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     try {
-      broadcastEvent('follow:deleted', { followingId: userId });
+      broadcastEvent('follow:deleted', {
+        followingId: userId,
+        followerId: currentUserId
+      });
     } catch (e) {
       // ignore
     }
