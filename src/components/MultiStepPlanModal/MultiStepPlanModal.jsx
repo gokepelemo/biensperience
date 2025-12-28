@@ -484,11 +484,21 @@ export default function MultiStepPlanModal() {
           </div>
           {item.url && (() => {
             const safeUrl = sanitizeUrl(item.url);
-            // Display sanitized URL text to prevent XSS via DOM text injection
-            const displayUrl = sanitizeText(item.url);
+            // Build a safe, human-friendly display string from the parsed URL
+            let displayUrl = '';
+            if (safeUrl) {
+              try {
+                const parsedForDisplay = new URL(safeUrl.startsWith('http') ? safeUrl : `https://${safeUrl}`);
+                displayUrl = `${parsedForDisplay.hostname}${parsedForDisplay.pathname || ''}${parsedForDisplay.search || ''}`;
+              } catch (e) {
+                // Fallback to the normalized URL if parsing fails
+                displayUrl = safeUrl;
+              }
+            }
+
             return safeUrl && displayUrl ? (
               <div className={styles.planItemUrl}>
-                <a href={safeUrl} target="_blank" rel="noopener noreferrer">
+                <a href={safeUrl} target="_blank" rel="noopener noreferrer nofollow">
                   {displayUrl}
                 </a>
               </div>
