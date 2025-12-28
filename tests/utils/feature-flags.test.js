@@ -14,7 +14,9 @@
 
 const {
   FEATURE_FLAGS,
+  FEATURE_FLAG_CONTEXT,
   hasFeatureFlag,
+  hasFeatureFlagInContext,
   getFeatureFlagConfig,
   getUserFeatureFlags,
   hasGlobalFlag,
@@ -134,6 +136,75 @@ describe('Feature Flags Utility', () => {
         }]
       };
       expect(hasFeatureFlag(user, 'ai_features', { checkExpiry: false })).toBe(true);
+    });
+  });
+
+  describe('hasFeatureFlagInContext', () => {
+    test('Scenario 1: should check entity creator user by default', () => {
+      const loggedInUser = { _id: 'actor', feature_flags: [] };
+      const entityCreatorUser = {
+        _id: 'creator',
+        feature_flags: [{ flag: 'stream_chat', enabled: true }]
+      };
+
+      expect(
+        hasFeatureFlagInContext({
+          loggedInUser,
+          entityCreatorUser,
+          flagKey: 'stream_chat'
+        })
+      ).toBe(true);
+    });
+
+    test('Scenario 2: should check logged-in user when context is LOGGED_IN_USER', () => {
+      const loggedInUser = {
+        _id: 'actor',
+        feature_flags: [{ flag: 'ai_features', enabled: true }]
+      };
+      const entityCreatorUser = { _id: 'creator', feature_flags: [] };
+
+      expect(
+        hasFeatureFlagInContext({
+          loggedInUser,
+          entityCreatorUser,
+          flagKey: 'ai_features',
+          context: FEATURE_FLAG_CONTEXT.LOGGED_IN_USER
+        })
+      ).toBe(true);
+    });
+
+    test('should fail closed when creator context is used and entityCreatorUser is missing', () => {
+      const loggedInUser = {
+        _id: 'actor',
+        feature_flags: [{ flag: 'ai_features', enabled: true }]
+      };
+
+      expect(
+        hasFeatureFlagInContext({
+          loggedInUser,
+          entityCreatorUser: null,
+          flagKey: 'ai_features',
+          context: FEATURE_FLAG_CONTEXT.ENTITY_CREATOR
+        })
+      ).toBe(false);
+    });
+
+    test('should allow super admin actor regardless of context', () => {
+      const loggedInUser = {
+        _id: 'actor',
+        role: 'super_admin',
+        feature_flags: []
+      };
+      const entityCreatorUser = { _id: 'creator', feature_flags: [] };
+
+      expect(
+        hasFeatureFlagInContext({
+          loggedInUser,
+          entityCreatorUser,
+          flagKey: 'some_new_flag',
+          context: FEATURE_FLAG_CONTEXT.ENTITY_CREATOR
+        })
+      ).toBe(true);
     });
   });
 

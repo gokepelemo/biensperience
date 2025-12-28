@@ -424,6 +424,240 @@
   font-size: $font-size-base;
 }
 
+.chatTabWrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: $space-4;
+  gap: $space-3;
+}
+
+.chatLoading {
+  color: var(--color-text-muted);
+}
+
+.chatContainer {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chatContainer :global(.str-chat__container) {
+  height: 100%;
+}
+
+.chatContainer :global(.str-chat) {
+  height: 100%;
+}
+
+/* Stream Chat dark mode compatibility using design tokens */
+/* Base containers */
+.chatContainer :global(.str-chat),
+.chatContainer :global(.str-chat__channel),
+.chatContainer :global(.str-chat__main-panel),
+.chatContainer :global(.str-chat__window),
+.chatContainer :global(.str-chat__container) {
+  background: var(--color-bg-primary) !important;
+  color: var(--color-text-primary);
+}
+
+/* Channel header */
+.chatContainer :global(.str-chat__channel-header) {
+  background: var(--color-bg-secondary) !important;
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-primary);
+}
+
+/* Message list container */
+.chatContainer :global(.str-chat__message-list),
+.chatContainer :global(.str-chat__message-list-scroll),
+.chatContainer :global(.str-chat__list) {
+  background: var(--color-bg-primary) !important;
+}
+
+/* Virtual message list (v2) */
+.chatContainer :global(.str-chat__virtual-list),
+.chatContainer :global(.str-chat__virtual-list__wrapper) {
+  background: var(--color-bg-primary) !important;
+}
+
+/* Message input wrapper and container */
+.chatContainer :global(.str-chat__message-input),
+.chatContainer :global(.str-chat__input-flat),
+.chatContainer :global(.str-chat__input-flat-wrapper),
+.chatContainer :global(.str-chat__message-input-inner) {
+  background: var(--color-bg-secondary) !important;
+  border-top: 1px solid var(--color-border-light);
+}
+
+/* Textarea and input */
+.chatContainer :global(.str-chat__textarea textarea),
+.chatContainer :global(.str-chat__message-textarea),
+.chatContainer :global(.str-chat__textarea) {
+  background: var(--color-bg-tertiary) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border-medium) !important;
+
+  &::placeholder {
+    color: var(--color-text-muted) !important;
+  }
+
+  &:focus {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 2px var(--color-primary-alpha-20);
+  }
+}
+
+/* Send button */
+.chatContainer :global(.str-chat__send-button),
+.chatContainer :global(.str-chat__send-button svg) {
+  color: var(--color-primary);
+
+  &:hover {
+    color: var(--color-primary-dark);
+  }
+}
+
+/* Messages */
+.chatContainer :global(.str-chat__message-simple),
+.chatContainer :global(.str-chat__message) {
+  color: var(--color-text-primary);
+}
+
+.chatContainer :global(.str-chat__message-text),
+.chatContainer :global(.str-chat__message-text-inner) {
+  color: var(--color-text-primary);
+}
+
+.chatContainer :global(.str-chat__message-simple-text-inner),
+.chatContainer :global(.str-chat__message-bubble) {
+  background: var(--color-bg-tertiary) !important;
+  border-color: var(--color-border-light);
+  color: var(--color-text-primary);
+}
+
+.chatContainer :global(.str-chat__message-simple--me .str-chat__message-simple-text-inner),
+.chatContainer :global(.str-chat__message--me .str-chat__message-bubble) {
+  background: var(--color-primary) !important;
+  color: var(--color-white) !important;
+}
+
+/* Avatar */
+.chatContainer :global(.str-chat__avatar),
+.chatContainer :global(.str-chat__avatar-image) {
+  background: var(--color-bg-tertiary);
+}
+
+/* Date separator */
+.chatContainer :global(.str-chat__date-separator-line) {
+  background: var(--color-border-light);
+}
+
+.chatContainer :global(.str-chat__date-separator-date) {
+  color: var(--color-text-muted);
+  background: var(--color-bg-primary);
+}
+
+/* Empty channel state - the "No chats here yet" message */
+.chatContainer :global(.str-chat__empty-channel),
+.chatContainer :global(.str-chat__channel-empty-container) {
+  background: var(--color-bg-primary) !important;
+  color: var(--color-text-secondary) !important;
+}
+
+/* Empty state icon */
+.chatContainer :global(.str-chat__empty-channel svg),
+.chatContainer :global(.str-chat__channel-empty-container svg) {
+  color: var(--color-text-muted) !important;
+  fill: var(--color-text-muted) !important;
+}
+
+/* Loading state */
+.chatContainer :global(.str-chat__loading-channel),
+.chatContainer :global(.str-chat__loading-channels) {
+  background: var(--color-bg-primary) !important;
+  color: var(--color-text-secondary);
+}
+
+/* Thread container */
+.chatContainer :global(.str-chat__thread),
+.chatContainer :global(.str-chat__thread-container) {
+  background: var(--color-bg-primary) !important;
+}
+
+/* Typing indicator */
+.chatContainer :global(.str-chat__typing-indicator) {
+  color: var(--color-text-muted);
+}
+
+/* Reactions */
+.chatContainer :global(.str-chat__reaction-selector) {
+  background: var(--color-bg-secondary) !important;
+  border-color: var(--color-border-light);
+}
+
+/* Attachment previews */
+.chatContainer :global(.str-chat__attachment-preview),
+.chatContainer :global(.str-chat__file-input-container) {
+  background: var(--color-bg-tertiary) !important;
+  border-color: var(--color-border-medium);
+}
+
+/* Quoted message */
+.chatContainer :global(.str-chat__quoted-message-preview) {
+  background: var(--color-bg-tertiary) !important;
+  border-color: var(--color-border-light);
+  color: var(--color-text-secondary);
+}
+
+/* Message actions dropdown/menu */
+.chatContainer :global(.str-chat__message-actions-box),
+.chatContainer :global(.str-chat__message-actions-list),
+.chatContainer :global(.str-chat__message-actions) {
+  background: var(--color-bg-secondary) !important;
+  border: 1px solid var(--color-border-medium) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.chatContainer :global(.str-chat__message-actions-list-item),
+.chatContainer :global(.str-chat__message-actions-list button) {
+  background: transparent !important;
+  color: var(--color-text-primary) !important;
+
+  &:hover {
+    background: var(--color-bg-hover) !important;
+  }
+}
+
+/* Message options button (three dots) */
+.chatContainer :global(.str-chat__message-simple__actions__action--options),
+.chatContainer :global(.str-chat__message-actions-container button) {
+  color: var(--color-text-secondary);
+
+  &:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+  }
+}
+
+/* Emoji picker and reactions dropdown */
+.chatContainer :global(.str-chat__emoji-picker-react),
+.chatContainer :global(.str-chat__reaction-list) {
+  background: var(--color-bg-secondary) !important;
+  border-color: var(--color-border-medium) !important;
+}
+
+/* Context menu / popover */
+.chatContainer :global(.str-chat__popover),
+.chatContainer :global(.str-chat__tooltip) {
+  background: var(--color-bg-secondary) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border-medium) !important;
+}
+
 /* Pagination */
 .pagination {
   display: flex;

@@ -3,10 +3,18 @@
  */
 
 import { renderHook, act } from '@testing-library/react-hooks';
-import { useFormErrorHandling } from '../useFormErrorHandling';
-import { handleError } from '../../utilities/error-handler';
+import { useFormErrorHandling } from '../../src/hooks/useFormErrorHandling';
+import { handleError } from '../../src/utilities/error-handler';
 
-jest.mock('../../utilities/error-handler');
+jest.mock('../../src/utilities/error-handler');
+jest.mock('../../src/contexts/ToastContext', () => ({
+  useToast: () => ({
+    error: jest.fn(),
+    success: jest.fn(),
+    warning: jest.fn(),
+    info: jest.fn(),
+  })
+}));
 
 describe('useFormErrorHandling', () => {
   beforeEach(() => {

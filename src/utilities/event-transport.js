@@ -128,6 +128,10 @@ export class LocalStorageTransport extends EventTransport {
     this.handleStorageEvent = this.handleStorageEvent.bind(this);
     this.processedEventIds = new Set(); // Deduplication
     this.maxProcessedIds = 100; // Max IDs to track for deduplication
+
+    // Write batching to reduce repeated read/encrypt/write cycles during bursts
+    this._pendingSends = [];
+    this._flushPromise = null;
   }
 
   /**
@@ -294,17 +298,11 @@ export class LocalStorageTransport extends EventTransport {
         timestamp: event.timestamp || Date.now()
       };
 
-      // Read current events list
-      const events = await this.readEventsList();
+      // Queue the event and flush in a single write.
+      this._pendingSends.push(eventWithId);
 
-      // Add new event
-      events.push(eventWithId);
-
-      // Trim to max events (keep most recent)
-      const trimmedEvents = events.slice(-this.maxEvents);
-
-      // Write back (encrypted if userId available)
-      await this.writeEventsList(trimmedEvents);
+      // Flush queued sends (coalesces multiple send() calls into one read/write)
+      await this.flushPendingSends();
 
       // Track as processed to avoid self-notification
       this.processedEventIds.add(eventWithId._eventId);
@@ -320,6 +318,45 @@ export class LocalStorageTransport extends EventTransport {
         error: error.message
       }, error);
     }
+  }
+
+  /**
+   * Flush queued events to localStorage with a single read/write.
+   * Ensures flushes run sequentially.
+   */
+  async flushPendingSends() {
+    if (this._flushPromise) {
+      return this._flushPromise;
+    }
+
+    this._flushPromise = (async () => {
+      // If multiple batches arrive while flushing, loop until drained.
+      while (this._pendingSends.length > 0) {
+        const batch = this._pendingSends.splice(0, this._pendingSends.length);
+
+        // Read current events list
+        const events = await this.readEventsList();
+
+        // Add queued events
+        events.push(...batch);
+
+        // Trim to max events (keep most recent)
+        const trimmedEvents = events.slice(-this.maxEvents);
+
+        // Write back (encrypted if userId available)
+        await this.writeEventsList(trimmedEvents);
+
+        // Track as processed to avoid self-notification
+        for (const ev of batch) {
+          if (ev?._eventId) this.processedEventIds.add(ev._eventId);
+        }
+        this.trimProcessedIds();
+      }
+    })().finally(() => {
+      this._flushPromise = null;
+    });
+
+    return this._flushPromise;
   }
 
   async handleStorageEvent(e) {

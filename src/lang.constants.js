@@ -518,6 +518,7 @@ const en = {
     sharedPlanTooltip: "This plan was shared with you by {ownerName}. As a collaborator, you can view progress, add notes, and track costs, but you cannot delete the plan or remove other collaborators.",
     totalSpent: "Tracked Costs",
     trackedCosts: "Tracked Costs",
+    messages: "Messages",
     planItem: "Plan Item",
     photos: "Photos",
     // Navigation and tab labels

@@ -5,6 +5,17 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck } from 'react-icons/fa';
+import { StreamChat } from 'stream-chat';
+import {
+  Chat,
+  Channel,
+  ChannelHeader,
+  MessageInput,
+  MessageList,
+  Thread,
+  Window
+} from 'stream-chat-react';
+import 'stream-chat-react/dist/css/v2/index.css';
 import Modal from '../Modal/Modal';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
 import AddPlanItemDetailModal, { DETAIL_TYPES, DETAIL_TYPE_CONFIG, DETAIL_CATEGORIES } from '../AddPlanItemDetailModal';
@@ -12,6 +23,7 @@ import AddLocationModal from '../AddLocationModal';
 import AddDateModal from '../AddDateModal';
 import GoogleMap from '../GoogleMap/GoogleMap';
 import EmptyState from '../EmptyState/EmptyState';
+import Alert from '../Alert/Alert';
 import DocumentsTab from './DocumentsTab';
 import PhotosTab from './PhotosTab';
 import styles from './PlanItemDetailsModal.module.scss';
@@ -25,6 +37,7 @@ import { broadcastEvent } from '../../utilities/event-bus';
 import { lang } from '../../lang.constants';
 import { sanitizeUrl } from '../../utilities/sanitize';
 import Tooltip from '../Tooltip/Tooltip';
+import { getChatToken, getOrCreatePlanItemChannel } from '../../utilities/chat-api';
 
 export default function PlanItemDetailsModal({
   show,
@@ -62,6 +75,8 @@ export default function PlanItemDetailsModal({
   // Experience name for PDF export title
   experienceName = ''
 }) {
+  const streamApiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
+
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditingAssignment, setIsEditingAssignment] = useState(false);
   const [assignmentSearch, setAssignmentSearch] = useState('');
@@ -82,6 +97,12 @@ export default function PlanItemDetailsModal({
   // Local state for immediate UI feedback on scheduled date/time changes
   const [localScheduledDate, setLocalScheduledDate] = useState(null);
   const [localScheduledTime, setLocalScheduledTime] = useState(null);
+
+  // Plan item chat state (rendered ONLY in this modal's Chat tab)
+  const [chatClient, setChatClient] = useState(null);
+  const [chatChannel, setChatChannel] = useState(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState('');
   const assignmentInputRef = useRef(null);
   const dropdownRef = useRef(null);
   const titleInputRef = useRef(null);
@@ -107,6 +128,88 @@ export default function PlanItemDetailsModal({
 
   // Compute stable plan item ID string
   const planItemIdStr = normalizeId(planItem?._id);
+
+  const canInitChat = useMemo(() => {
+    return Boolean(show && activeTab === 'chat' && streamApiKey && plan?._id && planItemIdStr);
+  }, [show, activeTab, streamApiKey, plan?._id, planItemIdStr]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initChat() {
+      if (!canInitChat) return;
+
+      setChatLoading(true);
+      setChatError('');
+
+      try {
+        // Ensure a plan-item scoped group channel exists
+        const planId = normalizeId(plan?._id);
+        const planItemId = planItemIdStr;
+
+        const { id: channelId } = await getOrCreatePlanItemChannel(planId, planItemId);
+        const { token, user } = await getChatToken();
+
+        const streamClient = StreamChat.getInstance(streamApiKey);
+        await streamClient.connectUser(
+          { id: user.id, name: user.name },
+          token
+        );
+
+        const streamChannel = streamClient.channel('messaging', channelId);
+        await streamChannel.watch();
+
+        if (cancelled) {
+          try {
+            await streamClient.disconnectUser();
+          } catch (e) {
+            // ignore
+          }
+          return;
+        }
+
+        setChatClient(streamClient);
+        setChatChannel(streamChannel);
+      } catch (err) {
+        logger.error('[PlanItemDetailsModal] Failed to initialize plan item chat', err);
+        if (!cancelled) {
+          setChatError(err?.message || 'Failed to initialize chat');
+        }
+      } finally {
+        if (!cancelled) setChatLoading(false);
+      }
+    }
+
+    initChat();
+
+    return () => {
+      cancelled = true;
+    };
+    // normalizeId is stable (defined in component), but we intentionally
+    // depend on canInitChat + ids to prevent unnecessary reconnects.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canInitChat, streamApiKey]);
+
+  // Cleanup chat connection when modal closes or when leaving the chat tab
+  useEffect(() => {
+    const shouldDisconnect = !show || activeTab !== 'chat';
+    if (!shouldDisconnect) return;
+
+    setChatChannel(null);
+    setChatError('');
+    setChatLoading(false);
+
+    if (chatClient) {
+      chatClient
+        .disconnectUser()
+        .catch(() => {
+          // ignore
+        })
+        .finally(() => {
+          setChatClient(null);
+        });
+    }
+  }, [show, activeTab, chatClient]);
 
   // Track what we've initialized for - only reset on ACTUAL changes
   const initializedForRef = useRef({ show: false, planItemId: null });
@@ -1275,8 +1378,8 @@ export default function PlanItemDetailsModal({
             {lang.current.planItemDetailsModal.tabLocation} {planItem?.location?.address && '✓'}
           </button>
           <button
-            className={`${styles.detailsTab} ${styles.disabled}`}
-            disabled
+            className={`${styles.detailsTab} ${activeTab === 'chat' ? styles.active : ''}`}
+            onClick={() => setActiveTab('chat')}
             type="button"
           >
             {lang.current.planItemDetailsModal.tabChat}
@@ -1633,8 +1736,32 @@ export default function PlanItemDetailsModal({
           )}
 
           {activeTab === 'chat' && (
-            <div className={styles.comingSoonMessage}>
-              Chat functionality will be available soon.
+            <div className={styles.chatTabWrapper}>
+              {!streamApiKey && (
+                <Alert
+                  type="danger"
+                  message="Chat is not configured (missing VITE_STREAM_CHAT_API_KEY)."
+                />
+              )}
+
+              {chatError && <Alert type="danger" message={chatError} />}
+
+              {chatLoading && <div className={styles.chatLoading}>Loading chat…</div>}
+
+              {!chatLoading && chatClient && chatChannel && (
+                <div className={styles.chatContainer}>
+                  <Chat client={chatClient} theme="str-chat__theme-light">
+                    <Channel channel={chatChannel}>
+                      <Window>
+                        <ChannelHeader />
+                        <MessageList />
+                        <MessageInput focus />
+                      </Window>
+                      <Thread />
+                    </Channel>
+                  </Chat>
+                </div>
+              )}
             </div>
           )}
 

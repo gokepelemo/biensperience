@@ -76,6 +76,16 @@ export const WS_EVENTS = {
   PLAN_ITEM_COMPLETED: 'plan:item:completed',
   PLAN_ITEM_REORDERED: 'plan:item:reordered',
 
+  // Plan item detail events
+  PLAN_ITEM_DETAIL_ADDED: 'plan:item:detail:added',
+  PLAN_ITEM_DETAIL_UPDATED: 'plan:item:detail:updated',
+  PLAN_ITEM_DETAIL_DELETED: 'plan:item:detail:deleted',
+
+  // Plan cost events
+  PLAN_COST_ADDED: 'plan:cost_added',
+  PLAN_COST_UPDATED: 'plan:cost_updated',
+  PLAN_COST_DELETED: 'plan:cost_deleted',
+
   // Collaborator events
   COLLABORATOR_JOINED: 'collaborator:joined',
   COLLABORATOR_LEFT: 'collaborator:left',

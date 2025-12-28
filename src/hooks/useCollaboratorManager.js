@@ -94,10 +94,44 @@ export default function useCollaboratorManager({
   const [loading, setLoading] = useState(false);
 
   /**
+   * Reset all transient modal state so reopening starts clean.
+   * This prevents stale success/removal state from triggering auto-close timers.
+   */
+  const resetCollaboratorModalState = useCallback(() => {
+    setCollaboratorSearch('');
+    setSearchResults([]);
+
+    setSelectedCollaborators([]);
+    setExistingCollaborators([]);
+    setRemovedCollaborators([]);
+
+    setCollaboratorAddSuccess(false);
+    setAddedCollaborators([]);
+    setActuallyRemovedCollaborators([]);
+
+    setShowEmailInviteForm(false);
+    setEmailInviteData({ email: '', name: '' });
+    setEmailInviteSending(false);
+    setEmailInviteError('');
+
+    setLoading(false);
+  }, []);
+
+  /**
+   * Close collaborator modal and reset all transient state.
+   */
+  const closeCollaboratorModal = useCallback(() => {
+    setShowCollaboratorModal(false);
+    resetCollaboratorModalState();
+  }, [resetCollaboratorModalState]);
+
+  /**
    * Open collaborator modal for experience or plan
    */
   const openCollaboratorModal = useCallback(
     (context) => {
+      // Ensure a clean slate when opening
+      resetCollaboratorModalState();
       setCollaboratorContext(context);
 
       // Get existing collaborators based on context - use the fetched user data
@@ -113,7 +147,7 @@ export default function useCollaboratorManager({
       setRemovedCollaborators([]);
       setShowCollaboratorModal(true);
     },
-    [experienceCollaborators, planCollaborators]
+    [experienceCollaborators, planCollaborators, resetCollaboratorModalState]
   );
 
   /**
@@ -464,6 +498,8 @@ export default function useCollaboratorManager({
 
     // Handlers
     openCollaboratorModal,
+    closeCollaboratorModal,
+    resetCollaboratorModalState,
     handleSearchUsers,
     handleSelectUser,
     handleRemoveSelectedCollaborator,

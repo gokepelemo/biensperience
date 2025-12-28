@@ -2,6 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { FaTimes } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
+import { lang } from '../../lang.constants';
 import styles from './TagPill.module.scss';
 
 export default function TagPill({

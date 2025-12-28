@@ -10,7 +10,8 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.85);
   @include flex-center;
-  z-index: var(--z-index-modal);
+  /* Ensure the photo viewer always stacks above app modals (e.g., PlanItemDetailsModal) */
+  z-index: calc(var(--z-index-modal) + 20);
   cursor: pointer;
   animation: fadeIn 0.2s ease-out;
 }

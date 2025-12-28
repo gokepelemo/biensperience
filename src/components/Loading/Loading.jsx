@@ -56,7 +56,13 @@ export default function Loading({
   const useTerse = showMessage && !allowCustomMessage; // global preference: minimal loading message
 
   return (
-    <div className={containerClass}>
+    <div
+      className={containerClass}
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label={message || 'Loading'}
+    >
       <div className={styles.loadingContent}>
         <div className={`${styles.loadingLogo} ${sizeClass} ${animationClass}`}>
           <svg

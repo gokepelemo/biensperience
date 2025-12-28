@@ -232,25 +232,27 @@ export default function UpdateDestination() {
 
     // Debounce change detection to prevent flashing
     const timeoutId = setTimeout(() => {
-      const newChanges = { ...changes };
+      setChanges((prevChanges) => {
+        const newChanges = { ...prevChanges };
+        const originalTips = originalDestination.travel_tips || [];
 
-      if (JSON.stringify(travelTips) !== JSON.stringify(originalDestination.travel_tips || [])) {
-        newChanges.travel_tips = {
-          from: originalDestination.travel_tips || [],
-          to: travelTips
-        };
-      } else {
-        delete newChanges.travel_tips;
-      }
+        if (JSON.stringify(travelTips) !== JSON.stringify(originalTips)) {
+          newChanges.travel_tips = {
+            from: originalTips,
+            to: travelTips
+          };
+        } else {
+          delete newChanges.travel_tips;
+        }
 
-      if (JSON.stringify(newChanges) !== JSON.stringify(changes)) {
-        setChanges(newChanges);
-      }
+        return JSON.stringify(newChanges) !== JSON.stringify(prevChanges)
+          ? newChanges
+          : prevChanges;
+      });
     }, 100); // 100ms debounce
 
     return () => clearTimeout(timeoutId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [travelTips, originalDestination]);
+  }, [travelTips, originalDestination, isInitialLoad]);
 
   function handleAddTravelTip() {
     if (newTravelTip.trim()) {
@@ -338,7 +340,7 @@ export default function UpdateDestination() {
         <Banner
           type="info"
           variant="bordered"
-          title={lang.current.message.changesDetected}
+           title={lang.current.alert.changesDetected}
           className="mb-4"
           showIcon={true}
         >

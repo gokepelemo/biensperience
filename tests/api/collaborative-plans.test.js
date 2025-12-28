@@ -53,7 +53,8 @@ describe('Collaborative Plans Integration Tests', () => {
         .send({ planned_date: new Date() });
 
       expect(createResponse.status).toBe(201);
-      const planId = createResponse.body._id;
+      const createdPlan = createResponse.body?.data || createResponse.body;
+      const planId = createdPlan._id;
 
       // User2 fetches all plans for this experience
       const response = await request(app)
@@ -74,7 +75,8 @@ describe('Collaborative Plans Integration Tests', () => {
         .set('Authorization', authToken2)
         .send({ planned_date: new Date() });
 
-      const planId = createResponse.body._id;
+      const createdPlan = createResponse.body?.data || createResponse.body;
+      const planId = createdPlan._id;
 
       // User2 adds User3 as a collaborator
       const addCollabResponse = await request(app)
@@ -88,8 +90,6 @@ describe('Collaborative Plans Integration Tests', () => {
       const response = await request(app)
         .get(`/api/plans/experience/${experience._id}/all`)
         .set('Authorization', authToken3);
-
-      console.log('User3 collaborative plans response:', JSON.stringify(response.body, null, 2));
 
       expect(response.status).toBe(200);
       expect(response.body).toBeInstanceOf(Array);
@@ -114,7 +114,8 @@ describe('Collaborative Plans Integration Tests', () => {
         .set('Authorization', authToken2)
         .send({ planned_date: new Date() });
 
-      const ownPlanId = ownPlanResponse.body._id;
+      const ownCreatedPlan = ownPlanResponse.body?.data || ownPlanResponse.body;
+      const ownPlanId = ownCreatedPlan._id;
 
       // User3 creates a plan and adds User2 as collaborator
       const collabPlanResponse = await request(app)
@@ -122,7 +123,8 @@ describe('Collaborative Plans Integration Tests', () => {
         .set('Authorization', authToken3)
         .send({ planned_date: new Date() });
 
-      const collabPlanId = collabPlanResponse.body._id;
+      const collabCreatedPlan = collabPlanResponse.body?.data || collabPlanResponse.body;
+      const collabPlanId = collabCreatedPlan._id;
 
       await request(app)
         .post(`/api/plans/${collabPlanId}/permissions/collaborator`)
@@ -133,8 +135,6 @@ describe('Collaborative Plans Integration Tests', () => {
       const response = await request(app)
         .get(`/api/plans/experience/${experience._id}/all`)
         .set('Authorization', authToken2);
-
-      console.log('User2 all plans response:', JSON.stringify(response.body, null, 2));
 
       expect(response.status).toBe(200);
       expect(response.body).toBeInstanceOf(Array);
@@ -181,7 +181,8 @@ describe('Collaborative Plans Integration Tests', () => {
         .set('Authorization', authToken2)
         .send({ planned_date: new Date() });
 
-      const planId = createResponse.body._id;
+      const createdPlan = createResponse.body?.data || createResponse.body;
+      const planId = createdPlan._id;
 
       // User2 adds User3 as a collaborator
       await request(app)
@@ -220,6 +221,8 @@ describe('Collaborative Plans Integration Tests', () => {
         .set('Authorization', authToken2)
         .send({ planned_date: new Date() });
 
+      const ownCreatedPlan = ownPlanResponse.body?.data || ownPlanResponse.body;
+
       // User3 creates plan and adds User2 as collaborator
       const collabPlanResponse = await request(app)
         .post(`/api/plans/experience/${experience._id}`)
@@ -227,7 +230,7 @@ describe('Collaborative Plans Integration Tests', () => {
         .send({ planned_date: new Date() });
 
       await request(app)
-        .post(`/api/plans/${collabPlanResponse.body._id}/permissions/collaborator`)
+        .post(`/api/plans/${(collabPlanResponse.body?.data || collabPlanResponse.body)._id}/permissions/collaborator`)
         .set('Authorization', authToken3)
         .send({ userId: user2._id.toString() });
 
@@ -251,9 +254,7 @@ describe('Collaborative Plans Integration Tests', () => {
           displayName = `${firstName}'s Plan`;
         }
 
-        console.log(`Plan ${plan._id}: ${displayName} (owner: ${plan.user.name})`);
-
-        if (plan._id === ownPlanResponse.body._id) {
+        if (plan._id === ownCreatedPlan._id) {
           expect(displayName).toBe("My Plan");
         } else {
           // Charlie's full name is "Charlie", so first name is "Charlie"

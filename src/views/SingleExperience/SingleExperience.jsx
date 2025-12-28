@@ -3059,11 +3059,7 @@ export default function SingleExperience() {
       {/* Add Collaborator Modal */}
       <CollaboratorModal
         show={collaboratorManager.showCollaboratorModal}
-        onHide={() => {
-          collaboratorManager.setShowCollaboratorModal(false);
-          collaboratorManager.setCollaboratorSearch("");
-          collaboratorManager.setCollaboratorAddSuccess(false);
-        }}
+        onHide={collaboratorManager.closeCollaboratorModal}
         onSearch={collaboratorManager.handleSearchUsers}
         onAddCollaborators={collaboratorManager.handleAddCollaborator}
         onRemoveCollaborator={collaboratorManager.handleRemoveSelectedCollaborator}

@@ -62,14 +62,15 @@ describe('Photos API Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(photoData);
 
+      const body = response.body?.data || response.body;
+
       logger.response(response.status, response.body);
 
       expect(response.status).toBe(201);
-      expect(response.body).toHaveProperty('upload');
-      expect(response.body.upload).toHaveProperty('_id');
-      expect(response.body.upload.url).toBe(photoData.url);
+      expect(body).toHaveProperty('_id');
+      expect(body.url).toBe(photoData.url);
       // Note: caption is not stored by createFromUrl endpoint - only photo_credit fields
-      expect(response.body.upload.photo_credit).toBe(photoData.photo_credit);
+      expect(body.photo_credit).toBe(photoData.photo_credit);
 
       logger.success('Photo created from URL successfully');
     });
@@ -127,11 +128,13 @@ describe('Photos API Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(updateData);
 
+      const body = response.body?.data || response.body;
+
       logger.response(response.status, response.body);
 
       expect(response.status).toBe(200);
-      expect(response.body.caption).toBe(updateData.caption);
-      expect(response.body.photo_credit).toBe(updateData.photo_credit);
+      expect(body.caption).toBe(updateData.caption);
+      expect(body.photo_credit).toBe(updateData.photo_credit);
 
       logger.success('Photo updated successfully');
     });
@@ -244,9 +247,9 @@ describe('Photos API Routes', () => {
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({ userId: collaborator._id.toString() });
 
+      const responsePhoto = response.body?.data || response.body?.photo || response.body;
+
       expect(response.status).toBe(200);
-      // API returns { message, photo } - check photo.permissions
-      const responsePhoto = response.body.photo;
       expect(responsePhoto).toBeTruthy();
       const collaboratorPerm = responsePhoto.permissions.find(
         p => p._id.toString() === collaborator._id.toString() && p.type === 'collaborator'
@@ -274,9 +277,9 @@ describe('Photos API Routes', () => {
         .delete(`/api/photos/${photo._id}/permissions/collaborator/${collaborator._id}`)
         .set('Authorization', `Bearer ${ownerToken}`);
 
+      const responsePhoto = response.body?.data || response.body?.photo || response.body;
+
       expect(response.status).toBe(200);
-      // API returns { message, photo } - check photo.permissions
-      const responsePhoto = response.body.photo;
       expect(responsePhoto).toBeTruthy();
       const removedPerm = responsePhoto.permissions.find(
         p => p._id.toString() === collaborator._id.toString() && p.type === 'collaborator'
@@ -300,9 +303,9 @@ describe('Photos API Routes', () => {
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({ userId: contributor._id.toString() });
 
+      const responsePhoto = response.body?.data || response.body?.photo || response.body;
+
       expect(response.status).toBe(200);
-      // API returns { message, photo } - check photo.permissions
-      const responsePhoto = response.body.photo;
       expect(responsePhoto).toBeTruthy();
       const contributorPerm = responsePhoto.permissions.find(
         p => p._id.toString() === contributor._id.toString() && p.type === 'contributor'

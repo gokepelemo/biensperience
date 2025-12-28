@@ -33,6 +33,7 @@ import styles from './Autocomplete.module.scss';
  * @param {boolean} props.disableFilter - Disable client-side filtering (use for API-based search)
  */
 export default function Autocomplete({
+  inputId,
   placeholder = lang.current.autocomplete.defaultPlaceholder,
   items = [],
   entityType = 'user',
@@ -389,6 +390,7 @@ export default function Autocomplete({
         <FaSearch className={styles.autocompleteSearchIcon} />
         <Form.Control
           ref={inputRef}
+          id={inputId}
           type="text"
           placeholder={placeholder}
           value={currentValue}

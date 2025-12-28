@@ -89,7 +89,10 @@ export async function sendRequest(url, method = "GET", payload = null, requestOp
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
 
-    const fetchOptions = { method, signal: controller.signal };
+    // Always include cookies (session + CSRF) for API requests.
+    // This is required for CSRF validation and for any cookie-based auth/session features.
+    // It also prevents subtle failures when frontend/backend run on different ports.
+    const fetchOptions = { method, signal: controller.signal, credentials: 'include' };
     
     // Add CSRF token for state-changing requests
     const isStateChanging = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());

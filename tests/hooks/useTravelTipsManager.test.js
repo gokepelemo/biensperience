@@ -3,7 +3,7 @@
  */
 
 import { renderHook, act } from '@testing-library/react-hooks';
-import { useTravelTipsManager } from '../useTravelTipsManager';
+import { useTravelTipsManager } from '../../src/hooks/useTravelTipsManager';
 
 describe('useTravelTipsManager', () => {
   it('should initialize with empty tips', () => {

@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ErrorBoundary, { withErrorBoundary } from '../ErrorBoundary';
+import ErrorBoundary, { withErrorBoundary } from '../../src/components/ErrorBoundary/ErrorBoundary';
 
 // Component that throws an error
 const ThrowError = ({ shouldThrow = true }) => {
@@ -149,11 +149,9 @@ describe('ErrorBoundary', () => {
     );
 
     // Click try again multiple times
-    const tryAgainButton = screen.getByText('Try Again');
-
-    fireEvent.click(tryAgainButton);
-    fireEvent.click(tryAgainButton);
-    fireEvent.click(tryAgainButton);
+    fireEvent.click(screen.getByText('Try Again'));
+    fireEvent.click(screen.getByText('Try Again'));
+    fireEvent.click(screen.getByText('Try Again'));
 
     // After 3 errors, should show recurring error warning
     expect(screen.getByText(/Recurring Error Detected/)).toBeInTheDocument();

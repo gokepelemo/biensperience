@@ -20,6 +20,7 @@ import { getUser } from './users-service'; // Only import getUser (used in other
 import * as VectorClock from './vector-clock';
 import { createTransport } from './event-transport';
 import { runStorageMigrations } from './storage-migration';
+import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 
 class EventBus {
   constructor() {
@@ -29,6 +30,14 @@ class EventBus {
     this.vectorClock = VectorClock.createVectorClock(); // Causal ordering
     this.transport = null;
     this.transportReady = false;
+
+    // Local dispatch batching (smooth UI updates by reducing render churn)
+    this._pendingDispatches = []; // Array<{ eventType, event }>
+    this._flushScheduled = false;
+
+    // Lightweight de-dupe across transports (guards against accidental server echoes)
+    this._processedEventIds = new Set();
+    this._maxProcessedEventIds = 500;
 
     // Run storage migrations before initializing transport
     this.runMigrations();
@@ -40,6 +49,14 @@ class EventBus {
       sessionId: this.sessionId,
       vectorClock: VectorClock.format(this.vectorClock)
     });
+  }
+
+  /**
+   * Backwards-compatible sessionId accessor.
+   * Some older code/tests call eventBus.getSessionId().
+   */
+  getSessionId() {
+    return this.sessionId;
   }
 
   /**
@@ -191,6 +208,95 @@ class EventBus {
   }
 
   /**
+   * Ensure each event has a stable ID for de-duping.
+   *
+   * @param {object} event
+   * @returns {object}
+   */
+  ensureEventId(event) {
+    if (!event || typeof event !== 'object') return event;
+    if (event._eventId) return event;
+
+    // Avoid Math.random() for ID generation; use crypto when available.
+    let random = '';
+    try {
+      const bytes = new Uint8Array(8);
+      crypto.getRandomValues(bytes);
+      random = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      random = `${Date.now()}`;
+    }
+
+    return {
+      ...event,
+      _eventId: `${this.sessionId}-${event.version || event.timestamp || Date.now()}-${random}`
+    };
+  }
+
+  /**
+   * Track processed event IDs for cross-transport de-dupe.
+   */
+  trackProcessedEventId(eventId) {
+    if (!eventId) return;
+    this._processedEventIds.add(eventId);
+    if (this._processedEventIds.size <= this._maxProcessedEventIds) return;
+
+    const toRemove = this._processedEventIds.size - this._maxProcessedEventIds;
+    let removed = 0;
+    for (const id of this._processedEventIds) {
+      if (removed >= toRemove) break;
+      this._processedEventIds.delete(id);
+      removed++;
+    }
+  }
+
+  /**
+   * Schedule a batched flush of pending dispatches.
+   */
+  scheduleDispatchFlush() {
+    if (this._flushScheduled) return;
+    this._flushScheduled = true;
+
+    // Microtask flush groups multiple events emitted in the same tick.
+    queueMicrotask(() => {
+      this._flushScheduled = false;
+      const pending = this._pendingDispatches;
+      if (!pending || pending.length === 0) return;
+      this._pendingDispatches = [];
+
+      batchedUpdates(() => {
+        for (const { eventType, event } of pending) {
+          const handlers = this.listeners.get(eventType);
+          if (handlers && handlers.size > 0) {
+            handlers.forEach((handler) => {
+              try {
+                handler(event);
+              } catch (error) {
+                logger.error('[EventBus] Error in event handler', {
+                  eventType,
+                  error: error.message
+                }, error);
+              }
+            });
+          }
+
+          // Backward compatibility: dispatch a DOM CustomEvent
+          if (typeof window !== 'undefined') {
+            try {
+              window.dispatchEvent(new CustomEvent(eventType, { detail: event }));
+            } catch (error) {
+              logger.error('[EventBus] Error dispatching CustomEvent', {
+                eventType,
+                error: error.message
+              }, error);
+            }
+          }
+        }
+      });
+    });
+  }
+
+  /**
    * Generate unique session ID to prevent duplicate processing
    * of own events in cross-tab scenarios
    */
@@ -249,7 +355,7 @@ class EventBus {
     // Increment vector clock before emitting (captures causal ordering)
     this.vectorClock = VectorClock.increment(this.vectorClock, this.sessionId);
 
-    const event = {
+    const event = this.ensureEventId({
       type: eventType,
       version: detail.version || Date.now(),
       vectorClock: VectorClock.clone(this.vectorClock), // Include causal clock
@@ -257,7 +363,10 @@ class EventBus {
       userId: detail.userId || user?._id,
       sessionId: this.sessionId,
       ...detail
-    };
+    });
+
+    // Track locally to prevent accidental duplicates if the transport echoes.
+    this.trackProcessedEventId(event._eventId);
 
     // Log for debugging (keep last 100 events)
     // Use a higher threshold and slice to avoid O(n) shift on every emit
@@ -288,38 +397,18 @@ class EventBus {
    * Dispatch event to local listeners
    */
   dispatchLocal(eventType, event) {
-    const handlers = this.listeners.get(eventType);
-    const handlerCount = handlers?.size || 0;
+    const normalized = this.ensureEventId(event);
 
-    if (handlers && handlers.size > 0) {
-      logger.debug('[EventBus] Dispatching to local listeners', {
-        eventType,
-        handlerCount
-      });
-
-      handlers.forEach(handler => {
-        try {
-          handler(event);
-        } catch (error) {
-          logger.error('[EventBus] Error in event handler', {
-            eventType,
-            error: error.message
-          }, error);
-        }
-      });
+    // De-dupe if already processed.
+    if (normalized?._eventId && this._processedEventIds.has(normalized._eventId)) {
+      return;
+    }
+    if (normalized?._eventId) {
+      this.trackProcessedEventId(normalized._eventId);
     }
 
-    // Also dispatch as CustomEvent for backward compatibility
-    if (typeof window !== 'undefined') {
-      try {
-        window.dispatchEvent(new CustomEvent(eventType, { detail: event }));
-      } catch (error) {
-        logger.error('[EventBus] Error dispatching CustomEvent', {
-          eventType,
-          error: error.message
-        }, error);
-      }
-    }
+    this._pendingDispatches.push({ eventType, event: normalized });
+    this.scheduleDispatchFlush();
   }
 
   /**
@@ -359,13 +448,6 @@ class EventBus {
     const count = this.eventLog.length;
     this.eventLog = [];
     logger.debug('[EventBus] Event log cleared', { count });
-  }
-
-  /**
-   * Get current session ID
-   */
-  getSessionId() {
-    return this.sessionId;
   }
 
   /**

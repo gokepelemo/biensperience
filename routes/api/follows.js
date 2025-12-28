@@ -28,6 +28,9 @@ router.get('/:userId/counts', ensureLoggedIn, followsCtrl.getFollowCounts);
 // Check if current user is following a specific user
 router.get('/:userId/status', ensureLoggedIn, followsCtrl.getFollowStatus);
 
+// Get follow relationship (mutual follow)
+router.get('/:userId/relationship', ensureLoggedIn, followsCtrl.getFollowRelationship);
+
 // Remove a follower (someone who follows you)
 router.delete('/:userId/remove-follower', ensureLoggedIn, modificationLimiter, followsCtrl.removeFollower);
 

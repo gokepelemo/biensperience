@@ -286,6 +286,34 @@ async function getFollowStatus(req, res) {
 }
 
 /**
+ * Get follow relationship between current user and target user
+ * GET /api/follows/:userId/relationship
+ */
+async function getFollowRelationship(req, res) {
+  try {
+    const currentUserId = req.user._id;
+    const otherUserId = req.params.userId;
+
+    const [isFollowing, isFollowedBy] = await Promise.all([
+      Follow.isFollowing(currentUserId, otherUserId),
+      Follow.isFollowing(otherUserId, currentUserId)
+    ]);
+
+    res.json({
+      success: true,
+      relationship: {
+        isFollowing,
+        isFollowedBy,
+        isMutual: Boolean(isFollowing && isFollowedBy)
+      }
+    });
+  } catch (error) {
+    backendLogger.error('Error getting follow relationship', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Failed to get follow relationship' });
+  }
+}
+
+/**
  * Get user's feed - Activity from users they follow
  * GET /api/follows/feed
  *
@@ -492,6 +520,7 @@ module.exports = {
   getFollowing,
   getFollowCounts,
   getFollowStatus,
+  getFollowRelationship,
   removeFollower,
   blockFollower,
   unblockFollower

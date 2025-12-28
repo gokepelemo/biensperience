@@ -1217,6 +1217,62 @@ function broadcastEvent(roomType, resourceId, event, excludeUserId = null) {
   });
 }
 
+/**
+ * Send an event directly to a specific user's active WebSocket connections.
+ *
+ * This is useful when a user should be notified immediately (e.g. added as a
+ * collaborator) but they may not yet be a member of an experience/plan room.
+ *
+ * @param {string} userId - Target user ID
+ * @param {object} event - Event to send
+ * @param {string} event.type - Event type
+ * @param {object} event.payload - Event payload
+ */
+function sendEventToUser(userId, event) {
+  if (!userId || !event) {
+    backendLogger.warn('[WebSocket] sendEventToUser called with invalid params', {
+      hasUserId: !!userId,
+      hasEvent: !!event
+    });
+    return;
+  }
+
+  const userIdStr = userId.toString();
+  const connections = userConnections.get(userIdStr);
+
+  if (!connections || connections.size === 0) {
+    backendLogger.debug('[WebSocket] No active connections for user, skipping direct send', {
+      userId: userIdStr,
+      eventType: event.type
+    });
+    return;
+  }
+
+  const message = {
+    type: event.type || 'event:received',
+    payload: {
+      ...event.payload,
+      timestamp: Date.now(),
+      version: event.version || Date.now()
+    }
+  };
+
+  let sentCount = 0;
+  connections.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      send(ws, message);
+      sentCount++;
+    }
+  });
+
+  backendLogger.debug('[WebSocket] Direct user event sent', {
+    userId: userIdStr,
+    eventType: event.type,
+    sentCount,
+    totalConnections: connections.size
+  });
+}
+
 // =====================
 // Periodic Cleanup
 // =====================
@@ -1293,6 +1349,7 @@ module.exports = {
   createWebSocketServer,
   getStats,
   broadcastEvent,
+  sendEventToUser,
   broadcastToRoom,
   // Cache invalidation for when user updates profile visibility
   invalidateVisibilityCache,

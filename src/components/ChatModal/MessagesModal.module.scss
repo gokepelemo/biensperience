@@ -1,0 +1,309 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* Custom Modal Implementation for Stream Chat */
+.modalBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-bg-overlay, rgba(0, 0, 0, 0.5));
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.modalDialog {
+  width: 95%;
+  max-width: 1200px;
+  max-height: 90vh;
+  margin: 0 auto;
+  padding: $space-4;
+  position: relative;
+  z-index: 1051;
+}
+
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-primary);
+  border-radius: $radius-lg;
+  box-shadow: $shadow-lg;
+  max-height: 90vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-4 $space-6;
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-bg-primary);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+}
+
+/* Close button in header */
+.closeButton {
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+  color: var(--color-text-primary);
+  font-size: 1.25rem;
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  &:focus {
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+    outline: none;
+  }
+
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+.modalBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.loadingState {
+  padding: $space-4;
+  color: var(--color-text-secondary);
+}
+
+.messagesContainer {
+  height: 70vh;
+  min-height: 420px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  flex: 1;
+
+  @include breakpoint-max(md) {
+    height: 60vh;
+    min-height: 360px;
+  }
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 12px;
+  height: 100%;
+
+  @include breakpoint-max(md) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sidebar {
+  border-right: 1px solid var(--color-border-light);
+  background: var(--color-bg-secondary);
+  padding-right: 12px;
+  overflow: auto;
+
+  @include breakpoint-max(md) {
+    display: none;
+  }
+}
+
+.channelList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.channelButton {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-primary);
+  padding: 10px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.channelButton:hover {
+  background: var(--color-bg-hover);
+}
+
+.active {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-medium);
+}
+
+.channelName {
+  display: block;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.pane {
+  overflow: hidden;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: opacity 0.15s ease;
+}
+
+.pane.switching {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.empty,
+.emptyPane {
+  color: var(--color-text-secondary);
+  padding: 12px;
+}
+
+/* Mobile channel selector dropdown */
+.mobileChannelSelector {
+  display: none;
+  position: relative;
+  margin-bottom: $space-3;
+
+  @include breakpoint-max(md) {
+    display: block;
+  }
+}
+
+.mobileDropdownToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: $space-3 $space-4;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-medium);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+
+  &:hover,
+  &:focus {
+    border-color: var(--color-primary);
+    outline: none;
+  }
+}
+
+.mobileDropdownLabel {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobileDropdownIcon {
+  flex-shrink: 0;
+  margin-left: $space-2;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  transition: transform 0.2s ease;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+.mobileDropdownList {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  margin: $space-1 0 0 0;
+  padding: $space-2 0;
+  list-style: none;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-medium);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.mobileDropdownItem {
+  display: block;
+  width: 100%;
+  padding: $space-3 $space-4;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  &.active {
+    background: var(--color-bg-tertiary);
+    font-weight: 600;
+  }
+}
+
+/* Stream Chat (scoped) token alignment */
+.pane :global(.str-chat),
+.pane :global(.str-chat__channel),
+.pane :global(.str-chat__main-panel),
+.pane :global(.str-chat__window) {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.pane :global(.str-chat__channel-header) {
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.pane :global(.str-chat__message-list) {
+  background: var(--color-bg-primary);
+}
+
+.pane :global(.str-chat__message-input) {
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.pane :global(.str-chat__textarea textarea) {
+  color: var(--color-text-primary);
+}

@@ -11,6 +11,41 @@ import { logger } from './logger';
 import { lang } from '../lang.constants';
 
 /**
+ * Feature flag evaluation contexts.
+ *
+ * - ENTITY_CREATOR: check the user who created/owns the entity
+ * - LOGGED_IN_USER: check the currently authenticated user
+ */
+export const FEATURE_FLAG_CONTEXT = {
+  ENTITY_CREATOR: 'entity_creator',
+  LOGGED_IN_USER: 'logged_in_user'
+};
+
+function normalizeFeatureFlagContext(context) {
+  const normalized = String(context || '').trim().toLowerCase();
+
+  if (
+    normalized === FEATURE_FLAG_CONTEXT.ENTITY_CREATOR ||
+    normalized === 'creator' ||
+    normalized === 'owner'
+  ) {
+    return FEATURE_FLAG_CONTEXT.ENTITY_CREATOR;
+  }
+
+  if (
+    normalized === FEATURE_FLAG_CONTEXT.LOGGED_IN_USER ||
+    normalized === 'user' ||
+    normalized === 'actor' ||
+    normalized === 'viewer'
+  ) {
+    return FEATURE_FLAG_CONTEXT.LOGGED_IN_USER;
+  }
+
+  // Default to creator-context for safety (fail-closed for entity-scoped features)
+  return FEATURE_FLAG_CONTEXT.ENTITY_CREATOR;
+}
+
+/**
  * WeakMap cache for user flag Maps - O(1) lookups instead of O(n) array search
  * Uses WeakMap so entries are garbage collected when user object is released
  */
@@ -93,6 +128,11 @@ export const FEATURE_FLAGS = {
     key: 'curator',
     description: 'Curator designation for creating curated experiences',
     tier: 'curator'
+  },
+  STREAM_CHAT: {
+    key: 'stream_chat',
+    description: 'In-app messaging powered by Stream Chat',
+    tier: 'beta'
   }
 };
 
@@ -136,6 +176,45 @@ export function hasFeatureFlag(user, flagKey, options = {}) {
   }
 
   return true;
+}
+
+/**
+ * Check a feature flag in a specific context.
+ *
+ * Scenario 1 (entity creator): pass the entity creator user and set context to ENTITY_CREATOR.
+ * Scenario 2 (logged-in user): pass the logged-in user and set context to LOGGED_IN_USER.
+ *
+ * Super admin bypass is evaluated on the logged-in user (the actor), regardless
+ * of the selected context.
+ *
+ * @param {Object} params
+ * @param {Object} params.loggedInUser - Currently authenticated user
+ * @param {Object} params.entityCreatorUser - User who created/owns the entity
+ * @param {string} params.flagKey - Feature flag key
+ * @param {string} params.context - FEATURE_FLAG_CONTEXT.* or alias
+ * @param {Object} params.options - Options forwarded to hasFeatureFlag
+ * @returns {boolean}
+ */
+export function hasFeatureFlagInContext(params = {}) {
+  const {
+    loggedInUser,
+    entityCreatorUser,
+    flagKey,
+    context = FEATURE_FLAG_CONTEXT.ENTITY_CREATOR,
+    options = {}
+  } = params;
+
+  if (options.allowSuperAdmin !== false && loggedInUser && (loggedInUser.role === 'super_admin' || loggedInUser.isSuperAdmin)) {
+    return true;
+  }
+
+  const normalizedContext = normalizeFeatureFlagContext(context);
+
+  if (normalizedContext === FEATURE_FLAG_CONTEXT.LOGGED_IN_USER) {
+    return hasFeatureFlag(loggedInUser, flagKey, options);
+  }
+
+  return hasFeatureFlag(entityCreatorUser, flagKey, options);
 }
 
 /**

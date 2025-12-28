@@ -4,19 +4,28 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
-import UpdateDestination from '../UpdateDestination';
-import { UserProvider } from '../../../contexts/UserContext';
-import { DataProvider } from '../../../contexts/DataContext';
-import { ToastProvider } from '../../../contexts/ToastContext';
-import { updateDestination, showDestination } from '../../../utilities/destinations-api';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import UpdateDestination from '../../src/components/UpdateDestination/UpdateDestination';
+import { useUser } from '../../src/contexts/UserContext';
+import { useData } from '../../src/contexts/DataContext';
+import { useToast } from '../../src/contexts/ToastContext';
+import { updateDestination, showDestination } from '../../src/utilities/destinations-api';
 
 // Increase timeout for async tests
 jest.setTimeout(30000);
 
 // Mock modules
-jest.mock('../../../utilities/destinations-api');
+jest.mock('../../src/utilities/destinations-api');
+jest.mock('../../src/contexts/UserContext', () => ({
+  useUser: jest.fn()
+}));
+jest.mock('../../src/contexts/DataContext', () => ({
+  useData: jest.fn()
+}));
+jest.mock('../../src/contexts/ToastContext', () => ({
+  useToast: jest.fn()
+}));
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => jest.fn(),
@@ -43,19 +52,21 @@ const mockDestination = {
   ]
 };
 
-const renderWithProviders = (component) => {
+const renderWithProviders = (component, options = {}) => {
+  const {
+    user = mockUser,
+    updateDestinationFn = jest.fn(),
+    toastSuccess = jest.fn(),
+    toastError = jest.fn()
+  } = options;
+
+  useUser.mockReturnValue({ user });
+  useData.mockReturnValue({ updateDestination: updateDestinationFn });
+  useToast.mockReturnValue({ success: toastSuccess, error: toastError });
+
   return render(
     <MemoryRouter initialEntries={['/destinations/dest123/edit']}>
-      <ToastProvider>
-        <UserProvider value={{ user: mockUser }}>
-          <DataProvider value={{
-            destinations: [mockDestination],
-            updateDestination: jest.fn()
-          }}>
-            {component}
-          </DataProvider>
-        </UserProvider>
-      </ToastProvider>
+      {component}
     </MemoryRouter>
   );
 };
@@ -77,7 +88,7 @@ describe('UpdateDestination Integration Tests', () => {
     it('should show loading state initially', () => {
       renderWithProviders(<UpdateDestination />);
       expect(screen.getByRole('status')).toBeInTheDocument();
-      expect(screen.getByText('Loading...')).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: /loading destination/i })).toBeInTheDocument();
     });
 
     it('should load and render destination data', async () => {
@@ -146,9 +157,10 @@ describe('UpdateDestination Integration Tests', () => {
 
       expect(nameInput.value).toBe('Lyon');
 
-      // Changes detected alert should appear
+      // Change banner should appear with formatted change
       await waitFor(() => {
-        expect(screen.getByText(/Changes detected:/i)).toBeInTheDocument();
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+        expect(screen.getByText(/Name:.*Paris.*Lyon/i)).toBeInTheDocument();
       }, { timeout: 10000 });
     });
 
@@ -191,7 +203,8 @@ describe('UpdateDestination Integration Tests', () => {
       fireEvent.change(nameInput, { target: { value: 'Lyon' } });
 
       await waitFor(() => {
-        expect(screen.getByText(/Changes detected:/i)).toBeInTheDocument();
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+        expect(screen.getByText(/Name:.*Paris.*Lyon/i)).toBeInTheDocument();
       }, { timeout: 10000 });
     });
   });
@@ -232,7 +245,7 @@ describe('UpdateDestination Integration Tests', () => {
         expect(screen.getByText('Visit in spring')).toBeInTheDocument();
       }, { timeout: 10000 });
 
-      const deleteButtons = screen.getAllByText('Delete');
+      const deleteButtons = screen.getAllByLabelText('Delete');
       fireEvent.click(deleteButtons[0]);
 
       await waitFor(() => {
@@ -257,7 +270,9 @@ describe('UpdateDestination Integration Tests', () => {
       fireEvent.click(screen.getByText('Add Tip'));
 
       await waitFor(() => {
-        expect(screen.getByText(/Changes detected:/i)).toBeInTheDocument();
+        const alert = screen.getByRole('alert');
+        expect(alert).toBeInTheDocument();
+        expect(within(alert).getByText(/New tip/i)).toBeInTheDocument();
       });
     });
 
@@ -275,7 +290,7 @@ describe('UpdateDestination Integration Tests', () => {
 
       const tipInput = screen.getByPlaceholderText(/Share an insider tip/i);
       fireEvent.change(tipInput, { target: { value: 'Press enter to add' } });
-      fireEvent.keyPress(tipInput, { key: 'Enter', code: 13, charCode: 13 });
+      fireEvent.keyDown(tipInput, { key: 'Enter', code: 'Enter' });
 
       await waitFor(() => {
         expect(screen.getByText('Press enter to add')).toBeInTheDocument();
@@ -311,18 +326,19 @@ describe('UpdateDestination Integration Tests', () => {
       });
 
       // Submit
+      const confirmUpdateButton = screen.getByRole('button', { name: /confirm update/i });
       await waitFor(() => {
-        expect(screen.getByText(/Confirm Update/i)).not.toBeDisabled();
+        expect(confirmUpdateButton).not.toBeDisabled();
       }, { timeout: 10000 });
 
-      fireEvent.click(screen.getByText(/Confirm Update/i));
+      fireEvent.click(confirmUpdateButton);
 
       // Confirm in modal
       await waitFor(() => {
         expect(screen.getByText(/Confirm Destination Update/i)).toBeInTheDocument();
       }, { timeout: 10000 });
 
-      const submitButton = screen.getByText(/Update Destination/i);
+      const submitButton = screen.getByRole('button', { name: /update destination/i });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -351,13 +367,15 @@ describe('UpdateDestination Integration Tests', () => {
         target: { value: 'London' }
       });
 
-      fireEvent.click(screen.getByText(/Confirm Update/i));
-
+      const confirmUpdateButton = screen.getByRole('button', { name: /confirm update/i });
       await waitFor(() => {
-        expect(screen.getByText(/Update Destination/i)).toBeInTheDocument();
+        expect(confirmUpdateButton).not.toBeDisabled();
       }, { timeout: 10000 });
 
-      fireEvent.click(screen.getByText(/Update Destination/i));
+      fireEvent.click(confirmUpdateButton);
+
+      const submitButton = await screen.findByRole('button', { name: /update destination/i }, { timeout: 10000 });
+      fireEvent.click(submitButton);
 
       await waitFor(() => {
         expect(screen.getByText(/already exists/i)).toBeInTheDocument();
@@ -382,13 +400,15 @@ describe('UpdateDestination Integration Tests', () => {
         target: { value: 'Berlin' }
       });
 
-      fireEvent.click(screen.getByText(/Confirm Update/i));
-
+      const confirmUpdateButton = screen.getByRole('button', { name: /confirm update/i });
       await waitFor(() => {
-        expect(screen.getByText(/Update Destination/i)).toBeInTheDocument();
+        expect(confirmUpdateButton).not.toBeDisabled();
       }, { timeout: 10000 });
 
-      fireEvent.click(screen.getByText(/Update Destination/i));
+      fireEvent.click(confirmUpdateButton);
+
+      const submitButton = await screen.findByRole('button', { name: /update destination/i }, { timeout: 10000 });
+      fireEvent.click(submitButton);
 
       await waitFor(() => {
         expect(screen.getByRole('alert')).toBeInTheDocument();
@@ -400,20 +420,9 @@ describe('UpdateDestination Integration Tests', () => {
     it('should successfully update destination with all changes', async () => {
       const mockUpdateDestination = jest.fn();
 
-      render(
-        <MemoryRouter initialEntries={['/destinations/dest123/edit']}>
-          <ToastProvider>
-            <UserProvider value={{ user: mockUser }}>
-              <DataProvider value={{
-                destinations: [mockDestination],
-                updateDestination: mockUpdateDestination
-              }}>
-                <UpdateDestination />
-              </DataProvider>
-            </UserProvider>
-          </ToastProvider>
-        </MemoryRouter>
-      );
+      renderWithProviders(<UpdateDestination />, {
+        updateDestinationFn: mockUpdateDestination
+      });
 
       // Wait for loading state to clear
       await waitFor(() => {
@@ -438,13 +447,17 @@ describe('UpdateDestination Integration Tests', () => {
       fireEvent.click(screen.getByText('Add Tip'));
 
       // Submit
-      fireEvent.click(screen.getByText(/Confirm Update/i));
+      const confirmUpdateButton = screen.getByRole('button', { name: /confirm update/i });
+      await waitFor(() => {
+        expect(confirmUpdateButton).not.toBeDisabled();
+      }, { timeout: 10000 });
+      fireEvent.click(confirmUpdateButton);
 
       await waitFor(() => {
         expect(screen.getByText(/Confirm Destination Update/i)).toBeInTheDocument();
       }, { timeout: 10000 });
 
-      fireEvent.click(screen.getByText(/Update Destination/i));
+      fireEvent.click(screen.getByRole('button', { name: /update destination/i }));
 
       await waitFor(() => {
         expect(updateDestination).toHaveBeenCalledWith(
@@ -474,11 +487,15 @@ describe('UpdateDestination Integration Tests', () => {
         target: { value: 'Lyon' }
       });
 
-      fireEvent.click(screen.getByText(/Confirm Update/i));
+      const confirmUpdateButton = screen.getByRole('button', { name: /confirm update/i });
+      await waitFor(() => {
+        expect(confirmUpdateButton).not.toBeDisabled();
+      }, { timeout: 10000 });
+      fireEvent.click(confirmUpdateButton);
 
       await waitFor(() => {
         expect(screen.getByText(/Confirm Destination Update/i)).toBeInTheDocument();
-        expect(screen.getByText(/Please review your changes/i)).toBeInTheDocument();
+        expect(screen.getByText(/Please review.*changes/i)).toBeInTheDocument();
       }, { timeout: 10000 });
     });
   });

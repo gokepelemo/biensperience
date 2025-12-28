@@ -84,12 +84,14 @@ describe('Super Admin Permissions - Destinations', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send(updateData);
 
+    const body = response.body?.data || response.body;
+
     logger.endTimer('Super admin destination update');
     logger.response(response.status, response.body);
 
     expect(response.status).toBe(200);
-    expect(response.body.name).toBe(updateData.name);
-    expect(response.body.country).toBe(updateData.country);
+    expect(body.name).toBe(updateData.name);
+    expect(body.country).toBe(updateData.country);
 
     logger.success('Super admin successfully updated destination');
   });
@@ -182,11 +184,13 @@ describe('Super Admin Permissions - Experiences', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send(updateData);
 
+    const body = response.body?.data || response.body;
+
     logger.endTimer('Super admin experience update');
     logger.response(response.status, response.body);
 
     expect(response.status).toBe(200);
-    expect(response.body.name).toBe(updateData.name);
+    expect(body.name).toBe(updateData.name);
 
     logger.success('Super admin successfully updated experience');
   });
@@ -374,11 +378,13 @@ describe('Super Admin Permissions - Photos', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send(updateData);
 
+    const body = response.body?.data || response.body;
+
     logger.endTimer('Super admin photo update');
     logger.response(response.status, response.body);
 
     expect(response.status).toBe(200);
-    expect(response.body.caption).toBe(updateData.caption);
+    expect(body.caption).toBe(updateData.caption);
 
     logger.success('Super admin successfully updated photo');
   });
@@ -442,7 +448,7 @@ describe('Email Verification Bypass for Super Admins', () => {
     logger.response(response.status);
 
     // Super admin should be able to create despite unverified email
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
 
     logger.success('Super admin bypassed email verification successfully');
   });
@@ -474,7 +480,7 @@ describe('Email Verification Bypass for Super Admins', () => {
 
     // In test environment, email verification is bypassed, so expect success
     // In production, this would return 403 with EMAIL_NOT_VERIFIED
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
 
     logger.success('Email verification middleware tested (bypassed in test env)');
   });

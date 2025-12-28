@@ -39,7 +39,9 @@ import { broadcastEvent } from "../../utilities/event-bus";
 import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
 import { isSystemUser } from "../../utilities/system-users";
-import { followUser, unfollowUser, removeFollower, getFollowStatus, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
+import { followUser, unfollowUser, removeFollower, getFollowRelationship, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
+import { getOrCreateDmChannel } from "../../utilities/chat-api";
+import MessagesModal from "../../components/ChatModal/MessagesModal";
 import { getActivityFeed } from "../../utilities/dashboard-api";
 import ActivityFeed from "../../components/ActivityFeed/ActivityFeed";
 import TabNav from "../../components/TabNav/TabNav";
@@ -79,6 +81,7 @@ export default function Profile() {
 
   // Follow feature state
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isMutualFollow, setIsMutualFollow] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
   const [followButtonHovered, setFollowButtonHovered] = useState(false);
@@ -95,6 +98,11 @@ export default function Profile() {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
   const photoSaveTimerRef = useRef(null);
+
+  // Messaging modal state
+  const [showMessagesModal, setShowMessagesModal] = useState(false);
+  const [messagesInitialChannelId, setMessagesInitialChannelId] = useState('');
+  const [messageLoading, setMessageLoading] = useState(false);
 
   // Reset state immediately when navigating to a different profile
   // This prevents showing stale data from the previous profile
@@ -856,11 +864,12 @@ export default function Profile() {
 
     const fetchFollowData = async () => {
       try {
-        const [status, counts] = await Promise.all([
-          getFollowStatus(userId),
+        const [relationship, counts] = await Promise.all([
+          getFollowRelationship(userId),
           getFollowCounts(userId)
         ]);
-        setIsFollowing(status);
+        setIsFollowing(Boolean(relationship?.isFollowing));
+        setIsMutualFollow(Boolean(relationship?.isMutual));
         setFollowCounts(counts);
       } catch (err) {
         logger.error('[Profile] Failed to fetch follow data', { error: err.message });
@@ -869,6 +878,36 @@ export default function Profile() {
 
     fetchFollowData();
   }, [userId, user, isOwnProfile]);
+
+  const canSendMessage = useMemo(() => {
+    if (!user || !currentProfile) return false;
+    if (isOwner) return false;
+    if (isSystemUser(currentProfile)) return false;
+
+    // Allow messaging if the profile is public OR there is mutual follow.
+    // Support current + legacy visibility fields.
+    // Current model: user.visibility: 'private' | 'public'
+    // Preferences also include profileVisibility.
+    const visibility = currentProfile.visibility || currentProfile?.preferences?.profileVisibility;
+    const isPrivateLegacy = Boolean(currentProfile.isPrivate);
+    const isPublic = visibility ? visibility === 'public' : !isPrivateLegacy;
+    return Boolean(isPublic || isMutualFollow);
+  }, [user, currentProfile, isOwner, isMutualFollow]);
+
+  const handleOpenDm = useCallback(async () => {
+    if (!canSendMessage || !currentProfile?._id) return;
+
+    setMessageLoading(true);
+    try {
+      const result = await getOrCreateDmChannel(currentProfile._id);
+      setMessagesInitialChannelId(result?.id || '');
+      setShowMessagesModal(true);
+    } catch (err) {
+      logger.error('[Profile] Failed to open DM', { error: err.message });
+    } finally {
+      setMessageLoading(false);
+    }
+  }, [canSendMessage, currentProfile?._id]);
 
   // Fetch follow counts for own profile (to display in metrics)
   useEffect(() => {
@@ -1611,9 +1650,16 @@ export default function Profile() {
                 <div className={styles.profileActions}>
                   {!isOwner && (
                     <>
-                      <Button variant="outline" style={{ borderRadius: 'var(--radius-full)' }}>
-                        <FaEnvelope /> Message
-                      </Button>
+                      {canSendMessage && (
+                        <Button
+                          variant="outline"
+                          style={{ borderRadius: 'var(--radius-full)' }}
+                          onClick={handleOpenDm}
+                          disabled={messageLoading}
+                        >
+                          <FaEnvelope /> {messageLoading ? 'Opening…' : 'Message'}
+                        </Button>
+                      )}
                       {isFollowing ? (
                         <Button
                           variant={followButtonHovered ? 'danger' : 'outline'}
@@ -1739,6 +1785,13 @@ export default function Profile() {
                     </div>
                   )}
                 </div>
+
+                <MessagesModal
+                  show={showMessagesModal}
+                  onClose={() => setShowMessagesModal(false)}
+                  initialChannelId={messagesInitialChannelId}
+                  title="Message"
+                />
               </div>
           </Card.Body>
         </Card>
