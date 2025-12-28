@@ -100,6 +100,7 @@ export default function Profile() {
   // Messages modal state for initiating DMs from profile
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [initialChannelId, setInitialChannelId] = useState(null);
+  const [initialTargetUserId, setInitialTargetUserId] = useState(null);
 
   // Reset state immediately when navigating to a different profile
   // This prevents showing stale data from the previous profile
@@ -1607,20 +1608,13 @@ export default function Profile() {
                       <Button
                         variant="outline"
                         style={{ borderRadius: 'var(--radius-full)' }}
-                        onClick={async () => {
-                          try {
-                            // Defensive: ensure profile loaded and not messaging self
-                            if (!currentProfile || currentProfile._id === user._id) return;
-                            // Dynamically import chat-api util to avoid circular loads
-                            const { getOrCreateDmChannel } = await import('../../utilities/chat-api');
-                            const channel = await getOrCreateDmChannel(currentProfile._id);
-                            const chId = channel?.id || channel?.cid || channel?._id || null;
-                            setInitialChannelId(chId);
-                            setShowMessagesModal(true);
-                          } catch (err) {
-                            const msg = handleError(err, { context: 'Start DM' });
-                            showError(msg || 'Failed to open messages');
-                          }
+                        onClick={() => {
+                          // Defensive: ensure profile loaded and not messaging self
+                          if (!currentProfile || currentProfile._id === user._id) return;
+                          // Open MessagesModal and let it locate or create a DM channel
+                          setInitialChannelId(null);
+                          setInitialTargetUserId(currentProfile._id);
+                          setShowMessagesModal(true);
                         }}
                       >
                         <FaEnvelope /> Message
@@ -2209,17 +2203,6 @@ export default function Profile() {
 
               // Merge into currentProfile for immediate UI update
               mergeProfile({ photos: photosFull, default_photo_id: data.default_photo_id || null });
-      {/* Messages modal - used to start 1:1 DMs from profile view */}
-      {showMessagesModal && (
-        <MessagesModal
-          show={showMessagesModal}
-          onClose={() => {
-            setShowMessagesModal(false);
-            setInitialChannelId(null);
-          }}
-          initialChannelId={initialChannelId}
-        />
-      )}
             } catch (e) {
               // ignore merge failures
             }
@@ -2254,6 +2237,19 @@ export default function Profile() {
               throw err;
             }
           }}
+        />
+      )}
+      {/* Messages modal - used to start 1:1 DMs from profile view */}
+      {showMessagesModal && (
+        <MessagesModal
+          show={showMessagesModal}
+          onClose={() => {
+            setShowMessagesModal(false);
+            setInitialChannelId(null);
+            setInitialTargetUserId(null);
+          }}
+          initialChannelId={initialChannelId}
+          targetUserId={initialTargetUserId}
         />
       )}
       </Container>

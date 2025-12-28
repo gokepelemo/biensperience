@@ -17,7 +17,7 @@ import { FaChevronDown, FaTimes } from 'react-icons/fa';
 import Alert from '../Alert/Alert';
 import styles from './MessagesModal.module.scss';
 
-import { getChatToken } from '../../utilities/chat-api';
+import { getChatToken, getOrCreateDmChannel } from '../../utilities/chat-api';
 import { logger } from '../../utilities/logger';
 
 function getDisplayNameForChannel({ channel, currentUserId }) {
@@ -54,6 +54,7 @@ export default function MessagesModal({
   show,
   onClose,
   initialChannelId,
+  targetUserId = null,
   title = 'Messages'
 }) {
   const apiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
@@ -193,7 +194,7 @@ export default function MessagesModal({
       try {
         const { token, user } = await getChatToken();
 
-        const streamClient = StreamChat.getInstance(apiKey);
+        const streamClient = new StreamChat(apiKey);
         await streamClient.connectUser(
           {
             id: user.id,
@@ -242,10 +243,45 @@ export default function MessagesModal({
 
         setChannels(filtered);
 
-        // Prefer initial channel if provided, otherwise use the most recent.
+
+        // Prefer a channel based on target user (continue existing 1:1),
+        // otherwise prefer initial channel if provided, otherwise most recent.
         let nextActive = null;
 
-        if (initialChannelId) {
+        if (targetUserId) {
+          // Look for an existing DM channel among queried channels that matches both members
+          const existingDm = filtered.find((ch) => {
+            try {
+              const members = ch?.state?.members || {};
+              const memberIds = Object.values(members).map(m => m?.user?.id).filter(Boolean);
+              // Must include both the target and the current user
+              return memberIds.includes(targetUserId) && memberIds.includes(user.id) && memberIds.length === 2;
+            } catch (e) {
+              return false;
+            }
+          });
+
+          if (existingDm) {
+            nextActive = existingDm;
+            await nextActive.watch();
+          } else if (initialChannelId) {
+            const existing = filtered.find(ch => ch?.id === initialChannelId);
+            nextActive = existing || streamClient.channel('messaging', initialChannelId);
+            await nextActive.watch();
+          } else {
+            // No existing DM found locally; ask server to return or create the DM channel
+            try {
+              const resp = await getOrCreateDmChannel(targetUserId);
+              const channelId = resp?.id || resp?.cid || resp?._id || resp;
+              if (channelId) {
+                nextActive = streamClient.channel('messaging', channelId);
+                await nextActive.watch();
+              }
+            } catch (e) {
+              // fall through to fallback below
+            }
+          }
+        } else if (initialChannelId) {
           const existing = filtered.find(ch => ch?.id === initialChannelId);
           nextActive = existing || streamClient.channel('messaging', initialChannelId);
           await nextActive.watch();
