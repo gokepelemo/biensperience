@@ -505,17 +505,18 @@
 .chatContainer :global(.str-chat__input-flat),
 .chatContainer :global(.str-chat__input-flat-wrapper),
 .chatContainer :global(.str-chat__message-input-inner) {
-  background: var(--color-bg-secondary) !important;
+  background: var(--color-bg-primary) !important;
   border-top: 1px solid var(--color-border-light);
 }
 
-/* Textarea and input */
+/* Textarea and input - use same background as container for consistency */
 .chatContainer :global(.str-chat__textarea textarea),
 .chatContainer :global(.str-chat__message-textarea),
 .chatContainer :global(.str-chat__textarea) {
-  background: var(--color-bg-tertiary) !important;
+  background: var(--color-bg-secondary) !important;
   color: var(--color-text-primary) !important;
-  border-color: var(--color-border-medium) !important;
+  border: 1px solid var(--color-border-light) !important;
+  border-radius: var(--radius-md) !important;
 
   &::placeholder {
     color: var(--color-text-muted) !important;
@@ -523,7 +524,7 @@
 
   &:focus {
     border-color: var(--color-primary) !important;
-    box-shadow: 0 0 0 2px var(--color-primary-alpha-20);
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
   }
 }
 
@@ -705,10 +706,11 @@
 .chatContainer :global(.str-chat__thread-list) {
   background: var(--color-bg-primary) !important;
   color: var(--color-text-primary);
+  border-left: 1px solid var(--color-border-light) !important;
 }
 
 .chatContainer :global(.str-chat__thread-header) {
-  background: var(--color-bg-secondary) !important;
+  background: var(--color-bg-primary) !important;
   border-bottom: 1px solid var(--color-border-light) !important;
   color: var(--color-text-primary) !important;
 }
@@ -742,6 +744,21 @@
 .chatContainer :global(.str-chat__thread-message-list),
 .chatContainer :global(.str-chat__thread .str-chat__message-list) {
   background: var(--color-bg-primary) !important;
+}
+
+/* Thread message input - same styling as main input */
+.chatContainer :global(.str-chat__thread .str-chat__message-input),
+.chatContainer :global(.str-chat__thread .str-chat__input-flat),
+.chatContainer :global(.str-chat__thread .str-chat__input-flat-wrapper) {
+  background: var(--color-bg-primary) !important;
+  border-top: 1px solid var(--color-border-light) !important;
+}
+
+.chatContainer :global(.str-chat__thread .str-chat__textarea textarea) {
+  background: var(--color-bg-secondary) !important;
+  color: var(--color-text-primary) !important;
+  border: 1px solid var(--color-border-light) !important;
+  border-radius: var(--radius-md) !important;
 }
 
 /* Reply count button */
