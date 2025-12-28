@@ -18,6 +18,7 @@ import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
 import ActivityMonitor from "../../components/ActivityMonitor/ActivityMonitor";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from '../../components/PhotoUploadModal/PhotoUploadModal';
+import MessagesModal from '../../components/ChatModal/MessagesModal';
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
 import { getUserData, updateUserRole, updateUser as updateUserApi } from "../../utilities/users-api";
 import { resendConfirmation } from "../../utilities/users-api";
@@ -95,6 +96,9 @@ export default function Profile() {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
   const photoSaveTimerRef = useRef(null);
+  // Messages modal state for initiating DMs from profile
+  const [showMessagesModal, setShowMessagesModal] = useState(false);
+  const [initialChannelId, setInitialChannelId] = useState(null);
 
   // Reset state immediately when navigating to a different profile
   // This prevents showing stale data from the previous profile
@@ -1585,7 +1589,25 @@ export default function Profile() {
                 <div className={styles.profileActions}>
                   {!isOwner && (
                     <>
-                      <Button variant="outline" style={{ borderRadius: 'var(--radius-full)' }}>
+                      <Button
+                        variant="outline"
+                        style={{ borderRadius: 'var(--radius-full)' }}
+                        onClick={async () => {
+                          try {
+                            // Defensive: ensure profile loaded and not messaging self
+                            if (!currentProfile || currentProfile._id === user._id) return;
+                            // Dynamically import chat-api util to avoid circular loads
+                            const { getOrCreateDmChannel } = await import('../../utilities/chat-api');
+                            const channel = await getOrCreateDmChannel(currentProfile._id);
+                            const chId = channel?.id || channel?.cid || channel?._id || null;
+                            setInitialChannelId(chId);
+                            setShowMessagesModal(true);
+                          } catch (err) {
+                            const msg = handleError(err, { context: 'Start DM' });
+                            showError(msg || 'Failed to open messages');
+                          }
+                        }}
+                      >
                         <FaEnvelope /> Message
                       </Button>
                       {isFollowing ? (
@@ -2172,6 +2194,17 @@ export default function Profile() {
 
               // Merge into currentProfile for immediate UI update
               mergeProfile({ photos: photosFull, default_photo_id: data.default_photo_id || null });
+      {/* Messages modal - used to start 1:1 DMs from profile view */}
+      {showMessagesModal && (
+        <MessagesModal
+          show={showMessagesModal}
+          onClose={() => {
+            setShowMessagesModal(false);
+            setInitialChannelId(null);
+          }}
+          initialChannelId={initialChannelId}
+        />
+      )}
             } catch (e) {
               // ignore merge failures
             }
