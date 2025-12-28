@@ -123,7 +123,7 @@ export default defineConfig(({ mode }) => {
       ],
       transformMixedEsModules: true,
       // Allow default interop when require() returns module object
-      requireReturnsDefault: 'auto'
+        requireReturnsDefault: 'preferred'
     }
   },
 
@@ -188,7 +188,9 @@ export default defineConfig(({ mode }) => {
       'stream-chat-react',
       // Prebundle react-helmet and its shallowEqual dependency
       'react-helmet-async',
-      'shallowequal'
+      'shallowequal',
+      'invariant',
+      'react-fast-compare'
     ],
     // Exclude large dependencies from pre-bundling if they're not used immediately
     exclude: ['@aws-sdk/client-s3']
