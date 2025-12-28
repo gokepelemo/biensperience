@@ -235,9 +235,11 @@ export default function MessagesModal({
 
         // IMPORTANT UX: plan item group chats should ONLY appear inside the
         // PlanItemDetails modal Chat tab, not in the global Messages modal.
+        // Plan channels should also be excluded from the global Messages modal.
         const filtered = (result || []).filter((ch) => {
           if (ch?.data?.planItemId) return false;
           if (typeof ch?.id === 'string' && ch.id.startsWith('planItem_')) return false;
+          if (typeof ch?.id === 'string' && ch.id.startsWith('plan_')) return false;
           return true;
         });
 
