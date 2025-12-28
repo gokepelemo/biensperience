@@ -138,7 +138,7 @@ export default defineConfig(({ mode }) => {
   },
 
   // Resolve aliases
-  resolve: {
+    resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@components': path.resolve(__dirname, './src/components'),
@@ -147,8 +147,6 @@ export default defineConfig(({ mode }) => {
       '@hooks': path.resolve(__dirname, './src/hooks'),
       '@contexts': path.resolve(__dirname, './src/contexts'),
       '@styles': path.resolve(__dirname, './src/styles'),
-          // Shim for stream-chat to provide missing exports for certain versions
-          'stream-chat': path.resolve(__dirname, './src/shims/stream-chat-shim.js'),
     }
   },
 
