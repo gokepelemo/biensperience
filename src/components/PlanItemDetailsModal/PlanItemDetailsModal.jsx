@@ -9,7 +9,6 @@ import { StreamChat } from 'stream-chat';
 import {
   Chat,
   Channel,
-  ChannelHeader,
   MessageInput,
   MessageList,
   Thread,
@@ -1754,7 +1753,7 @@ export default function PlanItemDetailsModal({
                   <Chat client={chatClient} theme="str-chat__theme-light">
                     <Channel channel={chatChannel}>
                       <Window>
-                        <ChannelHeader />
+                        {/* No ChannelHeader - chat is already in plan item context (modal title) */}
                         <MessageList />
                         <MessageInput focus />
                       </Window>
