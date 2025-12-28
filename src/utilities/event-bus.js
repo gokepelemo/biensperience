@@ -20,7 +20,47 @@ import { getUser } from './users-service'; // Only import getUser (used in other
 import * as VectorClock from './vector-clock';
 import { createTransport } from './event-transport';
 import { runStorageMigrations } from './storage-migration';
-import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
+
+// Obtain a safe `batchedUpdates` function at runtime to avoid bundler
+// static import errors. Prefer React's `unstable_batchedUpdates` when
+// available (CommonJS `require` or global `ReactDOM`), otherwise
+// fall back to a no-op wrapper that invokes the callback directly.
+let batchedUpdates = (fn) => fn();
+try {
+  // CommonJS environment (Node / some bundlers provide require)
+  if (typeof require === 'function') {
+    // eslint-disable-next-line global-require
+    const rd = require('react-dom');
+    if (rd && typeof rd.unstable_batchedUpdates === 'function') {
+      batchedUpdates = rd.unstable_batchedUpdates;
+    }
+  }
+} catch (e) {
+  // ignore
+}
+
+try {
+  // Browser UMD builds may expose ReactDOM globally
+  if (typeof globalThis !== 'undefined' && globalThis.ReactDOM && typeof globalThis.ReactDOM.unstable_batchedUpdates === 'function') {
+    batchedUpdates = globalThis.ReactDOM.unstable_batchedUpdates;
+  }
+} catch (e) {
+  // ignore
+}
+
+// As a final enhancement we will attempt a dynamic import if supported.
+// This is non-blocking and will only replace the fallback when resolved.
+if (typeof import === 'function') {
+  try {
+    import('react-dom').then((mod) => {
+      if (mod && typeof mod.unstable_batchedUpdates === 'function') {
+        batchedUpdates = mod.unstable_batchedUpdates;
+      }
+    }).catch(() => {});
+  } catch (e) {
+    // ignore
+  }
+}
 
 class EventBus {
   constructor() {
