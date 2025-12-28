@@ -118,7 +118,8 @@ export default defineConfig(({ mode }) => {
         /node_modules\/stream-chat-react/,
         /node_modules\/react-helmet-async/,
         /node_modules\/react/,
-        /node_modules\/react-dom/
+        /node_modules\/react-dom/,
+        /node_modules\/shallowequal/
       ],
       transformMixedEsModules: true,
       // Allow default interop when require() returns module object
@@ -185,6 +186,9 @@ export default defineConfig(({ mode }) => {
       // Pre-bundle stream chat packages to avoid Rollup static import issues
       'stream-chat',
       'stream-chat-react',
+      // Prebundle react-helmet and its shallowEqual dependency
+      'react-helmet-async',
+      'shallowequal'
     ],
     // Exclude large dependencies from pre-bundling if they're not used immediately
     exclude: ['@aws-sdk/client-s3']
