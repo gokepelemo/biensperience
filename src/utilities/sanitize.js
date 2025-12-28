@@ -34,10 +34,14 @@ export function sanitizeText(dirty) {
     return '';
   }
 
-  return DOMPurify.sanitize(dirty, {
-    ALLOWED_TAGS: [],
-    ALLOWED_ATTR: []
-  });
+  // Return an escaped plain-text string to ensure no HTML is interpreted
+  // Replace the essential characters with their HTML-escaped equivalents
+  return String(dirty)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**
@@ -83,11 +87,12 @@ export function sanitizeUrl(url) {
       return '';
     }
 
-    // Return the original URL (preserving user's format) if it had a valid protocol,
-    // otherwise return the normalized version with https://
-    return /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmedUrl)
-      ? trimmedUrl
-      : urlToValidate;
+    // Normalize the URL and strip any credentials (username/password)
+    parsedUrl.username = '';
+    parsedUrl.password = '';
+
+    // Return the normalized href to avoid preserving potentially dangerous formatting
+    return parsedUrl.href;
   } catch {
     // URL parsing failed - reject the URL
     return '';

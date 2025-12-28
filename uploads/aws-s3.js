@@ -52,8 +52,20 @@ const s3Upload = function (file, originalName, newName, options = {}) {
     path.resolve('./uploads/temp')
   ];
 
-  // Check if the resolved path is within any allowed directory
-  const isAllowed = allowedDirs.some(dir => resolvedPath.startsWith(dir + path.sep) || resolvedPath === dir);
+  // Check if the resolved path is within any allowed directory using path.relative
+  const isAllowed = allowedDirs.some(dir => {
+    try {
+      const relative = path.relative(dir, resolvedPath);
+      // `relative` will start with '..' if resolvedPath is outside `dir`.
+      // Also guard against edgecases by ensuring the relative path is not absolute.
+      if (relative === '') return true; // exact match
+      if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) return true;
+      return false;
+    } catch (e) {
+      return false;
+    }
+  });
+
   if (!isAllowed) {
     backendLogger.error('S3 upload path validation failed', { resolvedPath, allowedDirs });
     throw new Error('Invalid file path - path traversal detected');
@@ -68,8 +80,14 @@ const s3Upload = function (file, originalName, newName, options = {}) {
   }
 
   // Sanitize user-controlled file names while preserving path structure
-  // Split by '/' to handle paths like 'documents/userId/timestamp-filename'
-  const pathParts = newName.split('/');
+  // Normalize the incoming name, split by '/' to handle paths like 'documents/userId/timestamp-filename'
+  const normalizedNewName = String(newName || '').replace(/\\+/g, '/'); // convert backslashes to slashes
+  const pathParts = normalizedNewName.split('/');
+  // Reject suspicious path segments like '.' or '..' or empty segments
+  if (pathParts.some(p => p === '' || p === '.' || p === '..')) {
+    backendLogger.error('S3 upload name validation failed', { newName });
+    throw new Error('Invalid file name');
+  }
   const sanitizedParts = pathParts.map((part, index) => {
     // Only slugify the final filename part, preserve directory structure
     if (index === pathParts.length - 1) {
