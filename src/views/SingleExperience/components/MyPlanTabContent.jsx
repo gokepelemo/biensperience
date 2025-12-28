@@ -55,7 +55,7 @@ import AddDateModal from '../../../components/AddDateModal';
 import { useUIPreference } from '../../../hooks/useUIPreference';
 import { updatePlanItem, pinPlanItem } from '../../../utilities/plans-api';
 import { getOrCreatePlanChannel } from '../../../utilities/chat-api';
-import { hasFeatureFlag, FEATURE_FLAGS } from '../../../utilities/feature-flags';
+import { hasFeatureFlag, hasFeatureFlagInContext, FEATURE_FLAGS, FEATURE_FLAG_CONTEXT } from '../../../utilities/feature-flags';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatDateMetricCard, formatDateForInput } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
@@ -1875,8 +1875,21 @@ export default function MyPlanTabContent({
   planMembers = [],
   setTyping
 }) {
-  // Check if chat is enabled (Stream Chat API key configured)
-  const chatEnabled = Boolean(import.meta.env.VITE_STREAM_CHAT_API_KEY);
+  // Check if chat is enabled:
+  // 1. Stream Chat API key must be configured
+  // 2. Plan owner must have stream_chat feature flag (or user is super admin)
+  const streamChatConfigured = Boolean(import.meta.env.VITE_STREAM_CHAT_API_KEY);
+  const chatEnabled = useMemo(() => {
+    if (!streamChatConfigured) return false;
+    // Check if plan owner has chat enabled, or if current user is super admin
+    return hasFeatureFlagInContext({
+      loggedInUser: user,
+      entityCreatorUser: planOwner,
+      flagKey: 'stream_chat',
+      context: FEATURE_FLAG_CONTEXT.ENTITY_CREATOR,
+      options: { allowSuperAdmin: true }
+    });
+  }, [streamChatConfigured, user, planOwner]);
 
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [messagesInitialChannelId, setMessagesInitialChannelId] = useState('');

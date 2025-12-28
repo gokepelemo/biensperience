@@ -2103,15 +2103,17 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   transition: color 0.15s ease;
   /* Ensure vertical centering with inline content */
   display: flex;
   align-items: center;
   gap: var(--space-1);
   line-height: 1.3;
+
+  /* Desktop: single line with ellipsis */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
   &:hover {
     color: var(--color-primary);
@@ -2137,12 +2139,25 @@
     }
   }
 
-  /* Mobile optimization - ensure truncation on small screens */
+  /* Mobile/Tablet: allow 2 lines for titles with tight padding */
   @include breakpoint-max(md) {
-    max-width: 100%;
-    
+    /* Allow text to wrap to 2 lines */
+    white-space: normal;
+    /* Use line-clamp for 2-line limit */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    /* Maintain tight vertical alignment */
+    align-items: flex-start;
+    line-height: 1.4;
+
     a {
-      max-width: calc(100vw - 200px); /* Account for icons and controls */
+      /* Allow anchor text to wrap on mobile too */
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      max-width: calc(100vw - 160px); /* Account for icons and controls */
     }
   }
 }
@@ -2482,10 +2497,12 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
+  transition: color var(--transition-fast);
+
+  /* Desktop: single line with ellipsis */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color var(--transition-fast);
 
   &:hover {
     color: var(--color-primary);
@@ -2512,11 +2529,22 @@
     }
   }
 
-  /* Mobile optimization - ensure truncation on small screens */
+  /* Mobile/Tablet: allow 2 lines for titles with tight padding */
   @include breakpoint-max(md) {
-    max-width: 100%;
-    
+    /* Allow text to wrap to 2 lines */
+    white-space: normal;
+    /* Use line-clamp for 2-line limit */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.4;
+
     a {
+      /* Allow anchor text to wrap on mobile too */
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       max-width: calc(100vw - 220px); /* Account for time badge, icons and controls */
     }
   }

@@ -120,10 +120,35 @@ export async function createActivity(payload = {}) {
 /**
  * Restore resource state using rollback token
  * Super admin only
- * 
+ *
  * @param {string} rollbackToken - Rollback token from activity
  * @returns {Promise<Object>} Restoration result
  */
 export async function restoreResourceState(rollbackToken) {
   return await sendRequest(`${BASE_URL}/restore/${rollbackToken}`, 'POST');
+}
+
+/**
+ * Get users who have planned the curator's experiences
+ * Curator feature flag required
+ *
+ * @param {Object} options - Query options
+ * @param {number} options.limit - Max results (default: 50)
+ * @param {number} options.skip - Skip count for pagination (default: 0)
+ * @returns {Promise<Object>} Planners list with user info and experience details
+ */
+export async function getCuratorPlanners(options = {}) {
+  const queryString = new URLSearchParams();
+
+  Object.entries(options).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      queryString.append(key, value);
+    }
+  });
+
+  const url = queryString.toString()
+    ? `${BASE_URL}/curator/planners?${queryString}`
+    : `${BASE_URL}/curator/planners`;
+
+  return await sendRequest(url);
 }

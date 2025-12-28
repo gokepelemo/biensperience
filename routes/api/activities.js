@@ -10,7 +10,8 @@ const {
   getActorHistory,
   restoreResourceState,
   getAllActivities,
-  getActivityStats
+  getActivityStats,
+  getCuratorPlanners
 } = require('../../controllers/api/activities');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { apiLimiter } = require('../../config/rateLimiters');
@@ -35,5 +36,8 @@ router.get('/actor/:actorId', getActorHistory);
 
 // Restore resource state using rollback token (super admin only)
 router.post('/restore/:rollbackToken', restoreResourceState);
+
+// Get users who have planned the curator's experiences (curator feature flag required)
+router.get('/curator/planners', getCuratorPlanners);
 
 module.exports = router;

@@ -382,6 +382,16 @@
   /* This is also a flex container for its children */
   display: flex;
   flex-direction: column;
+
+  /* Mobile: Enable scrolling for content that overflows */
+  @media (max-width: 768px) {
+    /* Allow vertical scrolling on mobile */
+    overflow-y: auto;
+    /* Smooth scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    /* Prevent scroll chaining to parent */
+    overscroll-behavior: contain;
+  }
 }
 
 /* Notes tab wrapper - explicit styles for PlanItemNotes to fill available height
@@ -404,6 +414,14 @@
   overflow: hidden;
   /* Ensure width fills container */
   width: 100%;
+
+  /* Mobile: Minimum height to ensure usability */
+  @media (max-width: 768px) {
+    min-height: 300px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
 }
 
 .comingSoonMessage {
@@ -423,6 +441,14 @@
   overflow: hidden;
   padding: $space-4;
   gap: $space-3;
+
+  /* Mobile: Enable scrolling and minimum height */
+  @media (max-width: 768px) {
+    min-height: 300px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
 }
 
 .chatLoading {
@@ -1213,6 +1239,14 @@
   overflow: hidden;
   /* Full width */
   width: 100%;
+
+  /* Mobile: Enable scrolling and ensure usable height */
+  @media (max-width: 768px) {
+    min-height: 300px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
 }
 
 /* Export bar at top of details tab */
@@ -1481,6 +1515,8 @@
 
   @media (max-width: 768px) {
     padding: $space-3 $space-4;
+    /* Ensure usable height on mobile */
+    min-height: 300px;
   }
 }
 

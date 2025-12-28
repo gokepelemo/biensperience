@@ -2,13 +2,15 @@
  * ViewNav Component
  *
  * Responsive in-view navigation that renders:
- * - Horizontal pill-style nav on mobile/tablet (≤991px)
+ * - Dropdown select on mobile (≤575px)
+ * - Horizontal pill-style nav on tablet (576px-991px)
  * - Vertical sidebar-style nav on desktop (>991px)
  *
  * Supports hash-based routing with active states and optional badges.
  */
 
-import { useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { FaChevronDown } from 'react-icons/fa';
 import PropTypes from 'prop-types';
 import styles from './ViewNav.module.scss';
 import { lang } from '../../lang.constants';
@@ -30,6 +32,9 @@ export default function ViewNav({
   updateHash = true,
   className = ''
 }) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   // Handle hash changes from browser navigation
   useEffect(() => {
     const handleHashChange = () => {
@@ -51,8 +56,23 @@ export default function ViewNav({
     }
   }, [items, onSelect]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [dropdownOpen]);
+
   const handleSelect = useCallback((key) => {
     onSelect?.(key);
+    setDropdownOpen(false);
     if (updateHash) {
       try {
         window.history.pushState(null, '', `${window.location.pathname}#${key}`);
@@ -70,7 +90,18 @@ export default function ViewNav({
     }
   }, [handleSelect]);
 
+  const handleDropdownKeyPress = useCallback((e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setDropdownOpen(prev => !prev);
+    } else if (e.key === 'Escape') {
+      setDropdownOpen(false);
+    }
+  }, []);
+
   if (!items || items.length === 0) return null;
+
+  const activeItem = items.find(item => item.key === activeKey) || items[0];
 
   return (
     <nav
@@ -78,6 +109,50 @@ export default function ViewNav({
       role="tablist"
       aria-label={lang.current.viewNav.viewNavigation}
     >
+      {/* Mobile dropdown (≤575px) */}
+      <div className={styles.mobileDropdown} ref={dropdownRef}>
+        <button
+          type="button"
+          className={`${styles.dropdownTrigger} ${dropdownOpen ? styles.dropdownTriggerOpen : ''}`}
+          onClick={() => setDropdownOpen(prev => !prev)}
+          onKeyDown={handleDropdownKeyPress}
+          aria-expanded={dropdownOpen}
+          aria-haspopup="listbox"
+        >
+          <span className={styles.dropdownLabel}>
+            {activeItem?.label || 'Select'}
+            {typeof activeItem?.badge === 'number' && activeItem.badge > 0 && (
+              <span className={styles.dropdownBadge}>{activeItem.badge}</span>
+            )}
+          </span>
+          <FaChevronDown className={`${styles.dropdownIcon} ${dropdownOpen ? styles.dropdownIconOpen : ''}`} />
+        </button>
+        {dropdownOpen && (
+          <div className={styles.dropdownMenu} role="listbox">
+            {items.map((item) => {
+              const isActive = activeKey === item.key;
+              return (
+                <div
+                  key={item.key}
+                  role="option"
+                  tabIndex={0}
+                  aria-selected={isActive}
+                  onClick={() => handleSelect(item.key)}
+                  onKeyDown={(e) => handleKeyPress(e, item.key)}
+                  className={`${styles.dropdownItem} ${isActive ? styles.dropdownItemActive : ''}`}
+                >
+                  <span className={styles.dropdownItemLabel}>{item.label}</span>
+                  {typeof item.badge === 'number' && item.badge > 0 && (
+                    <span className={styles.dropdownItemBadge}>{item.badge}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Tablet/Desktop pill nav (>575px) */}
       <div className={styles.navContainer}>
         {items.map((item) => {
           const isActive = activeKey === item.key;

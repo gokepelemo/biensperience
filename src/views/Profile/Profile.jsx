@@ -102,6 +102,9 @@ export default function Profile() {
   const [initialChannelId, setInitialChannelId] = useState(null);
   const [initialTargetUserId, setInitialTargetUserId] = useState(null);
 
+  // Track previous userId for the follows tab - defined early so reset effect can access it
+  const prevFollowsUserIdRef = useRef(null);
+
   // Reset state immediately when navigating to a different profile
   // This prevents showing stale data from the previous profile
   useEffect(() => {
@@ -118,6 +121,9 @@ export default function Profile() {
       setIsFollowing(false);
       setFollowsList([]);
       setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
+      setFollowRelationship(null);
+      // Reset follows userId tracking so the next effect correctly detects the change
+      // Note: We intentionally don't reset prevFollowsUserIdRef here - it's handled by the follows effect
       // Update ref to new value
       prevProfileIdRef.current = profileId;
     }
@@ -918,15 +924,36 @@ export default function Profile() {
       // Check event payload structure (local events vs WebSocket events)
       const followingId = event.followingId || event.payload?.followingId;
       const eventUserId = event.userId || event.payload?.userId;
+      const followerId = event.followerId || event.payload?.followerId;
+      const followerName = event.followerName || event.payload?.followerName;
 
       // If this event is for the profile being viewed, update follower count
       if (followingId === userId || eventUserId === userId) {
         // Only update isFollowing if current user is the follower
-        if (event.followerId === user._id) {
+        if (followerId === user._id) {
           setIsFollowing(true);
         }
         setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
-        logger.debug('[Profile] Follower count incremented via event', { followingId, userId });
+
+        // If we're on the followers tab and have loaded the list, add the new follower
+        if (followsFilter === 'followers' && followsList.length > 0 && followerId) {
+          // Add new follower to the list (at the beginning since it's most recent)
+          // Only add if we have follower details from the event
+          if (followerName) {
+            setFollowsList(prev => {
+              // Don't add if already in list
+              if (prev.some(f => f._id === followerId)) return prev;
+              return [{
+                _id: followerId,
+                name: followerName,
+                followedAt: new Date().toISOString()
+              }, ...prev];
+            });
+            setFollowsPagination(prev => ({ ...prev, total: prev.total + 1 }));
+          }
+        }
+
+        logger.debug('[Profile] Follower count incremented via event', { followingId, userId, followerId });
       }
     };
 
@@ -934,33 +961,59 @@ export default function Profile() {
       // Check event payload structure (local events vs WebSocket events)
       const followingId = event.followingId || event.payload?.followingId;
       const eventUserId = event.userId || event.payload?.userId;
+      const followerId = event.followerId || event.payload?.followerId;
 
       // If this event is for the profile being viewed, update follower count
       if (followingId === userId || eventUserId === userId) {
         // Only update isFollowing if current user is the unfollower
-        if (event.followerId === user._id) {
+        if (followerId === user._id) {
           setIsFollowing(false);
         }
         setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
-        logger.debug('[Profile] Follower count decremented via event', { followingId, userId });
+
+        // If we're on the followers tab, remove the unfollower from the list
+        if (followsFilter === 'followers' && followerId) {
+          setFollowsList(prev => prev.filter(f => f._id !== followerId));
+          setFollowsPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+        }
+
+        logger.debug('[Profile] Follower count decremented via event', { followingId, userId, followerId });
+      }
+    };
+
+    // Handle follower removed event (when profile owner removes a follower)
+    const handleFollowerRemoved = (event) => {
+      const removedFollowerId = event.removedFollowerId || event.payload?.removedFollowerId;
+      const removedById = event.removedById || event.payload?.removedById;
+
+      // If this profile's owner removed a follower, update the followers list
+      if (removedById === userId && followsFilter === 'followers') {
+        setFollowsList(prev => prev.filter(f => f._id !== removedFollowerId));
+        setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+        setFollowsPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+        logger.debug('[Profile] Follower removed from list via event', { removedFollowerId, removedById });
       }
     };
 
     // Subscribe to both local event bus and WebSocket events
     const unsubCreate = eventBus.subscribe('follow:created', handleFollowCreated);
     const unsubDelete = eventBus.subscribe('follow:deleted', handleFollowDeleted);
+    const unsubRemoved = eventBus.subscribe('follower:removed', handleFollowerRemoved);
 
     // WebSocket subscriptions for remote events
     const unsubWsCreate = wsSubscribe?.('follow:created', handleFollowCreated);
     const unsubWsDelete = wsSubscribe?.('follow:deleted', handleFollowDeleted);
+    const unsubWsRemoved = wsSubscribe?.('follower:removed', handleFollowerRemoved);
 
     return () => {
       unsubCreate();
       unsubDelete();
+      unsubRemoved();
       unsubWsCreate?.();
       unsubWsDelete?.();
+      unsubWsRemoved?.();
     };
-  }, [userId, user._id, wsSubscribe]);
+  }, [userId, user._id, wsSubscribe, followsFilter, followsList.length]);
 
   // Handle follow button click
   const handleFollow = useCallback(async () => {
@@ -974,7 +1027,7 @@ export default function Profile() {
 
     setFollowLoading(true);
     try {
-      await followUser(userId);
+      await followUser(userId, user._id);
       setIsFollowing(true);
       setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
       success(lang.current.success.nowFollowing);
@@ -1004,7 +1057,7 @@ export default function Profile() {
 
     setFollowLoading(true);
     try {
-      await unfollowUser(userId);
+      await unfollowUser(userId, user._id);
       setIsFollowing(false);
       setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
       success(lang.current.success.unfollowed);
@@ -1068,7 +1121,7 @@ export default function Profile() {
     setFollowCounts(prev => ({ ...prev, following: Math.max(0, prev.following - 1) }));
 
     try {
-      await unfollowUser(followingId);
+      await unfollowUser(followingId, user._id);
       success(lang.current.success?.unfollowed || 'Unfollowed');
     } catch (err) {
       // Rollback on error
@@ -1079,7 +1132,7 @@ export default function Profile() {
     } finally {
       setFollowActionInProgress(prev => ({ ...prev, [followingId]: false }));
     }
-  }, [followsList, followActionInProgress, success, showError]);
+  }, [followsList, followActionInProgress, success, showError, user._id]);
 
   // Fetch followers or following list for Follows tab
   const fetchFollowsList = useCallback(async (filter = followsFilter, reset = false) => {
@@ -1126,12 +1179,30 @@ export default function Profile() {
     fetchFollowsList(filter, true);
   }, [fetchFollowsList]);
 
-  // Fetch follows list when tab becomes active
+  // Fetch follows list when tab becomes active OR when profile changes while tab is active
   useEffect(() => {
-    if (uiState.follows && userId && followsList.length === 0) {
+    if (!uiState.follows || !userId) return;
+
+    // Detect if userId changed (navigated to different profile)
+    const userIdChanged = prevFollowsUserIdRef.current !== null && prevFollowsUserIdRef.current !== userId;
+
+    // Fetch if:
+    // 1. First time viewing follows tab (list is empty and not from a reset)
+    // 2. Profile changed while on follows tab (force refresh)
+    if (userIdChanged || followsList.length === 0) {
+      logger.debug('[Profile] Fetching follows list', {
+        userId,
+        prevUserId: prevFollowsUserIdRef.current,
+        userIdChanged,
+        listLength: followsList.length,
+        filter: followsFilter
+      });
       fetchFollowsList(followsFilter, true);
     }
-  }, [uiState.follows, userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Update ref after handling
+    prevFollowsUserIdRef.current = userId;
+  }, [uiState.follows, userId, followsFilter, fetchFollowsList, followsList.length]);
 
   // Register h1 for navbar integration - clicking scrolls to top
   // Re-run when currentProfile loads so h1 element is available
@@ -1603,22 +1674,26 @@ export default function Profile() {
 
                 {/* Action Buttons */}
                 <div className={styles.profileActions}>
+                  {/* Message button: show for super admins OR mutual follows */}
+                  {!isOwner && (isSuperAdmin(user) || followRelationship?.isMutual) && (
+                    <Button
+                      variant="outline"
+                      style={{ borderRadius: 'var(--radius-full)' }}
+                      onClick={() => {
+                        // Defensive: ensure profile loaded and not messaging self
+                        if (!currentProfile || currentProfile._id === user._id) return;
+                        // Open MessagesModal and let it locate or create a DM channel
+                        setInitialChannelId(null);
+                        setInitialTargetUserId(currentProfile._id);
+                        setShowMessagesModal(true);
+                      }}
+                    >
+                      <FaEnvelope /> Message
+                    </Button>
+                  )}
+                  {/* Follow/Unfollow buttons: show for mutual follows only */}
                   {!isOwner && followRelationship?.isMutual && (
                     <>
-                      <Button
-                        variant="outline"
-                        style={{ borderRadius: 'var(--radius-full)' }}
-                        onClick={() => {
-                          // Defensive: ensure profile loaded and not messaging self
-                          if (!currentProfile || currentProfile._id === user._id) return;
-                          // Open MessagesModal and let it locate or create a DM channel
-                          setInitialChannelId(null);
-                          setInitialTargetUserId(currentProfile._id);
-                          setShowMessagesModal(true);
-                        }}
-                      >
-                        <FaEnvelope /> Message
-                      </Button>
                       {isFollowing ? (
                         <Button
                           variant={followButtonHovered ? 'danger' : 'outline'}
@@ -1756,16 +1831,15 @@ export default function Profile() {
           className={styles.profileTabs}
         />
 
-        {/* Content Grid */}
+        {/* Content Grid - Use switch pattern to ensure only ONE tab renders at a time */}
         <Row>
           <Col lg={12}>
-            {/* Activity Tab - Only shown on own profile */}
-            {uiState.activity && isOwnProfile && (
+            {/* Render active tab content using switch pattern for mutual exclusivity */}
+            {activeTab === 'activity' && isOwnProfile && (
               <ActivityFeed userId={userId} />
             )}
 
-            {/* Follows Tab */}
-            {uiState.follows && (
+            {activeTab === 'follows' && (
               <div className={styles.followsTab}>
                 {/* Filter Pills */}
                 <div className={styles.followsFilterPills}>
@@ -1871,8 +1945,7 @@ export default function Profile() {
               </div>
             )}
 
-            {/* Destinations Tab */}
-            {uiState.destinations && (
+            {activeTab === 'destinations' && (
               <div ref={reservedRef} className={styles.destinationsGrid}>
                 {(() => {
                   if (favoriteDestinations === null) {
@@ -1923,8 +1996,8 @@ export default function Profile() {
                 })()}
               </div>
             )}
-            {/* Planned Experiences Tab - client-side pagination for own profile, API-level for others */}
-            {uiState.experiences && (
+
+            {activeTab === 'experiences' && (
               <div className={styles.profileGrid} style={experiencesLoading && uniqueUserExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
                 {(() => {
                   // Initial load - show skeleton loaders
@@ -1989,8 +2062,8 @@ export default function Profile() {
                 })()}
               </div>
             )}
-            {/* Created Experiences Tab - API-level pagination */}
-            {uiState.created && (
+
+            {activeTab === 'created' && (
               <div className={styles.profileGrid} style={createdLoading && uniqueCreatedExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
                 {(() => {
                   // Initial load - show skeleton loaders
@@ -2037,10 +2110,9 @@ export default function Profile() {
               </div>
             )}
 
-            {/* Pagination - always rendered in centered container for consistent layout */}
+            {/* Pagination - rendered inside active tab container for consistency */}
             <div className={styles.paginationContainer}>
-              {/* Destinations - client-side pagination (unchanged) */}
-              {uiState.destinations && !showAllDestinations && favoriteDestinations && favoriteDestinations.length > itemsPerPageComputed && (
+              {activeTab === 'destinations' && !showAllDestinations && favoriteDestinations && favoriteDestinations.length > itemsPerPageComputed && (
                 <Pagination
                   currentPage={destinationsPage}
                   totalPages={Math.max(1, Math.ceil(favoriteDestinations.length / itemsPerPageComputed))}
@@ -2048,10 +2120,7 @@ export default function Profile() {
                 />
               )}
 
-              {/* Experiences - client-side pagination for own profile, API-level for others */}
-              {uiState.experiences && !showAllPlanned && (() => {
-                // For own profile: calculate total pages from plans array
-                // For other profiles: use API metadata
+              {activeTab === 'experiences' && !showAllPlanned && (() => {
                 const expTotalPages = isOwnProfile
                   ? Math.max(1, Math.ceil((uniqueUserExperiences?.length || 0) / itemsPerPageComputed))
                   : (userExperiencesMeta?.totalPages || 1);
@@ -2066,8 +2135,7 @@ export default function Profile() {
                 ) : null;
               })()}
 
-              {/* Created - API-level pagination */}
-              {uiState.created && !showAllCreated && createdExperiencesMeta && createdExperiencesMeta.totalPages > 1 && (
+              {activeTab === 'created' && !showAllCreated && createdExperiencesMeta && createdExperiencesMeta.totalPages > 1 && (
                 <Pagination
                   currentPage={createdPage}
                   totalPages={createdExperiencesMeta.totalPages}

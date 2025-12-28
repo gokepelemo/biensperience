@@ -8,7 +8,13 @@ function extractData(response) {
   if (response && typeof response === 'object') {
     if ('data' in response) return response.data;
     if ('success' in response && response.success === false) {
-      throw new Error(response.error || 'Request failed');
+      // Prefer user-friendly message from structured error response
+      // Feature flag denials return: { success: false, error: "Feature not available", message: "Chat is not enabled..." }
+      const errorMessage = response.message || response.error || 'Request failed';
+      const error = new Error(errorMessage);
+      error.code = response.code;
+      error.response = response;
+      throw error;
     }
   }
   return response;

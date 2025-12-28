@@ -416,15 +416,21 @@ export default function MessagesModal({
                               currentUserId: currentUser?.id
                             });
                             const isActive = activeChannel?.id && ch?.id === activeChannel.id;
+                            const unreadCount = ch?.state?.unreadCount || 0;
 
                             return (
                               <li key={ch.cid || ch.id} role="option" aria-selected={isActive}>
                                 <button
                                   type="button"
-                                  className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''}`}
+                                  className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
                                   onClick={() => handleSelectChannel(ch)}
                                 >
-                                  {label}
+                                  <span className={styles.mobileDropdownItemLabel}>{label}</span>
+                                  {unreadCount > 0 && (
+                                    <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
+                                      {unreadCount > 99 ? '99+' : unreadCount}
+                                    </span>
+                                  )}
                                 </button>
                               </li>
                             );
@@ -446,15 +452,22 @@ export default function MessagesModal({
                               currentUserId: currentUser?.id
                             });
                             const isActive = activeChannel?.id && ch?.id === activeChannel.id;
+                            // Get unread count for this channel
+                            const unreadCount = ch?.state?.unreadCount || 0;
 
                             return (
                               <li key={ch.cid || ch.id}>
                                 <button
                                   type="button"
-                                  className={`${styles.channelButton} ${isActive ? styles.active : ''}`}
+                                  className={`${styles.channelButton} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
                                   onClick={() => handleSelectChannel(ch)}
                                 >
                                   <span className={styles.channelName}>{label}</span>
+                                  {unreadCount > 0 && (
+                                    <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
+                                      {unreadCount > 99 ? '99+' : unreadCount}
+                                    </span>
+                                  )}
                                 </button>
                               </li>
                             );

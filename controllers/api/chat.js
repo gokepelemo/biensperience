@@ -3,12 +3,110 @@ const { successResponse, errorResponse, validateObjectId } = require('../../util
 const Plan = require('../../models/plan');
 const Experience = require('../../models/experience');
 const User = require('../../models/user');
+const Follow = require('../../models/follow');
 const { createUserToken, upsertMessagingChannel } = require('../../utilities/stream-chat');
 const {
   createFlagDenialResponse,
   hasFeatureFlagInContext,
+  hasFeatureFlag,
   FEATURE_FLAG_CONTEXT
 } = require('../../utilities/feature-flags');
+
+/**
+ * Check if a user is eligible to send direct messages to another user.
+ *
+ * Eligibility rules (any one grants access):
+ * 1. Actor is a super admin
+ * 2. Users mutually follow each other
+ * 3. Actor is a curator AND target has planned one of actor's experiences
+ *
+ * @param {Object} actor - The user initiating the DM (req.user)
+ * @param {ObjectId|string} targetUserId - The user being messaged
+ * @returns {Promise<{allowed: boolean, reason?: string}>}
+ */
+async function checkDmEligibility(actor, targetUserId) {
+  const actorId = actor?._id;
+  if (!actorId || !targetUserId) {
+    return { allowed: false, reason: 'Invalid user IDs' };
+  }
+
+  const actorIdStr = actorId.toString();
+  const targetIdStr = targetUserId.toString();
+
+  // Cannot message yourself
+  if (actorIdStr === targetIdStr) {
+    return { allowed: false, reason: 'Cannot message yourself' };
+  }
+
+  // Rule 1: Super admins can message anyone
+  if (actor.role === 'super_admin' || actor.isSuperAdmin) {
+    backendLogger.debug('DM eligibility: super admin bypass', { actorId: actorIdStr, targetId: targetIdStr });
+    return { allowed: true };
+  }
+
+  // Rule 2: Check mutual follow relationship
+  const [actorFollowsTarget, targetFollowsActor] = await Promise.all([
+    Follow.isFollowing(actorId, targetUserId),
+    Follow.isFollowing(targetUserId, actorId)
+  ]);
+
+  if (actorFollowsTarget && targetFollowsActor) {
+    backendLogger.debug('DM eligibility: mutual follow', { actorId: actorIdStr, targetId: targetIdStr });
+    return { allowed: true };
+  }
+
+  // Rule 3: Check if actor is a curator and target has planned actor's experience
+  // Need to fetch actor's feature_flags if not already on the object
+  let actorHasCurator = hasFeatureFlag(actor, 'curator', { allowSuperAdmin: false });
+
+  // If actor object doesn't have feature_flags populated, fetch it
+  if (!actor.feature_flags && !actorHasCurator) {
+    try {
+      const actorFull = await User.findById(actorId).select('feature_flags').lean();
+      actorHasCurator = hasFeatureFlag(actorFull, 'curator', { allowSuperAdmin: false });
+    } catch (err) {
+      backendLogger.warn('Failed to fetch actor feature flags for curator check', { error: err.message });
+    }
+  }
+
+  if (actorHasCurator) {
+    // Find experiences where actor is the owner
+    const curatorExperiences = await Experience.find({
+      'permissions': {
+        $elemMatch: {
+          _id: actorId,
+          entity: 'user',
+          type: 'owner'
+        }
+      }
+    }).select('_id').lean();
+
+    if (curatorExperiences.length > 0) {
+      const experienceIds = curatorExperiences.map(e => e._id);
+
+      // Check if target has planned any of these experiences
+      const targetPlanned = await Plan.exists({
+        user: targetUserId,
+        experience: { $in: experienceIds }
+      });
+
+      if (targetPlanned) {
+        backendLogger.debug('DM eligibility: curator to planner', {
+          actorId: actorIdStr,
+          targetId: targetIdStr,
+          curatorExperienceCount: experienceIds.length
+        });
+        return { allowed: true };
+      }
+    }
+  }
+
+  // No eligibility rule matched
+  return {
+    allowed: false,
+    reason: 'You can only message users you mutually follow, or users who have planned your curated experiences.'
+  };
+}
 
 function ensurePlanOwnerChatEnabledOrDeny(req, res, ownerUser) {
   const enabled = hasFeatureFlagInContext({
@@ -95,6 +193,17 @@ async function dmChannel(req, res) {
     const otherUser = await User.findById(otherUserIdCheck.objectId).select('name');
     if (!otherUser) {
       return errorResponse(res, null, 'User not found', 404);
+    }
+
+    // Check if actor is eligible to message this user
+    const eligibility = await checkDmEligibility(req.user, otherUser._id);
+    if (!eligibility.allowed) {
+      backendLogger.info('DM channel denied', {
+        actorId: req.user?._id?.toString(),
+        targetId: otherUser._id.toString(),
+        reason: eligibility.reason
+      });
+      return errorResponse(res, null, eligibility.reason, 403);
     }
 
     const currentUserId = req.user?._id;
@@ -303,5 +412,7 @@ module.exports = {
   token,
   dmChannel,
   planChannel,
-  planItemChannel
+  planItemChannel,
+  // Exported for testing and potential reuse
+  checkDmEligibility
 };
