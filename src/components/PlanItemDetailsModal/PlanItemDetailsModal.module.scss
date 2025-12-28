@@ -68,6 +68,14 @@
   flex: 1 1 0;
 }
 
+/* Custom modal body class for fullscreen height */
+.modalBodyFullscreen {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Link bar - shown when plan item has external URL */
 .planItemLinkBar {
   padding: $space-3 $space-6;
@@ -374,23 +382,6 @@
   /* This is also a flex container for its children */
   display: flex;
   flex-direction: column;
-
-  /* All direct children must also participate in flex layout */
-  > * {
-    /* Fill available space, shrink if needed, start from 0 */
-    flex: 1 1 0;
-    /* Allow shrinking below content size */
-    min-height: 0;
-    /* Explicit 100% height for Safari */
-    height: 100%;
-    /* Max height prevents overflow */
-    max-height: 100%;
-    /* Child is also a flex column container */
-    display: flex;
-    flex-direction: column;
-    /* Prevent overflow at this level too */
-    overflow: hidden;
-  }
 }
 
 /* Notes tab wrapper - explicit styles for PlanItemNotes to fill available height

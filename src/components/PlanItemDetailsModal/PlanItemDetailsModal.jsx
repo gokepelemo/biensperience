@@ -1094,6 +1094,7 @@ export default function PlanItemDetailsModal({
       onClose={onClose}
       title={editableTitle}
       size="fullscreen"
+      bodyClassName={styles.modalBodyFullscreen}
     >
       <div className={styles.planItemDetailsModal}>
         {/* Assignment section */}

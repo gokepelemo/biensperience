@@ -97,6 +97,18 @@ export default function Dashboard() {
     setActiveTab(key);
   };
 
+  const handleCloseMessagesModal = () => {
+    setShowMessagesModal(false);
+    // Clean up the URL hash if it's currently '#messages' to prevent re-triggering
+    if (window.location.hash === '#messages') {
+      try {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${activeTab}`);
+      } catch (e) {
+        // ignore
+      }
+    }
+  };
+
   useEffect(() => {
     const onHashChange = () => {
       try {
@@ -298,7 +310,7 @@ export default function Dashboard() {
 
       <MessagesModal
         show={showMessagesModal}
-        onClose={() => setShowMessagesModal(false)}
+        onClose={handleCloseMessagesModal}
       />
     </div>
   );
