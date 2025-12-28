@@ -110,6 +110,16 @@ export default defineConfig(({ mode }) => {
         assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     }
+    ,
+    // Improve CommonJS handling for packages that export mixed ESM/CJS
+    commonjsOptions: {
+      // Process all node_modules through the CommonJS plugin to
+      // support packages that only provide CJS entrypoints.
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+      // Prefer exposing default when requiring CommonJS modules
+      requireReturnsDefault: 'preferred'
+    }
   },
 
   // Dev server configuration
@@ -168,9 +178,21 @@ export default defineConfig(({ mode }) => {
       'dompurify',
       'store2',
       '@aws-sdk/client-s3',
+      // Pre-bundle stream chat packages to avoid Rollup static import issues
+      'stream-chat',
+      'stream-chat-react',
+      // Prebundle react-helmet and its shallowEqual dependency
+      'react-helmet-async',
+      'shallowequal',
+      'invariant',
+      'react-fast-compare',
+      'prop-types',
+      'react-transition-group',
+      'classnames'
     ],
     // Exclude large dependencies from pre-bundling if they're not used immediately
     exclude: ['@aws-sdk/client-s3']
   },
+  
 };
 });
