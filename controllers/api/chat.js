@@ -159,9 +159,13 @@ async function planChannel(req, res) {
       return errorResponse(res, null, 'Not authorized to access this plan chat', 403);
     }
 
+    // Build members list: owner + all collaborators + the requesting user
+    // The requesting user MUST be included since they passed userHasPlanAccess check
+    const requestingUserId = req.user._id.toString();
     const members = Array.from(
       new Set([
         ownerId,
+        requestingUserId,
         ...getPlanMemberUserIds(plan)
       ].filter(Boolean))
     );
@@ -250,9 +254,13 @@ async function planItemChannel(req, res) {
       return errorResponse(res, null, 'Plan item not found in this plan', 404);
     }
 
+    // Build members list: owner + all collaborators + the requesting user
+    // The requesting user MUST be included since they passed userHasPlanAccess check
+    const requestingUserId = req.user._id.toString();
     const members = Array.from(
       new Set([
         ownerId,
+        requestingUserId,
         ...getPlanMemberUserIds(plan)
       ].filter(Boolean))
     );
