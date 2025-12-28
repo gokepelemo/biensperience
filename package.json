@@ -65,7 +65,7 @@
     "slick-carousel": "^1.8.1",
     "slugify": "^1.6.6",
     "store2": "^2.14.4",
-    "stream-chat": "^8.60.0",
+    "stream-chat": "^9.27.2",
     "stream-chat-react": "^13.13.1",
     "vite": "^7.2.6",
     "vite-plugin-env-compatible": "^2.0.1",

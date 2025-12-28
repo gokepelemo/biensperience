@@ -113,19 +113,12 @@ export default defineConfig(({ mode }) => {
     ,
     // Improve CommonJS handling for packages that export mixed ESM/CJS
     commonjsOptions: {
-      include: [
-        /node_modules\/stream-chat/,
-        /node_modules\/stream-chat-react/,
-        /node_modules\/react-helmet-async/,
-        /node_modules\/react/,
-        /node_modules\/react-dom/,
-        /node_modules\/shallowequal/
-          ,
-          /node_modules\/invariant/
-      ],
+      // Process all node_modules through the CommonJS plugin to
+      // support packages that only provide CJS entrypoints.
+      include: [/node_modules/],
       transformMixedEsModules: true,
-      // Allow default interop when require() returns module object
-        requireReturnsDefault: 'preferred'
+      // Prefer exposing default when requiring CommonJS modules
+      requireReturnsDefault: 'preferred'
     }
   },
 
@@ -192,7 +185,10 @@ export default defineConfig(({ mode }) => {
       'react-helmet-async',
       'shallowequal',
       'invariant',
-      'react-fast-compare'
+      'react-fast-compare',
+      'prop-types',
+      'react-transition-group',
+      'classnames'
     ],
     // Exclude large dependencies from pre-bundling if they're not used immediately
     exclude: ['@aws-sdk/client-s3']
