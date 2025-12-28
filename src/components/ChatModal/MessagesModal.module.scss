@@ -104,16 +104,11 @@
 }
 
 .messagesContainer {
-  height: 70vh;
-  min-height: 420px;
+  /* Fill available modal body space so the pane can stretch to full modal height */
+  flex: 1 1 auto;
+  min-height: 0; /* allow flex children to shrink inside constrained containers */
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
-  flex: 1;
-
-  @include breakpoint-max(md) {
-    height: 60vh;
-    min-height: 360px;
-  }
 }
 
 .layout {
@@ -172,6 +167,9 @@
 }
 
 .pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
@@ -306,4 +304,21 @@
 
 .pane :global(.str-chat__textarea textarea) {
   color: var(--color-text-primary);
+}
+
+/* Ensure Stream Chat main panel and message list expand and become scrollable
+   so the visible messages area fills the vertical space of the modal. */
+.pane :global(.str-chat__main-panel),
+.pane :global(.str-chat__window) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pane :global(.str-chat__message-list) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
