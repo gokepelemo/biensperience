@@ -120,6 +120,8 @@ export default defineConfig(({ mode }) => {
         /node_modules\/react/,
         /node_modules\/react-dom/,
         /node_modules\/shallowequal/
+          ,
+          /node_modules\/invariant/
       ],
       transformMixedEsModules: true,
       // Allow default interop when require() returns module object
