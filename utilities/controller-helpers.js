@@ -164,7 +164,25 @@ function createErrorResponse(message, statusCode = 400) {
 function successResponse(res, data = {}, message = null, statusCode = 200) {
   const payload = { success: true, data };
   if (message) payload.message = message;
-  return res.status(statusCode).json(payload);
+
+  // Safely serialize payload to prevent runtime JSON errors (e.g., circular refs)
+  try {
+    // Use a cycle-safe replacer
+    const cache = new Set();
+    const json = JSON.stringify(payload, (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (cache.has(value)) return undefined;
+        cache.add(value);
+      }
+      return value;
+    });
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    return res.status(statusCode).send(json);
+  } catch (err) {
+    backendLogger.error('Failed to serialize success response', { error: err.message });
+    // Fallback: send minimal response
+    return res.status(500).json({ success: false, error: 'Failed to serialize response' });
+  }
 }
 
 /**
@@ -182,7 +200,21 @@ function errorResponse(res, err = null, message = 'An error occurred', statusCod
   if (process.env.NODE_ENV !== 'production' && err) {
     payload.details = err.message || String(err);
   }
-  return res.status(statusCode).json(payload);
+  try {
+    const cache = new Set();
+    const json = JSON.stringify(payload, (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (cache.has(value)) return undefined;
+        cache.add(value);
+      }
+      return value;
+    });
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    return res.status(statusCode).send(json);
+  } catch (serializeErr) {
+    backendLogger.error('Failed to serialize error response', { error: serializeErr.message });
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
 }
 
 /**
