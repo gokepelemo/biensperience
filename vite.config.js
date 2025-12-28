@@ -110,6 +110,20 @@ export default defineConfig(({ mode }) => {
         assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     }
+    ,
+    // Improve CommonJS handling for packages that export mixed ESM/CJS
+    commonjsOptions: {
+      include: [
+        /node_modules\/stream-chat/,
+        /node_modules\/stream-chat-react/,
+        /node_modules\/react-helmet-async/,
+        /node_modules\/react/,
+        /node_modules\/react-dom/
+      ],
+      transformMixedEsModules: true,
+      // Allow default interop when require() returns module object
+      requireReturnsDefault: 'auto'
+    }
   },
 
   // Dev server configuration
@@ -175,12 +189,6 @@ export default defineConfig(({ mode }) => {
     // Exclude large dependencies from pre-bundling if they're not used immediately
     exclude: ['@aws-sdk/client-s3']
   },
-  // Improve CommonJS handling for packages that export mixed ESM/CJS
-  build: Object.assign({}, (typeof (module) !== 'undefined' ? {} : {}), {
-    commonjsOptions: {
-      include: [/node_modules\/stream-chat/, /node_modules\/stream-chat-react/],
-      transformMixedEsModules: true,
-    }
-  }),
+  
 };
 });
