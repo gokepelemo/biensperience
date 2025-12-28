@@ -39,9 +39,7 @@ import { broadcastEvent } from "../../utilities/event-bus";
 import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
 import { isSystemUser } from "../../utilities/system-users";
-import { followUser, unfollowUser, removeFollower, getFollowRelationship, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
-import { getOrCreateDmChannel } from "../../utilities/chat-api";
-import MessagesModal from "../../components/ChatModal/MessagesModal";
+import { followUser, unfollowUser, removeFollower, getFollowStatus, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
 import { getActivityFeed } from "../../utilities/dashboard-api";
 import ActivityFeed from "../../components/ActivityFeed/ActivityFeed";
 import TabNav from "../../components/TabNav/TabNav";
@@ -81,7 +79,6 @@ export default function Profile() {
 
   // Follow feature state
   const [isFollowing, setIsFollowing] = useState(false);
-  const [isMutualFollow, setIsMutualFollow] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
   const [followButtonHovered, setFollowButtonHovered] = useState(false);
@@ -99,11 +96,6 @@ export default function Profile() {
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
   const photoSaveTimerRef = useRef(null);
 
-  // Messaging modal state
-  const [showMessagesModal, setShowMessagesModal] = useState(false);
-  const [messagesInitialChannelId, setMessagesInitialChannelId] = useState('');
-  const [messageLoading, setMessageLoading] = useState(false);
-
   // Reset state immediately when navigating to a different profile
   // This prevents showing stale data from the previous profile
   useEffect(() => {
@@ -119,7 +111,6 @@ export default function Profile() {
       setFollowCounts({ followers: 0, following: 0 });
       setIsFollowing(false);
       setFollowsList([]);
-      setFollowsFilter('followers'); // Reset filter to default when navigating to new profile
       setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
       // Update ref to new value
       prevProfileIdRef.current = profileId;
@@ -864,12 +855,11 @@ export default function Profile() {
 
     const fetchFollowData = async () => {
       try {
-        const [relationship, counts] = await Promise.all([
-          getFollowRelationship(userId),
+        const [status, counts] = await Promise.all([
+          getFollowStatus(userId),
           getFollowCounts(userId)
         ]);
-        setIsFollowing(Boolean(relationship?.isFollowing));
-        setIsMutualFollow(Boolean(relationship?.isMutual));
+        setIsFollowing(status);
         setFollowCounts(counts);
       } catch (err) {
         logger.error('[Profile] Failed to fetch follow data', { error: err.message });
@@ -878,36 +868,6 @@ export default function Profile() {
 
     fetchFollowData();
   }, [userId, user, isOwnProfile]);
-
-  const canSendMessage = useMemo(() => {
-    if (!user || !currentProfile) return false;
-    if (isOwner) return false;
-    if (isSystemUser(currentProfile)) return false;
-
-    // Allow messaging if the profile is public OR there is mutual follow.
-    // Support current + legacy visibility fields.
-    // Current model: user.visibility: 'private' | 'public'
-    // Preferences also include profileVisibility.
-    const visibility = currentProfile.visibility || currentProfile?.preferences?.profileVisibility;
-    const isPrivateLegacy = Boolean(currentProfile.isPrivate);
-    const isPublic = visibility ? visibility === 'public' : !isPrivateLegacy;
-    return Boolean(isPublic || isMutualFollow);
-  }, [user, currentProfile, isOwner, isMutualFollow]);
-
-  const handleOpenDm = useCallback(async () => {
-    if (!canSendMessage || !currentProfile?._id) return;
-
-    setMessageLoading(true);
-    try {
-      const result = await getOrCreateDmChannel(currentProfile._id);
-      setMessagesInitialChannelId(result?.id || '');
-      setShowMessagesModal(true);
-    } catch (err) {
-      logger.error('[Profile] Failed to open DM', { error: err.message });
-    } finally {
-      setMessageLoading(false);
-    }
-  }, [canSendMessage, currentProfile?._id]);
 
   // Fetch follow counts for own profile (to display in metrics)
   useEffect(() => {
@@ -1102,13 +1062,12 @@ export default function Profile() {
   }, [followsList, followActionInProgress, success, showError]);
 
   // Fetch followers or following list for Follows tab
-  // Uses currentSkip parameter to avoid stale closure issues with followsList.length
-  const fetchFollowsList = useCallback(async (filter, reset = false, currentSkip = 0) => {
+  const fetchFollowsList = useCallback(async (filter = followsFilter, reset = false) => {
     if (!userId) return;
 
     setFollowsLoading(true);
     try {
-      const skip = reset ? 0 : currentSkip;
+      const skip = reset ? 0 : followsList.length;
       const limit = 20;
       const options = { limit, skip };
 
@@ -1137,23 +1096,20 @@ export default function Profile() {
     } finally {
       setFollowsLoading(false);
     }
-  }, [userId]);
+  }, [userId, followsFilter, followsList.length]);
 
-  // Handle follows filter change (from filter pills)
+  // Handle follows filter change
   const handleFollowsFilterChange = useCallback((filter) => {
     setFollowsFilter(filter);
     setFollowsList([]);
     setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
-    // Pass filter explicitly and reset=true with skip=0
-    fetchFollowsList(filter, true, 0);
-    // Update URL hash to reflect the selected filter
-    try { window.history.pushState(null, '', `${window.location.pathname}#${filter}`); } catch (e) {}
+    fetchFollowsList(filter, true);
   }, [fetchFollowsList]);
 
   // Fetch follows list when tab becomes active
   useEffect(() => {
     if (uiState.follows && userId && followsList.length === 0) {
-      fetchFollowsList(followsFilter, true, 0);
+      fetchFollowsList(followsFilter, true);
     }
   }, [uiState.follows, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1228,17 +1184,14 @@ export default function Profile() {
       destinations: tabName === 'destinations',
     });
 
-    // Set filter if provided (for followers/following) and fetch the list
+    // Set filter if provided (for followers/following)
     if (filter) {
       setFollowsFilter(filter);
-      setFollowsList([]);
-      setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
-      fetchFollowsList(filter, true, 0);
     }
 
     // Update URL hash for deep linking
     try { window.history.pushState(null, '', `${window.location.pathname}#${hash}`); } catch (e) {}
-  }, [fetchFollowsList]);
+  }, []);
 
   // Get the active tab key from uiState
   const activeTab = useMemo(() => {
@@ -1361,33 +1314,15 @@ export default function Profile() {
   const favoriteDestinationsCount = favoriteDestinations ? favoriteDestinations.length : 0;
 
   // Calculate owned vs shared plans - MUST be before early returns
-  // For own profile: use plans from DataContext (includes collaborative plans)
-  // For other profiles: use the API response metadata (userExperiencesMeta.total)
+  // Uses isCollaborative flag from API which indicates if user is NOT the owner
   const planCounts = useMemo(() => {
-    if (!currentProfile) return { total: 0, owned: 0, shared: 0 };
-
-    // For own profile, use local plans data which includes isCollaborative flag
-    if (isOwnProfile && plans) {
-      const total = plans.length;
-      // shared = plans where isCollaborative is true (user is collaborator, not owner)
-      const shared = plans.filter(plan => plan.isCollaborative === true).length;
-      const owned = total - shared;
-      return { total, owned, shared };
-    }
-
-    // For other profiles, use the API metadata total
-    // API only returns plans owned by that user, so shared is always 0
-    if (userExperiencesMeta?.total !== undefined) {
-      return { total: userExperiencesMeta.total, owned: userExperiencesMeta.total, shared: 0 };
-    }
-
-    // Fallback: count loaded experiences (may not be accurate if paginated)
-    if (userExperiences) {
-      return { total: userExperiences.length, owned: userExperiences.length, shared: 0 };
-    }
-
-    return { total: 0, owned: 0, shared: 0 };
-  }, [currentProfile, isOwnProfile, plans, userExperiencesMeta, userExperiences]);
+    if (!plans || !currentProfile) return { total: 0, owned: 0, shared: 0 };
+    const total = plans.length;
+    // shared = plans where isCollaborative is true (user is collaborator, not owner)
+    const shared = plans.filter(plan => plan.isCollaborative === true).length;
+    const owned = total - shared;
+    return { total, owned, shared };
+  }, [plans, currentProfile]);
 
   // Show error state if profile not found
   if (profileError === lang.current.alert.userNotFound) {
@@ -1650,16 +1585,9 @@ export default function Profile() {
                 <div className={styles.profileActions}>
                   {!isOwner && (
                     <>
-                      {canSendMessage && (
-                        <Button
-                          variant="outline"
-                          style={{ borderRadius: 'var(--radius-full)' }}
-                          onClick={handleOpenDm}
-                          disabled={messageLoading}
-                        >
-                          <FaEnvelope /> {messageLoading ? 'Opening…' : 'Message'}
-                        </Button>
-                      )}
+                      <Button variant="outline" style={{ borderRadius: 'var(--radius-full)' }}>
+                        <FaEnvelope /> Message
+                      </Button>
                       {isFollowing ? (
                         <Button
                           variant={followButtonHovered ? 'danger' : 'outline'}
@@ -1785,13 +1713,6 @@ export default function Profile() {
                     </div>
                   )}
                 </div>
-
-                <MessagesModal
-                  show={showMessagesModal}
-                  onClose={() => setShowMessagesModal(false)}
-                  initialChannelId={messagesInitialChannelId}
-                  title="Message"
-                />
               </div>
           </Card.Body>
         </Card>
@@ -1804,19 +1725,17 @@ export default function Profile() {
           className={styles.profileTabs}
         />
 
-        {/* Content Grid - Each tab is keyed to prevent React reconciliation issues */}
+        {/* Content Grid */}
         <Row>
           <Col lg={12}>
             {/* Activity Tab - Only shown on own profile */}
-            {uiState.activity && isOwnProfile ? (
-              <div key="tab-activity">
-                <ActivityFeed userId={userId} />
-              </div>
-            ) : null}
+            {uiState.activity && isOwnProfile && (
+              <ActivityFeed userId={userId} />
+            )}
 
             {/* Follows Tab */}
-            {uiState.follows ? (
-              <div key="tab-follows" className={styles.followsTab}>
+            {uiState.follows && (
+              <div className={styles.followsTab}>
                 {/* Filter Pills */}
                 <div className={styles.followsFilterPills}>
                   <button
@@ -1908,7 +1827,7 @@ export default function Profile() {
                         <div className={styles.followsLoadMore}>
                           <Button
                             variant="outline"
-                            onClick={() => fetchFollowsList(followsFilter, false, followsList.length)}
+                            onClick={() => fetchFollowsList(followsFilter, false)}
                             disabled={followsLoading}
                           >
                             {followsLoading ? lang.current.loading.default : lang.current.button.loadMore}
@@ -1919,11 +1838,11 @@ export default function Profile() {
                   )}
                 </div>
               </div>
-            ) : null}
+            )}
 
             {/* Destinations Tab */}
-            {uiState.destinations ? (
-              <div key="tab-destinations" ref={reservedRef} className={styles.destinationsGrid}>
+            {uiState.destinations && (
+              <div ref={reservedRef} className={styles.destinationsGrid}>
                 {(() => {
                   if (favoriteDestinations === null) {
                     // Loading state - show skeleton loaders for one row of destinations (12rem x 8rem each)
@@ -1972,10 +1891,10 @@ export default function Profile() {
                   );
                 })()}
               </div>
-            ) : null}
+            )}
             {/* Planned Experiences Tab - client-side pagination for own profile, API-level for others */}
-            {uiState.experiences ? (
-              <div key="tab-experiences" className={styles.profileGrid} style={experiencesLoading && uniqueUserExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
+            {uiState.experiences && (
+              <div className={styles.profileGrid} style={experiencesLoading && uniqueUserExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
                 {(() => {
                   // Initial load - show skeleton loaders
                   if (uniqueUserExperiences === null) {
@@ -2038,10 +1957,10 @@ export default function Profile() {
                   );
                 })()}
               </div>
-            ) : null}
+            )}
             {/* Created Experiences Tab - API-level pagination */}
-            {uiState.created ? (
-              <div key="tab-created" className={styles.profileGrid} style={createdLoading && uniqueCreatedExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
+            {uiState.created && (
+              <div className={styles.profileGrid} style={createdLoading && uniqueCreatedExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
                 {(() => {
                   // Initial load - show skeleton loaders
                   if (uniqueCreatedExperiences === null) {
@@ -2085,7 +2004,7 @@ export default function Profile() {
                   );
                 })()}
               </div>
-            ) : null}
+            )}
 
             {/* Pagination - always rendered in centered container for consistent layout */}
             <div className={styles.paginationContainer}>

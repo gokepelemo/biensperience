@@ -468,10 +468,6 @@ export default function MultiStepPlanModal() {
 
     const parentItem = item.parent_id ? planItems.find(p => p.id === item.parent_id) : null;
 
-    // Sanitize all user-provided text content to prevent XSS
-    const safeItemText = sanitizeText(item.text || '');
-    const safeParentText = parentItem ? sanitizeText(parentItem.text || '') : '';
-
     return (
       <div ref={setNodeRef} style={style} className={styles.planItem}>
         <div className={styles.planItemGrip} {...attributes} {...listeners}>
@@ -479,27 +475,24 @@ export default function MultiStepPlanModal() {
         </div>
         <div className={styles.planItemContent}>
           <div className={styles.planItemText}>
-            {safeItemText}
-            {parentItem && safeParentText && (
+            {item.text}
+            {parentItem && (
               <small className="text-muted ms-2">
-                (under: {safeParentText})
+                (under: {parentItem.text})
               </small>
             )}
           </div>
           {item.url && (() => {
-            // Sanitize URL for href attribute (allowlist protocols, validate format)
             const safeUrl = sanitizeUrl(item.url);
-            // Sanitize URL text for display (strip any HTML/scripts)
+            // Display sanitized URL text to prevent XSS via DOM text injection
             const displayUrl = sanitizeText(item.url);
-            // Only render if both sanitization passes produce valid output
-            if (!safeUrl || !displayUrl) return null;
-            return (
+            return safeUrl && displayUrl ? (
               <div className={styles.planItemUrl}>
                 <a href={safeUrl} target="_blank" rel="noopener noreferrer">
                   {displayUrl}
                 </a>
               </div>
-            );
+            ) : null;
           })()}
           <div className={styles.planItemMeta}>
             {item.cost_estimate && <span>Cost: ${item.cost_estimate}</span>}
@@ -725,10 +718,10 @@ export default function MultiStepPlanModal() {
               {currentStep === STEPS.ADD_PLAN_ITEMS && createdExperience && (
                 <div>
                   <div className={styles.experienceSummary}>
-                    <div className={styles.summaryTitle}>{sanitizeText(createdExperience.name || '')}</div>
+                    <div className={styles.summaryTitle}>{createdExperience.name}</div>
                     <div className={styles.summaryDestination}>
                       {createdExperience.destination?.name
-                        ? `${sanitizeText(createdExperience.destination.name || '')}, ${sanitizeText(createdExperience.destination.country || '')}`
+                        ? `${createdExperience.destination.name}, ${createdExperience.destination.country}`
                         : 'Destination selected'}
                     </div>
                   </div>
@@ -765,7 +758,7 @@ export default function MultiStepPlanModal() {
                               <option value="">No parent (top level)</option>
                               {getAvailableParents().map(parent => (
                                 <option key={parent.id} value={parent.id}>
-                                  {sanitizeText(parent.text || '')}
+                                  {parent.text}
                                 </option>
                               ))}
                             </Form.Select>
@@ -850,10 +843,10 @@ export default function MultiStepPlanModal() {
               {currentStep === STEPS.SELECT_DATE && createdExperience && (
                 <div>
                   <div className={styles.experienceSummary}>
-                    <div className={styles.summaryTitle}>{sanitizeText(createdExperience.name || '')}</div>
+                    <div className={styles.summaryTitle}>{createdExperience.name}</div>
                     <div className={styles.summaryDestination}>
                       {createdExperience.destination?.name
-                        ? `${sanitizeText(createdExperience.destination.name || '')}, ${sanitizeText(createdExperience.destination.country || '')}`
+                        ? `${createdExperience.destination.name}, ${createdExperience.destination.country}`
                         : 'Destination selected'}
                     </div>
                     {planItems.length > 0 && (
