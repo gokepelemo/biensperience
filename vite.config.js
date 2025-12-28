@@ -168,9 +168,19 @@ export default defineConfig(({ mode }) => {
       'dompurify',
       'store2',
       '@aws-sdk/client-s3',
+      // Pre-bundle stream chat packages to avoid Rollup static import issues
+      'stream-chat',
+      'stream-chat-react',
     ],
     // Exclude large dependencies from pre-bundling if they're not used immediately
     exclude: ['@aws-sdk/client-s3']
   },
+  // Improve CommonJS handling for packages that export mixed ESM/CJS
+  build: Object.assign({}, (typeof (module) !== 'undefined' ? {} : {}), {
+    commonjsOptions: {
+      include: [/node_modules\/stream-chat/, /node_modules\/stream-chat-react/],
+      transformMixedEsModules: true,
+    }
+  }),
 };
 });
